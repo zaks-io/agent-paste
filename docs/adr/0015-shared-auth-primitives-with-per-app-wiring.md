@@ -6,5 +6,5 @@ Authentication and authorization primitives will live in `packages/auth`, but ea
 
 - `api` can accept Auth0 user auth and scoped API keys.
 - `upload` can accept scoped API keys and may later accept Auth0 for dashboard-driven uploads.
-- `content` should not trust ambient app cookies and should resolve access through share links, private access checks, or explicit headers.
+- `content` should not trust ambient app cookies and should resolve access through access links, private access checks, or explicit headers.
 - Shared auth helpers must not hide which actor type a request used.

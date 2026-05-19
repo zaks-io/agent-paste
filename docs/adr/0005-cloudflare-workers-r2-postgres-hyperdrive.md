@@ -1,6 +1,6 @@
 # Cloudflare Workers, R2, and Postgres via Hyperdrive
 
-The platform will use Cloudflare Workers for the API, artifact gateway, and isolated content origin; R2 for private artifact bytes; and Postgres accessed through Hyperdrive for transactional metadata. This keeps artifact serving close to R2 while using a mature relational store for workspaces, API keys, scopes, artifacts, revisions, share links, usage policy, and audit events.
+The platform will use Cloudflare Workers for the API, artifact gateway, and isolated content origin; R2 for private artifact bytes; and Postgres accessed through Hyperdrive for transactional metadata. This keeps artifact serving close to R2 while using a mature relational store for workspaces, API keys, scopes, artifacts, revisions, access links, usage policy, and audit events.
 
 ## Considered Options
 

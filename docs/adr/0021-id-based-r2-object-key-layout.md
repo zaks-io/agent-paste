@@ -1,6 +1,6 @@
 # ID-Based R2 Object Key Layout
 
-R2 object keys will be derived from environment, workspace, artifact, revision, upload session, and normalized file paths rather than human titles or mutable names. Upload sessions reserve a Revision identity up front so agents can upload directly to final Revision file keys; finalization verifies the uploaded objects and publishes metadata without copying bytes.
+R2 object keys will be derived from environment, workspace, artifact, revision, upload session, and normalized file paths rather than human titles or mutable names. Upload sessions reserve a Revision identity up front so agents can upload directly to final Revision file keys; finalization verifies the uploaded objects and records Draft Revision metadata without copying bytes or changing the Published Revision.
 
 ## Consequences
 

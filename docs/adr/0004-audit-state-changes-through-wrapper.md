@@ -1,6 +1,6 @@
 # Audit State Changes Through Transactional Commands
 
-State changes will flow through a transactional command pattern, tentatively named `runCommand`, so audit events are created in the same Postgres transaction as the durable state change. This makes auditing easier to maintain across artifact publishing, API key changes, share-link changes, deletion, usage policy enforcement, and warning generation.
+State changes will flow through a transactional command pattern, tentatively named `runCommand`, so audit events are created in the same Postgres transaction as the durable state change. This makes auditing easier to maintain across artifact publishing, API key changes, access-link changes, Access Link Lockdown, deletion, usage policy enforcement, and warning generation.
 
 ## Consequences
 
