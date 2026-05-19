@@ -165,6 +165,7 @@ _Avoid_: Upload response, API response
 - Updating a known **Artifact** does not require a read **Scope**
 - An **Artifact** contains **Untrusted Content**
 - An **Artifact** can have zero or more **Safety Warnings**
+- **Safety Warnings** can be created during **Publish** or by asynchronous scanning
 - A **Manifest** is platform-controlled data, not **Untrusted Content**
 - **Untrusted Content** is served from a **Content Origin**
 - **Untrusted Content** is viewed under an **Execution Policy**
@@ -239,6 +240,8 @@ _Avoid_: Upload response, API response
 > **Domain expert:** "Security-relevant and lifecycle changes create **Audit Events** in the **Workspace**."
 > **Dev:** "Do **Audit Events** store raw uploaded content or secrets?"
 > **Domain expert:** "No — they store redacted **Change Summaries**."
+> **Dev:** "Does **Publish** wait for deep content scanning?"
+> **Domain expert:** "No — cheap **Safety Warnings** can be returned during **Publish**, and deeper warnings can be added asynchronously."
 
 ## Flagged ambiguities
 
