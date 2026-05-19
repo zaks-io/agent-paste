@@ -8,6 +8,10 @@ A platform for agents to publish shareable work products that can be viewed onli
 A durable, addressable folder-like package containing one or more uploaded files or rendered assets.
 _Avoid_: Paste, single blob, post
 
+**Unpublished Artifact**:
+An **Artifact** that has management state but no **Published Revision**.
+_Avoid_: Empty artifact, draft artifact
+
 **Revision**:
 A saved state of an **Artifact** after creation or update.
 _Avoid_: Version, snapshot
@@ -29,7 +33,7 @@ An **Access Link** that resolves to one specific **Revision** of an **Artifact**
 _Avoid_: Historical share link, frozen artifact link
 
 **Bundle**:
-A downloadable archive of a complete **Revision** file tree.
+A downloadable archive generated from a complete **Revision** file tree.
 _Avoid_: Export, zip
 
 **Workspace**:
@@ -48,28 +52,40 @@ _Avoid_: Teammate, collaborator
 A platform-controlled record of a security-relevant or lifecycle change within a **Workspace**.
 _Avoid_: Log line, activity item
 
+**Audit Retention**:
+The platform-controlled rules that determine how long **Audit Events** are kept.
+_Avoid_: Usage policy retention, log cleanup
+
 **Change Summary**:
 The redacted structured description of what changed in an **Audit Event**.
 _Avoid_: Before-and-after payload, raw diff
 
 **Usage Policy**:
-The limits a **Workspace** applies to artifact creation, revision size, retention, and API usage.
+The limits a **Workspace** applies to artifact creation, revision size, retention, access-link creation, and API usage.
 _Avoid_: Quota settings, billing limits
 
 **Retention**:
 The **Usage Policy** rules that determine how long **Artifacts** and **Revisions** are kept.
 _Avoid_: Cleanup, pruning
 
+**Upload Cleanup**:
+The background removal of stale **Unpublished Artifacts** and bytes left by expired, abandoned, or terminally failed **Upload Sessions**.
+_Avoid_: Retention, revision cleanup
+
 **Deletion**:
-The action that makes an **Artifact** inaccessible before its stored bytes are physically purged.
-_Avoid_: Purge, archive
+The action that makes an entire **Artifact** inaccessible before its stored bytes are physically purged.
+_Avoid_: Purge, archive, restore
 
 **API Key**:
 A credential that lets an agent create and manage **Artifacts** on behalf of a **Workspace**.
 _Avoid_: User token, agent token
 
+**API Key Revocation**:
+The action that stops future use of an **API Key** without removing what it already created.
+_Avoid_: Delete key, revoke agent content
+
 **Creator**:
-The **API Key** or workspace member that first created an **Artifact**.
+The **API Key** or workspace member that first created an **Artifact** management record.
 _Avoid_: Owner, author
 
 **Scope**:
@@ -93,7 +109,7 @@ The platform-controlled browser restrictions applied when viewing **Untrusted Co
 _Avoid_: Sandbox settings, CSP config
 
 **Entrypoint**:
-The asset within an **Artifact** that opens first when the **Artifact** is viewed.
+The file or directory within a **Revision** that opens first when an **Artifact** is viewed.
 _Avoid_: Homepage, default file, main file
 
 **Render Mode**:
@@ -101,8 +117,12 @@ The platform-supported way an **Entrypoint** is displayed to viewers.
 _Avoid_: File type, preview type
 
 **Manifest**:
-The machine-readable description of an **Artifact** and its current **Revision**.
+The machine-readable description of an **Artifact** and a resolved **Revision**.
 _Avoid_: Metadata blob, config file
+
+**Display Metadata**:
+Mutable human-facing labels that describe an **Artifact** without changing any **Revision**.
+_Avoid_: Manifest metadata, title fields, revision metadata, markdown metadata
 
 **Private Link**:
 The authenticated URL for reading an **Artifact** within its owning tenant.
@@ -117,15 +137,15 @@ A state that makes all **Access Links** for an **Artifact** stop granting access
 _Avoid_: Disable sharing, private mode, emergency revoke
 
 **Share Link**:
-An **Access Link** that resolves to the latest published **Revision** of an **Artifact**.
+An **Access Link** that resolves to the latest **Published Revision** of an **Artifact**.
 _Avoid_: Public link, permalink, latest link
 
 **Expiration**:
-The optional time after which an **Access Link** stops granting access.
+The optional time after which a time-limited credential, link, or workflow stops being usable.
 _Avoid_: TTL, timeout
 
 **Agent View**:
-The machine-readable read surface exposed for an **Artifact** through a **Private Link**, **Share Link**, or **Revision Link**.
+The machine-readable read surface that exposes an **Artifact**'s **Manifest**, file listing, content links, **Display Metadata**, and **Safety Warnings**.
 _Avoid_: API preview, metadata endpoint
 
 **Publish**:
@@ -139,24 +159,45 @@ _Avoid_: Upload response, API response
 ## Relationships
 
 - An **Artifact** contains one or more files or rendered assets
-- An **Artifact** has exactly one **Entrypoint**
-- An **Entrypoint** has exactly one **Render Mode**
+- A **Revision** has exactly one **Entrypoint**
+- A **Revision** has exactly one **Render Mode**
+- **Entrypoint** and **Render Mode** are inferred when obvious and can be overridden during **Publish**
+- **Publish** fails when an **Entrypoint** or **Render Mode** override cannot be applied to the **Revision**
 - MVP **Render Modes** are HTML, Markdown, text, image, audio, video, and directory
-- An **Artifact** has exactly one **Manifest**
-- An **Artifact** has one or more **Revisions**
+- A published **Artifact** has exactly one **Manifest** for each resolved **Revision**
+- An **Unpublished Artifact** has no **Manifest**
+- An **Artifact** can have zero or more **Revisions**
+- A published **Artifact** has one or more **Revisions**
+- An **Unpublished Artifact** has no **Published Revision**
 - An **Artifact** has zero or one **Draft Revisions**
 - An **Artifact** has exactly one **Published Revision** after first publish
 - An **Artifact** can have zero or more **Upload Sessions**
 - A **Revision** is a complete immutable file tree
 - An **Upload Session** prepares exactly one **Revision**
+- An **Upload Session** can be created while a **Draft Revision** already exists
 - Finalizing an **Upload Session** creates a **Draft Revision**
 - Only one finalized **Draft Revision** can wait for **Publish** on an **Artifact**
+- Finalizing an **Upload Session** fails when another **Draft Revision** is already waiting for **Publish**
+- **Draft Revisions** are visible to **Workspace Members** in management surfaces
+- **Draft Revisions** are visible to **API Keys** with write **Scope**
+- A read **Scope** does not grant access to **Draft Revisions**
+- **API Keys** with write **Scope** can discard **Draft Revisions**
+- Discarding a **Draft Revision** does not affect the **Published Revision**
+- **Private Links** and **Access Links** never resolve to **Draft Revisions**
+- **Private Links** and **Access Links** do not resolve for an **Unpublished Artifact**
 - An **Upload Session** can be abandoned before its **Revision** is published
+- An **Upload Session** has an **Expiration**
+- **Upload Cleanup** removes stale **Unpublished Artifacts** and bytes left by expired, abandoned, or terminally failed **Upload Sessions**
+- **Upload Cleanup** is platform-controlled, not governed by **Usage Policy**
 - **Publish** makes a complete **Revision** the **Published Revision**
+- **Publish** is the only action that makes a **Revision** externally visible
 - A **Revision** can be retrieved as a **Bundle**
+- A **Bundle** can become available after **Publish** completes
+- **Usage Policy** controls whether a **Bundle** is available for a **Revision**
 - An **Artifact** belongs to exactly one **Workspace**
 - An **Artifact** can have zero or more **Access Links**
-- A **Private Link** resolves to the latest published **Revision** of an **Artifact**
+- A **Private Link** resolves to the latest **Published Revision** of an **Artifact**
+- A **Private Link** cannot be pinned to an older **Revision**
 - A **Private Link** grants authenticated read access to human views and the **Agent View**
 - A **Private Link** is not an **Access Link**
 - **Share Links** and **Revision Links** are **Access Links**
@@ -165,39 +206,111 @@ _Avoid_: Upload response, API response
 - An **Access Link** can be revoked individually
 - An **Artifact** can enter **Access Link Lockdown**
 - **Access Link Lockdown** disables all **Access Links** for an **Artifact** without affecting its **Private Link**
+- **Access Link Lockdown** applies to one **Artifact**, not an entire **Workspace**
 - **Access Link Lockdown** can be lifted without restoring revoked or expired **Access Links**
-- A **Share Link** resolves to the latest published **Revision** of an **Artifact**
+- **Access Link Lockdown** has no **Expiration** in the MVP
+- **Access Link Lockdown** prevents creating new **Access Links** for an **Artifact**
+- **Access Link Lockdown** prevents retrieving full **Access Link** URLs without hiding **Access Link** metadata from authorized management surfaces
+- **Access Link Lockdown** does not prevent revoking individual **Access Links**
+- **Access Link Lockdown** does not prevent changing **Access Link** **Expiration**
+- A **Share Link** resolves to the latest **Published Revision** of an **Artifact**
 - A **Revision Link** resolves to exactly one **Revision**
 - A **Revision Link** can continue resolving to an older **Revision** after a newer **Revision** is published
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
 - **Publish** creates a **Revision Link** for the published **Revision**
+- **Publish** fails if **Usage Policy** prevents creating the required **Revision Link**
+- **Publish** fails while an **Artifact** is in **Access Link Lockdown**
+- **Revision Links** are not created for **Draft Revisions**
+- **Share Links** always resolve to the latest **Published Revision**
+- Additional **Revision Links** can be created for an already published **Revision**
+- Additional **Revision Links** can target any retained published **Revision**
 - **Publish** does not create a **Share Link** unless sharing is requested
+- **Publish** fails if a requested **Share Link** cannot be created
+- A **Share Link** can be created during **Publish** or after **Publish**
+- A **Publish Result** always includes a **Private Link** and the created **Revision Link**
+- A **Publish Result** includes a **Share Link** only when one is created during **Publish**
+- A **Publish Result** includes separate human-view links and agent-view links
+- A **Publish Result** includes **Bundle** status even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
 - A **Usage Policy** controls **Retention**
-- **Retention** keeps all **Revisions** unless limited by policy or manual deletion
+- A **Usage Policy** controls **Access Link** creation
+- A **Usage Policy** can prevent new **Access Links** across a **Workspace**
+- **Usage Policy** changes do not revoke existing **Access Links** unless a durable enforcement action does so
+- A **Usage Policy** controls **Unpublished Artifact** creation
+- **Usage Policy** applies at the **Workspace** level, not per **Artifact**
+- **Retention** keeps all **Revisions** unless limited by policy
+- **Retention** is the only MVP path for removing individual **Revisions**
+- **Retention** cannot remove the **Published Revision**
+- **Retention** makes removed **Revisions** unavailable before their bytes are purged asynchronously
 - **Deletion** makes **Private Links** and **Access Links** stop resolving immediately
+- **Deletion** can apply to an **Unpublished Artifact**
+- **Deletion** of an **Unpublished Artifact** can trigger **Upload Cleanup**
+- **Deletion** is not reversible as an access state
 - **Deletion** can purge stored bytes asynchronously
 - A **Workspace** has one **Workspace Member** in the MVP
 - A **Workspace Member** has a **Personal Workspace** by default
+- **Personal Workspace** is a human onboarding concept, not an agent-facing ownership type
+- A **Workspace Member** has full authority in their **Workspace** in the MVP
 - A **Workspace** has zero or more **Audit Events**
 - An **Audit Event** has exactly one **Change Summary**
-- **Publish**, **Deletion**, **Safety Warnings**, **Usage Policy** limit hits, **API Key** changes, **Access Link** changes, and **Access Link Lockdown** changes create **Audit Events**
+- **Audit Retention** is separate from **Usage Policy**
+- **Audit Events** are visible only to **Workspace Members** in the MVP
+- **Unpublished Artifact** creation, **Publish**, **Deletion**, **Draft Revision** discard, **Retention** removals, **Display Metadata** changes, **Safety Warnings**, durable **Usage Policy** enforcement, **API Key** changes, **API Key Revocation**, **Access Link** changes, and **Access Link Lockdown** changes create **Audit Events**
+- Routine **Upload Cleanup** does not create **Audit Events**
+- **Upload Cleanup** creates **Audit Events** when it removes stale **Unpublished Artifact** management state
 - A **Workspace** can have zero or more **API Keys**
 - An **API Key** belongs to exactly one **Workspace**
 - An **API Key** has one or more **Scopes**
 - An **API Key** is named by a **Workspace Member**
 - An **API Key** has no **Expiration** unless one is set
+- An **API Key** **Expiration** stops future use of the **API Key**
+- An **API Key** **Expiration** does not revoke **Artifacts** or **Access Links** created with it
+- **API Key Revocation** stops future use of the **API Key**
+- **API Key Revocation** does not revoke **Artifacts** or **Access Links** created with it
 - An **API Key** requires a read **Scope** to read private **Artifacts**
+- An **API Key** requires a share **Scope** to manage **Access Links**
+- An **API Key** requires read and share **Scopes** to create **Access Links**
+- An **API Key** requires read and share **Scopes** to retrieve existing full **Access Link** URLs
+- An **API Key** requires a share **Scope** to change **Access Link Lockdown**
+- A share **Scope** does not imply a read **Scope**
+- A write **Scope** does not imply a share **Scope**
+- **Publish** requires write, read, and share **Scopes**
+- **Upload Sessions** require a write **Scope**, not a share **Scope**
+- A write-only **API Key** can prepare a **Draft Revision** for another actor to **Publish**
 - A **Creator** is recorded for an **Artifact** but does not own it
+- A **Creator** is recorded before first **Publish** when an **Unpublished Artifact** is created
+- A **Creator** remains recorded after **API Key Revocation** or **API Key** **Expiration**
+- A **Creator** does not change when another actor updates an **Artifact**
 - Any **API Key** with the right **Scope** in the owning **Workspace** can update an **Artifact**
+- Any **API Key** with the right **Scope** in the owning **Workspace** can update **Display Metadata**
 - Updating a known **Artifact** does not require a read **Scope**
+- Updating **Display Metadata** for a known **Artifact** does not require a read **Scope**
+- **Publish** always requires a read **Scope** because it creates a **Revision Link**
 - An **Artifact** contains **Untrusted Content**
 - An **Artifact** can have zero or more **Safety Warnings**
+- A **Revision** can have zero or more **Safety Warnings**
+- Artifact-level **Safety Warnings** summarize the latest **Published Revision**
+- **Revision Links** show **Safety Warnings** for their pinned **Revision**
 - **Safety Warnings** can be created during **Publish** or by asynchronous scanning
+- **Safety Warnings** can be added, changed, or removed after a **Revision** is published without changing the **Revision**
+- Asynchronous **Safety Warning** changes create **Audit Events**
+- **Safety Warnings** do not block **Publish**
 - A **Manifest** is platform-controlled data, not **Untrusted Content**
+- **Display Metadata** is platform-controlled data, not **Untrusted Content**
+- **Display Metadata** can change without creating a new **Revision**
+- **Display Metadata** is plain text
+- **Display Metadata** can contain Unicode but must be sanitized and escaped before display
+- **Agent View** returns **Display Metadata** as plain text, not rendered HTML
+- An **Agent View** includes the **Manifest**, file listing, content links, **Display Metadata**, and **Safety Warnings** for its resolved **Revision**
+- **Safety Warnings** are exposed beside the **Manifest**, not inside it
+- **Display Metadata** is exposed beside the **Manifest**, not inside it
+- A **Manifest** resolves to the latest **Published Revision** through **Private Links** and **Share Links**
+- A **Manifest** resolves to one pinned **Revision** through a **Revision Link**
 - **Untrusted Content** is served from a **Content Origin**
+- **Agent View**, **Manifest**, and **Display Metadata** are not served as **Untrusted Content**
 - **Untrusted Content** is viewed under an **Execution Policy**
+- **Execution Policy** applies to all **Render Modes**
 - The MVP uses one fixed **Execution Policy** for all **Untrusted Content**
 - **Publish** returns a **Publish Result**
 
@@ -207,42 +320,88 @@ _Avoid_: Upload response, API response
 > **Domain expert:** "Yes — an **Artifact** is folder-like, so an agent can upload one file or a small set of related assets."
 > **Dev:** "Does the agent always have to name the **Entrypoint**?"
 > **Domain expert:** "No — infer it when obvious, but let the agent override it."
+> **Dev:** "Does the agent always have to set **Render Mode**?"
+> **Domain expert:** "No — infer it when obvious, but let the agent override it."
+> **Dev:** "What if the requested **Render Mode** cannot open the **Entrypoint**?"
+> **Domain expert:** "**Publish** fails because the requested view cannot be produced."
+> **Dev:** "For directory **Render Mode**, what is the **Entrypoint**?"
+> **Domain expert:** "The **Entrypoint** is the directory that opens first."
+> **Dev:** "Can an old **Revision Link** use a newer **Entrypoint**?"
+> **Domain expert:** "No — **Entrypoint** and **Render Mode** belong to the resolved **Revision**."
 > **Dev:** "If a **Share Link** leaks, do we have to move the **Artifact**?"
 > **Domain expert:** "No — revoke or rotate the **Share Link** without changing the **Private Link**."
 > **Dev:** "If a **Revision Link** leaks, do we have to delete the **Revision**?"
 > **Domain expert:** "No — revoke the **Revision Link** without deleting the **Revision**."
 > **Dev:** "Who owns an **Artifact** created by an agent?"
 > **Domain expert:** "The **Workspace** that owns the **API Key** used by the agent."
+> **Dev:** "Is **Creator** recorded only after first **Publish**?"
+> **Domain expert:** "No — **Creator** is recorded when the **Artifact** management record is created."
+> **Dev:** "If the creating **API Key** expires or is revoked, does the **Creator** disappear?"
+> **Domain expert:** "No — **Creator** is historical attribution, not current authority."
+> **Dev:** "Does **Creator** change when another agent publishes a new **Revision**?"
+> **Domain expert:** "No — later actors are recorded through **Audit Events**."
 > **Dev:** "Can trusted **API Keys** upload trusted HTML?"
 > **Domain expert:** "No — **Untrusted Content** remains untrusted even when uploaded with a valid **API Key**."
 > **Dev:** "Can **Untrusted Content** include JavaScript?"
 > **Domain expert:** "Yes — JavaScript is allowed but remains **Untrusted Content**."
 > **Dev:** "When an **Artifact** is updated, should existing links change?"
-> **Domain expert:** "No — **Private Links** and **Share Links** stay stable and show the latest published **Revision**."
+> **Domain expert:** "No — **Private Links** and **Share Links** stay stable and show the latest **Published Revision**."
+> **Dev:** "Can a **Private Link** be pinned to an older **Revision**?"
+> **Domain expert:** "No — a **Private Link** always follows the latest **Published Revision**."
 > **Dev:** "Can viewers see files while an update is still uploading?"
 > **Domain expert:** "No — viewers only see a **Published Revision**, never a **Draft Revision**."
+> **Dev:** "Can an **Artifact** exist before first **Publish**?"
+> **Domain expert:** "Yes — an **Unpublished Artifact** can have management state, but no viewing links resolve."
+> **Dev:** "Does creating an **Unpublished Artifact** create an **Audit Event**?"
+> **Domain expert:** "Yes — it creates durable workspace management state."
+> **Dev:** "Can **Workspace Members** see a **Draft Revision**?"
+> **Domain expert:** "Yes — management surfaces can show drafts, but viewing links remain published-only."
+> **Dev:** "Can a read-only **API Key** see **Draft Revisions**?"
+> **Domain expert:** "No — draft access is a management capability tied to write **Scope**."
+> **Dev:** "Can an agent discard a **Draft Revision**?"
+> **Domain expert:** "Yes — an **API Key** with write **Scope** can discard it without affecting the **Published Revision**."
+> **Dev:** "Does discarding a **Draft Revision** create an **Audit Event**?"
+> **Domain expert:** "Yes — finalized draft state is durable management state."
 > **Dev:** "Can only the original **Creator** update an **Artifact**?"
 > **Domain expert:** "No — update permission comes from the **API Key Scope** within the owning **Workspace**."
+> **Dev:** "Can an agent update **Display Metadata**?"
+> **Domain expert:** "Yes — an **API Key** with the right **Scope** can update it."
 > **Dev:** "How does another agent inspect an **Artifact** before opening files?"
-> **Domain expert:** "It reads the **Manifest**."
+> **Domain expert:** "It uses the **Agent View**, which includes the **Manifest**, file listing, and content links."
 > **Dev:** "Is the **Manifest** just another uploaded file?"
 > **Domain expert:** "No — the **Manifest** is platform-controlled data stored outside the **Untrusted Content**."
+> **Dev:** "Does a **Revision Link** show the latest **Manifest**?"
+> **Domain expert:** "No — it shows the **Manifest** for its pinned **Revision**."
 > **Dev:** "Is a **Private Link** only a dashboard page?"
 > **Domain expert:** "No — it is authenticated read access for human views and the **Agent View**."
 > **Dev:** "Is a **Private Link** an **Access Link**?"
 > **Domain expert:** "No — **Access Links** are unauthenticated grants, while **Private Links** require tenant authentication."
 > **Dev:** "Are **Share Links** and **Revision Links** separate access mechanisms?"
-> **Domain expert:** "No — both are **Access Links**; a **Share Link** follows the latest published **Revision**, while a **Revision Link** pins one **Revision**."
+> **Domain expert:** "No — both are **Access Links**; a **Share Link** follows the latest **Published Revision**, while a **Revision Link** pins one **Revision**."
 > **Dev:** "If many **Access Links** leak, do we have to delete the **Artifact**?"
 > **Domain expert:** "No — put the **Artifact** in **Access Link Lockdown** without affecting its **Private Link**."
+> **Dev:** "Can **Access Link Lockdown** disable links for a whole **Workspace**?"
+> **Domain expert:** "Not in the MVP — **Access Link Lockdown** applies to one **Artifact**."
 > **Dev:** "When **Access Link Lockdown** is lifted, do revoked links work again?"
 > **Domain expert:** "No — lifting **Access Link Lockdown** restores only otherwise-valid **Access Links**."
+> **Dev:** "Can **Access Link Lockdown** expire automatically?"
+> **Domain expert:** "Not in the MVP — it must be lifted explicitly."
+> **Dev:** "Can authorized agents retrieve full **Access Link** URLs during **Access Link Lockdown**?"
+> **Domain expert:** "No — they can see metadata and lockdown state, but not full bearer URLs until lockdown is lifted."
+> **Dev:** "Can an agent revoke a specific **Access Link** during **Access Link Lockdown**?"
+> **Domain expert:** "Yes — lockdown still allows cleanup of individual **Access Links**."
+> **Dev:** "Can an agent change **Access Link** **Expiration** during **Access Link Lockdown**?"
+> **Domain expert:** "Yes — expiration can change, but lockdown still prevents access."
+> **Dev:** "Can an agent publish a new **Revision** while **Access Link Lockdown** is active?"
+> **Domain expert:** "No — **Publish** requires a new **Revision Link**, and lockdown prevents new **Access Links**."
 > **Dev:** "Can another agent use a **Share Link** without an **API Key**?"
 > **Domain expert:** "Yes — a **Share Link** grants read-only access to the **Agent View** and published files."
 > **Dev:** "Can another agent use a **Revision Link** to inspect an exact **Revision**?"
 > **Domain expert:** "Yes — a **Revision Link** grants read-only access to the **Agent View** for that **Revision**."
 > **Dev:** "Can **Untrusted Content** run on the app's own domain?"
 > **Domain expert:** "No — **Untrusted Content** is viewed from a separate **Content Origin**."
+> **Dev:** "Is the **Agent View** served as **Untrusted Content**?"
+> **Domain expert:** "No — **Agent View**, **Manifest**, and **Display Metadata** are platform-controlled surfaces."
 > **Dev:** "Is an update a patch over the previous **Revision**?"
 > **Domain expert:** "No — each **Revision** is a complete immutable file tree."
 > **Dev:** "Is an **Upload Session** the same as a **Draft Revision**?"
@@ -251,34 +410,128 @@ _Avoid_: Upload response, API response
 > **Domain expert:** "No — stable links change only when **Publish** makes a **Revision** the **Published Revision**."
 > **Dev:** "Can two finished uploads wait to publish on the same **Artifact**?"
 > **Domain expert:** "No — an **Artifact** can have many **Upload Sessions**, but only one finalized **Draft Revision**."
+> **Dev:** "What happens if another upload finalizes while a **Draft Revision** already exists?"
+> **Domain expert:** "Finalization fails until the existing **Draft Revision** is published or discarded."
 > **Dev:** "Do **Access Links** expire by default?"
 > **Domain expert:** "No — an **Access Link** remains valid until revoked unless an **Expiration** is set."
 > **Dev:** "Should risky-looking uploads be blocked?"
 > **Domain expert:** "Not initially — attach **Safety Warnings** without blocking the upload."
+> **Dev:** "Can a **Safety Warning** reject a **Publish**?"
+> **Domain expert:** "No — blocked publishes are validation or policy failures, not **Safety Warnings**."
+> **Dev:** "Does an old **Revision Link** show warnings from the latest **Revision**?"
+> **Domain expert:** "No — it shows **Safety Warnings** for its pinned **Revision**."
+> **Dev:** "Can **Safety Warnings** appear after a **Revision** was already published?"
+> **Domain expert:** "Yes — warnings can be added, changed, or removed after publication without changing the **Revision**."
+> **Dev:** "Do asynchronous **Safety Warning** changes create **Audit Events**?"
+> **Domain expert:** "Yes — they are visible security annotations."
+> **Dev:** "Are **Safety Warnings** part of the **Manifest**?"
+> **Domain expert:** "No — **Agent View** exposes **Safety Warnings** beside the **Manifest**."
+> **Dev:** "If a title changes, does that create a new **Revision**?"
+> **Domain expert:** "No — titles and labels are **Display Metadata**, exposed beside the **Manifest**."
+> **Dev:** "Can **Display Metadata** contain Markdown?"
+> **Domain expert:** "No — **Display Metadata** is plain text; agents can upload Markdown as **Untrusted Content**."
+> **Dev:** "Does **Agent View** return rendered HTML for **Display Metadata**?"
+> **Domain expert:** "No — it returns plain text values for consumers to escape in context."
+> **Dev:** "Do **Display Metadata** changes create **Audit Events**?"
+> **Domain expert:** "Yes — they change how humans and agents understand the **Artifact**."
 > **Dev:** "Where do upload and retention limits live?"
 > **Domain expert:** "They belong to the **Workspace** through its **Usage Policy**."
+> **Dev:** "Can one **Artifact** have a custom **Usage Policy**?"
+> **Domain expert:** "No — **Usage Policy** applies to the whole **Workspace**."
+> **Dev:** "Can **Usage Policy** stop a new **Access Link** from being created?"
+> **Domain expert:** "Yes — **Access Link** creation is controlled by the **Workspace** **Usage Policy**."
+> **Dev:** "Is workspace policy blocking new **Access Links** the same as **Access Link Lockdown**?"
+> **Domain expert:** "No — **Usage Policy** controls future creation across a **Workspace**, while **Access Link Lockdown** disables one **Artifact**'s existing links."
+> **Dev:** "If **Usage Policy** disables new **Access Links**, do old links stop working?"
+> **Domain expert:** "No — existing **Access Links** keep working unless a separate durable enforcement action changes them."
+> **Dev:** "Do **Unpublished Artifacts** count against creation limits?"
+> **Domain expert:** "Yes — **Usage Policy** controls their creation too."
 > **Dev:** "What is the simplest way for an agent to share a folder?"
 > **Domain expert:** "It should call **Publish** and receive usable links."
 > **Dev:** "What does an agent get back after **Publish**?"
-> **Domain expert:** "A **Publish Result** with IDs, human-view links, agent-view links, and any **Safety Warnings**."
+> **Domain expert:** "A **Publish Result** with IDs, **Private Link**, **Revision Link**, agent-view links, **Bundle** status, and any **Safety Warnings**."
 > **Dev:** "Does **Publish** make an **Artifact** shareable by default?"
 > **Domain expert:** "No — **Publish** creates a **Share Link** only when sharing is requested."
+> **Dev:** "What if a requested **Share Link** cannot be created during **Publish**?"
+> **Domain expert:** "**Publish** fails before the **Revision** becomes visible."
+> **Dev:** "Can a **Share Link** be pinned to the current **Published Revision**?"
+> **Domain expert:** "No — **Share Links** always follow the latest **Published Revision**; use a **Revision Link** to pin one."
+> **Dev:** "Can an agent create a **Share Link** after **Publish**?"
+> **Domain expert:** "Yes — **Share Links** can be created during **Publish** or later."
+> **Dev:** "Can an agent create a **Share Link** while **Access Link Lockdown** is active?"
+> **Domain expert:** "No — lockdown prevents creating new **Access Links**."
 > **Dev:** "Does **Publish** create a pinned link for the exact **Revision**?"
 > **Domain expert:** "Yes — each published **Revision** receives a revocable **Revision Link**."
+> **Dev:** "Can an agent create another **Revision Link** for the same **Revision**?"
+> **Domain expert:** "Yes — additional **Revision Links** can be created for separate audiences."
+> **Dev:** "Can an agent create an additional **Revision Link** during **Access Link Lockdown**?"
+> **Domain expert:** "No — lockdown prevents creating new **Access Links**."
+> **Dev:** "Can an agent create a **Revision Link** for a removed or draft **Revision**?"
+> **Domain expert:** "No — **Revision Links** can target only retained published **Revisions**."
+> **Dev:** "What if **Usage Policy** blocks the required **Revision Link**?"
+> **Domain expert:** "Then **Publish** fails before the **Revision** becomes visible."
+> **Dev:** "Can an agent get a **Revision Link** for a **Draft Revision**?"
+> **Domain expert:** "No — **Revision Links** are created only when a **Revision** is published."
 > **Dev:** "Does an old **Revision Link** break when a newer **Revision** is published?"
 > **Domain expert:** "No — it keeps pointing at the older **Revision** unless revoked, expired, deleted, or removed by **Retention**."
 > **Dev:** "When **Retention** removes an old **Revision**, is its **Revision Link** considered revoked?"
 > **Domain expert:** "No — revocation and **Retention** are different reasons access can stop."
+> **Dev:** "Does **Retention** purge stored bytes immediately?"
+> **Domain expert:** "No — **Retention** makes **Revisions** unavailable first, then bytes can be purged asynchronously."
+> **Dev:** "Do **Retention** removals create **Audit Events**?"
+> **Domain expert:** "Yes — they change visible revision history and access."
 > **Dev:** "Can private access be granted for one **Artifact** but not another?"
 > **Domain expert:** "No — private access is based on **Workspace Member** access, not per-**Artifact** permissions."
 > **Dev:** "How does an agent receive access?"
 > **Domain expert:** "A **Workspace Member** creates a named, scoped **API Key** and gives the secret to the agent."
+> **Dev:** "Does an agent need to know whether a **Workspace** is personal?"
+> **Domain expert:** "No — agents only need the owning **Workspace**."
+> **Dev:** "Does expiring an **API Key** remove what it created?"
+> **Domain expert:** "No — **Expiration** stops future key use, but created **Artifacts** and **Access Links** remain."
+> **Dev:** "Does **API Key Revocation** remove what the key created?"
+> **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
+> **Dev:** "Do **Scopes** limit **Workspace Members**?"
+> **Domain expert:** "No — in the MVP, **Scopes** limit **API Keys** and **Workspace Members** have full authority."
+> **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
+> **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
 > **Dev:** "Can a publishing **API Key** read private **Artifacts**?"
 > **Domain expert:** "Only if it has a read **Scope**."
+> **Dev:** "Can any write-capable **API Key** manage **Access Links**?"
+> **Domain expert:** "No — managing **Access Links** requires a share **Scope**."
+> **Dev:** "Can a share-only **API Key** create **Access Links**?"
+> **Domain expert:** "No — creating bearer read URLs requires both read and share **Scopes**."
+> **Dev:** "Can a share-only **API Key** retrieve existing full **Access Link** URLs?"
+> **Domain expert:** "No — retrieving bearer URLs requires both read and share **Scopes**."
+> **Dev:** "Does share **Scope** include read **Scope**?"
+> **Domain expert:** "No — **Scopes** are independent."
+> **Dev:** "Does write **Scope** include share **Scope**?"
+> **Domain expert:** "No — **Publish** requires write, read, and share because they are separate powers."
+> **Dev:** "Can an **API Key** publish with write **Scope** but no read or share **Scope**?"
+> **Domain expert:** "No — **Publish** creates a **Revision Link**, so it requires write, read, and share **Scopes**."
+> **Dev:** "Does creating an **Upload Session** require a share **Scope**?"
+> **Domain expert:** "No — **Upload Sessions** create drafts, so write **Scope** is enough."
+> **Dev:** "Can one agent upload a draft and another publish it?"
+> **Domain expert:** "Yes — a write-only **API Key** can prepare a **Draft Revision** for another actor to **Publish**."
+> **Dev:** "Can an **Upload Session** expire?"
+> **Domain expert:** "Yes — after **Expiration**, it can no longer be used."
+> **Dev:** "Does **Retention** clean up expired **Upload Sessions**?"
+> **Domain expert:** "No — **Upload Cleanup** removes stale **Unpublished Artifacts** and unpublished bytes left by upload workflows."
+> **Dev:** "Can **Usage Policy** keep abandoned upload bytes longer?"
+> **Domain expert:** "No — **Upload Cleanup** is platform-controlled operational hygiene."
+> **Dev:** "Does routine **Upload Cleanup** create **Audit Events**?"
+> **Domain expert:** "No — routine byte cleanup is operational unless product-visible state changes."
+> **Dev:** "What if **Upload Cleanup** removes a stale **Unpublished Artifact**?"
+> **Domain expert:** "That creates an **Audit Event** because management state changed."
 > **Dev:** "Can an **API Key** update a known **Artifact** without reading it first?"
 > **Domain expert:** "Yes — update authority comes from the write **Scope**, not the read **Scope**."
+> **Dev:** "Can an **API Key** publish without read **Scope**?"
+> **Domain expert:** "No — **Publish** creates a bearer **Revision Link**, so read **Scope** is required."
+> **Dev:** "Does updating **Display Metadata** require a read **Scope**?"
+> **Domain expert:** "No — write **Scope** is enough for a known **Artifact**."
 > **Dev:** "Can uploaded JavaScript call arbitrary external APIs?"
 > **Domain expert:** "Not by default — the **Execution Policy** restricts external network access."
+> **Dev:** "Does **Execution Policy** only apply to HTML?"
+> **Domain expert:** "No — it applies to all **Render Modes** for **Untrusted Content**."
 > **Dev:** "Can an agent request a custom **Execution Policy**?"
 > **Domain expert:** "Not in the MVP — all **Untrusted Content** uses one fixed **Execution Policy**."
 > **Dev:** "Can **Render Mode** be audio?"
@@ -287,12 +540,30 @@ _Avoid_: Upload response, API response
 > **Domain expert:** "Yes — video is a first-class **Render Mode** controlled by **Usage Policy**."
 > **Dev:** "Can a viewer download the whole **Artifact**?"
 > **Domain expert:** "Yes — each **Revision** can be retrieved as a **Bundle**."
+> **Dev:** "Is a **Bundle** guaranteed for every **Revision**?"
+> **Domain expert:** "No — **Usage Policy** controls whether a **Bundle** is available."
+> **Dev:** "Does **Publish** wait until the **Bundle** is ready?"
+> **Domain expert:** "No — the **Bundle** can become available after **Publish** completes."
 > **Dev:** "How long do old **Revisions** remain available?"
-> **Domain expert:** "By default, **Retention** keeps all **Revisions** unless a **Usage Policy** or manual deletion removes them."
+> **Domain expert:** "By default, **Retention** keeps all **Revisions** unless a **Usage Policy** removes them."
+> **Dev:** "Can a **Workspace Member** delete just one old **Revision**?"
+> **Domain expert:** "Not in the MVP — **Deletion** applies to the whole **Artifact**, while **Retention** removes individual **Revisions**."
+> **Dev:** "Can **Retention** remove the **Published Revision**?"
+> **Domain expert:** "No — the **Published Revision** remains until a newer **Revision** is published or the **Artifact** is deleted."
 > **Dev:** "What happens when an **Artifact** is deleted?"
 > **Domain expert:** "**Deletion** makes all links stop resolving immediately, then stored bytes can be purged asynchronously."
+> **Dev:** "Can an **Unpublished Artifact** be deleted?"
+> **Domain expert:** "Yes — **Deletion** removes its management state and any draft workflow."
+> **Dev:** "What happens to uploaded bytes for a deleted **Unpublished Artifact**?"
+> **Domain expert:** "**Upload Cleanup** removes draft or upload-session bytes."
+> **Dev:** "Can **Deletion** be undone like **Access Link Lockdown**?"
+> **Domain expert:** "No — **Deletion** is the hard access boundary, not a reversible sharing control."
 > **Dev:** "How do we know who changed access or content?"
 > **Domain expert:** "Security-relevant and lifecycle changes create **Audit Events** in the **Workspace**."
+> **Dev:** "Does **Usage Policy** control how long **Audit Events** are kept?"
+> **Domain expert:** "No — **Audit Retention** is platform-controlled separately."
+> **Dev:** "Can an **API Key** with read **Scope** read **Audit Events**?"
+> **Domain expert:** "No — **Audit Events** are visible only to **Workspace Members** in the MVP."
 > **Dev:** "Do **Access Link** changes create **Audit Events**?"
 > **Domain expert:** "Yes — they are unauthenticated access grants, so lifecycle changes are security-relevant."
 > **Dev:** "Do **Audit Events** store raw uploaded content or secrets?"
@@ -309,3 +580,6 @@ _Avoid_: Upload response, API response
 - "revoked" was ambiguous between deliberate access removal and lifecycle removal — resolved: **Revision Link** revocation is distinct from **Retention** making its target unavailable.
 - "share link" and "revision link" duplicated unauthenticated access rules — resolved: both are **Access Links** with different target behavior.
 - "private link" sounded like another access-link type — resolved: **Private Link** is authenticated tenant access, while **Access Links** are unauthenticated grants.
+- "deletion" and reversible access controls were easy to blur — resolved: **Deletion** is not reversible as an access state.
+- "workspace member" may become multi-member later — resolved: a **Workspace** has one **Workspace Member** in the MVP, while the **Workspace** boundary remains future-compatible.
+- "retention" and upload cleanup were easy to conflate — resolved: **Retention** governs published history, while **Upload Cleanup** removes unpublished upload-session bytes.

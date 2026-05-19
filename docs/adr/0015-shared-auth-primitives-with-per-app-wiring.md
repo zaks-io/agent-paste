@@ -8,3 +8,9 @@ Authentication and authorization primitives will live in `packages/auth`, but ea
 - `upload` can accept scoped API keys and may later accept Auth0 for dashboard-driven uploads.
 - `content` should not trust ambient app cookies and should resolve access through access links, private access checks, or explicit headers.
 - Shared auth helpers must not hide which actor type a request used.
+- API key secrets should be shown only at creation time, stored non-recoverably, and never returned by later reads.
+- Access link tokens should be treated as bearer secrets and excluded from logs and audit summaries.
+- Access link tokens may be stored recoverably with encryption at rest so authorized workspace members and API keys with read and share scopes can retrieve existing links later.
+- Public Access Link failures should use generic not-found responses so callers cannot distinguish invalid, revoked, expired, deleted, locked down, or retention-removed links.
+- Authenticated management surfaces may show the specific reason an Access Link no longer resolves.
+- Authenticated private and management requests may return specific deleted, retained, unpublished, expired, or locked-down states after workspace authorization succeeds.

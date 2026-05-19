@@ -6,7 +6,18 @@ R2 object keys will be derived from environment, workspace, artifact, revision, 
 
 - Published files should use keys shaped like `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/files/{path}`.
 - Derived bundles should use keys shaped like `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/bundle.zip`.
-- Upload sessions should reserve the `revisionId` and issue upload URLs for final keys shaped like `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/files/{path}`.
+- Upload sessions should reserve the `revisionId` and issue short-lived signed write URLs for final keys shaped like `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/files/{path}`.
+- Signed upload URLs may expose opaque ID-based R2 keys to uploaders.
+- Signed upload URLs should be single-use for one reserved key and should not overwrite existing objects.
+- Upload finalization should verify the expected file set and fail when unexpected objects exist under the reserved revision prefix.
+- Upload finalization failures from missing or incomplete expected objects should remain retryable until the upload session expires.
+- Upload finalization failures from unexpected objects should be terminal and require a new upload session.
 - Abandoned upload sessions can leave unpublished Revision objects, which cleanup jobs should remove based on metadata.
 - Preview environments should add a preview namespace such as `preview/pr-{number}` through bucket choice or key prefix.
 - User-provided titles and labels should not appear in R2 key prefixes.
+- Normalized file paths are untrusted input: they may appear in manifests and audit summaries after validation, normalization, and output escaping, but must never be treated as trusted display strings.
+- File paths may include nested directories.
+- Path normalization should reject absolute paths, traversal segments, empty segments, and control characters.
+- Upload finalization should fail when two uploaded paths normalize to the same file path.
+- Normalized file paths are case-sensitive.
+- Normalized file paths should preserve valid Unicode using NFC normalization, and must be encoded safely in URLs and escaped for display.

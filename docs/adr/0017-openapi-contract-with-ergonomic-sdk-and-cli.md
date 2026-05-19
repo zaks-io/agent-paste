@@ -9,3 +9,4 @@ OpenAPI will be generated inline from REST route definitions in each HTTP app, w
 - The SDK should expose agent-first operations such as `publish` and `update`.
 - The CLI should use the SDK rather than duplicating raw HTTP behavior.
 - Direct REST access remains documented for agents and integrations that prefer plain HTTP.
+- Lower-level upload-session REST endpoints should be public and documented as advanced APIs, while the SDK and CLI guide most users through `publish`.
