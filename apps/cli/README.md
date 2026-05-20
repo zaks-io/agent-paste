@@ -73,7 +73,7 @@ Default human-readable output:
 ```
 Published artifact art_01H... revision rev_01H...
 
-  Revision:   https://agent-paste.sh/r/xyz789
+  Revision:   https://app.agent-paste.sh/al/AB3CDEFGHJKLMN56#AQEAAAGJk2YA...
   Private:    https://app.agent-paste.sh/artifacts/art_01H...
   Agent View: https://api.agent-paste.sh/v1/artifacts/art_01H.../agent-view
   Bundle:     pending
@@ -88,7 +88,7 @@ With `--json`, stdout is exactly the Publish Result:
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "private_link": "https://app.agent-paste.sh/artifacts/art_01H...",
-  "revision_link": "https://agent-paste.sh/r/xyz789",
+  "revision_link": "https://app.agent-paste.sh/al/AB3CDEFGHJKLMN56#AQEAAAGJk2YA...",
   "share_link": null,
   "agent_view_link": "https://api.agent-paste.sh/v1/artifacts/art_01H.../agent-view",
   "bundle": { "status": "pending" },

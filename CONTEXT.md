@@ -177,11 +177,11 @@ The platform-supported way an **Entrypoint** is displayed to viewers.
 _Avoid_: File type, preview type
 
 **Manifest**:
-The machine-readable description of an **Artifact** and a resolved **Revision**.
+The machine-readable description of an **Artifact** and a resolved **Revision**. In the MVP, a **Manifest** carries artifact id, revision id, revision number, **Entrypoint**, **Render Mode**, created-at, and **Creator** reference; the file listing, content links, **Display Metadata**, **Safety Warnings**, and **Bundle Availability** are exposed beside the **Manifest** in **Agent View**.
 _Avoid_: Metadata blob, config file
 
 **Display Metadata**:
-Mutable human-facing labels that describe an **Artifact** without changing any **Revision**.
+Mutable human-facing labels that describe an **Artifact** without changing any **Revision**. In the MVP, **Display Metadata** is a required title and an optional description, both plain text.
 _Avoid_: Manifest metadata, title fields, revision metadata, markdown metadata
 
 **Private Link**:
@@ -373,6 +373,7 @@ _Avoid_: Upload response, API response
 - A **Workspace Member** has a **Personal Workspace** by default
 - **Personal Workspace** is a human onboarding concept, not an agent-facing ownership type
 - A **Workspace Member** has full authority in their **Workspace** in the MVP
+- First sign-in for a new identity auto-provisions the **Personal Workspace**, the **Workspace Member** row, and a default **API Key** with full publishing **Scopes**; the **API Key** secret is shown once and never retrievable again
 - A **Workspace** has zero or more **Audit Events**
 - An **Audit Event** has exactly one **Change Summary**
 - **Audit Retention** is separate from **Usage Policy**
@@ -443,9 +444,12 @@ _Avoid_: Upload response, API response
 - **Display Metadata** is platform-controlled data, not **Untrusted Content**
 - **Display Metadata** can change without creating a new **Revision**
 - **Display Metadata** is plain text
+- **Display Metadata** carries exactly two fields in the MVP: a required title and an optional description
 - **Display Metadata** can contain Unicode but must be sanitized and escaped before display
 - **Agent View** returns **Display Metadata** as plain text, not rendered HTML
-- An **Agent View** includes the **Manifest**, file listing, content links, **Display Metadata**, and **Safety Warnings** for its resolved **Revision**
+- An **Agent View** includes the **Manifest**, file listing, content links, **Display Metadata**, **Safety Warnings**, and **Bundle Availability** for its resolved **Revision**
+- An **Agent View** returned through an **Access Link** resolve omits the **Creator** reference on the **Manifest**; an authenticated **Agent View** returns it
+- A **Manifest** does not carry the owning **Workspace** identifier on any surface
 - **Safety Warnings** are exposed beside the **Manifest**, not inside it
 - **Display Metadata** is exposed beside the **Manifest**, not inside it
 - A **Manifest** resolves to the latest **Published Revision** through **Private Links** and **Share Links**
