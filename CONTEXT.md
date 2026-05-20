@@ -36,6 +36,10 @@ _Avoid_: Historical share link, frozen artifact link
 A downloadable archive generated from a complete **Revision** file tree.
 _Avoid_: Export, zip
 
+**Bundle Availability**:
+The state of a **Bundle** for a **Revision**: pending while being generated, ready when retrievable, failed when generation reached a permanent error, or disabled when **Usage Policy** does not permit a **Bundle**.
+_Avoid_: Bundle status, bundle state
+
 **Workspace**:
 The tenant that owns **Artifacts**, members, and agent credentials.
 _Avoid_: Account, organization, project
@@ -208,8 +212,12 @@ _Avoid_: Upload response, API response
 - **Publish** makes a complete **Revision** the **Published Revision**
 - **Publish** is the only action that makes a **Revision** externally visible
 - A **Revision** can be retrieved as a **Bundle**
+- A **Bundle** has exactly one **Bundle Availability**
 - A **Bundle** can become available after **Publish** completes
 - **Usage Policy** controls whether a **Bundle** is available for a **Revision**
+- **Usage Policy** sets **Bundle Availability** to disabled at **Publish** when **Bundles** are not permitted
+- A pending **Bundle Availability** transitions to ready when generation completes or failed when generation reaches a permanent error
+- A failed **Bundle Availability** does not transition automatically
 - An **Artifact** belongs to exactly one **Workspace**
 - An **Artifact** can have zero or more **Access Links**
 - A **Private Link** resolves to the latest **Published Revision** of an **Artifact**
@@ -247,7 +255,7 @@ _Avoid_: Upload response, API response
 - A **Publish Result** always includes a **Private Link** and the created **Revision Link**
 - A **Publish Result** includes a **Share Link** only when one is created during **Publish**
 - A **Publish Result** includes separate human-view links and agent-view links
-- A **Publish Result** includes **Bundle** status even when the **Bundle** is not ready
+- A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
 - A **Usage Policy** controls **Retention**
 - A **Usage Policy** controls **Access Link** creation
