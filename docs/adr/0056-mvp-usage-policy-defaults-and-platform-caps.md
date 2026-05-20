@@ -1,6 +1,6 @@
 # MVP Usage Policy Defaults and Platform Caps
 
-Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits referenced as platform-controlled by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md), [ADR 0041](./0041-upload-size-caps-under-usage-policy.md), [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), and [ADR 0048](./0048-transient-artifacts-by-default.md). Workspace-tunable settings cannot exceed the platform cap; platform-controlled values are not exposed through **Usage Policy**.
+Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits referenced as platform-controlled by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md), [ADR 0041](./0041-upload-size-caps-under-usage-policy.md), [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), and [ADR 0048](./0048-transient-artifacts-by-default.md). Workspace-tunable settings cannot exceed the platform cap; platform-controlled values are exposed read-only through **Usage Policy** surfaces so agents can plan around them.
 
 ## Values
 
@@ -17,7 +17,7 @@ Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits
 | 9 | Access Link Signed URL `exp` default | `min(row.expires_at, now + 24h)` | platform-controlled | `api` mint endpoint | [0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) |
 | 10 | Upload Session TTL | 24 hours | platform-controlled | `upload` + `jobs` cleanup | this ADR |
 | 11 | Pinned Artifact cap | 50 / **Workspace** | platform cap | `api` pin endpoint | [0048](./0048-transient-artifacts-by-default.md) |
-| 12 | Auto Deletion default | 30 days since last **Publish** | workspace default | `jobs` retention sweep | [0048](./0048-transient-artifacts-by-default.md) |
+| 12 | Auto Deletion default | 30 days since last **Publish** | workspace default | `jobs` auto-deletion sweep | [0048](./0048-transient-artifacts-by-default.md) |
 | 13 | Auto Deletion platform cap | 90 days | platform cap | `api` settings validation | this ADR |
 | 14 | Audit Retention | 180 days | platform-controlled | `jobs` audit sweep | this ADR |
 | 15 | Signing-key rotation cadence | 90 days | platform-controlled | scheduled remote agent | [0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) |

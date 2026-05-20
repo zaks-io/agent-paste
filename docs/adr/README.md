@@ -19,6 +19,7 @@ This directory is the implementation-facing decision log for agent-paste. ADRs a
 - [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) refines [ADR 0040](./0040-platform-lockdown-for-operator-initiated-takedown.md): operator actions use `/admin/...` routes on `api`, production Cloudflare Access, `requireOperator()`, and no API Key path.
 - [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) is the canonical interactive CLI auth model. `agent-paste login` is primary for humans; `AGENT_PASTE_API_KEY` remains for CI/headless use.
 - [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) is the canonical MCP model. MCP is OAuth-only, text-only for publish/update operations, and uses explicit `write`, `read`, and `share` scopes without dashboard implicit grants.
+- [`packages/contracts`](../../packages/contracts) and [`docs/specs/contracts.md`](../specs/contracts.md) are the canonical implementation contract for Zod schemas, ID formats, route registry, MCP tool registry, and public Bundle Availability shape. ADRs provide rationale; contracts provide field-level implementation shape.
 
 ## Best-Practice Baseline
 

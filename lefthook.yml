@@ -1,0 +1,20 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{js,jsx,ts,tsx,json,jsonc,css,md,yml,yaml}"
+      stage_fixed: true
+      run: pnpm exec biome check --write --staged {staged_files}
+    gitleaks:
+      run: gitleaks protect --staged --redact
+    typecheck:
+      run: |
+        BASE="$(git rev-parse --verify origin/main 2>/dev/null || git rev-parse --verify HEAD)"
+        pnpm exec turbo run typecheck --filter="...[$BASE]"
+
+pre-push:
+  commands:
+    test:
+      run: |
+        BASE="$(git rev-parse --verify origin/main 2>/dev/null || git rev-parse --verify HEAD)"
+        pnpm exec turbo run test --filter="...[$BASE]"

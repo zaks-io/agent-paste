@@ -21,6 +21,6 @@ Stored content is treated as transient by default to prevent the platform from d
 - **Pinning** is rejected when the **Workspace** is at its cap; users must unpin to free a slot.
 - **Pinning** and unpinning emit **Audit Events**.
 - The **Artifact Rate Limit** applies per **Artifact** across **Access Link** reads and **Content Origin** requests; **Private Link** and **Agent View** reads are not counted.
-- The default **Artifact Rate Limit** is approximately sixty requests per minute; exceeding it returns HTTP 429 with `Retry-After`.
+- The default **Artifact Rate Limit** is approximately sixty requests per minute; exceeding it returns HTTP 429 with `Retry-After` and error code `rate_limited_artifact`.
 - The **Artifact Rate Limit** is not exposed through **Usage Policy** in the MVP and is not workspace-tunable.
 - A future paid tier can raise the **Auto Deletion** cap, lift the **Artifact Rate Limit**, and adjust the **Pinned Artifact** cap without changing the underlying mechanisms.

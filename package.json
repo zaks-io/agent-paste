@@ -1,0 +1,28 @@
+{
+  "name": "agent-paste-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.19.0",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "format": "biome format --write .",
+    "hooks:install": "lefthook install",
+    "hooks:run:pre-commit": "lefthook run pre-commit",
+    "hooks:run:pre-push": "lefthook run pre-push",
+    "lint": "biome lint .",
+    "prepare": "lefthook install",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "lefthook": "^2.1.8",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -37,7 +37,7 @@ This runbook is the operator checklist for the first deploy of an agent-paste en
 
 ## Secret Bootstrap
 
-Run `scripts/bootstrap-secrets.ts` for the target environment once the script exists in the implementation tree. It generates and writes:
+Run `scripts/bootstrap-secrets.ts` for the target environment. The script contract is tracked in [`scripts/README.md`](../../scripts/README.md). It generates and writes:
 
 - `CONTENT_GATEWAY_SIGNING_KEY_V1`
 - `ACCESS_LINK_SIGNING_KEY_V1`

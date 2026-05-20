@@ -10,7 +10,7 @@ The `jobs` worker separates discovery from execution. Four Cron Triggers scan Po
 
 ## Consequences
 
-- Four Cron Triggers, each with its own cadence, all dispatched by the same `scheduled()` handler keyed on `event.cron`: Auto Deletion discovery, Retention discovery, Upload Cleanup, and `idempotency_records` GC.
+- Four Cron Triggers, each with its own cadence, all dispatched by the same `scheduled()` handler keyed on `event.cron`: Auto Deletion discovery, Retention discovery, Upload Cleanup, and maintenance GC (`idempotency_records` plus Audit Retention).
 - Three queues with one consumer each: `byte-purge` (R2 prefix delete; batch size 50), `safety-scan` (per-revision deep scan; batch size 1), `bundle-generate` (per-revision zip + R2 write; batch size 1). Each has a dedicated DLQ.
 - Deep safety scans and bundle generation are enqueued by `api` at **Publish** time. They are queue-only and never cron-discovered. Cron-discovered work covers Auto Deletion, Retention, Upload Cleanup, and idempotency GC.
 - Each sweep query is `ORDER BY due_at ASC LIMIT N` with per-sweep caps (Auto Deletion 200, Retention 500, Upload Cleanup 200, Idempotency GC 5000). Caps bound the Worker CPU budget per cron invocation; the next tick picks up any remaining backlog.
