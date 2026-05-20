@@ -7,5 +7,5 @@ The repository will use pnpm workspaces with Turborepo for the `apps/*` and `pac
 - The workspace should configure pnpm minimum release age to 3 days.
 - The workspace should keep pnpm's strict dependency isolation and avoid hoisting settings that expose undeclared transitive dependencies.
 - The workspace should disable or require approval for dependency lifecycle scripts, with explicit allowlists for packages that truly need build scripts.
-- Shared packages should start with boundary-enforcing packages such as `db`, `domain`, `contracts`, `auth`, `audit`, `storage`, `config`, `sdk`, `cli`, `tsconfig`, and `eslint-config`.
+- Shared packages should start with boundary-enforcing packages such as `db`, `domain`, `contracts`, `auth`, `audit`, `storage`, `config`, `sdk`, `cli`, and `tsconfig`. (Lint configuration is covered by ADR 0025.)
 - CI should use the lockfile and fail when workspace packages import dependencies they do not declare or when new dependency scripts need approval.
