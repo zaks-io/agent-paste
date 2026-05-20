@@ -1,6 +1,6 @@
 # agent-paste
 
-Command-line interface for publishing shareable **Artifacts** as an agent. The CLI is the agent-facing wrapper around the public REST API; see [ADR 0017](../../docs/adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md) for why there is no separately published SDK.
+Command-line interface for publishing shareable **Artifacts** as an agent. The CLI is the agent-facing wrapper around the public REST API; see [ADR 0017](../../docs/adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md) and [ADR 0037](../../docs/adr/0037-internal-api-client-package-powers-cli.md) for why the API client is workspace-internal rather than a separately published SDK.
 
 ## Install
 
@@ -21,7 +21,7 @@ npm install -g agent-paste
 Set `AGENT_PASTE_API_KEY` in the environment. Create a key with `write`, `read`, and `share` **Scopes** at `https://agent-paste.sh/keys`.
 
 ```sh
-export AGENT_PASTE_API_KEY=ap_...
+export AGENT_PASTE_API_KEY=ap_pk_live_...
 ```
 
 The CLI does not read on-disk config and does not accept the key as a flag. The key encodes its **Workspace**, so nothing else needs to be configured.

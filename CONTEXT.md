@@ -397,7 +397,7 @@ _Avoid_: Upload response, API response
 - An **API Key** requires a read **Scope** to read private **Artifacts**
 - An **API Key** requires a share **Scope** to manage **Access Links**
 - An **API Key** requires read and share **Scopes** to create **Access Links**
-- An **API Key** requires read and share **Scopes** to retrieve existing full **Access Link** URLs
+- An **API Key** requires read and share **Scopes** to mint **Access Link Signed URLs**
 - An **API Key** requires a share **Scope** to change **Access Link Lockdown**
 - A share **Scope** does not imply a read **Scope**
 - A write **Scope** does not imply a share **Scope**
@@ -421,6 +421,7 @@ _Avoid_: Upload response, API response
 - An **Access Link Signed URL** has a per-URL expiration distinct from the **Access Link** row's own expiration; re-minting produces a fresh per-URL expiration
 - An **Access Link Signed URL** is resolved by `api`, not by `content`, so row-level lockdown and scopes are enforced inside the database
 - An **Access Link Signed URL** that fails any of signature, expiration, scope, lockdown, or revocation checks returns the generic `not_found` envelope
+- Resolve request logs, traces, analytics events, and audit summaries must not store the **Access Link Signed URL** fragment payload
 - Re-minting an **Access Link Signed URL** does not change the underlying **Access Link** row, its expiration, or its **Audit Event** history
 - An **Access Link** row holds no bearer secret, no ciphertext, and no wrapping key; the signature is the credential
 - An **Access Link Signed URL** minted in one environment is not valid in another because the signing key is environment-scoped
@@ -535,7 +536,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Can **Access Link Lockdown** expire automatically?"
 > **Domain expert:** "Not in the MVP — it must be lifted explicitly."
 > **Dev:** "Can authorized agents retrieve full **Access Link** URLs during **Access Link Lockdown**?"
-> **Domain expert:** "No — they can see metadata and lockdown state, but not full bearer URLs until lockdown is lifted."
+> **Domain expert:** "No — they can see metadata and lockdown state, but cannot mint fresh **Access Link Signed URLs** until lockdown is lifted."
 > **Dev:** "Can an agent revoke a specific **Access Link** during **Access Link Lockdown**?"
 > **Domain expert:** "Yes — lockdown still allows cleanup of individual **Access Links**."
 > **Dev:** "Can an agent change **Access Link** **Expiration** during **Access Link Lockdown**?"
@@ -647,9 +648,9 @@ _Avoid_: Upload response, API response
 > **Dev:** "Can any write-capable **API Key** manage **Access Links**?"
 > **Domain expert:** "No — managing **Access Links** requires a share **Scope**."
 > **Dev:** "Can a share-only **API Key** create **Access Links**?"
-> **Domain expert:** "No — creating bearer read URLs requires both read and share **Scopes**."
-> **Dev:** "Can a share-only **API Key** retrieve existing full **Access Link** URLs?"
-> **Domain expert:** "No — retrieving bearer URLs requires both read and share **Scopes**."
+> **Domain expert:** "No — minting **Access Link Signed URLs** requires both read and share **Scopes**."
+> **Dev:** "Can a share-only **API Key** mint **Access Link Signed URLs**?"
+> **Domain expert:** "No — minting **Access Link Signed URLs** requires both read and share **Scopes**."
 > **Dev:** "Does share **Scope** include read **Scope**?"
 > **Domain expert:** "No — **Scopes** are independent."
 > **Dev:** "Does write **Scope** include share **Scope**?"
@@ -673,7 +674,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Can an **API Key** update a known **Artifact** without reading it first?"
 > **Domain expert:** "Yes — update authority comes from the write **Scope**, not the read **Scope**."
 > **Dev:** "Can an **API Key** publish without read **Scope**?"
-> **Domain expert:** "No — **Publish** creates a bearer **Revision Link**, so read **Scope** is required."
+> **Domain expert:** "No — **Publish** creates a **Revision Link** as an **Access Link Signed URL**, so read **Scope** is required."
 > **Dev:** "Does updating **Display Metadata** require a read **Scope**?"
 > **Domain expert:** "No — write **Scope** is enough for a known **Artifact**."
 > **Dev:** "Can uploaded JavaScript call arbitrary external APIs?"

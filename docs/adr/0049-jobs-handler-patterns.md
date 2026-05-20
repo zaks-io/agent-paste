@@ -1,6 +1,8 @@
 # Jobs Handler Patterns: `runCommand` Gating, System Actors, and Post-Commit Sequencing
 
-`jobs` handlers follow three intertwined rules: `runCommand` (ADR 0029) is required whenever a handler writes durable business state and skipped when it does not; every system actor is per-kind; Deletion and Retention handlers run a strict `runCommand` → KV denylist write → enqueue `byte-purge` sequence, with a single nullable timestamp column on `artifacts` and `revisions` providing crash recovery. This tightens ADR 0019's "use `runCommand` with an explicit system actor" by saying when not to, and replaces the textbook outbox pattern with token-exp-bounded recovery via ADR 0028.
+Status: Accepted. Renumbered from duplicate ADR 0033.
+
+`jobs` handlers follow three intertwined rules: `runCommand` (ADR 0035) is required whenever a handler writes durable business state and skipped when it does not; every system actor is per-kind; Deletion and Retention handlers run a strict `runCommand` → KV denylist write → enqueue `byte-purge` sequence, with a single nullable timestamp column on `artifacts` and `revisions` providing crash recovery. This tightens ADR 0019's "use `runCommand` with an explicit system actor" by saying when not to, and replaces the textbook outbox pattern with token-exp-bounded recovery via ADR 0028.
 
 ## Considered Options
 

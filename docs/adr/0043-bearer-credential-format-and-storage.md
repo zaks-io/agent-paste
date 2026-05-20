@@ -1,5 +1,7 @@
 # API Key Bearer Format and Storage
 
+Status: Accepted. Superseded in part by [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), which removed Access Links from this bearer-credential family.
+
 **API Key** secrets carry one string shape — `ap_pk_{env}_{publicId}_{secret}` — and one verification path: parse, look up by `publicId`, recompute HMAC, constant-time compare. The secret half of the credential is never persisted in plaintext; the row stores `HMAC_SHA_256(pepper, secret)` with the `pepper` held as a Worker secret. A DB breach without the pepper does not yield offline-testable hashes.
 
 **Access Link** tokens used to share this same bearer-credential shape (`ap_al_{env}_...`) but have been moved to a signed-URL model under ADR 0047 (Access Link Signed URL with Fragment-Encoded Payload). The shared `ap_{type}_...` shape that originally motivated this ADR remains the API Key contract; the `al` family no longer exists.

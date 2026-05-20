@@ -1,5 +1,7 @@
 # Bundle Availability and Asymmetric DLQ Consumption
 
+Status: Accepted. Renumbered from duplicate ADR 0034.
+
 `revisions.bundle_status` is a four-value enum (`pending`, `ready`, `failed`, `disabled`) and the `bundle-generate` DLQ is consumed by `jobs` to flip `failed` when a message dead-letters. The `safety-scan` and `byte-purge` DLQs are intentionally not consumed. The governing principle: a DLQ gets a consumer only when terminal failure must update Postgres for product correctness; otherwise the DLQ is a holding area for operator triage.
 
 ## Consequences
