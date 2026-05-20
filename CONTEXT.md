@@ -101,8 +101,12 @@ The **API Key** or workspace member that first created an **Artifact** managemen
 _Avoid_: Owner, author
 
 **Scope**:
-A named permission that limits what an **API Key** can do within its **Workspace**.
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope**. An **API Key** holds a named subset.
 _Avoid_: Role, capability
+
+**Member-Only Scope**:
+A **Scope** that only a **Workspace Member** can hold; it cannot be granted to an **API Key**. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
+_Avoid_: Admin scope, restricted scope
 
 **Untrusted Content**:
 Any file, markup, script, image, or asset uploaded into an **Artifact**.
@@ -295,6 +299,11 @@ _Avoid_: Upload response, API response
 - A **Workspace** can have zero or more **API Keys**
 - An **API Key** belongs to exactly one **Workspace**
 - An **API Key** has one or more **Scopes**
+- A **Workspace Member** holds every **Scope** implicitly
+- A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold
+- **API Key** lifecycle management requires a **Member-Only Scope**
+- **Audit Event** reads require a **Member-Only Scope**
+- **Workspace** administration requires a **Member-Only Scope**
 - An **API Key** is named by a **Workspace Member**
 - An **API Key** has no **Expiration** unless one is set
 - An **API Key** **Expiration** stops future use of the **API Key**
@@ -524,7 +533,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Does **API Key Revocation** remove what the key created?"
 > **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
 > **Dev:** "Do **Scopes** limit **Workspace Members**?"
-> **Domain expert:** "No — in the MVP, **Scopes** limit **API Keys** and **Workspace Members** have full authority."
+> **Domain expert:** "No — a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold."
 > **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
 > **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
 > **Dev:** "Can a publishing **API Key** read private **Artifacts**?"
@@ -596,7 +605,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Does **Usage Policy** control how long **Audit Events** are kept?"
 > **Domain expert:** "No — **Audit Retention** is platform-controlled separately."
 > **Dev:** "Can an **API Key** with read **Scope** read **Audit Events**?"
-> **Domain expert:** "No — **Audit Events** are visible only to **Workspace Members** in the MVP."
+> **Domain expert:** "No — **Audit Event** reads require a **Member-Only Scope** that an **API Key** cannot hold."
 > **Dev:** "Do **Access Link** changes create **Audit Events**?"
 > **Domain expert:** "Yes — they are unauthenticated access grants, so lifecycle changes are security-relevant."
 > **Dev:** "Do **Audit Events** store raw uploaded content or secrets?"
