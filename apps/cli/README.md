@@ -18,13 +18,21 @@ npm install -g agent-paste
 
 ## Authenticate
 
-Set `AGENT_PASTE_API_KEY` in the environment. Create a key with `write`, `read`, and `share` **Scopes** at `https://agent-paste.sh/keys`.
+For interactive use, sign in with Auth0:
+
+```sh
+npx agent-paste login
+```
+
+`login` opens a browser, completes the loopback OAuth flow, and stores a refreshable local session. CLI session tokens carry explicit `write`, `read`, and `share` **Scopes**; they never carry **Member-Only Scopes**, even though the same **Workspace Member** has those powers in the dashboard.
+
+For CI, headless agents, and server-to-server scripts, set `AGENT_PASTE_API_KEY` in the environment. Create a key with `write`, `read`, and `share` **Scopes** at `https://app.agent-paste.sh/keys`.
 
 ```sh
 export AGENT_PASTE_API_KEY=ap_pk_live_...
 ```
 
-The CLI does not read on-disk config and does not accept the key as a flag. The key encodes its **Workspace**, so nothing else needs to be configured.
+When `AGENT_PASTE_API_KEY` is set, it takes precedence over any stored login session. The CLI does not accept secrets as flags. API Keys encode their **Workspace**; login sessions resolve the **Workspace** from the authenticated Auth0 identity.
 
 ## Publish
 
@@ -51,6 +59,25 @@ A new **Revision** on an existing **Artifact**. The **Private Link** and any exi
 ```sh
 npx agent-paste publish ./report --artifact art_01H...
 ```
+
+## Management
+
+The CLI also exposes the common management verbs needed for agent workflows:
+
+| Command | Purpose |
+|---------|---------|
+| `agent-paste whoami` | Show the resolved **Workspace**, actor, and granted **Scopes**. |
+| `agent-paste list` | List **Artifacts** in the current **Workspace**. |
+| `agent-paste get <artifact-id-or-url>` | Read **Artifact** details or resolve an **Access Link Signed URL**. |
+| `agent-paste delete <artifact-id>` | Trigger **Deletion** for an **Artifact**. |
+| `agent-paste meta set <artifact-id>` | Update **Display Metadata**. |
+| `agent-paste link create <artifact-id>` | Create a **Share Link**. |
+| `agent-paste link revoke <access-link-id>` | Revoke a **Share Link** or **Revision Link**. |
+| `agent-paste link list <artifact-id>` | List **Access Links** for an **Artifact**. |
+| `agent-paste lockdown enter <artifact-id>` | Enter **Access Link Lockdown**. |
+| `agent-paste lockdown lift <artifact-id>` | Lift **Access Link Lockdown**. |
+| `agent-paste lockdown status <artifact-id>` | Show **Access Link Lockdown** state. |
+| `agent-paste download <artifact-id-or-url>` | Download the **Bundle** for a resolved **Revision**. |
 
 ## Flags
 
@@ -123,7 +150,13 @@ Transient failures (network errors, 5xx, 504, 429 with `Retry-After`) are retrie
 Exit `0` for success, `1` for any failure. Plain text on stderr:
 
 ```
-agent-paste: missing AGENT_PASTE_API_KEY. Create a key at https://agent-paste.sh/keys
+agent-paste: not authenticated. Run `agent-paste login` or set AGENT_PASTE_API_KEY
+```
+
+For interactive users, the equivalent fix is:
+
+```sh
+npx agent-paste login
 ```
 
 With `--json`, errors are structured on stderr:
@@ -132,7 +165,7 @@ With `--json`, errors are structured on stderr:
 {
   "error": {
     "code": "insufficient_scope",
-    "message": "Key has scopes [write], needs [write, read, share]",
+    "message": "Actor has scopes [write], needs [write, read, share]",
     "docs": "https://agent-paste.sh/docs/scopes"
   }
 }
@@ -143,3 +176,5 @@ The `code` field is the stable identifier; `message` is human-readable.
 ## When not to use the CLI
 
 The CLI assumes `npx` is available. For non-Node environments (Python or Go agents, server-to-server callers, sandboxes without npm access), use the public REST API directly at `https://api.agent-paste.sh/v1`. Lower-level **Upload Session** endpoints are public and documented in the OpenAPI spec.
+
+Hosted agent products that support MCP can use the OAuth-only MCP server at `https://mcp.agent-paste.sh`. MCP is intentionally text-only for publish/update operations; binary and multi-file **Artifacts** remain CLI/REST territory.

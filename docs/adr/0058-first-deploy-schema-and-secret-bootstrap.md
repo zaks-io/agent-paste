@@ -37,6 +37,6 @@ The first time agent-paste is deployed to an environment, two things have to exi
 
 ### What this ADR is not
 
-- Not a runbook. The exact command sequence lives in `docs/ops/first-deploy.md` next to the script.
+- Not a runbook. The exact command sequence lives in [`docs/ops/first-deploy.md`](../ops/first-deploy.md); the secret generator lives at `scripts/bootstrap-secrets.ts`.
 - Not the rotation path. ADR 0045 owns rotation; the bootstrap script is `kid=V1` only.
 - Not Auth0, Cloudflare account, or domain setup. Those happen before this script runs and are vendor-console work.

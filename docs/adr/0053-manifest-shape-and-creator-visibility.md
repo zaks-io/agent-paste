@@ -11,7 +11,7 @@ A **Manifest** carries `artifact_id`, `revision_id`, `revision_number`, `entrypo
 
 ## Consequences
 
-- Public-facing **Agent View** responses carry the **Manifest** plus five sibling fields: `files`, `content_links`, `display_metadata`, `safety_warnings`, `bundle`. Their shapes are pinned in a follow-up ADR.
+- Public-facing **Agent View** responses carry the **Manifest** plus five sibling fields: `files`, `content_prefix`, `display_metadata`, `safety_warnings`, `bundle`. Their shapes are pinned in [ADR 0054](./0054-agent-view-envelope-shape.md).
 - `creator` is a typed reference `{ type: 'api_key' | 'workspace_member', public_id }`, never a display name or email; downstream surfaces resolve the reference if and when needed.
 - `workspace_id` is never on the **Manifest**. An authenticated caller knows their **Workspace** from session or key context.
 - Adding fields is additive and non-breaking; removing fields is breaking and requires a versioned API change per [ADR 0023](./0023-versioned-public-rest-apis.md).

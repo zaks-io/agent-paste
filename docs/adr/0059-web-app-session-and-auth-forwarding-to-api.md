@@ -24,7 +24,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's session i
 ### Forwarding to `api`
 
 - **Transport:** Cloudflare service binding from `web` to `api`. No public network hop, no TLS handshake on the internal call. The receiving Worker sees a normal `Request` with the headers `web` set.
-- **Auth header:** `Authorization: Bearer <auth0_access_token>`. `api`'s auth middleware accepts this format alongside the `apk_…` bearer format from [ADR 0043](./0043-bearer-credential-format-and-storage.md). The bearer's prefix or its parseability as a JWT discriminates the path.
+- **Auth header:** `Authorization: Bearer <auth0_access_token>`. `api`'s auth middleware accepts this format alongside the `ap_pk_…` bearer format from [ADR 0043](./0043-bearer-credential-format-and-storage.md). The bearer's prefix or its parseability as a JWT discriminates the path.
 - **Audience:** Auth0 access tokens are minted with `audience=https://api.agent-paste.sh/v1`. `api` rejects tokens with any other audience.
 - **JWKS verification:** `api` verifies token signature against Auth0's JWKS, cached in a Worker Cache binding with a short TTL. JWKS fetch failures fall back to in-memory cache; expired JWKS cache plus a fetch failure returns `unauthenticated`, not a verify-bypass.
 
@@ -48,7 +48,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's session i
 
 ### What this ADR does not change
 
-- The `apk_` API Key path through `api`'s auth middleware ([ADR 0043](./0043-bearer-credential-format-and-storage.md)) is untouched.
+- The `ap_pk_` API Key path through `api`'s auth middleware ([ADR 0043](./0043-bearer-credential-format-and-storage.md)) is untouched.
 - The unauthenticated Access Link resolve path from [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) remains POST-with-fragment, no Authorization header, no cookie.
 - The operator surface gating from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) runs *after* this middleware resolves the **Workspace Member**; it checks whether the resolved email is in `OPERATOR_EMAILS`.
 

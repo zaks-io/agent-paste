@@ -29,8 +29,7 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
   - `https://*.claude.ai/api/mcp/auth_callback`
   - `claude-desktop://oauth/callback`
   - `cursor://oauth/callback`
-  - Neuron's production redirect (TBD at deploy time)
-  Updates to this allowlist are an Auth0 config change, not a code deploy.
+  After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in Auth0 configuration. Updates to this allowlist are an Auth0 config change, not a code deploy.
 - **Throttling.** Auth0's built-in DCR rate limit handles abuse; no extra layer in v1.
 
 ### Token shape and authorization
@@ -46,8 +45,8 @@ Twelve tools, named in snake_case to match common MCP convention. File-bearing o
 
 | Tool | Required Scope | Notes |
 |---|---|---|
-| `publish_artifact(title, body, render_mode, share?, idempotency_key?)` | `write read share` (share only when `share=true`) | New **Artifact**, single file |
-| `add_revision(artifact_id, body, render_mode, share?, idempotency_key?)` | `write read share` (share only when `share=true`) | New **Revision** on existing **Artifact** |
+| `publish_artifact(title, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Artifact**, single file. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
+| `add_revision(artifact_id, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Revision** on existing **Artifact**. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
 | `list_artifacts(cursor?)` | `read` | Paginated, cursor in/out per [ADR 0037](./0037-internal-api-client-package-powers-cli.md) |
 | `read_artifact(artifact_id)` | `read` | Returns **Manifest**, file listing, **Display Metadata**, **Safety Warnings**, **Bundle Availability**, and inline text content of text-Render-Mode files. Non-text files appear in the listing with their content URLs; bytes are not returned over MCP. |
 | `list_revisions(artifact_id, cursor?)` | `read` | |
