@@ -61,12 +61,24 @@ The redacted structured description of what changed in an **Audit Event**.
 _Avoid_: Before-and-after payload, raw diff
 
 **Usage Policy**:
-The limits a **Workspace** applies to artifact creation, revision size, retention, access-link creation, and API usage.
+The limits a **Workspace** applies to artifact creation, revision size, retention, auto deletion, access-link creation, and API usage.
 _Avoid_: Quota settings, billing limits
 
 **Retention**:
-The **Usage Policy** rules that determine how long **Artifacts** and **Revisions** are kept.
-_Avoid_: Cleanup, pruning
+The **Usage Policy** rule that determines how long older non-published **Revisions** are kept within an **Artifact**.
+_Avoid_: Cleanup, pruning, auto deletion
+
+**Auto Deletion**:
+The **Usage Policy** rule that triggers **Deletion** on a published **Artifact** after a configured age since its most recent **Publish**.
+_Avoid_: Retention, expiration, TTL
+
+**Pinned Artifact**:
+An **Artifact** marked by a **Workspace Member** to exempt it from **Auto Deletion**.
+_Avoid_: Favorite, starred, archived, locked
+
+**Artifact Rate Limit**:
+The platform-controlled cap on unauthenticated read requests per minute against a single **Artifact** through its **Access Links** and **Content Origin**.
+_Avoid_: Throttle, quota, API rate limit
 
 **Upload Cleanup**:
 The background removal of stale **Unpublished Artifacts** and bytes left by expired, abandoned, or terminally failed **Upload Sessions**.
@@ -243,6 +255,27 @@ _Avoid_: Upload response, API response
 - **Retention** is the only MVP path for removing individual **Revisions**
 - **Retention** cannot remove the **Published Revision**
 - **Retention** makes removed **Revisions** unavailable before their bytes are purged asynchronously
+- A **Usage Policy** controls **Auto Deletion**
+- **Auto Deletion** applies only to published **Artifacts**
+- **Auto Deletion** counts age from the **Artifact**'s most recent **Publish**
+- **Auto Deletion** triggers **Deletion** when an **Artifact** reaches its configured age
+- **Auto Deletion** has a platform cap that **Workspace** settings cannot exceed
+- **Auto Deletion** does not apply to **Unpublished Artifacts**
+- **Upload Cleanup** handles unpublished artifact lifecycle; **Auto Deletion** does not
+- **Auto Deletion** is separate from **Retention**
+- **Deletion** triggered by **Auto Deletion** creates an **Audit Event**
+- A **Workspace Member** can pin an **Artifact** to create a **Pinned Artifact**
+- A **Pinned Artifact** is exempt from **Auto Deletion**
+- **Pinning** and unpinning create **Audit Events**
+- **Pinning** is a dashboard-only action; **API Keys** cannot pin regardless of **Scope**
+- A **Workspace** has a platform-controlled cap on **Pinned Artifacts**
+- **Pinning** is rejected when the **Workspace** is at its **Pinned Artifact** cap
+- **Pinning** does not affect **Retention**
+- **Pinning** does not affect **Access Link Lockdown**
+- An **Artifact Rate Limit** applies per **Artifact**, counted across **Access Link** reads and **Content Origin** requests
+- An **Artifact Rate Limit** does not count **Private Link** or **Agent View** reads
+- An **Artifact Rate Limit** returns HTTP 429 with `Retry-After` when exceeded
+- An **Artifact Rate Limit** is platform-controlled, not exposed through **Usage Policy** in the MVP
 - **Deletion** makes **Private Links** and **Access Links** stop resolving immediately
 - **Deletion** can apply to an **Unpublished Artifact**
 - **Deletion** of an **Unpublished Artifact** can trigger **Upload Cleanup**
@@ -583,3 +616,4 @@ _Avoid_: Upload response, API response
 - "deletion" and reversible access controls were easy to blur — resolved: **Deletion** is not reversible as an access state.
 - "workspace member" may become multi-member later — resolved: a **Workspace** has one **Workspace Member** in the MVP, while the **Workspace** boundary remains future-compatible.
 - "retention" and upload cleanup were easy to conflate — resolved: **Retention** governs published history, while **Upload Cleanup** removes unpublished upload-session bytes.
+- "retention" was further ambiguous between per-**Revision** pruning and whole-**Artifact** lifecycle — resolved: **Retention** governs older non-published **Revisions** within an **Artifact**, while **Auto Deletion** triggers **Deletion** on the whole **Artifact** after a configured age.
