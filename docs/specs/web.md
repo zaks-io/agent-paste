@@ -7,9 +7,9 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 | Route | Auth | Purpose |
 |---|---|---|
 | `/` | optional | Redirect to `/dashboard` when signed in, `/login` when not. |
-| `/login` | none | Start Auth0 login. |
+| `/login` | none | Start Auth0 Authorization Code + PKCE login. |
 | `/logout` | session | Clear sealed cookie and redirect through Auth0 logout. |
-| `/auth/callback` | none | Complete Auth0 flow, create sealed session, surface one-time default API Key when present. |
+| `/auth/callback` | none | Complete Auth0 Authorization Code + PKCE flow, create sealed session, surface one-time default API Key when present. |
 | `/al/{publicId}` | none | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`. |
 | `/dashboard` | dashboard member | Workspace overview. |
 | `/artifacts` | dashboard member | Artifact list. |
@@ -22,6 +22,27 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 `/al/*` must not import Auth0/session modules. A lint rule should enforce this.
 
 ## First-Run Key State
+
+## Auth Callback Flow
+
+The browser-facing login flow follows Auth0 Authorization Code Flow with PKCE.
+
+`/login`:
+
+- Generates `state`, `nonce`, and a high-entropy PKCE `code_verifier`.
+- Stores them in a short-lived encrypted transaction cookie that is host-only, `HttpOnly`, `Secure`, and `SameSite=Lax`.
+- Redirects to Auth0 with `response_type=code`, exact `redirect_uri`, `scope=openid profile email offline_access`, API audience, `state`, `nonce`, and `code_challenge_method=S256`.
+
+`/auth/callback`:
+
+- Rejects OAuth error responses, missing code, missing transaction cookie, and mismatched `state`.
+- Exchanges the code server-side with Auth0 using the stored `code_verifier`.
+- Validates the token set, including issuer, audience, expiration, ID-token nonce, and `email_verified`.
+- Calls `POST /v1/auth/web/callback` on `api` over the `web -> api` Service Binding with the Auth0 access token as `Authorization` and `{ id_token, nonce }` as the body.
+- Clears the transaction cookie after success or failure.
+- Seals `{ access_token, refresh_token, expires_at, sub }` into the `__agp_session` cookie only after `api` confirms or provisions the **Workspace Member**.
+
+No token, authorization code, PKCE verifier, nonce, state, or one-time API Key secret may be logged.
 
 After first sign-in, `/auth/callback` receives the default API Key plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 

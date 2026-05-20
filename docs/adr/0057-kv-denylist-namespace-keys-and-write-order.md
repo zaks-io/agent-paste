@@ -11,7 +11,7 @@ The Workers KV denylist referenced by [ADR 0028](./0028-signed-url-tokens-for-co
 | `rd:` | `rd:{revisionId}` | **Retention** removal of a **Revision** | always |
 | `ald:` | `ald:{accessLinkId}` | **Access Link** revocation | only when the resolved content-gateway token carries `accessLinkId` (Access Link path; never on Private Link) |
 
-IDs use the ULID-prefixed public IDs from the rest of the platform (`ws_…`, `art_…`, `rev_…`, `al_…`). `workspaceId`, `artifactId`, and `revisionId` are derivable from the content-gateway token payload per [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), so `content` performs no Postgres lookup before the denylist check.
+IDs use the public IDs from the rest of the platform: `workspaceId` is the **Workspace** UUID, while `artifactId`, `revisionId`, and `accessLinkId` are the prefixed IDs (`art_...`, `rev_...`, `al_...`). `workspaceId`, `artifactId`, and `revisionId` are derivable from the content-gateway token payload per [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), so `content` performs no Postgres lookup before the denylist check.
 
 ## Value payload
 
@@ -68,6 +68,6 @@ Each environment (`live`, `preview`) has its own KV namespace ID; the binding na
 
 ## Not in this ADR
 
-- KV namespace IDs (live in `wrangler.toml`/`wrangler.jsonc`, not in ADRs).
+- KV namespace IDs (live in `wrangler.jsonc`, not in ADRs).
 - Cron rediscovery handler details (covered by [ADR 0049](./0049-jobs-handler-patterns.md), [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md)).
 - Multi-region replication. Workers KV's global semantics are accepted as-is.

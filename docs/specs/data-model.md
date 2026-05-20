@@ -169,7 +169,7 @@ Primary key `(revision_id, path)`. Unique normalized paths per Revision.
 | `size_bytes` | `BIGINT NOT NULL` | Expected size. |
 | `sha256` | `TEXT NULL` | Optional caller-provided hash. |
 | `r2_key` | `TEXT NOT NULL` | Final revision file key. |
-| `put_url_expires_at` | `TIMESTAMPTZ NOT NULL` | |
+| `put_url_expires_at` | `TIMESTAMPTZ NOT NULL` | Expiration for the signed upload-worker PUT URL. |
 
 Primary key `(upload_session_id, path)`.
 

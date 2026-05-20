@@ -14,7 +14,7 @@ No runtime application code has been implemented yet.
 ## Planned Workspace Shape
 
 - `apps/api`: authenticated control-plane Worker.
-- `apps/upload`: upload-session and signed PUT Worker.
+- `apps/upload`: upload-session and encrypted upload Worker.
 - `apps/content`: isolated untrusted-content Worker.
 - `apps/jobs`: queue and cron Worker.
 - `apps/web`: dashboard, Access Link viewer, and operator UI.

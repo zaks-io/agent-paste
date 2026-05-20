@@ -81,7 +81,7 @@ Source: [ADR 0047](../adr/0047-access-link-signed-url-with-fragment-encoded-payl
 
 Uploaded files are always **Untrusted Content**. They are served only from the isolated **Content Origin**, never through direct R2 URLs. The platform derives served content type from file extension, not from agent-supplied MIME hints.
 
-HTML can run JavaScript inside the MVP **Execution Policy**, but network egress is constrained. Markdown, text, image, audio, video, and directory views are supported by the platform's render modes and renderer pages.
+HTML can run JavaScript inside the MVP **Execution Policy**, but network egress is constrained. Markdown, text, image, audio, and video views are supported by the platform's render modes and renderer pages. Directory Render Mode is reserved, but its listing contract is intentionally deferred until the platform-owned listing source is decided.
 
 Source: [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md), [ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md), [ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0042](../adr/0042-strict-extension-based-served-content-type.md).
 
@@ -127,7 +127,7 @@ The MVP is ready when the product can reliably do these things:
 - A publish returns a **Private Link**, required **Revision Link**, optional **Share Link**, **Agent View** link, **Bundle Availability**, and **Safety Warnings**.
 - A recipient can open an **Access Link Signed URL** and view the artifact without tenant auth.
 - Another agent can resolve that same URL into **Agent View** without dropping the URL fragment.
-- The content origin serves supported render modes with the fixed MVP **Execution Policy** and extension-derived content types.
+- The content origin serves supported file render modes with the fixed MVP **Execution Policy** and extension-derived content types.
 - A user or scoped agent can update metadata, create/revoke links, enter/lift **Access Link Lockdown**, delete artifacts, and download ready bundles.
 - MCP hosts can connect through OAuth and perform text-only publish/read/manage flows.
 - Background jobs handle bundle generation, cleanup, retention, deletion purge, and stub safety scans.

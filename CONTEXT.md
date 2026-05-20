@@ -213,7 +213,7 @@ _Avoid_: Content-Type header, MIME hint
 
 <a id="entrypoint"></a>
 **Entrypoint**:
-The file or directory within a **Revision** that opens first when an **Artifact** is viewed.
+The file within a **Revision** that opens first when an **Artifact** is viewed. Directory Entrypoints are reserved for future **Directory Render Mode** once its listing contract is settled.
 _Avoid_: Homepage, default file, main file
 
 <a id="render-mode"></a>
@@ -287,7 +287,7 @@ _Avoid_: backend, control plane, server worker
 
 <a id="upload"></a>
 **upload**:
-The Worker that owns the R2 write path for **Untrusted Content**. It creates **Upload Sessions**, mints short-lived signed PUT URLs for reserved final keys, runs the streaming application-layer encryption transform, and verifies finalize. The only Worker with R2 PUT capability for **Revision** files.
+The Worker that owns the R2 write path for **Untrusted Content**. It creates **Upload Sessions**, mints short-lived signed upload-worker PUT URLs for reserved final keys, encrypts bytes before writing to R2, and verifies finalize. The only Worker with R2 PUT capability for **Revision** files.
 _Avoid_: ingest worker, writer worker
 
 <a id="content"></a>
@@ -327,7 +327,7 @@ _Avoid_: internal API, worker RPC, internal call
 - A **Revision** has exactly one **Render Mode**
 - **Entrypoint** and **Render Mode** are inferred when obvious and can be overridden during **Publish**
 - **Publish** fails when an **Entrypoint** or **Render Mode** override cannot be applied to the **Revision**
-- MVP **Render Modes** are HTML, Markdown, text, image, audio, video, and directory
+- MVP file **Render Modes** are HTML, Markdown, text, image, audio, and video; directory is reserved pending a listing contract
 - A published **Artifact** has exactly one **Manifest** for each resolved **Revision**
 - An **Unpublished Artifact** has no **Manifest**
 - An **Artifact** can have zero or more **Revisions**
@@ -459,7 +459,7 @@ _Avoid_: internal API, worker RPC, internal call
 - **Actor Rate Limit** and **Workspace Burst Cap** do not apply to `content`
 - A **Usage Policy** controls **File Size Cap**, **File Count Cap**, **Revision Size Cap**, and **Bundle Size Cap**
 - **File Size Cap**, **File Count Cap**, **Revision Size Cap**, and **Bundle Size Cap** are platform-controlled in the MVP; **Workspace** settings cannot exceed them
-- **File Size Cap** is enforced through the signed PUT URL `Content-Length` header at upload time
+- **File Size Cap** is enforced through the signed upload-worker PUT URL `Content-Length` header at upload time
 - **File Count Cap** and **Revision Size Cap** are enforced at **Upload Session** creation as a pre-flight and at finalize as hard enforcement
 - Exceeding **File Count Cap** or **Revision Size Cap** at finalize fails the finalize
 - **Bundle Size Cap** is enforced during **Bundle** generation
@@ -592,7 +592,7 @@ _Avoid_: internal API, worker RPC, internal call
 > **Dev:** "What if the requested **Render Mode** cannot open the **Entrypoint**?"
 > **Domain expert:** "**Publish** fails because the requested view cannot be produced."
 > **Dev:** "For directory **Render Mode**, what is the **Entrypoint**?"
-> **Domain expert:** "The **Entrypoint** is the directory that opens first."
+> **Domain expert:** "Reserved for later — the current first-slice contract requires a file **Entrypoint**."
 > **Dev:** "Can an old **Revision Link** use a newer **Entrypoint**?"
 > **Domain expert:** "No — **Entrypoint** and **Render Mode** belong to the resolved **Revision**."
 > **Dev:** "If a **Share Link** leaks, do we have to move the **Artifact**?"

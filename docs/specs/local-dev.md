@@ -62,10 +62,10 @@ When developing any path involving `jobs` (publish → finalize → bundle gener
 
 ```sh
 wrangler dev \
-  -c apps/api/wrangler.toml \
-  -c apps/upload/wrangler.toml \
-  -c apps/jobs/wrangler.toml \
-  -c apps/content/wrangler.toml \
+  -c apps/api/wrangler.jsonc \
+  -c apps/upload/wrangler.jsonc \
+  -c apps/jobs/wrangler.jsonc \
+  -c apps/content/wrangler.jsonc \
   --persist-to .wrangler/state
 ```
 

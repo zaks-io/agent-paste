@@ -6,7 +6,7 @@ Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits
 
 | # | Setting | Value | Class | Enforcing surface | Source ADR |
 |---|---|---|---|---|---|
-| 1 | File Size Cap | 25 MB | platform cap | `upload` signed PUT `Content-Length` | [0041](./0041-upload-size-caps-under-usage-policy.md) |
+| 1 | File Size Cap | 25 MB | platform cap | signed upload-worker PUT `Content-Length` | [0041](./0041-upload-size-caps-under-usage-policy.md) |
 | 2 | File Count Cap | 500 files / **Revision** | platform cap | **Upload Session** create + finalize | [0041](./0041-upload-size-caps-under-usage-policy.md) |
 | 3 | Revision Size Cap | 100 MB / **Revision** | platform cap | **Upload Session** create + finalize | [0041](./0041-upload-size-caps-under-usage-policy.md) |
 | 4 | Bundle Size Cap | 100 MB / **Bundle** | platform cap | `jobs` bundle generator | [0041](./0041-upload-size-caps-under-usage-policy.md) |

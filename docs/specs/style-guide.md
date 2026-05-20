@@ -628,7 +628,7 @@ The product has four visually distinct surfaces. Each commits to the shared syst
 
 ### 8.4 Renderer pages (in `usercontent.agent-paste.sh`)
 
-These render Markdown, text, and directory listings for **Render Modes** that need it (ADR 0029). They live in the content origin with a strict CSP (ADR 0030), so fonts and styles must self-contain.
+These render Markdown, text, and eventually directory listings for **Render Modes** that need it (ADR 0029). They live in the content origin with a strict CSP (ADR 0030), so fonts and styles must self-contain.
 
 - **Markdown render:** prose at `--container-prose`, applies the full typography scale. Inline and block code per §5.6.
 - **Text render:** mono at `--text-mono`, line numbers in `--subtle` if the file > 50 lines, wrap turned off.

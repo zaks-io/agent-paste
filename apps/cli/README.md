@@ -88,7 +88,7 @@ The CLI also exposes the common management verbs needed for agent workflows:
 | `--no-share` | Suppress Share Link creation. Default behavior; flag exists for clarity in scripts. |
 | `--title <text>` | Set **Display Metadata** title. Default: path basename. |
 | `--entrypoint <path>` | Override the inferred **Entrypoint**. Must be a file inside the upload. |
-| `--render-mode <mode>` | Override the inferred **Render Mode**. One of: `html`, `markdown`, `text`, `image`, `audio`, `video`, `directory`. |
+| `--render-mode <mode>` | Override the inferred **Render Mode**. First-slice modes: `html`, `markdown`, `text`, `image`, `audio`, `video`. `directory` is reserved until its listing contract is settled. |
 | `--json` | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON. |
 | `--quiet` | Suppress stderr progress output. |
 | `--progress` | Force progress output even when stderr is not a TTY. |

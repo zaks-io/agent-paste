@@ -21,8 +21,8 @@ This is the quick-read inventory of MVP features. It names what each feature doe
 | Upload Session | Temporary workflow for collecting files before finalization. CLI hides it; REST exposes it for advanced clients. | CLI, REST integrations | [ADR 0027](../adr/0027-upload-write-path.md), [ADR 0017](../adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md) |
 | Draft Revision | Finalized but unpublished revision state visible only to management actors with write authority. | API Key agent, Workspace Member | [`CONTEXT.md`](../../CONTEXT.md), [ADR 0027](../adr/0027-upload-write-path.md) |
 | Publish | Makes a complete **Revision** visible as the **Published Revision**. Always creates a required **Revision Link**. | API Key agent, CLI user, MCP agent | [`CONTEXT.md`](../../CONTEXT.md), [ADR 0037](../adr/0037-internal-api-client-package-powers-cli.md) |
-| Entrypoint | File or directory that opens first. Inferred when obvious and overridable through CLI/REST. | Publishers | [`CONTEXT.md`](../../CONTEXT.md), [apps/cli README](../../apps/cli/README.md) |
-| Render Mode | MVP modes are `html`, `markdown`, `text`, `image`, `audio`, `video`, and `directory`. | Publishers, viewers | [`CONTEXT.md`](../../CONTEXT.md), [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md) |
+| Entrypoint | File that opens first. Inferred when obvious and overridable through CLI/REST. Directory entrypoints are reserved with directory Render Mode. | Publishers | [`CONTEXT.md`](../../CONTEXT.md), [apps/cli README](../../apps/cli/README.md) |
+| Render Mode | MVP file modes are `html`, `markdown`, `text`, `image`, `audio`, and `video`. `directory` is reserved pending the listing contract. | Publishers, viewers | [`CONTEXT.md`](../../CONTEXT.md), [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md) |
 | Display Metadata | Required title and optional description; plain text; mutable without a new **Revision**. | Publishers, Workspace Member | [`CONTEXT.md`](../../CONTEXT.md), [ADR 0053](../adr/0053-manifest-shape-and-creator-visibility.md) |
 | Idempotent mutations | Agent-facing mutations use idempotency keys so retries do not duplicate work. | CLI, REST, MCP | [ADR 0022](../adr/0022-idempotent-agent-facing-mutations.md), [ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md) |
 
@@ -48,7 +48,7 @@ This is the quick-read inventory of MVP features. It names what each feature doe
 | Content gateway URLs | Short-lived URLs minted after authenticated/private or unauthenticated/access-link resolution. | Viewers, agents | [ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md) |
 | Execution Policy | Fixed MVP browser restrictions for all untrusted content, with SVG tightened further. | Viewers | [ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md) |
 | Served Content Type | Derived from normalized file extension allowlist, not agent MIME hints. | Viewers, agents | [ADR 0042](../adr/0042-strict-extension-based-served-content-type.md) |
-| Renderer pages | In-origin renderer pages for Markdown, text, directory, and other non-HTML modes. | Viewers | [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md) |
+| Renderer pages | In-origin renderer pages for Markdown, text, and future directory mode. | Viewers | [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md) |
 
 ## CLI
 
@@ -118,6 +118,7 @@ This is the quick-read inventory of MVP features. It names what each feature doe
 - Custom **Execution Policy**.
 - Blocking safety scans or real scanner integration.
 - MCP binary, image, audio, video, directory, bundle download, or multi-file publish.
+- Directory listing rendering until its listing-source contract is decided.
 - API Key authentication for MCP.
 - Stateful MCP sessions, sampling, prompts, or subscriptions.
 - Public TypeScript SDK publication.

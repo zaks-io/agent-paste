@@ -2,8 +2,14 @@ import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
-export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
-export type AuthRequirement = "none" | "any_authenticated" | "member_dashboard" | "operator";
+export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
+export type AuthRequirement =
+  | "none"
+  | "any_authenticated"
+  | "member_dashboard"
+  | "operator"
+  | "signed_upload_url"
+  | "web_auth_callback";
 export type IdempotencyRequirement = "none" | "required" | "optional";
 
 export type RouteContract = {
@@ -35,6 +41,18 @@ const commonMutationErrors = [
 ] as const;
 
 export const routeContracts = [
+  {
+    id: "auth.webCallback",
+    app: "api",
+    method: "POST",
+    path: "/v1/auth/web/callback",
+    auth: "web_auth_callback",
+    scopes: [],
+    idempotency: "none",
+    requestSchema: "AuthWebCallbackRequest",
+    responseSchema: "AuthWebCallbackResponse",
+    errors: ["invalid_auth", "not_authenticated", "database_unavailable"],
+  },
   {
     id: "whoami.get",
     app: "api",
@@ -372,6 +390,24 @@ export const routeContracts = [
     ],
   },
   {
+    id: "uploadSessions.putFile",
+    app: "upload",
+    method: "PUT",
+    path: "/v1/upload-sessions/{session_id}/files/{path}",
+    auth: "signed_upload_url",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "EmptyObject",
+    errors: [
+      "not_found",
+      "invalid_content_length",
+      "file_size_cap_exceeded",
+      "upload_session_expired",
+      "upload_session_not_found",
+      "unexpected_upload_object",
+    ],
+  },
+  {
     id: "uploadSessions.refreshFileUrl",
     app: "upload",
     method: "POST",
@@ -425,6 +461,17 @@ export const routeContracts = [
     errors: ["not_found", "rate_limited_artifact"],
   },
   {
+    id: "content.renderer",
+    app: "content",
+    method: "GET",
+    path: "/v/{token}/_render/{mode}",
+    auth: "none",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "R2ObjectBody",
+    errors: ["not_found", "rate_limited_artifact"],
+  },
+  {
     id: "content.bundle",
     app: "content",
     method: "GET",
@@ -436,15 +483,61 @@ export const routeContracts = [
     errors: ["not_found", "rate_limited_artifact"],
   },
   {
-    id: "admin.platformLockdown",
+    id: "admin.lockdowns.create",
     app: "admin",
     method: "POST",
-    path: "/admin/platform-lockdowns",
+    path: "/admin/lockdowns",
     auth: "operator",
     scopes: [],
     idempotency: "required",
     requestSchema: "PlatformLockdownRequest",
     responseSchema: "PlatformLockdownResponse",
     errors: ["not_found", "invalid_idempotency_key", "idempotency_in_flight", "database_unavailable"],
+  },
+  {
+    id: "admin.lockdowns.list",
+    app: "admin",
+    method: "GET",
+    path: "/admin/lockdowns",
+    auth: "operator",
+    scopes: [],
+    idempotency: "none",
+    requestSchema: "PaginationRequest",
+    responseSchema: "PlatformLockdownListResponse",
+    errors: ["not_found", "database_unavailable"],
+  },
+  {
+    id: "admin.lockdowns.lift",
+    app: "admin",
+    method: "DELETE",
+    path: "/admin/lockdowns/{platform_lockdown_id}",
+    auth: "operator",
+    scopes: [],
+    idempotency: "required",
+    responseSchema: "LiftPlatformLockdownResponse",
+    errors: ["not_found", "invalid_idempotency_key", "idempotency_in_flight", "database_unavailable"],
+  },
+  {
+    id: "admin.rotations.create",
+    app: "admin",
+    method: "POST",
+    path: "/admin/rotations/{secret_name}",
+    auth: "operator",
+    scopes: [],
+    idempotency: "required",
+    responseSchema: "SecretRotationResponse",
+    errors: ["not_found", "invalid_idempotency_key", "idempotency_in_flight", "database_unavailable"],
+  },
+  {
+    id: "admin.audit.recent",
+    app: "admin",
+    method: "GET",
+    path: "/admin/audit/recent",
+    auth: "operator",
+    scopes: [],
+    idempotency: "none",
+    requestSchema: "PaginationRequest",
+    responseSchema: "AdminRecentAuditResponse",
+    errors: ["not_found", "database_unavailable"],
   },
 ] as const satisfies readonly RouteContract[];

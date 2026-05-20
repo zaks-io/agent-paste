@@ -5,8 +5,9 @@ Planned upload-session Cloudflare Worker.
 Responsibilities:
 
 - Create Upload Sessions.
-- Issue signed PUT URLs.
-- Refresh signed PUT URLs.
+- Issue signed upload-worker PUT URLs.
+- Refresh signed upload-worker PUT URLs.
+- Encrypt uploaded bytes before writing to R2.
 - Finalize sessions by verifying R2 objects.
 - Create Draft Revisions through `runCommand`.
 

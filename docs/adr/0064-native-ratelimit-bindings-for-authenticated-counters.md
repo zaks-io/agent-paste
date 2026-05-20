@@ -1,6 +1,6 @@
 # Native Cloudflare Rate-Limit Bindings for Authenticated Counters
 
-Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both the **Actor Rate Limit** and the **Workspace Burst Cap** are implemented as Cloudflare native rate-limit bindings (`[[ratelimits]]` in `wrangler.toml`), not Durable Object counters. The bindings live on `api` and `upload` only; `content` continues to enforce the unauthenticated **Artifact Rate Limit** per ADR 0039. ADR 0039 fixed the *model* (two-layer cap, post-auth, with idempotency replays free); this ADR fixes the *storage*.
+Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both the **Actor Rate Limit** and the **Workspace Burst Cap** are implemented as Cloudflare native rate-limit bindings (`ratelimits` entries in `wrangler.jsonc`), not Durable Object counters. The bindings live on `api` and `upload` only; `content` continues to enforce the unauthenticated **Artifact Rate Limit** per ADR 0039. ADR 0039 fixed the *model* (two-layer cap, post-auth, with idempotency replays free); this ADR fixes the *storage*.
 
 ## Considered Options
 
@@ -13,18 +13,23 @@ Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both
 
 ### Binding shape
 
-`api/wrangler.toml` and `upload/wrangler.toml` each declare two bindings:
+`apps/api/wrangler.jsonc` and `apps/upload/wrangler.jsonc` each declare two bindings:
 
-```toml
-[[ratelimits]]
-name = "ACTOR_RATE_LIMIT"
-namespace_id = "<env-scoped>"
-simple = { limit = <per ADR 0039 default>, period = 60 }
-
-[[ratelimits]]
-name = "WORKSPACE_BURST_CAP"
-namespace_id = "<env-scoped>"
-simple = { limit = <per ADR 0039 default>, period = 10 }
+```jsonc
+{
+  "ratelimits": [
+    {
+      "name": "ACTOR_RATE_LIMIT",
+      "namespace_id": "<env-scoped>",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "WORKSPACE_BURST_CAP",
+      "namespace_id": "<env-scoped>",
+      "simple": { "limit": 300, "period": 10 }
+    }
+  ]
+}
 ```
 
 - `period` is restricted to `10` or `60` seconds by the platform. The 10-second window is appropriate for the **Workspace Burst Cap** (short spike protection); the 60-second window is appropriate for the **Actor Rate Limit** (sustained-rate enforcement).

@@ -48,7 +48,7 @@ Twelve tools, named in snake_case to match common MCP convention. File-bearing o
 | `publish_artifact(title, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Artifact**, single file. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
 | `add_revision(artifact_id, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Revision** on existing **Artifact**. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
 | `list_artifacts(cursor?)` | `read` | Paginated, cursor in/out per [ADR 0037](./0037-internal-api-client-package-powers-cli.md) |
-| `read_artifact(artifact_id)` | `read` | Returns **Manifest**, file listing, **Display Metadata**, **Safety Warnings**, **Bundle Availability**, and inline text content of text-Render-Mode files. Non-text files appear in the listing with their content URLs; bytes are not returned over MCP. |
+| `read_artifact(artifact_id)` | `read` | Returns **Agent View**: **Manifest**, file listing, `content_prefix`, **Display Metadata**, **Safety Warnings**, and **Bundle Availability**. It does not inline file bytes or text content; agents fetch needed files from the content URLs. |
 | `list_revisions(artifact_id, cursor?)` | `read` | |
 | `delete_artifact(artifact_id)` | `write` | |
 | `update_display_metadata(artifact_id, title?, description?)` | `write` | |
@@ -61,7 +61,7 @@ Twelve tools, named in snake_case to match common MCP convention. File-bearing o
 - **Render Modes accepted by `publish_artifact` and `add_revision`:** `text`, `markdown`, `html`. Code, JSON, YAML, CSV, and other text formats are `text` Render Mode.
 - **Entrypoint synthesis.** The MCP picks `index.html` / `index.md` / `content.txt` based on Render Mode; agents do not name the file.
 - **No multi-file, no images, no audio/video.** Those Render Modes are reachable only through the CLI or REST API.
-- **No `download` / bundle retrieval.** Binary out is not in the MCP surface; agents follow content URLs from `read_artifact` if they need bytes.
+- **No `download` / bundle retrieval.** Binary out is not in the MCP surface; agents follow content URLs from `read_artifact` if they need bytes or text content.
 - **No `lockdown` controls.** **Access Link Lockdown** is operational; reaching for it from an agent is almost always wrong. Stays CLI/dashboard.
 
 ### Idempotency

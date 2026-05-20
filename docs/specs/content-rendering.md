@@ -7,7 +7,7 @@ The `content` Worker serves **Untrusted Content** and renderer pages from `userc
 | Shape | Meaning |
 |---|---|
 | `/v/{token}/{path}` | File bytes for one resolved Revision. |
-| `/v/{token}/_render/{mode}?path={path}` | Platform renderer page for a non-HTML mode. |
+| `/v/{token}/_render/{mode}?path={path}` | Platform renderer page for a non-HTML mode. Directory rendering is reserved until the listing contract is settled. |
 | `/b/{token}` | Bundle bytes for one resolved Revision. |
 
 The token is an opaque signed content-gateway token minted by `api`.
@@ -73,12 +73,26 @@ Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 
 | `html` | `/v/{token}/{entrypoint}` | Direct file response. |
 | `markdown` | `/v/{token}/_render/markdown?path={entrypoint}` | Renderer fetches Markdown from same origin and renders client-side. |
 | `text` | `/v/{token}/_render/text?path={entrypoint}` | Renderer fetches text and preserves whitespace. |
-| `directory` | `/v/{token}/_render/directory?path={entrypoint}` | Renderer uses Agent View file listing embedded in the token response cache or a generated listing object. |
+| `directory` | reserved | Directory listing is not part of the first implementation slice. Until the listing contract below is decided, publishers should provide an explicit file Entrypoint. |
 | `image` | `/v/{token}/{entrypoint}` | Direct file response. |
 | `audio` | `/v/{token}/{entrypoint}` | Direct file response. |
 | `video` | `/v/{token}/{entrypoint}` | Direct file response. |
 
 Renderer pages never call `api` or `web`. They only fetch from `content` with the same signed prefix.
+
+## Directory Listing Open Questions
+
+`content` intentionally has no Hyperdrive binding and renderer pages must not call `api`, so directory rendering needs a file-list source that is available on the content origin after token verification.
+
+Recommended shape: generate a small platform-owned directory listing object during finalize or publish, store it beside the **Revision** bytes in R2, and let the directory renderer fetch that listing through the same content-gateway token. The listing object would contain normalized paths, sizes, served content types, and directory grouping only; it would not become an agent-uploaded file and would not appear in the **Bundle**.
+
+Questions to settle before implementing directory Render Mode:
+
+1. Should `directory` be inferred only when a folder has no obvious file Entrypoint, or should publishers be able to choose it even when `index.html` exists?
+2. Should the first directory view show only one directory level with drill-down, or a recursive tree for the whole **Revision**?
+3. Should platform-generated listing objects appear in **Agent View**, or stay an internal renderer input?
+4. Should listing entries include uploaded timestamps and hashes, or only path, size, and served content type?
+5. Should the **Bundle** include the generated listing object, or only files supplied by the publisher?
 
 ## Caching
 

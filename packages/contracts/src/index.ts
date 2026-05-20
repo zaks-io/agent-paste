@@ -4,6 +4,7 @@ export * from "./agentView.js";
 export * from "./apiKeys.js";
 export * from "./artifacts.js";
 export * from "./audit.js";
+export * from "./auth.js";
 export * from "./common.js";
 export * from "./content.js";
 export * from "./enums.js";

@@ -45,7 +45,7 @@ The MVP is implementation-ready when these scenarios can be automated locally an
 | Expired content token | Generic `not_found`. |
 | Denylisted artifact token | Generic `not_found`. |
 | Markdown Render Mode | Renderer page fetches and renders Markdown from content origin only. |
-| Directory Render Mode | Renderer shows file listing with signed-prefix-relative links. |
+| Directory Render Mode | Pending listing-source decision; not a first-slice acceptance gate. |
 
 ## Management
 
@@ -78,7 +78,7 @@ The MVP is implementation-ready when these scenarios can be automated locally an
 | MCP publish text | Creates single-file text Artifact with required Revision Link. |
 | MCP publish binary attempt | Rejected by tool schema. |
 | MCP insufficient scope | JSON-RPC error uses `insufficient_scope` and re-consent challenge. |
-| MCP read Artifact | Returns Agent View and inline text content for text Render Modes. |
+| MCP read Artifact | Returns Agent View with `content_prefix`; file bytes and text content are fetched separately from content URLs. |
 
 ## Security Boundaries
 
