@@ -1,0 +1,20 @@
+# Internal `api-client` Package Powers the CLI
+
+The CLI's HTTP layer lives at `packages/api-client/` as a workspace-only package consumed by `apps/cli` via `workspace:*`. It exposes a single `ApiClient` class with Stripe-style resource sub-clients (`keys`, `artifacts`, `revisions`, `uploadSessions`, `accessLinks`, `lockdown`) and two composer methods (`publish`, `download`). The package is not published to npm in the MVP. This supersedes the "internal HTTP-client code is not exported as a library" and "CLI surface stays minimal in v1: `publish` only" lines in ADR 0017, while preserving ADR 0017's stance that the public REST API is the canonical integration surface for non-Node consumers.
+
+## Consequences
+
+- `packages/api-client/` is consumed by `apps/cli` via `workspace:*`. It is not published to npm; the future-published-SDK door stays open per ADR 0017 but is not walked through.
+- Constructor: `new ApiClient({ apiKey?, apiBaseUrl?, uploadBaseUrl?, contentBaseUrl?, apiVersion?, uploadConcurrency? })`. `apiKey` falls back to `AGENT_PASTE_API_KEY`. Base URLs default to the production hosts established by ADR 0014. `apiVersion` defaults to `v1` and is configurable for forward-compat probing per ADR 0023. `uploadConcurrency` defaults to 4.
+- The same **API Key** authenticates to `api`, `upload`, and `content`; the SDK does not maintain separate credentials per host.
+- Resource sub-clients map 1:1 to the public REST endpoints under their owning backend. Sub-client method names use camelCase; HTTP bodies on the wire stay snake_case per ADR 0036.
+- `client.publish()` generates one publish-level **idempotency key** and reuses it across `upload.session.create`, `upload.session.finalize`, and `api.publish` per ADR 0035. Three idempotency records are written; one user-visible publish operation.
+- `client.download()` polls `revisions.getBundle()` until status is `ready` and fetches bytes from the returned access-link bundle URL on `usercontent.agent-paste.sh/b/{token}`.
+- Retry policy: full-jitter exponential backoff with `sleep = random(0, 1s * 2^attempt)`, max three attempts. The RNG is injectable so tests can pin it. Retries on network errors, 5xx, 429 (honoring `Retry-After` when present, otherwise jittered backoff), and 409 `idempotency_in_flight`. Other 4xx responses fail immediately. No wall-clock cap on a single SDK call; the retry math already bounds total wait to ~7s and long downloads/uploads legitimately take minutes.
+- File uploads inside `publish()` run at bounded parallelism (four concurrent PUTs to signed URLs by default, configurable via the `uploadConcurrency` constructor option). Four is the sweet spot for typical agent artifacts (a handful of files, mixed sizes); workloads with many small files can tune up, and bandwidth-bound large-file workloads see no benefit past one.
+- Signed PUT uploads to R2 follow the same retry policy as API calls, applied per-file. If a PUT fails with a signature-expiry error (URL `exp` from ADR 0031 elapsed mid-transfer on a slow large-file PUT), the SDK requests a fresh signed URL from `upload` for that file once before counting the attempt as a failure. Other R2 4xx responses fail immediately.
+- Pagination is cursor-based across all list endpoints. Sub-clients expose `.iter()` for transparent auto-paging.
+- Errors are thrown as typed exceptions wrapping the ADR 0036 envelope: `{ code, message, docs?, requestId, status }`. Callers branch on `code`, not on `message` or HTTP status.
+- Branded ID types (`ArtifactId`, `RevisionId`, `AccessLinkId`, `UploadSessionId`, `WorkspaceId`) come from `packages/contracts` per ADR 0038. Mixing them is a compile-time error.
+- The CLI gains management verbs (`list`, `get`, `delete`, `meta set`, `link create|revoke|list`, `lockdown enter|lift|status`, `download`, `whoami`) so a single agent can manage its **Artifacts** end-to-end without leaving the terminal. `publish` remains the primary verb.
+- Each CLI command is a thin shell around one `ApiClient` call plus argument parsing, output formatting, and exit-code handling. Composition logic lives in `api-client`, not in `apps/cli`.

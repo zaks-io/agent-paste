@@ -656,7 +656,7 @@ Test paths: VoiceOver (macOS), NVDA (Windows), axe DevTools. Critical paths (pub
 
 ## 10. Tailwind Integration
 
-The dashboard uses Tailwind via the shadcn/ui convention (ADR 0025 leaves this open). Tokens are wired into Tailwind's `@theme` so utilities resolve to our values, not Tailwind's defaults.
+The dashboard uses Tailwind via the shadcn/ui convention (ADR 0033 leaves this open). Tokens are wired into Tailwind's `@theme` so utilities resolve to our values, not Tailwind's defaults.
 
 ```css
 @import "tailwindcss";
