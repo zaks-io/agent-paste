@@ -4,7 +4,7 @@ This spec defines how the implementation should make the repo runnable. It is in
 
 ## Prerequisites
 
-- Node.js 22 or newer.
+- Node.js 24 LTS. Use a Node version manager that reads the repo-level `.nvmrc`; CI resolves that major line with `check-latest` so it runs on the latest 24.x LTS patch.
 - `pnpm`.
 - Docker for local Postgres.
 - `wrangler` authenticated for remote preview/deploy work.
@@ -18,6 +18,18 @@ pnpm check
 ```
 
 Dependency installation uses the root `pnpm-workspace.yaml` catalog. The catalog is intentionally conservative and should be refreshed deliberately during implementation.
+
+## Turborepo Cache
+
+Turbo task caching is enabled locally and in CI. The root `turbo.json` uses strict environment mode, signed remote cache artifacts, a minimum 32-byte signing key, and global dependency inputs for Node, pnpm, TypeScript, and environment-file changes.
+
+CI requires:
+
+- `TURBO_TOKEN` as a GitHub secret.
+- `TURBO_TEAM` as a GitHub repository or environment variable.
+- `TURBO_REMOTE_CACHE_SIGNATURE_KEY` as a GitHub secret shared with local development.
+
+GitHub Actions also restores `.turbo/cache` through `actions/cache`; on Blacksmith runners, that cache is served by Blacksmith's colocated cache backend.
 
 ## Planned Commands
 

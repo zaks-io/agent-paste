@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  TURBO_TELEMETRY_DISABLED: "1"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Restore Turbo local cache
+        uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
+
+      - name: Verify dependency guardrails
+        run: |
+          test "$(pnpm config get minimumReleaseAge)" = "4320"
+          test "$(pnpm config get nodeLinker)" = "isolated"
+
+      - name: Verify Turbo cache guardrails
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const config = JSON.parse(fs.readFileSync("turbo.json", "utf8"));
+            if (config.envMode !== "strict") throw new Error("turbo.json must use envMode=strict");
+            if (config.remoteCache?.signature !== true) throw new Error("turbo.json must enable signed remote cache");
+            if (config.futureFlags?.longerSignatureKey !== true) throw new Error("turbo.json must enforce longer remote cache signature keys");
+          '
+
+      - name: Verify Turbo remote cache credentials
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          missing=0
+          for name in TURBO_TOKEN TURBO_TEAM TURBO_REMOTE_CACHE_SIGNATURE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is required for signed Turborepo remote caching"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test

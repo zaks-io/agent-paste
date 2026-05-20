@@ -2,6 +2,9 @@ packages:
   - apps/*
   - packages/*
 
+nodeLinker: isolated
+minimumReleaseAge: 4320
+
 catalog:
   '@biomejs/biome': ^2.4.15
   turbo: ^2.9.14
