@@ -137,11 +137,11 @@ The **API Key** or workspace member that first created an **Artifact** managemen
 _Avoid_: Owner, author
 
 **Scope**:
-A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope**. An **API Key** holds a named subset.
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** when authenticated for direct workspace control (the dashboard); when authenticated through a delegated agent surface such as the CLI or MCP, the access token carries an explicit **Scope** subset and the implicit grant does not apply. An **API Key** holds a named subset.
 _Avoid_: Role, capability
 
 **Member-Only Scope**:
-A **Scope** that only a **Workspace Member** can hold; it cannot be granted to an **API Key**. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
+A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **API Key** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
 _Avoid_: Admin scope, restricted scope
 
 **Operator**:
@@ -384,8 +384,9 @@ _Avoid_: Upload response, API response
 - A **Workspace** can have zero or more **API Keys**
 - An **API Key** belongs to exactly one **Workspace**
 - An **API Key** has one or more **Scopes**
-- A **Workspace Member** holds every **Scope** implicitly
-- A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold
+- A **Workspace Member** holds every **Scope** implicitly when authenticated for direct workspace control (the dashboard)
+- A **Workspace Member** authenticated through a delegated agent surface (CLI, MCP) carries an explicit **Scope** subset and does not receive the implicit grant
+- A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold and that no delegated agent surface can carry
 - **API Key** lifecycle management requires a **Member-Only Scope**
 - **Audit Event** reads require a **Member-Only Scope**
 - **Workspace** administration requires a **Member-Only Scope**
@@ -644,7 +645,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Does **API Key Revocation** remove what the key created?"
 > **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
 > **Dev:** "Do **Scopes** limit **Workspace Members**?"
-> **Domain expert:** "No — a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold."
+> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through delegated agent surfaces like the CLI or MCP, the same person carries an explicit **Scope** subset that never includes **Member-Only Scopes**."
 > **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
 > **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
 > **Dev:** "Can a publishing **API Key** read private **Artifacts**?"
@@ -716,7 +717,7 @@ _Avoid_: Upload response, API response
 > **Dev:** "Does **Usage Policy** control how long **Audit Events** are kept?"
 > **Domain expert:** "No — **Audit Retention** is platform-controlled separately."
 > **Dev:** "Can an **API Key** with read **Scope** read **Audit Events**?"
-> **Domain expert:** "No — **Audit Event** reads require a **Member-Only Scope** that an **API Key** cannot hold."
+> **Domain expert:** "No — **Audit Event** reads require a **Member-Only Scope**, which only a dashboard-authenticated **Workspace Member** carries. An **API Key** cannot hold it; CLI and MCP tokens cannot carry it."
 > **Dev:** "Do **Access Link** changes create **Audit Events**?"
 > **Domain expert:** "Yes — they are unauthenticated access grants, so lifecycle changes are security-relevant."
 > **Dev:** "Do **Audit Events** store raw uploaded content or secrets?"
