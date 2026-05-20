@@ -4,7 +4,7 @@ pre-commit:
     biome:
       glob: "*.{js,jsx,ts,tsx,json,jsonc,css,md,yml,yaml}"
       stage_fixed: true
-      run: pnpm exec biome check --write --staged {staged_files}
+      run: pnpm exec biome check --write --staged --no-errors-on-unmatched {staged_files}
     gitleaks:
       run: gitleaks protect --staged --redact
     typecheck:

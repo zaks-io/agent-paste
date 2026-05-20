@@ -4,221 +4,321 @@ A platform for agents to publish shareable work products that can be viewed onli
 
 ## Language
 
+Each glossary entry carries an HTML anchor. ADRs and specs deep-link with `[Term](./CONTEXT.md#term-slug)` where the slug is kebab-case of the term name. Anchor convention applies to entries in the `## Language` and `## Apps and Workers` sections.
+
+<a id="artifact"></a>
 **Artifact**:
 A durable, addressable folder-like package containing one or more uploaded files or rendered assets.
 _Avoid_: Paste, single blob, post
 
+<a id="unpublished-artifact"></a>
 **Unpublished Artifact**:
 An **Artifact** that has management state but no **Published Revision**.
 _Avoid_: Empty artifact, draft artifact
 
+<a id="revision"></a>
 **Revision**:
 A saved state of an **Artifact** after creation or update.
 _Avoid_: Version, snapshot
 
+<a id="draft-revision"></a>
 **Draft Revision**:
 A **Revision** that has been uploaded but is not yet visible through stable **Artifact** links.
 _Avoid_: Partial update, pending files
 
+<a id="published-revision"></a>
 **Published Revision**:
 The **Revision** currently visible through stable **Artifact** links.
 _Avoid_: Live version, current snapshot
 
+<a id="upload-session"></a>
 **Upload Session**:
 A temporary workflow for collecting files that will become a complete **Revision** when finalized.
 _Avoid_: Upload batch, direct upload, pending upload
 
+<a id="revision-link"></a>
 **Revision Link**:
 An **Access Link** that resolves to one specific **Revision** of an **Artifact**.
 _Avoid_: Historical share link, frozen artifact link
 
+<a id="bundle"></a>
 **Bundle**:
 A downloadable archive generated from a complete **Revision** file tree.
 _Avoid_: Export, zip
 
+<a id="bundle-availability"></a>
 **Bundle Availability**:
 The state of a **Bundle** for a **Revision**: pending while being generated, ready when retrievable, failed when generation reached a permanent error, or disabled when **Usage Policy** does not permit a **Bundle**.
 _Avoid_: Bundle status, bundle state
 
+<a id="workspace"></a>
 **Workspace**:
 The tenant that owns **Artifacts**, members, and agent credentials.
 _Avoid_: Account, organization, project
 
+<a id="personal-workspace"></a>
 **Personal Workspace**:
 The default **Workspace** created for an individual human user.
 _Avoid_: Personal account, user workspace
 
+<a id="workspace-member"></a>
 **Workspace Member**:
 A human user with authenticated access to a **Workspace**.
 _Avoid_: Teammate, collaborator
 
+<a id="audit-event"></a>
 **Audit Event**:
 A platform-controlled record of a security-relevant or lifecycle change within a **Workspace**.
 _Avoid_: Log line, activity item
 
+<a id="audit-retention"></a>
 **Audit Retention**:
 The platform-controlled rules that determine how long **Audit Events** are kept.
 _Avoid_: Usage policy retention, log cleanup
 
+<a id="change-summary"></a>
 **Change Summary**:
 The redacted structured description of what changed in an **Audit Event**.
 _Avoid_: Before-and-after payload, raw diff
 
+<a id="usage-policy"></a>
 **Usage Policy**:
 The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
 _Avoid_: Quota settings, billing limits
 
+<a id="file-size-cap"></a>
 **File Size Cap**:
 The cap on bytes per single file uploaded into a **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
 _Avoid_: Max file size, upload limit
 
+<a id="file-count-cap"></a>
 **File Count Cap**:
 The cap on the number of files in a single **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
 _Avoid_: Max files, file quota
 
+<a id="revision-size-cap"></a>
 **Revision Size Cap**:
 The cap on the sum of file bytes in a single **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
 _Avoid_: Revision quota, artifact size
 
+<a id="bundle-size-cap"></a>
 **Bundle Size Cap**:
 The cap on the bytes of a generated **Bundle**. Platform-controlled in the MVP and surfaced through **Usage Policy**. Exceeding the cap transitions **Bundle Availability** to failed without affecting the **Revision** or the **Publish**.
 _Avoid_: Bundle quota, zip size
 
+<a id="retention"></a>
 **Retention**:
 The **Usage Policy** rule that determines how long older non-published **Revisions** are kept within an **Artifact**.
 _Avoid_: Cleanup, pruning, auto deletion
 
+<a id="auto-deletion"></a>
 **Auto Deletion**:
 The **Usage Policy** rule that triggers **Deletion** on a published **Artifact** after a configured age since its most recent **Publish**.
 _Avoid_: Retention, expiration, TTL
 
+<a id="pinned-artifact"></a>
 **Pinned Artifact**:
 An **Artifact** marked by a **Workspace Member** to exempt it from **Auto Deletion**.
 _Avoid_: Favorite, starred, archived, locked
 
+<a id="artifact-rate-limit"></a>
 **Artifact Rate Limit**:
 The platform-controlled cap on unauthenticated read requests per minute against a single **Artifact** through its **Access Links** and **Content Origin**.
 _Avoid_: Throttle, quota, API rate limit
 
+<a id="actor-rate-limit"></a>
 **Actor Rate Limit**:
 The cap on authenticated request rate per individual actor — one **API Key** or one **Workspace Member** — against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
 _Avoid_: API rate limit, key throttle
 
+<a id="workspace-burst-cap"></a>
 **Workspace Burst Cap**:
 The cap on aggregate authenticated request rate across all actors in a single **Workspace** against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
 _Avoid_: Tenant rate limit, account throttle
 
+<a id="upload-cleanup"></a>
 **Upload Cleanup**:
 The background removal of stale **Unpublished Artifacts** and bytes left by expired, abandoned, or terminally failed **Upload Sessions**.
 _Avoid_: Retention, revision cleanup
 
+<a id="deletion"></a>
 **Deletion**:
 The action that makes an entire **Artifact** inaccessible before its stored bytes are physically purged.
 _Avoid_: Purge, archive, restore
 
+<a id="api-key"></a>
 **API Key**:
 A credential that lets an agent create and manage **Artifacts** on behalf of a **Workspace**.
 _Avoid_: User token, agent token
 
+<a id="api-key-revocation"></a>
 **API Key Revocation**:
 The action that stops future use of an **API Key** without removing what it already created.
 _Avoid_: Delete key, revoke agent content
 
+<a id="api-key-bearer-format"></a>
 **API Key Bearer Format**:
 The string shape used for **API Key** secrets: `ap_pk_{env}_{publicId}_{secret}`. `pk` is the credential-class marker, `env` matches the deployment environment, `publicId` is the indexed lookup segment stored plaintext, and `secret` is the high-entropy random segment hashed with a Worker-secret pepper for storage. **Access Link** tokens used to share this shape (with `type='al'`) but were moved to the **Access Link Signed URL** model and no longer follow this format.
 _Avoid_: Token format, key shape, API key prefix, bearer credential format
 
+<a id="access-link-signed-url"></a>
 **Access Link Signed URL**:
 The shareable URL form of an **Access Link**, shaped `https://app.agent-paste.sh/al/{publicId}#{blob}` where `blob` is a base64url-encoded binary payload containing the signing-key generation, expiration, allowed scopes, and HMAC signature. The payload is carried in the URL fragment so it never reaches any server-side log, and the signature is the credential — the `access_links` row holds no secret material. An authorized **Workspace Member** or **API Key** with read and share **Scopes** mints a fresh URL on demand; re-minting produces a new URL with a new expiration.
 _Avoid_: Share URL, link token, access link secret
 
+<a id="creator"></a>
 **Creator**:
 The **API Key** or workspace member that first created an **Artifact** management record.
 _Avoid_: Owner, author
 
+<a id="scope"></a>
 **Scope**:
 A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** when authenticated for direct workspace control (the dashboard); when authenticated through a delegated agent surface such as the CLI or MCP, the access token carries an explicit **Scope** subset and the implicit grant does not apply. An **API Key** holds a named subset.
 _Avoid_: Role, capability
 
+<a id="member-only-scope"></a>
 **Member-Only Scope**:
 A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **API Key** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
 _Avoid_: Admin scope, restricted scope
 
+<a id="operator"></a>
 **Operator**:
 A **Workspace Member** session whose authenticated email appears in the platform operator allowlist; the same identity acts with platform-wide authority on operator-only routes and with normal **Workspace Member** authority elsewhere. The **Operator** identity is the only path to **Platform Lockdown** changes and on-demand storage-key rotation.
 _Avoid_: Admin, superuser, root user
 
+<a id="untrusted-content"></a>
 **Untrusted Content**:
 Any file, markup, script, image, or asset uploaded into an **Artifact**.
 _Avoid_: User content, agent output
 
+<a id="safety-warning"></a>
 **Safety Warning**:
 A non-blocking notice attached to an **Artifact** or **Revision** when uploaded content appears risky.
 _Avoid_: Rejection, policy violation
 
+<a id="content-origin"></a>
 **Content Origin**:
 The isolated web origin where **Untrusted Content** is viewed or fetched.
 _Avoid_: App domain, storage URL
 
+<a id="execution-policy"></a>
 **Execution Policy**:
 The platform-controlled browser restrictions applied when viewing **Untrusted Content**.
 _Avoid_: Sandbox settings, CSP config
 
+<a id="served-content-type"></a>
 **Served Content Type**:
 The platform-derived MIME type that `content` returns for a file in a **Revision**, chosen from a fixed allowlist by file extension rather than from agent-claimed values. Unrecognized extensions are served as `application/octet-stream` with `Content-Disposition: attachment` so they download rather than render.
 _Avoid_: Content-Type header, MIME hint
 
+<a id="entrypoint"></a>
 **Entrypoint**:
 The file or directory within a **Revision** that opens first when an **Artifact** is viewed.
 _Avoid_: Homepage, default file, main file
 
+<a id="render-mode"></a>
 **Render Mode**:
 The platform-supported way an **Entrypoint** is displayed to viewers.
 _Avoid_: File type, preview type
 
+<a id="manifest"></a>
 **Manifest**:
 The machine-readable description of an **Artifact** and a resolved **Revision**. In the MVP, a **Manifest** carries artifact id, revision id, revision number, **Entrypoint**, **Render Mode**, created-at, and **Creator** reference; the file listing, content links, **Display Metadata**, **Safety Warnings**, and **Bundle Availability** are exposed beside the **Manifest** in **Agent View**.
 _Avoid_: Metadata blob, config file
 
+<a id="display-metadata"></a>
 **Display Metadata**:
 Mutable human-facing labels that describe an **Artifact** without changing any **Revision**. In the MVP, **Display Metadata** is a required title and an optional description, both plain text.
 _Avoid_: Manifest metadata, title fields, revision metadata, markdown metadata
 
+<a id="private-link"></a>
 **Private Link**:
 The authenticated URL for reading an **Artifact** within its owning tenant.
 _Avoid_: Admin link, dashboard link
 
+<a id="access-link"></a>
 **Access Link**:
 A revocable, unlisted, high-entropy URL for reading an **Artifact** without tenant authentication.
 _Avoid_: Public link, capability URL
 
+<a id="access-link-lockdown"></a>
 **Access Link Lockdown**:
 A state that makes all **Access Links** for an **Artifact** stop granting access without affecting its **Private Link**.
 _Avoid_: Disable sharing, private mode, emergency revoke
 
+<a id="platform-lockdown"></a>
 **Platform Lockdown**:
 A platform-initiated state that blocks all link resolution for either a single **Artifact** or an entire **Workspace**, applied by the operator to respond to abuse reports, takedown requests, or external safety flags. A **Workspace**-scoped **Platform Lockdown** also suspends every **API Key** in the **Workspace**.
 _Avoid_: Suspension, ban, freeze, admin lock
 
+<a id="share-link"></a>
 **Share Link**:
 An **Access Link** that resolves to the latest **Published Revision** of an **Artifact**.
 _Avoid_: Public link, permalink, latest link
 
+<a id="expiration"></a>
 **Expiration**:
 The optional time after which a time-limited credential, link, or workflow stops being usable.
 _Avoid_: TTL, timeout
 
+<a id="agent-view"></a>
 **Agent View**:
 The machine-readable read surface that exposes an **Artifact**'s **Manifest**, file listing, content links, **Display Metadata**, and **Safety Warnings**.
 _Avoid_: API preview, metadata endpoint
 
+<a id="publish"></a>
 **Publish**:
 The agent-facing action that creates or updates an **Artifact** and makes a complete **Revision** visible.
 _Avoid_: Upload, deploy
 
+<a id="publish-result"></a>
 **Publish Result**:
 The response returned after **Publish**, containing identifiers, human-view links, agent-view links, and warnings.
 _Avoid_: Upload response, API response
+
+## Apps and Workers
+
+The platform is a small set of deployable units. ADRs reference these by name; this section is the glossary anchor so future docs and conversations share one vocabulary for which surface owns what.
+
+<a id="api"></a>
+**api**:
+The Worker that owns authenticated mutations, **Workspace** state changes, **Publish** coordination, **Access Link** minting, **Display Metadata** updates, denylist writes, and operator routes. Holds the Hyperdrive binding to Postgres, a queue-producer binding, KV write on the denylist, and R2 read for verification only. The only path to durable business writes.
+_Avoid_: backend, control plane, server worker
+
+<a id="upload"></a>
+**upload**:
+The Worker that owns the R2 write path for **Untrusted Content**. It creates **Upload Sessions**, mints short-lived signed PUT URLs for reserved final keys, runs the streaming application-layer encryption transform, and verifies finalize. The only Worker with R2 PUT capability for **Revision** files.
+_Avoid_: ingest worker, writer worker
+
+<a id="content"></a>
+**content**:
+The Worker on the isolated **Content Origin** that verifies short-lived content-gateway tokens, checks the KV denylist, decrypts bytes, and streams **Revision** files and **Bundles** to viewers. Holds R2 read and KV read bindings only; no Hyperdrive, no mutation authority.
+_Avoid_: content gateway, asset worker, viewer worker
+
+<a id="jobs"></a>
+**jobs**:
+The Worker that consumes Cloudflare Queues and runs **Bundle** generation, **Safety Warning** scanning, **Retention**, **Upload Cleanup**, **Deletion** byte purge, and cron rediscovery. Holds Hyperdrive, R2 read/write, KV write on the denylist, and queue-consumer bindings.
+_Avoid_: workers (plural), background worker, cron worker
+
+<a id="web"></a>
+**web**:
+The Worker that serves the TanStack Start dashboard, terminates **Workspace Member** sessions, and forwards authenticated requests to `api` over a **Service Binding**. Holds no Postgres, no R2, no KV bindings; auth state flows through `api`.
+_Avoid_: frontend worker, dashboard worker, app worker
+
+<a id="cli"></a>
+**cli**:
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with an Auth0 loopback flow for humans or with `AGENT_PASTE_API_KEY` for CI and headless agents.
+_Avoid_: client, sdk, ap tool
+
+<a id="mcp"></a>
+**mcp**:
+The Worker on `mcp.agent-paste.sh` that terminates OAuth-only Model Context Protocol requests and forwards them to `api` over a **Service Binding**. Owns no Postgres, no R2, no business logic; the trust boundary is "verify the bearer, forward to `api`."
+_Avoid_: mcp server, mcp endpoint, agent endpoint
+
+<a id="service-binding"></a>
+**Service Binding**:
+A typed Cloudflare Workers binding that lets one Worker call another inside the Cloudflare network without a public HTTP round-trip. Used for `web → api` and `mcp → api`. The downstream Worker re-verifies the bearer rather than trusting the upstream Worker blindly.
+_Avoid_: internal API, worker RPC, internal call
 
 ## Relationships
 
@@ -467,6 +567,19 @@ _Avoid_: Upload response, API response
 - Renderer pages served by `content` declare their own **Served Content Type** and are not routed through the allowlist
 - A **Served Content Type** is platform-controlled; **Workspace** settings and agent-provided values cannot change it
 - **Publish** returns a **Publish Result**
+- An **Artifact** is created and updated through `api`, never directly through `upload` or `content`
+- `api` is the only Worker authorized to commit durable business writes to Postgres
+- An **Upload Session** is created, finalized, and observed through `upload`
+- A **Revision** file's bytes are written to R2 by `upload` and read from R2 by `content`
+- A **Bundle**'s bytes are written to R2 by `jobs` and read from R2 by `content`
+- `content` holds no Postgres binding; the **Workspace**, **Artifact**, and **Revision** identities it serves are derivable from the verified content-gateway token
+- `content` reads the denylist; `api` and `jobs` write to it
+- A **Workspace Member** controls a **Workspace** directly through `web` (dashboard) and through delegated agent surfaces `cli` and `mcp`
+- An **API Key** authenticates against `api` and `upload`; it is never accepted by `mcp` or by operator-only `/admin/...` routes on `api`
+- `web` reaches `api` over a **Service Binding**; `mcp` reaches `api` over a **Service Binding**
+- A **Service Binding** call still carries the original bearer; the downstream Worker re-verifies it rather than trusting the upstream Worker
+- `jobs` is the only Worker that consumes Cloudflare Queues; `api` and `upload` are queue producers
+- The `cli` is not a Worker; it runs on a developer or agent machine and authenticates against `api` and `upload` over HTTPS
 
 ## Example dialogue
 

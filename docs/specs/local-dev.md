@@ -49,6 +49,29 @@ GitHub Actions also restores `.turbo/cache` through `actions/cache`; on Blacksmi
 | `pnpm --filter @agent-paste/web dev` | Run web Worker through TanStack Start/Wrangler. |
 | `pnpm --filter @agent-paste/mcp dev` | Run MCP Worker through Wrangler. |
 | `pnpm --filter agent-paste dev -- publish ./example` | Exercise CLI against local base URLs. |
+| `pnpm dev:all` | Run `api`, `upload`, `content`, and `jobs` in one Wrangler invocation with a shared `--persist-to` directory. Required for any path that crosses Cloudflare Queues or shared KV/R2 state. |
+
+## Multi-Worker Dev and Queues
+
+The individual `pnpm --filter @agent-paste/{app} dev` commands run one Worker in isolation. That is fine when the work under test does not cross a Worker boundary — for example, editing an `api` route handler in isolation or iterating on `web` UI. It is not fine for any path that crosses Cloudflare Queues or shared KV/R2 state, because:
+
+- A queue producer running in one `wrangler dev` process does not deliver messages to a consumer running in a different `wrangler dev` process. Cloudflare's local queue runtime fans out only inside the same Wrangler invocation. This catches developers iterating on `jobs` while running `api` separately and silently seeing zero messages.
+- Each `wrangler dev` invocation gets its own local persistence directory unless `--persist-to` is set to a shared path. Without a shared directory, the local KV namespace and R2 bucket bindings in `api`, `upload`, `content`, and `jobs` resolve to different on-disk stores, so a denylist write from `api` is invisible to `content` and an R2 PUT from `upload` is invisible to `content` and `jobs`.
+
+When developing any path involving `jobs` (publish → finalize → bundle generation, retention sweeps, deletion byte purge, safety scanning) or any cross-Worker state (denylist writes from `api` read by `content`), launch the producers and consumer in one Wrangler invocation with a shared persist-to directory:
+
+```sh
+wrangler dev \
+  -c apps/api/wrangler.toml \
+  -c apps/upload/wrangler.toml \
+  -c apps/jobs/wrangler.toml \
+  -c apps/content/wrangler.toml \
+  --persist-to .wrangler/state
+```
+
+The root `pnpm dev:all` script wraps this command. `web` and `mcp` can run alongside on separate ports either inside the same invocation or as additional service-binding targets; their bindings are not on the publish hot path.
+
+The `.wrangler/state` directory is per-developer and gitignored. Resetting local R2 and KV state means removing that directory; Postgres state is reset via `pnpm --filter @agent-paste/db migrate:local` followed by `seed:local`.
 
 ## Local Services
 

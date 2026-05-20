@@ -27,11 +27,17 @@ These practices are part of the current architecture, not optional implementatio
 
 ### Cloudflare Worker Boundaries
 
-- Each deployable app owns its own Wrangler configuration, bindings, environment settings, and deploy script per [ADR 0009](./0009-typescript-and-per-app-cloudflare-config.md).
+- Each deployable app owns its own Wrangler configuration, bindings, environment settings, and deploy script per [ADR 0009](./0009-typescript-and-per-app-cloudflare-config.md). The config file format is `wrangler.jsonc` per [ADR 0065](./0065-wrangler-jsonc-config-format.md); TOML is not used for new apps.
 - Worker compatibility settings are explicit and reviewed. Use a current `compatibility_date`; enable `nodejs_compat` only for Workers or packages that need Node.js APIs. Cloudflare documents `nodejs_compat` as requiring a compatibility date of `2024-09-23` or later: <https://developers.cloudflare.com/workers/runtime-apis/nodejs/>.
 - Bindings are least-privilege. `api` owns authenticated control-plane state, `upload` owns write paths into R2, `content` owns read-only untrusted-content serving, and `jobs` owns background maintenance per [ADR 0006](./0006-small-workers-by-trust-and-scaling-boundary.md), [ADR 0027](./0027-upload-write-path.md), and [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md).
 - `content` never gets a Hyperdrive binding and never talks to Postgres. It verifies signed content-gateway tokens, checks KV denylist state, and reads R2 only.
 - Generate and commit Worker binding types when Wrangler config changes so TypeScript reflects the runtime contract.
+
+### Performance and Cost on the Auth Hot Path
+
+- Authenticated lookups on `api`, `upload`, and `content` go through the two-layer cache from [ADR 0062](./0062-two-layer-cache-for-hot-path-auth-lookups.md): L1 module-scope `Map` per isolate, L2 `caches.default` per colo, source on miss. The shared helper lives in `packages/auth` and is the only sanctioned cache shape.
+- Counter increments (Actor Rate Limit, Workspace Burst Cap, idempotency record creation) never sit behind the cache. Positive denylist hits never sit behind the cache. The cache stores rows and terminal results, not decisions that require an atomic write.
+- Rate-limit counters use Cloudflare native `[[ratelimits]]` bindings on `api` and `upload` per [ADR 0064](./0064-native-ratelimit-bindings-for-authenticated-counters.md), keyed by `${workspaceId}:${actorId}` for the per-actor cap and `${workspaceId}` for the per-Workspace burst cap. Eventual consistency across PoPs is accepted because the cap is an abuse ceiling, not a billing meter.
 
 ### Database and Tenant Isolation
 
@@ -54,6 +60,7 @@ These practices are part of the current architecture, not optional implementatio
 - Untrusted content is served only from the isolated content origin. Direct R2 read URLs are never returned per [ADR 0001](./0001-private-artifact-storage-behind-controlled-origin.md).
 - Content responses use defense-in-depth headers: CSP, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options: nosniff`, and iframe sandboxing per [ADR 0030](./0030-mvp-execution-policy-cdn-allowlisted-csp.md). Cloudflare's security-header example covers the same header family: <https://developers.cloudflare.com/workers/examples/security-headers/>.
 - Served content type is derived from a fixed extension allowlist, not the agent-provided upload MIME type. Unknown extensions download as `application/octet-stream`; SVG gets a tighter per-response CSP per [ADR 0042](./0042-strict-extension-based-served-content-type.md).
+- Revision file bytes and generated Bundle archives are encrypted at the application layer with AES-256-GCM and a per-Workspace HKDF-derived key before the R2 PUT per [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md). `upload` encrypts in a streaming `TransformStream` on write, `jobs` encrypts bundle outputs, and `content` decrypts inside the existing content-gateway-token verification path. The root key joins the 90-day rotation set from [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md).
 
 ### Operator and Admin Access
 
