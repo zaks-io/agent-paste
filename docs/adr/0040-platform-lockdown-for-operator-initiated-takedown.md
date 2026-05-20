@@ -1,0 +1,22 @@
+# Platform Lockdown for Operator-Initiated Takedown
+
+A new state, **Platform Lockdown**, lets the platform operator block all link resolution for either a single **Artifact** or an entire **Workspace** without using **Deletion** or relying on the workspace's cooperation. The lockdown is the platform's response to phishing reports, safe-browsing delisting, abuse complaints, and other external safety signals. It is operator-initiated, reversible, and not surfaced through the public API, SDK, or CLI. Bytes are preserved; this is an access circuit-breaker, not a destructive action.
+
+## Considered Options
+
+- **Extend Access Link Lockdown with an operator-initiated flag.** Cheapest in glossary, but conflates two genuinely different things: a workspace's own lockdown protects itself, while a platform lockdown is the platform protecting itself *from* the workspace. They differ on initiator, on whether **Private Link** is affected, and on **API Key** suspension. Conflating them obscures which controls are reversible by whom.
+- **Use Deletion for abuse response.** Already exists, but irreversible. A wrongly-flagged artifact cannot be restored, and false positives are real for phishing detection.
+- **Platform Lockdown with both scopes (chosen).** One concept, two scopes. Composes with existing audit and link-resolution paths. Distinct from **Access Link Lockdown** so the model stays honest about who initiated what.
+
+## Consequences
+
+- **Two scopes.** `Artifact` scope blocks the **Private Link** and every **Access Link** for one **Artifact**. `Workspace` scope blocks resolution for every **Artifact** in the **Workspace** and suspends every **API Key** in the **Workspace**. Suspended **API Keys** receive `401` with the generic error envelope from ADR 0036; the dashboard shows the lockdown state explicitly to the affected **Workspace Member** so they understand why their content went dark.
+- **Distinct from Access Link Lockdown** along three axes: initiator (operator vs. member), affected surface (includes **Private Link** and **API Key** suspension), and revocability (only operator can lift).
+- **Reversible.** No auto-expiration in MVP. Lifting restores normal resolution for any otherwise-valid links and re-enables suspended **API Keys**; it does not restore links that were independently revoked, expired, or removed by **Retention**.
+- **Audit Events.** Every set or lift creates an **Audit Event** in the affected **Workspace**. The actor type is a new `platform` value extending `member` and `api_key` from ADR 0034 (unified scope model). The change summary identifies the scope and includes an operator-supplied reason code; raw reason text is excluded so audit summaries do not become a side-channel for operator notes.
+- **Visibility.** **Workspace Members** can see the lockdown state and its audit event but cannot lift it. Public **Access Link** failures during a Platform Lockdown use the same generic `not_found` semantics as ADR 0015 (shared auth primitives) so callers cannot probe for which workspaces are locked down.
+- **Operator interface lives outside the public API surface.** No route on `api` is reachable by `API Key` or `Workspace Member` auth. The CLI is not extended with admin commands. Operator commands are issued through a separate path — for example, a wrangler-invoked admin script or a Cloudflare-Access-gated internal endpoint — and only the operator's identity is recorded. Exact tooling is deferred to a follow-up.
+- **Storage.** A `platform_lockdowns` table keyed by `(scope, target_id)` with `set_at`, `set_by`, `lifted_at`, `lifted_by`, `reason_code`, and one effective row per `(scope, target_id)`. Link-resolution paths in `api` and `content` consult this table (cached) before serving.
+- **Cache and token invalidation.** Setting a Platform Lockdown writes to the signed-URL denylist (ADR 0028) for the affected scope so currently-minted content tokens stop resolving within the denylist TTL. Lifting does not re-mint tokens; clients re-fetch the **Agent View** as usual.
+- **Distinct from Deletion.** Bytes are preserved; the lockdown is reversible. Operators should prefer Platform Lockdown over Deletion for ambiguous abuse cases so that wrongly-flagged content can be restored.
+- **No public-API enumeration.** **API Keys** and **Workspace Members** cannot enumerate lockdowns across workspaces; they can only see their own workspace's state.

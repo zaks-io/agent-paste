@@ -65,8 +65,24 @@ The redacted structured description of what changed in an **Audit Event**.
 _Avoid_: Before-and-after payload, raw diff
 
 **Usage Policy**:
-The limits a **Workspace** applies to artifact creation, revision size, retention, auto deletion, access-link creation, and API usage.
+The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
 _Avoid_: Quota settings, billing limits
+
+**File Size Cap**:
+The cap on bytes per single file uploaded into a **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: Max file size, upload limit
+
+**File Count Cap**:
+The cap on the number of files in a single **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: Max files, file quota
+
+**Revision Size Cap**:
+The cap on the sum of file bytes in a single **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: Revision quota, artifact size
+
+**Bundle Size Cap**:
+The cap on the bytes of a generated **Bundle**. Platform-controlled in the MVP and surfaced through **Usage Policy**. Exceeding the cap transitions **Bundle Availability** to failed without affecting the **Revision** or the **Publish**.
+_Avoid_: Bundle quota, zip size
 
 **Retention**:
 The **Usage Policy** rule that determines how long older non-published **Revisions** are kept within an **Artifact**.
@@ -84,6 +100,14 @@ _Avoid_: Favorite, starred, archived, locked
 The platform-controlled cap on unauthenticated read requests per minute against a single **Artifact** through its **Access Links** and **Content Origin**.
 _Avoid_: Throttle, quota, API rate limit
 
+**Actor Rate Limit**:
+The cap on authenticated request rate per individual actor — one **API Key** or one **Workspace Member** — against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: API rate limit, key throttle
+
+**Workspace Burst Cap**:
+The cap on aggregate authenticated request rate across all actors in a single **Workspace** against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: Tenant rate limit, account throttle
+
 **Upload Cleanup**:
 The background removal of stale **Unpublished Artifacts** and bytes left by expired, abandoned, or terminally failed **Upload Sessions**.
 _Avoid_: Retention, revision cleanup
@@ -100,6 +124,14 @@ _Avoid_: User token, agent token
 The action that stops future use of an **API Key** without removing what it already created.
 _Avoid_: Delete key, revoke agent content
 
+**API Key Bearer Format**:
+The string shape used for **API Key** secrets: `ap_pk_{env}_{publicId}_{secret}`. `pk` is the credential-class marker, `env` matches the deployment environment, `publicId` is the indexed lookup segment stored plaintext, and `secret` is the high-entropy random segment hashed with a Worker-secret pepper for storage. **Access Link** tokens used to share this shape (with `type='al'`) but were moved to the **Access Link Signed URL** model and no longer follow this format.
+_Avoid_: Token format, key shape, API key prefix, bearer credential format
+
+**Access Link Signed URL**:
+The shareable URL form of an **Access Link**, shaped `https://app.agent-paste.sh/al/{publicId}#{blob}` where `blob` is a base64url-encoded binary payload containing the signing-key generation, expiration, allowed scopes, and HMAC signature. The payload is carried in the URL fragment so it never reaches any server-side log, and the signature is the credential — the `access_links` row holds no secret material. An authorized **Workspace Member** or **API Key** with read and share **Scopes** mints a fresh URL on demand; re-minting produces a new URL with a new expiration.
+_Avoid_: Share URL, link token, access link secret
+
 **Creator**:
 The **API Key** or workspace member that first created an **Artifact** management record.
 _Avoid_: Owner, author
@@ -111,6 +143,10 @@ _Avoid_: Role, capability
 **Member-Only Scope**:
 A **Scope** that only a **Workspace Member** can hold; it cannot be granted to an **API Key**. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
 _Avoid_: Admin scope, restricted scope
+
+**Operator**:
+A **Workspace Member** session whose authenticated email appears in the platform operator allowlist; the same identity acts with platform-wide authority on operator-only routes and with normal **Workspace Member** authority elsewhere. The **Operator** identity is the only path to **Platform Lockdown** changes and on-demand storage-key rotation.
+_Avoid_: Admin, superuser, root user
 
 **Untrusted Content**:
 Any file, markup, script, image, or asset uploaded into an **Artifact**.
@@ -127,6 +163,10 @@ _Avoid_: App domain, storage URL
 **Execution Policy**:
 The platform-controlled browser restrictions applied when viewing **Untrusted Content**.
 _Avoid_: Sandbox settings, CSP config
+
+**Served Content Type**:
+The platform-derived MIME type that `content` returns for a file in a **Revision**, chosen from a fixed allowlist by file extension rather than from agent-claimed values. Unrecognized extensions are served as `application/octet-stream` with `Content-Disposition: attachment` so they download rather than render.
+_Avoid_: Content-Type header, MIME hint
 
 **Entrypoint**:
 The file or directory within a **Revision** that opens first when an **Artifact** is viewed.
@@ -155,6 +195,10 @@ _Avoid_: Public link, capability URL
 **Access Link Lockdown**:
 A state that makes all **Access Links** for an **Artifact** stop granting access without affecting its **Private Link**.
 _Avoid_: Disable sharing, private mode, emergency revoke
+
+**Platform Lockdown**:
+A platform-initiated state that blocks all link resolution for either a single **Artifact** or an entire **Workspace**, applied by the operator to respond to abuse reports, takedown requests, or external safety flags. A **Workspace**-scoped **Platform Lockdown** also suspends every **API Key** in the **Workspace**.
+_Avoid_: Suspension, ban, freeze, admin lock
 
 **Share Link**:
 An **Access Link** that resolves to the latest **Published Revision** of an **Artifact**.
@@ -237,6 +281,23 @@ _Avoid_: Upload response, API response
 - **Access Link Lockdown** prevents retrieving full **Access Link** URLs without hiding **Access Link** metadata from authorized management surfaces
 - **Access Link Lockdown** does not prevent revoking individual **Access Links**
 - **Access Link Lockdown** does not prevent changing **Access Link** **Expiration**
+- A **Platform Lockdown** is operator-initiated and cannot be set or lifted by a **Workspace Member** or an **API Key**
+- A **Platform Lockdown** has scope `Artifact` or `Workspace`
+- A **Platform Lockdown** at `Artifact` scope blocks the **Private Link** and every **Access Link** for one **Artifact**
+- A **Platform Lockdown** at `Workspace` scope blocks the **Private Link** and **Access Link** resolution for every **Artifact** in the **Workspace**
+- A **Platform Lockdown** at `Workspace` scope suspends every **API Key** in the **Workspace**
+- A **Platform Lockdown** is reversible by the operator
+- A **Platform Lockdown** does not delete bytes or **Revisions**
+- A **Platform Lockdown** does not auto-expire in the MVP
+- A **Platform Lockdown** creates an **Audit Event** visible to **Workspace Members**
+- A **Platform Lockdown** is not exposed through the public API, SDK, or CLI
+- A **Platform Lockdown** is distinct from **Access Link Lockdown**: it is operator-initiated, also blocks the **Private Link**, and at `Workspace` scope suspends **API Keys**
+- An **Operator** is a **Workspace Member** whose authenticated email is on the platform operator allowlist
+- An **Operator** acts with platform-wide authority only on operator-only routes; on every other route the identity is a normal **Workspace Member**
+- An **Operator** identity cannot be assumed by an **API Key**: operator-only routes reject **API Key** authentication
+- An **Operator** identity is reachable only through the web admin surface; the CLI exposes no operator-only commands
+- An **Operator** action on operator-only routes is the `actor.type = 'platform'` actor in the **Audit Event**
+- A **Platform Lockdown** can only be set or lifted by an **Operator**
 - A **Share Link** resolves to the latest **Published Revision** of an **Artifact**
 - A **Revision Link** resolves to exactly one **Revision**
 - A **Revision Link** can continue resolving to an older **Revision** after a newer **Revision** is published
@@ -288,6 +349,21 @@ _Avoid_: Upload response, API response
 - An **Artifact Rate Limit** does not count **Private Link** or **Agent View** reads
 - An **Artifact Rate Limit** returns HTTP 429 with `Retry-After` when exceeded
 - An **Artifact Rate Limit** is platform-controlled, not exposed through **Usage Policy** in the MVP
+- An **Actor Rate Limit** applies per **API Key** or per **Workspace Member**, counted across `api` and `upload` requests
+- An **Actor Rate Limit** returns HTTP 429 with `Retry-After` when exceeded
+- A **Workspace Burst Cap** applies per **Workspace**, counted across all of its actors against `api` and `upload`
+- A **Workspace Burst Cap** returns HTTP 429 with `Retry-After` when exceeded
+- A **Usage Policy** controls **Actor Rate Limit** and **Workspace Burst Cap**
+- **Actor Rate Limit** and **Workspace Burst Cap** are platform-controlled in the MVP; **Workspace** settings cannot exceed them
+- **Actor Rate Limit** and **Workspace Burst Cap** apply only after authentication succeeds
+- **Actor Rate Limit** and **Workspace Burst Cap** do not apply to `content`
+- A **Usage Policy** controls **File Size Cap**, **File Count Cap**, **Revision Size Cap**, and **Bundle Size Cap**
+- **File Size Cap**, **File Count Cap**, **Revision Size Cap**, and **Bundle Size Cap** are platform-controlled in the MVP; **Workspace** settings cannot exceed them
+- **File Size Cap** is enforced through the signed PUT URL `Content-Length` header at upload time
+- **File Count Cap** and **Revision Size Cap** are enforced at **Upload Session** creation as a pre-flight and at finalize as hard enforcement
+- Exceeding **File Count Cap** or **Revision Size Cap** at finalize fails the finalize
+- **Bundle Size Cap** is enforced during **Bundle** generation
+- Exceeding **Bundle Size Cap** transitions **Bundle Availability** to failed without affecting the **Revision** or **Publish**
 - **Deletion** makes **Private Links** and **Access Links** stop resolving immediately
 - **Deletion** can apply to an **Unpublished Artifact**
 - **Deletion** of an **Unpublished Artifact** can trigger **Upload Cleanup**
@@ -332,6 +408,22 @@ _Avoid_: Upload response, API response
 - A **Creator** is recorded before first **Publish** when an **Unpublished Artifact** is created
 - A **Creator** remains recorded after **API Key Revocation** or **API Key** **Expiration**
 - A **Creator** does not change when another actor updates an **Artifact**
+- An **API Key** secret follows the **API Key Bearer Format**
+- The **API Key Bearer Format** `publicId` segment is stored plaintext and indexed for credential lookup
+- An **API Key** secret is stored as HMAC-SHA-256 of the `secret` segment with a Worker-secret pepper; the plaintext `secret` is never persisted
+- The **API Key Bearer Format** `env` segment matches the deployment environment; an **API Key** minted in one environment is not valid in another
+- Logs and audit summaries redact the `secret` segment of any **API Key Bearer Format** value and may retain `ap_pk_{env}_{publicId}…` for correlation
+- An **Access Link** is materialized as an **Access Link Signed URL** at mint time
+- An **Access Link Signed URL** carries the signed payload in the URL fragment, never in the path or query
+- An **Access Link Signed URL** payload is binary-packed `(version, kid, exp, scopes, sig)` then base64url-encoded
+- An **Access Link Signed URL** signature is HMAC-SHA-256 over `(version, kid, exp, scopes, publicId)` using the **Access Link** signing key identified by `kid`
+- The **Access Link** signing key rotates on the same 90-day cadence as other platform signing keys
+- An **Access Link Signed URL** has a per-URL expiration distinct from the **Access Link** row's own expiration; re-minting produces a fresh per-URL expiration
+- An **Access Link Signed URL** is resolved by `api`, not by `content`, so row-level lockdown and scopes are enforced inside the database
+- An **Access Link Signed URL** that fails any of signature, expiration, scope, lockdown, or revocation checks returns the generic `not_found` envelope
+- Re-minting an **Access Link Signed URL** does not change the underlying **Access Link** row, its expiration, or its **Audit Event** history
+- An **Access Link** row holds no bearer secret, no ciphertext, and no wrapping key; the signature is the credential
+- An **Access Link Signed URL** minted in one environment is not valid in another because the signing key is environment-scoped
 - Any **API Key** with the right **Scope** in the owning **Workspace** can update an **Artifact**
 - Any **API Key** with the right **Scope** in the owning **Workspace** can update **Display Metadata**
 - Updating a known **Artifact** does not require a read **Scope**
@@ -361,7 +453,13 @@ _Avoid_: Upload response, API response
 - **Agent View**, **Manifest**, and **Display Metadata** are not served as **Untrusted Content**
 - **Untrusted Content** is viewed under an **Execution Policy**
 - **Execution Policy** applies to all **Render Modes**
-- The MVP uses one fixed **Execution Policy** for all **Untrusted Content**
+- The MVP uses one fixed **Execution Policy** for all **Untrusted Content**, with one per-response tightening: SVG responses carry a stricter **Execution Policy** that blocks `<script>` execution
+- A **Served Content Type** is derived by `content` from the normalized file extension, not from any value the agent supplied at upload
+- A **Served Content Type** for `text/*` types includes `charset=utf-8`
+- Unrecognized file extensions resolve to **Served Content Type** `application/octet-stream` with `Content-Disposition: attachment`
+- SVG files resolve to **Served Content Type** `image/svg+xml` and carry the tightened SVG **Execution Policy**
+- Renderer pages served by `content` declare their own **Served Content Type** and are not routed through the allowlist
+- A **Served Content Type** is platform-controlled; **Workspace** settings and agent-provided values cannot change it
 - **Publish** returns a **Publish Result**
 
 ## Example dialogue
