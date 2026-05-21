@@ -1,0 +1,79 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-content",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "CONTENT_SIGNING_KID": "v1"
+  },
+  "r2_buckets": [
+    {
+      // Content reads artifact bytes only; it has no DB binding.
+      "binding": "ARTIFACTS",
+      "bucket_name": "agent-paste-artifacts-dev"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      // Denylist reads per ADR 0057.
+      "binding": "DENYLIST",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "agent-paste-content-preview",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "usercontent.preview.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "CONTENT_SIGNING_KID": "v1"
+      },
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-preview"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "5780695433d4494897dcbb78bcb4f180"
+        }
+      ]
+    },
+    "live": {
+      "name": "agent-paste-content-live",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "usercontent.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "CONTENT_SIGNING_KID": "v1"
+      },
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-live"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "8ef426f6ecba400188da509306b61017"
+        }
+      ]
+    }
+  }
+}

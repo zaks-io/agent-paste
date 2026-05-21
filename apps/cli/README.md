@@ -18,21 +18,13 @@ npm install -g agent-paste
 
 ## Authenticate
 
-For interactive use, sign in with Auth0:
-
-```sh
-npx agent-paste login
-```
-
-`login` opens a browser, completes the loopback OAuth flow, and stores a refreshable local session. CLI session tokens carry explicit `write`, `read`, and `share` **Scopes**; they never carry **Member-Only Scopes**, even though the same **Workspace Member** has those powers in the dashboard.
-
-For CI, headless agents, and server-to-server scripts, set `AGENT_PASTE_API_KEY` in the environment. Create a key with `write`, `read`, and `share` **Scopes** at `https://app.agent-paste.sh/keys`.
+Set `AGENT_PASTE_API_KEY` in the environment. The MVP CLI is API-key-only.
 
 ```sh
 export AGENT_PASTE_API_KEY=ap_pk_live_...
 ```
 
-When `AGENT_PASTE_API_KEY` is set, it takes precedence over any stored login session. The CLI does not accept secrets as flags. API Keys encode their **Workspace**; login sessions resolve the **Workspace** from the authenticated Auth0 identity.
+The CLI does not accept secrets as flags. API Keys encode their **Workspace**.
 
 ## Publish
 
@@ -48,50 +40,53 @@ A single file (treated as a one-file **Artifact**):
 npx agent-paste publish ./report.html
 ```
 
-With a **Share Link** created during publish:
+With a custom retention TTL:
 
 ```sh
-npx agent-paste publish ./report --share
-```
-
-A new **Revision** on an existing **Artifact**. The **Private Link** and any existing **Share Link** keep working and now resolve to the new Revision:
-
-```sh
-npx agent-paste publish ./report --artifact art_01H...
+npx agent-paste publish ./report --ttl 7d
 ```
 
 ## Management
 
-The CLI also exposes the common management verbs needed for agent workflows:
+The current MVP API exposes publish and repo-local admin verbs:
 
 | Command | Purpose |
 |---------|---------|
 | `agent-paste whoami` | Show the resolved **Workspace**, actor, and granted **Scopes**. |
-| `agent-paste list` | List **Artifacts** in the current **Workspace**. |
-| `agent-paste get <artifact-id-or-url>` | Read **Artifact** details or resolve an **Access Link Signed URL**. |
-| `agent-paste delete <artifact-id>` | Trigger **Deletion** for an **Artifact**. |
-| `agent-paste meta set <artifact-id>` | Update **Display Metadata**. |
-| `agent-paste link create <artifact-id>` | Create a **Share Link**. |
-| `agent-paste link revoke <access-link-id>` | Revoke a **Share Link** or **Revision Link**. |
-| `agent-paste link list <artifact-id>` | List **Access Links** for an **Artifact**. |
-| `agent-paste lockdown enter <artifact-id>` | Enter **Access Link Lockdown**. |
-| `agent-paste lockdown lift <artifact-id>` | Lift **Access Link Lockdown**. |
-| `agent-paste lockdown status <artifact-id>` | Show **Access Link Lockdown** state. |
-| `agent-paste download <artifact-id-or-url>` | Download the **Bundle** for a resolved **Revision**. |
+| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result. |
+| `agent-paste admin workspace create <email>` | Create a local/dev Workspace. |
+| `agent-paste admin workspace list` | List local/dev Workspaces. |
+| `agent-paste admin key create <workspace-id>` | Create a local/dev API Key. |
+| `agent-paste admin key revoke <api-key-id>` | Revoke a local/dev API Key. |
+| `agent-paste admin artifact list|get|delete` | Inspect or delete local/dev Artifacts. |
+| `agent-paste admin cleanup run` | Run cleanup in a local/dev harness. |
+| `agent-paste admin events list` | List operation events in a local/dev harness. |
 
 ## Flags
 
 | Flag | Purpose |
 |------|---------|
-| `--artifact <id>` | Add a new **Revision** to an existing **Artifact**. Default: create a new Artifact. |
-| `--share` | Create a **Share Link** during publish. Default: off. |
-| `--no-share` | Suppress Share Link creation. Default behavior; flag exists for clarity in scripts. |
 | `--title <text>` | Set **Display Metadata** title. Default: path basename. |
 | `--entrypoint <path>` | Override the inferred **Entrypoint**. Must be a file inside the upload. |
-| `--render-mode <mode>` | Override the inferred **Render Mode**. First-slice modes: `html`, `markdown`, `text`, `image`, `audio`, `video`. `directory` is reserved until its listing contract is settled. |
+| `--render-mode <mode>` | Override the inferred **Render Mode**. First-slice modes: `html`, `markdown`, `text`, `image`, `audio`, `video`. |
+| `--ttl <duration>` | Set Artifact retention for `publish`. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps. |
 | `--json` | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON. |
 | `--quiet` | Suppress stderr progress output. |
-| `--progress` | Force progress output even when stderr is not a TTY. |
+
+## Repo-local admin harness
+
+Local operators can point `AGENT_PASTE_ADMIN_URL` at a dev API/admin worker and use:
+
+```sh
+pnpm cli:dev admin workspace create agent@example.com --name "Local Agent Paste"
+pnpm cli:dev admin workspace list --json
+pnpm cli:dev admin key create <workspace-id> --name "local harness"
+pnpm cli:dev admin artifact list --json
+pnpm cli:dev admin cleanup run --dry-run --json
+pnpm cli:dev admin events list --json
+```
+
+Admin commands use the same bearer credential resolution as the rest of the CLI. Do not pass operator credentials as flags.
 
 ## Output
 
@@ -114,12 +109,10 @@ With `--json`, stdout is exactly the Publish Result:
 {
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
-  "private_link": "https://app.agent-paste.sh/artifacts/art_01H...",
-  "revision_link": "https://app.agent-paste.sh/al/AB3CDEFGHJKLMN56#AQEAAAGJk2YA...",
-  "share_link": null,
-  "agent_view_link": "https://api.agent-paste.sh/v1/artifacts/art_01H.../agent-view",
-  "bundle": { "status": "pending" },
-  "safety_warnings": []
+  "title": "report",
+  "view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
+  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
+  "expires_at": "2026-06-20T00:00:00.000Z"
 }
 ```
 

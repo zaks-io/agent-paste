@@ -1,6 +1,6 @@
 # API Contract
 
-This document describes the CLI-first MVP route contract. The canonical code registry will live in `packages/contracts` once implementation starts.
+This document describes the CLI-first MVP route contract. The canonical code registry lives in `packages/contracts`.
 
 ## Hosts
 

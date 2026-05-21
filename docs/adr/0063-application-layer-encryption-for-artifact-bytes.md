@@ -1,6 +1,10 @@
 # Application-Layer Encryption for Stored Artifact Bytes
 
+Status: Deferred out of the CLI-first MVP by [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md).
+
 All **Revision** file bytes and generated **Bundle** archives are encrypted at the application layer with AES-256-GCM before the R2 PUT. The data encryption key is derived per-**Workspace** from a Worker-held root encryption key using HKDF-SHA-256 with the **Workspace** id as the `info` parameter; the root key is held as a Worker secret in `upload`, `jobs`, and `content` only, and joins the 90-day signing-key rotation set from [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md). The encryption `kid` lives in R2 `customMetadata` next to the object so `content` derives the right root key on read without a database lookup. R2's at-rest server-side encryption remains in place underneath; this is defense-in-depth, not a replacement.
+
+CLI-first MVP follow-up: app-layer encryption remains the future direction, but MVP contracts and route implementations should not include encryption metadata, per-object `kid` handling, or Worker streaming transforms yet. The MVP baseline is private R2, signed content tokens, isolated `usercontent.agent-paste.sh` serving, and no direct R2 URLs.
 
 ## Considered Options
 

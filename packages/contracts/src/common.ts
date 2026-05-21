@@ -1,21 +1,16 @@
 import { z } from "zod";
-import { Cursor, IsoDateTime, PositiveInteger } from "./primitives.js";
+import { Cursor, PositiveInteger } from "./primitives.js";
 
 export const ErrorCode = z.enum([
-  "access_link_lockdown_active",
-  "api_key_expired",
   "api_key_not_found",
   "api_key_revoked",
-  "artifact_deleted",
-  "artifact_locked",
   "artifact_not_found",
   "database_unavailable",
-  "draft_revision_conflict",
   "entrypoint_not_in_revision",
   "file_count_cap_exceeded",
   "file_size_cap_exceeded",
+  "forbidden",
   "idempotency_in_flight",
-  "insufficient_scope",
   "invalid_auth",
   "invalid_content_length",
   "invalid_cursor",
@@ -23,17 +18,12 @@ export const ErrorCode = z.enum([
   "invalid_request",
   "not_authenticated",
   "not_found",
-  "platform_lockdown_active",
-  "rate_limited_artifact",
   "rate_limited_actor",
   "rate_limited_workspace",
-  "render_mode_incompatible",
-  "revision_not_found",
-  "revision_retained",
   "revision_size_cap_exceeded",
-  "revision_unpublished",
-  "unauthorized",
+  "storage_unavailable",
   "unexpected_upload_object",
+  "upload_incomplete",
   "upload_session_expired",
   "upload_session_not_found",
   "usage_policy_exceeded",
@@ -45,7 +35,7 @@ export const ErrorEnvelope = z.object({
     code: ErrorCode,
     message: z.string(),
     docs: z.string().url().optional(),
-    request_id: z.string().min(1),
+    request_id: z.string().min(1).optional(),
   }),
 });
 export type ErrorEnvelope = z.infer<typeof ErrorEnvelope>;
@@ -62,11 +52,16 @@ export const PageInfo = z.object({
 });
 export type PageInfo = z.infer<typeof PageInfo>;
 
-export const RequestMetadata = z.object({
-  request_id: z.string().min(1),
-  generated_at: IsoDateTime,
-});
-export type RequestMetadata = z.infer<typeof RequestMetadata>;
-
 export const EmptyObject = z.object({}).strict();
 export type EmptyObject = z.infer<typeof EmptyObject>;
+
+export const Mebibytes = {
+  ten: 10 * 1024 * 1024,
+  twentyFive: 25 * 1024 * 1024,
+} as const;
+
+export const Seconds = {
+  oneDay: 24 * 60 * 60,
+  thirtyDays: 30 * 24 * 60 * 60,
+  ninetyDays: 90 * 24 * 60 * 60,
+} as const;

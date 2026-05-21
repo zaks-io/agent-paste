@@ -4,23 +4,38 @@
   "packageManager": "pnpm@10.19.0",
   "type": "module",
   "scripts": {
+    "admin": "pnpm cli:dev admin",
     "build": "turbo run build",
     "check": "turbo run check",
+    "cli:dev": "pnpm --filter agent-paste dev --",
+    "dev:all": "pnpm build && node scripts/local-mvp-server.mjs",
+    "bootstrap:preview": "node scripts/bootstrap-secrets.mjs preview",
+    "bootstrap:live": "node scripts/bootstrap-secrets.mjs live",
+    "cli:test": "pnpm --filter agent-paste test",
+    "deploy:preview": "pnpm migrate:preview && node scripts/deploy-preview.mjs preview",
+    "deploy:live": "pnpm migrate:live && node scripts/deploy-preview.mjs live",
     "format": "biome format --write .",
     "hooks:install": "lefthook install",
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push",
     "lint": "biome lint .",
+    "migrate:preview": "node scripts/migrate.mjs preview",
+    "migrate:live": "node scripts/migrate.mjs live",
     "prepare": "lefthook install",
+    "smoke:local": "pnpm build && node scripts/smoke-local-mvp.mjs",
+    "smoke:preview": "pnpm build && node scripts/smoke-preview.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
+    "@cloudflare/workers-types": "^4.20260521.1",
+    "@types/node": "^24.12.4",
     "lefthook": "^2.1.8",
     "turbo": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "^4.93.1"
   },
   "engines": {
     "node": ">=24 <25"

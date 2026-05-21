@@ -1,0 +1,157 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "vars": {
+    "API_KEY_ENV": "preview",
+    "API_BASE_URL": "http://127.0.0.1:8787",
+    "CONTENT_BASE_URL": "http://127.0.0.1:8789",
+    "CLEANUP_BATCH_SIZE": "100"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ARTIFACTS",
+      "bucket_name": "agent-paste-artifacts-dev"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      // Denylist writes per ADR 0057.
+      "binding": "DENYLIST",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "ACTOR_RATE_LIMIT",
+      "namespace_id": "1000001",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    },
+    {
+      "name": "WORKSPACE_BURST_CAP",
+      "namespace_id": "1000002",
+      "simple": {
+        "limit": 300,
+        "period": 10
+      }
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "agent-paste-api-preview",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "api.preview.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_KEY_ENV": "preview",
+        "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
+        "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
+        "CLEANUP_BATCH_SIZE": "100"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "9241c4965ed64cb4b1ed87c84b85382a"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-preview"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "5780695433d4494897dcbb78bcb4f180"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ACTOR_RATE_LIMIT",
+          "namespace_id": "2000001",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "WORKSPACE_BURST_CAP",
+          "namespace_id": "2000002",
+          "simple": {
+            "limit": 300,
+            "period": 10
+          }
+        }
+      ]
+    },
+    "live": {
+      "name": "agent-paste-api-live",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "api.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_KEY_ENV": "live",
+        "API_BASE_URL": "https://api.agent-paste.sh",
+        "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        "CLEANUP_BATCH_SIZE": "100"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "00000000-0000-0000-0000-000000000002"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-live"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "8ef426f6ecba400188da509306b61017"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ACTOR_RATE_LIMIT",
+          "namespace_id": "3000001",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "WORKSPACE_BURST_CAP",
+          "namespace_id": "3000002",
+          "simple": {
+            "limit": 300,
+            "period": 10
+          }
+        }
+      ]
+    }
+  }
+}

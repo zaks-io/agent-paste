@@ -4,6 +4,12 @@ packages:
 
 nodeLinker: isolated
 minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@biomejs/biome'
+  - lefthook
+  - turbo
+  - typescript
+  - vitest
 
 catalog:
   '@biomejs/biome': ^2.4.15

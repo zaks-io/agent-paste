@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 const ulidBody = "[0-9A-HJKMNP-TV-Z]{26}";
-const crockford16 = "[0-9A-HJKMNP-TV-Z]{16}";
 
 const prefixedId = <Brand extends string>(prefix: string) =>
   z
@@ -12,9 +11,6 @@ const prefixedId = <Brand extends string>(prefix: string) =>
 export const WorkspaceId = z.string().uuid().brand<"WorkspaceId">();
 export type WorkspaceId = z.infer<typeof WorkspaceId>;
 
-export const WorkspaceMemberId = prefixedId<"WorkspaceMemberId">("wm");
-export type WorkspaceMemberId = z.infer<typeof WorkspaceMemberId>;
-
 export const ArtifactId = prefixedId<"ArtifactId">("art");
 export type ArtifactId = z.infer<typeof ArtifactId>;
 
@@ -24,20 +20,11 @@ export type RevisionId = z.infer<typeof RevisionId>;
 export const UploadSessionId = prefixedId<"UploadSessionId">("upl");
 export type UploadSessionId = z.infer<typeof UploadSessionId>;
 
-export const AccessLinkId = prefixedId<"AccessLinkId">("al");
-export type AccessLinkId = z.infer<typeof AccessLinkId>;
-
-export const AccessLinkPublicId = z
-  .string()
-  .regex(new RegExp(`^${crockford16}$`))
-  .brand<"AccessLinkPublicId">();
-export type AccessLinkPublicId = z.infer<typeof AccessLinkPublicId>;
-
 export const ApiKeyId = prefixedId<"ApiKeyId">("key");
 export type ApiKeyId = z.infer<typeof ApiKeyId>;
 
-export const AuditEventId = prefixedId<"AuditEventId">("aud");
-export type AuditEventId = z.infer<typeof AuditEventId>;
+export const OperationEventId = prefixedId<"OperationEventId">("evt");
+export type OperationEventId = z.infer<typeof OperationEventId>;
 
 export const IdempotencyKey = z
   .string()
@@ -49,12 +36,6 @@ export type IdempotencyKey = z.infer<typeof IdempotencyKey>;
 
 export const Cursor = z.string().min(1).max(500).brand<"Cursor">();
 export type Cursor = z.infer<typeof Cursor>;
-
-export const Sha256Hex = z
-  .string()
-  .regex(/^[a-f0-9]{64}$/)
-  .brand<"Sha256Hex">();
-export type Sha256Hex = z.infer<typeof Sha256Hex>;
 
 export const IsoDateTime = z.string().datetime({ offset: true });
 export type IsoDateTime = z.infer<typeof IsoDateTime>;

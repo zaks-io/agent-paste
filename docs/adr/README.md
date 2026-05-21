@@ -19,7 +19,8 @@ This directory is the implementation-facing decision log for agent-paste. ADRs a
 - [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) refines [ADR 0040](./0040-platform-lockdown-for-operator-initiated-takedown.md): operator actions use `/admin/...` routes on `api`, production Cloudflare Access, `requireOperator()`, and no API Key path.
 - [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) is the canonical interactive CLI auth model. `agent-paste login` is primary for humans; `AGENT_PASTE_API_KEY` remains for CI/headless use.
 - [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) is the canonical MCP model. MCP is OAuth-only, text-only for publish/update operations, and uses explicit `write`, `read`, and `share` scopes without dashboard implicit grants.
-- [`packages/contracts`](../../packages/contracts) and [`docs/specs/contracts.md`](../specs/contracts.md) are the canonical implementation contract for Zod schemas, ID formats, route registry, MCP tool registry, and public Bundle Availability shape. ADRs provide rationale; contracts provide field-level implementation shape.
+- [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) narrows the executable contract to the CLI-first MVP. It supersedes broader platform-era contract assumptions for MVP implementation, including larger usage-policy caps and app-layer encryption as an immediate build gate.
+- [`packages/contracts`](../../packages/contracts) and [`docs/specs/contracts.md`](../specs/contracts.md) are the canonical MVP implementation contract for Zod schemas, ID formats, and the route registry. ADRs provide rationale; contracts provide field-level implementation shape.
 
 ## Best-Practice Baseline
 
@@ -60,7 +61,7 @@ These practices are part of the current architecture, not optional implementatio
 - Untrusted content is served only from the isolated content origin. Direct R2 read URLs are never returned per [ADR 0001](./0001-private-artifact-storage-behind-controlled-origin.md).
 - Content responses use defense-in-depth headers: CSP, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options: nosniff`, and iframe sandboxing per [ADR 0030](./0030-mvp-execution-policy-cdn-allowlisted-csp.md). Cloudflare's security-header example covers the same header family: <https://developers.cloudflare.com/workers/examples/security-headers/>.
 - Served content type is derived from a fixed extension allowlist, not the agent-provided upload MIME type. Unknown extensions download as `application/octet-stream`; SVG gets a tighter per-response CSP per [ADR 0042](./0042-strict-extension-based-served-content-type.md).
-- Revision file bytes and generated Bundle archives are encrypted at the application layer with AES-256-GCM and a per-Workspace HKDF-derived key before the R2 PUT per [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md). `upload` encrypts in a streaming `TransformStream` on write, `jobs` encrypts bundle outputs, and `content` decrypts inside the existing content-gateway-token verification path. The root key joins the 90-day rotation set from [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md).
+- Application-layer encryption for artifact bytes is deferred out of the CLI-first MVP per [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md). The MVP safety baseline is private R2, isolated content serving, signed content tokens, and no direct R2 URLs. [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md) remains the future direction when that work is promoted.
 
 ### Operator and Admin Access
 

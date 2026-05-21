@@ -1,78 +1,66 @@
 import { z } from "zod";
-import { AuditEvent } from "./audit.js";
+import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
+import { ArtifactDetail, ArtifactListResponse, DeleteArtifactResponse } from "./artifacts.js";
 import { PageInfo } from "./common.js";
-import { PlatformLockdownScope } from "./enums.js";
-import { ArtifactId, IsoDateTime, WorkspaceId } from "./primitives.js";
+import { ActorType, OperationEventAction, OperationEventTargetType } from "./enums.js";
+import { IsoDateTime, OperationEventId, WorkspaceId } from "./primitives.js";
+import { WorkspaceSummary } from "./workspace.js";
 
-export const PlatformLockdownId = z.string().min(1).max(80).brand<"PlatformLockdownId">();
-export type PlatformLockdownId = z.infer<typeof PlatformLockdownId>;
-
-export const PlatformLockdownRequest = z.discriminatedUnion("scope", [
-  z.object({
-    scope: z.literal(PlatformLockdownScope.enum.workspace),
-    workspace_id: WorkspaceId,
-    reason_code: z.string().regex(/^[a-z0-9_]+$/),
-  }),
-  z.object({
-    scope: z.literal(PlatformLockdownScope.enum.artifact),
-    artifact_id: ArtifactId,
-    reason_code: z.string().regex(/^[a-z0-9_]+$/),
-  }),
-]);
-export type PlatformLockdownRequest = z.infer<typeof PlatformLockdownRequest>;
-
-export const PlatformLockdownDetail = z.object({
-  id: PlatformLockdownId,
-  scope: PlatformLockdownScope,
-  target_id: z.string().min(1),
-  reason_code: z.string().regex(/^[a-z0-9_]+$/),
-  set_at: IsoDateTime,
-  set_by: z.string().min(1),
-  lifted_at: IsoDateTime.nullable(),
-  lifted_by: z.string().min(1).nullable(),
+export const CreateWorkspaceRequest = z.object({
+  email: z.string().email(),
+  name: z.string().trim().min(1).max(120).optional(),
 });
-export type PlatformLockdownDetail = z.infer<typeof PlatformLockdownDetail>;
+export type CreateWorkspaceRequest = z.infer<typeof CreateWorkspaceRequest>;
 
-export const PlatformLockdownResponse = z.object({
-  id: PlatformLockdownId.optional(),
-  scope: PlatformLockdownScope,
-  target_id: z.string().min(1),
-  active: z.boolean(),
-  changed_at: IsoDateTime,
+export const WorkspaceDetail = WorkspaceSummary.extend({
+  contact_email: z.string().email().nullable(),
 });
-export type PlatformLockdownResponse = z.infer<typeof PlatformLockdownResponse>;
+export type WorkspaceDetail = z.infer<typeof WorkspaceDetail>;
 
-export const PlatformLockdownListResponse = z.object({
-  data: z.array(PlatformLockdownDetail),
+export const WorkspaceListResponse = z.object({
+  data: z.array(WorkspaceDetail),
   page_info: PageInfo,
 });
-export type PlatformLockdownListResponse = z.infer<typeof PlatformLockdownListResponse>;
+export type WorkspaceListResponse = z.infer<typeof WorkspaceListResponse>;
 
-export const LiftPlatformLockdownResponse = z.object({
-  id: PlatformLockdownId,
-  active: z.literal(false),
-  lifted_at: IsoDateTime,
+export const RevokeApiKeyResponse = z.object({
+  api_key: ApiKeySummary,
+  revoked_at: IsoDateTime,
 });
-export type LiftPlatformLockdownResponse = z.infer<typeof LiftPlatformLockdownResponse>;
+export type RevokeApiKeyResponse = z.infer<typeof RevokeApiKeyResponse>;
 
-export const AdminSecretName = z.enum([
-  "access_link_signing_key",
-  "api_key_pepper",
-  "artifact_bytes_encryption_key",
-  "content_gateway_signing_key",
-  "web_session_seal_key",
-]);
-export type AdminSecretName = z.infer<typeof AdminSecretName>;
-
-export const SecretRotationResponse = z.object({
-  secret_name: AdminSecretName,
-  status: z.literal("accepted"),
-  requested_at: IsoDateTime,
+export const CleanupRunRequest = z.object({
+  dry_run: z.boolean().default(false),
 });
-export type SecretRotationResponse = z.infer<typeof SecretRotationResponse>;
+export type CleanupRunRequest = z.infer<typeof CleanupRunRequest>;
 
-export const AdminRecentAuditResponse = z.object({
-  data: z.array(AuditEvent),
+export const CleanupRunResponse = z.object({
+  dry_run: z.boolean(),
+  expired_artifacts: z.number().int().nonnegative(),
+  expired_upload_sessions: z.number().int().nonnegative(),
+  deleted_r2_objects: z.number().int().nonnegative(),
+  occurred_at: IsoDateTime,
+});
+export type CleanupRunResponse = z.infer<typeof CleanupRunResponse>;
+
+export const OperationEvent = z.object({
+  id: OperationEventId,
+  workspace_id: WorkspaceId.nullable(),
+  actor_type: ActorType,
+  actor_id: z.string().nullable(),
+  action: OperationEventAction,
+  target_type: OperationEventTargetType,
+  target_id: z.string().min(1),
+  details: z.record(z.string(), z.unknown()),
+  request_id: z.string().nullable(),
+  occurred_at: IsoDateTime,
+});
+export type OperationEvent = z.infer<typeof OperationEvent>;
+
+export const OperationEventListResponse = z.object({
+  data: z.array(OperationEvent),
   page_info: PageInfo,
 });
-export type AdminRecentAuditResponse = z.infer<typeof AdminRecentAuditResponse>;
+export type OperationEventListResponse = z.infer<typeof OperationEventListResponse>;
+
+export { ArtifactDetail, ArtifactListResponse, CreateApiKeyResponse, DeleteArtifactResponse };

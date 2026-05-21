@@ -2,5 +2,26 @@
   "name": "agent-paste",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "bin": {
+    "agent-paste": "./dist/src/index.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check": "pnpm typecheck",
+    "dev": "pnpm build && node dist/src/index.js",
+    "test": "vitest run test/local.test.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-paste/api-client": "workspace:*",
+    "@agent-paste/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
 }

@@ -1,6 +1,10 @@
 # MVP Usage Policy Defaults and Platform Caps
 
+Status: Narrowed for the CLI-first MVP by [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md).
+
 Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits referenced as platform-controlled by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md), [ADR 0041](./0041-upload-size-caps-under-usage-policy.md), [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), and [ADR 0048](./0048-transient-artifacts-by-default.md). Workspace-tunable settings cannot exceed the platform cap; platform-controlled values are exposed read-only through **Usage Policy** surfaces so agents can plan around them.
+
+CLI-first MVP follow-up: [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) uses smaller executable contract caps: `10 MB` per file, `25 MB` per artifact, `100` files, `1d` minimum TTL, `30d` default TTL, `90d` maximum TTL, `24h` upload-session TTL, and `60 req/min` per API-key actor. The larger values below are retained as platform-growth context, not MVP implementation gates.
 
 ## Values
 

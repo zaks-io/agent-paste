@@ -1,16 +1,15 @@
 # api
 
-Planned authenticated control-plane Cloudflare Worker.
+Authenticated control-plane Cloudflare Worker.
 
 Responsibilities:
 
-- Auth0 and API Key authentication.
+- API Key authentication and hashed admin bearer authentication.
 - Scope checks.
-- Workspace RLS context.
-- Artifact publish and management routes.
-- Access Link creation, minting, revocation, and resolve.
+- Workspace-constrained artifact and management routes.
+- Agent View JSON and browser-readable Agent View HTML.
 - API Key management.
-- Audit reads.
+- Operation event reads.
 - Operator admin routes.
 
 Contracts: [`docs/specs/api.md`](../../docs/specs/api.md) and [`packages/contracts`](../../packages/contracts).

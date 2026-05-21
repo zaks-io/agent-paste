@@ -9,14 +9,12 @@ This package intentionally contains schemas and registries only. It does not con
 - `primitives.ts`: branded identifiers and reusable scalar shapes.
 - `enums.ts`: stable enum contracts.
 - `common.ts`: pagination, error, and utility schemas.
-- `agentView.ts`: Manifest, Agent View, file listing, warnings, and Bundle Availability.
-- `admin.ts`: operator request/response schemas.
-- `artifacts.ts`: Artifact, Revision, Publish, metadata, deletion, pinning, and lockdown schemas.
-- `content.ts`: non-JSON content-origin response markers.
-- `uploadSessions.ts`: upload-session request and response schemas.
-- `accessLinks.ts`: Access Link create, mint, list, and resolve schemas.
-- `apiKeys.ts`: API Key management schemas.
+- `agentView.ts`: public MVP Agent View with full per-file signed URLs.
+- `admin.ts`: internal operator workspace, cleanup, and operation-event schemas.
+- `artifacts.ts`: admin artifact schemas.
+- `uploadSessions.ts`: upload-session create/finalize schemas and MVP Publish Result.
+- `apiKeys.ts`: admin-created API Key schemas.
 - `workspace.ts`: workspace, usage policy, and whoami schemas.
-- `audit.ts`: Audit Event read schemas.
-- `mcp.ts`: MCP tool input/output schemas and tool registry.
-- `routes.ts`: public route registry for `api`, `upload`, `content`, and operator routes.
+- `routes.ts`: MVP route registry for `api`, `upload`, `content`, and internal admin routes.
+
+Future dashboard, MCP, Access Link lifecycle, bundle, safety warning, multi-revision, and app-layer encryption contracts are intentionally not exported by this MVP package.

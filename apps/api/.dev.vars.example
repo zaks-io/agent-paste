@@ -1,0 +1,13 @@
+# Copy to apps/api/.dev.vars when running the API Worker with Wrangler.
+# Do not commit real .dev.vars files.
+
+ADMIN_TOKEN=local-admin-token
+CONTENT_BASE_URL=http://127.0.0.1:8789
+CLEANUP_BATCH_SIZE=100
+
+# Planned persistent local services. The current API Worker expects AUTH and DB
+# bindings from runtime wiring; these values document the local targets for that
+# wiring and docker-compose.yml.
+DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste
+API_KEY_PEPPER=dev-api-key-pepper-change-me
+API_BASE_URL=http://127.0.0.1:8787

@@ -2,5 +2,17 @@
   "name": "@agent-paste/storage",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check": "pnpm typecheck && pnpm test",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  }
 }

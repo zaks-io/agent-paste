@@ -1,0 +1,139 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-upload",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "API_KEY_ENV": "preview",
+    "API_BASE_URL": "http://127.0.0.1:8787",
+    "CONTENT_BASE_URL": "http://127.0.0.1:8789",
+    "UPLOAD_BASE_URL": "http://127.0.0.1:8788",
+    "UPLOAD_URL_TTL_SECONDS": "900"
+  },
+  "r2_buckets": [
+    {
+      // Upload owns the R2 write path per ADR 0027.
+      "binding": "ARTIFACTS",
+      "bucket_name": "agent-paste-artifacts-dev"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "ACTOR_RATE_LIMIT",
+      "namespace_id": "1000011",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    },
+    {
+      "name": "WORKSPACE_BURST_CAP",
+      "namespace_id": "1000012",
+      "simple": {
+        "limit": 300,
+        "period": 10
+      }
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "agent-paste-upload-preview",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "upload.preview.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_KEY_ENV": "preview",
+        "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
+        "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
+        "UPLOAD_BASE_URL": "https://agent-paste-upload-preview.isaac-a46.workers.dev",
+        "UPLOAD_URL_TTL_SECONDS": "900"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "9241c4965ed64cb4b1ed87c84b85382a"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-preview"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ACTOR_RATE_LIMIT",
+          "namespace_id": "2000011",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "WORKSPACE_BURST_CAP",
+          "namespace_id": "2000012",
+          "simple": {
+            "limit": 300,
+            "period": 10
+          }
+        }
+      ]
+    },
+    "live": {
+      "name": "agent-paste-upload-live",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "upload.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_KEY_ENV": "live",
+        "API_BASE_URL": "https://api.agent-paste.sh",
+        "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        "UPLOAD_BASE_URL": "https://upload.agent-paste.sh",
+        "UPLOAD_URL_TTL_SECONDS": "900"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "00000000-0000-0000-0000-000000000012"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-live"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ACTOR_RATE_LIMIT",
+          "namespace_id": "3000011",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "WORKSPACE_BURST_CAP",
+          "namespace_id": "3000012",
+          "simple": {
+            "limit": 300,
+            "period": 10
+          }
+        }
+      ]
+    }
+  }
+}

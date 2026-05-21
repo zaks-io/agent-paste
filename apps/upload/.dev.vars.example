@@ -1,0 +1,13 @@
+# Copy to apps/upload/.dev.vars when running the Upload Worker with Wrangler.
+# Do not commit real .dev.vars files.
+
+UPLOAD_BASE_URL=http://127.0.0.1:8788
+UPLOAD_SIGNING_SECRET=dev-upload-signing-secret-change-me
+UPLOAD_URL_TTL_SECONDS=900
+
+# Planned persistent local services. The current Upload Worker expects AUTH, DB,
+# and ARTIFACTS bindings from runtime wiring; these values document the local
+# targets for that wiring and shared test configuration.
+DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste
+API_KEY_PEPPER=dev-api-key-pepper-change-me
+R2_BUCKET=agent-paste-artifacts-dev

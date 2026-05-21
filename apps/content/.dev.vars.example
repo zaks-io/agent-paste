@@ -1,0 +1,8 @@
+# Copy to apps/content/.dev.vars when running the Content Worker with Wrangler.
+# Do not commit real .dev.vars files.
+
+CONTENT_SIGNING_SECRET=dev-content-signing-secret-change-me
+
+# Planned local binding names for Wrangler config.
+R2_BUCKET=agent-paste-artifacts-dev
+KV_DENYLIST_NAMESPACE=agent-paste-denylist-dev
