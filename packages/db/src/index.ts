@@ -468,28 +468,28 @@ export class LocalRepository {
     );
   }
 
-  private runCleanupSync(input: { actor: AdminActor; dryRun: boolean; now: string }) {
-    let expiredArtifacts = 0;
-    let expiredUploadSessions = 0;
-    for (const artifact of this.artifacts.values()) {
-      if (artifact.status === "active" && new Date(artifact.expires_at).getTime() <= new Date(input.now).getTime()) {
-        expiredArtifacts += 1;
-        if (!input.dryRun) {
-          artifact.status = "expired";
-          artifact.deleted_at = input.now;
-          artifact.delete_reason = "expired";
-        }
-      }
-    }
-    for (const session of this.uploadSessions.values()) {
-      if (session.status === "pending" && new Date(session.expires_at).getTime() <= new Date(input.now).getTime()) {
-        expiredUploadSessions += 1;
-        if (!input.dryRun) {
-          session.status = "expired";
-        }
-      }
-    }
+  private runCleanupSync(input: { actor: AdminActor; dryRun: boolean; batchSize?: number; now: string }) {
+    const limit = input.batchSize ?? 100;
+    const nowMs = new Date(input.now).getTime();
+    const expiringArtifacts = [...this.artifacts.values()]
+      .filter((artifact) => artifact.status === "active" && new Date(artifact.expires_at).getTime() <= nowMs)
+      .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
+      .slice(0, limit);
+    const expiringSessions = [...this.uploadSessions.values()]
+      .filter((session) => session.status === "pending" && new Date(session.expires_at).getTime() <= nowMs)
+      .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
+      .slice(0, limit);
+
     if (!input.dryRun) {
+      for (const artifact of expiringArtifacts) {
+        artifact.status = "expired";
+        artifact.deleted_at = input.now;
+        artifact.delete_reason = "expired";
+        artifact.updated_at = input.now;
+      }
+      for (const session of expiringSessions) {
+        session.status = "expired";
+      }
       this.addEvent(
         input.actor.type,
         input.actor.id,
@@ -498,19 +498,17 @@ export class LocalRepository {
         "manual",
         null,
         {
-          expired_artifacts: expiredArtifacts,
-          expired_upload_sessions: expiredUploadSessions,
+          expired_artifacts: expiringArtifacts.length,
+          expired_upload_sessions: expiringSessions.length,
         },
         input.now,
       );
     }
     return {
       dry_run: input.dryRun,
-      expired_artifacts: expiredArtifacts,
-      expired_artifact_ids: [...this.artifacts.values()]
-        .filter((artifact) => artifact.deleted_at === input.now && artifact.delete_reason === "expired")
-        .map((artifact) => artifact.id),
-      expired_upload_sessions: expiredUploadSessions,
+      expired_artifacts: expiringArtifacts.length,
+      expired_artifact_ids: input.dryRun ? [] : expiringArtifacts.map((artifact) => artifact.id),
+      expired_upload_sessions: expiringSessions.length,
       deleted_r2_objects: 0,
       occurred_at: input.now,
     };
