@@ -6,6 +6,7 @@ nodeLinker: isolated
 minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
   - '@biomejs/biome'
+  - '@vitest/*'
   - lefthook
   - turbo
   - typescript

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="agent-paste">
+  <style>
+    .bg { fill: hsl(36 14% 98%); }
+    .fg { fill: hsl(24 10% 7%); }
+    .accent { fill: hsl(162 60% 24%); }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: hsl(24 12% 4%); }
+      .fg { fill: hsl(36 14% 98%); }
+      .accent { fill: hsl(158 50% 52%); }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="6"/>
+  <rect class="fg" x="6" y="8" width="3" height="16"/>
+  <rect class="accent" x="11" y="15" width="10" height="2"/>
+  <rect class="fg" x="23" y="8" width="3" height="16"/>
+</svg>

@@ -97,6 +97,7 @@ jobs:
           AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
           AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          AGENT_PASTE_PR_APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           AGENT_PASTE_PR_ADMIN_TOKEN: ${{ steps.deploy.outputs.admin_token }}
         run: pnpm smoke:pr
 
@@ -110,6 +111,7 @@ jobs:
               `API: ${process.env.API_URL}`,
               `Upload: ${process.env.UPLOAD_URL}`,
               `Content: ${process.env.CONTENT_URL}`,
+              `Apex: ${process.env.APEX_URL}`,
               `Neon branch: https://console.neon.tech/app/projects/${process.env.NEON_PROJECT_ID}/branches/${process.env.NEON_BRANCH_ID}`,
             ].join("\n");
             await github.rest.issues.createComment({
@@ -122,6 +124,7 @@ jobs:
           API_URL: ${{ steps.deploy.outputs.api_url }}
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
 

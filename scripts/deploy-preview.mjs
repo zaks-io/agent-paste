@@ -11,6 +11,7 @@ const apps = [
   { name: "api", package: "@agent-paste/api" },
   { name: "upload", package: "@agent-paste/upload" },
   { name: "content", package: "@agent-paste/content" },
+  { name: "apex", package: "@agent-paste/apex" },
 ];
 
 for (const app of apps) {
@@ -18,7 +19,7 @@ for (const app of apps) {
   await run("pnpm", ["--filter", app.package, `deploy:${target}`]);
 }
 
-process.stdout.write(`${target} deploy completed in order: api -> upload -> content\n`);
+process.stdout.write(`${target} deploy completed in order: api -> upload -> content -> apex\n`);
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
