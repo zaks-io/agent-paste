@@ -85,16 +85,26 @@ async function smokeApex(c) {
   const llms = await fetch(`${c.apexBaseUrl}/llms.txt`, { redirect: "manual" });
   assert(llms.status === 200, `apex /llms.txt returned ${llms.status}`);
   assert(llms.headers.get("content-type")?.includes("text/plain"), "apex /llms.txt is text/plain");
+  assert(!llms.headers.get("set-cookie"), "apex /llms.txt does not set cookies");
 
   const agents = await fetch(`${c.apexBaseUrl}/agents.md`, { redirect: "manual" });
   assert(agents.status === 200, `apex /agents.md returned ${agents.status}`);
   assert(agents.headers.get("content-type")?.includes("text/markdown"), "apex /agents.md is text/markdown");
+  assert(!agents.headers.get("set-cookie"), "apex /agents.md does not set cookies");
 
   const redirect = await fetch(`${c.apexBaseUrl}/dashboard`, { redirect: "manual" });
   assert(redirect.status === 308, `apex /dashboard returned ${redirect.status} (expected 308)`);
+  assert(!redirect.headers.get("set-cookie"), "apex /dashboard does not set cookies");
   assert(
     redirect.headers.get("location") === "https://app.agent-paste.sh/dashboard",
     `apex /dashboard location ${redirect.headers.get("location")}`,
+  );
+
+  const redirectWithQuery = await fetch(`${c.apexBaseUrl}/dashboard?from=smoke`, { redirect: "manual" });
+  assert(redirectWithQuery.status === 308, `apex /dashboard?from=smoke returned ${redirectWithQuery.status}`);
+  assert(
+    redirectWithQuery.headers.get("location") === "https://app.agent-paste.sh/dashboard?from=smoke",
+    `apex /dashboard?from=smoke location ${redirectWithQuery.headers.get("location")}`,
   );
 }
 

@@ -17,6 +17,11 @@ describe("apex worker", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    const csp = response.headers.get("content-security-policy");
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
     const body = await response.text();
     expect(body).toContain("<!doctype html>");
     expect(body).toContain("Where agents publish");

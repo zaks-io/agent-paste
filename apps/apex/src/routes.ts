@@ -8,11 +8,24 @@ const TEXT_MARKDOWN = "text/markdown; charset=utf-8";
 const TEXT_HTML = "text/html; charset=utf-8";
 const TEXT_XML = "application/xml; charset=utf-8";
 
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
+  "img-src 'self' data:",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+].join("; ");
+
 const SECURITY_HEADERS: HeadersInit = {
   "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
   "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
   "referrer-policy": "strict-origin-when-cross-origin",
   "permissions-policy": "interest-cohort=()",
+  "content-security-policy": CSP,
 };
 
 const CACHE_HTML = "public, max-age=0, must-revalidate";
