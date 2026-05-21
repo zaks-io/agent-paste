@@ -26,9 +26,12 @@
       "dependsOn": ["^check"],
       "outputs": []
     },
+    "lint": {
+      "outputs": []
+    },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "outputs": []
     },
     "typecheck": {
       "dependsOn": ["^build"],

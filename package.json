@@ -20,7 +20,7 @@
     "hooks:install": "lefthook install",
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push",
-    "lint": "biome lint .",
+    "lint": "turbo run lint",
     "migrate:preview": "node scripts/migrate.mjs preview",
     "migrate:production": "node scripts/migrate.mjs production",
     "migrate:live": "pnpm migrate:production",
@@ -30,7 +30,8 @@
     "smoke:production": "pnpm build && node scripts/smoke-hosted.mjs production",
     "smoke:pr": "pnpm build && node scripts/smoke-hosted.mjs pr",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "verify": "turbo run lint typecheck test"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

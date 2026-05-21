@@ -2,5 +2,8 @@
   "name": "@agent-paste/jobs",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "lint": "biome lint ."
+  }
 }

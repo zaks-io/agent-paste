@@ -83,11 +83,5 @@ jobs:
           done
           exit "$missing"
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm check
-
-      - name: Test
-        run: pnpm test
+      - name: Validate
+        run: pnpm verify

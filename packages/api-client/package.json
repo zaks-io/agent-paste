@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck",
+    "lint": "biome lint .",
     "test": "vitest run test/client.test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },

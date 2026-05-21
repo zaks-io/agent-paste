@@ -55,14 +55,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm check
-
-      - name: Test
-        run: pnpm test
+      - name: Validate manual dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: pnpm verify
 
       - name: Migrate production database
         env:

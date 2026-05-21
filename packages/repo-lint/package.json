@@ -1,0 +1,12 @@
+{
+  "name": "@agent-paste/repo-lint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome lint ../../.github ../../docs ../../scripts ../../*.json ../../*.yaml ../../*.yml ../../*.md"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:"
+  }
+}
