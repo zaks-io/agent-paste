@@ -31,6 +31,7 @@
     "smoke:pr": "pnpm build && node scripts/smoke-hosted.mjs pr",
     "setup:codex": "node scripts/setup-codex-worktree.mjs",
     "test": "turbo run test",
+    "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
     "verify": "turbo run lint typecheck test"
   },
@@ -38,6 +39,7 @@
     "@biomejs/biome": "catalog:",
     "@cloudflare/workers-types": "^4.20260521.1",
     "@types/node": "^24.12.4",
+    "@vitest/coverage-v8": "catalog:",
     "lefthook": "^2.1.8",
     "turbo": "catalog:",
     "typescript": "catalog:",
