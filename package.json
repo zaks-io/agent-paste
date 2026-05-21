@@ -24,7 +24,7 @@
     "migrate:preview": "node scripts/migrate.mjs preview",
     "migrate:production": "node scripts/migrate.mjs production",
     "migrate:live": "pnpm migrate:production",
-    "prepare": "lefthook install",
+    "prepare": "node scripts/install-hooks.mjs",
     "smoke:local": "pnpm build && node scripts/smoke-local-mvp.mjs",
     "smoke:preview": "pnpm build && node scripts/smoke-hosted.mjs preview",
     "smoke:production": "pnpm build && node scripts/smoke-hosted.mjs production",

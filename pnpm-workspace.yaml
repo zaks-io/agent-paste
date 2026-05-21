@@ -12,6 +12,21 @@ minimumReleaseAgeExclude:
   - typescript
   - vitest
 
+supportedArchitectures:
+  os:
+    - current
+    - linux
+    - darwin
+    - win32
+  cpu:
+    - current
+    - x64
+    - arm64
+  libc:
+    - current
+    - glibc
+    - musl
+
 catalog:
   '@biomejs/biome': ^2.4.15
   turbo: ^2.9.14
