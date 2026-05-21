@@ -50,8 +50,8 @@
         }
       ]
     },
-    "live": {
-      "name": "agent-paste-content-live",
+    "production": {
+      "name": "agent-paste-content-production",
       "workers_dev": false,
       "routes": [
         {
@@ -65,13 +65,13 @@
       "r2_buckets": [
         {
           "binding": "ARTIFACTS",
-          "bucket_name": "agent-paste-artifacts-live"
+          "bucket_name": "agent-paste-artifacts-production"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "DENYLIST",
-          "id": "8ef426f6ecba400188da509306b61017"
+          "id": "86d8b139223e45108d320533277a235d"
         }
       ]
     }

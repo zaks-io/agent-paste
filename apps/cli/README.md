@@ -21,7 +21,7 @@ npm install -g agent-paste
 Set `AGENT_PASTE_API_KEY` in the environment. The MVP CLI is API-key-only.
 
 ```sh
-export AGENT_PASTE_API_KEY=ap_pk_live_...
+export AGENT_PASTE_API_KEY=ap_pk_production_...
 ```
 
 The CLI does not accept secrets as flags. API Keys encode their **Workspace**.

@@ -40,11 +40,18 @@ describe("auth helpers", () => {
     ).toBe(false);
   });
 
-  it("parses the bearer format", async () => {
-    const generated = await generateApiKey({ env: "live", pepper });
+  it("parses the production bearer format", async () => {
+    const generated = await generateApiKey({ env: "production", pepper });
     expect(parseApiKey(generated.secret)).toMatchObject({
-      env: "live",
+      env: "production",
       publicId: generated.material.publicId,
+    });
+  });
+
+  it("parses legacy live bearer format during migration", () => {
+    expect(parseApiKey("ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF")).toMatchObject({
+      env: "live",
+      publicId: "0123456789ABCDEF",
     });
   });
 });

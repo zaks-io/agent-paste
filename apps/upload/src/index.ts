@@ -66,7 +66,7 @@ export type Env = {
   DB?: UploadDatabase | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   API_KEY_PEPPER_V1?: string;
-  API_KEY_ENV?: "preview" | "live";
+  API_KEY_ENV?: "preview" | "production" | "live";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;

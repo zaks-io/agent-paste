@@ -2,7 +2,7 @@
 
 Implementation scripts live here.
 
-## Preview MVP Scripts
+## Hosted MVP Scripts
 
 ### `bootstrap-secrets.mjs`
 
@@ -12,7 +12,7 @@ Usage:
 
 ```sh
 OPERATOR_EMAILS=you@example.com pnpm bootstrap:preview
-node scripts/bootstrap-secrets.mjs live --operator-emails you@example.com
+node scripts/bootstrap-secrets.mjs production --operator-emails you@example.com
 ```
 
 The script generates and writes the current MVP Worker secrets with `wrangler secret put`:
@@ -30,25 +30,25 @@ Use `--print-only` to verify generation shape without calling Wrangler.
 
 ### `migrate.mjs`
 
-Migration runner command for preview/live:
+Migration runner command for preview/production:
 
 ```sh
-DATABASE_URL_MIGRATIONS_PREVIEW=postgres://... pnpm migrate:preview
-node scripts/migrate.mjs live
+PREVIEW_DATABASE_URL=postgres://... pnpm migrate:preview
+PRODUCTION_DATABASE_URL=postgres://... pnpm migrate:production
 ```
 
 The script exports the selected migration URL as `DATABASE_URL` and runs the committed MVP SQL migration from `packages/db`.
 
 ### `deploy-preview.mjs`
 
-Preview/live deploy runner:
+Preview/production deploy runner:
 
 ```sh
 pnpm deploy:preview
-pnpm deploy:live
+pnpm deploy:production
 ```
 
-It deploys the hosted preview Workers in the MVP dependency order:
+It deploys hosted Workers in the MVP dependency order:
 
 1. `api`
 2. `upload`
@@ -56,19 +56,20 @@ It deploys the hosted preview Workers in the MVP dependency order:
 
 The script shells out to Wrangler. It is intentionally not used by tests.
 
-### `smoke-preview.mjs`
+### `smoke-hosted.mjs`
 
-Hosted preview smoke test:
+Hosted smoke test:
 
 ```sh
 AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
 ```
 
 Optional endpoint overrides:
 
-- `AGENT_PASTE_PREVIEW_API_URL` defaults to `https://api.preview.agent-paste.sh`
-- `AGENT_PASTE_PREVIEW_UPLOAD_URL` defaults to `https://upload.preview.agent-paste.sh`
-- `AGENT_PASTE_PREVIEW_CONTENT_URL` defaults to `https://usercontent.preview.agent-paste.sh`
+- Preview URLs default to the shared `workers.dev` preview Workers.
+- Production URLs default to `https://api.agent-paste.sh`, `https://upload.agent-paste.sh`, and `https://usercontent.agent-paste.sh`.
+- PR preview URLs are provided by `.github/workflows/pr-preview.yml`.
 - `AGENT_PASTE_SMOKE_PATH` defaults to `examples/local-harness/site`
 
 Assertions:
@@ -79,3 +80,7 @@ Assertions:
 - browser Agent View HTML returns `text/html` and renders the artifact/file list
 - content HTML returns the published fixture
 - deleting the artifact makes the old content URL return `404`
+
+### PR Preview Helpers
+
+`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. Each same-repo PR gets a Neon branch named `preview/pr-<number>`, PR-scoped Workers named `agent-paste-{api,upload,content}-pr-<number>`, and `workers.dev` URLs for smoke testing.

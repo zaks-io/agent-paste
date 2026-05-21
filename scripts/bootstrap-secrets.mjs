@@ -47,8 +47,11 @@ printCaptureBlock();
 
 function parseTarget(argv) {
   const value = argv.find((arg) => !arg.startsWith("--"));
-  if (value !== "preview" && value !== "live") {
-    usage("Target environment must be preview or live.");
+  if (value === "live") {
+    return "production";
+  }
+  if (value !== "preview" && value !== "production") {
+    usage("Target environment must be preview or production.");
   }
   return value;
 }
@@ -189,7 +192,7 @@ function usage(message) {
 
 Usage:
   node scripts/bootstrap-secrets.mjs preview --operator-emails you@example.com
-  node scripts/bootstrap-secrets.mjs live --operator-emails you@example.com
+  node scripts/bootstrap-secrets.mjs production --operator-emails you@example.com
 
 Options:
   --force       Allow overwriting existing secrets after typed confirmation.

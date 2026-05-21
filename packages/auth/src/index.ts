@@ -1,7 +1,7 @@
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const API_KEY_SECRET_BYTES = 32;
 
-export type ApiKeyEnvironment = "preview" | "live";
+export type ApiKeyEnvironment = "preview" | "production" | "live";
 
 export type ParsedApiKey = {
   env: ApiKeyEnvironment;
@@ -40,7 +40,7 @@ export async function generateApiKey(input: {
 }
 
 export function parseApiKey(value: string): ParsedApiKey | null {
-  const match = value.match(/^ap_pk_(preview|live)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
+  const match = value.match(/^ap_pk_(preview|production|live)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
   if (!match?.[1] || !match[2] || !match[3]) {
     return null;
   }

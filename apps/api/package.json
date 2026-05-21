@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck",
-    "deploy:live": "wrangler deploy --config wrangler.jsonc --env live",
+    "deploy:live": "pnpm deploy:production",
+    "deploy:production": "wrangler deploy --config wrangler.jsonc --env production",
     "deploy:preview": "wrangler deploy --config wrangler.jsonc --env preview",
     "dev": "wrangler dev --config wrangler.jsonc",
     "test": "vitest run",

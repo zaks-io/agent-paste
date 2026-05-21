@@ -45,7 +45,7 @@ export type UrlString = z.infer<typeof UrlString>;
 
 export const ApiKeyBearer = z
   .string()
-  .regex(/^ap_pk_(preview|live)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/)
+  .regex(/^ap_pk_(preview|production|live)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/)
   .brand<"ApiKeyBearer">();
 export type ApiKeyBearer = z.infer<typeof ApiKeyBearer>;
 

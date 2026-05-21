@@ -101,8 +101,8 @@
         }
       ]
     },
-    "live": {
-      "name": "agent-paste-api-live",
+    "production": {
+      "name": "agent-paste-api-production",
       "workers_dev": false,
       "routes": [
         {
@@ -111,7 +111,7 @@
         }
       ],
       "vars": {
-        "API_KEY_ENV": "live",
+        "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100"
@@ -119,19 +119,19 @@
       "hyperdrive": [
         {
           "binding": "DB",
-          "id": "00000000-0000-0000-0000-000000000002"
+          "id": "ca07f5b895084f60b666586c362982fc"
         }
       ],
       "r2_buckets": [
         {
           "binding": "ARTIFACTS",
-          "bucket_name": "agent-paste-artifacts-live"
+          "bucket_name": "agent-paste-artifacts-production"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "DENYLIST",
-          "id": "8ef426f6ecba400188da509306b61017"
+          "id": "86d8b139223e45108d320533277a235d"
         }
       ],
       "ratelimits": [

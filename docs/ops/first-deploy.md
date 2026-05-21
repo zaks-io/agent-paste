@@ -1,6 +1,6 @@
 # First Deploy Runbook
 
-This runbook is the operator checklist for the first deploy of an agent-paste environment. Run it separately for `preview` and `live`; secrets, buckets, KV namespaces, Hyperdrive configs, and Postgres instances are environment-scoped.
+This runbook is the operator checklist for the first deploy of an agent-paste environment. Run it separately for shared `preview` and `production`; secrets, buckets, KV namespaces, Hyperdrive configs, and Postgres instances are environment-scoped.
 
 ## Prerequisites
 
@@ -21,7 +21,8 @@ This runbook is the operator checklist for the first deploy of an agent-paste en
 - Run the first MVP migration with a database role allowed to create tables:
 
   ```sh
-  DATABASE_URL_MIGRATIONS_PREVIEW=postgres://... pnpm migrate:preview
+  PREVIEW_DATABASE_URL=postgres://... pnpm migrate:preview
+  PRODUCTION_DATABASE_URL=postgres://... pnpm migrate:production
   ```
 
 - Confirm workspace isolation is enforced by the repository queries for this MVP.
@@ -48,23 +49,27 @@ The script prints the one-time `ADMIN_TOKEN` for operator use, but only writes `
 
 Set external provider secrets manually: Auth0 client values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate.
 
-## Preview MVP Deploy Order
+## Hosted MVP Deploy Order
 
-Run preview in this order:
+Run an environment in this order:
 
 ```sh
 pnpm migrate:preview
 pnpm deploy:preview
 AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+
+pnpm migrate:production
+pnpm deploy:production
+AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
 ```
 
-`pnpm deploy:preview` deploys only the preview MVP surface and keeps the order fixed:
+`pnpm deploy:preview` and `pnpm deploy:production` deploy only the MVP surface and keep the order fixed:
 
 1. Deploy `api`.
 2. Deploy `upload`.
 3. Deploy `content`.
 
-`jobs`, `web`, and `mcp` are outside this preview MVP deploy script.
+`jobs`, `web`, and `mcp` are outside this MVP deploy script.
 
 ## Smoke Checks
 
@@ -72,6 +77,17 @@ The hosted smoke is intentionally CLI/admin-token based for MVP:
 
 ```sh
 AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
 ```
 
 It creates a workspace and API key, publishes `examples/local-harness/site`, verifies Agent View HTML for browsers, Agent View JSON for agents, content HTML through the content Worker, and finally deletes the artifact and asserts the old content URL returns `404`.
+
+## Dynamic PR Previews
+
+Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neon branch named `preview/pr-<number>` from `main`, runs migrations against that branch URL, creates a PR-scoped Hyperdrive config, deploys `agent-paste-{api,upload,content}-pr-<number>` Workers to `workers.dev`, runs the hosted smoke, and comments the URLs on the PR. `.github/workflows/cleanup-pr-preview.yml` deletes the Workers, Hyperdrive config, and Neon branch when the PR closes.
+
+Required GitHub Actions values:
+
+- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`, `PRODUCTION_DATABASE_URL`, `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
+- Variables: `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN=isaac-a46`, `TURBO_TEAM`.
+- Environment: `Production` on the production deploy job, with reviewer approval enabled in GitHub settings.

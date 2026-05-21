@@ -4,8 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 loadDotenv();
 
-const target = process.argv[2];
-if (target !== "preview" && target !== "live") {
+const target = normalizeTarget(process.argv[2]);
+if (target !== "preview" && target !== "production") {
   usage();
 }
 
@@ -41,16 +41,29 @@ function databaseUrlEnvName(target) {
   if (target === "preview" && process.env.PREVIEW_DATABASE_URL) {
     return "PREVIEW_DATABASE_URL";
   }
-  if (target === "live" && process.env.LIVE_DATABASE_URL) {
+  if (target === "production" && process.env.PRODUCTION_DATABASE_URL) {
+    return "PRODUCTION_DATABASE_URL";
+  }
+  if (target === "production" && process.env.LIVE_DATABASE_URL) {
     return "LIVE_DATABASE_URL";
   }
+  if (target === "production" && process.env.DATABASE_URL_MIGRATIONS_LIVE) {
+    return "DATABASE_URL_MIGRATIONS_LIVE";
+  }
+  if (target === "production" && process.env.DATABASE_URL_MIGRATIONS_PREVIEW && process.env.PREVIEW_DATABASE_URL) {
+    return "DATABASE_URL_MIGRATIONS_PREVIEW";
+  }
   return `DATABASE_URL_MIGRATIONS_${target.toUpperCase()}`;
+}
+
+function normalizeTarget(value) {
+  return value === "live" ? "production" : value;
 }
 
 function usage() {
   process.stderr.write(`Usage:
   node scripts/migrate.mjs preview
-  node scripts/migrate.mjs live
+  node scripts/migrate.mjs production
 `);
   process.exit(1);
 }

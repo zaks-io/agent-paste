@@ -1,0 +1,134 @@
+name: PR Preview
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  TURBO_TELEMETRY_DISABLED: "1"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy PR Preview
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 25
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Create Neon PR branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          parent_branch: main
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Verify Neon branch isolation
+        env:
+          NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+          NEON_PRODUCTION_BRANCH_ID: ${{ vars.NEON_PRODUCTION_BRANCH_ID }}
+        run: |
+          test -n "$NEON_BRANCH_ID"
+          if [ -n "$NEON_PRODUCTION_BRANCH_ID" ] && [ "$NEON_BRANCH_ID" = "$NEON_PRODUCTION_BRANCH_ID" ]; then
+            echo "::error::PR Neon branch id matches production branch id"
+            exit 1
+          fi
+
+      - name: Migrate PR database
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: pnpm --filter @agent-paste/db migrate
+
+      - name: Create or reuse PR Hyperdrive
+        id: hyperdrive
+        env:
+          PR_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: node scripts/create-hyperdrive.mjs --name agent-paste-db-pr-${{ github.event.pull_request.number }} --connection-string-env PR_DATABASE_URL --github-output hyperdrive_id
+
+      - name: Deploy PR Workers
+        id: deploy
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.hyperdrive_id }}
+          CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          OPERATOR_EMAILS: isaac@zaks.io
+        run: node scripts/deploy-pr-preview.mjs
+
+      - name: Smoke PR preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
+          AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
+          AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          AGENT_PASTE_PR_ADMIN_TOKEN: ${{ steps.deploy.outputs.admin_token }}
+        run: pnpm smoke:pr
+
+      - name: Comment PR preview links
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const body = [
+              "agent-paste PR preview is ready.",
+              "",
+              `API: ${process.env.API_URL}`,
+              `Upload: ${process.env.UPLOAD_URL}`,
+              `Content: ${process.env.CONTENT_URL}`,
+              `Neon branch: https://console.neon.tech/app/projects/${process.env.NEON_PROJECT_ID}/branches/${process.env.NEON_BRANCH_ID}`,
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+        env:
+          API_URL: ${{ steps.deploy.outputs.api_url }}
+          UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
+          CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+
+  forked-pr:
+    name: Skip Forked PR
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    steps:
+      - name: Explain skip
+        run: echo "Skipping PR preview deploy for forked PR because secret-bearing Cloudflare and Neon steps are not safe."

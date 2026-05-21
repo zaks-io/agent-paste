@@ -16,7 +16,7 @@ The first time agent-paste is deployed to an environment, two things have to exi
 - **The first Drizzle migration creates the two DB roles** referenced by [ADR 0044](./0044-workspace-isolation-via-postgres-rls.md): `app_role` (`NOBYPASSRLS`, the role Workers reach through Hyperdrive) and `platform_admin` (`BYPASSRLS`, used inside `withPlatformContext()` and for migrations). `app_role` is granted `USAGE` on the public schema and `SELECT, INSERT, UPDATE, DELETE` on every tenant table at creation time; new tenant tables added by later migrations include the same grants in the migration that creates them.
 - **Migrations run as `platform_admin`** from GitHub Actions per [ADR 0007](./0007-database-migrations-and-preview-environments.md). The DB connection string used by CI is a separate credential from the one Hyperdrive uses to reach `app_role`; CI does not need the Hyperdrive route.
 - **RLS is enabled in the same migration that creates each tenant table**, with the `USING (workspace_id = current_setting('app.workspace_id', true)::uuid)` predicate from ADR 0044. There is no later "turn on RLS" migration; tables are born with it.
-- **`preview` and `live` are bootstrapped by the same migration set** against different Postgres instances. Preview-per-PR schemas from ADR 0007 inherit the roles from the live `preview` database; per-PR schemas do not re-create roles.
+- **`preview` and `production` are bootstrapped by the same migration set** against different Postgres instances. PR preview branches from ADR 0007 inherit the roles from their parent branch; per-PR workflows do not re-create roles outside migrations.
 
 ### Secrets
 
@@ -32,7 +32,7 @@ The first time agent-paste is deployed to an environment, two things have to exi
 
 ### Operator and environment scoping
 
-- **Two environments, two bootstraps.** `preview` and `live` are bootstrapped independently. Secret values are not shared across environments; preview gets its own freshly-generated set so a leaked preview secret cannot forge live signatures.
+- **Two environments, two bootstraps.** `preview` and `production` are bootstrapped independently. Secret values are not shared across environments; preview gets its own freshly-generated set so a leaked preview secret cannot forge production signatures.
 - **Re-running the bootstrap script is a destructive operation.** Re-running it would generate fresh secret values and silently invalidate every issued token, signed URL, and API Key in that environment. The script refuses to run if any of the target secrets already exist on the target environment, requiring an explicit `--force` flag and a typed confirmation. Routine rotation goes through the rotation tooling from ADR 0045, not the bootstrap script.
 
 ### What this ADR is not

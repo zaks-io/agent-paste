@@ -64,7 +64,7 @@ KV does not enforce read/write separation; direction is code discipline.
 | `api` | `DENYLIST` | write only |
 | `jobs` | `DENYLIST` | write only |
 
-Each environment (`live`, `preview`) has its own KV namespace ID; the binding name `DENYLIST` is shared so per-worker code is environment-agnostic.
+Each environment (`production`, `preview`) has its own KV namespace ID; the binding name `DENYLIST` is shared so per-worker code is environment-agnostic.
 
 ## Not in this ADR
 

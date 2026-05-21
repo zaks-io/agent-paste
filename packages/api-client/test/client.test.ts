@@ -5,7 +5,7 @@ describe("ApiClient", () => {
   it("uses AGENT_PASTE_API_KEY as a bearer credential", async () => {
     const calls: Request[] = [];
     const client = new ApiClient({
-      auth: { type: "api_key", apiKey: "ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF" },
+      auth: { type: "api_key", apiKey: "ap_pk_production_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF" },
       apiBaseUrl: "https://api.example.test/",
       fetch: async (input, init) => {
         calls.push(new Request(input, init));
@@ -35,14 +35,14 @@ describe("ApiClient", () => {
     await client.whoami();
 
     expect(calls[0]?.headers.get("authorization")).toBe(
-      "Bearer ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF",
+      "Bearer ap_pk_production_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF",
     );
     expect(calls[0]?.url).toBe("https://api.example.test/v1/whoami");
   });
 
   it("wraps error envelopes", async () => {
     const client = new ApiClient({
-      auth: { type: "api_key", apiKey: "ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF" },
+      auth: { type: "api_key", apiKey: "ap_pk_production_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF" },
       fetch: async () =>
         Response.json({ error: { code: "invalid_api_key", message: "bad key", request_id: "req_1" } }, { status: 403 }),
     });

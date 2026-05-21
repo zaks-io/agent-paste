@@ -88,8 +88,8 @@
         }
       ]
     },
-    "live": {
-      "name": "agent-paste-upload-live",
+    "production": {
+      "name": "agent-paste-upload-production",
       "workers_dev": false,
       "routes": [
         {
@@ -98,7 +98,7 @@
         }
       ],
       "vars": {
-        "API_KEY_ENV": "live",
+        "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "UPLOAD_BASE_URL": "https://upload.agent-paste.sh",
@@ -107,13 +107,13 @@
       "hyperdrive": [
         {
           "binding": "DB",
-          "id": "00000000-0000-0000-0000-000000000012"
+          "id": "ca07f5b895084f60b666586c362982fc"
         }
       ],
       "r2_buckets": [
         {
           "binding": "ARTIFACTS",
-          "bucket_name": "agent-paste-artifacts-live"
+          "bucket_name": "agent-paste-artifacts-production"
         }
       ],
       "ratelimits": [

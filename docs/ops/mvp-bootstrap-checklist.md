@@ -29,7 +29,7 @@ If the account is shared with other projects, name the prefix you want me to use
 - [X] **`agent-paste.sh` registered** and pointed at Cloudflare nameservers. Confirm: yes / no
 - [ ] If no, register it (Cloudflare Registrar or external) and move DNS to Cloudflare. Until this is true I cannot deploy preview, only run local dev.
 - [ ] Confirm I'm allowed to claim these subdomains now (all named by ADRs 0014 + 0047):
-  - `api.agent-paste.sh`, `upload.agent-paste.sh`, `usercontent.agent-paste.sh` (live)
+  - `api.agent-paste.sh`, `upload.agent-paste.sh`, `usercontent.agent-paste.sh` (production)
   - `api-preview.agent-paste.sh`, `upload-preview.agent-paste.sh`, `usercontent-preview.agent-paste.sh` (preview shape `{x}-preview.agent-paste.sh` follows ADR 0047 line 49's `app-preview.agent-paste.sh` convention)
 
 DNS records and Worker routes will be created by me through `wrangler.jsonc`; you don't need to click in the dashboard.
@@ -43,15 +43,15 @@ Provider chosen: **Neon** (only candidate that passes all of: Hyperdrive first-c
 Walk-through (in the Neon console):
 
 - [ ] **Create Neon project.** Name: `agent-paste`. Region: `__________` (recommend `aws-us-east-1` unless you have EU latency reasons — Cloudflare Workers run everywhere; the DB region only matters for the tail of unhandled cache misses).
-- [ ] **Create live branch.** Neon's default `main` branch is your `live` environment. Don't touch it directly; CI migrations will.
+- [ ] **Create production branch.** Neon's default `main` branch is your `production` environment. Don't touch it directly; CI migrations will.
 - [ ] **Create preview branch** off `main`, named `preview`. This is the shared preview env per §8d. Per-PR ephemeral branches come later, off this one.
 - [ ] **Create the `hyperdrive-user` role** per [Neon's Hyperdrive guide](https://neon.com/docs/guides/cloudflare-hyperdrive). Copy the generated password — it shows once.
 - [ ] **Grab connection strings** from the Connection Details pane. Uncheck the pooled-connection box (Hyperdrive does its own pooling). Two strings:
-  - Live (against `main` branch, `hyperdrive-user` role): `__________`
+  - Production (against `main` branch, `hyperdrive-user` role): `__________`
   - Preview (against `preview` branch, `hyperdrive-user` role): `__________`
 - [ ] **Capture a `neon_superuser` connection string for both branches.** Only used once, by the first Drizzle migration that creates `app_role` and `platform_admin`. Goes straight into the GitHub Environment secret in §5, never committed.
 - [ ] **Project ID.** Paste here so I can drive branch creation from CI in Phase 2: `__________`
-- [ ] **Autoscaling.** Leave at free-tier 0.25 CU fixed for MVP. Enable autoscaling later if live traffic ever sustains > free tier; requires Launch plan ($5/mo minimum).
+- [ ] **Autoscaling.** Leave at free-tier 0.25 CU fixed for MVP. Enable autoscaling later if production traffic ever sustains > free tier; requires Launch plan ($5/mo minimum).
 
 I'll generate `app_role` (`NOBYPASSRLS`, used by Hyperdrive) and `platform_admin` (`BYPASSRLS`, used by migrations) inside the first Drizzle migration. You don't need to create them manually.
 
@@ -61,8 +61,8 @@ I'll generate `app_role` (`NOBYPASSRLS`, used by Hyperdrive) and `platform_admin
 
 I can create these with `wrangler` once I have the account, but you'll want to know what gets created.
 
-- [ ] R2 buckets: `agent-paste-live` and `agent-paste-preview`. Name OK? `__________`
-- [ ] KV namespaces for the denylist (`docs/adr/0057`): one per env, bound name `DENYLIST`. I'll name them `agent-paste-denylist-live` / `-preview`.
+- [ ] R2 buckets: `agent-paste-artifacts-production` and `agent-paste-artifacts-preview`. Name OK? `__________`
+- [ ] KV namespaces for the denylist (`docs/adr/0057`): one per env, bound name `DENYLIST`. I'll name them `agent-paste-denylist-production` / `-preview`.
 - [ ] Hyperdrive configs: one per env, pointing at the connection strings above. I'll record IDs in `apps/*/wrangler.jsonc`.
 - [ ] Native rate-limit bindings (`docs/adr/0064`): I'll add `ACTOR_RATE_LIMIT` and (decision below) `WORKSPACE_BURST_CAP` to `apps/api` and `apps/upload`.
 
@@ -87,11 +87,11 @@ Required for deploy:
 
 - [x] `CLOUDFLARE_ACCOUNT_ID` — inherited from org
 - [ ] `CLOUDFLARE_API_TOKEN` — must be repo-scoped because the token scopes need DNS:Edit on the `agent-paste.sh` zone only. Don't reuse an org-wide CF token even if you have one.
-- [ ] `DATABASE_URL_MIGRATIONS_LIVE` — Neon `neon_superuser` conn string against `main`, only used by the migrations job. Repo secret, scoped to the `live` environment.
-- [ ] `DATABASE_URL_MIGRATIONS_PREVIEW` — Neon `neon_superuser` conn string against the `preview` branch. Repo secret, scoped to the `preview` environment.
+- [ ] `PRODUCTION_DATABASE_URL` — Neon connection string against `main`, only used by the production migrations job. GitHub Environment `Production` secret.
+- [ ] `PREVIEW_DATABASE_URL` — Neon connection string against the shared `preview` branch. Repo secret for shared preview validation.
 - [ ] `NPM_TOKEN` — for publishing the CLI later (can wait until first publish). If you publish other packages under `zaks-io`, promote to org secret instead of repo.
 
-I will add GitHub Environments `live` and `preview`, with required-reviewers = you on `live` only, per `docs/adr/0012` and your "CI is the merge gate" preference. Confirm names. OK? `__________`
+I will add GitHub Environment `Production`, with required-reviewers = you, per `docs/adr/0012` and your "CI is the merge gate" preference.
 
 ---
 
@@ -240,7 +240,7 @@ Once §1–§7 are unblocked I will deploy in this order. You don't need to do a
 
 1. **Local-only loop.** Wire `packages/db` + `packages/contracts` + `apps/api` + `apps/upload` + `apps/content` against `wrangler dev --persist-to` + a local Postgres (Docker) until `docs/specs/local-dev.md` smoke test passes.
 2. **Preview deploy.** First real Cloudflare deploy. Uses §3 preview DB, §4 preview R2/KV, §5 GitHub secrets. I will pause before this step and confirm with you.
-3. **Live deploy.** Same, against live resources. I will pause and require explicit "go" from you per your global instruction.
+3. **Production deploy.** Same, against production resources, through the `Production` GitHub Environment approval.
 
 ---
 

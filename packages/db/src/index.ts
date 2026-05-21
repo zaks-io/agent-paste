@@ -136,7 +136,7 @@ export class LocalRepository {
   constructor(
     private readonly options: {
       apiKeyPepper: string;
-      apiKeyEnv?: "preview" | "live";
+      apiKeyEnv?: "preview" | "production" | "live";
       apiBaseUrl?: string;
       contentBaseUrl?: string;
     },
@@ -625,7 +625,7 @@ export class PostgresRepository {
     private readonly db: SqlExecutor,
     private readonly options: {
       apiKeyPepper: string;
-      apiKeyEnv?: "preview" | "live";
+      apiKeyEnv?: "preview" | "production" | "live";
       apiBaseUrl?: string;
       contentBaseUrl?: string;
     },
@@ -1378,7 +1378,7 @@ export class PostgresRepository {
 export function createPostgresServices(options: {
   executor: SqlExecutor;
   apiKeyPepper: string;
-  apiKeyEnv?: "preview" | "live";
+  apiKeyEnv?: "preview" | "production" | "live";
   apiBaseUrl?: string;
   contentBaseUrl?: string;
 }) {
@@ -1582,7 +1582,7 @@ function isStaleIdempotencyRecord(createdAt: string, now: string): boolean {
   return new Date(now).getTime() - new Date(createdAt).getTime() >= IDEMPOTENCY_STALE_MS;
 }
 
-async function generateApiKey(env: "preview" | "live", pepper: string) {
+async function generateApiKey(env: "preview" | "production" | "live", pepper: string) {
   const publicId = randomCrockford(16);
   const secretSegment = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
   return {
@@ -1593,7 +1593,7 @@ async function generateApiKey(env: "preview" | "live", pepper: string) {
 }
 
 function parseApiKey(value: string) {
-  const match = value.match(/^ap_pk_(preview|live)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
+  const match = value.match(/^ap_pk_(preview|production|live)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
   if (!match?.[2] || !match[3]) {
     return null;
   }
