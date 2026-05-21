@@ -1306,10 +1306,6 @@ export class PostgresRepository {
     return command.result;
   }
 
-  private withTransaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
-    return this.db.transaction ? this.db.transaction(run) : run(this.db);
-  }
-
   private async mustWorkspace(db: SqlExecutor, id: string) {
     const result = await db.query<Workspace>(
       `select id, name, contact_email, created_at, updated_at
