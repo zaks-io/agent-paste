@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  administration: write
 
 concurrency:
   group: pr-preview-cleanup-${{ github.event.pull_request.number || inputs.pr_number }}
@@ -64,6 +65,28 @@ jobs:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: preview/pr-${{ steps.pr.outputs.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Delete GitHub Preview environment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const name = `pr-preview-${process.env.PR_NUMBER}`;
+            try {
+              await github.rest.repos.deleteAnEnvironment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment_name: name,
+              });
+              core.info(`Deleted environment ${name}`);
+            } catch (err) {
+              if (err.status === 404) {
+                core.info(`Environment ${name} not found; nothing to delete`);
+                return;
+              }
+              throw err;
+            }
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
 
       - name: Comment cleanup status
         if: ${{ github.event_name == 'pull_request' }}
