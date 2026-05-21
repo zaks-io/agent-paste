@@ -13,6 +13,7 @@ No runtime application code has been implemented yet.
 
 ## Planned Workspace Shape
 
+- `apps/apex`: marketing surface and agent-discoverable files at `agent-paste.sh`.
 - `apps/api`: authenticated control-plane Worker.
 - `apps/upload`: upload-session and encrypted upload Worker.
 - `apps/content`: isolated untrusted-content Worker.

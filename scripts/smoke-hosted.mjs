@@ -63,13 +63,50 @@ assert((await content.text()).includes("Agent Paste Local"), "content response i
 await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--json"]);
 await waitForStatus(published.view_url, 404, "deleted content");
 
+await smokeApex(config);
+
 process.stdout.write(`${config.label} smoke passed.
 
 Workspace:      ${workspace.id}
 Artifact:       ${published.artifact_id}
 Agent View URL: ${published.agent_view_url}
 Content URL:    ${published.view_url}
+Apex:           ${config.apexBaseUrl}
 `);
+
+async function smokeApex(c) {
+  const home = await fetch(`${c.apexBaseUrl}/`, { redirect: "manual" });
+  assert(home.status === 200, `apex / returned ${home.status}`);
+  assert(home.headers.get("content-type")?.includes("text/html"), "apex / is HTML");
+  assert(!home.headers.get("set-cookie"), "apex / does not set cookies");
+  const homeBody = await home.text();
+  assert(homeBody.includes("agent-paste"), "apex / mentions agent-paste");
+
+  const llms = await fetch(`${c.apexBaseUrl}/llms.txt`, { redirect: "manual" });
+  assert(llms.status === 200, `apex /llms.txt returned ${llms.status}`);
+  assert(llms.headers.get("content-type")?.includes("text/plain"), "apex /llms.txt is text/plain");
+  assert(!llms.headers.get("set-cookie"), "apex /llms.txt does not set cookies");
+
+  const agents = await fetch(`${c.apexBaseUrl}/agents.md`, { redirect: "manual" });
+  assert(agents.status === 200, `apex /agents.md returned ${agents.status}`);
+  assert(agents.headers.get("content-type")?.includes("text/markdown"), "apex /agents.md is text/markdown");
+  assert(!agents.headers.get("set-cookie"), "apex /agents.md does not set cookies");
+
+  const redirect = await fetch(`${c.apexBaseUrl}/dashboard`, { redirect: "manual" });
+  assert(redirect.status === 308, `apex /dashboard returned ${redirect.status} (expected 308)`);
+  assert(!redirect.headers.get("set-cookie"), "apex /dashboard does not set cookies");
+  assert(
+    redirect.headers.get("location") === "https://app.agent-paste.sh/dashboard",
+    `apex /dashboard location ${redirect.headers.get("location")}`,
+  );
+
+  const redirectWithQuery = await fetch(`${c.apexBaseUrl}/dashboard?from=smoke`, { redirect: "manual" });
+  assert(redirectWithQuery.status === 308, `apex /dashboard?from=smoke returned ${redirectWithQuery.status}`);
+  assert(
+    redirectWithQuery.headers.get("location") === "https://app.agent-paste.sh/dashboard?from=smoke",
+    `apex /dashboard?from=smoke location ${redirectWithQuery.headers.get("location")}`,
+  );
+}
 
 async function runCliJson(args, commandEnv = adminEnv) {
   const output = await run(process.execPath, [cliEntry, ...args], commandEnv);
@@ -136,6 +173,7 @@ function smokeConfig(target) {
         "AGENT_PASTE_PREVIEW_CONTENT_URL",
         "https://agent-paste-content-preview.isaac-a46.workers.dev",
       ),
+      apexBaseUrl: env("AGENT_PASTE_PREVIEW_APEX_URL", "https://preview.agent-paste.sh"),
       adminToken: requiredEnv(["AGENT_PASTE_PREVIEW_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };
@@ -149,6 +187,7 @@ function smokeConfig(target) {
       apiBaseUrl: env("AGENT_PASTE_PRODUCTION_API_URL", "https://api.agent-paste.sh"),
       uploadBaseUrl: env("AGENT_PASTE_PRODUCTION_UPLOAD_URL", "https://upload.agent-paste.sh"),
       contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.sh"),
+      apexBaseUrl: env("AGENT_PASTE_PRODUCTION_APEX_URL", "https://agent-paste.sh"),
       adminToken: requiredEnv(["AGENT_PASTE_PRODUCTION_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_production_",
     };
@@ -163,6 +202,7 @@ function smokeConfig(target) {
       apiBaseUrl: requiredEnv(["AGENT_PASTE_PR_API_URL"]),
       uploadBaseUrl: requiredEnv(["AGENT_PASTE_PR_UPLOAD_URL"]),
       contentBaseUrl: requiredEnv(["AGENT_PASTE_PR_CONTENT_URL"]),
+      apexBaseUrl: requiredEnv(["AGENT_PASTE_PR_APEX_URL"]),
       adminToken: requiredEnv(["AGENT_PASTE_PR_ADMIN_TOKEN", "AGENT_PASTE_PREVIEW_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };

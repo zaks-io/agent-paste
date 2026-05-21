@@ -5,14 +5,27 @@ packages:
 nodeLinker: isolated
 minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
-  - '@cloudflare/workers-types'
   - '@biomejs/biome'
+  - '@cloudflare/workers-types'
+  - '@vitest/*'
   - hono
   - lefthook
   - turbo
   - typescript
   - vitest
   - wrangler
+
+supportedArchitectures:
+  os:
+    - linux
+    - darwin
+    - win32
+  cpu:
+    - x64
+    - arm64
+  libc:
+    - glibc
+    - musl
 
 catalog:
   '@biomejs/biome': ^2.4.15

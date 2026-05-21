@@ -12,11 +12,13 @@ const names = {
   api: `agent-paste-api-pr-${prNumber}`,
   upload: `agent-paste-upload-pr-${prNumber}`,
   content: `agent-paste-content-pr-${prNumber}`,
+  apex: `agent-paste-apex-pr-${prNumber}`,
 };
 const urls = {
   api: `https://${names.api}.${workersSubdomain}.workers.dev`,
   upload: `https://${names.upload}.${workersSubdomain}.workers.dev`,
   content: `https://${names.content}.${workersSubdomain}.workers.dev`,
+  apex: `https://${names.apex}.${workersSubdomain}.workers.dev`,
 };
 const prSecrets = createPrSecrets();
 
@@ -26,6 +28,7 @@ const files = {
   apiConfig: new URL("api.json", outDir).pathname,
   uploadConfig: new URL("upload.json", outDir).pathname,
   contentConfig: new URL("content.json", outDir).pathname,
+  apexConfig: new URL("apex.json", outDir).pathname,
   apiSecrets: new URL("api.secrets.json", outDir).pathname,
   uploadSecrets: new URL("upload.secrets.json", outDir).pathname,
   contentSecrets: new URL("content.secrets.json", outDir).pathname,
@@ -34,6 +37,7 @@ const files = {
 writeJson(files.apiConfig, apiConfig());
 writeJson(files.uploadConfig, uploadConfig());
 writeJson(files.contentConfig, contentConfig());
+writeJson(files.apexConfig, apexConfig());
 writeJson(
   files.apiSecrets,
   pickSecrets([
@@ -50,22 +54,27 @@ writeJson(files.contentSecrets, pickSecrets(["CONTENT_GATEWAY_SIGNING_KEY_V1", "
 await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
+await deploy("apex", files.apexConfig);
 
 emitOutput("api_url", urls.api);
 emitOutput("upload_url", urls.upload);
 emitOutput("content_url", urls.content);
+emitOutput("apex_url", urls.apex);
 emitOutput("admin_token", prSecrets.ADMIN_TOKEN);
 
 process.stdout.write(`PR preview deployed:
 API:     ${urls.api}
 Upload:  ${urls.upload}
 Content: ${urls.content}
+Apex:    ${urls.apex}
 `);
 
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
-  await run("wrangler", ["deploy", "--config", configPath]);
-  await run("wrangler", ["secret", "bulk", secretsPath, "--name", names[app]]);
+  await run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath]);
+  if (secretsPath) {
+    await run("pnpm", ["exec", "wrangler", "secret", "bulk", secretsPath, "--name", names[app]]);
+  }
 }
 
 function apiConfig() {
@@ -117,6 +126,18 @@ function contentConfig() {
     },
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
+  });
+}
+
+function apexConfig() {
+  return baseConfig("apex", {
+    main: workspacePath("apps/apex/src/index.ts"),
+    assets: {
+      binding: "ASSETS",
+      directory: workspacePath("apps/apex/public"),
+      not_found_handling: "none",
+      run_worker_first: true,
+    },
   });
 }
 

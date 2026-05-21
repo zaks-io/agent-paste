@@ -15,7 +15,7 @@ emitOutput(options.githubOutput, id);
 process.stdout.write(`Hyperdrive ${options.name}: ${id}\n`);
 
 async function findHyperdriveByName(name) {
-  const result = await run("wrangler", ["hyperdrive", "list"], { allowFailure: true });
+  const result = await run("pnpm", ["exec", "wrangler", "hyperdrive", "list"], { allowFailure: true });
   if (result.code !== 0) {
     return null;
   }
@@ -23,7 +23,15 @@ async function findHyperdriveByName(name) {
 }
 
 async function createHyperdrive(name, connectionString) {
-  const result = await run("wrangler", ["hyperdrive", "create", name, "--connection-string", connectionString]);
+  const result = await run("pnpm", [
+    "exec",
+    "wrangler",
+    "hyperdrive",
+    "create",
+    name,
+    "--connection-string",
+    connectionString,
+  ]);
   const match = result.stdout.match(/Created new Hyperdrive PostgreSQL config:\s*([0-9a-f-]+)/i);
   if (!match) {
     throw new Error(`Could not parse Hyperdrive id from wrangler output:\n${result.stdout || result.stderr}`);

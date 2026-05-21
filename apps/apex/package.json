@@ -1,0 +1,25 @@
+{
+  "name": "@agent-paste/apex",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check": "pnpm typecheck",
+    "deploy:live": "pnpm deploy:production",
+    "deploy:preview": "wrangler deploy --config wrangler.jsonc --env preview",
+    "deploy:production": "wrangler deploy --config wrangler.jsonc --env production",
+    "dev": "wrangler dev --config wrangler.jsonc",
+    "lint": "biome lint .",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --env preview"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -24,7 +24,7 @@
     "migrate:preview": "node scripts/migrate.mjs preview",
     "migrate:production": "node scripts/migrate.mjs production",
     "migrate:live": "pnpm migrate:production",
-    "prepare": "lefthook install",
+    "prepare": "node scripts/install-hooks.mjs",
     "smoke:local": "pnpm build && node scripts/smoke-local-mvp.mjs",
     "smoke:preview": "pnpm build && node scripts/smoke-hosted.mjs preview",
     "smoke:production": "pnpm build && node scripts/smoke-hosted.mjs production",
@@ -43,6 +43,19 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "wrangler": "^4.93.1"
+  },
+  "optionalDependencies": {
+    "@cloudflare/workerd-darwin-64": "1.20260520.1",
+    "@cloudflare/workerd-darwin-arm64": "1.20260520.1",
+    "@cloudflare/workerd-linux-64": "1.20260520.1",
+    "@cloudflare/workerd-linux-arm64": "1.20260520.1",
+    "@cloudflare/workerd-windows-64": "1.20260520.1",
+    "lefthook-darwin-arm64": "2.1.8",
+    "lefthook-darwin-x64": "2.1.8",
+    "lefthook-linux-arm64": "2.1.8",
+    "lefthook-linux-x64": "2.1.8",
+    "lefthook-windows-arm64": "2.1.8",
+    "lefthook-windows-x64": "2.1.8"
   },
   "engines": {
     "node": ">=24 <25"
