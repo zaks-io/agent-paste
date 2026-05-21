@@ -1,16 +1,21 @@
 # API Contract
 
-The canonical code registry is [`packages/contracts/src/routes.ts`](../../packages/contracts/src/routes.ts). This document explains the route contract in implementation terms.
+This document describes the CLI-first MVP route contract. The canonical code registry will live in `packages/contracts` once implementation starts.
 
 ## Hosts
 
 | Surface | Host | Owns |
 |---|---|---|
-| `api` | `https://api.agent-paste.sh` | Auth, workspace state, publishing, Agent View, Access Links, API Keys, audit, usage policy. |
-| `upload` | `https://upload.agent-paste.sh` | Upload Sessions, signed upload-worker PUT URLs, encryption-before-R2, finalize verification. |
-| `content` | `https://usercontent.agent-paste.sh` | Signed-token content and bundle reads. |
-| `web` | `https://app.agent-paste.sh` | Dashboard, `/al/{publicId}` viewer, operator UI. |
-| `mcp` | `https://mcp.agent-paste.sh` | OAuth-only MCP transport. |
+| `api` | `https://api.agent-paste.sh` | API-key auth, public Agent View, artifact metadata, admin REST APIs, operation events, cleanup. |
+| `upload` | `https://upload.agent-paste.sh` | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation. |
+| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2. |
+
+Future hosts:
+
+| Surface | Status |
+|---|---|
+| `web` | Future dashboard/viewer surface, not MVP. |
+| `mcp` | Future OAuth-only MCP server, not MVP. |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
@@ -18,129 +23,146 @@ Preview hosts use the same path contracts with preview-specific hostnames and se
 
 | Header | Direction | Required | Notes |
 |---|---|---|---|
-| `Authorization: Bearer ...` | request | Authenticated routes | Auth0 access token or API Key bearer depending on surface. |
-| `Idempotency-Key` | request | Durable mutations | Required where the route registry says `required`. |
+| `Authorization: Bearer ...` | request | Public CLI and admin routes | API key for `/v1/*`; admin token for `/admin/*`. |
+| `Idempotency-Key` | request | Durable mutations | Required for upload session create/finalize and admin destructive commands where noted. |
 | `X-Request-Id` | request/response | Optional request, always response | Server generates one when omitted. |
-| `Retry-After` | response | 429 and long pending states | Seconds. |
+| `Retry-After` | response | 429 | Seconds. |
 
-The CLI never accepts secrets as flags. API Key auth comes from `AGENT_PASTE_API_KEY`; interactive auth comes from the CLI credential store.
+Secrets are never accepted as query parameters or flags.
 
 ## Auth Labels
 
 | Label | Meaning |
 |---|---|
-| `none` | No caller authentication. Only Access Link resolve and content-token reads use this. |
-| `any_authenticated` | Auth0 dashboard bearer, CLI bearer, MCP-forwarded bearer, or API Key, subject to route scopes. |
-| `member_dashboard` | Auth0 dashboard audience only; API Keys, CLI, and MCP are rejected. |
-| `operator` | Web admin route, Cloudflare Access in production, Auth0 session, and `OPERATOR_EMAILS` allowlist. |
-| `web_auth_callback` | Auth0 web callback completion. `web` has already validated the OAuth transaction cookie, exchanged the authorization code, and calls `api` over a Service Binding with the Auth0 access token plus verified ID-token material. |
-| `signed_upload_url` | Short-lived file upload URL minted by `upload`; no bearer token is accepted on the file body PUT itself. |
+| `api_key` | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`. |
+| `admin_token` | `Authorization: Bearer ...` from `AGENT_PASTE_ADMIN_TOKEN`. |
+| `signed_upload_url` | Opaque upload-worker URL minted by `upload`; accepts file bytes only. |
+| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`. |
+| `signed_content_token` | Public token in `/v/{token}/{path}`. |
 
-## Web Auth Callback
+## Public API Routes
 
-`web` owns the browser-facing Auth0 redirect flow and sealed session cookie. `api` owns durable **Workspace** provisioning and default **API Key** creation.
+| Method | Path | Auth | Idempotency | Request | Response |
+|---|---|---|---|---|---|
+| `GET` | `/v1/whoami` | `api_key` | none | - | `WhoamiResponse` |
+| `GET` | `/v1/public/agent-view/{token}` | `signed_agent_view_token` | none | - | `AgentView` |
 
-`/login` generates `state`, `nonce`, and a PKCE `code_verifier`, stores them in a short-lived, encrypted, host-only, `HttpOnly`, `Secure`, `SameSite=Lax` transaction cookie, and redirects to Auth0 with:
+`whoami` returns the workspace id/name, API key id/name, and effective caps. It does not return API-key secret material.
 
-- `response_type=code`
-- exact registered `redirect_uri`
-- `scope=openid profile email offline_access`
-- `audience=https://api.agent-paste.sh/v1`
-- `state`
-- `nonce`
-- `code_challenge` with `code_challenge_method=S256`
-
-`/auth/callback` rejects missing or mismatched `state`, missing `code`, OAuth error responses, and any callback whose redirect URI does not exactly match the configured callback URL. It exchanges the code server-side with Auth0 using the stored `code_verifier`, validates the returned token set, then calls `POST api /v1/auth/web/callback` over the `web -> api` Service Binding.
-
-The Service Binding request carries `Authorization: Bearer <auth0_access_token>` and body `AuthWebCallbackRequest`:
-
-```json
-{
-  "id_token": "<jwt>",
-  "nonce": "<original nonce>"
-}
-```
-
-`api` verifies both tokens against Auth0 JWKS, checks issuer, audience, expiration, ID-token nonce, subject equality between tokens, and `email_verified=true`. On first sign-in, `api` runs one `runCommand` transaction to create the **Personal Workspace**, **Workspace Member**, default **Usage Policy**, and one-time default **API Key**. Returning users have email and display name refreshed without creating a new key.
-
-The response is `AuthWebCallbackResponse`: `whoami` plus `first_run_api_key` only when the request created a new default key. The plaintext key must not be logged, persisted, cached, or returned again.
-
-## API Routes
-
-| Method | Path | Auth | Scopes | Idempotency | Request | Response |
-|---|---|---|---|---|---|---|
-| `POST` | `/v1/auth/web/callback` | web auth callback | none | none | `AuthWebCallbackRequest` | `AuthWebCallbackResponse` |
-| `GET` | `/v1/whoami` | any authenticated | any | none | - | `WhoamiResponse` |
-| `GET` | `/v1/usage-policy` | any authenticated | any | none | - | `UsagePolicy` |
-| `GET` | `/v1/artifacts` | any authenticated | `read` | none | `PaginationRequest` | `ArtifactListResponse` |
-| `GET` | `/v1/artifacts/{artifact_id}` | any authenticated | `read` | none | - | `ArtifactDetail` |
-| `POST` | `/v1/artifacts/{artifact_id}/publish` | any authenticated | `write read share` | required | `PublishRequest` | `PublishResult` |
-| `GET` | `/v1/artifacts/{artifact_id}/agent-view` | any authenticated | `read` | none | - | `AgentView` |
-| `PATCH` | `/v1/artifacts/{artifact_id}/display-metadata` | any authenticated | `write` | required | `UpdateDisplayMetadataRequest` | `UpdateDisplayMetadataResponse` |
-| `DELETE` | `/v1/artifacts/{artifact_id}` | any authenticated | `write` | required | `DeleteArtifactRequest` | `DeleteArtifactResponse` |
-| `GET` | `/v1/artifacts/{artifact_id}/revisions` | any authenticated | `read` | none | `PaginationRequest` | `RevisionListResponse` |
-| `GET` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/agent-view` | any authenticated | `read` | none | - | `AgentView` |
-| `DELETE` | `/v1/artifacts/{artifact_id}/drafts/{revision_id}` | any authenticated | `write` | required | - | `DiscardDraftRevisionResponse` |
-| `GET` | `/v1/artifacts/{artifact_id}/access-link-lockdown` | any authenticated | `read share` | none | - | `AccessLinkLockdownResponse` |
-| `POST` | `/v1/artifacts/{artifact_id}/access-link-lockdown` | any authenticated | `share` | required | - | `AccessLinkLockdownResponse` |
-| `DELETE` | `/v1/artifacts/{artifact_id}/access-link-lockdown` | any authenticated | `share` | required | - | `AccessLinkLockdownResponse` |
-| `POST` | `/v1/artifacts/{artifact_id}/pin` | dashboard member | `manage_workspace` | required | - | `PinArtifactResponse` |
-| `DELETE` | `/v1/artifacts/{artifact_id}/pin` | dashboard member | `manage_workspace` | required | - | `PinArtifactResponse` |
-| `POST` | `/v1/artifacts/{artifact_id}/access-links` | any authenticated | `read share` | required | `CreateAccessLinkRequest` | `CreateAccessLinkResponse` |
-| `GET` | `/v1/artifacts/{artifact_id}/access-links` | any authenticated | `read share` | none | `PaginationRequest` | `AccessLinkListResponse` |
-| `POST` | `/v1/access-links/{access_link_id}/mint` | any authenticated | `read share` | none | - | `MintAccessLinkResponse` |
-| `DELETE` | `/v1/access-links/{access_link_id}` | any authenticated | `share` | required | - | `RevokeAccessLinkResponse` |
-| `POST` | `/v1/access-links/resolve` | none | none | none | `ResolveAccessLinkRequest` | `ResolveAccessLinkResponse` |
-| `GET` | `/v1/api-keys` | dashboard member | `manage_keys` | none | `PaginationRequest` | `ApiKeyListResponse` |
-| `POST` | `/v1/api-keys` | dashboard member | `manage_keys` | required | `CreateApiKeyRequest` | `CreateApiKeyResponse` |
-| `DELETE` | `/v1/api-keys/{api_key_id}` | dashboard member | `manage_keys` | required | - | `RevokeApiKeyResponse` |
-| `GET` | `/v1/audit-events` | dashboard member | `read_audit` | none | `PaginationRequest` | `AuditEventListResponse` |
-| `PATCH` | `/v1/workspace` | dashboard member | `manage_workspace` | required | `UpdateWorkspaceRequest` | `UpdateWorkspaceResponse` |
-
-`/v1/access-links/resolve` always maps invalid signature, expired URL, revoked row, lockdown, retained revision, deleted artifact, and wrong workspace to `404 { code: "not_found" }`.
+`AgentView` is public to anyone with the signed token. It returns full per-file signed content URLs, not `content_prefix`.
 
 ## Upload Routes
 
-| Method | Path | Auth | Scopes | Idempotency | Request | Response |
-|---|---|---|---|---|---|---|
-| `POST` | `/v1/upload-sessions` | any authenticated | `write` | required | `CreateUploadSessionRequest` | `CreateUploadSessionResponse` |
-| `PUT` | `/v1/upload-sessions/{session_id}/files/{path}` | signed upload URL | none | none | file bytes | empty |
-| `POST` | `/v1/upload-sessions/{session_id}/files/refresh-url` | any authenticated | `write` | none | `RefreshUploadUrlRequest` | `RefreshUploadUrlResponse` |
-| `POST` | `/v1/upload-sessions/{session_id}/finalize` | any authenticated | `write` | required | - | `FinalizeUploadSessionResponse` |
-| `DELETE` | `/v1/upload-sessions/{session_id}` | any authenticated | `write` | required | - | `AbandonUploadSessionResponse` |
+| Method | Path | Auth | Idempotency | Request | Response |
+|---|---|---|---|---|---|
+| `POST` | `/v1/upload-sessions` | `api_key` | required | `CreateUploadSessionRequest` | `CreateUploadSessionResponse` |
+| `PUT` | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url` | none | file bytes | empty |
+| `POST` | `/v1/upload-sessions/{session_id}/finalize` | `api_key` | required | - | `PublishResult` |
 
-Create reserves `artifact_id` and `revision_id`, but does not create `artifacts` or `revisions` rows. The returned `put_url` values are opaque, short-lived URLs on the `upload` Worker, not R2 URLs. Clients PUT plaintext file bytes to those URLs; `upload` validates the signed URL and `Content-Length`, encrypts the request body before writing to R2, and records only the reserved final object key. Finalize verifies the encrypted R2 objects, creates the durable Unpublished Artifact when needed, and creates a `draft` Revision.
+### `CreateUploadSessionRequest`
+
+```json
+{
+  "title": "demo",
+  "ttl_seconds": 2592000,
+  "entrypoint": "index.html",
+  "files": [
+    {
+      "path": "index.html",
+      "size_bytes": 12345
+    }
+  ]
+}
+```
+
+Rules:
+
+- `title` is plain text.
+- `ttl_seconds` must be between `1d` and `90d`.
+- Single HTML publishes use the file name as `entrypoint`.
+- Folder publishes require `index.html`.
+- Paths are normalized POSIX paths.
+- Max file size is `10 MB`.
+- Max total size is `25 MB`.
+- Max file count is `100`.
+
+### `CreateUploadSessionResponse`
+
+```json
+{
+  "upload_session_id": "upl_...",
+  "artifact_id": "art_...",
+  "revision_id": "rev_...",
+  "expires_at": "2026-05-21T12:00:00.000Z",
+  "files": [
+    {
+      "path": "index.html",
+      "put_url": "https://upload.agent-paste.sh/v1/upload-sessions/upl_.../files/index.html?..."
+    }
+  ]
+}
+```
+
+The returned `put_url` values are opaque upload-worker URLs. They are not R2 URLs.
+
+### `PublishResult`
+
+```json
+{
+  "artifact_id": "art_...",
+  "revision_id": "rev_...",
+  "title": "demo",
+  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
+  "expires_at": "2026-06-19T12:00:00.000Z"
+}
+```
+
+Finalize verifies every expected file exists in R2, creates the artifact metadata, records file metadata, emits operation events, signs the URLs, and returns `PublishResult`.
 
 ## Content Routes
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/v/{token}/{path}` | signed content token | File bytes or renderer page. |
-| `GET` | `/v/{token}/_render/{mode}?path={path}` | signed content token | Platform renderer for Markdown and text modes. Directory mode is reserved pending the listing contract. |
-| `GET` | `/b/{token}` | signed content token | Bundle bytes. |
+| `GET` | `/v/{token}/{path}` | `signed_content_token` | Serves one artifact file from private R2. |
 
-Content authorization failures are generic `not_found`. Artifact Rate Limit failures return `429 rate_limited_artifact` with `Retry-After`. The content Worker never reads Postgres and never exposes R2 URLs.
+Content authorization failures return generic `404 { "code": "not_found" }`.
 
-## Operator Routes
+Content checks:
 
-Operator routes are served by `api` under `/admin/*`, reached through the `web` admin surface, and are not part of `/v1`.
+- Token parse and signature.
+- Token expiration.
+- Token scope.
+- KV denylist keys for artifact/revision when present.
+- Requested path is within the signed revision.
+
+The content Worker never reads Postgres and never exposes R2 URLs.
+
+## Admin Routes
+
+Admin routes are served by `api` under `/admin/*`. They are internal operations APIs used by the repo-local admin CLI.
 
 | Method | Path | Auth | Idempotency | Request | Response |
 |---|---|---|---|---|---|
-| `POST` | `/admin/lockdowns` | operator | required | `PlatformLockdownRequest` | `PlatformLockdownResponse` |
-| `GET` | `/admin/lockdowns` | operator | none | `PaginationRequest` | `PlatformLockdownListResponse` |
-| `DELETE` | `/admin/lockdowns/{platform_lockdown_id}` | operator | required | - | `LiftPlatformLockdownResponse` |
-| `POST` | `/admin/rotations/{secret_name}` | operator | required | - | `SecretRotationResponse` |
-| `GET` | `/admin/audit/recent` | operator | none | `PaginationRequest` | `AdminRecentAuditResponse` |
+| `POST` | `/admin/workspaces` | `admin_token` | required | `CreateWorkspaceRequest` | `WorkspaceDetail` |
+| `GET` | `/admin/workspaces` | `admin_token` | none | `PaginationRequest` | `WorkspaceListResponse` |
+| `POST` | `/admin/workspaces/{workspace_id}/api-keys` | `admin_token` | required | `CreateApiKeyRequest` | `CreateApiKeyResponse` |
+| `DELETE` | `/admin/api-keys/{api_key_id}` | `admin_token` | required | - | `RevokeApiKeyResponse` |
+| `GET` | `/admin/artifacts` | `admin_token` | none | filters | `AdminArtifactListResponse` |
+| `GET` | `/admin/artifacts/{artifact_id}` | `admin_token` | none | - | `AdminArtifactDetail` |
+| `DELETE` | `/admin/artifacts/{artifact_id}` | `admin_token` | required | - | `DeleteArtifactResponse` |
+| `POST` | `/admin/cleanup/run` | `admin_token` | required | `CleanupRunRequest` | `CleanupRunResponse` |
+| `GET` | `/admin/operation-events` | `admin_token` | none | filters | `OperationEventListResponse` |
 
-Every operator route rejects API Key authentication before scope checks, runs `requireOperator()`, and writes an Audit Event for mutations with `actor.type='platform'`.
+Admin destructive commands must record operation events and must never log signed URLs, content tokens, API-key secrets, or admin tokens.
 
 ## Publish Flow
 
-1. CLI/API client calls `POST upload /v1/upload-sessions`.
-2. Client PUTs files to returned signed upload-worker URLs. No client receives an R2 write URL.
-3. Client calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
-4. Client calls `POST api /v1/artifacts/{artifact_id}/publish`.
-5. `api` creates the required Revision Link, optional Share Link, signs content URLs, enqueues bundle generation and safety scan, and returns `PublishResult`.
+1. CLI validates local input and computes file metadata.
+2. CLI calls `POST upload /v1/upload-sessions`.
+3. CLI PUTs each file to returned upload-worker URLs.
+4. CLI calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
+5. `upload` verifies files and completes the artifact through the API worker boundary.
+6. CLI prints `PublishResult`.
 
-One user-visible publish uses one idempotency key threaded through the three durable operations with operation names from `runCommand`.
+MVP publish creates a new artifact every time. Updating an existing artifact is a future phase.

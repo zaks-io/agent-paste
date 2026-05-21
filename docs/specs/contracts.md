@@ -9,10 +9,11 @@ This document names the contract surfaces an implementer should treat as canonic
 - Branded identifier schemas.
 - Stable enum values.
 - Request and response Zod schemas.
-- Public route registry for `api`, `upload`, `content`, and operator routes.
-- MCP tool input/output schemas and tool registry.
+- Public route registry for `api`, `upload`, `content`, and admin routes.
 
 The first implementation pass should import schemas from this package instead of creating local route-only shapes. Hono/OpenAPI route definitions can wrap these schemas, but they should not re-declare them.
+
+Future phases may add MCP tool schemas, Access Link schemas, dashboard/auth schemas, and bundle schemas. They are not MVP build gates.
 
 ## Wire Rules
 
@@ -31,25 +32,18 @@ The first implementation pass should import schemas from this package instead of
 | `ArtifactId` | `art_{26-char ULID}` | Public, non-secret. |
 | `RevisionId` | `rev_{26-char ULID}` | Public, non-secret. |
 | `UploadSessionId` | `upl_{26-char ULID}` | Public, non-secret. |
-| `AccessLinkId` | `al_{26-char ULID}` | Internal row id. |
-| `AccessLinkPublicId` | 16-char Crockford base32 | URL path segment, log-safe. |
 | `ApiKeyId` | `key_{26-char ULID}` | Public row id, not the bearer secret. |
-| `WorkspaceMemberId` | `wm_{26-char ULID}` | Public inside authenticated workspace surfaces. |
-| `AuditEventId` | `aud_{26-char ULID}` | Public inside authenticated audit surfaces. |
+| `OperationEventId` | `evt_{26-char ULID}` | Internal operations record id. |
 | `API Key bearer` | `ap_pk_{env}_{publicId}_{secret}` | Secret-bearing credential. |
 
 ULID text is uppercase Crockford base32 excluding ambiguous characters.
 
-## Canonical Bundle Shape
+Future identifier families:
 
-The canonical public **Bundle Availability** shape is the discriminated union in `packages/contracts/src/agentView.ts`:
-
-- `disabled`
-- `pending` with optional `retry_after_seconds`
-- `failed` with no public error detail
-- `ready` with `url`, `size_bytes`, and `generated_at`
-
-This follows [ADR 0050](../adr/0050-bundle-availability-and-asymmetric-dlq-consumption.md). Any older wording that mentions public `error_code` or `bytes` should be read as superseded by this contract.
+- `AccessLinkId` and `AccessLinkPublicId` for Phase 4 link lifecycle.
+- `WorkspaceMemberId` for Phase 3 OAuth/self-serve workspace membership.
+- `AuditEventId` if `operation_events` graduates into a fuller audit log.
+- Bundle availability shapes for Phase 4 bundle generation.
 
 ## Change Control
 

@@ -1,0 +1,57 @@
+# Product Judgment
+
+This document captures the product judgment behind the narrowed MVP. It is intentionally not an implementation spec. Its job is to keep the build honest when the platform-shaped ideas start pulling scope back in.
+
+## Why Not Build It
+
+The main reason not to build agent-paste is scope gravity. The larger platform plan includes API, upload, content, jobs, web, MCP, CLI, Auth0, R2, Postgres, audit, safety scanning, queues, signed links, bundles, retention, lockdown, and operator tooling. That is not a small MVP.
+
+The category also has pressure from every side:
+
+- Claude Artifacts already validates "AI generated thing with a share link."
+- Vercel and v0 already make generated web things easy to preview and deploy.
+- GitHub Gists already solve lightweight file/snippet sharing.
+- S3/R2 signed URLs already solve boring storage.
+
+"Share a thing an AI made" is not enough of a wedge.
+
+There is also real security and abuse surface. Hosting generated HTML means dealing with untrusted scripts, phishing-shaped content, accidental secret exposure, public links, takedowns, quota abuse, and operational cleanup.
+
+Distribution may be harder than implementation. Agents and developers will only use this if it is easier than attaching a file, pasting a gist, or deploying to an existing preview service.
+
+## Why Build It
+
+The underlying problem is real. Agents increasingly produce work products that are not just chat text: generated HTML demos, reports, logs, review artifacts, static sites, and bundles of files. Chat threads are a bad long-term transport for that work.
+
+The differentiated idea is not "pastebin for AI." It is artifact handoff infrastructure:
+
+- A CLI-first publish habit.
+- Stable URLs for generated work.
+- Machine-readable Agent View.
+- Untrusted-content isolation by default.
+- Retention so hosted cruft does not accumulate forever.
+- Later room for revision links, latest links, MCP, and dashboard workflows.
+
+The narrow MVP gives the idea a fair test without building the whole platform first.
+
+## Honest Take
+
+Build it, but build the CLI-first artifact handoff tool first.
+
+Do not build the full platform until usage proves the habit. The MVP's job is one clean loop:
+
+```text
+agent creates HTML thing -> runs CLI -> gets URL -> shares it -> another agent can inspect it -> it expires later
+```
+
+Everything else earns its way in.
+
+## Product Rules
+
+- Prefer a working hosted publish loop over completeness.
+- Keep public CLI auth API-key only until OAuth is obviously needed.
+- Keep admin operations internal until repeated workflows demand UI.
+- Keep one revision per artifact until updates are a real use case.
+- Use direct signed content URLs for MVP, then move to fragment-based links later.
+- Include retention from day one.
+- Do not let MCP, dashboard, bundles, or link lifecycle sneak into Phase 1.

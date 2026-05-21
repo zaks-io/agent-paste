@@ -1,166 +1,237 @@
-# MVP Spec
+# CLI-First MVP Spec
 
-agent-paste lets agents publish durable, shareable work products as **Artifacts**. A human can view them online, another agent can inspect them through **Agent View**, and the owning **Workspace** can manage access, lifecycle, and safety controls.
+agent-paste is a hosted artifact handoff service for agents. The MVP proves one loop:
 
-This document is the current MVP story. It deliberately avoids implementation mechanics; ADRs remain the source for protocol, storage, auth, and operations details.
+```sh
+AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site --ttl 30d
+```
+
+The command uploads a single HTML file or an HTML folder, returns stable URLs for a human and another agent, and expires the artifact later so the service does not accumulate cruft forever.
 
 ## Product Promise
 
-An agent should be able to run one publish command, upload a file or folder, and receive stable links that work for both humans and agents. The platform should make the content easy to inspect while treating uploaded bytes as untrusted from the first request onward.
+An agent should be able to publish a generated HTML work product with one command and hand off a durable URL. A human can open the result in a browser. Another agent can fetch a small JSON manifest with full per-file URLs. The hosted service treats uploaded bytes as untrusted and deletes expired artifacts automatically.
 
-The MVP favors a narrow, safe, shippable product:
+The MVP is intentionally smaller than the original platform plan:
 
-- One human per **Workspace**.
-- CLI and REST as the full-fidelity agent surfaces.
-- MCP as an OAuth-only, text-only hosted-agent surface.
-- Unauthenticated reading through revocable **Access Links**.
-- Content served from an isolated **Content Origin**.
-- Background jobs for cleanup, bundles, retention, and safety scanning.
+- Hosted from day one on Cloudflare.
+- Public product surface is the `agent-paste` CLI.
+- Public CLI auth is API-key only.
+- OAuth, dashboard, MCP, access-link lifecycle, bundles, multi-revision artifacts, billing, and app-layer encryption are future phases.
+- Retention is part of the MVP.
 
 ## Actors
 
-**Workspace Member**: the human who owns the MVP **Workspace**. Through the dashboard, this actor has full workspace authority, including **Member-Only Scopes**.
+**API Key Publisher**:
+An agent, CI job, script, or developer using `AGENT_PASTE_API_KEY`. This is the only public publishing actor in the MVP.
 
-**CLI-authenticated Workspace Member**: the same human acting through `agent-paste login`. This actor carries explicit `write`, `read`, and `share` **Scopes** and does not receive dashboard-only authority.
+**Unauthenticated Recipient**:
+A human or agent with a signed URL returned by publish. This actor can view only the artifact/revision encoded in the signed URL and only until the artifact expires or is deleted.
 
-**API Key agent**: an agent or script using an **API Key** scoped to a **Workspace**. API Keys can publish and manage artifacts according to their granted **Scopes**.
-
-**MCP-hosted agent**: a hosted agent using the MCP server at `https://mcp.agent-paste.sh`. MCP uses OAuth only, never API Keys, and carries explicit **Scopes**.
-
-**Unauthenticated recipient**: a human or agent with an **Access Link Signed URL**. This actor can read only what the signed URL resolves to.
-
-**Operator**: an allowlisted platform identity that can perform platform-wide safety and takedown actions through operator-only routes.
-
-Source: [`CONTEXT.md`](../../CONTEXT.md), [ADR 0034](../adr/0034-unified-scope-model-across-actors.md), [ADR 0046](../adr/0046-operator-identity-and-web-admin-surface.md), [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md), [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
+**Operator**:
+The repo owner or Codex-assisted maintainer using an internal admin CLI with `AGENT_PASTE_ADMIN_TOKEN`. Operators create workspaces and API keys, inspect artifacts, delete artifacts, and run cleanup.
 
 ## Surfaces
 
-**CLI**: the main agent-facing product for files, folders, binaries, bundles, and local developer workflows. It supports login, publish, read/manage commands, link management, lockdown, download, and `whoami`.
+**Public CLI**:
+The public product surface. MVP commands are:
 
-**REST API**: the public lower-level integration surface. It exposes the route contract used by the CLI and non-Node integrations.
+```sh
+agent-paste publish <path> [--title "..."] [--ttl 30d]
+agent-paste whoami
+```
 
-**Web dashboard**: the human workspace surface for signup, first-run key copy, artifact management, access-link management, API Keys, audit log, usage policy, and workspace administration.
+**Admin CLI**:
+A repo-local operations tool, not a public product. It wraps internal admin REST APIs so Codex can help manage the hosted system without an admin UI.
 
-**Access Link viewer**: the unauthenticated app route that reads a fragment-bearing **Access Link Signed URL** and resolves it through the API.
+**API Worker**:
+Owns API-key auth, artifact metadata, public Agent View, admin REST APIs, operation events, and scheduled cleanup.
 
-**Content Origin**: the isolated origin that serves untrusted artifact files and renderer pages.
+**Upload Worker**:
+Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, and R2 writes.
 
-**MCP server**: an OAuth-only hosted-agent surface for text artifacts and lightweight management.
+**Content Worker**:
+Serves untrusted artifact bytes from private R2 through signed content URLs. It has R2 read access and KV denylist read access. It has no Hyperdrive binding.
 
-**Jobs**: background execution for bundle generation, cleanup, deletion/retention work, and safety scans.
+## MVP Artifact Shape
 
-Source: [ADR 0006](../adr/0006-small-workers-by-trust-and-scaling-boundary.md), [ADR 0017](../adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md), [ADR 0033](../adr/0033-tanstack-start-for-the-web-app.md), [ADR 0037](../adr/0037-internal-api-client-package-powers-cli.md), [ADR 0047](../adr/0047-access-link-signed-url-with-fragment-encoded-payload.md), [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
+The primary use case is generated HTML:
 
-## Core Journeys
+- A single `.html` file, including self-contained "mono HTML" files.
+- A folder with `index.html` and static assets referenced by the HTML/CSS.
 
-### 1. Sign Up and Get a Workspace
+Secondary support is allowed only when cheap:
 
-A new human signs in through Auth0. First sign-in creates a **Personal Workspace**, a **Workspace Member**, a default **Usage Policy**, and a default **API Key** with `write`, `read`, and `share` **Scopes**. The default key secret is shown once in the dashboard and is not retrievable later.
-
-The user can also run `agent-paste login` for CLI-based OAuth. The CLI session is refreshable, local to the machine, and less powerful than the dashboard because it cannot carry **Member-Only Scopes**.
-
-Source: [ADR 0055](../adr/0055-signup-auto-provisions-personal-workspace-and-default-key.md), [ADR 0059](../adr/0059-web-app-session-and-auth-forwarding-to-api.md), [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md).
-
-### 2. Publish an Artifact
-
-An agent publishes a single file or folder. The result is a complete immutable **Revision** on an **Artifact**. The platform infers **Entrypoint** and **Render Mode** when obvious, and publish fails when they cannot be inferred or an override cannot be applied.
-
-Every successful **Publish** creates a **Revision Link** for the exact **Revision**. A **Share Link** is created only when requested. The **Publish Result** includes identifiers, human-view links, agent-view links, **Bundle Availability**, and any synchronous **Safety Warnings**.
-
-Source: [`CONTEXT.md`](../../CONTEXT.md), [ADR 0017](../adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md), [ADR 0027](../adr/0027-upload-write-path.md), [ADR 0037](../adr/0037-internal-api-client-package-powers-cli.md), [ADR 0054](../adr/0054-agent-view-envelope-shape.md).
-
-### 3. Share and Resolve Access
-
-A **Private Link** gives authenticated workspace access to the latest **Published Revision**. A **Share Link** gives unauthenticated access to the latest **Published Revision**. A **Revision Link** gives unauthenticated access to one specific **Revision**.
-
-Access Links are materialized as **Access Link Signed URLs** with fragment-encoded signed payloads. A recipient's browser or agent preserves the fragment and resolves it through `POST /v1/access-links/resolve`. The response is **Agent View** plus short-lived content URLs.
-
-Source: [ADR 0047](../adr/0047-access-link-signed-url-with-fragment-encoded-payload.md), [ADR 0052](../adr/0052-agent-view-discovery-from-access-link-signed-urls.md).
-
-### 4. View Content Safely
-
-Uploaded files are always **Untrusted Content**. They are served only from the isolated **Content Origin**, never through direct R2 URLs. The platform derives served content type from file extension, not from agent-supplied MIME hints.
-
-HTML can run JavaScript inside the MVP **Execution Policy**, but network egress is constrained. Markdown, text, image, audio, and video views are supported by the platform's render modes and renderer pages. Directory Render Mode is reserved, but its listing contract is intentionally deferred until the platform-owned listing source is decided.
-
-Source: [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md), [ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0029](../adr/0029-in-origin-renderer-pages-for-non-html-render-modes.md), [ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0042](../adr/0042-strict-extension-based-served-content-type.md).
-
-### 5. Inspect Through Agent View
-
-**Agent View** is the machine-readable read surface. It returns a **Manifest**, **Display Metadata**, file listing, `content_prefix`, **Safety Warnings**, and **Bundle Availability** for the resolved **Revision**.
-
-Authenticated **Agent View** can include the **Creator** reference. Agent View resolved through an unauthenticated **Access Link** omits that reference.
-
-Source: [ADR 0052](../adr/0052-agent-view-discovery-from-access-link-signed-urls.md), [ADR 0053](../adr/0053-manifest-shape-and-creator-visibility.md), [ADR 0054](../adr/0054-agent-view-envelope-shape.md).
-
-### 6. Update and Manage Artifacts
-
-A new publish to an existing **Artifact** creates a new complete **Revision**. **Private Links** and **Share Links** move to the latest **Published Revision**; existing **Revision Links** stay pinned to their original **Revision** while that **Revision** remains retained.
-
-Authorized actors can update **Display Metadata**, create or revoke **Access Links**, enter or lift **Access Link Lockdown**, delete an **Artifact**, and download a **Bundle** when available.
-
-Source: [`CONTEXT.md`](../../CONTEXT.md), [ADR 0037](../adr/0037-internal-api-client-package-powers-cli.md), [ADR 0047](../adr/0047-access-link-signed-url-with-fragment-encoded-payload.md), [ADR 0048](../adr/0048-transient-artifacts-by-default.md), [ADR 0050](../adr/0050-bundle-availability-and-asymmetric-dlq-consumption.md).
-
-### 7. Publish Through MCP
-
-Hosted agents can connect to the MCP server with OAuth. MCP tools support text-only publish/update operations for `text`, `markdown`, and `html` render modes. Binary, image, audio, video, directory, bundle download, and multi-file workflows remain CLI/REST territory.
-
-MCP publish still follows the domain rule that **Publish** requires `write`, `read`, and `share`, because it creates the required **Revision Link**. The optional `share` argument controls only optional **Share Link** creation.
-
-Source: [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
-
-### 8. Operate Safely
-
-The platform records **Audit Events** for security-relevant and lifecycle changes. Public errors use stable codes. Invalid or unauthorized cross-tenant reads fail with generic not-found semantics.
-
-Operators can apply **Platform Lockdown** to an **Artifact** or **Workspace**. A workspace-scoped lockdown also suspends every **API Key** in that workspace. Operator actions create **Audit Events** visible to affected workspace members.
-
-Source: [ADR 0004](../adr/0004-audit-state-changes-through-wrapper.md), [ADR 0036](../adr/0036-error-envelope-and-generic-404-boundary.md), [ADR 0040](../adr/0040-platform-lockdown-for-operator-initiated-takedown.md), [ADR 0046](../adr/0046-operator-identity-and-web-admin-surface.md).
-
-## MVP Acceptance Shape
-
-The MVP is ready when the product can reliably do these things:
-
-- A new user can sign in, receive a personal workspace, and copy the one-time default API Key.
-- A user can authenticate the CLI through `agent-paste login` and publish a file or folder.
-- A CI or headless agent can publish with `AGENT_PASTE_API_KEY`.
-- A publish returns a **Private Link**, required **Revision Link**, optional **Share Link**, **Agent View** link, **Bundle Availability**, and **Safety Warnings**.
-- A recipient can open an **Access Link Signed URL** and view the artifact without tenant auth.
-- Another agent can resolve that same URL into **Agent View** without dropping the URL fragment.
-- The content origin serves supported file render modes with the fixed MVP **Execution Policy** and extension-derived content types.
-- A user or scoped agent can update metadata, create/revoke links, enter/lift **Access Link Lockdown**, delete artifacts, and download ready bundles.
-- MCP hosts can connect through OAuth and perform text-only publish/read/manage flows.
-- Background jobs handle bundle generation, cleanup, retention, deletion purge, and stub safety scans.
-- Audit, error, rate-limit, and redaction behavior match the ADR baseline.
-
-## MVP Boundaries
+- `.txt` and `.md` files may be accepted as downloadable files.
+- Markdown/text renderer pages are not required for the first implementation slice.
 
 Out of MVP:
 
-- Multi-member workspaces, invites, and account linking.
-- Billing tiers and cost controls.
-- Per-artifact **Usage Policy**.
-- Per-workspace overrides beyond Auto Deletion.
-- Custom **Execution Policy** per artifact or workspace.
-- Real safety scanner integration beyond the stub lifecycle.
-- MCP binary or multi-file publish.
-- API Keys on the MCP surface.
-- Stateful MCP sessions, prompts, sampling, or subscriptions.
-- Public TypeScript SDK publication.
-- Standalone CLI binary distribution.
+- Directory browsing.
+- PDF/audio/video preview.
+- Bundle generation/download.
+- User-chosen render modes beyond HTML entrypoint inference.
 
-Source: [ADR 0017](../adr/0017-openapi-contract-with-ergonomic-sdk-and-cli.md), [ADR 0041](../adr/0041-upload-size-caps-under-usage-policy.md), [ADR 0051](../adr/0051-safety-scanner-lifecycle.md), [ADR 0055](../adr/0055-signup-auto-provisions-personal-workspace-and-default-key.md), [ADR 0056](../adr/0056-mvp-usage-policy-defaults-and-platform-caps.md), [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md), [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
+## Publish Result
 
-## Canonical Decisions to Keep in Mind
+Every successful publish creates a new **Artifact** with one **Revision**. MVP does not update existing artifacts.
 
-- **Publish** always creates a **Revision Link**.
-- **Share Links** follow the latest **Published Revision**; **Revision Links** pin one **Revision**.
-- Access Link credentials live in URL fragments, not path or query strings.
-- The unauthenticated recipient path is `POST /v1/access-links/resolve`.
-- `content_prefix`, not per-file URL maps, is the **Agent View** content access shape.
-- **Display Metadata** is plain text and does not create a new **Revision**.
-- Uploaded bytes are never trusted, even when uploaded by trusted actors.
-- Dashboard-authenticated members have implicit full workspace authority; CLI and MCP tokens do not.
-- **Member-Only Scopes** never appear on API Keys, CLI tokens, or MCP tokens.
-- **Deletion** is not reversible as an access state.
-- **Retention** removes old non-published **Revisions**; **Auto Deletion** deletes whole published **Artifacts**.
+Publish returns:
+
+```json
+{
+  "artifact_id": "art_...",
+  "revision_id": "rev_...",
+  "title": "demo",
+  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
+  "expires_at": "2026-06-19T12:00:00.000Z"
+}
+```
+
+`view_url` is a direct signed content URL. The token lives in the path for the MVP. Fragment-based access links are a later phase.
+
+`agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
+
+## Agent View
+
+MVP Agent View is simple JSON with full URLs. It does not use `content_prefix`.
+
+```json
+{
+  "artifact_id": "art_...",
+  "revision_id": "rev_...",
+  "title": "demo",
+  "created_at": "2026-05-20T12:00:00.000Z",
+  "expires_at": "2026-06-19T12:00:00.000Z",
+  "entrypoint": "index.html",
+  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "files": [
+    {
+      "path": "index.html",
+      "size_bytes": 12345,
+      "content_type": "text/html; charset=utf-8",
+      "url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html"
+    }
+  ]
+}
+```
+
+## Upload Flow
+
+1. CLI walks the file or folder, normalizes POSIX paths, infers the title when `--title` is omitted, and validates local caps.
+2. CLI calls `POST upload /v1/upload-sessions` with file paths, sizes, title, TTL, and an idempotency key.
+3. `upload` validates the API key, enforces caps, reserves `artifact_id` and `revision_id`, stores the session, and returns signed upload-worker PUT URLs.
+4. CLI PUTs each file to the signed upload URLs.
+5. CLI calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
+6. `upload` verifies all expected files, records file metadata, creates the artifact/revision through the API worker boundary, signs the content and Agent View URLs, and returns the publish result.
+
+No client receives an R2 URL. The upload URLs are upload-worker URLs only.
+
+## Auth
+
+Public CLI auth is API-key only:
+
+```sh
+AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site
+```
+
+OAuth login is deferred. The future public flow may add:
+
+```sh
+agent-paste login
+```
+
+Admin auth uses a separate noninteractive operator token:
+
+```sh
+AGENT_PASTE_ADMIN_TOKEN=... pnpm admin artifacts list
+```
+
+## Retention
+
+Retention is required in the MVP.
+
+- Default TTL: `30d`.
+- Minimum TTL: `1d`.
+- Maximum TTL: `90d`.
+- Every artifact has `expires_at`.
+- Every upload session has `expires_at`.
+- Expired artifacts stop resolving and their R2 bytes are deleted by cleanup.
+- Expired upload sessions delete partial R2 bytes.
+- No forever retention in MVP.
+- No pinning in MVP.
+
+Cleanup runs in the API Worker scheduled handler and can also be triggered through the admin CLI.
+
+## Caps And Limits
+
+Initial MVP caps:
+
+- Max file size: `10 MB`.
+- Max artifact size: `25 MB`.
+- Max files per artifact: `100`.
+- API-key actor rate limit target: `60 requests/minute`.
+
+These are platform caps, not user-configurable settings.
+
+## Content Safety
+
+Uploaded HTML is untrusted content:
+
+- It is served only from `usercontent.agent-paste.sh`.
+- R2 is private.
+- Direct R2 URLs are never exposed.
+- Content type is derived from normalized file extension.
+- Inline scripts and styles are allowed for generated HTML prototypes.
+- Network egress is restricted by CSP.
+- Tokens and full signed URLs must not be logged.
+
+Application-layer encryption is deferred. Private R2 plus isolated content serving is the MVP safety baseline.
+
+## Operation Events
+
+The MVP records lightweight operation events, designed to grow into a fuller audit log later.
+
+Required events:
+
+- Workspace created.
+- API key created or revoked.
+- Upload session created, finalized, expired, or failed.
+- Artifact published, deleted, or expired.
+- Cleanup run.
+- Admin destructive operation.
+
+Secrets, content tokens, signed URLs, and API-key secret material are never stored in event details.
+
+## Out Of MVP
+
+- Dashboard and admin UI.
+- Public OAuth login.
+- Self-serve signup.
+- MCP server.
+- Multi-member workspaces.
+- Multi-revision artifacts and updates.
+- Latest-moving share links.
+- Fragment-based Access Link Signed URLs.
+- Link revoke/mint/lockdown lifecycle.
+- Bundle generation and download.
+- Real safety scanner integration.
+- App-layer encryption and key rotation.
+- Billing, quotas, and plans.
+- Public TypeScript SDK.
+- Standalone binary distribution.
+
+## MVP Acceptance Shape
+
+The MVP is buildable when:
+
+- An operator can create a workspace and API key through the admin CLI.
+- `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
+- `agent-paste publish ./site` uploads a folder with `index.html`.
+- `agent-paste publish ./demo.html` uploads a single HTML file.
+- Publish returns `artifact_id`, `revision_id`, `view_url`, `agent_view_url`, and `expires_at`.
+- `view_url` opens the HTML from the content origin.
+- `agent_view_url` returns JSON with full per-file URLs.
+- Expired artifacts stop resolving and their bytes are cleaned up.
+- Admin CLI can list, inspect, delete artifacts, and run cleanup.

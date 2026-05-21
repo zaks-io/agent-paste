@@ -1,92 +1,87 @@
 # MVP Acceptance Matrix
 
-The MVP is implementation-ready when these scenarios can be automated locally and in preview. Each scenario should become one or more integration tests.
+The MVP is ready when these scenarios can be automated locally and in preview. Each scenario should become one or more integration tests.
 
-## Identity And Workspace
-
-| Scenario | Expected Result |
-|---|---|
-| First verified Auth0 sign-in | Creates Personal Workspace, Workspace Member, Usage Policy, and default API Key. |
-| Unverified Auth0 email | Sign-in rejected; no Workspace is created. |
-| First-run key card copied then dismissed | Secret is not retrievable after dismissal or reload. |
-| `agent-paste login` | CLI stores refreshable Auth0 session with `write read share`, no Member-Only Scopes. |
-| `AGENT_PASTE_API_KEY` present | CLI uses API Key instead of stored login. |
-
-## Publishing
+## Admin Bootstrap
 
 | Scenario | Expected Result |
 |---|---|
-| Publish single HTML file | Creates Artifact, Revision, Revision Link, Private Link, Agent View, pending Bundle. |
-| Publish folder with `index.html` | Entrypoint inferred and subresources load from content prefix. |
-| Publish folder without obvious entrypoint | Fails with `entrypoint_not_in_revision` or validation error; no Published Revision changes. |
-| Publish with incompatible Render Mode | Fails with `render_mode_incompatible`. |
-| Publish update to existing Artifact | New Revision becomes Published Revision; old Revision Link stays pinned. |
-| Retry same publish idempotency key | Returns same durable identifiers without duplicate rows. |
+| Missing `AGENT_PASTE_ADMIN_TOKEN` | Admin CLI refuses to run. |
+| Create workspace | `pnpm admin workspace create --email user@example.com` creates a workspace and records an operation event. |
+| Create API key | `pnpm admin api-key create --workspace <id> --name default` returns plaintext secret once and stores only derived secret material. |
+| Revoke API key | Future public CLI calls using that key fail. |
 
-## Reading And Sharing
+## Public CLI
 
 | Scenario | Expected Result |
 |---|---|
-| Resolve Revision Link | Returns Agent View for pinned Revision and content prefix. |
-| Resolve Share Link after update | Returns latest Published Revision. |
-| Drop URL fragment before resolve | Generic `not_found`. |
-| Revoke Access Link | Future resolve returns generic `not_found`; management list shows revoked metadata. |
-| Enter Access Link Lockdown | All Access Links fail; Private Link still works. |
-| Lift Access Link Lockdown | Non-revoked, non-expired links work again after re-minting. |
-| Delete Artifact | Private Link and Access Links stop resolving immediately. |
+| Missing `AGENT_PASTE_API_KEY` | `agent-paste whoami` and `publish` fail with a clear local error before network calls. |
+| Valid API key | `agent-paste whoami` returns workspace and API key identity without secret material. |
+| Publish single HTML file | Creates one Artifact and one Revision, returns `view_url`, `agent_view_url`, and `expires_at`. |
+| Publish folder with `index.html` | Entrypoint is inferred and subresources load from signed content URLs. |
+| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created. |
+| Publish over file cap | Fails before finalize and records no active Artifact. |
+| Retry same idempotency key | Returns the same durable identifiers without duplicate artifacts. |
 
-## Content Origin
-
-| Scenario | Expected Result |
-|---|---|
-| HTML content | Served with base CSP and `nosniff`. |
-| SVG content | Served with SVG-specific CSP. |
-| Unknown extension | Downloads as `application/octet-stream`. |
-| Expired content token | Generic `not_found`. |
-| Denylisted artifact token | Generic `not_found`. |
-| Markdown Render Mode | Renderer page fetches and renders Markdown from content origin only. |
-| Directory Render Mode | Pending listing-source decision; not a first-slice acceptance gate. |
-
-## Management
+## Upload
 
 | Scenario | Expected Result |
 |---|---|
-| Update Display Metadata | Title/description change without creating Revision. |
-| Create API Key with `write read share` | Secret shown once; row stores only HMAC. |
-| Attempt API Key with Member-Only Scope | Rejected. |
-| Revoke API Key | Future use fails; created Artifacts remain. |
-| Pin Artifact at cap | 51st pin rejected. |
-| Lower Auto Deletion setting | Setting accepted within 1..90 day bounds. |
-| Read audit as API Key | Rejected. |
+| Create upload session | Returns reserved `artifact_id`, `revision_id`, and per-file upload-worker PUT URLs. |
+| PUT all files | Upload Worker writes private R2 objects and never exposes R2 URLs. |
+| Finalize missing file | Finalize fails and no active Artifact is created. |
+| Expired upload session | Cleanup marks the session expired and deletes partial R2 bytes. |
 
-## Jobs
+## Reading
 
 | Scenario | Expected Result |
 |---|---|
-| Bundle generation success | Bundle Availability becomes `ready` with URL and size. |
-| Bundle exceeds cap | Bundle Availability becomes `failed`; Publish remains successful. |
-| Safety scan stub | Warnings are replaced under scanner id/version and exposed in Agent View. |
-| Auto Deletion due | Artifact enters deleted state, Audit Event written, purge enqueued. |
-| Upload Session expiry | Upload bytes are purged; no Artifact row leaks for abandoned sessions. |
-| Idempotency GC | Completed records older than 24 hours are deleted. |
+| Open `view_url` | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers. |
+| Load static asset | Asset referenced by HTML loads from the same content origin when included in the artifact. |
+| Fetch `agent_view_url` | Returns Agent View JSON with full per-file signed URLs. |
+| Fetch unknown path | Returns generic `not_found`. |
+| Expired signed token | Returns generic `not_found`. |
+| Deleted artifact token | Returns generic `not_found` after denylist propagation. |
 
-## MCP
+## Retention
 
 | Scenario | Expected Result |
 |---|---|
-| OAuth metadata discovery | Protected resource metadata advertises Auth0 and scopes. |
-| MCP publish text | Creates single-file text Artifact with required Revision Link. |
-| MCP publish binary attempt | Rejected by tool schema. |
-| MCP insufficient scope | JSON-RPC error uses `insufficient_scope` and re-consent challenge. |
-| MCP read Artifact | Returns Agent View with `content_prefix`; file bytes and text content are fetched separately from content URLs. |
+| Default TTL | Publish without `--ttl` sets artifact expiration to `30d`. |
+| Max TTL | Publish with a TTL over `90d` is rejected with a validation error. |
+| Artifact expiration | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes. |
+| Manual cleanup | `pnpm admin cleanup run` performs the same cleanup work and reports counts. |
+| No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`. |
+
+## Admin Operations
+
+| Scenario | Expected Result |
+|---|---|
+| List artifacts | Admin CLI can filter by workspace and status. |
+| Inspect artifact | Admin CLI shows metadata, files, expiry, and operation-event references without signed tokens. |
+| Delete artifact | Admin CLI requires explicit confirmation flag and makes future content reads fail. |
+| Operation event list | Admin CLI can show recent operation events for workspace/key/upload/artifact/cleanup actions. |
 
 ## Security Boundaries
 
 | Scenario | Expected Result |
 |---|---|
-| Cross-workspace Artifact id | Authenticated caller gets `artifact_not_found`. |
-| Access Link wrong workspace | Unauthenticated caller gets generic `not_found`. |
-| API Key on operator route | Rejected before scope checks. |
-| `content` Worker has no DB binding | Verified by generated Worker binding types. |
-| `/al/*` imports auth module | Lint fails. |
-| Logs contain Access Link fragment | Test fails. |
+| Content Worker DB binding | Generated Worker binding types prove `content` has no Hyperdrive binding. |
+| Signed URL logging | Tests fail if request logging records full signed content URLs or tokens. |
+| API key logging | Tests fail if API-key secret material is logged. |
+| Admin token on public route | Rejected as an invalid public API key. |
+| API key on admin route | Rejected as an invalid admin token. |
+
+## Explicit Non-Goals
+
+These should not be required for MVP acceptance:
+
+- Public OAuth login.
+- Dashboard or admin UI.
+- MCP server.
+- Multi-revision updates.
+- Latest-moving share links.
+- Fragment-based Access Link Signed URLs.
+- Bundle generation/download.
+- App-layer encryption.
+- Real safety scanner integration.
