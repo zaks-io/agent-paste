@@ -29,6 +29,7 @@
     "smoke:preview": "pnpm build && node scripts/smoke-hosted.mjs preview",
     "smoke:production": "pnpm build && node scripts/smoke-hosted.mjs production",
     "smoke:pr": "pnpm build && node scripts/smoke-hosted.mjs pr",
+    "setup:codex": "node scripts/setup-codex-worktree.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "verify": "turbo run lint typecheck test"

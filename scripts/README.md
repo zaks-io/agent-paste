@@ -2,6 +2,28 @@
 
 Implementation scripts live here.
 
+## Worktree Setup
+
+### `setup-codex-worktree.mjs`
+
+Sets up a fresh Codex worktree:
+
+```sh
+pnpm setup:codex
+```
+
+The script copies ignored `.env*` and `.dev.vars*` files from the primary Git worktree when it can find one, falling back to creating `.env` from `.env.example` if no real env file exists. It does not overwrite existing env files unless `--force` is passed.
+
+Then it enables Corepack, activates the `pnpm` version from `package.json`, installs dependencies with the lockfile, and installs Lefthook hooks. If the active Node version does not match `.nvmrc`, the script tries to re-run itself through `nvm`.
+
+Useful options:
+
+```sh
+pnpm setup:codex -- --source /path/to/source/worktree
+pnpm setup:codex -- --dry-run
+pnpm setup:codex -- --skip-install
+```
+
 ## Hosted MVP Scripts
 
 ### `bootstrap-secrets.mjs`
