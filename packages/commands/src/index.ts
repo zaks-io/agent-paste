@@ -57,7 +57,7 @@ export type SqlValue = string | number | boolean | null | Record<string, unknown
 export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
 export type SqlExecutor = {
   query<Row = Record<string, unknown>>(sql: string, params?: readonly SqlValue[]): Promise<SqlQueryResult<Row>>;
-  transaction?<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  transaction<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
 };
 
 export type RunCommandInput<T> = {
@@ -183,7 +183,7 @@ export async function runCommand<T>(input: RunCommandInput<T>): Promise<RunComma
     return executeHandler(tx, ctx);
   };
 
-  return input.executor.transaction ? input.executor.transaction(execute) : execute(input.executor);
+  return input.executor.transaction(execute);
 }
 
 type ExecuteContext<T> = {

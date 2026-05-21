@@ -263,9 +263,7 @@ async function cleanup(request: Request, env: Env): Promise<Response> {
   const dryRun = body.dry_run === true;
   const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
 
-  return runIdempotent(() =>
-    runCleanupAndDeny(env, db, { type: "admin", id: actor.id }, dryRun, batchSize, idempotencyKey),
-  );
+  return runIdempotent(() => runCleanupAndDeny(env, db, adminActor(actor), dryRun, batchSize, idempotencyKey));
 }
 
 async function createWorkspace(request: Request, env: Env): Promise<Response> {

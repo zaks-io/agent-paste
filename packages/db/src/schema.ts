@@ -8,7 +8,7 @@ import {
   smallint,
   text,
   timestamp,
-  uniqueIndex,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -161,13 +161,9 @@ export const idempotencyRecords = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex("idempotency_records_unique").on(
-      table.workspaceId,
-      table.actorType,
-      table.actorId,
-      table.operation,
-      table.idempotencyKey,
-    ),
+    unique("idempotency_records_unique")
+      .on(table.workspaceId, table.actorType, table.actorId, table.operation, table.idempotencyKey)
+      .nullsNotDistinct(),
     index("idempotency_records_created_idx").on(table.createdAt),
   ],
 );

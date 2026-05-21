@@ -39,7 +39,7 @@ export type SqlValue = string | number | boolean | null | Record<string, unknown
 export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
 export type SqlExecutor = {
   query<Row = Record<string, unknown>>(sql: string, params?: readonly SqlValue[]): Promise<SqlQueryResult<Row>>;
-  transaction?<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  transaction<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
 };
 
 export type HyperdriveBinding = {
@@ -162,7 +162,8 @@ export class LocalRepository {
     now?: Date;
   }): Promise<Workspace> {
     const now = (input.now ?? new Date()).toISOString();
-    return this.runIdempotent(`admin.workspace.create:${input.actor.id}:${input.idempotencyKey}`, () => {
+    const cacheKey = `admin.workspace.create:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    return this.runIdempotent(cacheKey, () => {
       const workspace: Workspace = {
         id: crypto.randomUUID(),
         name: input.name ?? input.email.split("@")[0] ?? "workspace",
@@ -200,7 +201,7 @@ export class LocalRepository {
     now?: Date;
   }) {
     const workspace = this.mustWorkspace(input.workspaceId);
-    const key = `admin.api_key.create:${input.actor.id}:${input.idempotencyKey}`;
+    const key = `admin.api_key.create:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
     if (this.idempotency.has(key)) {
       return this.idempotency.get(key) as { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
     }
@@ -237,20 +238,23 @@ export class LocalRepository {
   revokeApiKey(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
     const apiKey = this.mustApiKey(input.apiKeyId);
     const revokedAt = (input.now ?? new Date()).toISOString();
-    return this.runIdempotent(`admin.api_key.revoke:${input.actor.id}:${input.idempotencyKey}`, () => {
-      apiKey.revoked_at = revokedAt;
-      this.addEvent(
-        input.actor.type,
-        input.actor.id,
-        "api_key.revoked",
-        "api_key",
-        apiKey.id,
-        apiKey.workspace_id,
-        { public_id: apiKey.public_id },
-        apiKey.revoked_at,
-      );
-      return { api_key: toApiKeySummary(apiKey), revoked_at: apiKey.revoked_at };
-    });
+    return this.runIdempotent(
+      `admin.api_key.revoke:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`,
+      () => {
+        apiKey.revoked_at = revokedAt;
+        this.addEvent(
+          input.actor.type,
+          input.actor.id,
+          "api_key.revoked",
+          "api_key",
+          apiKey.id,
+          apiKey.workspace_id,
+          { public_id: apiKey.public_id },
+          apiKey.revoked_at,
+        );
+        return { api_key: toApiKeySummary(apiKey), revoked_at: apiKey.revoked_at };
+      },
+    );
   }
 
   async verifyApiKey(apiKeySecret: string): Promise<ApiActor | null> {
@@ -459,7 +463,9 @@ export class LocalRepository {
     now: string;
   }) {
     const key = input.idempotencyKey ?? `cleanup:${input.actor.type}:${input.now}`;
-    return this.runIdempotent(`admin.cleanup.run:${input.actor.id}:${key}`, () => this.runCleanupSync(input));
+    return this.runIdempotent(`admin.cleanup.run:${input.actor.type}:${input.actor.id}:${key}`, () =>
+      this.runCleanupSync(input),
+    );
   }
 
   private runCleanupSync(input: { actor: AdminActor; dryRun: boolean; now: string }) {
@@ -543,7 +549,8 @@ export class LocalRepository {
       throw new Error("artifact_not_found");
     }
     const deletedAt = (input.now ?? new Date()).toISOString();
-    return this.runIdempotent(`admin.artifact.delete:${input.actor.id}:${input.idempotencyKey}`, () => {
+    const cacheKey = `admin.artifact.delete:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    return this.runIdempotent(cacheKey, () => {
       artifact.status = "deleted";
       artifact.deleted_at = deletedAt;
       artifact.delete_reason = "admin_delete";
@@ -1485,7 +1492,7 @@ export function createPostgresExecutor(sql: PostgresUnsafeClient): SqlExecutor {
     },
     async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
       if (!sql.begin) {
-        return run(createPostgresExecutor(sql));
+        throw new Error("postgres_executor_missing_begin");
       }
       return sql.begin((tx) => run(createPostgresExecutor(tx)));
     },
@@ -1513,6 +1520,9 @@ export function createPostgresHttpExecutor(options: {
       }
       const body = (await response.json()) as { rows?: Row[] };
       return { rows: body.rows ?? [] };
+    },
+    async transaction<T>(_run: (tx: SqlExecutor) => Promise<T>): Promise<T> {
+      throw new Error("postgres_http_executor_no_transactions");
     },
   };
 }
