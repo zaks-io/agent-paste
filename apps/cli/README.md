@@ -71,7 +71,7 @@ The current MVP API exposes publish and repo-local admin verbs:
 | `--render-mode <mode>` | Override the inferred **Render Mode**. First-slice modes: `html`, `markdown`, `text`, `image`, `audio`, `video`. |
 | `--ttl <duration>`     | Set Artifact retention for `publish`. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.         |
 | `--json`               | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON.                                         |
-| `--quiet`              | Suppress stderr progress output.                                                                                 |
+| `--quiet`              | Suppress human-readable stdout output.                                                                           |
 
 ## Repo-local admin harness
 

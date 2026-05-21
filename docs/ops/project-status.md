@@ -43,7 +43,7 @@ Closed immediately:
 
 Open security follow-ups:
 
-- Runtime RLS still is not applied (`SET LOCAL app.workspace_id`) and workspace isolation still relies on application-layer predicates.
+- Runtime RLS is still not applied (`SET LOCAL app.workspace_id`) and workspace isolation still relies on application-layer predicates.
 - `runCommand` is still not wired through all mutation routes; idempotency replays may still consume rate-limit budget.
 - Admin production identity is still the interim hashed bearer-token path. ADR 0067 requires Cloudflare Access/Auth0 operator identity before Phase 3 app/admin rollout.
 - `content` still needs unauthenticated artifact-level read throttling.
@@ -181,7 +181,7 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-10 close Phase 1; items 11-15 prep Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-9 close Phase 1; items 10-13 prep hosted ops and Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
@@ -193,9 +193,9 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### 2. Enforce native rate-limit bindings
 
+- Status: Partially implemented on 2026-05-21. `api` and `upload` call both bindings for API-key routes and focused 429 tests pass. Remaining work: idempotency replay-before-limit ordering and hosted smoke coverage.
 - Drives: ADR 0039, ADR 0064
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/*/wrangler.jsonc`
-- Status: Partially implemented on 2026-05-21. `api` and `upload` call both bindings for API-key routes and focused 429 tests pass. Remaining work: idempotency replay-before-limit ordering and hosted smoke coverage.
 - Done: every authenticated mutation calls `env.ACTOR_RATE_LIMIT.limit(...)` and `env.WORKSPACE_BURST_CAP.limit(...)`; over-limit returns 429 with envelope; a smoke test triggers 429 from an in-test client.
 
 ### 3. Generate OpenAPI from Zod contracts
@@ -204,80 +204,82 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: `packages/contracts/src/*`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`
 - Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@hono/zod-openapi` (or equivalent); `pnpm verify` runs a schema-diff check against a checked-in golden; CI fails if contracts drift from served OpenAPI.
 
-### 4. Add `--yes` guards to destructive admin CLI commands
-
-- Drives: `docs/specs/admin.md`
-- Files: `apps/cli/src/index.ts`
-- Status: Done on 2026-05-21. Keep this item here until the next backlog cleanup.
-- Done: `agent-paste admin api-key revoke`, `artifacts delete`, and `cleanup run` (non-dry-run) refuse to run without `--yes`; CLI test asserts refusal and a `--yes` happy path.
-
-### 5. Consolidate content-signing secret names
+### 4. Consolidate content-signing secret names
 
 - Drives: ADR 0028, ADR 0058
 - Files: `scripts/bootstrap-secrets.mjs`, `apps/*/wrangler.jsonc`, `apps/api/src/index.ts`, `apps/content/src/index.ts`
 - Done: only one of `CONTENT_SIGNING_SECRET` / `CONTENT_GATEWAY_SIGNING_KEY_V1` remains, named consistently across code, bootstrap script, and ADRs; a one-time rotation note is added to `docs/ops/runbook` (or this doc) for any environment that already holds both.
 
-### 6. Move runtime queries to Drizzle
+### 5. Move runtime queries to Drizzle
 
 - Drives: ADR 0018
 - Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
 - Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
 
-### 7. Apply Postgres RLS at runtime
+### 6. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 8. Complete error envelope (`request_id`, `docs`)
+### 7. Complete error envelope (`request_id`, `docs`)
 
 - Drives: ADR 0036, `docs/specs/contracts.md`
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
 - Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
 
-### 9. Verify bytes-after-delete and bytes-after-expiry cleanup
+### 8. Verify bytes-after-delete and bytes-after-expiry cleanup
 
 - Drives: ADR 0048, `docs/specs/acceptance.md`
 - Files: `apps/api/src/index.ts` (scheduled handler), `scripts/smoke-local-mvp.mjs`, `scripts/smoke-hosted.mjs`
 - Done: smoke creates an artifact with a 1-day TTL, advances clock (or uses a forced-expiry test endpoint), runs cleanup, confirms R2 prefix is empty and signed URL returns 404 with denylist hit logged.
 
-### 10. Exercise PR preview lifecycle on a same-repo PR
+### 9. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
 - Done: a same-repo PR (the one carrying items 1-9 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 11. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 10. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 12. Review and merge `t3code/7bcd4587`
+### 11. Review and merge `t3code/7bcd4587`
 
 - Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
 - Files: TBD until review.
 - Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
 
-### 13. Decide on remaining ADR 0046 drift (operator identity)
+### 12. CSP allowlist audit
 
-- Drives: ADR 0046
-- Files: ADR 0046 itself, possibly a new ADR
-- Status: Done on 2026-05-21 by ADR 0067. Code follow-up remains before Phase 3.
-- Done: ADR 0046 is amended (or a new ADR supersedes it) to either accept the single-bearer admin token as the production model or to commit Cloudflare Access + email allowlist before Phase 3. No code change in this item — just a written decision.
-
-### 14. CSP allowlist audit
-
+- Status: Partially implemented on 2026-05-21. Header allowlist and SVG override are in code; snapshots still need to cover CSS/JS/PNG explicitly.
 - Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
 - Files: `apps/content/src/index.ts`
-- Status: Partially implemented on 2026-05-21. Header allowlist and SVG override are in code; snapshots still need to cover CSS/JS/PNG explicitly.
 - Done: CSP `script-src` and `connect-src` allowlists are validated against the current ADR 0029 list; SVG responses use a strict CSP override; a vitest snapshot pins the CSP header for HTML, CSS, JS, SVG, and PNG.
 
-### 15. Complete bootstrap hosting checklist
+### 13. Complete bootstrap hosting checklist
 
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
+
+## Recently Completed
+
+### Add `--yes` guards to destructive admin CLI commands
+
+- Status: Done on 2026-05-21.
+- Drives: `docs/specs/admin.md`
+- Files: `apps/cli/src/index.ts`
+- Done: `agent-paste admin api-key revoke`, `artifacts delete`, and `cleanup run` (non-dry-run) refuse to run without `--yes`; CLI test asserts refusal and a `--yes` happy path.
+
+### Decide on remaining ADR 0046 drift (operator identity)
+
+- Status: Decision completed on 2026-05-21 by ADR 0067. Cloudflare Access/Auth0 operator identity remains future code work before Phase 3.
+- Drives: ADR 0046
+- Files: ADR 0046 itself, ADR 0067
+- Done: ADR 0046 is amended (or a new ADR supersedes it) to either accept the single-bearer admin token as the production model or to commit Cloudflare Access + email allowlist before Phase 3. No code change in this item — just a written decision.
 
 ## Bootstrap & Hosted Ops
 
@@ -318,7 +320,7 @@ pnpm hooks:install
 - [x] Project: `still-forest-91029005`.
 - [ ] Production branch points at production database.
 - [x] Shared preview branch in use via Hyperdrive `agent-paste-db-preview-branch`.
-- [ ] PR-preview branch creation confirmed end-to-end (item 10 in backlog).
+- [ ] PR-preview branch creation confirmed end-to-end (item 9 in backlog).
 - [ ] Hyperdrive runtime role and migration role separated.
 - [ ] Migration URL secrets restricted to migration workflows.
 

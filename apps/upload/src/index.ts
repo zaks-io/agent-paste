@@ -593,17 +593,34 @@ async function rateLimitAuthenticatedRequest(env: Env, actor: UploadActor): Prom
     return errorResponse("not_authenticated", 401);
   }
 
-  const actorOutcome = await env.ACTOR_RATE_LIMIT?.limit({ key: `${actor.workspace_id}:${actor.id}` });
+  const actorOutcome = await rateLimitOrFailOpen(env.ACTOR_RATE_LIMIT, "actor", `${actor.workspace_id}:${actor.id}`);
   if (actorOutcome && !actorOutcome.success) {
     return errorResponse("rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
   }
 
-  const workspaceOutcome = await env.WORKSPACE_BURST_CAP?.limit({ key: actor.workspace_id });
+  const workspaceOutcome = await rateLimitOrFailOpen(env.WORKSPACE_BURST_CAP, "workspace", actor.workspace_id);
   if (workspaceOutcome && !workspaceOutcome.success) {
     return errorResponse("rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
   }
 
   return null;
+}
+
+async function rateLimitOrFailOpen(
+  binding: RateLimitBinding | undefined,
+  scope: "actor" | "workspace",
+  key: string,
+): Promise<{ success: boolean } | undefined> {
+  if (!binding) {
+    return undefined;
+  }
+
+  try {
+    return await binding.limit({ key });
+  } catch (error) {
+    console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
+    return undefined;
+  }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

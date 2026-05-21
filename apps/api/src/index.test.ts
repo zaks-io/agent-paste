@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest } from "./index.js";
 
 describe("api worker", () => {
@@ -69,6 +69,49 @@ describe("api worker", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
+  });
+
+  it("fails open when a rate limit binding errors", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+        },
+      },
+      DB: {
+        async getWhoami(actor) {
+          return { actor };
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          throw new Error("binding unavailable");
+        },
+      },
+    };
+
+    try {
+      const response = await handleRequest(
+        new Request("https://api.test/v1/whoami", { headers: { authorization: "Bearer ok" } }),
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ actor: { id: "key_1" } });
+      expect(warn).toHaveBeenCalledWith("Rate limit actor binding failed; allowing request.", expect.any(Error));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("runs admin cleanup with the configured admin token", async () => {

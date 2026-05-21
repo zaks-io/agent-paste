@@ -255,7 +255,8 @@ Usage:
   agent-paste admin workspace create <email> [--name <text>]
   agent-paste admin key create <workspace-id> [--name <text>]
   agent-paste admin key revoke <api-key-id> --yes
-  agent-paste admin artifact list|get|delete ...
+  agent-paste admin artifact list|get ...
+  agent-paste admin artifact delete <artifact-id> --yes
   agent-paste admin cleanup run [--dry-run|--yes]
 `);
 }

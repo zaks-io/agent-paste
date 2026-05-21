@@ -116,6 +116,38 @@ describe("admin CLI safety guards", () => {
     );
   });
 
+  it("refuses artifact deletes without --yes", async () => {
+    const client = {
+      admin: {
+        artifacts: {
+          async delete() {
+            throw new Error("should not delete artifact");
+          },
+        },
+      },
+    } as unknown as Parameters<typeof main>[1];
+
+    await expect(main(["admin", "artifact", "delete", "art_1"], client)).rejects.toThrow(
+      "Refusing to delete art_1 without --yes.",
+    );
+  });
+
+  it("refuses mutating cleanup without --yes", async () => {
+    const client = {
+      admin: {
+        cleanup: {
+          async run() {
+            throw new Error("should not run cleanup");
+          },
+        },
+      },
+    } as unknown as Parameters<typeof main>[1];
+
+    await expect(main(["admin", "cleanup", "run"], client)).rejects.toThrow(
+      "Refusing to run mutating cleanup without --yes.",
+    );
+  });
+
   it("allows destructive commands with --yes", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     let revoked = false;
