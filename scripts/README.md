@@ -14,7 +14,9 @@ pnpm setup:codex
 
 The script copies ignored `.env*` and `.dev.vars*` files from the primary Git worktree when it can find one, falling back to creating `.env` from `.env.example` if no real env file exists. It does not overwrite existing env files unless `--force` is passed.
 
-Then it enables Corepack, activates the `pnpm` version from `package.json`, installs dependencies with the lockfile, and installs Lefthook hooks. If the active Node version does not match `.nvmrc`, the script tries to re-run itself through `nvm`.
+Then it enables Corepack, activates the `pnpm` version from `package.json`, installs dependencies with the lockfile, and installs Lefthook hooks. If the active Node version does not match `.nvmrc`, the script first looks for an installed matching Node under `~/.nvm/versions/node`, re-runs itself with that absolute `node` binary, and prepends that Node's `bin` directory so child `pnpm` commands use the same runtime. If no matching local Node exists, it falls back to installing through `nvm`.
+
+The script is safe to invoke through pnpm's argument separator, for example `pnpm setup:codex -- --skip-env`. In non-TTY Codex runs it sets `CI=true` for child commands so `pnpm install` cannot abort while waiting for interactive confirmation.
 
 Useful options:
 

@@ -1,4 +1,6 @@
+import { cachedLookup, cacheKeyForSecret } from "@agent-paste/auth";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
+import { type Context, Hono } from "hono";
 
 export type UploadActor = {
   type: "api_key";
@@ -70,6 +72,7 @@ export type Env = {
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
+  AGENT_VIEW_SIGNING_SECRET?: string;
   UPLOAD_SIGNING_SECRET?: string;
   UPLOAD_BASE_URL?: string;
   UPLOAD_URL_TTL_SECONDS?: string;
@@ -83,9 +86,39 @@ type SignedUploadPayload = {
   exp: number;
 };
 
+type AgentViewTokenPayload = {
+  artifact_id: string;
+  revision_id: string;
+  exp: number;
+};
+
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
 const MIN_TTL_SECONDS = 24 * 60 * 60;
 const MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
+const AUTH_CACHE_TTL_SECONDS = 60;
+const DEFAULT_API_BASE_URL = "https://api.agent-paste.sh";
+const UPLOAD_FILE_PATH_MARKER = "/files/";
+const app = new Hono<{ Bindings: Env }>();
+
+app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.post("/v1/upload-sessions", (context) => createUploadSession(context.req.raw, context.env));
+app.put("/v1/upload-sessions/:sessionId/files/*", (context) =>
+  putUploadFile(context.req.raw, context.env, context.req.param("sessionId"), uploadFilePath(context)),
+);
+app.post("/v1/upload-sessions/:sessionId/finalize", (context) =>
+  finalizeUploadSession(context.req.raw, context.env, context.req.param("sessionId")),
+);
+app.notFound(() => errorResponse("not_found", 404));
+app.onError((error) => {
+  console.error("Unhandled upload error:", error);
+  return errorResponse("internal_error", 500);
+});
+
+function uploadFilePath(context: Context<{ Bindings: Env }>): string {
+  const pathname = new URL(context.req.raw.url).pathname;
+  const markerIndex = pathname.indexOf(UPLOAD_FILE_PATH_MARKER);
+  return markerIndex === -1 ? "" : decodeURIComponent(pathname.slice(markerIndex + UPLOAD_FILE_PATH_MARKER.length));
+}
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
@@ -94,27 +127,7 @@ export default {
 };
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-
-  try {
-    if (request.method === "POST" && url.pathname === "/v1/upload-sessions") {
-      return createUploadSession(request, env);
-    }
-
-    const putMatch = url.pathname.match(/^\/v1\/upload-sessions\/([^/]+)\/files\/(.+)$/);
-    if (request.method === "PUT" && putMatch?.[1] && putMatch[2]) {
-      return putUploadFile(request, env, decodeURIComponent(putMatch[1]), decodeURIComponent(putMatch[2]));
-    }
-
-    const finalizeMatch = url.pathname.match(/^\/v1\/upload-sessions\/([^/]+)\/finalize$/);
-    if (request.method === "POST" && finalizeMatch?.[1]) {
-      return finalizeUploadSession(request, env, decodeURIComponent(finalizeMatch[1]));
-    }
-
-    return errorResponse("not_found", 404);
-  } catch (error) {
-    return errorResponse("internal_error", 500, error instanceof Error ? error.message : "unexpected error");
-  }
+  return await app.fetch(request, env);
 }
 
 async function createUploadSession(request: Request, env: Env): Promise<Response> {
@@ -264,19 +277,25 @@ async function finalizeUploadSession(request: Request, env: Env, sessionId: stri
 
 async function authenticateApiKey(request: Request, env: Env): Promise<UploadActor | null> {
   const token = bearerToken(request);
-  const auth = authService(env);
-  if (!token || !auth) {
+  if (!token) {
     return null;
   }
 
-  return auth.verifyApiKey(token);
-}
-
-function authService(env: Env): AuthService | undefined {
   if (env.AUTH) {
-    return env.AUTH;
+    return env.AUTH.verifyApiKey(token);
   }
-  return postgresRuntime(env)?.auth;
+
+  const runtime = postgresRuntime(env);
+  if (!runtime) {
+    return null;
+  }
+
+  return cachedLookup({
+    namespace: "upload-api-key-auth",
+    key: await cacheKeyForSecret(token),
+    ttlSeconds: AUTH_CACHE_TTL_SECONDS,
+    lookup: () => runtime.auth.verifyApiKey(token),
+  });
 }
 
 function uploadDatabase(env: Env): UploadDatabase | undefined {
@@ -408,10 +427,16 @@ async function readJsonObject(request: Request): Promise<Record<string, unknown>
 }
 
 async function signPublishContentUrl(result: unknown, env: Env): Promise<unknown> {
-  if (!env.CONTENT_SIGNING_SECRET || !result || typeof result !== "object") {
+  if (!result || typeof result !== "object") {
     return result;
   }
-  const data = result as { artifact_id?: unknown; revision_id?: unknown; view_url?: unknown; expires_at?: unknown };
+  const data = result as {
+    artifact_id?: unknown;
+    revision_id?: unknown;
+    view_url?: unknown;
+    agent_view_url?: unknown;
+    expires_at?: unknown;
+  };
   if (
     typeof data.artifact_id !== "string" ||
     typeof data.revision_id !== "string" ||
@@ -422,14 +447,47 @@ async function signPublishContentUrl(result: unknown, env: Env): Promise<unknown
   const path = pathFromViewUrl(data.view_url, data.artifact_id, data.revision_id);
   return {
     ...data,
-    view_url: await signedContentUrl(
+    view_url: env.CONTENT_SIGNING_SECRET
+      ? await signedContentUrl(
+          env,
+          data.artifact_id,
+          data.revision_id,
+          path,
+          typeof data.expires_at === "string" ? data.expires_at : undefined,
+        )
+      : data.view_url,
+    agent_view_url: await signedAgentViewUrl(
       env,
       data.artifact_id,
       data.revision_id,
-      path,
       typeof data.expires_at === "string" ? data.expires_at : undefined,
+      typeof data.agent_view_url === "string" ? data.agent_view_url : undefined,
     ),
   };
+}
+
+async function signedAgentViewUrl(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  expiresAt?: string,
+  fallbackUrl?: string,
+): Promise<string> {
+  const baseUrl = env.API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  const secret = env.AGENT_VIEW_SIGNING_SECRET ?? env.CONTENT_SIGNING_SECRET;
+  if (!secret) {
+    return fallbackUrl ?? `${baseUrl}/v1/public/agent-view/${artifactId}.${revisionId}`;
+  }
+
+  const token = await signPayload(
+    {
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      exp: contentTokenExpiration(expiresAt),
+    } satisfies AgentViewTokenPayload,
+    secret,
+  );
+  return `${baseUrl}/v1/public/agent-view/${encodeURIComponent(token)}`;
 }
 
 async function signedContentUrl(
@@ -530,6 +588,144 @@ function encodePath(path: string): string {
 function ttlSeconds(env: Env): number {
   const parsed = Number.parseInt(env.UPLOAD_URL_TTL_SECONDS ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 900;
+}
+
+function openApiDocument(): Record<string, unknown> {
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Agent Paste Upload API",
+      version: "0.1.0",
+    },
+    servers: [{ url: "https://upload.agent-paste.sh" }],
+    paths: {
+      "/v1/upload-sessions": {
+        post: {
+          operationId: "uploadSessions.create",
+          security: [{ ApiKeyBearer: [] }],
+          parameters: [idempotencyKeyParameter()],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateUploadSessionRequest" },
+              },
+            },
+          },
+          responses: standardResponses("CreateUploadSessionResponse"),
+        },
+      },
+      "/v1/upload-sessions/{upload_session_id}/files/{path}": {
+        put: {
+          operationId: "uploadSessions.putFile",
+          parameters: [pathParameter("upload_session_id", "Upload session id"), pathParameter("path", "File path")],
+          responses: {
+            204: { description: "File accepted" },
+            400: errorResponseDescription(),
+            401: errorResponseDescription(),
+            404: errorResponseDescription(),
+            409: errorResponseDescription(),
+          },
+        },
+      },
+      "/v1/upload-sessions/{upload_session_id}/finalize": {
+        post: {
+          operationId: "uploadSessions.finalize",
+          security: [{ ApiKeyBearer: [] }],
+          parameters: [pathParameter("upload_session_id", "Upload session id"), idempotencyKeyParameter()],
+          responses: standardResponses("PublishResult"),
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        ApiKeyBearer: { type: "http", scheme: "bearer" },
+      },
+      schemas: {
+        CreateUploadSessionRequest: {
+          type: "object",
+          required: ["files"],
+          properties: {
+            title: { type: "string" },
+            ttl_seconds: { type: "integer", minimum: MIN_TTL_SECONDS, maximum: MAX_TTL_SECONDS },
+            entrypoint: { type: "string" },
+            files: {
+              type: "array",
+              minItems: 1,
+              items: {
+                type: "object",
+                required: ["path", "size_bytes"],
+                properties: {
+                  path: { type: "string" },
+                  size_bytes: { type: "integer", minimum: 0 },
+                  sha256: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        ErrorEnvelope: {
+          type: "object",
+          required: ["error"],
+          properties: {
+            error: {
+              type: "object",
+              required: ["code", "message"],
+              properties: {
+                code: { type: "string" },
+                message: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function pathParameter(name: string, description: string): Record<string, unknown> {
+  return {
+    name,
+    in: "path",
+    required: true,
+    description,
+    schema: { type: "string" },
+  };
+}
+
+function idempotencyKeyParameter(): Record<string, unknown> {
+  return {
+    name: "Idempotency-Key",
+    in: "header",
+    required: true,
+    schema: { type: "string" },
+  };
+}
+
+function standardResponses(schemaName: string): Record<string, unknown> {
+  return {
+    200: {
+      description: schemaName,
+      content: { "application/json": { schema: { type: "object" } } },
+    },
+    400: errorResponseDescription(),
+    401: errorResponseDescription(),
+    404: errorResponseDescription(),
+    409: errorResponseDescription(),
+    500: errorResponseDescription(),
+    503: errorResponseDescription(),
+  };
+}
+
+function errorResponseDescription(): Record<string, unknown> {
+  return {
+    description: "Error envelope",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+      },
+    },
+  };
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

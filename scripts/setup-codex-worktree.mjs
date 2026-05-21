@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const options = parseArgs(process.argv.slice(2));
@@ -140,25 +140,95 @@ function ensureNodeVersion() {
     log(`warning: ${message}`);
     return;
   }
-  if (process.env.CODEX_SETUP_NODE_REEXEC !== "1" && reexecWithNvm()) {
-    process.exit(0);
+  if (process.env.CODEX_SETUP_NODE_REEXEC !== "1") {
+    const installedNode = findInstalledNode(wantedNodeMajor);
+    if (installedNode) {
+      reexecWithNode(installedNode);
+    }
+    const nvmNode = installWithNvm();
+    if (nvmNode) {
+      reexecWithNode(nvmNode);
+    }
   }
   throw new Error(`${message} Run \`nvm install && nvm use\` or equivalent, then re-run \`pnpm setup:codex\`.`);
 }
 
-function reexecWithNvm() {
+function findInstalledNode(major) {
+  const nvmRoot = process.env.NVM_DIR ?? (process.env.HOME ? join(process.env.HOME, ".nvm") : undefined);
+  if (!nvmRoot) {
+    log("warning: NVM_DIR and HOME are unset; cannot search for an installed Node version.");
+    return undefined;
+  }
+  const versionsDir = join(nvmRoot, "versions", "node");
+  if (!major || !existsSync(versionsDir)) {
+    return undefined;
+  }
+
+  const versions = readdirSync(versionsDir)
+    .map((name) => ({ name, parsed: parseNodeVersion(name) }))
+    .filter((entry) => entry.parsed?.major === major)
+    .sort((left, right) => compareVersions(right.parsed, left.parsed));
+
+  for (const entry of versions) {
+    const nodePath = join(versionsDir, entry.name, "bin", "node");
+    if (isRegularFile(nodePath)) {
+      return nodePath;
+    }
+  }
+  return undefined;
+}
+
+function installWithNvm() {
   const script = [
-    'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"',
+    'export NVM_DIR="$HOME/.nvm"',
     '[ -s "$NVM_DIR/nvm.sh" ]',
     '. "$NVM_DIR/nvm.sh"',
     `nvm install ${shellQuote(wantedNode)}`,
-    `CODEX_SETUP_NODE_REEXEC=1 nvm exec ${shellQuote(wantedNode)} node ${[process.argv[1], ...process.argv.slice(2)].map(shellQuote).join(" ")}`,
+    `nvm which ${shellQuote(wantedNode)}`,
   ].join(" && ");
-  const result = spawnSync("bash", ["-lc", script], { cwd: root, stdio: "inherit" });
+  const result = spawnSync("bash", ["-lc", script], { cwd: root, encoding: "utf8" });
   if (result.error || result.status !== 0) {
-    return false;
+    if (result.stderr.trim()) {
+      process.stderr.write(result.stderr);
+    }
+    return undefined;
   }
-  return true;
+  return result.stdout.trim().split(/\r?\n/).at(-1);
+}
+
+function reexecWithNode(nodePath) {
+  const nodeBin = dirname(nodePath);
+  const env = {
+    ...process.env,
+    CODEX_SETUP_NODE_REEXEC: "1",
+    PATH: [nodeBin, process.env.PATH].filter(Boolean).join(":"),
+  };
+  log(`Re-running setup with ${nodePath}`);
+  const result = spawnSync(nodePath, [process.argv[1], ...process.argv.slice(2)], {
+    cwd: root,
+    env,
+    stdio: "inherit",
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  process.exit(result.status ?? 1);
+}
+
+function parseNodeVersion(name) {
+  const match = name.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) {
+    return undefined;
+  }
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
+  };
+}
+
+function compareVersions(left, right) {
+  return left.major - right.major || left.minor - right.minor || left.patch - right.patch;
 }
 
 function run(command, args) {
@@ -167,13 +237,20 @@ function run(command, args) {
     return;
   }
   log(`running: ${[command, ...args].join(" ")}`);
-  const result = spawnSync(command, args, { cwd: root, stdio: "inherit" });
+  const result = spawnSync(command, args, { cwd: root, env: commandEnv(), stdio: "inherit" });
   if (result.error) {
     throw result.error;
   }
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function commandEnv() {
+  if (process.stdin.isTTY || process.env.CI !== undefined) {
+    return process.env;
+  }
+  return { ...process.env, CI: "true" };
 }
 
 function parseArgs(argv) {
@@ -186,6 +263,9 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--") {
+      continue;
+    }
     if (arg === "--dry-run") {
       parsed.dryRun = true;
     } else if (arg === "--force") {

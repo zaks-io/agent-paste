@@ -3,7 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "lint": "biome lint ."
+    "build": "tsc --project tsconfig.json",
+    "check": "pnpm typecheck",
+    "lint": "biome lint .",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "hono": "^4.12.21"
   }
 }

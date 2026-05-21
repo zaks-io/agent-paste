@@ -23,6 +23,8 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@agent-paste/db": "workspace:*"
+    "@agent-paste/auth": "workspace:*",
+    "@agent-paste/db": "workspace:*",
+    "hono": "^4.12.21"
   }
 }
