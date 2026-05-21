@@ -6,22 +6,22 @@ if (!prNumber) {
   throw new Error("Set PR_NUMBER or pass the PR number as the first argument.");
 }
 
-const workerNames = ["api", "upload", "content"].map((app) => `agent-paste-${app}-pr-${prNumber}`);
+const workerNames = ["api", "upload", "content", "apex"].map((app) => `agent-paste-${app}-pr-${prNumber}`);
 for (const workerName of workerNames) {
-  await run("wrangler", ["delete", workerName, "--force"], { allowFailure: true });
+  await run("pnpm", ["exec", "wrangler", "delete", workerName, "--force"], { allowFailure: true });
 }
 
 const hyperdriveName = `agent-paste-db-pr-${prNumber}`;
 const config = await findHyperdriveByName(hyperdriveName);
 if (config) {
-  await run("wrangler", ["hyperdrive", "delete", config.id], { allowFailure: true });
+  await run("pnpm", ["exec", "wrangler", "hyperdrive", "delete", config.id], { allowFailure: true });
   process.stdout.write(`Deleted Hyperdrive ${hyperdriveName}: ${config.id}\n`);
 } else {
   process.stdout.write(`No Hyperdrive config found for ${hyperdriveName}\n`);
 }
 
 async function findHyperdriveByName(name) {
-  const result = await run("wrangler", ["hyperdrive", "list"], { allowFailure: true });
+  const result = await run("pnpm", ["exec", "wrangler", "hyperdrive", "list"], { allowFailure: true });
   if (result.code !== 0) {
     return null;
   }

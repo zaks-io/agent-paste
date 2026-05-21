@@ -71,9 +71,9 @@ Apex:    ${urls.apex}
 
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
-  await run("wrangler", ["deploy", "--config", configPath]);
+  await run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath]);
   if (secretsPath) {
-    await run("wrangler", ["secret", "bulk", secretsPath, "--name", names[app]]);
+    await run("pnpm", ["exec", "wrangler", "secret", "bulk", secretsPath, "--name", names[app]]);
   }
 }
 
