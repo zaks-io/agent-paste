@@ -57,7 +57,7 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: preview/pr-${{ github.event.pull_request.number }}
-          parent_branch: main
+          parent_branch: preview
           api_key: ${{ secrets.NEON_API_KEY }}
 
       - name: Verify Neon branch isolation
