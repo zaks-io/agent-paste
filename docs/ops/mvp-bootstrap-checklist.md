@@ -8,7 +8,9 @@ This is the first file a new agent should read after `AGENTS.md`, `CONTEXT.md`, 
 
 Status: local MVP implementation is verified in this worktree; shared preview infrastructure exists; preview smoke passed after bootstrap provided the preview admin token.
 
-Main blocker: exercise the PR preview workflow on a same-repo PR.
+Main blockers: exercise the PR preview workflow on a same-repo PR, then review/merge the remaining Apex/front-end branch `t3code/7bcd4587`.
+
+Latest main commit: `d28eedb feat: scaffold Hono app foundation`, pushed to `origin/main` on 2026-05-21.
 
 Next command for a fresh Codex worktree:
 
@@ -37,6 +39,26 @@ pnpm hooks:install
 - `pnpm smoke:preview` initially built successfully but did not run hosted assertions because this worktree did not have `AGENT_PASTE_PREVIEW_ADMIN_TOKEN` or `AGENT_PASTE_ADMIN_TOKEN`; after bootstrap, the user reported "Preview smoke passed" on 2026-05-21.
 - GitHub shows successful CI and production deploy runs on `main` on 2026-05-21. No PR Preview workflow runs were found, and there are currently no open PRs to exercise that path.
 
+## Recent Merge State
+
+`d28eedb feat: scaffold Hono app foundation` is now on `main` and `origin/main`. Despite the narrow branch name, it covered four implementation tracks:
+
+1. **Hono/OpenAPI foundation.** API, upload, and content Workers now use Hono and expose `/openapi.json`. Jobs, web, and MCP have typed Hono Worker scaffolds.
+2. **Signed Agent View tokens.** Upload finalize mints signed public Agent View URLs, and API verifies them before resolving the internal artifact/revision token.
+3. **Simple auth cache.** `packages/auth` exports `cachedLookup`; API/upload use it for Postgres-backed API-key auth.
+4. **Apps folder buildout.** `apps/jobs`, `apps/web`, and `apps/mcp` now have package scripts, tsconfigs, README updates, health endpoints, and minimal OpenAPI/discovery endpoints.
+
+CodeRabbit agent review produced 19 findings on this branch. Valid findings were fixed before commit; a second review attempt was rate-limited and intentionally not waited on after user direction.
+
+Known branch/worktree merge state as of 2026-05-21:
+
+| Branch/worktree | Merge state | Notes |
+|---|---|---|
+| `codex/hono-app-foundation` | Merged into `main` and pushed | Commit `d28eedb`. |
+| detached worktree `014f` at `38b39c1` | Contained in `main` | No separate merge needed. |
+| `t3code/3d4931ed` | Contained in `main` | No separate merge needed. |
+| `t3code/7bcd4587` | Not merged | Contains Apex/front-end and CI-related work. Review before merging. |
+
 ## Implementation Map
 
 | Area | Status | Evidence | Notes |
@@ -52,7 +74,7 @@ pnpm hooks:install
 | Storage helpers | Implemented, locally verified | `packages/storage`, `pnpm verify` | Supports object key/content-token helper behavior used by MVP tests/packages. |
 | Command wrapper | Partial/support package | `packages/commands` | Has idempotency/operation-event helpers, but not every Worker route is visibly wrapped through a production transaction boundary yet. |
 | Local harness | Implemented, verified | `scripts/local-mvp-server.mjs`, `scripts/smoke-local-mvp.mjs`, `pnpm smoke:local` | Smoke creates workspace/key, publishes fixture, fetches view and Agent View, deletes artifact, checks events. |
-| Hosted scripts | Implemented, partially verified | `scripts/bootstrap-secrets.mjs`, `scripts/migrate.mjs`, `scripts/deploy-preview.mjs`, `scripts/smoke-hosted.mjs` | Preview smoke needs `AGENT_PASTE_PREVIEW_ADMIN_TOKEN` locally; production deploy/smoke passed in GitHub Actions on 2026-05-21. |
+| Hosted scripts | Implemented, partially verified | `scripts/bootstrap-secrets.mjs`, `scripts/migrate.mjs`, `scripts/deploy-preview.mjs`, `scripts/smoke-hosted.mjs` | Preview smoke passed after bootstrap provided the plaintext admin token. Production deploy/smoke passed in GitHub Actions on 2026-05-21. |
 | PR previews | Implemented workflow, unexercised | `.github/workflows/pr-preview.yml`, cleanup workflow | Creates Neon branch, Hyperdrive, PR Workers, smoke, and cleanup for same-repo PRs. No PR Preview runs found on 2026-05-21. |
 | Production deploy | Implemented and passing in GitHub Actions | `.github/workflows/deploy-production.yml`, run `26245768366` | Gated on CI success and GitHub `Production` environment. |
 | Jobs/Web/MCP apps | Typed scaffold | `apps/jobs`, `apps/web`, `apps/mcp` | Hono Worker entrypoints, `healthz`, and minimal OpenAPI/discovery endpoints exist. Product behavior remains deferred outside CLI-first MVP. |
@@ -220,7 +242,7 @@ Current generated/written secret set:
 | `ADMIN_TOKEN_HASH` | `api` | HMAC of `ADMIN_TOKEN`; written to Worker, not printed as operator credential. |
 | `OPERATOR_EMAILS` | `api` | Allowlist/reference value for operator context. |
 
-Preview Worker secret names were confirmed in Cloudflare on 2026-05-21 for `api`, `upload`, and `content`. The one-time plaintext preview `ADMIN_TOKEN` was not present in this worktree's `.env`, so hosted preview smoke could not be run locally.
+Preview Worker secret names were confirmed in Cloudflare on 2026-05-21 for `api`, `upload`, and `content`. The one-time plaintext preview `ADMIN_TOKEN` was not present in the initial Codex worktree `.env`; after preview bootstrap, the user reported hosted preview smoke passed.
 
 ## Deploy/Verification Order
 
@@ -248,7 +270,7 @@ Preview Worker secret names were confirmed in Cloudflare on 2026-05-21 for `api`
    AGENT_PASTE_LOCAL_API_PORT=18787 AGENT_PASTE_LOCAL_UPLOAD_PORT=18788 AGENT_PASTE_LOCAL_CONTENT_PORT=18789 pnpm smoke:local
    ```
 
-4. **Resolve implementation drift above.** At minimum, decide Agent View signing, rate-limit enforcement, admin `--yes`, and secret-name cleanup.
+4. **Resolve implementation drift above.** At minimum, decide rate-limit enforcement, admin `--yes`, and secret-name cleanup.
 
 5. **Run preview migration/deploy/smoke.**
 
@@ -258,7 +280,7 @@ Preview Worker secret names were confirmed in Cloudflare on 2026-05-21 for `api`
    AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
    ```
 
-   As of 2026-05-21, preview Workers, secrets, R2, KV, and Hyperdrive exist. The remaining verification is the actual hosted smoke with the plaintext preview admin token.
+   As of 2026-05-21, preview Workers, secrets, R2, KV, and Hyperdrive exist, and the user reported preview smoke passed after running bootstrap.
 
 6. **Validate PR preview lifecycle.** Open/update a same-repo PR and confirm preview creation, smoke, PR comment, and cleanup-on-close.
 
