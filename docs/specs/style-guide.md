@@ -16,7 +16,7 @@ The product is infrastructure. It should feel like infrastructure done well — 
 
 **One signature moment.** The product is fundamentally about addressable **Artifacts** and **Revisions**. The way we present identifiers — mono, tinted, silently copyable — is the signature interaction. Spend design budget here, not on hero animations.
 
-**What we are not.** We are not a glassmorphism dashboard. We are not a purple-gradient hero. We are not a neon dark mode. We are not editorial / archival / terminal-themed. We are not chasing a metaphor. If a design choice would feel out of place at Linear, Stripe, or Resend, look closer; if it would feel *identical* to any of them, look closer still.
+**What we are not.** We are not a glassmorphism dashboard. We are not a purple-gradient hero. We are not a neon dark mode. We are not editorial / archival / terminal-themed. We are not chasing a metaphor. If a design choice would feel out of place at Linear, Stripe, or Resend, look closer; if it would feel _identical_ to any of them, look closer still.
 
 ---
 
@@ -26,10 +26,10 @@ The product is infrastructure. It should feel like infrastructure done well — 
 
 Two faces. No third without an ADR.
 
-| Role | Family | Source | Used For |
-|---|---|---|---|
-| **UI** | Hanken Grotesk (variable) | Google Fonts | Everything: headings, body, labels, navigation, forms |
-| **Mono** | JetBrains Mono | Google Fonts | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
+| Role     | Family                    | Source       | Used For                                                                   |
+| -------- | ------------------------- | ------------ | -------------------------------------------------------------------------- |
+| **UI**   | Hanken Grotesk (variable) | Google Fonts | Everything: headings, body, labels, navigation, forms                      |
+| **Mono** | JetBrains Mono            | Google Fonts | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
 
 Hanken Grotesk is a humanist grotesque with slightly warmer proportions than Inter and a more grounded feel than Geist. It carries display, body, and UI roles without needing a separate display face — the difference between a 48px page title and a 14px label is weight and size, not family. JetBrains Mono is the developer-standard mono with sane disambiguation (`0`, `O`, `l`, `1`) and a calm rhythm that holds up at small sizes.
 
@@ -48,19 +48,19 @@ Self-host via `@fontsource-variable/hanken-grotesk` and `@fontsource/jetbrains-m
 
 Use semantic tokens, not raw pixel sizes. The scale is anchored at 14px with a ratio of ~1.2.
 
-| Token | Px | Line height | Letter spacing | Weight | Use |
-|---|---|---|---|---|---|
-| `--text-hero` | 56 / 64 / 72 | 1.0 | -0.025em | 600 | Marketing hero only |
-| `--text-h1` | 32 | 1.1 | -0.02em | 600 | Page title |
-| `--text-h2` | 22 | 1.25 | -0.015em | 600 | Section heading |
-| `--text-h3` | 16 | 1.4 | -0.005em | 600 | Card or subsection heading |
-| `--text-lead` | 17 | 1.55 | -0.005em | 400 | Intro paragraph |
-| `--text-body` | 14.5 | 1.55 | 0 | 400 | Default body |
-| `--text-sm` | 13 | 1.5 | 0 | 400 | Secondary text, table cells |
-| `--text-xs` | 12 | 1.4 | 0 | 500 | Captions, footnotes, helper text |
-| `--text-meta` | 11 | 1.3 | 0.04em (uppercase) | 600 | Eyebrow labels, table headers |
-| `--text-mono` | 13 | 1.55 | 0 | 400 | Code blocks |
-| `--text-mono-sm` | 12 | 1.4 | -0.005em | 500 | Inline IDs, timestamps |
+| Token            | Px           | Line height | Letter spacing     | Weight | Use                              |
+| ---------------- | ------------ | ----------- | ------------------ | ------ | -------------------------------- |
+| `--text-hero`    | 56 / 64 / 72 | 1.0         | -0.025em           | 600    | Marketing hero only              |
+| `--text-h1`      | 32           | 1.1         | -0.02em            | 600    | Page title                       |
+| `--text-h2`      | 22           | 1.25        | -0.015em           | 600    | Section heading                  |
+| `--text-h3`      | 16           | 1.4         | -0.005em           | 600    | Card or subsection heading       |
+| `--text-lead`    | 17           | 1.55        | -0.005em           | 400    | Intro paragraph                  |
+| `--text-body`    | 14.5         | 1.55        | 0                  | 400    | Default body                     |
+| `--text-sm`      | 13           | 1.5         | 0                  | 400    | Secondary text, table cells      |
+| `--text-xs`      | 12           | 1.4         | 0                  | 500    | Captions, footnotes, helper text |
+| `--text-meta`    | 11           | 1.3         | 0.04em (uppercase) | 600    | Eyebrow labels, table headers    |
+| `--text-mono`    | 13           | 1.55        | 0                  | 400    | Code blocks                      |
+| `--text-mono-sm` | 12           | 1.4         | -0.005em           | 500    | Inline IDs, timestamps           |
 
 The scale is deliberately tight: most surfaces use only `--text-body`, `--text-sm`, and one heading level. Restraint is what keeps it feeling considered.
 
@@ -80,7 +80,7 @@ One `--text-hero` per marketing page, never elsewhere. One `--text-h1` per page.
 
 ### 2.6 Italics
 
-Hanken italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the *Published Revision*") or quoted phrases. Avoid italic in tables and form labels.
+Hanken italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the _Published Revision_") or quoted phrases. Avoid italic in tables and form labels.
 
 ---
 
@@ -93,7 +93,7 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
 ```css
 :root {
   /* Primitives — never reference directly from components */
-  --neutral-50:  36 14% 98%;   /* #FBFAF8 — page background */
+  --neutral-50: 36 14% 98%; /* #FBFAF8 — page background */
   --neutral-100: 36 10% 96%;
   --neutral-150: 36 8% 93%;
   --neutral-200: 30 6% 88%;
@@ -107,60 +107,60 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
   --neutral-950: 24 12% 4%;
 
   /* Brand accent — deep emerald-teal */
-  --accent-1: 162 60% 24%;     /* #18553F — light mode primary */
+  --accent-1: 162 60% 24%; /* #18553F — light mode primary */
   --accent-2: 162 55% 36%;
-  --accent-3: 158 50% 52%;     /* dark mode primary */
+  --accent-3: 158 50% 52%; /* dark mode primary */
 
   /* Status — kept separate from accent */
   --signal-success: 152 48% 36%;
   --signal-warning: 32 78% 46%;
-  --signal-error:   2 64% 48%;
-  --signal-info:    var(--neutral-600);   /* info is just muted neutral */
+  --signal-error: 2 64% 48%;
+  --signal-info: var(--neutral-600); /* info is just muted neutral */
 
   /* Semantic tokens — light */
-  --background:        var(--neutral-50);
-  --surface:           36 16% 100%;        /* slight lift above background */
-  --surface-sunken:    var(--neutral-100);
-  --foreground:        var(--neutral-900);
-  --muted:             var(--neutral-500);
-  --subtle:            var(--neutral-400);
-  --rule:              var(--neutral-200);
-  --rule-strong:       var(--neutral-300);
+  --background: var(--neutral-50);
+  --surface: 36 16% 100%; /* slight lift above background */
+  --surface-sunken: var(--neutral-100);
+  --foreground: var(--neutral-900);
+  --muted: var(--neutral-500);
+  --subtle: var(--neutral-400);
+  --rule: var(--neutral-200);
+  --rule-strong: var(--neutral-300);
 
-  --primary:           var(--neutral-900);  /* primary action is monochrome */
-  --primary-fg:        var(--neutral-50);
+  --primary: var(--neutral-900); /* primary action is monochrome */
+  --primary-fg: var(--neutral-50);
 
-  --accent:            var(--accent-1);     /* prose links, focus rings, selection */
-  --accent-fg:         var(--neutral-50);
-  --selection:         162 60% 24% / 0.16;
+  --accent: var(--accent-1); /* prose links, focus rings, selection */
+  --accent-fg: var(--neutral-50);
+  --selection: 162 60% 24% / 0.16;
 
-  --success:           var(--signal-success);
-  --warning:           var(--signal-warning);
-  --destructive:       var(--signal-error);
-  --info:              var(--signal-info);
+  --success: var(--signal-success);
+  --warning: var(--signal-warning);
+  --destructive: var(--signal-error);
+  --info: var(--signal-info);
 }
 
 [data-theme="dark"] {
-  --background:        var(--neutral-950);
-  --surface:           var(--neutral-900);
-  --surface-sunken:    24 14% 2%;
-  --foreground:        var(--neutral-100);
-  --muted:             24 5% 62%;
-  --subtle:            24 4% 44%;
-  --rule:              24 8% 16%;
-  --rule-strong:       24 8% 24%;
+  --background: var(--neutral-950);
+  --surface: var(--neutral-900);
+  --surface-sunken: 24 14% 2%;
+  --foreground: var(--neutral-100);
+  --muted: 24 5% 62%;
+  --subtle: 24 4% 44%;
+  --rule: 24 8% 16%;
+  --rule-strong: 24 8% 24%;
 
-  --primary:           var(--neutral-50);
-  --primary-fg:        var(--neutral-900);
+  --primary: var(--neutral-50);
+  --primary-fg: var(--neutral-900);
 
-  --accent:            var(--accent-3);
-  --accent-fg:         var(--neutral-950);
-  --selection:         158 50% 52% / 0.22;
+  --accent: var(--accent-3);
+  --accent-fg: var(--neutral-950);
+  --selection: 158 50% 52% / 0.22;
 
-  --success:           152 44% 56%;
-  --warning:           32 78% 60%;
-  --destructive:       2 64% 62%;
-  --info:              24 5% 62%;
+  --success: 152 44% 56%;
+  --warning: 32 78% 60%;
+  --destructive: 2 64% 62%;
+  --info: 24 5% 62%;
 }
 ```
 
@@ -168,7 +168,7 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
 
 - **Body text** is always `hsl(var(--foreground))`. **Secondary text** is `hsl(var(--muted))`. **Tertiary** is `hsl(var(--subtle))`. Below subtle the text is not readable — restructure rather than add a fourth tier.
 - **Primary action** uses `--primary` / `--primary-fg`. That is monochrome by design: the most important button on the page is foreground-on-background, inverted. There is at most one primary button per view.
-- **Accent** is *not* used for primary buttons. Accent is used for: prose links in long-form content (docs, marketing, **Markdown** render), focus rings, selection highlights, and badges/labels that mean "go", "valid", or "published". It is the brand color, deployed quietly.
+- **Accent** is _not_ used for primary buttons. Accent is used for: prose links in long-form content (docs, marketing, **Markdown** render), focus rings, selection highlights, and badges/labels that mean "go", "valid", or "published". It is the brand color, deployed quietly.
 - **Surfaces nest by tone**, not by stacking shadows: `--surface-sunken` (input wells, code blocks), `--background` (page), `--surface` (cards, modals, dropdowns).
 - **Selection background** is `--selection`. Set it on `::selection`.
 - **Color is never the only signal.** Pair every status hue with an icon, label, or text string.
@@ -187,13 +187,13 @@ Test both themes. Use the Chrome DevTools contrast checker on every text/backgro
 
 ### 3.4 Status hues at a glance
 
-| State | Token | When |
-|---|---|---|
-| Default | `--foreground` | Everything not below |
-| Success | `--success` | **Publish** succeeded, **Bundle** ready, **API Key** created |
-| Warning | `--warning` | **Safety Warning** present, **Auto Deletion** approaching, quota near cap |
-| Destructive | `--destructive` | **Deletion**, **API Key Revocation**, **Access Link Lockdown** active |
-| Info | `--info` | **Draft Revision** waiting, **Upload Session** in progress |
+| State       | Token           | When                                                                      |
+| ----------- | --------------- | ------------------------------------------------------------------------- |
+| Default     | `--foreground`  | Everything not below                                                      |
+| Success     | `--success`     | **Publish** succeeded, **Bundle** ready, **API Key** created              |
+| Warning     | `--warning`     | **Safety Warning** present, **Auto Deletion** approaching, quota near cap |
+| Destructive | `--destructive` | **Deletion**, **API Key Revocation**, **Access Link Lockdown** active     |
+| Info        | `--info`        | **Draft Revision** waiting, **Upload Session** in progress                |
 
 ---
 
@@ -230,11 +230,11 @@ The page is built on an 8px baseline grid. Body line-height (`1.55 × 14.5px ≈
 ### 4.3 Containers
 
 ```css
---container-prose:   62ch;    /* docs, marketing copy, markdown render */
---container-narrow:  640px;   /* settings forms, key-creation flows */
---container-default: 1040px;  /* dashboard tables, artifact listings */
---container-wide:    1280px;  /* full dashboard surface */
---container-bleed:   100%;    /* hero, footer, marketing splash */
+--container-prose: 62ch; /* docs, marketing copy, markdown render */
+--container-narrow: 640px; /* settings forms, key-creation flows */
+--container-default: 1040px; /* dashboard tables, artifact listings */
+--container-wide: 1280px; /* full dashboard surface */
+--container-bleed: 100%; /* hero, footer, marketing splash */
 ```
 
 Centered with `margin-inline: auto`. Gutter is `--space-6` mobile, `--space-8` tablet, `--space-10` desktop.
@@ -255,8 +255,7 @@ Shadows are reserved for floating layers (modals, dropdowns, popovers):
 
 ```css
 --shadow-overlay:
-  0 1px 0 hsl(var(--rule)),
-  0 8px 24px -6px hsl(var(--neutral-900) / 0.12),
+  0 1px 0 hsl(var(--rule)), 0 8px 24px -6px hsl(var(--neutral-900) / 0.12),
   0 24px 64px -24px hsl(var(--neutral-900) / 0.08);
 ```
 
@@ -264,12 +263,12 @@ Do not put a shadow on a card just because the card is there. Cards earn shadows
 
 ### 4.6 Radii
 
-| Token | Value | Use |
-|---|---|---|
-| `--radius-sm` | 4px | Inputs, small buttons, badges, code blocks |
-| `--radius-md` | 6px | Default buttons, cards |
-| `--radius-lg` | 10px | Modal sheets, large panels |
-| `--radius-full` | 9999px | Avatars, status pips |
+| Token           | Value  | Use                                        |
+| --------------- | ------ | ------------------------------------------ |
+| `--radius-sm`   | 4px    | Inputs, small buttons, badges, code blocks |
+| `--radius-md`   | 6px    | Default buttons, cards                     |
+| `--radius-lg`   | 10px   | Modal sheets, large panels                 |
+| `--radius-full` | 9999px | Avatars, status pips                       |
 
 We do not use rounded pills for buttons. Pills read as marketing-template; we are not marketing-template.
 
@@ -283,11 +282,11 @@ Canonical recipes. When extending, match the same token surface; do not introduc
 
 ```tsx
 // variants
-"primary"      // foreground bg, background text — one per view
-"secondary"    // surface bg, foreground text, 1px rule border
-"ghost"        // transparent bg, foreground text, hover surface
-"destructive"  // destructive bg, white text
-"link"         // inline, accent color, underlined on hover
+"primary"; // foreground bg, background text — one per view
+"secondary"; // surface bg, foreground text, 1px rule border
+"ghost"; // transparent bg, foreground text, hover surface
+"destructive"; // destructive bg, white text
+"link"; // inline, accent color, underlined on hover
 ```
 
 Sizes: `sm` (28px tall, 13px text), `md` (34px tall, 14px text — default), `lg` (40px tall, 15px text).
@@ -303,7 +302,7 @@ Horizontal padding: `sm` 10px, `md` 14px, `lg` 18px.
 ### 5.2 Input
 
 ```css
-height: 34px;            /* matches md button */
+height: 34px; /* matches md button */
 padding-inline: 12px;
 border: 1px solid hsl(var(--rule));
 background: hsl(var(--surface));
@@ -397,10 +396,26 @@ Soft-filled badges. Restrained, not loud.
   border: 1px solid hsl(var(--rule));
 }
 
-.badge[data-tone="success"]     { color: hsl(var(--success));     background: hsl(var(--success) / 0.08);     border-color: hsl(var(--success) / 0.20); }
-.badge[data-tone="warning"]     { color: hsl(var(--warning));     background: hsl(var(--warning) / 0.10);     border-color: hsl(var(--warning) / 0.24); }
-.badge[data-tone="destructive"] { color: hsl(var(--destructive)); background: hsl(var(--destructive) / 0.08); border-color: hsl(var(--destructive) / 0.20); }
-.badge[data-tone="accent"]      { color: hsl(var(--accent));      background: hsl(var(--accent) / 0.08);      border-color: hsl(var(--accent) / 0.20); }
+.badge[data-tone="success"] {
+  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.08);
+  border-color: hsl(var(--success) / 0.2);
+}
+.badge[data-tone="warning"] {
+  color: hsl(var(--warning));
+  background: hsl(var(--warning) / 0.1);
+  border-color: hsl(var(--warning) / 0.24);
+}
+.badge[data-tone="destructive"] {
+  color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.08);
+  border-color: hsl(var(--destructive) / 0.2);
+}
+.badge[data-tone="accent"] {
+  color: hsl(var(--accent));
+  background: hsl(var(--accent) / 0.08);
+  border-color: hsl(var(--accent) / 0.2);
+}
 ```
 
 A **status pip** (inline with a row) is a 6px circle in the tone color, no border. Pips live inside tables; badges live above tables, on cards, and in headers.
@@ -478,7 +493,9 @@ Skeletons are subtle neutral bars with an opacity pulse. No moving shimmer gradi
 }
 
 @keyframes skeleton-pulse {
-  50% { opacity: 0.55; }
+  50% {
+    opacity: 0.55;
+  }
 }
 ```
 
@@ -497,7 +514,9 @@ This is the one element that gets disproportionate design attention. The product
   border-radius: 3px;
   padding: 1px 5px;
   margin: -1px -5px;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .id:hover {
@@ -526,23 +545,23 @@ Use **Lucide**. 1.5px stroke at 16px and 20px display sizes. Always inherit `cur
 
 Domain mapping (lock these so future agents don't drift):
 
-| Concept | Icon |
-|---|---|
-| **Artifact** | `file-stack` |
-| **Revision** | `git-commit-horizontal` |
-| **Workspace** | `building-2` |
-| **Workspace Member** | `user-round` |
-| **API Key** | `key-round` |
-| **Access Link** | `link` |
-| **Share Link** | `share-2` |
-| **Private Link** | `lock` |
-| **Access Link Lockdown** | `lock-keyhole` |
-| **Safety Warning** | `triangle-alert` |
-| **Audit Event** | `scroll-text` |
-| **Usage Policy** | `gauge` |
-| **Pinned Artifact** | `pin` |
-| **Bundle** | `package` |
-| **Render Mode** | `eye` |
+| Concept                  | Icon                    |
+| ------------------------ | ----------------------- |
+| **Artifact**             | `file-stack`            |
+| **Revision**             | `git-commit-horizontal` |
+| **Workspace**            | `building-2`            |
+| **Workspace Member**     | `user-round`            |
+| **API Key**              | `key-round`             |
+| **Access Link**          | `link`                  |
+| **Share Link**           | `share-2`               |
+| **Private Link**         | `lock`                  |
+| **Access Link Lockdown** | `lock-keyhole`          |
+| **Safety Warning**       | `triangle-alert`        |
+| **Audit Event**          | `scroll-text`           |
+| **Usage Policy**         | `gauge`                 |
+| **Pinned Artifact**      | `pin`                   |
+| **Bundle**               | `package`               |
+| **Render Mode**          | `eye`                   |
 
 Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same weight (1.5px stroke, rounded caps, 16/20px frame).
 

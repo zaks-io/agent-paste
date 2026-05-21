@@ -2,9 +2,13 @@ pre-commit:
   parallel: true
   commands:
     biome:
-      glob: "*.{js,jsx,ts,tsx,json,jsonc,css,md,yml,yaml}"
+      glob: "*.{js,jsx,ts,tsx,json,jsonc,css,yml,yaml}"
       stage_fixed: true
       run: pnpm exec biome check --write --staged --no-errors-on-unmatched {staged_files}
+    prettier-docs:
+      glob: "*.md"
+      stage_fixed: true
+      run: pnpm exec prettier --write {staged_files}
     gitleaks:
       run: gitleaks protect --staged --redact
     typecheck:

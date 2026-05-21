@@ -1,7 +1,8 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { main } from "../src/index.js";
 import {
   contentTypeForLocalPath,
   expiresAtFromTtl,
@@ -95,5 +96,69 @@ describe("local publish helpers", () => {
         },
       ),
     ).toThrow(/exceeds cap/);
+  });
+});
+
+describe("admin CLI safety guards", () => {
+  it("refuses destructive commands without --yes", async () => {
+    const client = {
+      admin: {
+        apiKeys: {
+          async revoke() {
+            throw new Error("should not call revoke");
+          },
+        },
+      },
+    } as unknown as Parameters<typeof main>[1];
+
+    await expect(main(["admin", "key", "revoke", "key_1"], client)).rejects.toThrow(
+      "Refusing to revoke key_1 without --yes.",
+    );
+  });
+
+  it("allows destructive commands with --yes", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    let revoked = false;
+    const client = {
+      admin: {
+        apiKeys: {
+          async revoke(apiKeyId: string) {
+            revoked = true;
+            return { api_key: { id: apiKeyId }, revoked_at: "2026-05-21T00:00:00.000Z" };
+          },
+        },
+      },
+    } as unknown as Parameters<typeof main>[1];
+
+    try {
+      await main(["admin", "key", "revoke", "key_1", "--yes", "--json"], client);
+    } finally {
+      stdout.mockRestore();
+    }
+
+    expect(revoked).toBe(true);
+  });
+
+  it("allows cleanup dry-runs without --yes", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    let called = false;
+    const client = {
+      admin: {
+        cleanup: {
+          async run(input: { dry_run: boolean }) {
+            called = true;
+            return { dry_run: input.dry_run };
+          },
+        },
+      },
+    } as unknown as Parameters<typeof main>[1];
+
+    try {
+      await main(["admin", "cleanup", "run", "--dry-run", "--json"], client);
+    } finally {
+      stdout.mockRestore();
+    }
+
+    expect(called).toBe(true);
   });
 });

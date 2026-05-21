@@ -6,20 +6,20 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 
 ## Route Groups
 
-| Route | Auth | Purpose |
-|---|---|---|
-| `/` | optional | Redirect to `/dashboard` when signed in, `/login` when not. |
-| `/login` | none | Start Auth0 Authorization Code + PKCE login. |
-| `/logout` | session | Clear sealed cookie and redirect through Auth0 logout. |
-| `/auth/callback` | none | Complete Auth0 Authorization Code + PKCE flow, create sealed session, surface one-time default API Key when present. |
-| `/al/{publicId}` | none | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`. |
-| `/dashboard` | dashboard member | Workspace overview. |
-| `/artifacts` | dashboard member | Artifact list. |
-| `/artifacts/{artifactId}` | dashboard member | Artifact detail, revisions, links, warnings, bundle state. |
-| `/keys` | dashboard member | API Key list and creation flow. |
-| `/audit` | dashboard member | Audit Event list. |
-| `/settings` | dashboard member | Workspace name and Auto Deletion setting. |
-| `/admin` | operator | Operator-only dashboard. |
+| Route                     | Auth             | Purpose                                                                                                              |
+| ------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `/`                       | optional         | Redirect to `/dashboard` when signed in, `/login` when not.                                                          |
+| `/login`                  | none             | Start Auth0 Authorization Code + PKCE login.                                                                         |
+| `/logout`                 | session          | Clear sealed cookie and redirect through Auth0 logout.                                                               |
+| `/auth/callback`          | none             | Complete Auth0 Authorization Code + PKCE flow, create sealed session, surface one-time default API Key when present. |
+| `/al/{publicId}`          | none             | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`.                                |
+| `/dashboard`              | dashboard member | Workspace overview.                                                                                                  |
+| `/artifacts`              | dashboard member | Artifact list.                                                                                                       |
+| `/artifacts/{artifactId}` | dashboard member | Artifact detail, revisions, links, warnings, bundle state.                                                           |
+| `/keys`                   | dashboard member | API Key list and creation flow.                                                                                      |
+| `/audit`                  | dashboard member | Audit Event list.                                                                                                    |
+| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                                            |
+| `/admin`                  | operator         | Operator-only dashboard.                                                                                             |
 
 `/al/*` must not import Auth0/session modules. A lint rule should enforce this.
 

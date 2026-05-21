@@ -8,23 +8,23 @@ CLI-first MVP follow-up: [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) 
 
 ## Values
 
-| # | Setting | Value | Class | Enforcing surface | Source ADR |
-|---|---|---|---|---|---|
-| 1 | File Size Cap | 25 MB | platform cap | signed upload-worker PUT `Content-Length` | [0041](./0041-upload-size-caps-under-usage-policy.md) |
-| 2 | File Count Cap | 500 files / **Revision** | platform cap | **Upload Session** create + finalize | [0041](./0041-upload-size-caps-under-usage-policy.md) |
-| 3 | Revision Size Cap | 100 MB / **Revision** | platform cap | **Upload Session** create + finalize | [0041](./0041-upload-size-caps-under-usage-policy.md) |
-| 4 | Bundle Size Cap | 100 MB / **Bundle** | platform cap | `jobs` bundle generator | [0041](./0041-upload-size-caps-under-usage-policy.md) |
-| 5 | Actor Rate Limit | 60 req/min per **API Key** or **Workspace Member** | platform cap | `api` + `upload` middleware | [0039](./0039-authenticated-rate-limits-under-usage-policy.md) |
-| 6 | Workspace Burst Cap | 300 req/min aggregate per **Workspace** | platform cap | `api` + `upload` middleware | [0039](./0039-authenticated-rate-limits-under-usage-policy.md) |
-| 7 | Artifact Rate Limit | 60 req/min unauthenticated reads per **Artifact** | platform-controlled | `content` + Access Link resolve | [0048](./0048-transient-artifacts-by-default.md) |
-| 8 | Content-gateway token TTL | 15 minutes | platform-controlled | `api` mints, `content` verifies | [0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) |
-| 9 | Access Link Signed URL `exp` default | `min(row.expires_at, now + 24h)` | platform-controlled | `api` mint endpoint | [0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) |
-| 10 | Upload Session TTL | 24 hours | platform-controlled | `upload` + `jobs` cleanup | this ADR |
-| 11 | Pinned Artifact cap | 50 / **Workspace** | platform cap | `api` pin endpoint | [0048](./0048-transient-artifacts-by-default.md) |
-| 12 | Auto Deletion default | 30 days since last **Publish** | workspace default | `jobs` auto-deletion sweep | [0048](./0048-transient-artifacts-by-default.md) |
-| 13 | Auto Deletion platform cap | 90 days | platform cap | `api` settings validation | this ADR |
-| 14 | Audit Retention | 180 days | platform-controlled | `jobs` audit sweep | this ADR |
-| 15 | Signing-key rotation cadence | 90 days | platform-controlled | scheduled remote agent | [0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) |
+| #   | Setting                              | Value                                              | Class               | Enforcing surface                         | Source ADR                                                             |
+| --- | ------------------------------------ | -------------------------------------------------- | ------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | File Size Cap                        | 25 MB                                              | platform cap        | signed upload-worker PUT `Content-Length` | [0041](./0041-upload-size-caps-under-usage-policy.md)                  |
+| 2   | File Count Cap                       | 500 files / **Revision**                           | platform cap        | **Upload Session** create + finalize      | [0041](./0041-upload-size-caps-under-usage-policy.md)                  |
+| 3   | Revision Size Cap                    | 100 MB / **Revision**                              | platform cap        | **Upload Session** create + finalize      | [0041](./0041-upload-size-caps-under-usage-policy.md)                  |
+| 4   | Bundle Size Cap                      | 100 MB / **Bundle**                                | platform cap        | `jobs` bundle generator                   | [0041](./0041-upload-size-caps-under-usage-policy.md)                  |
+| 5   | Actor Rate Limit                     | 60 req/min per **API Key** or **Workspace Member** | platform cap        | `api` + `upload` middleware               | [0039](./0039-authenticated-rate-limits-under-usage-policy.md)         |
+| 6   | Workspace Burst Cap                  | 300 req/min aggregate per **Workspace**            | platform cap        | `api` + `upload` middleware               | [0039](./0039-authenticated-rate-limits-under-usage-policy.md)         |
+| 7   | Artifact Rate Limit                  | 60 req/min unauthenticated reads per **Artifact**  | platform-controlled | `content` + Access Link resolve           | [0048](./0048-transient-artifacts-by-default.md)                       |
+| 8   | Content-gateway token TTL            | 15 minutes                                         | platform-controlled | `api` mints, `content` verifies           | [0028](./0028-signed-url-tokens-for-content-gateway-authorization.md)  |
+| 9   | Access Link Signed URL `exp` default | `min(row.expires_at, now + 24h)`                   | platform-controlled | `api` mint endpoint                       | [0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) |
+| 10  | Upload Session TTL                   | 24 hours                                           | platform-controlled | `upload` + `jobs` cleanup                 | this ADR                                                               |
+| 11  | Pinned Artifact cap                  | 50 / **Workspace**                                 | platform cap        | `api` pin endpoint                        | [0048](./0048-transient-artifacts-by-default.md)                       |
+| 12  | Auto Deletion default                | 30 days since last **Publish**                     | workspace default   | `jobs` auto-deletion sweep                | [0048](./0048-transient-artifacts-by-default.md)                       |
+| 13  | Auto Deletion platform cap           | 90 days                                            | platform cap        | `api` settings validation                 | this ADR                                                               |
+| 14  | Audit Retention                      | 180 days                                           | platform-controlled | `jobs` audit sweep                        | this ADR                                                               |
+| 15  | Signing-key rotation cadence         | 90 days                                            | platform-controlled | scheduled remote agent                    | [0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md)        |
 
 ## Workspace-default Usage Policy
 

@@ -4,12 +4,12 @@ The Workers KV denylist referenced by [ADR 0028](./0028-signed-url-tokens-for-co
 
 ## Key formats
 
-| Prefix | Key | Written on | Read by `content` |
-|---|---|---|---|
-| `wsd:` | `wsd:{workspaceId}` | Workspace-scope **Platform Lockdown** set | always |
-| `ad:` | `ad:{artifactId}` | **Artifact** Deletion; Artifact-scope **Platform Lockdown**; **Access Link Lockdown** on the **Artifact** | always |
-| `rd:` | `rd:{revisionId}` | **Retention** removal of a **Revision** | always |
-| `ald:` | `ald:{accessLinkId}` | **Access Link** revocation | only when the resolved content-gateway token carries `accessLinkId` (Access Link path; never on Private Link) |
+| Prefix | Key                  | Written on                                                                                                | Read by `content`                                                                                             |
+| ------ | -------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `wsd:` | `wsd:{workspaceId}`  | Workspace-scope **Platform Lockdown** set                                                                 | always                                                                                                        |
+| `ad:`  | `ad:{artifactId}`    | **Artifact** Deletion; Artifact-scope **Platform Lockdown**; **Access Link Lockdown** on the **Artifact** | always                                                                                                        |
+| `rd:`  | `rd:{revisionId}`    | **Retention** removal of a **Revision**                                                                   | always                                                                                                        |
+| `ald:` | `ald:{accessLinkId}` | **Access Link** revocation                                                                                | only when the resolved content-gateway token carries `accessLinkId` (Access Link path; never on Private Link) |
 
 IDs use the public IDs from the rest of the platform: `workspaceId` is the **Workspace** UUID, while `artifactId`, `revisionId`, and `accessLinkId` are the prefixed IDs (`art_...`, `rev_...`, `al_...`). `workspaceId`, `artifactId`, and `revisionId` are derivable from the content-gateway token payload per [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), so `content` performs no Postgres lookup before the denylist check.
 
@@ -37,7 +37,9 @@ const [ws, art, rev, al] = await Promise.all([
   env.DENYLIST.get(`wsd:${workspaceId}`),
   env.DENYLIST.get(`ad:${artifactId}`),
   env.DENYLIST.get(`rd:${revisionId}`),
-  accessLinkId ? env.DENYLIST.get(`ald:${accessLinkId}`) : Promise.resolve(null),
+  accessLinkId
+    ? env.DENYLIST.get(`ald:${accessLinkId}`)
+    : Promise.resolve(null),
 ]);
 if (ws || art || rev || al) return notFound();
 ```
@@ -58,11 +60,11 @@ A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery 
 
 KV does not enforce read/write separation; direction is code discipline.
 
-| Worker | Binding name | Direction |
-|---|---|---|
-| `content` | `DENYLIST` | read only |
-| `api` | `DENYLIST` | write only |
-| `jobs` | `DENYLIST` | write only |
+| Worker    | Binding name | Direction  |
+| --------- | ------------ | ---------- |
+| `content` | `DENYLIST`   | read only  |
+| `api`     | `DENYLIST`   | write only |
+| `jobs`    | `DENYLIST`   | write only |
 
 Each environment (`production`, `preview`) has its own KV namespace ID; the binding name `DENYLIST` is shared so per-worker code is environment-agnostic.
 

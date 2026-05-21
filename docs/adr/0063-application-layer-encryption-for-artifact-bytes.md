@@ -31,11 +31,11 @@ CLI-first MVP follow-up: app-layer encryption remains the future direction, but 
 
 ### R2 object metadata
 
-| `customMetadata` field | Value | Purpose |
-|---|---|---|
-| `enc_kid` | The root-key `kid` used to derive the per-**Workspace** DEK | `content` selects the correct root key during the overlap window. |
-| `enc_alg` | `aes-256-gcm` | Algorithm marker; lets a future v2 format co-exist with v1 ciphertexts in the same bucket. |
-| `enc_aad_v` | `v1` | Version of the AAD composition rule above. |
+| `customMetadata` field | Value                                                       | Purpose                                                                                    |
+| ---------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `enc_kid`              | The root-key `kid` used to derive the per-**Workspace** DEK | `content` selects the correct root key during the overlap window.                          |
+| `enc_alg`              | `aes-256-gcm`                                               | Algorithm marker; lets a future v2 format co-exist with v1 ciphertexts in the same bucket. |
+| `enc_aad_v`            | `v1`                                                        | Version of the AAD composition rule above.                                                 |
 
 R2 object keys remain ID-based per [ADR 0021](./0021-id-based-r2-object-key-layout.md). Encryption changes neither the key layout, the upload-session reservation flow, nor finalize verification.
 
@@ -44,7 +44,7 @@ R2 object keys remain ID-based per [ADR 0021](./0021-id-based-r2-object-key-layo
 - The root encryption key joins the 90-day rotation set defined by ADR 0045. Adding it is a config change for the scheduled rotation agent; no new playbook.
 - Existing objects keep their original `kid` in `customMetadata`. `content` holds `{kid → rootKey}` for the current key and the previous one during the overlap window, mirroring the content-gateway signing keys. Objects encrypted under a dropped `kid` are unreadable; the drop step waits until no retained **Revision** of that age can still be served, bounded under **Auto Deletion** and the transient-by-default policy of [ADR 0048](./0048-transient-artifacts-by-default.md).
 - The `info` string `agent-paste/artifact-bytes/v1` is part of the derivation, so a v2 algorithm or AAD shape can co-exist with v1 ciphertexts without ambiguous decrypts.
-- Emergency root-key rotation reuses the on-demand path; no separate tooling. Existing-object re-encryption is *not* part of routine rotation — old ciphertexts age out under normal lifecycle.
+- Emergency root-key rotation reuses the on-demand path; no separate tooling. Existing-object re-encryption is _not_ part of routine rotation — old ciphertexts age out under normal lifecycle.
 
 ### Trade-offs accepted
 

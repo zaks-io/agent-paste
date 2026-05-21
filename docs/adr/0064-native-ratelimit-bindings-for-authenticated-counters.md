@@ -1,10 +1,10 @@
 # Native Cloudflare Rate-Limit Bindings for Authenticated Counters
 
-Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both the **Actor Rate Limit** and the **Workspace Burst Cap** are implemented as Cloudflare native rate-limit bindings (`ratelimits` entries in `wrangler.jsonc`), not Durable Object counters. The bindings live on `api` and `upload` only; `content` continues to enforce the unauthenticated **Artifact Rate Limit** per ADR 0039. ADR 0039 fixed the *model* (two-layer cap, post-auth, with idempotency replays free); this ADR fixes the *storage*.
+Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both the **Actor Rate Limit** and the **Workspace Burst Cap** are implemented as Cloudflare native rate-limit bindings (`ratelimits` entries in `wrangler.jsonc`), not Durable Object counters. The bindings live on `api` and `upload` only; `content` continues to enforce the unauthenticated **Artifact Rate Limit** per ADR 0039. ADR 0039 fixed the _model_ (two-layer cap, post-auth, with idempotency replays free); this ADR fixes the _storage_.
 
 ## Considered Options
 
-- **Durable Object per-Workspace counter, native binding for per-actor.** ADR 0039's default. The DO gives strong consistency across the whole **Workspace**, which is appealing in theory: the cap is exactly the cap, with no PoP-fan-out overshoot. Rejected because the per-request cost — a single-shard DO call on every authenticated `api` and `upload` request — dominates the auth hot path for the high-traffic case ADR 0062 already exists to defend against. Strong consistency is not what the limiter is *for*: the limiter exists to bound runaway behavior, not to be a billing meter.
+- **Durable Object per-Workspace counter, native binding for per-actor.** ADR 0039's default. The DO gives strong consistency across the whole **Workspace**, which is appealing in theory: the cap is exactly the cap, with no PoP-fan-out overshoot. Rejected because the per-request cost — a single-shard DO call on every authenticated `api` and `upload` request — dominates the auth hot path for the high-traffic case ADR 0062 already exists to defend against. Strong consistency is not what the limiter is _for_: the limiter exists to bound runaway behavior, not to be a billing meter.
 - **Durable Object for both counters.** Worst of both worlds: every authenticated request pays for two DO round trips, and the per-actor DO partitions poorly across an unknown actor key space.
 - **Native rate-limit binding for both counters (chosen).** Eventually consistent within the binding's period, no DO hop, no per-call billing beyond the binding-tier price. The trade-off is brief overshoot at PoP fan-out, which is fine because the cap is an abuse ceiling.
 - **WAF rate-limiting rules in the Cloudflare dashboard.** Already rejected by ADR 0039 for the primary controls because the bucket cannot key on **API Key** or **Workspace** identity. Retained as a third defense-in-depth layer for unauthenticated traffic.
@@ -21,14 +21,14 @@ Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both
     {
       "name": "ACTOR_RATE_LIMIT",
       "namespace_id": "<env-scoped>",
-      "simple": { "limit": 60, "period": 60 }
+      "simple": { "limit": 60, "period": 60 },
     },
     {
       "name": "WORKSPACE_BURST_CAP",
       "namespace_id": "<env-scoped>",
-      "simple": { "limit": 300, "period": 10 }
-    }
-  ]
+      "simple": { "limit": 300, "period": 10 },
+    },
+  ],
 }
 ```
 
@@ -44,7 +44,7 @@ Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both
 
 ### Call site
 
-- `api` and `upload` call `env.ACTOR_RATE_LIMIT.limit({ key })` and `env.WORKSPACE_BURST_CAP.limit({ key })` *after* authentication and scope checks, *before* business logic. The order is fixed by ADR 0039.
+- `api` and `upload` call `env.ACTOR_RATE_LIMIT.limit({ key })` and `env.WORKSPACE_BURST_CAP.limit({ key })` _after_ authentication and scope checks, _before_ business logic. The order is fixed by ADR 0039.
 - A `{ success: false }` return triggers the `429` path with `Retry-After` and the `rate_limited_actor` / `rate_limited_workspace` error code per ADR 0039.
 - The idempotency cache hit path from [ADR 0022](./0022-idempotency-keys-on-mutating-endpoints.md) resolves before either `limit()` call so replays do not consume budget. Already required by ADR 0039.
 - A breach is operational telemetry per ADR 0039, written to the structured-log surface from [ADR 0011](./0011-cloudflare-first-observability.md). It is not an **Audit Event**.

@@ -14,7 +14,7 @@ describe("upload worker", () => {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: {
         async verifyApiKey() {
-          return { type: "api_key", id: "key_1" };
+          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
         },
       },
       DB: {
@@ -42,5 +42,50 @@ describe("upload worker", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { files: Array<{ put_url: string }> };
     expect(body.files[0]?.put_url).toContain("/v1/upload-sessions/upl_1/files/index.html?token=");
+  });
+
+  it("returns 429 when the workspace rate limit fires", async () => {
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+        },
+      },
+      DB: {
+        async createUploadSession() {
+          throw new Error("rate limited requests should not create sessions");
+        },
+        async getUploadSession() {
+          return null;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+      },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          return { success: true };
+        },
+      },
+      WORKSPACE_BURST_CAP: {
+        async limit() {
+          return { success: false };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
+        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("10");
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_workspace" } });
   });
 });

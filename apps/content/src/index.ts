@@ -34,12 +34,36 @@ export type ContentTokenPayload = {
   exp: number;
 };
 
+type ServedContent = {
+  contentType: string;
+  disposition: "inline" | "attachment";
+  csp: string;
+};
+
+const baseContentSecurityPolicy = [
+  "default-src 'none'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "connect-src 'self'",
+  "media-src 'self' blob:",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+const svgContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
+
 const securityHeaders = {
   "cross-origin-opener-policy": "same-origin",
+  "cross-origin-resource-policy": "cross-origin",
+  "permissions-policy": "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
-  "content-security-policy":
-    "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'",
+  "content-security-policy": baseContentSecurityPolicy,
 };
 const app = new Hono<{ Bindings: Env }>();
 
@@ -75,7 +99,7 @@ function contentPath(context: Context<{ Bindings: Env }>): string {
     return "";
   }
   const marker = `/v/${encodedToken}/`;
-  return decodeURIComponent(pathname.slice(marker.length));
+  return safeDecodeURIComponent(pathname.slice(marker.length)) ?? "";
 }
 
 export async function signContentToken(payload: ContentTokenPayload, secret: string): Promise<string> {
@@ -108,11 +132,7 @@ async function serveSignedObject(request: Request, env: Env, token: string, path
     return notFound();
   }
 
-  const headers = new Headers(securityHeaders);
-  headers.set("cache-control", "private, max-age=60");
-  headers.set("content-length", String(object.size));
-  object.writeHttpMetadata?.(headers);
-  headers.set("content-type", object.httpMetadata?.contentType ?? contentTypeFor(path));
+  const headers = responseHeadersForPath(path, object.size, resolvedPayload.exp);
 
   return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
 }
@@ -134,7 +154,11 @@ function allowDevTokens(env: Env): boolean {
 }
 
 async function verifyContentToken(token: string, secret: string): Promise<ContentTokenPayload | null> {
-  const [encodedPayload, signature] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [encodedPayload, signature] = parts;
   if (!encodedPayload || !signature) {
     return null;
   }
@@ -144,12 +168,38 @@ async function verifyContentToken(token: string, secret: string): Promise<Conten
     return null;
   }
 
-  const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as ContentTokenPayload;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload)));
+  } catch {
+    return null;
+  }
+  if (!isValidContentTokenPayload(payload)) {
+    return null;
+  }
   if (payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
 
   return payload;
+}
+
+function isValidContentTokenPayload(value: unknown): value is ContentTokenPayload {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const payload = value as Partial<ContentTokenPayload>;
+  return (
+    typeof payload.artifact_id === "string" &&
+    payload.artifact_id.startsWith("art_") &&
+    typeof payload.revision_id === "string" &&
+    payload.revision_id.startsWith("rev_") &&
+    (payload.key_prefix === undefined || (typeof payload.key_prefix === "string" && payload.key_prefix.length > 0)) &&
+    (payload.paths === undefined ||
+      (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
+    typeof payload.exp === "number" &&
+    Number.isInteger(payload.exp)
+  );
 }
 
 function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
@@ -169,36 +219,67 @@ function objectKeyFor(payload: ContentTokenPayload, path: string): string {
   return `${prefix.replace(/\/+$/, "")}/${path}`;
 }
 
-function contentTypeFor(path: string): string {
-  const extension = path.toLowerCase().split(".").pop();
-  switch (extension) {
-    case "html":
-      return "text/html; charset=utf-8";
-    case "css":
-      return "text/css; charset=utf-8";
-    case "js":
-    case "mjs":
-      return "text/javascript; charset=utf-8";
-    case "json":
-      return "application/json; charset=utf-8";
-    case "txt":
-      return "text/plain; charset=utf-8";
-    case "svg":
-      return "image/svg+xml";
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "pdf":
-      return "application/pdf";
-    default:
-      return "application/octet-stream";
+function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {
+  const served = servedContentFor(path);
+  const headers = new Headers(securityHeaders);
+  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
+  headers.set("content-length", String(size));
+  headers.set("content-type", served.contentType);
+  headers.set("content-security-policy", served.csp);
+  if (served.disposition === "attachment") {
+    headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }
+  return headers;
+}
+
+function servedContentFor(path: string): ServedContent {
+  const extension = path.toLowerCase().match(/\.[^./\\]+$/u)?.[0] ?? "";
+  switch (extension) {
+    case ".html":
+    case ".htm":
+      return inlineContent("text/html; charset=utf-8");
+    case ".css":
+      return inlineContent("text/css; charset=utf-8");
+    case ".js":
+    case ".mjs":
+      return inlineContent("application/javascript; charset=utf-8");
+    case ".json":
+      return inlineContent("application/json; charset=utf-8");
+    case ".txt":
+    case ".log":
+      return inlineContent("text/plain; charset=utf-8");
+    case ".md":
+    case ".markdown":
+      return inlineContent("text/markdown; charset=utf-8");
+    case ".svg":
+      return { contentType: "image/svg+xml", disposition: "inline", csp: svgContentSecurityPolicy };
+    case ".png":
+      return inlineContent("image/png");
+    case ".jpg":
+    case ".jpeg":
+      return inlineContent("image/jpeg");
+    case ".gif":
+      return inlineContent("image/gif");
+    case ".webp":
+      return inlineContent("image/webp");
+    case ".ico":
+      return inlineContent("image/x-icon");
+    case ".woff":
+      return inlineContent("font/woff");
+    case ".woff2":
+      return inlineContent("font/woff2");
+    default:
+      return { contentType: "application/octet-stream", disposition: "attachment", csp: baseContentSecurityPolicy };
+  }
+}
+
+function inlineContent(contentType: string): ServedContent {
+  return { contentType, disposition: "inline", csp: baseContentSecurityPolicy };
+}
+
+function attachmentFilename(path: string): string {
+  const basename = path.split("/").at(-1) || "download";
+  return basename.replaceAll(/["\\\r\n]/gu, "_");
 }
 
 async function hmac(value: string, secret: string): Promise<string> {
@@ -239,6 +320,14 @@ function constantTimeEqual(a: string, b: string): boolean {
   }
 
   return diff === 0;
+}
+
+function safeDecodeURIComponent(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
 }
 
 function openApiDocument(serverUrl: string): Record<string, unknown> {

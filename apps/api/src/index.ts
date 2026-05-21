@@ -44,6 +44,10 @@ export type KVNamespace = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 };
 
+export type RateLimitBinding = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+};
+
 export type Env = {
   AUTH?: AuthService;
   DB?: ApiDatabase | HyperdriveBinding;
@@ -57,6 +61,9 @@ export type Env = {
   AGENT_VIEW_SIGNING_SECRET?: string;
   CLEANUP_BATCH_SIZE?: string;
   DENYLIST?: KVNamespace;
+  ACTOR_RATE_LIMIT?: RateLimitBinding;
+  WORKSPACE_BURST_CAP?: RateLimitBinding;
+  ALLOW_LEGACY_AGENT_VIEW_TOKENS?: string;
 };
 
 type ScheduledEvent = {
@@ -72,7 +79,7 @@ type AgentViewTokenPayload = {
   exp: number;
 };
 
-const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
+const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
   artifact_size_cap_bytes: 25 * 1024 * 1024,
@@ -149,6 +156,10 @@ async function whoami(request: Request, env: Env): Promise<Response> {
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
+  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  if (limited) {
+    return limited;
+  }
 
   const db = apiDatabase(env);
   if (!db) {
@@ -163,6 +174,10 @@ async function getUsagePolicy(request: Request, env: Env): Promise<Response> {
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
+  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  if (limited) {
+    return limited;
+  }
   return jsonResponse(usagePolicy);
 }
 
@@ -170,6 +185,10 @@ async function authenticatedAgentView(request: Request, env: Env, params: RouteP
   const actor = await authenticateApiKey(request, env);
   if (!actor) {
     return errorResponse("not_authenticated", 401);
+  }
+  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  if (limited) {
+    return limited;
   }
 
   const db = apiDatabase(env);
@@ -518,7 +537,7 @@ function apiBaseUrl(env: Env): string {
 async function publicAgentViewDatabaseToken(token: string, env: Env): Promise<string | null> {
   const secret = agentViewSigningSecret(env);
   if (!secret) {
-    return legacyAgentViewToken(token);
+    return allowLegacyAgentViewTokens(env) ? legacyAgentViewToken(token) : null;
   }
 
   const payload = await verifySignedPayload<AgentViewTokenPayload>(token, secret);
@@ -536,6 +555,10 @@ function agentViewSigningSecret(env: Env): string | undefined {
 function legacyAgentViewToken(token: string): string | null {
   const [artifactId, revisionId] = token.split(".");
   return artifactId?.startsWith("art_") && revisionId?.startsWith("rev_") ? token : null;
+}
+
+function allowLegacyAgentViewTokens(env: Env): boolean {
+  return env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "true" || env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "1";
 }
 
 function isValidAgentViewTokenPayload(payload: AgentViewTokenPayload): boolean {
@@ -687,12 +710,39 @@ function numberFromEnv(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+async function rateLimitAuthenticatedRequest(env: Env, actor: ApiActor): Promise<Response | null> {
+  if (!env.ACTOR_RATE_LIMIT && !env.WORKSPACE_BURST_CAP) {
+    return null;
+  }
+  if (!actor.workspace_id) {
+    return errorResponse("not_authenticated", 401);
+  }
+
+  const actorKey = `${actor.workspace_id}:${actor.id}`;
+  const actorOutcome = await env.ACTOR_RATE_LIMIT?.limit({ key: actorKey });
+  if (actorOutcome && !actorOutcome.success) {
+    return errorResponse("rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
+  }
+
+  const workspaceOutcome = await env.WORKSPACE_BURST_CAP?.limit({ key: actor.workspace_id });
+  if (workspaceOutcome && !workspaceOutcome.success) {
+    return errorResponse("rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
+  }
+
+  return null;
 }
 
-function errorResponse(code: string, status: number, message?: string): Response {
-  return jsonResponse({ error: { code, message: message ?? code } }, status);
+function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...jsonHeaders, ...extraHeaders } });
+}
+
+function errorResponse(
+  code: string,
+  status: number,
+  message?: string,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return jsonResponse({ error: { code, message: message ?? code } }, status, extraHeaders);
 }
 
 function openApiDocument(): Record<string, unknown> {
@@ -921,7 +971,11 @@ function htmlAgentViewResponse(view: unknown): Response {
 
   return new Response(body, {
     headers: {
+      "cache-control": "no-store",
+      "content-security-policy":
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
       "content-type": "text/html; charset=utf-8",
+      "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
     },
   });

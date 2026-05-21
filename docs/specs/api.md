@@ -4,48 +4,48 @@ This document describes the CLI-first MVP route contract. The canonical code reg
 
 ## Hosts
 
-| Surface | Host | Owns |
-|---|---|---|
-| `api` | `https://api.agent-paste.sh` | API-key auth, public Agent View, artifact metadata, admin REST APIs, operation events, cleanup. |
-| `upload` | `https://upload.agent-paste.sh` | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation. |
-| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2. |
+| Surface   | Host                                 | Owns                                                                                            |
+| --------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`         | API-key auth, public Agent View, artifact metadata, admin REST APIs, operation events, cleanup. |
+| `upload`  | `https://upload.agent-paste.sh`      | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation.                 |
+| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2.                                                     |
 
 Future hosts:
 
-| Surface | Status |
-|---|---|
-| `web` | Future dashboard/viewer surface, not MVP. |
-| `mcp` | Future OAuth-only MCP server, not MVP. |
+| Surface | Status                                    |
+| ------- | ----------------------------------------- |
+| `web`   | Future dashboard/viewer surface, not MVP. |
+| `mcp`   | Future OAuth-only MCP server, not MVP.    |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
 ## Headers
 
-| Header | Direction | Required | Notes |
-|---|---|---|---|
-| `Authorization: Bearer ...` | request | Public CLI and admin routes | API key for `/v1/*`; admin token for `/admin/*`. |
-| `Idempotency-Key` | request | Durable mutations | Required for upload session create/finalize and admin destructive commands where noted. |
-| `X-Request-Id` | request/response | Optional request, always response | Server generates one when omitted. |
-| `Retry-After` | response | 429 | Seconds. |
+| Header                      | Direction        | Required                          | Notes                                                                                   |
+| --------------------------- | ---------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| `Authorization: Bearer ...` | request          | Public CLI and admin routes       | API key for `/v1/*`; admin token for `/admin/*`.                                        |
+| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and admin destructive commands where noted. |
+| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                      |
+| `Retry-After`               | response         | 429                               | Seconds.                                                                                |
 
 Secrets are never accepted as query parameters or flags.
 
 ## Auth Labels
 
-| Label | Meaning |
-|---|---|
-| `api_key` | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`. |
-| `admin_token` | `Authorization: Bearer ...` from `AGENT_PASTE_ADMIN_TOKEN`. |
-| `signed_upload_url` | Opaque upload-worker URL minted by `upload`; accepts file bytes only. |
-| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`. |
-| `signed_content_token` | Public token in `/v/{token}/{path}`. |
+| Label                     | Meaning                                                               |
+| ------------------------- | --------------------------------------------------------------------- |
+| `api_key`                 | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`.         |
+| `admin_token`             | `Authorization: Bearer ...` from `AGENT_PASTE_ADMIN_TOKEN`.           |
+| `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only. |
+| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                      |
+| `signed_content_token`    | Public token in `/v/{token}/{path}`.                                  |
 
 ## Public API Routes
 
-| Method | Path | Auth | Idempotency | Request | Response |
-|---|---|---|---|---|---|
-| `GET` | `/v1/whoami` | `api_key` | none | - | `WhoamiResponse` |
-| `GET` | `/v1/public/agent-view/{token}` | `signed_agent_view_token` | none | - | `AgentView` |
+| Method | Path                            | Auth                      | Idempotency | Request | Response         |
+| ------ | ------------------------------- | ------------------------- | ----------- | ------- | ---------------- |
+| `GET`  | `/v1/whoami`                    | `api_key`                 | none        | -       | `WhoamiResponse` |
+| `GET`  | `/v1/public/agent-view/{token}` | `signed_agent_view_token` | none        | -       | `AgentView`      |
 
 `whoami` returns the workspace id/name, API key id/name, and effective caps. It does not return API-key secret material.
 
@@ -53,11 +53,11 @@ Secrets are never accepted as query parameters or flags.
 
 ## Upload Routes
 
-| Method | Path | Auth | Idempotency | Request | Response |
-|---|---|---|---|---|---|
-| `POST` | `/v1/upload-sessions` | `api_key` | required | `CreateUploadSessionRequest` | `CreateUploadSessionResponse` |
-| `PUT` | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url` | none | file bytes | empty |
-| `POST` | `/v1/upload-sessions/{session_id}/finalize` | `api_key` | required | - | `PublishResult` |
+| Method | Path                                            | Auth                | Idempotency | Request                      | Response                      |
+| ------ | ----------------------------------------------- | ------------------- | ----------- | ---------------------------- | ----------------------------- |
+| `POST` | `/v1/upload-sessions`                           | `api_key`           | required    | `CreateUploadSessionRequest` | `CreateUploadSessionResponse` |
+| `PUT`  | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url` | none        | file bytes                   | empty                         |
+| `POST` | `/v1/upload-sessions/{session_id}/finalize`     | `api_key`           | required    | -                            | `PublishResult`               |
 
 ### `CreateUploadSessionRequest`
 
@@ -122,9 +122,9 @@ Finalize verifies every expected file exists in R2, creates the artifact metadat
 
 ## Content Routes
 
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| `GET` | `/v/{token}/{path}` | `signed_content_token` | Serves one artifact file from private R2. |
+| Method | Path                | Auth                   | Notes                                     |
+| ------ | ------------------- | ---------------------- | ----------------------------------------- |
+| `GET`  | `/v/{token}/{path}` | `signed_content_token` | Serves one artifact file from private R2. |
 
 Content authorization failures return generic `404 { "code": "not_found" }`.
 
@@ -142,17 +142,17 @@ The content Worker never reads Postgres and never exposes R2 URLs.
 
 Admin routes are served by `api` under `/admin/*`. They are internal operations APIs used by the repo-local admin CLI.
 
-| Method | Path | Auth | Idempotency | Request | Response |
-|---|---|---|---|---|---|
-| `POST` | `/admin/workspaces` | `admin_token` | required | `CreateWorkspaceRequest` | `WorkspaceDetail` |
-| `GET` | `/admin/workspaces` | `admin_token` | none | `PaginationRequest` | `WorkspaceListResponse` |
-| `POST` | `/admin/workspaces/{workspace_id}/api-keys` | `admin_token` | required | `CreateApiKeyRequest` | `CreateApiKeyResponse` |
-| `DELETE` | `/admin/api-keys/{api_key_id}` | `admin_token` | required | - | `RevokeApiKeyResponse` |
-| `GET` | `/admin/artifacts` | `admin_token` | none | filters | `AdminArtifactListResponse` |
-| `GET` | `/admin/artifacts/{artifact_id}` | `admin_token` | none | - | `AdminArtifactDetail` |
-| `DELETE` | `/admin/artifacts/{artifact_id}` | `admin_token` | required | - | `DeleteArtifactResponse` |
-| `POST` | `/admin/cleanup/run` | `admin_token` | required | `CleanupRunRequest` | `CleanupRunResponse` |
-| `GET` | `/admin/operation-events` | `admin_token` | none | filters | `OperationEventListResponse` |
+| Method   | Path                                        | Auth          | Idempotency | Request                  | Response                     |
+| -------- | ------------------------------------------- | ------------- | ----------- | ------------------------ | ---------------------------- |
+| `POST`   | `/admin/workspaces`                         | `admin_token` | required    | `CreateWorkspaceRequest` | `WorkspaceDetail`            |
+| `GET`    | `/admin/workspaces`                         | `admin_token` | none        | `PaginationRequest`      | `WorkspaceListResponse`      |
+| `POST`   | `/admin/workspaces/{workspace_id}/api-keys` | `admin_token` | required    | `CreateApiKeyRequest`    | `CreateApiKeyResponse`       |
+| `DELETE` | `/admin/api-keys/{api_key_id}`              | `admin_token` | required    | -                        | `RevokeApiKeyResponse`       |
+| `GET`    | `/admin/artifacts`                          | `admin_token` | none        | filters                  | `AdminArtifactListResponse`  |
+| `GET`    | `/admin/artifacts/{artifact_id}`            | `admin_token` | none        | -                        | `AdminArtifactDetail`        |
+| `DELETE` | `/admin/artifacts/{artifact_id}`            | `admin_token` | required    | -                        | `DeleteArtifactResponse`     |
+| `POST`   | `/admin/cleanup/run`                        | `admin_token` | required    | `CleanupRunRequest`      | `CleanupRunResponse`         |
+| `GET`    | `/admin/operation-events`                   | `admin_token` | none        | filters                  | `OperationEventListResponse` |
 
 Admin destructive commands must record operation events and must never log signed URLs, content tokens, API-key secrets, or admin tokens.
 

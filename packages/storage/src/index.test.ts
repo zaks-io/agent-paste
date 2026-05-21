@@ -10,9 +10,9 @@ describe("storage helpers", () => {
 
   it("adds defensive response headers", () => {
     expect(responseHeadersForPath("app.js")).toMatchObject({
-      "Content-Type": "text/javascript; charset=utf-8",
+      "Content-Type": "application/javascript; charset=utf-8",
       "X-Content-Type-Options": "nosniff",
-      "Cross-Origin-Resource-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "cross-origin",
     });
   });
 });

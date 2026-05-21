@@ -4,7 +4,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's session i
 
 ## Considered Options
 
-- **Custom claim with `workspace_member_id` minted by an Auth0 Post-Login Action.** Saves one indexed `SELECT` per request and makes the token self-contained. The cost is real: a Post-Login Action that either calls out to `api` or reads `user.app_metadata`, a Management API write after the auto-provision transaction from [ADR 0055](./0055-signup-auto-provisions-personal-workspace-and-default-key.md) to set `app_metadata.workspace_member_id`, and a fallback for first-sign-in tokens that are minted *before* the metadata exists. Three moving parts to avoid one composite-indexed query that the RLS setup already implies. Rejected.
+- **Custom claim with `workspace_member_id` minted by an Auth0 Post-Login Action.** Saves one indexed `SELECT` per request and makes the token self-contained. The cost is real: a Post-Login Action that either calls out to `api` or reads `user.app_metadata`, a Management API write after the auto-provision transaction from [ADR 0055](./0055-signup-auto-provisions-personal-workspace-and-default-key.md) to set `app_metadata.workspace_member_id`, and a fallback for first-sign-in tokens that are minted _before_ the metadata exists. Three moving parts to avoid one composite-indexed query that the RLS setup already implies. Rejected.
 - **Opaque session ID with server-side session storage (KV or DO).** Cookie holds a random ID; `web` reads the full session from KV per request. Cleaner revocation semantics. Trade-off is an extra KV read on every dashboard navigation and an additional store to operate. Not worth it for a single-region MVP whose session payload is small enough to seal into a cookie.
 - **Forward only the Auth0 ID token, drop the access token from the session.** Smaller cookie. Loses the ability to call Auth0's userinfo endpoint or refresh on behalf of the user without a new login. Rejected because the refresh path matters for keeping sessions alive through the workday.
 - **Mint an internal web-signed bearer instead of forwarding the Auth0 access token.** `web` signs a short-lived JWT with its own HMAC key; `api` verifies with the same key. Adds a third signing key to bootstrap, rotate, and reason about, when the Auth0 access token is already a verifiable bearer. Rejected.
@@ -50,7 +50,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's session i
 
 - The `ap_pk_` API Key path through `api`'s auth middleware ([ADR 0043](./0043-bearer-credential-format-and-storage.md)) is untouched.
 - The unauthenticated Access Link resolve path from [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) remains POST-with-fragment, no Authorization header, no cookie.
-- The operator surface gating from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) runs *after* this middleware resolves the **Workspace Member**; it checks whether the resolved email is in `OPERATOR_EMAILS`.
+- The operator surface gating from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) runs _after_ this middleware resolves the **Workspace Member**; it checks whether the resolved email is in `OPERATOR_EMAILS`.
 
 ### Why not put any of this in CONTEXT.md
 

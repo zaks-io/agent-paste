@@ -4,7 +4,7 @@ A new state, **Platform Lockdown**, lets the platform operator block all link re
 
 ## Considered Options
 
-- **Extend Access Link Lockdown with an operator-initiated flag.** Cheapest in glossary, but conflates two genuinely different things: a workspace's own lockdown protects itself, while a platform lockdown is the platform protecting itself *from* the workspace. They differ on initiator, on whether **Private Link** is affected, and on **API Key** suspension. Conflating them obscures which controls are reversible by whom.
+- **Extend Access Link Lockdown with an operator-initiated flag.** Cheapest in glossary, but conflates two genuinely different things: a workspace's own lockdown protects itself, while a platform lockdown is the platform protecting itself _from_ the workspace. They differ on initiator, on whether **Private Link** is affected, and on **API Key** suspension. Conflating them obscures which controls are reversible by whom.
 - **Use Deletion for abuse response.** Already exists, but irreversible. A wrongly-flagged artifact cannot be restored, and false positives are real for phishing detection.
 - **Platform Lockdown with both scopes (chosen).** One concept, two scopes. Composes with existing audit and link-resolution paths. Distinct from **Access Link Lockdown** so the model stays honest about who initiated what.
 

@@ -60,7 +60,7 @@ assert(content.status === 200, `content HTML returned ${content.status}`);
 assert(content.headers.get("content-type")?.includes("text/html"), "content response is HTML");
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
 
-await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--json"]);
+await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
 await waitForStatus(published.view_url, 404, "deleted content");
 
 await smokeApex(config);
