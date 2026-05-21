@@ -8,8 +8,8 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Snapshot
 
-- `main` is at `cc0e00b docs: record current MVP merge status`.
-- Latest feature commit on `main`: `d28eedb feat: scaffold Hono app foundation`.
+- `main` is at `f5b9cc8 ci: upload combined code coverage artifact (#3)`.
+- Latest feature commit on `main`: `4bde837 feat(apex): add marketing worker at agent-paste.sh (#1)`.
 - Three Workers (`api`, `upload`, `content`) and one CLI (`agent-paste`) are implemented and pass `pnpm smoke:local` and `pnpm smoke:preview`.
 - Three Workers (`jobs`, `web`, `mcp`) are Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
 - GitHub Actions ran successful CI and production-deploy workflows on `main` on 2026-05-21.
