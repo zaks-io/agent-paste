@@ -1,6 +1,6 @@
 # CLI-First MVP Spec
 
-Implementation progress is tracked in [`docs/ops/mvp-bootstrap-checklist.md`](../ops/mvp-bootstrap-checklist.md). This file remains the product/contract target; the ops checklist records what is implemented, verified, blocked, or intentionally deferred.
+Implementation progress is tracked in [`docs/ops/project-status.md`](../ops/project-status.md). This file remains the product/contract target; the project status doc records what is implemented, verified, blocked, or intentionally deferred across all phases.
 
 agent-paste is a hosted artifact handoff service for agents. The MVP proves one loop:
 
