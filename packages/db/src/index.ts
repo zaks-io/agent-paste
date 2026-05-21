@@ -792,15 +792,14 @@ export class PostgresRepository {
 
   async revokeApiKey(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
     const revokedAt = (input.now ?? new Date()).toISOString();
-    const found = await this.mustApiKey(this.db, input.apiKeyId);
+    const apiKey = await this.mustApiKey(this.db, input.apiKeyId);
     return this.runAdminCommand(
       input.actor,
       "admin.api_key.revoke",
       input.idempotencyKey,
-      found.workspace_id,
+      apiKey.workspace_id,
       revokedAt,
       async (tx) => {
-        const apiKey = await this.mustApiKey(tx, input.apiKeyId);
         const updated = { ...apiKey, revoked_at: revokedAt };
         await tx.query(`update api_keys set revoked_at = $2 where id = $1`, [input.apiKeyId, revokedAt]);
         await this.insertEvent(

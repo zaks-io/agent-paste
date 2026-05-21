@@ -249,14 +249,14 @@ async function cleanup(request: Request, env: Env): Promise<Response> {
     return errorResponse("not_authenticated", 401);
   }
 
-  const db = apiDatabase(env);
-  if (!db) {
-    return errorResponse("database_unavailable", 503);
-  }
-
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
+  }
+
+  const db = apiDatabase(env);
+  if (!db) {
+    return errorResponse("database_unavailable", 503);
   }
 
   const body = await readJsonObject(request);
@@ -273,13 +273,13 @@ async function createWorkspace(request: Request, env: Env): Promise<Response> {
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
-  const db = apiDatabase(env);
-  if (!db?.createWorkspace) {
-    return errorResponse("database_unavailable", 503);
-  }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
+  }
+  const db = apiDatabase(env);
+  if (!db?.createWorkspace) {
+    return errorResponse("database_unavailable", 503);
   }
   const body = await readJsonObject(request);
   if (typeof body.email !== "string") {
@@ -311,13 +311,13 @@ async function createApiKey(request: Request, env: Env, params: RouteParams): Pr
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
-  const db = apiDatabase(env);
-  if (!db?.createApiKey) {
-    return errorResponse("database_unavailable", 503);
-  }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
+  }
+  const db = apiDatabase(env);
+  if (!db?.createApiKey) {
+    return errorResponse("database_unavailable", 503);
   }
   const body = await readJsonObject(request);
   if (typeof body.name !== "string") {
@@ -393,6 +393,7 @@ async function deleteArtifact(request: Request, env: Env, params: RouteParams): 
   if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
   }
+  const artifactId = params.artifactId ?? "";
   const db = apiDatabase(env);
   if (!db?.deleteArtifact) {
     return errorResponse("database_unavailable", 503);
@@ -401,9 +402,9 @@ async function deleteArtifact(request: Request, env: Env, params: RouteParams): 
     const result = await db.deleteArtifact!({
       actor: adminActor(actor),
       idempotencyKey,
-      artifactId: params.artifactId ?? "",
+      artifactId,
     });
-    await denyArtifact(env, params.artifactId ?? "");
+    await denyArtifact(env, artifactId);
     return result;
   });
 }
