@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL, GITHUB_URL, MCP_BASE_URL } from "./copy.js";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
 
 export const AGENTS_MD = `# agent-paste for agents
 
@@ -21,8 +21,6 @@ agent-paste has three objects an agent needs to know:
 - **Access Link** — A revocable, signed URL pointing at an Artifact or a
   Revision. Lives under \`/r/{token}\`. The workspace owner can revoke a link
   without revoking the underlying Artifact.
-
-Full glossary: [${GITHUB_URL}/blob/main/CONTEXT.md](${GITHUB_URL}/blob/main/CONTEXT.md)
 
 ## CLI quickstart
 
@@ -67,8 +65,7 @@ The MCP server is workspace-scoped through the same API key as the REST API.
 
 ## Where to find more
 
-- Architecture decisions: [${GITHUB_URL}/tree/main/docs/adr](${GITHUB_URL}/tree/main/docs/adr)
-- Specs (API, data model, jobs, acceptance): [${GITHUB_URL}/tree/main/docs/specs](${GITHUB_URL}/tree/main/docs/specs)
-- Source code: [${GITHUB_URL}](${GITHUB_URL})
 - Dashboard (humans): [${APP_BASE_URL}](${APP_BASE_URL})
+- REST API: [${API_BASE_URL}](${API_BASE_URL})
+- MCP server: [${MCP_BASE_URL}](${MCP_BASE_URL})
 `;

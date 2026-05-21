@@ -1,29 +1,7 @@
-import { FEATURES, FOOTER_COLS, GITHUB_URL, HERO, INSTALL, META_DESCRIPTION, TITLE } from "./copy.js";
+import { HERO, META_DESCRIPTION, TITLE, TRANSCRIPT, type TranscriptLine, WORDMARK } from "./copy.js";
 import { STYLES } from "./styles.js";
 
-const SAMPLE_ID = INSTALL.sampleId;
-const SAMPLE_ID_SHORT = `${SAMPLE_ID.slice(0, 9)}…${SAMPLE_ID.slice(-4)}`;
-
 export function renderHomePage(): string {
-  const features = FEATURES.map(
-    (feature, index) => `
-        <article class="feature">
-          <span class="feature-index">${pad(index + 1)} / ${pad(FEATURES.length)}</span>
-          <h2 class="feature-h">${esc(feature.heading)}</h2>
-          <p class="feature-body">${esc(feature.body)}</p>
-        </article>`,
-  ).join("");
-
-  const footerCols = FOOTER_COLS.map(
-    (col) => `
-        <div class="footer-col">
-          <h3>${esc(col.heading)}</h3>
-          <ul>
-            ${col.items.map((item) => `<li><a href="${esc(item.href)}">${esc(item.label)}</a></li>`).join("\n            ")}
-          </ul>
-        </div>`,
-  ).join("");
-
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -36,11 +14,11 @@ export function renderHomePage(): string {
     <link rel="preload" href="/fonts/HankenGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta property="og:type" content="website">
-    <meta property="og:title" content="agent-paste">
+    <meta property="og:title" content="agent-paste.sh">
     <meta property="og:description" content="${esc(META_DESCRIPTION)}">
     <meta property="og:url" content="https://agent-paste.sh">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="agent-paste">
+    <meta name="twitter:title" content="agent-paste.sh">
     <meta name="twitter:description" content="${esc(META_DESCRIPTION)}">
     <link rel="canonical" href="https://agent-paste.sh/">
     <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
@@ -48,66 +26,59 @@ export function renderHomePage(): string {
     <style>${STYLES}</style>
   </head>
   <body>
-    <header class="bleed">
-      <div class="container masthead">
-        <a class="wordmark" href="/">agent<span class="wordmark-hyphen">-</span>paste</a>
-        <nav class="masthead-nav" aria-label="Primary">
-          <a class="masthead-link is-secondary" href="/agents.md">For agents</a>
-          <a class="masthead-link is-secondary" href="${esc(GITHUB_URL)}">GitHub</a>
-          <a class="button button-primary" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
-        </nav>
-      </div>
-    </header>
-    <main>
-      <section class="bleed">
-        <div class="container hero">
-          <div class="hero-content">
-            <h1 class="hero-headline">${esc(HERO.headline)}</h1>
-            <p class="hero-lead">${esc(HERO.lead)}</p>
-            <div class="hero-actions">
-              <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
-              <a class="button button-link button-lg" href="${esc(HERO.secondary.href)}">${esc(HERO.secondary.label)} →</a>
-            </div>
-            <div class="install">
-              <pre class="code-block" aria-label="Install command"><span class="prompt" aria-hidden="true">$</span><code>${esc(INSTALL.command)}</code><button class="code-copy" type="button" data-clipboard="${esc(INSTALL.command)}" aria-label="Copy install command">copy</button></pre>
-              <p class="install-meta">
-                <span>${esc(INSTALL.caption)}</span>
-                <span
-                  class="id"
-                  role="button"
-                  tabindex="0"
-                  data-clipboard="${esc(SAMPLE_ID)}"
-                  title="${esc(SAMPLE_ID)} — click to copy"
-                  aria-label="${esc(SAMPLE_ID)}, click to copy"
-                >${esc(SAMPLE_ID_SHORT)}</span>
-              </p>
-            </div>
-          </div>
-        </div>
+    <main class="page">
+      <header class="page-head">
+        <a class="wordmark" href="/" aria-label="agent-paste.sh">
+          <span class="wordmark-base">${esc(WORDMARK.base)}</span><span class="wordmark-tld">${esc(WORDMARK.tld)}</span>
+        </a>
+      </header>
+
+      <section class="hero">
+        <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-headline-stop">.</span></h1>
+        <p class="hero-lead">${esc(HERO.lead)}</p>
+
+        <pre class="transcript" aria-label="Example agent-paste session">${renderTranscript(TRANSCRIPT)}</pre>
+
+        <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
       </section>
-      <section class="bleed features">
-        <div class="container">
-          <div class="features-grid">${features}
-          </div>
-        </div>
-      </section>
+
+      <footer class="page-foot mono">
+        <a class="foot-link" href="/agents.md">/agents.md</a>
+        <span>© ${new Date().getFullYear().toString()}</span>
+      </footer>
     </main>
-    <footer class="bleed footer">
-      <div class="container">
-        <div class="footer-grid">${footerCols}
-        </div>
-        <div class="footer-meta">
-          <span>${esc(new Date().getFullYear().toString())} · agent-paste</span>
-          <span>built on Cloudflare Workers</span>
-        </div>
-      </div>
-    </footer>
+
     <script>
 ${INLINE_SCRIPT}
     </script>
   </body>
 </html>
 `;
+}
+
+function renderTranscript(lines: TranscriptLine[]): string {
+  return lines
+    .map((line) => {
+      if (line.kind === "prompt") {
+        return `<span class="t-line"><span class="t-prompt" aria-hidden="true">$</span> <span class="t-cmd">${esc(line.text)}</span></span>`;
+      }
+      if (line.kind === "comment") {
+        return `<span class="t-line t-comment"># ${esc(line.text)}</span>`;
+      }
+      if (line.kind === "output") {
+        return `<span class="t-line t-output">  ${esc(line.text)}</span>`;
+      }
+      const url = `${line.origin}${line.id}`;
+      return `<span class="t-line t-result">  <span
+        class="id is-inline"
+        role="button"
+        tabindex="0"
+        data-clipboard="${esc(url)}"
+        title="${esc(url)} — click to copy"
+        aria-label="${esc(url)}, click to copy"
+      ><span class="t-origin">${esc(line.origin)}</span><span class="t-id">${esc(line.id)}</span></span></span>`;
+    })
+    .join("\n");
 }
 
 function esc(value: string): string {
@@ -117,10 +88,6 @@ function esc(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function pad(value: number): string {
-  return value.toString().padStart(2, "0");
 }
 
 const INLINE_SCRIPT = `(() => {

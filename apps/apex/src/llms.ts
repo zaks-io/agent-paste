@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL, GITHUB_URL, MCP_BASE_URL } from "./copy.js";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
 
 export const LLMS_TXT = `# agent-paste
 
@@ -27,7 +27,6 @@ another platform — without translation tables.
 - REST API: ${API_BASE_URL}
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
-- Source: ${GITHUB_URL}
 
 ## Mental model
 
