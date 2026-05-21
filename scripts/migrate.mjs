@@ -9,7 +9,7 @@ if (target !== "preview" && target !== "live") {
   usage();
 }
 
-const envName = `DATABASE_URL_MIGRATIONS_${target.toUpperCase()}`;
+const envName = databaseUrlEnvName(target);
 if (!process.env[envName]) {
   throw new Error(`Set ${envName} before running ${target} migrations.`);
 }
@@ -35,6 +35,16 @@ function run(command, args) {
       }
     });
   });
+}
+
+function databaseUrlEnvName(target) {
+  if (target === "preview" && process.env.PREVIEW_DATABASE_URL) {
+    return "PREVIEW_DATABASE_URL";
+  }
+  if (target === "live" && process.env.LIVE_DATABASE_URL) {
+    return "LIVE_DATABASE_URL";
+  }
+  return `DATABASE_URL_MIGRATIONS_${target.toUpperCase()}`;
 }
 
 function usage() {
