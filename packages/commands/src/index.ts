@@ -27,6 +27,68 @@ export type CleanupResult<T> = {
   retained: T[];
 };
 
+export type ActorType = "api_key" | "admin" | "system";
+
+export type CommandActor = {
+  type: ActorType;
+  id: string;
+  workspaceId: string | null;
+};
+
+export type CommandAuditEvent = {
+  id?: string;
+  workspaceId?: string | null;
+  actorType?: ActorType;
+  actorId?: string | null;
+  action: string;
+  targetType: string;
+  targetId: string;
+  details?: Record<string, unknown>;
+  requestId?: string | null;
+  occurredAt?: string;
+};
+
+export type CommandHandlerResult<T> = {
+  result: T;
+  audit?: CommandAuditEvent[];
+};
+
+export type SqlValue = string | number | boolean | null | Record<string, unknown> | SqlValue[];
+export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
+export type SqlExecutor = {
+  query<Row = Record<string, unknown>>(sql: string, params?: readonly SqlValue[]): Promise<SqlQueryResult<Row>>;
+  transaction?<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+};
+
+export type RunCommandInput<T> = {
+  executor: SqlExecutor;
+  actor: CommandActor;
+  operation: string;
+  idempotencyKey: string;
+  workspaceId?: string | null;
+  now?: Date | string;
+  staleAfterMs?: number;
+  createEventId?: () => string;
+  handler: (tx: SqlExecutor) => Promise<CommandHandlerResult<T>>;
+};
+
+export type RunCommandResult<T> = {
+  result: T;
+  isReplay: boolean;
+};
+
+const DEFAULT_STALE_MS = 5 * 60 * 1000;
+
+export class IdempotencyInFlightError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds = 1) {
+    super("idempotency_in_flight");
+    this.name = "IdempotencyInFlightError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export function createOperationEvent(input: Omit<OperationEvent, "id" | "createdAt"> & { now?: Date }): OperationEvent {
   const createdAt = (input.now ?? new Date()).toISOString();
   return {
@@ -88,6 +150,131 @@ export function cleanupExpired<T extends { expiresAt?: string }>(items: T[], now
   return { removed, retained };
 }
 
+export async function runCommand<T>(input: RunCommandInput<T>): Promise<RunCommandResult<T>> {
+  const now = toIsoString(input.now ?? new Date());
+  const workspaceId = input.workspaceId === undefined ? input.actor.workspaceId : input.workspaceId;
+  const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_MS;
+  const createEventId = input.createEventId ?? defaultEventId;
+
+  const execute = async (tx: SqlExecutor): Promise<RunCommandResult<T>> => {
+    const claim = await tx.query<{ workspace_id: string | null }>(
+      `insert into idempotency_records
+         (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
+       values ($1, $2, $3, $4, $5, 'in_flight', null, $6, null)
+       on conflict do nothing
+       returning workspace_id`,
+      [workspaceId, input.actor.type, input.actor.id, input.operation, input.idempotencyKey, now],
+    );
+
+    const ctx: ExecuteContext<T> = {
+      workspaceId,
+      actor: input.actor,
+      operation: input.operation,
+      idempotencyKey: input.idempotencyKey,
+      now,
+      handler: input.handler,
+      createEventId,
+    };
+
+    if (claim.rows.length === 0) {
+      return resolveExisting(tx, { ...ctx, staleAfterMs });
+    }
+
+    return executeHandler(tx, ctx);
+  };
+
+  return input.executor.transaction ? input.executor.transaction(execute) : execute(input.executor);
+}
+
+type ExecuteContext<T> = {
+  workspaceId: string | null;
+  actor: CommandActor;
+  operation: string;
+  idempotencyKey: string;
+  now: string;
+  handler: (tx: SqlExecutor) => Promise<CommandHandlerResult<T>>;
+  createEventId: () => string;
+};
+
+type ResolveContext<T> = ExecuteContext<T> & { staleAfterMs: number };
+
+async function resolveExisting<T>(tx: SqlExecutor, ctx: ResolveContext<T>): Promise<RunCommandResult<T>> {
+  const existing = await tx.query<{ status: string; result_json: T | null; created_at: string }>(
+    `select status, result_json, created_at
+     from idempotency_records
+     where workspace_id is not distinct from $1
+       and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5
+     for update`,
+    [ctx.workspaceId, ctx.actor.type, ctx.actor.id, ctx.operation, ctx.idempotencyKey],
+  );
+  const record = existing.rows[0];
+  if (!record) {
+    throw new Error("idempotency_record_missing");
+  }
+  if (record.status === "completed") {
+    return { result: record.result_json as T, isReplay: true };
+  }
+  if (record.status === "in_flight" && isStale(record.created_at, ctx.now, ctx.staleAfterMs)) {
+    await tx.query(
+      `update idempotency_records
+       set status = 'in_flight', result_json = null, completed_at = null, created_at = $6
+       where workspace_id is not distinct from $1
+         and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5`,
+      [ctx.workspaceId, ctx.actor.type, ctx.actor.id, ctx.operation, ctx.idempotencyKey, ctx.now],
+    );
+    return executeHandler(tx, ctx);
+  }
+  throw new IdempotencyInFlightError();
+}
+
+async function executeHandler<T>(tx: SqlExecutor, ctx: ExecuteContext<T>): Promise<RunCommandResult<T>> {
+  const { result, audit = [] } = await ctx.handler(tx);
+
+  await tx.query(
+    `update idempotency_records
+     set status = 'completed', result_json = $6::jsonb, completed_at = $7
+     where workspace_id is not distinct from $1
+       and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5`,
+    [ctx.workspaceId, ctx.actor.type, ctx.actor.id, ctx.operation, ctx.idempotencyKey, result as SqlValue, ctx.now],
+  );
+
+  for (const event of audit) {
+    await tx.query(
+      `insert into operation_events
+         (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, request_id, occurred_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)`,
+      [
+        event.id ?? ctx.createEventId(),
+        event.workspaceId === undefined ? ctx.workspaceId : event.workspaceId,
+        event.actorType ?? ctx.actor.type,
+        event.actorId === undefined ? ctx.actor.id : event.actorId,
+        event.action,
+        event.targetType,
+        event.targetId,
+        (event.details ?? {}) as SqlValue,
+        event.requestId ?? null,
+        event.occurredAt ?? ctx.now,
+      ],
+    );
+  }
+
+  return { result, isReplay: false };
+}
+
 function isExpired(expiresAt: string | undefined, now: Date): boolean {
   return expiresAt !== undefined && new Date(expiresAt).getTime() <= now.getTime();
+}
+
+function isStale(createdAt: string, now: string, staleAfterMs: number): boolean {
+  return new Date(now).getTime() - new Date(createdAt).getTime() >= staleAfterMs;
+}
+
+function toIsoString(value: Date | string): string {
+  return typeof value === "string" ? value : value.toISOString();
+}
+
+function defaultEventId(): string {
+  const webCrypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  const uuid = webCrypto?.randomUUID?.() ?? `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+  return `evt_${uuid.replaceAll("-", "")}`;
 }

@@ -8,6 +8,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -149,9 +150,7 @@ export const operationEvents = pgTable(
 export const idempotencyRecords = pgTable(
   "idempotency_records",
   {
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id"),
     actorType: text("actor_type").notNull(),
     actorId: text("actor_id").notNull(),
     operation: text("operation").notNull(),
@@ -162,7 +161,13 @@ export const idempotencyRecords = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
-    primaryKey({ columns: [table.workspaceId, table.actorType, table.actorId, table.operation, table.idempotencyKey] }),
+    uniqueIndex("idempotency_records_unique").on(
+      table.workspaceId,
+      table.actorType,
+      table.actorId,
+      table.operation,
+      table.idempotencyKey,
+    ),
     index("idempotency_records_created_idx").on(table.createdAt),
   ],
 );

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-21.
+Last updated: 2026-05-21 (idempotent mutations landed).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -8,9 +8,10 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Snapshot
 
-- `main` is at `cc0e00b docs: record current MVP merge status`.
-- Latest feature commit on `main`: `d28eedb feat: scaffold Hono app foundation`.
+- `main` is at `7354630 docs: replace MVP checklist with project status doc`.
+- Latest feature commit on `main`: `4bde837 feat(apex): add marketing worker at agent-paste.sh (#1)`.
 - Three Workers (`api`, `upload`, `content`) and one CLI (`agent-paste`) are implemented and pass `pnpm smoke:local` and `pnpm smoke:preview`.
+- Every mutation route in `api` and `upload` now flows through `runCommand` with durable idempotency (`packages/db/migrations/0002_idempotency_admin_ops.sql`).
 - Three Workers (`jobs`, `web`, `mcp`) are Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
 - GitHub Actions ran successful CI and production-deploy workflows on `main` on 2026-05-21.
 - Open branches with unmerged work: `t3code/7bcd4587` (Apex/front-end + CI), `t3code/5b6355f9` (unreviewed), `t3code/3d4931ed` (contained in main).
@@ -44,7 +45,7 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 | `packages/auth` | Implemented | ~290 | Yes | API key gen/parse/verify, admin token HMAC, `cachedLookup`, scope registry. |
 | `packages/api-client` | Implemented | ~340 | Yes | Auth resolution, retry, idempotency, cursor pagination. |
 | `packages/storage` | Implemented | ~60 | Yes | MIME map, security headers, content-token placeholders. |
-| `packages/commands` | Partial | ~135 | Yes | Has `runCommand`, `createOperationEvent`, idempotency helpers. **No app currently imports them.** Routes write operation events directly. |
+| `packages/commands` | Implemented | ~150 | Yes | `runCommand` + `createOperationEvent` + idempotency helpers. Wired into every mutation route in `api` and `upload`; replay is durable via `idempotency_records`. |
 | `packages/config` | Scaffolded | ~65 | Yes | Constants and a couple of helpers; no per-app env schema. |
 | `packages/tsconfig` | Config only | n/a | n/a | Shared TS base. |
 | `packages/repo-lint` | Config only | n/a | n/a | Biome rules for docs/scripts. |
@@ -80,7 +81,7 @@ All 66 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0001 private artifact storage | Done | R2 private buckets in use. |
 | 0002 Auth0 for workspace auth | Deferred | No Auth0 in code; admin token bearer used instead per ADR 0066. |
 | 0003 restrict artifact JS network | Done | CSP `connect-src 'self'` set in content Worker. |
-| 0004 audit wrapper for state changes | Partial | `operation_events` table exists; full wrapper pattern not applied at handlers. |
+| 0004 audit wrapper for state changes | Done | `runCommand` writes the audit event in the same transaction as every mutation. |
 | 0005 Workers + R2 + Postgres + Hyperdrive | Done | All four bindings present in `wrangler.jsonc`. |
 | 0006 small Workers by boundary | Done | api/upload/content split. jobs/web/mcp scaffolded for future. |
 | 0007 Drizzle migrations + preview envs | Partial | Migration exists; runtime not Drizzle. Preview Neon branch wired. |
@@ -98,7 +99,7 @@ All 66 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0019 Cloudflare Queues for jobs | Deferred | Phase 4+. Cleanup in `api` scheduled handler. |
 | 0020 content caching by revision | Partial | Cache headers set; revision-hash cache-key validation not explicit. |
 | 0021 ID-based R2 object key layout | Done | Keys follow `{artifact}/{revision}/{path}`. |
-| 0022 idempotent mutations | Partial | Helpers exist in `packages/commands`. **No handler imports them.** Mutation routes use direct DB calls. |
+| 0022 idempotent mutations | Done | Every POST/PUT/DELETE in `api` and `upload` honors `Idempotency-Key` via `runCommand`; replay returns cached result, in-flight collision returns 409. |
 | 0023 versioned REST APIs | Done | All public routes under `/v1`. Admin under `/admin`. |
 | 0024 treat agent data as untrusted | Partial | CSP + private R2 + signed URLs in place. Final security pass against ADR 0029 pending. |
 | 0025 Biome + Lefthook + Vitest | Done | All three configured. |
@@ -111,7 +112,7 @@ All 66 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0032 jobs Worker trigger model | Deferred | Phase 4+. |
 | 0033 TanStack Start web app | Deferred | Phase 3+. |
 | 0034 unified scope model | Partial | Scope registry in `packages/auth`. RLS predicates not active (see ADR 0044). |
-| 0035 runCommand sequencing | Partial | Same gap as ADR 0022. Helpers exist; not wired into routes. |
+| 0035 runCommand sequencing | Done | `runCommand` claims the idempotency record, executes the handler, persists `result_json`, and writes audit events in one transaction. |
 | 0036 error envelope + generic 404 | Partial | Envelope shape correct; `request_id` and `docs` fields not consistently emitted. |
 | 0037 internal api-client powers CLI | Done | `packages/api-client` powers CLI. |
 | 0038 Zod as source of truth | Partial | Contracts in Zod; Workers don't validate every request/response through them. |
@@ -159,81 +160,76 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-10 close Phase 1; items 11-15 prep Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-9 close Phase 1; items 10-14 prep Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Wire `runCommand` and `createOperationEvent` into mutation routes
-- Drives: ADR 0022, ADR 0035, `docs/specs/api.md`
-- Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/commands/src/index.ts`
-- Done: every POST/PUT/DELETE route in `api` and `upload` is wrapped via `runCommand`; idempotency keys are honored from `Idempotency-Key` header; replay of the same idempotency key returns the original result; vitest covers replay for at least workspace-create, api-key-create, artifact-delete.
-
-### 2. Enforce native rate-limit bindings
+### 1. Enforce native rate-limit bindings
 - Drives: ADR 0039, ADR 0064
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/*/wrangler.jsonc`
 - Done: every authenticated mutation calls `env.ACTOR_RATE_LIMIT.limit(...)` and `env.WORKSPACE_BURST_CAP.limit(...)`; over-limit returns 429 with envelope; a smoke test triggers 429 from an in-test client.
 
-### 3. Generate OpenAPI from Zod contracts
+### 2. Generate OpenAPI from Zod contracts
 - Drives: ADR 0016, ADR 0017, ADR 0038
 - Files: `packages/contracts/src/*`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`
 - Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@hono/zod-openapi` (or equivalent); `pnpm verify` runs a schema-diff check against a checked-in golden; CI fails if contracts drift from served OpenAPI.
 
-### 4. Add `--yes` guards to destructive admin CLI commands
+### 3. Add `--yes` guards to destructive admin CLI commands
 - Drives: `docs/specs/admin.md`
 - Files: `apps/cli/src/index.ts`
 - Done: `agent-paste admin api-key revoke`, `artifacts delete`, and `cleanup run` (non-dry-run) refuse to run without `--yes`; CLI test asserts refusal and a `--yes` happy path.
 
-### 5. Consolidate content-signing secret names
+### 4. Consolidate content-signing secret names
 - Drives: ADR 0028, ADR 0058
 - Files: `scripts/bootstrap-secrets.mjs`, `apps/*/wrangler.jsonc`, `apps/api/src/index.ts`, `apps/content/src/index.ts`
-- Done: only one of `CONTENT_SIGNING_SECRET` / `CONTENT_GATEWAY_SIGNING_KEY_V1` remains, named consistently across code, bootstrap script, and ADRs; a one-time rotation note is added to `docs/ops/runbook` (or this doc) for any environment that already holds both.
+- Done: only one of `CONTENT_SIGNING_SECRET` / `CONTENT_GATEWAY_SIGNING_KEY_V1` remains, named consistently across code, bootstrap script, and ADRs; a one-time rotation note added to `docs/ops/runbook` (or this doc) for any environment that already holds both.
 
-### 6. Move runtime queries to Drizzle
+### 5. Move runtime queries to Drizzle
 - Drives: ADR 0018
 - Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
 - Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
 
-### 7. Apply Postgres RLS at runtime
+### 6. Apply Postgres RLS at runtime
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 8. Complete error envelope (`request_id`, `docs`)
+### 7. Complete error envelope (`request_id`, `docs`)
 - Drives: ADR 0036, `docs/specs/contracts.md`
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
 - Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
 
-### 9. Verify bytes-after-delete and bytes-after-expiry cleanup
+### 8. Verify bytes-after-delete and bytes-after-expiry cleanup
 - Drives: ADR 0048, `docs/specs/acceptance.md`
 - Files: `apps/api/src/index.ts` (scheduled handler), `scripts/smoke-local-mvp.mjs`, `scripts/smoke-hosted.mjs`
 - Done: smoke creates an artifact with a 1-day TTL, advances clock (or uses a forced-expiry test endpoint), runs cleanup, confirms R2 prefix is empty and signed URL returns 404 with denylist hit logged.
 
-### 10. Exercise PR preview lifecycle on a same-repo PR
+### 9. Exercise PR preview lifecycle on a same-repo PR
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
-- Done: a same-repo PR (the one carrying items 1-9 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
+- Done: a same-repo PR (the one carrying items 1-8 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 11. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 10. Wire Logpush to Axiom for `api`/`upload`/`content`
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 12. Review and merge `t3code/7bcd4587`
+### 11. Review and merge `t3code/7bcd4587`
 - Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
 - Files: TBD until review.
 - Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
 
-### 13. Decide on remaining ADR 0046 drift (operator identity)
+### 12. Decide on remaining ADR 0046 drift (operator identity)
 - Drives: ADR 0046
 - Files: ADR 0046 itself, possibly a new ADR
 - Done: ADR 0046 is amended (or a new ADR supersedes it) to either accept the single-bearer admin token as the production model or to commit Cloudflare Access + email allowlist before Phase 3. No code change in this item — just a written decision.
 
-### 14. CSP allowlist audit
+### 13. CSP allowlist audit
 - Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
 - Files: `apps/content/src/index.ts`
 - Done: CSP `script-src` and `connect-src` allowlists are validated against the current ADR 0029 list; SVG responses use a strict CSP override; a vitest snapshot pins the CSP header for HTML, CSS, JS, SVG, and PNG.
 
-### 15. Complete bootstrap hosting checklist
+### 14. Complete bootstrap hosting checklist
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
@@ -323,7 +319,7 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 1. `pnpm setup:codex`
 2. `pnpm verify`
 3. `pnpm smoke:local` (use `AGENT_PASTE_LOCAL_*_PORT` overrides if ports collide)
-4. Address backlog items 1-9 (or document why they are deferred)
+4. Address backlog items 1-8 (or document why they are deferred)
 5. `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
 6. Open a same-repo PR to exercise the preview workflow
 7. Production deploy only with explicit Isaac approval: `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`

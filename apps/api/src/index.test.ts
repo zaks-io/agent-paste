@@ -55,7 +55,11 @@ describe("api worker", () => {
     const response = await handleRequest(
       new Request("https://api.test/admin/cleanup/run", {
         method: "POST",
-        headers: { authorization: "Bearer admin", "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer admin",
+          "content-type": "application/json",
+          "idempotency-key": "cleanup-1",
+        },
         body: JSON.stringify({ dry_run: true }),
       }),
       env,

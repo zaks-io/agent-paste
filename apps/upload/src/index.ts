@@ -1,4 +1,5 @@
 import { cachedLookup, cacheKeyForSecret } from "@agent-paste/auth";
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
 
@@ -168,12 +169,20 @@ async function createUploadSession(request: Request, env: Env): Promise<Response
     createRequest.entrypoint = body.entrypoint;
   }
 
-  const session = await db.createUploadSession({
-    actor,
-    idempotencyKey,
-    request: createRequest,
-    now: new Date().toISOString(),
-  });
+  let session: UploadSessionRecord;
+  try {
+    session = await db.createUploadSession({
+      actor,
+      idempotencyKey,
+      request: createRequest,
+      now: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof IdempotencyInFlightError) {
+      return errorResponse("idempotency_in_flight", 409);
+    }
+    throw error;
+  }
 
   const signedFiles = await Promise.all(
     session.files.map(async (file) => ({
@@ -264,13 +273,21 @@ async function finalizeUploadSession(request: Request, env: Env, sessionId: stri
     observedFiles.push({ path: file.path, objectKey, sizeBytes: object.size });
   }
 
-  const result = await db.finalizeUploadSession({
-    actor,
-    idempotencyKey,
-    sessionId,
-    observedFiles,
-    now: new Date().toISOString(),
-  });
+  let result: unknown;
+  try {
+    result = await db.finalizeUploadSession({
+      actor,
+      idempotencyKey,
+      sessionId,
+      observedFiles,
+      now: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof IdempotencyInFlightError) {
+      return errorResponse("idempotency_in_flight", 409);
+    }
+    throw error;
+  }
 
   return jsonResponse(await signPublishContentUrl(result, env));
 }

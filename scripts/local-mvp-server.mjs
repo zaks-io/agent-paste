@@ -179,9 +179,9 @@ function createApiDatabase(repo, denylistNamespace) {
     listArtifacts: repo.listArtifacts.bind(repo),
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
     listOperationEvents: repo.listOperationEvents.bind(repo),
-    async deleteArtifact(artifactId) {
-      const result = await repo.deleteArtifact(artifactId);
-      await denylistNamespace.put(`artifact:${artifactId}`, JSON.stringify({ reason: "admin_delete" }));
+    async deleteArtifact(input) {
+      const result = await repo.deleteArtifact(input);
+      await denylistNamespace.put(`artifact:${input.artifactId}`, JSON.stringify({ reason: "admin_delete" }));
       return result;
     },
     async runCleanup(input) {

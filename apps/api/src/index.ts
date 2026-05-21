@@ -1,4 +1,5 @@
 import { cachedLookup, cacheKeyForSecret, verifyAdminToken } from "@agent-paste/auth";
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { Hono } from "hono";
 
@@ -14,6 +15,8 @@ export type AuthService = {
   verifyAdminToken?(token: string): Promise<ApiActor | null>;
 };
 
+type AdminActor = { type: "admin" | "system"; id: string };
+
 export type ApiDatabase = {
   getWhoami(actor: ApiActor): Promise<unknown>;
   getAgentView(input: {
@@ -24,16 +27,27 @@ export type ApiDatabase = {
   }): Promise<unknown | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<unknown | null>;
   getAdminWhoami?(actor: ApiActor): Promise<unknown>;
-  createWorkspace?(input: { email: string; name?: string }): Promise<unknown>;
+  createWorkspace?(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    email: string;
+    name?: string;
+  }): Promise<unknown>;
   listWorkspaces?(): unknown;
-  createApiKey?(input: { workspaceId: string; name: string }): Promise<unknown>;
-  revokeApiKey?(apiKeyId: string): unknown;
+  createApiKey?(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    workspaceId: string;
+    name: string;
+  }): Promise<unknown>;
+  revokeApiKey?(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string }): Promise<unknown>;
   listArtifacts?(workspaceId?: string, status?: string): unknown;
   getArtifactDetail?(artifactId: string): unknown | null;
-  deleteArtifact?(artifactId: string): unknown;
+  deleteArtifact?(input: { actor: AdminActor; idempotencyKey: string; artifactId: string }): Promise<unknown>;
   listOperationEvents?(): unknown;
   runCleanup(input: {
-    actor: { type: "admin" | "system"; id: string };
+    actor: AdminActor;
+    idempotencyKey?: string;
     dryRun: boolean;
     batchSize: number;
     now: string;
@@ -240,11 +254,18 @@ async function cleanup(request: Request, env: Env): Promise<Response> {
     return errorResponse("database_unavailable", 503);
   }
 
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey) {
+    return errorResponse("invalid_idempotency_key", 400);
+  }
+
   const body = await readJsonObject(request);
   const dryRun = body.dry_run === true;
   const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
 
-  return jsonResponse(await runCleanupAndDeny(env, db, { type: "admin", id: actor.id }, dryRun, batchSize));
+  return runIdempotent(() =>
+    runCleanupAndDeny(env, db, { type: "admin", id: actor.id }, dryRun, batchSize, idempotencyKey),
+  );
 }
 
 async function createWorkspace(request: Request, env: Env): Promise<Response> {
@@ -256,18 +277,24 @@ async function createWorkspace(request: Request, env: Env): Promise<Response> {
   if (!db?.createWorkspace) {
     return errorResponse("database_unavailable", 503);
   }
-  if (!request.headers.get("idempotency-key")) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
   }
   const body = await readJsonObject(request);
   if (typeof body.email !== "string") {
     return errorResponse("invalid_request", 400, "email is required");
   }
-  const input: { email: string; name?: string } = { email: body.email };
+  const input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    email: string;
+    name?: string;
+  } = { actor: adminActor(actor), idempotencyKey, email: body.email };
   if (typeof body.name === "string") {
     input.name = body.name;
   }
-  return jsonResponse(await db.createWorkspace(input), 201);
+  return runIdempotent(() => db.createWorkspace!(input), 201);
 }
 
 async function listWorkspaces(request: Request, env: Env): Promise<Response> {
@@ -288,14 +315,24 @@ async function createApiKey(request: Request, env: Env, params: RouteParams): Pr
   if (!db?.createApiKey) {
     return errorResponse("database_unavailable", 503);
   }
-  if (!request.headers.get("idempotency-key")) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
   }
   const body = await readJsonObject(request);
   if (typeof body.name !== "string") {
     return errorResponse("invalid_request", 400, "name is required");
   }
-  return jsonResponse(await db.createApiKey({ workspaceId: params.workspaceId ?? "", name: body.name }), 201);
+  return runIdempotent(
+    () =>
+      db.createApiKey!({
+        actor: adminActor(actor),
+        idempotencyKey,
+        workspaceId: params.workspaceId ?? "",
+        name: body.name as string,
+      }),
+    201,
+  );
 }
 
 async function revokeApiKey(request: Request, env: Env, params: RouteParams): Promise<Response> {
@@ -303,13 +340,21 @@ async function revokeApiKey(request: Request, env: Env, params: RouteParams): Pr
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
-  if (!request.headers.get("idempotency-key")) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
-  return db?.revokeApiKey
-    ? jsonResponse(await db.revokeApiKey(params.apiKeyId ?? ""))
-    : errorResponse("database_unavailable", 503);
+  if (!db?.revokeApiKey) {
+    return errorResponse("database_unavailable", 503);
+  }
+  return runIdempotent(() =>
+    db.revokeApiKey!({
+      actor: adminActor(actor),
+      idempotencyKey,
+      apiKeyId: params.apiKeyId ?? "",
+    }),
+  );
 }
 
 async function listArtifacts(request: Request, env: Env): Promise<Response> {
@@ -344,16 +389,23 @@ async function deleteArtifact(request: Request, env: Env, params: RouteParams): 
   if (!actor) {
     return errorResponse("not_authenticated", 401);
   }
-  if (!request.headers.get("idempotency-key")) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey) {
     return errorResponse("invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
   if (!db?.deleteArtifact) {
     return errorResponse("database_unavailable", 503);
   }
-  const result = await db.deleteArtifact(params.artifactId ?? "");
-  await denyArtifact(env, params.artifactId ?? "");
-  return jsonResponse(result);
+  return runIdempotent(async () => {
+    const result = await db.deleteArtifact!({
+      actor: adminActor(actor),
+      idempotencyKey,
+      artifactId: params.artifactId ?? "",
+    });
+    await denyArtifact(env, params.artifactId ?? "");
+    return result;
+  });
 }
 
 async function listOperationEvents(request: Request, env: Env): Promise<Response> {
@@ -469,13 +521,24 @@ async function runCleanupAndDeny(
   actor: { type: "admin" | "system"; id: string },
   dryRun: boolean,
   batchSize: number,
+  idempotencyKey?: string,
 ): Promise<unknown> {
-  const result = await db.runCleanup({
+  const input: {
+    actor: AdminActor;
+    idempotencyKey?: string;
+    dryRun: boolean;
+    batchSize: number;
+    now: string;
+  } = {
     actor,
     dryRun,
     batchSize,
     now: new Date().toISOString(),
-  });
+  };
+  if (idempotencyKey) {
+    input.idempotencyKey = idempotencyKey;
+  }
+  const result = await db.runCleanup(input);
   if (!dryRun && result && typeof result === "object" && "expired_artifact_ids" in result) {
     const ids = (result as { expired_artifact_ids?: unknown }).expired_artifact_ids;
     if (Array.isArray(ids)) {
@@ -693,6 +756,21 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function errorResponse(code: string, status: number, message?: string): Response {
   return jsonResponse({ error: { code, message: message ?? code } }, status);
+}
+
+function adminActor(actor: ApiActor): AdminActor {
+  return { type: actor.type === "system" ? "system" : "admin", id: actor.id };
+}
+
+async function runIdempotent(run: () => Promise<unknown>, successStatus = 200): Promise<Response> {
+  try {
+    return jsonResponse(await run(), successStatus);
+  } catch (error) {
+    if (error instanceof IdempotencyInFlightError) {
+      return errorResponse("idempotency_in_flight", 409);
+    }
+    throw error;
+  }
 }
 
 function openApiDocument(): Record<string, unknown> {
