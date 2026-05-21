@@ -97,6 +97,32 @@ jobs:
           OPERATOR_EMAILS: isaac@zaks.io
         run: node scripts/deploy-pr-preview.mjs
 
+      - name: Wait for Workers DNS propagation
+        env:
+          API_URL: ${{ steps.deploy.outputs.api_url }}
+          UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
+          CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          APEX_URL: ${{ steps.deploy.outputs.apex_url }}
+        run: |
+          wait_for() {
+            local url="$1"
+            local i=0
+            while [ $i -lt 30 ]; do
+              i=$((i+1))
+              if curl -sS -o /dev/null --max-time 5 "$url"; then
+                echo "$url reachable after $i attempt(s)"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "::error::$url did not become reachable within 60s"
+            return 1
+          }
+          wait_for "$API_URL"
+          wait_for "$UPLOAD_URL"
+          wait_for "$CONTENT_URL"
+          wait_for "$APEX_URL"
+
       - name: Smoke PR preview
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
