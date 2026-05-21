@@ -14,16 +14,13 @@ minimumReleaseAgeExclude:
 
 supportedArchitectures:
   os:
-    - current
     - linux
     - darwin
     - win32
   cpu:
-    - current
     - x64
     - arm64
   libc:
-    - current
     - glibc
     - musl
 
