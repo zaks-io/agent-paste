@@ -160,7 +160,7 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-9 close Phase 1; items 10-14 prep Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-8 are code/config changes that close Phase 1; item 9 exercises the PR preview workflow using those changes; items 10-14 prep Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 

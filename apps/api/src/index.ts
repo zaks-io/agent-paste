@@ -759,7 +759,10 @@ function errorResponse(code: string, status: number, message?: string): Response
 }
 
 function adminActor(actor: ApiActor): AdminActor {
-  return { type: actor.type === "system" ? "system" : "admin", id: actor.id };
+  if (actor.type !== "admin" && actor.type !== "system") {
+    throw new Error(`unexpected_actor_type:${actor.type}`);
+  }
+  return { type: actor.type, id: actor.id };
 }
 
 async function runIdempotent(run: () => Promise<unknown>, successStatus = 200): Promise<Response> {

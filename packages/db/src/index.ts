@@ -200,9 +200,13 @@ export class LocalRepository {
     now?: Date;
   }) {
     const workspace = this.mustWorkspace(input.workspaceId);
+    const key = `admin.api_key.create:${input.actor.id}:${input.idempotencyKey}`;
+    if (this.idempotency.has(key)) {
+      return this.idempotency.get(key) as { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
+    }
     const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
     const now = (input.now ?? new Date()).toISOString();
-    return this.runIdempotent(`admin.api_key.create:${input.actor.id}:${input.idempotencyKey}`, () => {
+    return this.runIdempotent(key, () => {
       const apiKey: ApiKey = {
         id: createId("key"),
         workspace_id: workspace.id,
@@ -734,19 +738,6 @@ export class PostgresRepository {
     now?: Date;
   }) {
     const now = (input.now ?? new Date()).toISOString();
-    const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
-    const apiKey: ApiKey = {
-      id: createId("key"),
-      workspace_id: input.workspaceId,
-      public_id: generated.publicId,
-      name: input.name,
-      secret_hmac: generated.secretHmac,
-      pepper_kid: 1,
-      scopes: ["publish", "read"],
-      revoked_at: null,
-      last_used_at: null,
-      created_at: now,
-    };
     return this.runAdminCommand(
       input.actor,
       "admin.api_key.create",
@@ -755,6 +746,19 @@ export class PostgresRepository {
       now,
       async (tx) => {
         await this.mustWorkspace(tx, input.workspaceId);
+        const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+        const apiKey: ApiKey = {
+          id: createId("key"),
+          workspace_id: input.workspaceId,
+          public_id: generated.publicId,
+          name: input.name,
+          secret_hmac: generated.secretHmac,
+          pepper_kid: 1,
+          scopes: ["publish", "read"],
+          revoked_at: null,
+          last_used_at: null,
+          created_at: now,
+        };
         await tx.query(
           `insert into api_keys
              (id, workspace_id, public_id, name, secret_hmac, pepper_kid, scopes, revoked_at, last_used_at, created_at)
