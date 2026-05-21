@@ -3,7 +3,13 @@ import type { Scope } from "./enums.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
 export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT";
-export type AuthRequirement = "none" | "api_key" | "admin_token" | "signed_upload_url" | "signed_content_token";
+export type AuthRequirement =
+  | "none"
+  | "api_key"
+  | "admin_token"
+  | "signed_agent_view_token"
+  | "signed_upload_url"
+  | "signed_content_token";
 export type IdempotencyRequirement = "none" | "required";
 
 export type RouteContract = {
@@ -62,7 +68,7 @@ export const routeContracts = [
     app: "api",
     method: "GET",
     path: "/v1/public/agent-view/{token}",
-    auth: "none",
+    auth: "signed_agent_view_token",
     scopes: [],
     idempotency: "none",
     responseSchema: "AgentView",

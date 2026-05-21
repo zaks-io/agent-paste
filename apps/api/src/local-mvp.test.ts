@@ -117,11 +117,11 @@ class MemoryDb {
       revision_id: "rev_00000000000000000000000000",
       title: input.request.title ?? "demo",
       entrypoint: input.request.entrypoint ?? "index.html",
-      expires_at: "2026-01-02T00:00:00.000Z",
+      expires_at: "2030-01-02T00:00:00.000Z",
       files: input.request.files.map((file) => ({
         ...file,
         object_key: `artifacts/art_00000000000000000000000000/revisions/rev_00000000000000000000000000/files/${file.path}`,
-        expires_at: "2026-01-02T00:00:00.000Z",
+        expires_at: "2030-01-02T00:00:00.000Z",
       })),
     };
     return { ...this.session, session_id: this.session.upload_session_id };
@@ -141,7 +141,7 @@ class MemoryDb {
       title: session.title,
       view_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
       agent_view_url: `http://api.local/v1/public/agent-view/${session.artifact_id}.${session.revision_id}`,
-      expires_at: "2026-01-02T00:00:00.000Z",
+      expires_at: "2030-01-02T00:00:00.000Z",
     };
   }
 
@@ -152,7 +152,7 @@ class MemoryDb {
       revision_id: session.revision_id,
       title: session.title,
       created_at: "2026-01-01T00:00:00.000Z",
-      expires_at: "2026-01-02T00:00:00.000Z",
+      expires_at: "2030-01-02T00:00:00.000Z",
       entrypoint: session.entrypoint,
       view_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
       files: session.files.map((file) => ({
@@ -240,7 +240,15 @@ describe("local MVP vertical slice", () => {
           files: [{ path: "index.html", size_bytes: 12 }],
         }),
       }),
-      { AUTH: auth, DB: db, ARTIFACTS: artifacts, UPLOAD_SIGNING_SECRET: "upload-secret" },
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+        CONTENT_BASE_URL: "http://content.local",
+      },
     );
     expect(sessionResponse.status).toBe(200);
     const session = (await sessionResponse.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
@@ -264,11 +272,18 @@ describe("local MVP vertical slice", () => {
         method: "POST",
         headers: apiHeaders,
       }),
-      { AUTH: auth, DB: db, ARTIFACTS: artifacts, UPLOAD_SIGNING_SECRET: "upload-secret" },
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+        CONTENT_BASE_URL: "http://content.local",
+      },
     );
     expect(finalizeResponse.status).toBe(200);
     const published = (await finalizeResponse.json()) as { view_url: string; agent_view_url: string };
-
     const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
       AUTH: auth,
       DB: db,

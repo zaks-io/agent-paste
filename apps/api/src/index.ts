@@ -1,5 +1,6 @@
-import { verifyAdminToken } from "@agent-paste/auth";
+import { cachedLookup, cacheKeyForSecret, verifyAdminToken } from "@agent-paste/auth";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
+import { Hono } from "hono";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -53,19 +54,22 @@ export type Env = {
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
+  AGENT_VIEW_SIGNING_SECRET?: string;
   CLEANUP_BATCH_SIZE?: string;
   DENYLIST?: KVNamespace;
 };
 
 type ScheduledEvent = {
+  type: "scheduled";
   scheduledTime: number;
   cron: string;
 };
 
 type RouteParams = Record<string, string>;
-type RouteMatch = {
-  handler: (request: Request, env: Env, params: RouteParams) => Promise<Response>;
-  params: RouteParams;
+type AgentViewTokenPayload = {
+  artifact_id: string;
+  revision_id: string;
+  exp: number;
 };
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
@@ -81,6 +85,51 @@ const usagePolicy = {
   max_ttl_seconds: 90 * 24 * 60 * 60,
 };
 const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
+const AUTH_CACHE_TTL_SECONDS = 60;
+const app = new Hono<{ Bindings: Env }>();
+
+app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.get("/v1/whoami", (context) => whoami(context.req.raw, context.env));
+app.get("/v1/usage-policy", (context) => getUsagePolicy(context.req.raw, context.env));
+app.get("/v1/public/agent-view/:token", (context) =>
+  publicAgentView(context.req.raw, context.env, { token: context.req.param("token") }),
+);
+app.get("/v1/artifacts/:artifactId/agent-view", (context) =>
+  authenticatedAgentView(context.req.raw, context.env, {
+    artifactId: context.req.param("artifactId"),
+  }),
+);
+app.get("/v1/artifacts/:artifactId/revisions/:revisionId/agent-view", (context) =>
+  authenticatedAgentView(context.req.raw, context.env, {
+    artifactId: context.req.param("artifactId"),
+    revisionId: context.req.param("revisionId"),
+  }),
+);
+app.get("/admin/whoami", (context) => adminWhoami(context.req.raw, context.env));
+app.post("/admin/workspaces", (context) => createWorkspace(context.req.raw, context.env));
+app.get("/admin/workspaces", (context) => listWorkspaces(context.req.raw, context.env));
+app.post("/admin/workspaces/:workspaceId/api-keys", (context) =>
+  createApiKey(context.req.raw, context.env, {
+    workspaceId: context.req.param("workspaceId"),
+  }),
+);
+app.delete("/admin/api-keys/:apiKeyId", (context) =>
+  revokeApiKey(context.req.raw, context.env, { apiKeyId: context.req.param("apiKeyId") }),
+);
+app.get("/admin/artifacts", (context) => listArtifacts(context.req.raw, context.env));
+app.get("/admin/artifacts/:artifactId", (context) =>
+  inspectArtifact(context.req.raw, context.env, { artifactId: context.req.param("artifactId") }),
+);
+app.delete("/admin/artifacts/:artifactId", (context) =>
+  deleteArtifact(context.req.raw, context.env, { artifactId: context.req.param("artifactId") }),
+);
+app.post("/admin/cleanup/run", (context) => cleanup(context.req.raw, context.env));
+app.get("/admin/operation-events", (context) => listOperationEvents(context.req.raw, context.env));
+app.notFound(() => errorResponse("not_found", 404));
+app.onError((error) => {
+  console.error("Unhandled API error:", error);
+  return errorResponse("internal_error", 500);
+});
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
@@ -92,18 +141,7 @@ export default {
 };
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const route = matchRoute(request.method, url.pathname);
-
-  if (!route) {
-    return errorResponse("not_found", 404);
-  }
-
-  try {
-    return await route.handler(request, env, route.params);
-  } catch (error) {
-    return errorResponse("internal_error", 500, error instanceof Error ? error.message : "unexpected error");
-  }
+  return await app.fetch(request, env);
 }
 
 async function whoami(request: Request, env: Env): Promise<Response> {
@@ -159,8 +197,13 @@ async function publicAgentView(request: Request, env: Env, params: RouteParams):
     return errorResponse("database_unavailable", 503);
   }
 
+  const publicToken = await publicAgentViewDatabaseToken(params.token ?? "", env);
+  if (!publicToken) {
+    return errorResponse("not_found", 404);
+  }
+
   const view = await db.getPublicAgentView({
-    token: params.token ?? "",
+    token: publicToken,
     contentBaseUrl: contentBaseUrl(env),
   });
 
@@ -339,87 +382,27 @@ async function runScheduledCleanup(env: Env): Promise<void> {
   );
 }
 
-function matchRoute(method: string, pathname: string): RouteMatch | null {
-  if (method === "GET" && pathname === "/v1/whoami") {
-    return { handler: whoami, params: {} };
-  }
-
-  if (method === "GET" && pathname === "/v1/usage-policy") {
-    return { handler: getUsagePolicy, params: {} };
-  }
-
-  let match = pathname.match(/^\/v1\/public\/agent-view\/([^/]+)$/);
-  if (method === "GET" && match?.[1]) {
-    return { handler: publicAgentView, params: { token: decodeURIComponent(match[1]) } };
-  }
-
-  match = pathname.match(/^\/v1\/artifacts\/([^/]+)\/agent-view$/);
-  if (method === "GET" && match?.[1]) {
-    return { handler: authenticatedAgentView, params: { artifactId: decodeURIComponent(match[1]) } };
-  }
-
-  match = pathname.match(/^\/v1\/artifacts\/([^/]+)\/revisions\/([^/]+)\/agent-view$/);
-  if (method === "GET" && match?.[1] && match[2]) {
-    return {
-      handler: authenticatedAgentView,
-      params: { artifactId: decodeURIComponent(match[1]), revisionId: decodeURIComponent(match[2]) },
-    };
-  }
-
-  if (method === "GET" && pathname === "/admin/whoami") {
-    return { handler: adminWhoami, params: {} };
-  }
-
-  if (method === "POST" && pathname === "/admin/workspaces") {
-    return { handler: createWorkspace, params: {} };
-  }
-
-  if (method === "GET" && pathname === "/admin/workspaces") {
-    return { handler: listWorkspaces, params: {} };
-  }
-
-  match = pathname.match(/^\/admin\/workspaces\/([^/]+)\/api-keys$/);
-  if (method === "POST" && match?.[1]) {
-    return { handler: createApiKey, params: { workspaceId: decodeURIComponent(match[1]) } };
-  }
-
-  match = pathname.match(/^\/admin\/api-keys\/([^/]+)$/);
-  if (method === "DELETE" && match?.[1]) {
-    return { handler: revokeApiKey, params: { apiKeyId: decodeURIComponent(match[1]) } };
-  }
-
-  if (method === "GET" && pathname === "/admin/artifacts") {
-    return { handler: listArtifacts, params: {} };
-  }
-
-  match = pathname.match(/^\/admin\/artifacts\/([^/]+)$/);
-  if (method === "GET" && match?.[1]) {
-    return { handler: inspectArtifact, params: { artifactId: decodeURIComponent(match[1]) } };
-  }
-
-  if (method === "DELETE" && match?.[1]) {
-    return { handler: deleteArtifact, params: { artifactId: decodeURIComponent(match[1]) } };
-  }
-
-  if (method === "POST" && pathname === "/admin/cleanup/run") {
-    return { handler: cleanup, params: {} };
-  }
-
-  if (method === "GET" && pathname === "/admin/operation-events") {
-    return { handler: listOperationEvents, params: {} };
-  }
-
-  return null;
-}
-
 async function authenticateApiKey(request: Request, env: Env): Promise<ApiActor | null> {
   const token = bearerToken(request);
-  const auth = authService(env);
-  if (!token || !auth) {
+  if (!token) {
     return null;
   }
 
-  return auth.verifyApiKey(token);
+  if (env.AUTH) {
+    return env.AUTH.verifyApiKey(token);
+  }
+
+  const runtime = postgresRuntime(env);
+  if (!runtime) {
+    return null;
+  }
+
+  return cachedLookup({
+    namespace: "api-key-auth",
+    key: await cacheKeyForSecret(token),
+    ttlSeconds: AUTH_CACHE_TTL_SECONDS,
+    lookup: () => runtime.auth.verifyApiKey(token),
+  });
 }
 
 async function authenticateAdmin(request: Request, env: Env): Promise<ApiActor | null> {
@@ -532,6 +515,40 @@ function apiBaseUrl(env: Env): string {
   return env.API_BASE_URL ?? "https://api.agent-paste.sh";
 }
 
+async function publicAgentViewDatabaseToken(token: string, env: Env): Promise<string | null> {
+  const secret = agentViewSigningSecret(env);
+  if (!secret) {
+    return legacyAgentViewToken(token);
+  }
+
+  const payload = await verifySignedPayload<AgentViewTokenPayload>(token, secret);
+  if (!payload || !isValidAgentViewTokenPayload(payload)) {
+    return null;
+  }
+
+  return `${payload.artifact_id}.${payload.revision_id}`;
+}
+
+function agentViewSigningSecret(env: Env): string | undefined {
+  return env.AGENT_VIEW_SIGNING_SECRET ?? env.CONTENT_SIGNING_SECRET;
+}
+
+function legacyAgentViewToken(token: string): string | null {
+  const [artifactId, revisionId] = token.split(".");
+  return artifactId?.startsWith("art_") && revisionId?.startsWith("rev_") ? token : null;
+}
+
+function isValidAgentViewTokenPayload(payload: AgentViewTokenPayload): boolean {
+  return (
+    typeof payload.artifact_id === "string" &&
+    payload.artifact_id.startsWith("art_") &&
+    typeof payload.revision_id === "string" &&
+    payload.revision_id.startsWith("rev_") &&
+    typeof payload.exp === "number" &&
+    payload.exp >= Math.floor(Date.now() / 1000)
+  );
+}
+
 async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknown> {
   if (!env.CONTENT_SIGNING_SECRET || !view || typeof view !== "object") {
     return view;
@@ -618,6 +635,24 @@ async function signContentToken(
   return `${encodedPayload}.${signature}`;
 }
 
+async function verifySignedPayload<T>(token: string, secret: string): Promise<T | null> {
+  const [encodedPayload, signature] = token.split(".");
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+
+  const expected = await hmac(encodedPayload, secret);
+  if (!constantTimeEqual(signature, expected)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as T;
+  } catch {
+    return null;
+  }
+}
+
 async function hmac(value: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -638,6 +673,11 @@ function base64UrlEncode(bytes: Uint8Array): string {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
+function base64UrlDecode(value: string): Uint8Array {
+  const padded = `${value}${"=".repeat((4 - (value.length % 4)) % 4)}`.replaceAll("-", "+").replaceAll("_", "/");
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+}
+
 function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
 }
@@ -653,6 +693,188 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function errorResponse(code: string, status: number, message?: string): Response {
   return jsonResponse({ error: { code, message: message ?? code } }, status);
+}
+
+function openApiDocument(): Record<string, unknown> {
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Agent Paste API",
+      version: "0.1.0",
+    },
+    servers: [{ url: "https://api.agent-paste.sh" }],
+    paths: {
+      "/v1/whoami": {
+        get: {
+          operationId: "whoami.get",
+          security: [{ ApiKeyBearer: [] }],
+          responses: standardResponses("WhoamiResponse"),
+        },
+      },
+      "/v1/usage-policy": {
+        get: {
+          operationId: "usagePolicy.get",
+          security: [{ ApiKeyBearer: [] }],
+          responses: standardResponses("UsagePolicy"),
+        },
+      },
+      "/v1/public/agent-view/{token}": {
+        get: {
+          operationId: "agentView.public",
+          parameters: [pathParameter("token", "Signed Agent View token")],
+          responses: standardResponses("AgentView"),
+        },
+      },
+      "/v1/artifacts/{artifact_id}/agent-view": {
+        get: {
+          operationId: "agentView.getLatest",
+          security: [{ ApiKeyBearer: [] }],
+          parameters: [pathParameter("artifact_id", "Artifact id")],
+          responses: standardResponses("AgentView"),
+        },
+      },
+      "/v1/artifacts/{artifact_id}/revisions/{revision_id}/agent-view": {
+        get: {
+          operationId: "agentView.getRevision",
+          security: [{ ApiKeyBearer: [] }],
+          parameters: [pathParameter("artifact_id", "Artifact id"), pathParameter("revision_id", "Revision id")],
+          responses: standardResponses("AgentView"),
+        },
+      },
+      "/admin/workspaces": {
+        get: {
+          operationId: "admin.workspaces.list",
+          security: [{ AdminBearer: [] }],
+          responses: standardResponses("WorkspaceListResponse"),
+        },
+        post: {
+          operationId: "admin.workspaces.create",
+          security: [{ AdminBearer: [] }],
+          parameters: [idempotencyKeyParameter()],
+          responses: standardResponses("WorkspaceDetail", 201),
+        },
+      },
+      "/admin/workspaces/{workspace_id}/api-keys": {
+        post: {
+          operationId: "admin.apiKeys.create",
+          security: [{ AdminBearer: [] }],
+          parameters: [pathParameter("workspace_id", "Workspace id"), idempotencyKeyParameter()],
+          responses: standardResponses("CreateApiKeyResponse", 201),
+        },
+      },
+      "/admin/api-keys/{api_key_id}": {
+        delete: {
+          operationId: "admin.apiKeys.revoke",
+          security: [{ AdminBearer: [] }],
+          parameters: [pathParameter("api_key_id", "API key id"), idempotencyKeyParameter()],
+          responses: standardResponses("RevokeApiKeyResponse"),
+        },
+      },
+      "/admin/artifacts": {
+        get: {
+          operationId: "admin.artifacts.list",
+          security: [{ AdminBearer: [] }],
+          responses: standardResponses("ArtifactListResponse"),
+        },
+      },
+      "/admin/artifacts/{artifact_id}": {
+        get: {
+          operationId: "admin.artifacts.get",
+          security: [{ AdminBearer: [] }],
+          parameters: [pathParameter("artifact_id", "Artifact id")],
+          responses: standardResponses("ArtifactDetail"),
+        },
+        delete: {
+          operationId: "admin.artifacts.delete",
+          security: [{ AdminBearer: [] }],
+          parameters: [pathParameter("artifact_id", "Artifact id"), idempotencyKeyParameter()],
+          responses: standardResponses("DeleteArtifactResponse"),
+        },
+      },
+      "/admin/cleanup/run": {
+        post: {
+          operationId: "admin.cleanup.run",
+          security: [{ AdminBearer: [] }],
+          parameters: [idempotencyKeyParameter()],
+          responses: standardResponses("CleanupRunResponse"),
+        },
+      },
+      "/admin/operation-events": {
+        get: {
+          operationId: "admin.operationEvents.list",
+          security: [{ AdminBearer: [] }],
+          responses: standardResponses("OperationEventListResponse"),
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        ApiKeyBearer: { type: "http", scheme: "bearer" },
+        AdminBearer: { type: "http", scheme: "bearer" },
+      },
+      schemas: {
+        ErrorEnvelope: {
+          type: "object",
+          required: ["error"],
+          properties: {
+            error: {
+              type: "object",
+              required: ["code", "message"],
+              properties: {
+                code: { type: "string" },
+                message: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function pathParameter(name: string, description: string): Record<string, unknown> {
+  return {
+    name,
+    in: "path",
+    required: true,
+    description,
+    schema: { type: "string" },
+  };
+}
+
+function idempotencyKeyParameter(): Record<string, unknown> {
+  return {
+    name: "Idempotency-Key",
+    in: "header",
+    required: true,
+    schema: { type: "string" },
+  };
+}
+
+function standardResponses(schemaName: string, successStatus = 200): Record<string, unknown> {
+  return {
+    [successStatus]: {
+      description: schemaName,
+      content: { "application/json": { schema: { type: "object" } } },
+    },
+    400: errorResponseDescription(),
+    401: errorResponseDescription(),
+    404: errorResponseDescription(),
+    409: errorResponseDescription(),
+    500: errorResponseDescription(),
+    503: errorResponseDescription(),
+  };
+}
+
+function errorResponseDescription(): Record<string, unknown> {
+  return {
+    description: "Error envelope",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+      },
+    },
+  };
 }
 
 function htmlAgentViewResponse(view: unknown): Response {

@@ -1,256 +1,323 @@
-# MVP Bootstrap Checklist
+# MVP Status And Bootstrap Checklist
 
-What I (the implementing agent) need from you (Isaac) before I can build out Phase 1 of `docs/specs/mvp.md`. Written from the perspective of starting today against the current scaffold (`packages/contracts` + empty `apps/*` and `packages/*`).
+Last updated: 2026-05-21.
 
-Goal: take this list end-to-end, paste the resulting IDs / secrets / decisions into the marked places, and I should be able to land the MVP without coming back to you for prerequisites.
+This is the first file a new agent should read after `AGENTS.md`, `CONTEXT.md`, and `docs/specs/mvp.md`. It answers: what is implemented, what is only scaffolded, which ADR/spec decisions are already reflected in code, and what still blocks preview/production deploy.
 
-Items are grouped by category. Sections marked **Blocking** stop implementation; **Decide** are spec gaps I'll need answered before the first code lands; **Defer** are things I'm explicitly NOT going to ask you for in the MVP.
+## TL;DR
 
----
+Status: local MVP implementation is verified in this worktree; shared preview infrastructure exists; preview smoke passed after bootstrap provided the preview admin token.
 
-## 1. Cloudflare account — Blocking
+Main blockers: exercise the PR preview workflow on a same-repo PR, then review/merge the remaining Apex/front-end branch `t3code/7bcd4587`.
 
-I need write access to a Cloudflare account that hosts everything (Workers, R2, KV, Hyperdrive, DNS).
+Latest main commit: `d28eedb feat: scaffold Hono app foundation`, pushed to `origin/main` on 2026-05-21.
 
-- [X] **Workers Paid plan.** Required for: scheduled handlers (cleanup), Hyperdrive, KV writes at the MVP rate, R2 class B ops. Free tier won't fit.
-- [ ] **Account ID.** Paste here: `__________`
-- [ ] **API token** scoped to: `Workers Scripts: Edit`, `Workers Routes: Edit`, `Workers KV Storage: Edit`, `Workers R2 Storage: Edit`, `Hyperdrive: Edit`, `Account Settings: Read`, `Zone Settings: Read`, `DNS: Edit` (for the `agent-paste.sh` zone). Paste into a GitHub repo secret named `CLOUDFLARE_API_TOKEN`.
-- [ ] **Confirm I can run `wrangler whoami` locally** and that you've authenticated `wrangler` once on the machine I'm running on. (Already verified `2026-05-20`: account `a461d640900eb3905d7b6619c8c0da91`, wrangler 4.61.1.)
-- [ ] **Verify `Hyperdrive: Edit` scope on the active OAuth token.** Your current token has `connectivity (admin)` which *may* cover Hyperdrive; if `wrangler hyperdrive create` errors with a permissions message, re-auth with `wrangler login` and explicitly grant the Hyperdrive scope.
+Next command for a fresh Codex worktree:
 
-If the account is shared with other projects, name the prefix you want me to use for resources (default I'll pick: `agent-paste-`).
+```sh
+pnpm setup:codex
+pnpm verify
+pnpm smoke:local
+pnpm smoke:preview
+```
 
----
+`pnpm setup:codex` now re-runs itself through an installed Node 24 binary when the launching shell is on another Node major. If `pnpm setup:codex` is not available in the checked-out branch yet, run Node 24, copy `.env` from the primary worktree or `.env.example`, then run:
 
-## 2. Domain — Blocking
+```sh
+corepack enable
+corepack prepare pnpm@10.19.0 --activate
+pnpm install --frozen-lockfile --strict-peer-dependencies
+pnpm hooks:install
+```
 
-`docs/adr/0014` pins `agent-paste.sh` as the apex with four subdomains.
+## Current Verification State
 
-- [X] **`agent-paste.sh` registered** and pointed at Cloudflare nameservers. Confirm: yes / no
-- [ ] If no, register it (Cloudflare Registrar or external) and move DNS to Cloudflare. Until this is true I cannot deploy preview, only run local dev.
-- [ ] Confirm I'm allowed to claim these subdomains now (all named by ADRs 0014 + 0047):
-  - `api.agent-paste.sh`, `upload.agent-paste.sh`, `usercontent.agent-paste.sh` (production)
-  - `api-preview.agent-paste.sh`, `upload-preview.agent-paste.sh`, `usercontent-preview.agent-paste.sh` (preview shape `{x}-preview.agent-paste.sh` follows ADR 0047 line 49's `app-preview.agent-paste.sh` convention)
+- `pnpm setup:codex` completed on 2026-05-21. The first sandboxed install failed with `ENOTFOUND registry.npmjs.org`; rerunning with network approval succeeded.
+- `pnpm setup:codex -- --skip-env` was verified on 2026-05-21 from a shell where `node` resolved to v25.9.0; the script re-ran itself through `/Users/isaacsuttell/.nvm/versions/node/v24.15.0/bin/node` and completed.
+- `pnpm verify` passed on 2026-05-21 under Node v24.15.0: 45 successful Turbo tasks after adding Hono app scaffolds.
+- `pnpm smoke:local` passed on 2026-05-21 after fixing the local harness to pass `API_BASE_URL` and `CONTENT_BASE_URL` into the upload Worker env. A final rerun used `AGENT_PASTE_LOCAL_API_PORT=18787`, `AGENT_PASTE_LOCAL_UPLOAD_PORT=18788`, and `AGENT_PASTE_LOCAL_CONTENT_PORT=18789` because port `8787` was already occupied by a local `workerd` process. The smoke now returns signed content and signed Agent View URLs.
+- `pnpm smoke:preview` initially built successfully but did not run hosted assertions because this worktree did not have `AGENT_PASTE_PREVIEW_ADMIN_TOKEN` or `AGENT_PASTE_ADMIN_TOKEN`; after bootstrap, the user reported "Preview smoke passed" on 2026-05-21.
+- GitHub shows successful CI and production deploy runs on `main` on 2026-05-21. No PR Preview workflow runs were found, and there are currently no open PRs to exercise that path.
 
-DNS records and Worker routes will be created by me through `wrangler.jsonc`; you don't need to click in the dashboard.
+## Recent Merge State
 
----
+`d28eedb feat: scaffold Hono app foundation` is now on `main` and `origin/main`. Despite the narrow branch name, it covered four implementation tracks:
 
-## 3. Postgres on Neon — Blocking
+1. **Hono/OpenAPI foundation.** API, upload, and content Workers now use Hono and expose `/openapi.json`. Jobs, web, and MCP have typed Hono Worker scaffolds.
+2. **Signed Agent View tokens.** Upload finalize mints signed public Agent View URLs, and API verifies them before resolving the internal artifact/revision token.
+3. **Simple auth cache.** `packages/auth` exports `cachedLookup`; API/upload use it for Postgres-backed API-key auth.
+4. **Apps folder buildout.** `apps/jobs`, `apps/web`, and `apps/mcp` now have package scripts, tsconfigs, README updates, health endpoints, and minimal OpenAPI/discovery endpoints.
 
-Provider chosen: **Neon** (only candidate that passes all of: Hyperdrive first-class, `CREATE ROLE BYPASSRLS` allowed, O(1) copy-on-write branching for per-PR previews per ADR 0007, free tier covers the MVP, no extras we don't want). Decision rationale recorded in commit history; see `docs/adr/` for any future re-eval.
+CodeRabbit agent review produced 19 findings on this branch. Valid findings were fixed before commit; a second review attempt was rate-limited and intentionally not waited on after user direction.
 
-Walk-through (in the Neon console):
+Known branch/worktree merge state as of 2026-05-21:
 
-- [ ] **Create Neon project.** Name: `agent-paste`. Region: `__________` (recommend `aws-us-east-1` unless you have EU latency reasons — Cloudflare Workers run everywhere; the DB region only matters for the tail of unhandled cache misses).
-- [ ] **Create production branch.** Neon's default `main` branch is your `production` environment. Don't touch it directly; CI migrations will.
-- [ ] **Create preview branch** off `main`, named `preview`. This is the shared preview env per §8d. Per-PR ephemeral branches come later, off this one.
-- [ ] **Create the `hyperdrive-user` role** per [Neon's Hyperdrive guide](https://neon.com/docs/guides/cloudflare-hyperdrive). Copy the generated password — it shows once.
-- [ ] **Grab connection strings** from the Connection Details pane. Uncheck the pooled-connection box (Hyperdrive does its own pooling). Two strings:
-  - Production (against `main` branch, `hyperdrive-user` role): `__________`
-  - Preview (against `preview` branch, `hyperdrive-user` role): `__________`
-- [ ] **Capture a `neon_superuser` connection string for both branches.** Only used once, by the first Drizzle migration that creates `app_role` and `platform_admin`. Goes straight into the GitHub Environment secret in §5, never committed.
-- [ ] **Project ID.** Paste here so I can drive branch creation from CI in Phase 2: `__________`
-- [ ] **Autoscaling.** Leave at free-tier 0.25 CU fixed for MVP. Enable autoscaling later if production traffic ever sustains > free tier; requires Launch plan ($5/mo minimum).
-
-I'll generate `app_role` (`NOBYPASSRLS`, used by Hyperdrive) and `platform_admin` (`BYPASSRLS`, used by migrations) inside the first Drizzle migration. You don't need to create them manually.
-
----
-
-## 4. Cloudflare resources — Mostly self-serve, one decision
-
-I can create these with `wrangler` once I have the account, but you'll want to know what gets created.
-
-- [ ] R2 buckets: `agent-paste-artifacts-production` and `agent-paste-artifacts-preview`. Name OK? `__________`
-- [ ] KV namespaces for the denylist (`docs/adr/0057`): one per env, bound name `DENYLIST`. I'll name them `agent-paste-denylist-production` / `-preview`.
-- [ ] Hyperdrive configs: one per env, pointing at the connection strings above. I'll record IDs in `apps/*/wrangler.jsonc`.
-- [ ] Native rate-limit bindings (`docs/adr/0064`): I'll add `ACTOR_RATE_LIMIT` and (decision below) `WORKSPACE_BURST_CAP` to `apps/api` and `apps/upload`.
-
-Cloudflare Queues are explicitly out of MVP (jobs spec says scheduled handler in `api` owns cleanup). I will not add a Queue binding.
-
----
-
-## 5. GitHub repo secrets — Blocking for deploy, not local dev
-
-CI/CD pulls from these. Current state (verified `2026-05-20`):
-
-- **Repo level:** 0 secrets, 0 variables, 0 environments.
-- **Org level (`zaks-io`, inherited by this repo):** already set — `CLOUDFLARE_ACCOUNT_ID`, `TURBO_TOKEN` (secrets); `TURBO_TEAM=zaks-io` (variable). Also present but not needed for MVP: `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `LINEAR_API_KEY`, `SNYK_TOKEN`, and three `*AUTH0_DOMAIN=auth0.zaks.io` vars (relevant in Phase 3 when web/admin Auth0 lands).
-
-Required for CI (per `ci.yml`):
-
-- [x] `TURBO_TOKEN` — inherited from org
-- [x] `TURBO_TEAM` — inherited from org (`zaks-io`)
-- [ ] `TURBO_REMOTE_CACHE_SIGNATURE_KEY` — not at org or repo. Add as repo secret (signing key should be per-project, not shared across the org).
-
-Required for deploy:
-
-- [x] `CLOUDFLARE_ACCOUNT_ID` — inherited from org
-- [ ] `CLOUDFLARE_API_TOKEN` — must be repo-scoped because the token scopes need DNS:Edit on the `agent-paste.sh` zone only. Don't reuse an org-wide CF token even if you have one.
-- [ ] `PRODUCTION_DATABASE_URL` — Neon connection string against `main`, only used by the production migrations job. GitHub Environment `Production` secret.
-- [ ] `PREVIEW_DATABASE_URL` — Neon connection string against the shared `preview` branch. Repo secret for shared preview validation.
-- [ ] `NPM_TOKEN` — for publishing the CLI later (can wait until first publish). If you publish other packages under `zaks-io`, promote to org secret instead of repo.
-
-I will add GitHub Environment `Production`, with required-reviewers = you, per `docs/adr/0012` and your "CI is the merge gate" preference.
-
----
-
-## 6. Bootstrap secrets — I generate, you capture
-
-`scripts/bootstrap-secrets.ts` (per `docs/adr/0058`) doesn't exist yet. I'll implement it as part of the first deploy pass. When you run it, it will print these values **once**. Put them in Bitwarden under collection / folder name: `__________` (ADR 0058's "1Password" reference is stale; capture target is your Bitwarden vault).
-
-| Secret | Bound on | Source |
+| Branch/worktree | Merge state | Notes |
 |---|---|---|
-| `CONTENT_GATEWAY_SIGNING_KEY_V1` | `api` (mint), `content` (verify) | generated |
-| `API_KEY_PEPPER_V1` | `api` | generated |
-| `AGENT_VIEW_SIGNING_KEY_V1` ← see decision §8 | `api` | generated |
-| `UPLOAD_PUT_SIGNING_KEY_V1` ← see decision §8 | `upload` | generated |
-| `AGENT_PASTE_ADMIN_TOKEN` ← see decision §8 | `api` (admin routes) | generated |
-| `OPERATOR_EMAILS` | `api` | you supply |
+| `codex/hono-app-foundation` | Merged into `main` and pushed | Commit `d28eedb`. |
+| detached worktree `014f` at `38b39c1` | Contained in `main` | No separate merge needed. |
+| `t3code/3d4931ed` | Contained in `main` | No separate merge needed. |
+| `t3code/7bcd4587` | Not merged | Contains Apex/front-end and CI-related work. Review before merging. |
 
-You supply for `OPERATOR_EMAILS`: comma-separated email allowlist. Default if you don't reply: just yours, `isaac@isaacsuttell.com`. OK? `__________`
+## Implementation Map
 
-`WEB_SESSION_SEAL_KEY_V1` and `ACCESS_LINK_SIGNING_KEY_V1` from `docs/ops/first-deploy.md` are NOT MVP — those are Phase 3 (web) and Phase 4 (access links). I'll skip them.
+| Area | Status | Evidence | Notes |
+|---|---|---|---|
+| MVP contracts | Implemented | `packages/contracts`, ADR 0066 | Contract package is narrowed to CLI-first MVP routes and schemas. |
+| API Worker | Implemented, locally verified | `apps/api/src/index.ts`, `pnpm smoke:local` | Uses Hono routing, serves `/openapi.json`, handles API-key routes, signed public Agent View, admin routes, scheduled cleanup, content URL signing, and denylist writes. |
+| Upload Worker | Implemented, locally verified | `apps/upload/src/index.ts`, `pnpm smoke:local` | Uses Hono routing, serves `/openapi.json`, handles upload-session create, signed upload-worker PUT, R2 writes, finalize, and signed Agent View URL minting. |
+| Content Worker | Implemented, locally verified | `apps/content/src/index.ts`, `pnpm smoke:local` | Uses Hono routing, serves `/openapi.json`, and serves private R2 bytes through signed content URLs, CSP, strict content-type handling, and KV denylist checks. |
+| Public CLI | Implemented, locally verified | `apps/cli/src/index.ts`, `apps/cli/src/local.ts`, `pnpm smoke:local` | Supports `whoami`, `publish`, TTL parsing, local file walking, caps validation, title/entrypoint/render-mode inference. |
+| Admin CLI | Implemented, locally verified | `apps/cli/src/index.ts`, `packages/api-client`, `pnpm smoke:local` | Supports workspace/key/artifact/cleanup/events commands. Destructive `--yes` guards are still missing. |
+| Database package | Implemented, locally verified | `packages/db/src/index.ts`, `packages/db/migrations/0001_mvp_postgres.sql`, `pnpm verify` | Includes MVP schema, repository methods, HMAC API-key storage, upload sessions, artifacts, files, cleanup, and operation events. |
+| Auth helpers | Implemented for MVP | `packages/auth/src/index.ts` | API-key/admin-token HMAC helpers exist. A simple L1 memory + Workers Cache `cachedLookup` helper is wired around Postgres-backed API-key verification in API/upload. |
+| Storage helpers | Implemented, locally verified | `packages/storage`, `pnpm verify` | Supports object key/content-token helper behavior used by MVP tests/packages. |
+| Command wrapper | Partial/support package | `packages/commands` | Has idempotency/operation-event helpers, but not every Worker route is visibly wrapped through a production transaction boundary yet. |
+| Local harness | Implemented, verified | `scripts/local-mvp-server.mjs`, `scripts/smoke-local-mvp.mjs`, `pnpm smoke:local` | Smoke creates workspace/key, publishes fixture, fetches view and Agent View, deletes artifact, checks events. |
+| Hosted scripts | Implemented, partially verified | `scripts/bootstrap-secrets.mjs`, `scripts/migrate.mjs`, `scripts/deploy-preview.mjs`, `scripts/smoke-hosted.mjs` | Preview smoke passed after bootstrap provided the plaintext admin token. Production deploy/smoke passed in GitHub Actions on 2026-05-21. |
+| PR previews | Implemented workflow, unexercised | `.github/workflows/pr-preview.yml`, cleanup workflow | Creates Neon branch, Hyperdrive, PR Workers, smoke, and cleanup for same-repo PRs. No PR Preview runs found on 2026-05-21. |
+| Production deploy | Implemented and passing in GitHub Actions | `.github/workflows/deploy-production.yml`, run `26245768366` | Gated on CI success and GitHub `Production` environment. |
+| Jobs/Web/MCP apps | Typed scaffold | `apps/jobs`, `apps/web`, `apps/mcp` | Hono Worker entrypoints, `healthz`, and minimal OpenAPI/discovery endpoints exist. Product behavior remains deferred outside CLI-first MVP. |
 
----
+## MVP Acceptance Checklist
 
-## 7. npm — Decide before CLI ships
+Use this table to track `docs/specs/mvp.md` directly.
 
-Public CLI is the product surface (`docs/specs/mvp.md`).
+| Acceptance item | Status | Current evidence / next action |
+|---|---|---|
+| Operator can create a workspace through admin CLI | Implemented, locally verified | Covered by `pnpm smoke:local` on 2026-05-21. |
+| Operator can create an API key through admin CLI | Implemented, locally verified | Covered by `pnpm smoke:local` on 2026-05-21. |
+| `agent-paste whoami` works with `AGENT_PASTE_API_KEY` | Implemented, locally verified | Covered by `pnpm smoke:local` on 2026-05-21. |
+| `agent-paste publish ./site` uploads folder with `index.html` | Implemented, locally verified | Local smoke publishes `examples/local-harness/site`. |
+| `agent-paste publish ./demo.html` uploads a single HTML file | Implemented, not explicitly smoke-recorded here | CLI supports single-file publish; add/confirm smoke coverage if this remains untested. |
+| Publish returns `artifact_id`, `revision_id`, `view_url`, `agent_view_url`, `expires_at` | Implemented, locally verified | Covered by `pnpm smoke:local` on 2026-05-21. |
+| `view_url` opens HTML from content origin | Implemented, locally verified | Covered by `pnpm smoke:local` on 2026-05-21. |
+| `agent_view_url` returns JSON with full per-file URLs | Implemented, locally verified | Public Agent View URLs now use a signed token minted by upload finalize and verified by API before DB lookup. |
+| Expired artifacts stop resolving and bytes are cleaned up | Partially implemented, unverified | API scheduled/admin cleanup exists. Need verify expiry path and R2 byte removal in local/hosted smoke. |
+| Admin CLI can list/inspect/delete artifacts and run cleanup | Implemented, locally verified | Local smoke covers list/get/delete/cleanup dry-run. Add `--yes` guards before production confidence. |
+| Operation events omit secrets and signed URLs | Implemented, locally verified | Local smoke checks API key secret and `token=` are not serialized in events. |
 
-- [ ] **Package name.** Options:
-  - `agent-paste` (unscoped, matches the binary; preferred — confirm it's free on npmjs.com)
-  - `@agent-paste/cli` (scoped under an `agent-paste` org you'd need to claim)
-  - Something else: `__________`
-- [ ] **npm org / scope claimed?** Yes / no. If no, claim before first publish.
-- [ ] **2FA on the publishing account.** Required.
+## ADR And Spec Coverage
 
-This can wait until the CLI is feature-complete locally. Local dev publishes nothing.
+Legend: `Done` means code and docs broadly agree. `Partial` means the MVP path exists but some ADR detail is missing. `Drift` means code intentionally or accidentally differs from the written spec/ADR. `Deferred` means out of the CLI-first MVP.
 
----
+| ADR/spec | Status | Notes / next action |
+|---|---|---|
+| ADR 0005 Cloudflare Workers/R2/Postgres/Hyperdrive | Done | Wrangler configs and DB package target this architecture. |
+| ADR 0006 small Workers by boundary | Done | API, upload, and content Workers are separated. Jobs is deferred for MVP. |
+| ADR 0007 database migrations/previews | Partial | Dynamic Neon PR previews are implemented in workflow. Confirm real GitHub/Neon values and cleanup behavior. |
+| ADR 0008 pnpm/Turborepo guardrails | Done | `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json`, CI install guardrails exist. |
+| ADR 0010 GitHub Actions with Blacksmith | Done | CI, PR preview, cleanup, and production deploy workflows exist. |
+| ADR 0011 Cloudflare observability | Partial | Wrangler observability is enabled. Structured operational logs/metrics depth still needs review. |
+| ADR 0012 preview/production environments | Done | Preview and production envs exist in Wrangler configs; production workflow uses `Production` environment. |
+| ADR 0014 single domain/content subdomain | Partial | Production routes match `api`, `upload`, `usercontent`. Preview routes currently use `api.preview.agent-paste.sh`, `upload.preview...`, `usercontent.preview...`; keep or document this shape. |
+| ADR 0015 shared auth primitives | Done for MVP | HMAC helpers plus simple cached API-key lookup are shared from `packages/auth`; app wiring remains explicit. |
+| ADR 0016 Hono/OpenAPI | Done for MVP | API, upload, content, jobs, web, and MCP Worker entrypoints use Hono. API/upload/content expose `/openapi.json`. |
+| ADR 0017 OpenAPI contract + SDK/CLI | Partial | Zod contracts and internal API client exist. Workers now expose OpenAPI documents, but schemas are still generic placeholders rather than generated directly from Zod contracts. |
+| ADR 0018 Drizzle/Postgres | Partial | Drizzle schema/config and SQL migration exist. Runtime queries are mostly direct SQL/repository methods. |
+| ADR 0019 Cloudflare Queues | Deferred | Explicitly out of MVP; cleanup lives in API scheduled handler. |
+| ADR 0021 R2 object key layout | Done | Object keys follow artifact/revision/file path layout. |
+| ADR 0022 idempotent mutations | Partial | Idempotency keys are required on key mutation routes and repository helpers exist; audit route-by-route coverage before production. |
+| ADR 0023 versioned REST APIs | Done | Public/control routes are under `/v1` where applicable. Admin is internal `/admin`. |
+| ADR 0024 untrusted agent data | Partial | Content Worker isolates untrusted bytes with CSP and private R2. Need review HTML/network behavior against final security bar. |
+| ADR 0025 Biome/Lefthook/Vitest | Done | Tooling exists. Needs dependency install before local verification. |
+| ADR 0027 upload write path | Done | Upload Worker owns signed PUT URLs and R2 writes. |
+| ADR 0028 signed content URLs | Partial | Content URLs are HMAC-signed with `CONTENT_SIGNING_SECRET`; `CONTENT_GATEWAY_SIGNING_KEY_V1` is still generated but not the active env name in code. Clean up naming before production. |
+| ADR 0030 CSP execution policy | Partial | Content Worker sets CSP. Validate against final MVP expected allowances. |
+| ADR 0032 jobs topology | Deferred | MVP uses API scheduled cleanup per `docs/specs/jobs.md`. |
+| ADR 0036 error envelope | Partial | Errors return `{ error: { code, message } }`; request id/docs fields are not consistently present. |
+| ADR 0037 internal API client powers CLI | Done | `packages/api-client` powers CLI/admin flows. |
+| ADR 0038 Zod source of truth | Partial | Contracts exist, but Workers do not appear to validate all requests/responses directly through Zod at boundaries. |
+| ADR 0039 authenticated rate limits | Partial | Wrangler native bindings configured, but Worker code does not visibly call `env.ACTOR_RATE_LIMIT.limit()` / `WORKSPACE_BURST_CAP.limit()` yet. Implement or explicitly defer before hosted launch. |
+| ADR 0041 upload size caps | Done | CLI validates caps from usage policy; DB/upload validation also enforces core caps. |
+| ADR 0042 strict extension content type | Partial | Content types are extension-derived. Confirm no user-supplied MIME can override served type. |
+| ADR 0043 bearer credential format/storage | Done | API keys use `ap_pk_{env}_...` and HMAC secret storage. |
+| ADR 0044 workspace isolation/RLS | Partial | Workspace-scoped repository queries exist. Full Postgres RLS enforcement needs review against migration/runtime role setup. |
+| ADR 0046 operator identity/admin surface | Drift accepted for MVP | MVP uses single bearer admin token (`ADMIN_TOKEN_HASH`) instead of Cloudflare Access/Auth0. Write a small follow-up ADR or amend ADR 0046 scope. |
+| ADR 0048 transient artifacts | Done | TTL defaults/min/max exist and artifact expiry is modeled. Cleanup verification still pending. |
+| ADR 0056 MVP usage policy defaults | Done | Usage policy values match MVP caps: 10 MB file, 25 MB artifact, 100 files, 1d-90d TTL, 30d default. |
+| ADR 0057 KV denylist | Partial | Content Worker checks KV denylist; API delete/cleanup writes denylist keys. Confirm key names and write order against ADR before production. |
+| ADR 0058 first deploy bootstrap | Partial | `scripts/bootstrap-secrets.mjs` exists. Secret names drift from earlier ADR wording; align docs/code before production. |
+| ADR 0062 two-layer auth cache | Done for MVP | `packages/auth` exports `cachedLookup`; API/upload use it for Postgres-backed API-key verification with a 60s TTL. |
+| ADR 0063 app-layer byte encryption | Deferred | Out of MVP. |
+| ADR 0064 native rate-limit bindings | Partial | Bindings exist in Wrangler config; enforcement calls need implementation/review. |
+| ADR 0065 wrangler JSONC | Done | Worker configs use `wrangler.jsonc`. |
+| ADR 0066 CLI-first MVP contract narrowing | Done | This is the controlling ADR for the narrowed MVP surface. |
+| `docs/specs/api.md` signed Agent View token | Done | Upload finalize mints signed public Agent View tokens; API verifies and resolves them to the internal artifact/revision lookup token. |
+| `docs/specs/admin.md` destructive `--yes` | Drift | CLI currently exposes destructive admin commands; confirm whether `--yes` guard is implemented or add it. |
+| `docs/specs/content-rendering.md` no renderer pages | Done | No Markdown renderer page in MVP. |
+| `docs/specs/jobs.md` MVP cleanup in API Worker | Done | API scheduled handler and admin cleanup route exist. |
+| `docs/specs/local-dev.md` local smoke | Done | `pnpm smoke:local` passed in this worktree on 2026-05-21. |
 
-## 8. ADRs to write before/during implementation
+## Known Implementation Drift To Resolve
 
-Most §8 decisions below are implementation details (defaults are fine), but five conflict with or extend existing ADRs and deserve their own record. Suggested filenames already follow the `NNNN-kebab.md` convention used in `docs/adr/`.
+These are the highest-signal issues for the next agent. Do these before treating preview/production as trustworthy.
 
-- [ ] `0066-neon-as-postgres-provider.md` — pins the vendor choice that ADR 0005 left open. Records Hyperdrive integration path, branching model for ADR 0007 previews, BYPASSRLS support for ADR 0044 roles, and Databricks-acquisition risk.
-- [ ] `0067-agent-view-signing-key-separate-from-content-gateway.md` (if §8a is taken) — extends ADR 0028. Pins the kid family and rotation rules.
-- [ ] `0068-upload-put-url-signing.md` — extends ADR 0027. Pins the signing primitive, what the signed payload covers, and how upload-worker URLs differ from content-gateway tokens.
-- [ ] `0069-mvp-admin-bearer-token.md` — scopes ADR 0046 (Cloudflare Access + Auth0 + email allowlist) to post-MVP and records the single-bearer model from `docs/specs/admin.md`. Names the hashing scheme (recommend: same pepper as ADR 0043 API keys).
-- [ ] `0070-mvp-preview-environment-is-single-shared.md` — scopes ADR 0007's per-PR-preview rule to Phase 2 and records the single shared `preview` env for MVP. Includes the trigger condition for promoting to per-PR.
+1. **Rate-limit bindings are configured but may not be enforced.** `ACTOR_RATE_LIMIT` and `WORKSPACE_BURST_CAP` appear in Wrangler configs, but route handlers need visible `limit()` calls.
+2. **OpenAPI schemas are placeholders.** `/openapi.json` exists on the Worker surfaces, but schema bodies should be generated from or aligned to `packages/contracts` before external consumers rely on them.
+3. **Secret names need consolidation.** Bootstrap generates both `CONTENT_GATEWAY_SIGNING_KEY_V1` and `CONTENT_SIGNING_SECRET`, but the Workers use `CONTENT_SIGNING_SECRET`.
+4. **Admin destructive confirmation may be missing.** `docs/specs/admin.md` requires `--yes`; current CLI should be checked and patched if absent.
+5. **Plain shell still resolves `node` to v25 in this Codex session.** `pnpm setup:codex` works around this for setup by re-running itself with installed Node 24, but long-running shells may still need `nvm use 24.15.0` or an explicit `PATH` fix before manual commands if engine warnings become failures. This is now a shell hygiene note, not a setup blocker.
 
-I'll draft these alongside the code that implements each. They're not blocking — they're the paper trail.
+## Bootstrap And Hosted Deploy Checklist
 
-The pure yes/no decisions in §8 below (auth cache from day one, burst cap from day one, Markdown rendering, title inference, bin name) don't deserve their own ADRs; they're either confirmations of existing ADRs or trivial implementation choices.
+### Cloudflare
 
-## 8. Spec gaps I need answered — Decide
+- [x] Workers Paid plan is assumed/previously marked complete.
+- [x] Confirm account id: `a461d640900eb3905d7b6619c8c0da91`.
+- [x] Confirm `wrangler whoami` works locally for account `a461d640900eb3905d7b6619c8c0da91`.
+- [x] Confirm OAuth/API token has the Worker/R2/KV/Hyperdrive scopes needed for current deploy verification. Wrangler warns about unrelated newer scopes such as `ai-search`, `artifacts`, and `browser`.
+- [ ] Confirm `agent-paste.sh` is registered and on Cloudflare nameservers.
+- [ ] Confirm production custom domains:
+  - `api.agent-paste.sh`
+  - `upload.agent-paste.sh`
+  - `usercontent.agent-paste.sh`
+- [ ] Confirm preview custom domains or intentionally use `workers.dev`:
+  - `api.preview.agent-paste.sh`
+  - `upload.preview.agent-paste.sh`
+  - `usercontent.preview.agent-paste.sh`
+- [x] Confirm R2 buckets exist:
+  - `agent-paste-artifacts-preview`
+  - `agent-paste-artifacts-production`
+- [x] Confirm KV namespace IDs in `apps/api/wrangler.jsonc` and `apps/content/wrangler.jsonc` exist.
+- [x] Confirm Hyperdrive IDs in `apps/api/wrangler.jsonc` and `apps/upload/wrangler.jsonc` exist.
+- [ ] Confirm rate-limit namespace IDs are real and supported in the target Cloudflare account.
 
-These are places where the spec is internally inconsistent or silent. I'll need a call from you before writing the corresponding code. Defaults marked with **(recommend)**.
+### Neon
 
-### 8a. AgentView token vs content-gateway token
+- [x] Confirm Neon project name/id: `still-forest-91029005` from GitHub repo variables.
+- [ ] Confirm production branch points at the production database.
+- [x] Confirm shared preview branch exists if using shared preview. Cloudflare Hyperdrive `agent-paste-db-preview-branch` exists and is the configured preview binding.
+- [ ] Confirm PR-preview branch creation works from `.github/workflows/pr-preview.yml`. Workflow exists, but no PR Preview runs were found on 2026-05-21.
+- [ ] Confirm Hyperdrive runtime role and migration role are separate.
+- [ ] Confirm migration URL secrets are available only where needed.
 
-`docs/specs/local-dev.md` lists `AGENT_VIEW_SIGNING_KEY_V1` separately from `CONTENT_GATEWAY_SIGNING_KEY_V1`. No ADR pins this. Pick one:
+### GitHub
 
-- [ ] Separate signing key per token family **(recommend — different TTLs, different scopes, different rotation cadences)**
-- [ ] Single shared key, distinguished by token-internal scope field
+Previous state on 2026-05-20: repo had no repo-level secrets, variables, or environments; org had `CLOUDFLARE_ACCOUNT_ID`, `TURBO_TOKEN`, and `TURBO_TEAM=zaks-io`.
 
-### 8b. Upload-worker PUT URL signing
+Re-check and fill this before hosted deploy:
 
-The upload Worker mints PUT URLs against itself (`upload.agent-paste.sh/v1/upload-sessions/{id}/files/{path}`). No ADR pins the signing primitive. Options:
+- [x] `TURBO_TOKEN` inherited from org.
+- [x] `TURBO_TEAM=zaks-io` inherited from org variable.
+- [x] `TURBO_REMOTE_CACHE_SIGNATURE_KEY`
+- [ ] `CLOUDFLARE_ACCOUNT_ID` (not repo-level; likely inherited from org, but current GitHub token cannot list org secrets/vars)
+- [x] `CLOUDFLARE_API_TOKEN`
+- [x] `PRODUCTION_DATABASE_URL` in GitHub `Production` environment.
+- [x] `NEON_API_KEY`
+- [x] `NEON_PROJECT_ID`
+- [ ] `NEON_PRODUCTION_BRANCH_ID`
+- [x] `CLOUDFLARE_WORKERS_SUBDOMAIN`
+- [x] `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`
+- [x] GitHub `Production` environment exists. Approval policy still needs UI confirmation.
+- [ ] `NPM_TOKEN` exists only when public CLI publish is imminent.
 
-- [ ] HMAC-SHA-256 with a dedicated `UPLOAD_PUT_SIGNING_KEY_V1`, embedded in a query param **(recommend — mirrors the content-gateway shape and lets me reuse the kid rotation pattern from ADR 0028)**
-- [ ] Reuse `CONTENT_GATEWAY_SIGNING_KEY_V1` with scope=`upload_put`
+### Worker Secrets
 
-### 8c. Admin token model for MVP
+`scripts/bootstrap-secrets.mjs` generates and writes current MVP Worker secrets.
 
-`docs/specs/admin.md` says `Authorization: Bearer ${AGENT_PASTE_ADMIN_TOKEN}` — a single shared bearer. `docs/adr/0046` says operator surfaces are Cloudflare Access + Auth0 + email allowlist. The admin CLI is intentionally pre-Auth0 in MVP. Confirm:
+Preview:
 
-- [ ] **Single shared bearer for MVP.** Stored as `bcrypt` of the secret on the `api` Worker (or HMAC + pepper like API keys). No Cloudflare Access in front. ADR 0046's web admin path is deferred to Phase 3. **(recommend — matches admin.md, matches "no dashboard in MVP")**
-- [ ] Add Cloudflare Access in front of `/admin/*` from day one (you'd need to configure Access policies and an `AGENT_PASTE_ADMIN_TOKEN` for the agent-driven case)
+```sh
+OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:preview
+```
 
-If single-bearer: pick storage shape: hashed with the same pepper as API keys (`recommend`), or its own secret.
+Production:
 
-### 8d. Preview environments — per-PR or single shared?
+```sh
+OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
+```
 
-`docs/adr/0007` says per-PR previews with per-PR Postgres schemas. That's real implementation work (PR-open / PR-close workflows, schema cleanup janitor). For MVP:
+Capture generated one-time values in Bitwarden before closing the terminal.
 
-- [ ] **Single shared `preview` env per ADR 0012, no per-PR isolation.** Per-PR previews land in Phase 2. **(recommend — keeps the first deploy small)**
-- [ ] Per-PR previews from day one
+Current generated/written secret set:
 
-### 8e. Auth cache (ADR 0062) from day one?
+| Secret | Bound on | Notes |
+|---|---|---|
+| `CONTENT_GATEWAY_SIGNING_KEY_V1` | `api`, `content` | Generated, but code currently uses `CONTENT_SIGNING_SECRET`; clean up naming. |
+| `CONTENT_SIGNING_SECRET` | `api`, `upload`, `content` | Active content-token signing secret in code. |
+| `UPLOAD_SIGNING_SECRET` | `upload` | Active upload PUT token signing secret. |
+| `API_KEY_PEPPER_V1` | `api`, `upload` | Active API-key/admin-token HMAC pepper. |
+| `ADMIN_TOKEN` | operator/password manager only | Printed once. |
+| `ADMIN_TOKEN_HASH` | `api` | HMAC of `ADMIN_TOKEN`; written to Worker, not printed as operator credential. |
+| `OPERATOR_EMAILS` | `api` | Allowlist/reference value for operator context. |
 
-ADR says "Hot-path lookups in `api`, `upload`, and `content` adopt the two-layer pattern from day one." Confirm:
+Preview Worker secret names were confirmed in Cloudflare on 2026-05-21 for `api`, `upload`, and `content`. The one-time plaintext preview `ADMIN_TOKEN` was not present in the initial Codex worktree `.env`; after preview bootstrap, the user reported hosted preview smoke passed.
 
-- [ ] Yes, ship `packages/auth`'s `cachedLookup` in MVP **(recommend — ADR is explicit, refactoring later is harder than the ADR notes)**
-- [ ] No, defer to Phase 2
+## Deploy/Verification Order
 
-### 8f. Workspace burst cap in MVP?
+1. **Set up local worktree.**
 
-ADR 0064 adds two rate-limit bindings (`ACTOR_RATE_LIMIT` and `WORKSPACE_BURST_CAP`). MVP only mentions the 60 rpm actor cap. Confirm:
+   ```sh
+   pnpm setup:codex
+   ```
 
-- [ ] Both bindings from day one **(recommend — they're free in `wrangler.jsonc`, and ADR 0064 wants them together)**
-- [ ] Just `ACTOR_RATE_LIMIT`, add burst later
+2. **Run local quality checks.**
 
-### 8g. Markdown/text rendering in MVP?
+   ```sh
+   pnpm verify
+   ```
 
-`mvp.md` says "Secondary support is allowed only when cheap" and `phases.md` defers Markdown renderer to Phase 2. Confirm I should:
+3. **Run local MVP smoke.**
 
-- [ ] Accept `.md`/`.txt` uploads, serve as `text/plain` / `text/markdown` with no rendering **(recommend — matches `content-rendering.md`)**
-- [ ] Add a Markdown→HTML renderer page in MVP
+   ```sh
+   pnpm smoke:local
+   ```
 
-### 8h. Title inference rule for `agent-paste publish ./site`
+   If a local Worker is already listening on the default ports, use alternate ports:
 
-`mvp.md` says CLI "infers the title when `--title` is omitted" but doesn't say from what. Pick one:
+   ```sh
+   AGENT_PASTE_LOCAL_API_PORT=18787 AGENT_PASTE_LOCAL_UPLOAD_PORT=18788 AGENT_PASTE_LOCAL_CONTENT_PORT=18789 pnpm smoke:local
+   ```
 
-- [ ] Basename of the publish path (folder name, or HTML file name minus `.html`) **(recommend)**
-- [ ] `<title>` element from the entrypoint HTML
-- [ ] Default literal `"untitled"`
+4. **Resolve implementation drift above.** At minimum, decide rate-limit enforcement, admin `--yes`, and secret-name cleanup.
 
-### 8i. Stable binary name for `agent-paste`
+5. **Run preview migration/deploy/smoke.**
 
-CLI binary lives at `apps/cli`. Confirm:
+   ```sh
+   pnpm migrate:preview
+   pnpm deploy:preview
+   AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+   ```
 
-- [ ] Bin name: `agent-paste` (npm package name and binary name match) **(recommend)**
-- [ ] Different: `__________`
+   As of 2026-05-21, preview Workers, secrets, R2, KV, and Hyperdrive exist, and the user reported preview smoke passed after running bootstrap.
 
----
+6. **Validate PR preview lifecycle.** Open/update a same-repo PR and confirm preview creation, smoke, PR comment, and cleanup-on-close.
 
-## 9. What I am explicitly NOT going to ask you for in MVP
+7. **Production deploy only after explicit approval.**
 
-Recording these so we don't accidentally re-scope:
+   ```sh
+   pnpm migrate:production
+   pnpm deploy:production
+   AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+   ```
 
-- Auth0 tenant, applications, audiences — Phase 3.
-- MCP server / OAuth DCR — Phase 5.
-- Web dashboard, Access Link viewer, operator UI — Phase 3/4.
-- Cloudflare Queues + DLQ — Phase 4.
-- App-layer byte encryption (`docs/adr/0063`) — Phase 6.
-- Real safety scanner — Phase 6.
-- Stripe/billing — Phase 6.
-- `WEB_SESSION_SEAL_KEY_V1` and `ACCESS_LINK_SIGNING_KEY_V1` — out of MVP per the deferred phases.
-- Per-PR preview Cloudflare resources, if you pick the single shared preview env in §8d.
-- A second admin identity / Auth0 M2M for the rotation agent (ADR 0046) — MVP rotates manually.
+## Out Of MVP
 
-If any of those creep in, that's a separate ask.
+Do not pull these back into the MVP unless Isaac explicitly asks:
 
----
+- Auth0 tenant/app/audience setup.
+- Public OAuth login.
+- Dashboard, admin UI, Access Link viewer.
+- MCP server and OAuth DCR.
+- Cloudflare Queues/DLQ workers.
+- Bundle generation/download.
+- Real safety scanner.
+- App-layer byte encryption.
+- Billing, quotas, and plan management.
+- Public TypeScript SDK.
+- Standalone binary distribution beyond npm CLI.
 
-## 10. First deploy order, for context
+## Done Definition
 
-Once §1–§7 are unblocked I will deploy in this order. You don't need to do anything here; this is just so you know what's coming and can stop me at the right point per your "Never deploy to production without explicit approval" rule.
+The CLI-first MVP is considered implemented and bootstrap-complete when:
 
-1. **Local-only loop.** Wire `packages/db` + `packages/contracts` + `apps/api` + `apps/upload` + `apps/content` against `wrangler dev --persist-to` + a local Postgres (Docker) until `docs/specs/local-dev.md` smoke test passes.
-2. **Preview deploy.** First real Cloudflare deploy. Uses §3 preview DB, §4 preview R2/KV, §5 GitHub secrets. I will pause before this step and confirm with you.
-3. **Production deploy.** Same, against production resources, through the `Production` GitHub Environment approval.
-
----
-
-## Done definition for this checklist
-
-This checklist is satisfied when:
-
-- All `[ ]` checkboxes above the "explicitly NOT" section are checked or have a written decision.
-- Bootstrap secrets are captured in your password manager.
-- GitHub repo secrets/env vars listed in §5 exist and are non-empty.
-- The Cloudflare account + Postgres provider + domain are reachable from a fresh `wrangler` install.
-
-At that point I can start implementing without asking another setup question.
+- `pnpm verify` passes under Node 24.
+- `pnpm smoke:local` passes.
+- Known implementation drift is either fixed or explicitly recorded as accepted MVP scope.
+- Preview deploy and `pnpm smoke:preview` pass against hosted Cloudflare + Neon resources.
+- Same-repo PR preview creation and cleanup pass.
+- Production deploy and `pnpm smoke:production` pass after explicit approval.
+- Bootstrap secrets are captured in Bitwarden.
+- GitHub secrets/vars and `Production` environment protection are confirmed.
+- Cloudflare account, R2, KV, Hyperdrive, rate limits, DNS, and routes are confirmed reachable from a fresh setup.

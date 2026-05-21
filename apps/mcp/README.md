@@ -1,6 +1,6 @@
 # mcp
 
-Planned OAuth-only hosted MCP Worker.
+Typed Hono scaffold for the planned OAuth-only hosted MCP Worker.
 
 Responsibilities:
 
@@ -11,3 +11,9 @@ Responsibilities:
 - Text-only MCP tool surface.
 
 Contracts: [ADR 0061](../../docs/adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) and [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts).
+
+Current endpoints:
+
+- `GET /healthz`
+- `GET /.well-known/oauth-protected-resource`
+- `GET /openapi.json`

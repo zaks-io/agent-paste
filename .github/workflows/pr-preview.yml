@@ -82,6 +82,9 @@ jobs:
           PR_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
         run: node scripts/create-hyperdrive.mjs --name agent-paste-db-pr-${{ github.event.pull_request.number }} --connection-string-env PR_DATABASE_URL --github-output hyperdrive_id
 
+      - name: Build PR artifacts
+        run: pnpm build
+
       - name: Deploy PR Workers
         id: deploy
         env:

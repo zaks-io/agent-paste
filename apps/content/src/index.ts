@@ -1,3 +1,5 @@
+import { type Context, Hono } from "hono";
+
 export type R2ObjectBody = {
   body: ReadableStream | null;
   size: number;
@@ -20,6 +22,7 @@ export type Env = {
   ARTIFACTS: R2Bucket;
   DENYLIST: KVNamespace;
   CONTENT_SIGNING_SECRET: string;
+  CONTENT_BASE_URL?: string;
   ALLOW_DEV_TOKENS?: string;
 };
 
@@ -38,6 +41,22 @@ const securityHeaders = {
   "content-security-policy":
     "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'",
 };
+const app = new Hono<{ Bindings: Env }>();
+
+app.get("/openapi.json", (context) =>
+  context.json(openApiDocument(context.env.CONTENT_BASE_URL ?? requestOrigin(context.req.raw))),
+);
+app.get("/v/:token/*", (context) =>
+  serveSignedObject(context.req.raw, context.env, context.req.param("token"), contentPath(context)),
+);
+app.on("HEAD", "/v/:token/*", (context) =>
+  serveSignedObject(context.req.raw, context.env, context.req.param("token"), contentPath(context)),
+);
+app.notFound(() => notFound());
+app.onError((error) => {
+  console.error("Unhandled content error:", error);
+  return internalServerError();
+});
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
@@ -46,20 +65,17 @@ export default {
 };
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const match = url.pathname.match(/^\/v\/([^/]+)\/(.+)$/);
+  return await app.fetch(request, env);
+}
 
-  if ((request.method !== "GET" && request.method !== "HEAD") || !match?.[1] || !match[2]) {
-    return notFound();
+function contentPath(context: Context<{ Bindings: Env }>): string {
+  const pathname = new URL(context.req.raw.url).pathname;
+  const encodedToken = pathname.split("/")[2];
+  if (!encodedToken) {
+    return "";
   }
-
-  try {
-    const token = decodeURIComponent(match[1]);
-    const path = decodeURIComponent(match[2]);
-    return serveSignedObject(request, env, token, path);
-  } catch {
-    return notFound();
-  }
+  const marker = `/v/${encodedToken}/`;
+  return decodeURIComponent(pathname.slice(marker.length));
 }
 
 export async function signContentToken(payload: ContentTokenPayload, secret: string): Promise<string> {
@@ -225,9 +241,90 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function openApiDocument(serverUrl: string): Record<string, unknown> {
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Agent Paste Content API",
+      version: "0.1.0",
+    },
+    servers: [{ url: serverUrl }],
+    paths: {
+      "/v/{token}/{path}": {
+        get: {
+          operationId: "content.get",
+          parameters: [pathParameter("token", "Signed content token"), pathParameter("path", "File path")],
+          responses: {
+            200: { description: "Artifact file bytes" },
+            404: errorResponseDescription(),
+          },
+        },
+        head: {
+          operationId: "content.head",
+          parameters: [pathParameter("token", "Signed content token"), pathParameter("path", "File path")],
+          responses: {
+            200: { description: "Artifact file metadata" },
+            404: errorResponseDescription(),
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        ErrorEnvelope: {
+          type: "object",
+          required: ["error"],
+          properties: {
+            error: {
+              type: "object",
+              required: ["code", "message"],
+              properties: {
+                code: { type: "string" },
+                message: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function requestOrigin(request: Request): string {
+  return new URL(request.url).origin;
+}
+
+function pathParameter(name: string, description: string): Record<string, unknown> {
+  return {
+    name,
+    in: "path",
+    required: true,
+    description,
+    schema: { type: "string" },
+  };
+}
+
+function errorResponseDescription(): Record<string, unknown> {
+  return {
+    description: "Error envelope",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+      },
+    },
+  };
+}
+
 function notFound(): Response {
   return new Response(JSON.stringify({ error: { code: "not_found", message: "not_found" } }), {
     status: 404,
+    headers: { "content-type": "application/json; charset=utf-8", ...securityHeaders },
+  });
+}
+
+function internalServerError(): Response {
+  return new Response(JSON.stringify({ error: { code: "internal_error", message: "internal_error" } }), {
+    status: 500,
     headers: { "content-type": "application/json; charset=utf-8", ...securityHeaders },
   });
 }

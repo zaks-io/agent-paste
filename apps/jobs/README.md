@@ -1,6 +1,6 @@
 # jobs
 
-Planned background Cloudflare Worker.
+Typed Hono scaffold for the planned background Cloudflare Worker.
 
 Responsibilities:
 
@@ -9,3 +9,8 @@ Responsibilities:
 - Bundle DLQ consumer.
 
 Contracts: [`docs/specs/jobs.md`](../../docs/specs/jobs.md).
+
+Current endpoints:
+
+- `GET /healthz`
+- `GET /openapi.json`
