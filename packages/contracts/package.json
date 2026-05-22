@@ -13,10 +13,13 @@
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck",
     "lint": "biome lint .",
+    "openapi:check": "node ../../scripts/openapi-goldens.mjs",
+    "openapi:write": "node ../../scripts/openapi-goldens.mjs --write",
     "test": "pnpm --dir ../.. exec vitest run packages/contracts/src/mvp-contracts.test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.5.0",
     "zod": "catalog:"
   },
   "devDependencies": {

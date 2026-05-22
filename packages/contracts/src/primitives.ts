@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 
 const ulidBody = "[0-9A-HJKMNP-TV-Z]{26}";
 

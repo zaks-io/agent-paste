@@ -1,7 +1,7 @@
-import { z } from "zod";
 import { Mebibytes, Seconds } from "./common.js";
 import { ActorType, Scope } from "./enums.js";
 import { ApiKeyId, IsoDateTime, WorkspaceId } from "./primitives.js";
+import { z } from "./zod.js";
 
 export const UsagePolicy = z.object({
   file_size_cap_bytes: z.number().int().positive(),

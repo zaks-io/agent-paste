@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@agent-paste/auth": "workspace:*",
+    "@agent-paste/contracts": "workspace:*",
     "hono": "^4.12.21"
   }
 }

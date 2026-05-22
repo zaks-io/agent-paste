@@ -25,6 +25,7 @@
   "dependencies": {
     "@agent-paste/auth": "workspace:*",
     "@agent-paste/commands": "workspace:*",
+    "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "hono": "^4.12.21"
   }

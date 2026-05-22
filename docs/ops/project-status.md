@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-21 (idempotent mutations and security baseline landed).
+Last updated: 2026-05-21 (OpenAPI generated from Zod with golden diff in CI).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -113,8 +113,8 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0013 wrangler-first local dev             | Done         | `pnpm dev:all` and local-mvp-server.mjs.                                                                                                                                        |
 | 0014 single-domain + hardened subdomain   | Partial      | Production routes match. Preview uses `*.preview.agent-paste.sh` — keep or document.                                                                                            |
 | 0015 shared auth primitives               | Done for MVP | `packages/auth` exports shared HMAC + cache.                                                                                                                                    |
-| 0016 Hono + OpenAPI                       | Partial      | All Workers on Hono. `/openapi.json` is hand-written placeholder, not generated.                                                                                                |
-| 0017 OpenAPI contract + SDK/CLI           | Partial      | `packages/api-client` exists. OpenAPI schemas not generated from Zod.                                                                                                           |
+| 0016 Hono + OpenAPI                       | Done         | All Workers on Hono. `/openapi.json` is generated from `packages/contracts` via `@asteasolutions/zod-to-openapi` with golden diff in `pnpm verify`.                             |
+| 0017 OpenAPI contract + SDK/CLI           | Partial      | `packages/api-client` exists. OpenAPI schemas now generated from Zod; SDK regeneration pipeline still manual.                                                                   |
 | 0018 Drizzle for schema + queries         | Partial      | Schema in Drizzle, runtime in raw SQL/repo helpers.                                                                                                                             |
 | 0019 Cloudflare Queues for jobs           | Deferred     | Phase 4+. Cleanup in `api` scheduled handler.                                                                                                                                   |
 | 0020 content caching by revision          | Partial      | Cache headers set; revision-hash cache-key validation not explicit.                                                                                                             |
@@ -135,7 +135,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0035 runCommand sequencing                | Done         | `runCommand` claims the idempotency record, executes the handler, persists `result_json`, and writes audit events in one transaction.                                           |
 | 0036 error envelope + generic 404         | Partial      | Envelope shape correct; `request_id` and `docs` fields not consistently emitted.                                                                                                |
 | 0037 internal api-client powers CLI       | Done         | `packages/api-client` powers CLI.                                                                                                                                               |
-| 0038 Zod as source of truth               | Partial      | Contracts in Zod; Workers don't validate every request/response through them.                                                                                                   |
+| 0038 Zod as source of truth               | Partial      | Contracts in Zod; OpenAPI documents now generated from those Zod schemas. Workers still don't validate every request/response body through them.                                |
 | 0039 authenticated rate limits            | Done         | `api` and `upload` call native bindings for API-key traffic; upload mutation routes peek the idempotency record before consuming budget; hosted smoke covers the 429 envelope.  |
 | 0040 platform lockdown                    | Partial      | KV denylist writes on delete/cleanup. Operator UI for lockdown deferred to Phase 3+.                                                                                            |
 | 0041 upload size caps                     | Done         | CLI + upload Worker enforce caps.                                                                                                                                               |
@@ -185,31 +185,25 @@ Ordered. Each item has a verifiable Done. Items 1-4 close Phase 1; items 5-7 pre
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Generate OpenAPI from Zod contracts
-
-- Drives: ADR 0016, ADR 0017, ADR 0038
-- Files: `packages/contracts/src/*`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`
-- Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@hono/zod-openapi` (or equivalent); `pnpm verify` runs a schema-diff check against a checked-in golden; CI fails if contracts drift from served OpenAPI.
-
-### 2. Move runtime queries to Drizzle
+### 1. Move runtime queries to Drizzle
 
 - Drives: ADR 0018
 - Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
 - Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
 
-### 3. Apply Postgres RLS at runtime
+### 2. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 4. Exercise PR preview lifecycle on a same-repo PR
+### 3. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
 - Done: a same-repo PR (the one carrying items 1-3 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 5. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 4. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Status: Partial -- runbook ready, click-ops pending Isaac.
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
@@ -217,7 +211,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Runbook: [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) -- pre-flight, six Axiom datasets, six Logpush jobs, redaction list, three APL panels, verification curl + APL.
 - Done: all six Axiom datasets (preview + production for `api`/`upload`/`content`) receive Worker logs; dashboards show 5xx rate and p95 latency in both envs; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
 
-### 7. Complete bootstrap hosting checklist
+### 6. Complete bootstrap hosting checklist
 
 - Status: Partial -- checklist ready, click-ops pending Isaac. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
 - Drives: ADR 0058, this doc § Bootstrap
@@ -225,6 +219,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Generate OpenAPI from Zod contracts
+
+- Status: Done on 2026-05-21.
+- Drives: ADR 0016, ADR 0017, ADR 0038
+- Files: `packages/contracts/src/openapi/*`, `packages/contracts/src/zod.ts`, `packages/contracts/openapi/{api,upload,content}.json`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `scripts/openapi-goldens.mjs`, `turbo.json`, root `package.json`.
+- Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@asteasolutions/zod-to-openapi` (peer of `@hono/zod-openapi`, used directly so it works with the plain Hono routes the Workers ship); `pnpm openapi:check` diffs every Worker's served document against a checked-in golden under `packages/contracts/openapi/`; `pnpm verify` runs `openapi:check`; a forced-drift smoke test confirms the check fails when a golden is mutated.
 
 ### Complete error envelope (`request_id`, `docs`)
 

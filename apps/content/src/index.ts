@@ -5,6 +5,7 @@ import {
   type RequestIdVariables,
   requestIdMiddleware,
 } from "@agent-paste/auth";
+import { buildContentOpenApiDocument } from "@agent-paste/contracts";
 import { type Context, Hono } from "hono";
 
 export type R2ObjectBody = {
@@ -79,7 +80,9 @@ const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
 app.use("*", requestIdMiddleware());
 app.get("/openapi.json", (context) =>
-  context.json(openApiDocument(context.env.CONTENT_BASE_URL ?? requestOrigin(context.req.raw))),
+  context.json(
+    buildContentOpenApiDocument({ serverUrl: context.env.CONTENT_BASE_URL ?? new URL(context.req.raw.url).origin }),
+  ),
 );
 app.get("/v/:token/*", (context) => serveSignedObject(context, context.req.param("token"), contentPath(context)));
 app.on("HEAD", "/v/:token/*", (context) =>
@@ -340,80 +343,6 @@ function safeDecodeURIComponent(value: string): string | null {
   } catch {
     return null;
   }
-}
-
-function openApiDocument(serverUrl: string): Record<string, unknown> {
-  return {
-    openapi: "3.1.0",
-    info: {
-      title: "Agent Paste Content API",
-      version: "0.1.0",
-    },
-    servers: [{ url: serverUrl }],
-    paths: {
-      "/v/{token}/{path}": {
-        get: {
-          operationId: "content.get",
-          parameters: [pathParameter("token", "Signed content token"), pathParameter("path", "File path")],
-          responses: {
-            200: { description: "Artifact file bytes" },
-            404: errorResponseDescription(),
-          },
-        },
-        head: {
-          operationId: "content.head",
-          parameters: [pathParameter("token", "Signed content token"), pathParameter("path", "File path")],
-          responses: {
-            200: { description: "Artifact file metadata" },
-            404: errorResponseDescription(),
-          },
-        },
-      },
-    },
-    components: {
-      schemas: {
-        ErrorEnvelope: {
-          type: "object",
-          required: ["error"],
-          properties: {
-            error: {
-              type: "object",
-              required: ["code", "message"],
-              properties: {
-                code: { type: "string" },
-                message: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function requestOrigin(request: Request): string {
-  return new URL(request.url).origin;
-}
-
-function pathParameter(name: string, description: string): Record<string, unknown> {
-  return {
-    name,
-    in: "path",
-    required: true,
-    description,
-    schema: { type: "string" },
-  };
-}
-
-function errorResponseDescription(): Record<string, unknown> {
-  return {
-    description: "Error envelope",
-    content: {
-      "application/json": {
-        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
-      },
-    },
-  };
 }
 
 function errorResponse(context: AppContext, code: string, status: number, message?: string): Response {

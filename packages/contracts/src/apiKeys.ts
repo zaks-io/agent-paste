@@ -1,7 +1,7 @@
-import { z } from "zod";
 import { PageInfo } from "./common.js";
 import { Scope } from "./enums.js";
 import { ApiKeyBearer, ApiKeyId, IsoDateTime, WorkspaceId } from "./primitives.js";
+import { z } from "./zod.js";
 
 export const ApiKeySummary = z.object({
   id: ApiKeyId,

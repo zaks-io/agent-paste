@@ -1,4 +1,3 @@
-import { z } from "zod";
 import {
   ArtifactId,
   FilePath,
@@ -8,6 +7,7 @@ import {
   RevisionId,
   UrlString,
 } from "./primitives.js";
+import { z } from "./zod.js";
 
 export const DisplayMetadata = z.object({
   title: PlainTextTitle,
