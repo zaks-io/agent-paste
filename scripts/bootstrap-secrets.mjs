@@ -10,7 +10,6 @@ const generatedAt = new Date().toISOString();
 const adminToken = `ap_admin_${secretBytes(32)}`;
 const apiKeyPepper = secretBytes();
 const secrets = {
-  CONTENT_GATEWAY_SIGNING_KEY_V1: secretBytes(),
   CONTENT_SIGNING_SECRET: secretBytes(),
   UPLOAD_SIGNING_SECRET: secretBytes(),
   API_KEY_PEPPER_V1: apiKeyPepper,
@@ -22,16 +21,10 @@ const secrets = {
 const workerSecrets = [
   {
     app: "api",
-    names: [
-      "CONTENT_GATEWAY_SIGNING_KEY_V1",
-      "CONTENT_SIGNING_SECRET",
-      "API_KEY_PEPPER_V1",
-      "ADMIN_TOKEN_HASH",
-      "OPERATOR_EMAILS",
-    ],
+    names: ["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH", "OPERATOR_EMAILS"],
   },
   { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
-  { app: "content", names: ["CONTENT_GATEWAY_SIGNING_KEY_V1", "CONTENT_SIGNING_SECRET"] },
+  { app: "content", names: ["CONTENT_SIGNING_SECRET"] },
 ];
 
 if (!options.printOnly) {

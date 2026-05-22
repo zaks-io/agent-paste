@@ -40,16 +40,10 @@ writeJson(files.contentConfig, contentConfig());
 writeJson(files.apexConfig, apexConfig());
 writeJson(
   files.apiSecrets,
-  pickSecrets([
-    "CONTENT_GATEWAY_SIGNING_KEY_V1",
-    "CONTENT_SIGNING_SECRET",
-    "API_KEY_PEPPER_V1",
-    "ADMIN_TOKEN_HASH",
-    "OPERATOR_EMAILS",
-  ]),
+  pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH", "OPERATOR_EMAILS"]),
 );
 writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
-writeJson(files.contentSecrets, pickSecrets(["CONTENT_GATEWAY_SIGNING_KEY_V1", "CONTENT_SIGNING_SECRET"]));
+writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
 
 await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
@@ -212,7 +206,6 @@ function createPrSecrets() {
     process.env.AGENT_PASTE_PREVIEW_ADMIN_TOKEN ??
     `ap_admin_${secretBytes(32)}`;
   const values = {
-    CONTENT_GATEWAY_SIGNING_KEY_V1: process.env.PREVIEW_CONTENT_GATEWAY_SIGNING_KEY_V1 ?? secretBytes(),
     CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? secretBytes(),
     UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,

@@ -48,7 +48,7 @@ Open security follow-ups:
 - API-key requests are rate-limited before idempotency lookup; replay-before-limit ordering still needs a follow-up decision or smoke coverage.
 - Admin production identity is still the interim hashed bearer-token path. ADR 0067 requires Cloudflare Access/Auth0 operator identity before Phase 3 app/admin rollout.
 - `content` still needs unauthenticated artifact-level read throttling.
-- Content signing secret names and rotation tooling still need consolidation.
+- Secret rotation tooling (ADR 0045) still needs to be implemented.
 
 ## Implementation Map
 
@@ -126,7 +126,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0025 Biome + Lefthook + Vitest            | Done         | All three configured.                                                                                                                                                           |
 | 0026 Turborepo remote cache               | Done         | Signed cache configured.                                                                                                                                                        |
 | 0027 upload write path                    | Done         | Signed PUT through upload Worker.                                                                                                                                               |
-| 0028 signed URL content tokens            | Partial      | HMAC tokens working. Secret named `CONTENT_SIGNING_SECRET` in code; bootstrap also writes `CONTENT_GATEWAY_SIGNING_KEY_V1`. Consolidate.                                        |
+| 0028 signed URL content tokens            | Done         | HMAC tokens working. Single secret name `CONTENT_SIGNING_SECRET` used by code, bootstrap, and ADR 0058.                                                                         |
 | 0029 MVP CSP + CDN allowlist              | Partial      | CSP set. CDN allowlist value not validated against current ADR allowance list.                                                                                                  |
 | 0030 in-origin renderer pages             | Deferred     | MVP serves raw HTML; renderer pages are Phase 3+.                                                                                                                               |
 | 0031 signed content URLs with kid         | Superseded   | Replaced by ADR 0028.                                                                                                                                                           |
@@ -262,6 +262,20 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ## Recently Completed
 
+### Consolidate content-signing secret names
+
+- Status: Done on 2026-05-22 by `<SHA>`.
+- Drives: ADR 0028, ADR 0058
+- Files: `scripts/bootstrap-secrets.mjs`, `docs/ops/project-status.md`
+- Kept name: `CONTENT_SIGNING_SECRET`. `CONTENT_GATEWAY_SIGNING_KEY_V1` is removed from the bootstrap script and is no longer minted or bound on any Worker.
+- One-time rotation: for any environment that already holds the dropped binding, delete it after the next bootstrap run.
+  ```sh
+  wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-api-preview
+  wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-content-preview
+  wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-api-production
+  wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-content-production
+  ```
+
 ### Wire `runCommand` and `createOperationEvent` into mutation routes
 
 - Status: Done on 2026-05-21 by `2dff9d2`.
@@ -353,15 +367,14 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:preview
 OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 ```
 
-| Secret                           | Bound on             | Notes                                            |
-| -------------------------------- | -------------------- | ------------------------------------------------ |
-| `CONTENT_GATEWAY_SIGNING_KEY_V1` | api, content         | Generated but not used by code (see backlog #5). |
-| `CONTENT_SIGNING_SECRET`         | api, upload, content | Active content-token signing secret.             |
-| `UPLOAD_SIGNING_SECRET`          | upload               | Active upload PUT token signing secret.          |
-| `API_KEY_PEPPER_V1`              | api, upload          | Active API-key/admin-token HMAC pepper.          |
-| `ADMIN_TOKEN`                    | operator only        | Printed once. Capture in Bitwarden.              |
-| `ADMIN_TOKEN_HASH`               | api                  | HMAC of `ADMIN_TOKEN`.                           |
-| `OPERATOR_EMAILS`                | api                  | Allowlist value for operator context.            |
+| Secret                   | Bound on             | Notes                                   |
+| ------------------------ | -------------------- | --------------------------------------- |
+| `CONTENT_SIGNING_SECRET` | api, upload, content | Active content-token signing secret.    |
+| `UPLOAD_SIGNING_SECRET`  | upload               | Active upload PUT token signing secret. |
+| `API_KEY_PEPPER_V1`      | api, upload          | Active API-key/admin-token HMAC pepper. |
+| `ADMIN_TOKEN`            | operator only        | Printed once. Capture in Bitwarden.     |
+| `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                  |
+| `OPERATOR_EMAILS`        | api                  | Allowlist value for operator context.   |
 
 ### Deploy order
 

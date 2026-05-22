@@ -21,14 +21,14 @@ The first time agent-paste is deployed to an environment, two things have to exi
 ### Secrets
 
 - **`scripts/bootstrap-secrets.ts` is the one-time generator.** It runs locally on an operator's machine and emits cryptographically random values for the secrets that have no other source of truth:
-  - `CONTENT_GATEWAY_SIGNING_KEY_V1` (HMAC-SHA-256 secret for [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) tokens; bound on `api` for mint, on `content` for verify).
+  - `CONTENT_SIGNING_SECRET` (HMAC-SHA-256 secret for [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) tokens; bound on `api` and `upload` for mint, on `content` for verify).
   - `ACCESS_LINK_SIGNING_KEY_V1` (HMAC-SHA-256 secret for [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) signed URLs; bound on `api` for both mint and resolve).
   - `API_KEY_PEPPER_V1` (per [ADR 0043](./0043-bearer-credential-format-and-storage.md); bound on `api`).
   - `OPERATOR_EMAILS` (the comma-separated allowlist from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md); bound on `api`).
   - `WEB_SESSION_SEAL_KEY_V1` (AES-GCM key sealing the `__agp_session` cookie per [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md); bound on `web`).
 - **Push path.** The script invokes `wrangler secret put` against the target environment for each value, then prints the raw values to stdout exactly once with a banner instructing the operator to record them in 1Password before closing the terminal. After the script exits the values exist only inside Cloudflare and inside the password manager.
 - **External secrets are set out-of-band, not by the bootstrap script.** Auth0 client ID and secret, Hyperdrive connection string, R2 access credentials, and KV namespace IDs are configured through the relevant provider consoles and committed to `wrangler.jsonc` (IDs) or set as Worker secrets manually. The script does not touch them because it does not have credentials for those providers.
-- **The `V1` suffix on signing-key names is the `kid` from ADR 0028 / ADR 0047.** Rotation per [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) introduces `V2` alongside `V1` and drops `V1` after the overlap window. The bootstrap script never sees `V2`; rotation tooling owns that path.
+- **The `V1` suffix on signing-key names is the `kid` from ADR 0047.** Rotation per [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) introduces `V2` alongside `V1` and drops `V1` after the overlap window. The bootstrap script never sees `V2`; rotation tooling owns that path. The ADR 0028 `kid` is carried by the `CONTENT_SIGNING_KID` Worker var rather than embedded in the secret name.
 
 ### Operator and environment scoping
 

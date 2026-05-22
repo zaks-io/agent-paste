@@ -41,7 +41,6 @@ node scripts/bootstrap-secrets.mjs production --operator-emails you@example.com
 
 The script generates and writes the current MVP Worker secrets with `wrangler secret put`:
 
-- `CONTENT_GATEWAY_SIGNING_KEY_V1`
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`

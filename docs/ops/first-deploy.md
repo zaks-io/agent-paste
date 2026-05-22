@@ -38,7 +38,6 @@ OPERATOR_EMAILS=you@example.com pnpm bootstrap:preview
 
 It generates and writes:
 
-- `CONTENT_GATEWAY_SIGNING_KEY_V1`
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
