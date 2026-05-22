@@ -171,4 +171,17 @@ describe("api error envelope", () => {
     const body = await expectEnvelope(response, "not_found");
     expect(body.error.request_id).not.toBe("bad id with spaces");
   });
+
+  it("200 success response also carries X-Request-Id matching the inbound header", async () => {
+    const requestId = "success-path-req-id";
+    const response = await handleRequest(
+      new Request("https://api.test/v1/whoami", {
+        headers: { authorization: "Bearer ap_pk_test", "x-request-id": requestId },
+      }),
+      { DB: workspaceDb(), AUTH: authStub() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe(requestId);
+  });
 });

@@ -216,4 +216,40 @@ describe("upload error envelope", () => {
     const body = await expectEnvelope(response, "not_found");
     expect(body.error.request_id).not.toBe("bad id");
   });
+
+  it("200 idempotent replay on upload-session create echoes X-Request-Id", async () => {
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: workspaceAuth(),
+      DB: {
+        async createUploadSession() {
+          return { ...workspaceSession(), put_urls: [] };
+        },
+        async getUploadSession() {
+          return null;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+      },
+    };
+
+    const requestId = "upload-happy-path-id";
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer ok",
+          "idempotency-key": "k",
+          "content-type": "application/json",
+          "x-request-id": requestId,
+        },
+        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe(requestId);
+  });
 });

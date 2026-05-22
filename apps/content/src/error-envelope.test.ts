@@ -115,4 +115,38 @@ describe("content error envelope", () => {
     const body = await expectEnvelope(response, "not_found");
     expect(body.error.request_id).not.toBe("bad id");
   });
+
+  it("200 success response on a signed URL echoes inbound X-Request-Id", async () => {
+    const token = await signContentToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACTS: {
+        async get() {
+          return {
+            body: new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode("<h1>ok</h1>"));
+                controller.close();
+              },
+            }),
+            httpMetadata: { contentType: "text/html" },
+            size: 11,
+          };
+        },
+      },
+    };
+    const requestId = "happy-path-req-id";
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, {
+        headers: { "x-request-id": requestId },
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe(requestId);
+  });
 });
