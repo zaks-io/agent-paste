@@ -221,7 +221,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/runbook-logpush.md` (no Worker code change required).
 - Runbook: [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) -- pre-flight, six Axiom datasets, six Logpush jobs, redaction list, three APL panels, verification curl + APL.
-- Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
+- Done: all six Axiom datasets (preview + production for `api`/`upload`/`content`) receive Worker logs; dashboards show 5xx rate and p95 latency in both envs; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
 
 ### 7. Review and merge `t3code/7bcd4587`
 

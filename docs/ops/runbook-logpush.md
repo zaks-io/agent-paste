@@ -53,7 +53,7 @@ No explicit field schema needed; Axiom auto-detects from the first `workers_trac
 
 One job per Worker per environment. Dataset (Cloudflare side) is always `workers_trace_events`. Destination is Axiom HTTPS ingest:
 
-```
+```text
 https://api.axiom.co/v1/datasets/<axiom-dataset>/ingest?timestamp-field=EventTimestampMs&timestamp-format=unixmilli
 ```
 
