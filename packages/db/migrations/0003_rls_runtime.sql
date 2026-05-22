@@ -92,6 +92,16 @@ create policy idempotency_records_platform on idempotency_records
   using (current_setting('app.platform', true) = 'on')
   with check (current_setting('app.platform', true) = 'on');
 
+-- RLS predicates filter by workspace_id on every query. The base tables that
+-- did not already have a workspace_id index would otherwise full-scan; add
+-- them here so the policy USING clause uses an index lookup.
+-- idempotency_records is covered by its composite primary key
+-- (workspace_id, actor_type, actor_id, operation, idempotency_key).
+create index if not exists upload_session_files_workspace_idx
+  on upload_session_files(workspace_id);
+create index if not exists artifact_files_workspace_idx
+  on artifact_files(workspace_id);
+
 -- The Hyperdrive runtime role must be NOBYPASSRLS. The migration role is
 -- privileged (BYPASSRLS) and stays that way. When DATABASE_RUNTIME_ROLE is set,
 -- strip BYPASSRLS from that role so misconfigured connections fail closed.

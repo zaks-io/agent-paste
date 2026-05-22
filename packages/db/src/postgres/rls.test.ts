@@ -8,7 +8,12 @@ import { rlsExecutor } from "./rls.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+const SAFE_ROLE = /^[a-z_][a-z0-9_]*$/;
+
 function executorForPglite(client: PGlite, role?: string): SqlExecutor {
+  if (role !== undefined && !SAFE_ROLE.test(role)) {
+    throw new Error(`unsafe role identifier: ${role}`);
+  }
   const wrapInner = (runner: { query: PGlite["query"] }): SqlExecutor => ({
     async query<Row = Record<string, unknown>>(sql: string, params: readonly SqlValue[] = []) {
       const result = await runner.query<Record<string, unknown>>(sql, params as unknown[]);
