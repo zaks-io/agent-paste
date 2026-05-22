@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest, type UploadSessionRecord } from "./index.js";
 
 describe("upload worker", () => {
+  it("documents rate-limit responses in OpenAPI", async () => {
+    const response = await handleRequest(new Request("https://upload.test/openapi.json"), {});
+    const doc = (await response.json()) as {
+      paths: Record<
+        string,
+        Record<string, { responses: Record<string, { description?: string; headers?: Record<string, unknown> }> }>
+      >;
+    };
+
+    expect(doc.paths["/v1/upload-sessions"]?.post.responses["429"]).toMatchObject({
+      description: expect.stringContaining("rate_limited_actor"),
+      headers: { "Retry-After": expect.any(Object) },
+    });
+  });
+
   it("creates signed upload targets", async () => {
     const session: UploadSessionRecord = {
       session_id: "upl_1",

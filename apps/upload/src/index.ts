@@ -764,6 +764,7 @@ function standardResponses(schemaName: string): Record<string, unknown> {
     401: errorResponseDescription(),
     404: errorResponseDescription(),
     409: errorResponseDescription(),
+    429: rateLimitResponseDescription(),
     500: errorResponseDescription(),
     503: errorResponseDescription(),
   };
@@ -772,6 +773,23 @@ function standardResponses(schemaName: string): Record<string, unknown> {
 function errorResponseDescription(): Record<string, unknown> {
   return {
     description: "Error envelope",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+      },
+    },
+  };
+}
+
+function rateLimitResponseDescription(): Record<string, unknown> {
+  return {
+    description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+    headers: {
+      "Retry-After": {
+        description: "Seconds to wait before retrying.",
+        schema: { type: "string" },
+      },
+    },
     content: {
       "application/json": {
         schema: { $ref: "#/components/schemas/ErrorEnvelope" },

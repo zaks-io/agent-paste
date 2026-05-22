@@ -6,7 +6,7 @@ pre-commit:
       stage_fixed: true
       run: pnpm exec biome check --write --staged --no-errors-on-unmatched {staged_files}
     prettier-docs:
-      glob: "**/*.md"
+      glob: "{*.md,**/*.md}"
       stage_fixed: true
       run: pnpm exec prettier --write {staged_files}
     gitleaks:

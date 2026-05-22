@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest } from "./index.js";
 
 describe("api worker", () => {
+  it("documents rate-limit responses in OpenAPI", async () => {
+    const response = await handleRequest(new Request("https://api.test/openapi.json"), {});
+    const doc = (await response.json()) as {
+      paths: Record<
+        string,
+        Record<string, { responses: Record<string, { description?: string; headers?: Record<string, unknown> }> }>
+      >;
+    };
+
+    expect(doc.paths["/v1/whoami"]?.get.responses["429"]).toMatchObject({
+      description: expect.stringContaining("rate_limited_actor"),
+      headers: { "Retry-After": expect.any(Object) },
+    });
+  });
+
   it("returns whoami for a valid api key", async () => {
     const env: Env = {
       AUTH: {
