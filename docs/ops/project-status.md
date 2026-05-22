@@ -209,7 +209,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### Apply Postgres RLS at runtime
 
-- Status: Done on 2026-05-22 via PR #TBD.
+- Status: Done on 2026-05-22 via PR #18.
 - Drives: ADR 0044
 - Files: `packages/db/migrations/0003_rls_runtime.sql`, `packages/db/src/postgres/rls.ts`, `packages/db/src/postgres/repository.ts`, `packages/db/src/postgres/rls.test.ts`, `packages/db/scripts/migrate.mjs`, `packages/db/package.json`.
 - Done: RLS enabled and `force row level security` on every tenant table (`workspaces`, `api_keys`, `upload_sessions`, `upload_session_files`, `artifacts`, `artifact_files`, `operation_events`, `idempotency_records`); two permissive policies per table cover the tenant scope (`current_setting('app.workspace_id', true)`) and the platform scope (`current_setting('app.platform', true) = 'on'`) used by pre-auth lookups, admin sweeps, and the public Agent View resolve path; the `PostgresRepository` wraps every public method in a transaction whose `SET LOCAL` puts the right scope on first; the migration script accepts a `DATABASE_RUNTIME_ROLE` env to strip `BYPASSRLS` from the Hyperdrive runtime role; the new `rls.test.ts` runs against PGlite (real Postgres, not a mock) using a non-superuser `agent_paste_runtime` role and proves a cross-workspace read returns zero rows, a cross-workspace insert is rejected by the `WITH CHECK`, and an unscoped read returns zero rows (fail-closed).
