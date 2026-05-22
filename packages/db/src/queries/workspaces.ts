@@ -1,0 +1,37 @@
+import { eq } from "drizzle-orm";
+import type { DrizzleDb } from "../postgres/drizzle.js";
+import { workspaces } from "../schema.js";
+import type { Workspace } from "../types.js";
+
+export const workspaceQueries = {
+  async insert(db: DrizzleDb, row: Workspace) {
+    await db.insert(workspaces).values({
+      id: row.id,
+      name: row.name,
+      contactEmail: row.contact_email,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    });
+  },
+
+  async findById(db: DrizzleDb, id: string): Promise<Workspace | null> {
+    const rows = await db.select().from(workspaces).where(eq(workspaces.id, id)).limit(1);
+    const row = rows[0];
+    return row ? mapWorkspace(row) : null;
+  },
+
+  async listAll(db: DrizzleDb): Promise<Workspace[]> {
+    const rows = await db.select().from(workspaces);
+    return rows.map(mapWorkspace).sort((left, right) => right.created_at.localeCompare(left.created_at));
+  },
+};
+
+function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
+  return {
+    id: row.id,
+    name: row.name,
+    contact_email: row.contactEmail,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  };
+}

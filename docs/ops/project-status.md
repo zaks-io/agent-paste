@@ -51,24 +51,24 @@ Open security follow-ups:
 
 ## Implementation Map
 
-| Component             | Status      | Source LOC | Tests | Key files / notes                                                                                                                        |
-| --------------------- | ----------- | ---------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api`            | Implemented | ~950       | Yes   | `src/index.ts`. Hono routing, `/openapi.json`, public Agent View, admin routes, scheduled cleanup, signed content URLs, denylist writes. |
-| `apps/upload`         | Implemented | ~14k       | Yes   | `src/index.ts`. Session create, signed PUT, R2 writes, finalize, signed Agent View URL minting.                                          |
-| `apps/content`        | Implemented | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist.                                               |
-| `apps/cli`            | Implemented | ~520       | Yes   | `src/index.ts`, `src/local.ts`. `whoami`, `publish`, admin commands. Destructive admin commands require `--yes`.                         |
-| `apps/jobs`           | Scaffolded  | ~65        | No    | `src/index.ts`. Hono + `healthz` only. Empty `runScheduledJobs()`. No queue consumers.                                                   |
-| `apps/web`            | Scaffolded  | ~50        | No    | Hono + `healthz` only. No Auth0, no routes, no UI.                                                                                       |
-| `apps/mcp`            | Scaffolded  | ~85        | No    | Hono + `healthz` only. No OAuth, no MCP transport.                                                                                       |
-| `packages/contracts`  | Implemented | ~810       | Yes   | Zod schemas, branded IDs, route registry. CLI-first MVP surface only.                                                                    |
-| `packages/db`         | Implemented | ~2070      | Yes   | Drizzle schema + SQL migration, repository helpers, Hyperdrive executor. Runtime is mostly raw SQL/repo, not Drizzle queries.            |
-| `packages/auth`       | Implemented | ~290       | Yes   | API key gen/parse/verify, admin token HMAC, `cachedLookup`, scope registry.                                                              |
-| `packages/api-client` | Implemented | ~340       | Yes   | Auth resolution, retry, idempotency, cursor pagination.                                                                                  |
-| `packages/storage`    | Implemented | ~60        | Yes   | MIME map, security headers, content-token placeholders.                                                                                  |
-| `packages/commands`   | Implemented | ~150       | Yes   | `runCommand`, `createOperationEvent`, idempotency helpers. Wired into mutation persistence paths in `api` and `upload`.                  |
-| `packages/config`     | Scaffolded  | ~65        | Yes   | Constants and a couple of helpers; no per-app env schema.                                                                                |
-| `packages/tsconfig`   | Config only | n/a        | n/a   | Shared TS base.                                                                                                                          |
-| `packages/repo-lint`  | Config only | n/a        | n/a   | Biome rules for docs/scripts.                                                                                                            |
+| Component             | Status      | Source LOC | Tests | Key files / notes                                                                                                                                                                                                                                               |
+| --------------------- | ----------- | ---------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`            | Implemented | ~950       | Yes   | `src/index.ts`. Hono routing, `/openapi.json`, public Agent View, admin routes, scheduled cleanup, signed content URLs, denylist writes.                                                                                                                        |
+| `apps/upload`         | Implemented | ~14k       | Yes   | `src/index.ts`. Session create, signed PUT, R2 writes, finalize, signed Agent View URL minting.                                                                                                                                                                 |
+| `apps/content`        | Implemented | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist.                                                                                                                                                                      |
+| `apps/cli`            | Implemented | ~520       | Yes   | `src/index.ts`, `src/local.ts`. `whoami`, `publish`, admin commands. Destructive admin commands require `--yes`.                                                                                                                                                |
+| `apps/jobs`           | Scaffolded  | ~65        | No    | `src/index.ts`. Hono + `healthz` only. Empty `runScheduledJobs()`. No queue consumers.                                                                                                                                                                          |
+| `apps/web`            | Scaffolded  | ~50        | No    | Hono + `healthz` only. No Auth0, no routes, no UI.                                                                                                                                                                                                              |
+| `apps/mcp`            | Scaffolded  | ~85        | No    | Hono + `healthz` only. No OAuth, no MCP transport.                                                                                                                                                                                                              |
+| `packages/contracts`  | Implemented | ~810       | Yes   | Zod schemas, branded IDs, route registry. CLI-first MVP surface only.                                                                                                                                                                                           |
+| `packages/db`         | Implemented | ~1800      | Yes   | Drizzle schema + SQL migration, repository split into `local-repository.ts`/`postgres/*`, query objects under `queries/*`. MVP runtime queries use Drizzle; admin/cleanup set-based updates keep raw SQL. `db:check` introspection guard runs in `pnpm verify`. |
+| `packages/auth`       | Implemented | ~290       | Yes   | API key gen/parse/verify, admin token HMAC, `cachedLookup`, scope registry.                                                                                                                                                                                     |
+| `packages/api-client` | Implemented | ~340       | Yes   | Auth resolution, retry, idempotency, cursor pagination.                                                                                                                                                                                                         |
+| `packages/storage`    | Implemented | ~60        | Yes   | MIME map, security headers, content-token placeholders.                                                                                                                                                                                                         |
+| `packages/commands`   | Implemented | ~150       | Yes   | `runCommand`, `createOperationEvent`, idempotency helpers. Wired into mutation persistence paths in `api` and `upload`.                                                                                                                                         |
+| `packages/config`     | Scaffolded  | ~65        | Yes   | Constants and a couple of helpers; no per-app env schema.                                                                                                                                                                                                       |
+| `packages/tsconfig`   | Config only | n/a        | n/a   | Shared TS base.                                                                                                                                                                                                                                                 |
+| `packages/repo-lint`  | Config only | n/a        | n/a   | Biome rules for docs/scripts.                                                                                                                                                                                                                                   |
 
 ## Spec Coverage
 
@@ -96,75 +96,75 @@ Status legend: **Done** = code matches spec; **Partial** = main flow works, gaps
 
 All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (code differs from ADR by intent), **Deferred** (post-MVP per ADR 0066 or phases.md), **Superseded**.
 
-| ADR                                       | Status       | Gap                                                                                                                                                                             |
-| ----------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0001 private artifact storage             | Done         | R2 private buckets in use.                                                                                                                                                      |
-| 0002 Auth0 for workspace auth             | Deferred     | No Auth0 in code; admin token bearer used instead per ADR 0066.                                                                                                                 |
-| 0003 restrict artifact JS network         | Done         | CSP `connect-src 'self'` set in content Worker.                                                                                                                                 |
-| 0004 audit wrapper for state changes      | Done         | `runCommand` writes the audit event in the same transaction as every mutation.                                                                                                  |
-| 0005 Workers + R2 + Postgres + Hyperdrive | Done         | All four bindings present in `wrangler.jsonc`.                                                                                                                                  |
-| 0006 small Workers by boundary            | Done         | api/upload/content split. jobs/web/mcp scaffolded for future.                                                                                                                   |
-| 0007 Drizzle migrations + preview envs    | Partial      | Migration exists; runtime not Drizzle. Preview Neon branch wired.                                                                                                               |
-| 0008 pnpm + Turborepo guardrails          | Done         | Lockfile, workspace config, CI install guardrails.                                                                                                                              |
-| 0009 TypeScript + per-app wrangler        | Done         | Per-app `wrangler.jsonc`.                                                                                                                                                       |
-| 0010 GitHub Actions on Blacksmith         | Done         | CI, PR preview, cleanup, production deploy workflows present.                                                                                                                   |
-| 0011 Cloudflare-first observability       | Partial      | Wrangler observability flag on. Logpush -> Axiom click-ops runbook published (`docs/ops/runbook-logpush.md`); console wiring pending Isaac.                                     |
-| 0012 preview + production only            | Done         | Wrangler envs match.                                                                                                                                                            |
-| 0013 wrangler-first local dev             | Done         | `pnpm dev:all` and local-mvp-server.mjs.                                                                                                                                        |
-| 0014 single-domain + hardened subdomain   | Partial      | Production routes match. Preview uses `*.preview.agent-paste.sh` — keep or document.                                                                                            |
-| 0015 shared auth primitives               | Done for MVP | `packages/auth` exports shared HMAC + cache.                                                                                                                                    |
-| 0016 Hono + OpenAPI                       | Done         | All Workers on Hono. `/openapi.json` is generated from `packages/contracts` via `@asteasolutions/zod-to-openapi` with golden diff in `pnpm verify`.                             |
-| 0017 OpenAPI contract + SDK/CLI           | Partial      | `packages/api-client` exists. OpenAPI schemas now generated from Zod; SDK regeneration pipeline still manual.                                                                   |
-| 0018 Drizzle for schema + queries         | Partial      | Schema in Drizzle, runtime in raw SQL/repo helpers.                                                                                                                             |
-| 0019 Cloudflare Queues for jobs           | Deferred     | Phase 4+. Cleanup in `api` scheduled handler.                                                                                                                                   |
-| 0020 content caching by revision          | Partial      | Cache headers set; revision-hash cache-key validation not explicit.                                                                                                             |
-| 0021 ID-based R2 object key layout        | Done         | Keys follow `{artifact}/{revision}/{path}`.                                                                                                                                     |
-| 0022 idempotent mutations                 | Done         | Every POST/PUT/DELETE in `api` and `upload` honors `Idempotency-Key` via `runCommand`; replay returns cached result, in-flight collision returns 409.                           |
-| 0023 versioned REST APIs                  | Done         | All public routes under `/v1`. Admin under `/admin`.                                                                                                                            |
-| 0024 treat agent data as untrusted        | Partial      | CSP + private R2 + signed URLs in place. 2026-05-21 pass fixed upload MIME trust and content headers. Artifact read throttling remains.                                         |
-| 0025 Biome + Lefthook + Vitest            | Done         | All three configured.                                                                                                                                                           |
-| 0026 Turborepo remote cache               | Done         | Signed cache configured.                                                                                                                                                        |
-| 0027 upload write path                    | Done         | Signed PUT through upload Worker.                                                                                                                                               |
-| 0028 signed URL content tokens            | Done         | HMAC tokens working. Single secret name `CONTENT_SIGNING_SECRET` used by code, bootstrap, and ADR 0058.                                                                         |
-| 0029 MVP CSP + CDN allowlist              | Partial      | CSP set. CDN allowlist value not validated against current ADR allowance list.                                                                                                  |
-| 0030 in-origin renderer pages             | Deferred     | MVP serves raw HTML; renderer pages are Phase 3+.                                                                                                                               |
-| 0031 signed content URLs with kid         | Superseded   | Replaced by ADR 0028.                                                                                                                                                           |
-| 0032 jobs Worker trigger model            | Deferred     | Phase 4+.                                                                                                                                                                       |
-| 0033 TanStack Start web app               | Deferred     | Phase 3+.                                                                                                                                                                       |
-| 0034 unified scope model                  | Partial      | Scope registry in `packages/auth`. RLS predicates not active (see ADR 0044).                                                                                                    |
-| 0035 runCommand sequencing                | Done         | `runCommand` claims the idempotency record, executes the handler, persists `result_json`, and writes audit events in one transaction.                                           |
-| 0036 error envelope + generic 404         | Partial      | Envelope shape correct; `request_id` and `docs` fields not consistently emitted.                                                                                                |
-| 0037 internal api-client powers CLI       | Done         | `packages/api-client` powers CLI.                                                                                                                                               |
-| 0038 Zod as source of truth               | Partial      | Contracts in Zod; OpenAPI documents now generated from those Zod schemas. Workers still don't validate every request/response body through them.                                |
-| 0039 authenticated rate limits            | Done         | `api` and `upload` call native bindings for API-key traffic; upload mutation routes peek the idempotency record before consuming budget; hosted smoke covers the 429 envelope.  |
-| 0040 platform lockdown                    | Partial      | KV denylist writes on delete/cleanup. Operator UI for lockdown deferred to Phase 3+.                                                                                            |
-| 0041 upload size caps                     | Done         | CLI + upload Worker enforce caps.                                                                                                                                               |
-| 0042 strict extension content type        | Done         | `content` ignores upload/R2 MIME metadata, derives from extension allowlist, downloads unknown extensions, and applies SVG strict CSP.                                          |
-| 0043 bearer credential format             | Done         | `ap_pk_{env}_...` format; HMAC + pepper storage.                                                                                                                                |
-| 0044 workspace isolation via RLS          | Partial      | Migration defines RLS roles. Workers do not `SET LOCAL app.workspace_id` per request. Workspace isolation relies on application-layer query scoping.                            |
-| 0045 secret rotation cadence              | Partial      | Bootstrap mints `_V1` keys. Rotation tooling not implemented.                                                                                                                   |
-| 0046 operator identity + admin surface    | Drift        | Single bearer admin token (`ADMIN_TOKEN_HASH`) used instead of Cloudflare Access + email allowlist. ADR 0067 accepts this only as interim CLI-first MVP posture before Phase 3. |
-| 0047 Access Link signed URL               | Deferred     | Phase 3+. Public Agent View uses simpler signed token.                                                                                                                          |
-| 0048 transient artifacts by default       | Partial      | TTL defaults + expiry modeled. Byte-purge after expiry not verified end-to-end.                                                                                                 |
-| 0049 jobs handler patterns                | Deferred     | Phase 4+.                                                                                                                                                                       |
-| 0050 bundle availability + DLQ            | Deferred     | Phase 4+.                                                                                                                                                                       |
-| 0051 safety scanner lifecycle             | Deferred     | Phase 6.                                                                                                                                                                        |
-| 0052 Agent View from Access Link          | Partial      | Public Agent View works with simpler signed token; Access Link variant deferred.                                                                                                |
-| 0053 manifest shape                       | Deferred     | Phase 4+.                                                                                                                                                                       |
-| 0054 Agent View envelope                  | Done         | API response matches ADR shape.                                                                                                                                                 |
-| 0055 signup auto-provisions workspace     | Deferred     | Phase 3. Admin CLI provisions workspaces today.                                                                                                                                 |
-| 0056 MVP usage policy defaults            | Done         | Caps match: 10 MB file / 25 MB artifact / 100 files / 30d default TTL.                                                                                                          |
-| 0057 KV denylist namespace + write order  | Partial      | Content Worker reads denylist; API writes on delete/cleanup. Confirm prefix names and write-order match ADR.                                                                    |
-| 0058 first-deploy bootstrap               | Partial      | `scripts/bootstrap-secrets.mjs` works. Secret names drift from ADR (see ADR 0028 row).                                                                                          |
-| 0059 web app session sealing              | Deferred     | Phase 3.                                                                                                                                                                        |
-| 0060 CLI auth via Auth0 loopback          | Deferred     | Phase 3. Today the CLI uses an env-var API key.                                                                                                                                 |
-| 0061 MCP via Auth0 DCR                    | Deferred     | Phase 5.                                                                                                                                                                        |
-| 0062 two-layer cache for auth             | Done         | `cachedLookup` in `packages/auth` wired into `api` and `upload`.                                                                                                                |
-| 0063 app-layer encryption                 | Deferred     | Phase 6.                                                                                                                                                                        |
-| 0064 native rate-limit bindings           | Done         | Bindings are called in `api` and `upload`; upload routes peek idempotency before rate-limit; hosted smoke asserts the per-actor 429.                                            |
-| 0065 wrangler JSONC                       | Done         | All Workers use `wrangler.jsonc`.                                                                                                                                               |
-| 0066 CLI-first MVP narrowing              | Done         | This is the controlling roadmap ADR.                                                                                                                                            |
-| 0067 interim production security baseline | Done         | Records live-before-app-service controls and follow-ups.                                                                                                                        |
+| ADR                                       | Status       | Gap                                                                                                                                                                                        |
+| ----------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0001 private artifact storage             | Done         | R2 private buckets in use.                                                                                                                                                                 |
+| 0002 Auth0 for workspace auth             | Deferred     | No Auth0 in code; admin token bearer used instead per ADR 0066.                                                                                                                            |
+| 0003 restrict artifact JS network         | Done         | CSP `connect-src 'self'` set in content Worker.                                                                                                                                            |
+| 0004 audit wrapper for state changes      | Done         | `runCommand` writes the audit event in the same transaction as every mutation.                                                                                                             |
+| 0005 Workers + R2 + Postgres + Hyperdrive | Done         | All four bindings present in `wrangler.jsonc`.                                                                                                                                             |
+| 0006 small Workers by boundary            | Done         | api/upload/content split. jobs/web/mcp scaffolded for future.                                                                                                                              |
+| 0007 Drizzle migrations + preview envs    | Partial      | Migration exists; MVP runtime now goes through Drizzle queries with a `db:check` snapshot guard. Preview Neon branch wired.                                                                |
+| 0008 pnpm + Turborepo guardrails          | Done         | Lockfile, workspace config, CI install guardrails.                                                                                                                                         |
+| 0009 TypeScript + per-app wrangler        | Done         | Per-app `wrangler.jsonc`.                                                                                                                                                                  |
+| 0010 GitHub Actions on Blacksmith         | Done         | CI, PR preview, cleanup, production deploy workflows present.                                                                                                                              |
+| 0011 Cloudflare-first observability       | Partial      | Wrangler observability flag on. Logpush -> Axiom click-ops runbook published (`docs/ops/runbook-logpush.md`); console wiring pending Isaac.                                                |
+| 0012 preview + production only            | Done         | Wrangler envs match.                                                                                                                                                                       |
+| 0013 wrangler-first local dev             | Done         | `pnpm dev:all` and local-mvp-server.mjs.                                                                                                                                                   |
+| 0014 single-domain + hardened subdomain   | Partial      | Production routes match. Preview uses `*.preview.agent-paste.sh` — keep or document.                                                                                                       |
+| 0015 shared auth primitives               | Done for MVP | `packages/auth` exports shared HMAC + cache.                                                                                                                                               |
+| 0016 Hono + OpenAPI                       | Done         | All Workers on Hono. `/openapi.json` is generated from `packages/contracts` via `@asteasolutions/zod-to-openapi` with golden diff in `pnpm verify`.                                        |
+| 0017 OpenAPI contract + SDK/CLI           | Partial      | `packages/api-client` exists. OpenAPI schemas now generated from Zod; SDK regeneration pipeline still manual.                                                                              |
+| 0018 Drizzle for schema + queries         | Partial      | Schema in Drizzle; MVP workspace/api-key/upload-session/artifact reads + writes use Drizzle query objects (`packages/db/src/queries/*`); admin/cleanup set-based statements still raw SQL. |
+| 0019 Cloudflare Queues for jobs           | Deferred     | Phase 4+. Cleanup in `api` scheduled handler.                                                                                                                                              |
+| 0020 content caching by revision          | Partial      | Cache headers set; revision-hash cache-key validation not explicit.                                                                                                                        |
+| 0021 ID-based R2 object key layout        | Done         | Keys follow `{artifact}/{revision}/{path}`.                                                                                                                                                |
+| 0022 idempotent mutations                 | Done         | Every POST/PUT/DELETE in `api` and `upload` honors `Idempotency-Key` via `runCommand`; replay returns cached result, in-flight collision returns 409.                                      |
+| 0023 versioned REST APIs                  | Done         | All public routes under `/v1`. Admin under `/admin`.                                                                                                                                       |
+| 0024 treat agent data as untrusted        | Partial      | CSP + private R2 + signed URLs in place. 2026-05-21 pass fixed upload MIME trust and content headers. Artifact read throttling remains.                                                    |
+| 0025 Biome + Lefthook + Vitest            | Done         | All three configured.                                                                                                                                                                      |
+| 0026 Turborepo remote cache               | Done         | Signed cache configured.                                                                                                                                                                   |
+| 0027 upload write path                    | Done         | Signed PUT through upload Worker.                                                                                                                                                          |
+| 0028 signed URL content tokens            | Done         | HMAC tokens working. Single secret name `CONTENT_SIGNING_SECRET` used by code, bootstrap, and ADR 0058.                                                                                    |
+| 0029 MVP CSP + CDN allowlist              | Partial      | CSP set. CDN allowlist value not validated against current ADR allowance list.                                                                                                             |
+| 0030 in-origin renderer pages             | Deferred     | MVP serves raw HTML; renderer pages are Phase 3+.                                                                                                                                          |
+| 0031 signed content URLs with kid         | Superseded   | Replaced by ADR 0028.                                                                                                                                                                      |
+| 0032 jobs Worker trigger model            | Deferred     | Phase 4+.                                                                                                                                                                                  |
+| 0033 TanStack Start web app               | Deferred     | Phase 3+.                                                                                                                                                                                  |
+| 0034 unified scope model                  | Partial      | Scope registry in `packages/auth`. RLS predicates not active (see ADR 0044).                                                                                                               |
+| 0035 runCommand sequencing                | Done         | `runCommand` claims the idempotency record, executes the handler, persists `result_json`, and writes audit events in one transaction.                                                      |
+| 0036 error envelope + generic 404         | Partial      | Envelope shape correct; `request_id` and `docs` fields not consistently emitted.                                                                                                           |
+| 0037 internal api-client powers CLI       | Done         | `packages/api-client` powers CLI.                                                                                                                                                          |
+| 0038 Zod as source of truth               | Partial      | Contracts in Zod; OpenAPI documents now generated from those Zod schemas. Workers still don't validate every request/response body through them.                                           |
+| 0039 authenticated rate limits            | Done         | `api` and `upload` call native bindings for API-key traffic; upload mutation routes peek the idempotency record before consuming budget; hosted smoke covers the 429 envelope.             |
+| 0040 platform lockdown                    | Partial      | KV denylist writes on delete/cleanup. Operator UI for lockdown deferred to Phase 3+.                                                                                                       |
+| 0041 upload size caps                     | Done         | CLI + upload Worker enforce caps.                                                                                                                                                          |
+| 0042 strict extension content type        | Done         | `content` ignores upload/R2 MIME metadata, derives from extension allowlist, downloads unknown extensions, and applies SVG strict CSP.                                                     |
+| 0043 bearer credential format             | Done         | `ap_pk_{env}_...` format; HMAC + pepper storage.                                                                                                                                           |
+| 0044 workspace isolation via RLS          | Partial      | Migration defines RLS roles. Workers do not `SET LOCAL app.workspace_id` per request. Workspace isolation relies on application-layer query scoping.                                       |
+| 0045 secret rotation cadence              | Partial      | Bootstrap mints `_V1` keys. Rotation tooling not implemented.                                                                                                                              |
+| 0046 operator identity + admin surface    | Drift        | Single bearer admin token (`ADMIN_TOKEN_HASH`) used instead of Cloudflare Access + email allowlist. ADR 0067 accepts this only as interim CLI-first MVP posture before Phase 3.            |
+| 0047 Access Link signed URL               | Deferred     | Phase 3+. Public Agent View uses simpler signed token.                                                                                                                                     |
+| 0048 transient artifacts by default       | Partial      | TTL defaults + expiry modeled. Byte-purge after expiry not verified end-to-end.                                                                                                            |
+| 0049 jobs handler patterns                | Deferred     | Phase 4+.                                                                                                                                                                                  |
+| 0050 bundle availability + DLQ            | Deferred     | Phase 4+.                                                                                                                                                                                  |
+| 0051 safety scanner lifecycle             | Deferred     | Phase 6.                                                                                                                                                                                   |
+| 0052 Agent View from Access Link          | Partial      | Public Agent View works with simpler signed token; Access Link variant deferred.                                                                                                           |
+| 0053 manifest shape                       | Deferred     | Phase 4+.                                                                                                                                                                                  |
+| 0054 Agent View envelope                  | Done         | API response matches ADR shape.                                                                                                                                                            |
+| 0055 signup auto-provisions workspace     | Deferred     | Phase 3. Admin CLI provisions workspaces today.                                                                                                                                            |
+| 0056 MVP usage policy defaults            | Done         | Caps match: 10 MB file / 25 MB artifact / 100 files / 30d default TTL.                                                                                                                     |
+| 0057 KV denylist namespace + write order  | Partial      | Content Worker reads denylist; API writes on delete/cleanup. Confirm prefix names and write-order match ADR.                                                                               |
+| 0058 first-deploy bootstrap               | Partial      | `scripts/bootstrap-secrets.mjs` works. Secret names drift from ADR (see ADR 0028 row).                                                                                                     |
+| 0059 web app session sealing              | Deferred     | Phase 3.                                                                                                                                                                                   |
+| 0060 CLI auth via Auth0 loopback          | Deferred     | Phase 3. Today the CLI uses an env-var API key.                                                                                                                                            |
+| 0061 MCP via Auth0 DCR                    | Deferred     | Phase 5.                                                                                                                                                                                   |
+| 0062 two-layer cache for auth             | Done         | `cachedLookup` in `packages/auth` wired into `api` and `upload`.                                                                                                                           |
+| 0063 app-layer encryption                 | Deferred     | Phase 6.                                                                                                                                                                                   |
+| 0064 native rate-limit bindings           | Done         | Bindings are called in `api` and `upload`; upload routes peek idempotency before rate-limit; hosted smoke asserts the per-actor 429.                                                       |
+| 0065 wrangler JSONC                       | Done         | All Workers use `wrangler.jsonc`.                                                                                                                                                          |
+| 0066 CLI-first MVP narrowing              | Done         | This is the controlling roadmap ADR.                                                                                                                                                       |
+| 0067 interim production security baseline | Done         | Records live-before-app-service controls and follow-ups.                                                                                                                                   |
 
 Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
@@ -185,25 +185,19 @@ Ordered. Each item has a verifiable Done. Items 1-4 close Phase 1; items 5-7 pre
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Move runtime queries to Drizzle
-
-- Drives: ADR 0018
-- Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
-- Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
-
-### 2. Apply Postgres RLS at runtime
+### 1. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 3. Exercise PR preview lifecycle on a same-repo PR
+### 2. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
 - Done: a same-repo PR (the one carrying items 1-3 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 4. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 3. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Status: Partial -- runbook ready, click-ops pending Isaac.
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
@@ -211,7 +205,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Runbook: [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) -- pre-flight, six Axiom datasets, six Logpush jobs, redaction list, three APL panels, verification curl + APL.
 - Done: all six Axiom datasets (preview + production for `api`/`upload`/`content`) receive Worker logs; dashboards show 5xx rate and p95 latency in both envs; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
 
-### 6. Complete bootstrap hosting checklist
+### 4. Complete bootstrap hosting checklist
 
 - Status: Partial -- checklist ready, click-ops pending Isaac. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
 - Drives: ADR 0058, this doc § Bootstrap
@@ -219,6 +213,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Move MVP runtime queries to Drizzle + introspection check
+
+- Status: Done on 2026-05-22.
+- Drives: ADR 0018
+- Files: `packages/db/src/index.ts` (now a barrel), `packages/db/src/{policy,types,id,api-keys,validation,transforms,agent-view,local-repository}.ts`, `packages/db/src/postgres/{drizzle,executor,repository,services}.ts`, `packages/db/src/queries/*`, `packages/db/scripts/introspect-check.mjs`, `packages/db/snapshot/schema.sql`, `packages/db/package.json`, `turbo.json`, root `package.json`, `packages/db/src/index.test.ts`.
+- Done: MVP workspace/api-key/upload-session/artifact reads and writes go through Drizzle query objects under `packages/db/src/queries/*`; `PostgresRepository` keeps the `runCommand` idempotency wrapper around mutations and binds a Drizzle instance to each `SqlExecutor` via a WeakMap so handlers can recover the typed client; admin/cleanup paths that need set-based updates keep raw `tx.query` calls; `pnpm verify` now runs `db:check`, a turbo task that calls `node packages/db/scripts/introspect-check.mjs` to compare a fresh `drizzle-kit export` against the checked-in `packages/db/snapshot/schema.sql` and exits 1 on drift; forced-drift smoke confirmed the check fails when the snapshot mutates and recovers when reverted.
 
 ### Generate OpenAPI from Zod contracts
 
@@ -390,7 +391,7 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 1. `pnpm setup:codex`
 2. `pnpm verify`
 3. `pnpm smoke:local` (use `AGENT_PASTE_LOCAL_*_PORT` overrides if ports collide)
-4. Address backlog items 1-7 (or document why they are deferred)
+4. Address backlog items 1-4 (or document why they are deferred)
 5. `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
 6. Open a same-repo PR to exercise the preview workflow
 7. Production deploy only with explicit Isaac approval: `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`

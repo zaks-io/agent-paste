@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck && pnpm test",
+    "db:check": "node scripts/introspect-check.mjs",
     "lint": "biome lint .",
     "migrate": "node scripts/migrate.mjs",
     "test": "vitest run",
