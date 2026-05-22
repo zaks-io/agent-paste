@@ -19,7 +19,8 @@ async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
       },
     },
     ARTIFACTS: {
-      async get() {
+      async get(key) {
+        expect(key).toBe(`artifacts/art_1/revisions/rev_1/files/${path}`);
         return { body: new Response(body).body, size: body.length };
       },
     },
