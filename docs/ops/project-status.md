@@ -232,7 +232,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 ### Close obsolete `t3code/*` branches
 
 - Status: Done on 2026-05-21.
-- Drives: this doc backlog item #7 (review/merge `t3code/7bcd4587` and `t3code/5b6355f9`).
+- Drives: former backlog item #7 (review/merge `t3code/7bcd4587` and `t3code/5b6355f9`).
 - Action: `git fetch origin` plus `gh api repos/:owner/:repo/branches` confirmed neither `t3code/7bcd4587` nor `t3code/5b6355f9` exists on origin; the underlying commits are unreachable in this clone. The only Apex/front-end work that landed from the `t3code/*` family was the marketing worker scaffold merged via PR #1 (`4bde837 feat(apex): add marketing worker at agent-paste.sh`). Nothing left to salvage, so backlog item #7 is closed without a code change beyond removing the stale references from this doc.
 
 ### Verify bytes-after-delete and bytes-after-expiry cleanup
