@@ -1,7 +1,16 @@
-import { cachedLookup, cacheKeyForSecret, verifyAdminToken } from "@agent-paste/auth";
+import {
+  buildErrorBody,
+  cachedLookup,
+  cacheKeyForSecret,
+  getRequestId,
+  REQUEST_ID_HEADER,
+  type RequestIdVariables,
+  requestIdMiddleware,
+  verifyAdminToken,
+} from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -96,7 +105,10 @@ export type Env = {
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ALLOW_LEGACY_AGENT_VIEW_TOKENS?: string;
   AGENT_PASTE_ENV?: string;
+  DOCS_BASE_URL?: string;
 };
+
+type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
 type ScheduledEvent = {
   type: "scheduled";
@@ -125,52 +137,47 @@ const usagePolicy = {
 };
 const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
 const AUTH_CACHE_TTL_SECONDS = 60;
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
+app.use("*", requestIdMiddleware());
 app.get("/openapi.json", (context) => context.json(openApiDocument()));
-app.get("/v1/whoami", (context) => whoami(context.req.raw, context.env));
-app.get("/v1/usage-policy", (context) => getUsagePolicy(context.req.raw, context.env));
-app.get("/v1/public/agent-view/:token", (context) =>
-  publicAgentView(context.req.raw, context.env, { token: context.req.param("token") }),
-);
+app.get("/v1/whoami", (context) => whoami(context));
+app.get("/v1/usage-policy", (context) => getUsagePolicy(context));
+app.get("/v1/public/agent-view/:token", (context) => publicAgentView(context, { token: context.req.param("token") }));
 app.get("/v1/artifacts/:artifactId/agent-view", (context) =>
-  authenticatedAgentView(context.req.raw, context.env, {
-    artifactId: context.req.param("artifactId"),
-  }),
+  authenticatedAgentView(context, { artifactId: context.req.param("artifactId") }),
 );
 app.get("/v1/artifacts/:artifactId/revisions/:revisionId/agent-view", (context) =>
-  authenticatedAgentView(context.req.raw, context.env, {
+  authenticatedAgentView(context, {
     artifactId: context.req.param("artifactId"),
     revisionId: context.req.param("revisionId"),
   }),
 );
-app.get("/admin/whoami", (context) => adminWhoami(context.req.raw, context.env));
-app.post("/admin/workspaces", (context) => createWorkspace(context.req.raw, context.env));
-app.get("/admin/workspaces", (context) => listWorkspaces(context.req.raw, context.env));
+app.get("/admin/whoami", (context) => adminWhoami(context));
+app.post("/admin/workspaces", (context) => createWorkspace(context));
+app.get("/admin/workspaces", (context) => listWorkspaces(context));
 app.post("/admin/workspaces/:workspaceId/api-keys", (context) =>
-  createApiKey(context.req.raw, context.env, {
-    workspaceId: context.req.param("workspaceId"),
-  }),
+  createApiKey(context, { workspaceId: context.req.param("workspaceId") }),
 );
 app.delete("/admin/api-keys/:apiKeyId", (context) =>
-  revokeApiKey(context.req.raw, context.env, { apiKeyId: context.req.param("apiKeyId") }),
+  revokeApiKey(context, { apiKeyId: context.req.param("apiKeyId") }),
 );
-app.get("/admin/artifacts", (context) => listArtifacts(context.req.raw, context.env));
+app.get("/admin/artifacts", (context) => listArtifacts(context));
 app.get("/admin/artifacts/:artifactId", (context) =>
-  inspectArtifact(context.req.raw, context.env, { artifactId: context.req.param("artifactId") }),
+  inspectArtifact(context, { artifactId: context.req.param("artifactId") }),
 );
 app.delete("/admin/artifacts/:artifactId", (context) =>
-  deleteArtifact(context.req.raw, context.env, { artifactId: context.req.param("artifactId") }),
+  deleteArtifact(context, { artifactId: context.req.param("artifactId") }),
 );
-app.post("/admin/cleanup/run", (context) => cleanup(context.req.raw, context.env));
-app.get("/admin/operation-events", (context) => listOperationEvents(context.req.raw, context.env));
-app.post("/__test__/force-expire", (context) => forceExpire(context.req.raw, context.env));
-app.get("/__test__/r2-list", (context) => listR2Prefix(context.req.raw, context.env));
-app.get("/__test__/denylist", (context) => getDenylistKey(context.req.raw, context.env));
-app.notFound(() => errorResponse("not_found", 404));
-app.onError((error) => {
+app.post("/admin/cleanup/run", (context) => cleanup(context));
+app.get("/admin/operation-events", (context) => listOperationEvents(context));
+app.post("/__test__/force-expire", (context) => forceExpire(context));
+app.get("/__test__/r2-list", (context) => listR2Prefix(context));
+app.get("/__test__/denylist", (context) => getDenylistKey(context));
+app.notFound((context) => errorResponse(context, "not_found", 404));
+app.onError((error, context) => {
   console.error("Unhandled API error:", error);
-  return errorResponse("internal_error", 500);
+  return errorResponse(context, "internal_error", 500);
 });
 
 export default {
@@ -186,49 +193,52 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
-async function whoami(request: Request, env: Env): Promise<Response> {
-  const actor = await authenticateApiKey(request, env);
+async function whoami(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateApiKey(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
-  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  const limited = await rateLimitAuthenticatedRequest(context, actor);
   if (limited) {
     return limited;
   }
 
   const db = apiDatabase(env);
   if (!db) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
 
-  return jsonResponse(await db.getWhoami(actor));
+  return jsonResponse(context, await db.getWhoami(actor));
 }
 
-async function getUsagePolicy(request: Request, env: Env): Promise<Response> {
-  const actor = await authenticateApiKey(request, env);
+async function getUsagePolicy(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateApiKey(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
-  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  const limited = await rateLimitAuthenticatedRequest(context, actor);
   if (limited) {
     return limited;
   }
-  return jsonResponse(usagePolicy);
+  return jsonResponse(context, usagePolicy);
 }
 
-async function authenticatedAgentView(request: Request, env: Env, params: RouteParams): Promise<Response> {
-  const actor = await authenticateApiKey(request, env);
+async function authenticatedAgentView(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateApiKey(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
-  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  const limited = await rateLimitAuthenticatedRequest(context, actor);
   if (limited) {
     return limited;
   }
 
   const db = apiDatabase(env);
   if (!db) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
 
   const input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string } = {
@@ -242,18 +252,21 @@ async function authenticatedAgentView(request: Request, env: Env, params: RouteP
 
   const view = await db.getAgentView(input);
 
-  return view ? jsonResponse(await signAgentViewContentUrls(view, env)) : errorResponse("not_found", 404);
+  return view
+    ? jsonResponse(context, await signAgentViewContentUrls(view, env))
+    : errorResponse(context, "not_found", 404);
 }
 
-async function publicAgentView(request: Request, env: Env, params: RouteParams): Promise<Response> {
+async function publicAgentView(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
   const db = apiDatabase(env);
   if (!db) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
 
   const publicToken = await publicAgentViewDatabaseToken(params.token ?? "", env);
   if (!publicToken) {
-    return errorResponse("not_found", 404);
+    return errorResponse(context, "not_found", 404);
   }
 
   const view = await db.getPublicAgentView({
@@ -262,66 +275,71 @@ async function publicAgentView(request: Request, env: Env, params: RouteParams):
   });
 
   if (!view) {
-    return errorResponse("not_found", 404);
+    return errorResponse(context, "not_found", 404);
   }
 
   const signedView = await signAgentViewContentUrls(view, env);
-  return wantsHtml(request) ? htmlAgentViewResponse(signedView) : jsonResponse(signedView);
+  return wantsHtml(context.req.raw) ? htmlAgentViewResponse(context, signedView) : jsonResponse(context, signedView);
 }
 
-async function adminWhoami(request: Request, env: Env): Promise<Response> {
-  const actor = await authenticateAdmin(request, env);
+async function adminWhoami(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateAdmin(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
 
   const db = apiDatabase(env);
   if (db?.getAdminWhoami) {
-    return jsonResponse(await db.getAdminWhoami(actor));
+    return jsonResponse(context, await db.getAdminWhoami(actor));
   }
 
-  return jsonResponse({ actor });
+  return jsonResponse(context, { actor });
 }
 
-async function cleanup(request: Request, env: Env): Promise<Response> {
+async function cleanup(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
 
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
-    return errorResponse("invalid_idempotency_key", 400);
+    return errorResponse(context, "invalid_idempotency_key", 400);
   }
 
   const db = apiDatabase(env);
   if (!db) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
 
   const body = await readJsonObject(request);
   const dryRun = body.dry_run === true;
   const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
 
-  return runIdempotent(() => runCleanupAndDeny(env, db, adminActor(actor), dryRun, batchSize, idempotencyKey));
+  return runIdempotent(context, () => runCleanupAndDeny(env, db, adminActor(actor), dryRun, batchSize, idempotencyKey));
 }
 
-async function createWorkspace(request: Request, env: Env): Promise<Response> {
+async function createWorkspace(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
-    return errorResponse("invalid_idempotency_key", 400);
+    return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
   if (!db?.createWorkspace) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
   const body = await readJsonObject(request);
   if (typeof body.email !== "string") {
-    return errorResponse("invalid_request", 400, "email is required");
+    return errorResponse(context, "invalid_request", 400, "email is required");
   }
   const input: {
     actor: AdminActor;
@@ -332,36 +350,42 @@ async function createWorkspace(request: Request, env: Env): Promise<Response> {
   if (typeof body.name === "string") {
     input.name = body.name;
   }
-  return runIdempotent(() => db.createWorkspace!(input), 201);
+  return runIdempotent(context, () => db.createWorkspace!(input), 201);
 }
 
-async function listWorkspaces(request: Request, env: Env): Promise<Response> {
-  const actor = await authenticateAdmin(request, env);
+async function listWorkspaces(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateAdmin(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
-  return db?.listWorkspaces ? jsonResponse(await db.listWorkspaces()) : errorResponse("database_unavailable", 503);
+  return db?.listWorkspaces
+    ? jsonResponse(context, await db.listWorkspaces())
+    : errorResponse(context, "database_unavailable", 503);
 }
 
-async function createApiKey(request: Request, env: Env, params: RouteParams): Promise<Response> {
+async function createApiKey(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
-    return errorResponse("invalid_idempotency_key", 400);
+    return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
   if (!db?.createApiKey) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
   const body = await readJsonObject(request);
   if (typeof body.name !== "string") {
-    return errorResponse("invalid_request", 400, "name is required");
+    return errorResponse(context, "invalid_request", 400, "name is required");
   }
   return runIdempotent(
+    context,
     () =>
       db.createApiKey!({
         actor: adminActor(actor),
@@ -373,20 +397,22 @@ async function createApiKey(request: Request, env: Env, params: RouteParams): Pr
   );
 }
 
-async function revokeApiKey(request: Request, env: Env, params: RouteParams): Promise<Response> {
+async function revokeApiKey(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
-    return errorResponse("invalid_idempotency_key", 400);
+    return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
   if (!db?.revokeApiKey) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
-  return runIdempotent(() =>
+  return runIdempotent(context, () =>
     db.revokeApiKey!({
       actor: adminActor(actor),
       idempotencyKey,
@@ -395,48 +421,54 @@ async function revokeApiKey(request: Request, env: Env, params: RouteParams): Pr
   );
 }
 
-async function listArtifacts(request: Request, env: Env): Promise<Response> {
+async function listArtifacts(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const url = new URL(request.url);
   const db = apiDatabase(env);
   return db?.listArtifacts
     ? jsonResponse(
+        context,
         await db.listArtifacts(
           url.searchParams.get("workspace") ?? undefined,
           url.searchParams.get("status") ?? undefined,
         ),
       )
-    : errorResponse("database_unavailable", 503);
+    : errorResponse(context, "database_unavailable", 503);
 }
 
-async function inspectArtifact(request: Request, env: Env, params: RouteParams): Promise<Response> {
-  const actor = await authenticateAdmin(request, env);
+async function inspectArtifact(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateAdmin(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
   const detail = await db?.getArtifactDetail?.(params.artifactId ?? "");
-  return detail ? jsonResponse(detail) : errorResponse("not_found", 404);
+  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
 }
 
-async function deleteArtifact(request: Request, env: Env, params: RouteParams): Promise<Response> {
+async function deleteArtifact(context: AppContext, params: RouteParams): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey) {
-    return errorResponse("invalid_idempotency_key", 400);
+    return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const artifactId = params.artifactId ?? "";
   const db = apiDatabase(env);
   if (!db?.deleteArtifact) {
-    return errorResponse("database_unavailable", 503);
+    return errorResponse(context, "database_unavailable", 503);
   }
-  return runIdempotent(async () => {
+  return runIdempotent(context, async () => {
     const result = await db.deleteArtifact!({
       actor: adminActor(actor),
       idempotencyKey,
@@ -451,15 +483,16 @@ async function deleteArtifact(request: Request, env: Env, params: RouteParams): 
   });
 }
 
-async function listOperationEvents(request: Request, env: Env): Promise<Response> {
-  const actor = await authenticateAdmin(request, env);
+async function listOperationEvents(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const actor = await authenticateAdmin(context.req.raw, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
   return db?.listOperationEvents
-    ? jsonResponse(await db.listOperationEvents())
-    : errorResponse("database_unavailable", 503);
+    ? jsonResponse(context, await db.listOperationEvents())
+    : errorResponse(context, "database_unavailable", 503);
 }
 
 async function runScheduledCleanup(env: Env): Promise<void> {
@@ -627,38 +660,42 @@ async function purgeArtifactBytes(env: Env, artifactId: string): Promise<number>
 
 // Test-only routes. Gated to non-production environments so the production
 // API never exposes them, even if an operator with the admin token tried.
-async function forceExpire(request: Request, env: Env): Promise<Response> {
+async function forceExpire(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse("not_found", 404);
+    return errorResponse(context, "not_found", 404);
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
   if (!db?.forceExpireArtifact) {
-    return errorResponse("not_supported", 501);
+    return errorResponse(context, "not_supported", 501);
   }
   const body = await readJsonObject(request);
   const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
   if (!artifactId) {
-    return errorResponse("invalid_request", 400, "artifact_id is required");
+    return errorResponse(context, "invalid_request", 400, "artifact_id is required");
   }
   const expiresAt = new Date(Date.now() - 1000).toISOString();
   const result = await db.forceExpireArtifact({ artifactId, expiresAt });
-  return result ? jsonResponse(result) : errorResponse("not_found", 404);
+  return result ? jsonResponse(context, result) : errorResponse(context, "not_found", 404);
 }
 
-async function listR2Prefix(request: Request, env: Env): Promise<Response> {
+async function listR2Prefix(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse("not_found", 404);
+    return errorResponse(context, "not_found", 404);
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   if (!env.ARTIFACTS) {
-    return jsonResponse({ keys: [], r2_bound: false });
+    return jsonResponse(context, { keys: [], r2_bound: false });
   }
   const prefix = new URL(request.url).searchParams.get("prefix") ?? "";
   const keys: string[] = [];
@@ -674,26 +711,28 @@ async function listR2Prefix(request: Request, env: Env): Promise<Response> {
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
-  return jsonResponse({ keys, r2_bound: true });
+  return jsonResponse(context, { keys, r2_bound: true });
 }
 
-async function getDenylistKey(request: Request, env: Env): Promise<Response> {
+async function getDenylistKey(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse("not_found", 404);
+    return errorResponse(context, "not_found", 404);
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
   if (!env.DENYLIST?.get) {
-    return jsonResponse({ key: null, value: null, kv_bound: false });
+    return jsonResponse(context, { key: null, value: null, kv_bound: false });
   }
   const key = new URL(request.url).searchParams.get("key") ?? "";
   if (!key) {
-    return errorResponse("invalid_request", 400, "key is required");
+    return errorResponse(context, "invalid_request", 400, "key is required");
   }
   const value = await env.DENYLIST.get(key);
-  return jsonResponse({ key, value, kv_bound: true });
+  return jsonResponse(context, { key, value, kv_bound: true });
 }
 
 function isNonProductionEnv(env: Env): boolean {
@@ -900,23 +939,24 @@ function numberFromEnv(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-async function rateLimitAuthenticatedRequest(env: Env, actor: ApiActor): Promise<Response | null> {
+async function rateLimitAuthenticatedRequest(context: AppContext, actor: ApiActor): Promise<Response | null> {
+  const env = context.env;
   if (!env.ACTOR_RATE_LIMIT && !env.WORKSPACE_BURST_CAP) {
     return null;
   }
   if (!actor.workspace_id) {
-    return errorResponse("not_authenticated", 401);
+    return errorResponse(context, "not_authenticated", 401);
   }
 
   const actorKey = `${actor.workspace_id}:${actor.id}`;
   const actorOutcome = await rateLimitOrFailOpen(env.ACTOR_RATE_LIMIT, "actor", actorKey);
   if (actorOutcome && !actorOutcome.success) {
-    return errorResponse("rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
+    return errorResponse(context, "rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
   }
 
   const workspaceOutcome = await rateLimitOrFailOpen(env.WORKSPACE_BURST_CAP, "workspace", actor.workspace_id);
   if (workspaceOutcome && !workspaceOutcome.success) {
-    return errorResponse("rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
+    return errorResponse(context, "rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
   }
 
   return null;
@@ -939,17 +979,32 @@ async function rateLimitOrFailOpen(
   }
 }
 
-function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...jsonHeaders, ...extraHeaders } });
+function jsonResponse(
+  context: AppContext,
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...jsonHeaders, [REQUEST_ID_HEADER]: getRequestId(context), ...extraHeaders },
+  });
 }
 
 function errorResponse(
+  context: AppContext,
   code: string,
   status: number,
   message?: string,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  return jsonResponse({ error: { code, message: message ?? code } }, status, extraHeaders);
+  const body = buildErrorBody({
+    code,
+    ...(message !== undefined ? { message } : {}),
+    requestId: getRequestId(context),
+    docsBaseUrl: context.env.DOCS_BASE_URL,
+  });
+  return jsonResponse(context, body, status, extraHeaders);
 }
 
 function adminActor(actor: ApiActor): AdminActor {
@@ -959,12 +1014,12 @@ function adminActor(actor: ApiActor): AdminActor {
   return { type: actor.type, id: actor.id };
 }
 
-async function runIdempotent(run: () => Promise<unknown>, successStatus = 200): Promise<Response> {
+async function runIdempotent(context: AppContext, run: () => Promise<unknown>, successStatus = 200): Promise<Response> {
   try {
-    return jsonResponse(await run(), successStatus);
+    return jsonResponse(context, await run(), successStatus);
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse("idempotency_in_flight", 409);
+      return errorResponse(context, "idempotency_in_flight", 409);
     }
     throw error;
   }
@@ -1170,7 +1225,7 @@ function rateLimitResponseDescription(): Record<string, unknown> {
   };
 }
 
-function htmlAgentViewResponse(view: unknown): Response {
+function htmlAgentViewResponse(context: AppContext, view: unknown): Response {
   const data = view as {
     artifact_id?: string;
     revision_id?: string;
@@ -1220,6 +1275,7 @@ function htmlAgentViewResponse(view: unknown): Response {
       "content-type": "text/html; charset=utf-8",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
+      [REQUEST_ID_HEADER]: getRequestId(context),
     },
   });
 }

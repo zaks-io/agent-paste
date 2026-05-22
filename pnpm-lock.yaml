@@ -143,6 +143,9 @@ importers:
 
   apps/content:
     dependencies:
+      '@agent-paste/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -219,7 +222,11 @@ importers:
         specifier: 'catalog:'
         version: 4.1.7(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.3(@types/node@24.12.4))
 
-  packages/auth: {}
+  packages/auth:
+    dependencies:
+      hono:
+        specifier: ^4.12.21
+        version: 4.12.21
 
   packages/commands: {}
 

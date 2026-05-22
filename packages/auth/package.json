@@ -12,5 +12,8 @@
     "lint": "biome lint .",
     "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.12.21"
   }
 }
