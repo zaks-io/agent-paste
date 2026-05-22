@@ -254,12 +254,14 @@ async function resolveExisting<T>(tx: SqlExecutor, ctx: ResolveContext<T>): Prom
 async function executeHandler<T>(tx: SqlExecutor, ctx: ExecuteContext<T>): Promise<RunCommandResult<T>> {
   const { result, audit = [] } = await ctx.handler(tx);
 
+  // postgres-js' default jsonb serializer is replaced by drizzle's construct() with an
+  // identity function, so raw tx.query() callers must hand the wire encoder a string.
   await tx.query(
     `update idempotency_records
      set status = 'completed', result_json = $6::jsonb, completed_at = $7
      where workspace_id is not distinct from $1
        and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5`,
-    [ctx.workspaceId, ctx.actor.type, ctx.actor.id, ctx.operation, ctx.idempotencyKey, result as SqlValue, ctx.now],
+    [ctx.workspaceId, ctx.actor.type, ctx.actor.id, ctx.operation, ctx.idempotencyKey, JSON.stringify(result), ctx.now],
   );
 
   for (const event of audit) {
@@ -275,7 +277,7 @@ async function executeHandler<T>(tx: SqlExecutor, ctx: ExecuteContext<T>): Promi
         event.action,
         event.targetType,
         event.targetId,
-        (event.details ?? {}) as SqlValue,
+        JSON.stringify(event.details ?? {}),
         event.requestId ?? null,
         event.occurredAt ?? ctx.now,
       ],
