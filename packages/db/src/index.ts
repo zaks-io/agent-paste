@@ -1,8 +1,10 @@
+import { type CommandActor, type CommandAuditEvent, IdempotencyInFlightError, runCommand } from "@agent-paste/commands";
 import postgres from "postgres";
+
+export { IdempotencyInFlightError };
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const DEFAULT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-const IDEMPOTENCY_STALE_MS = 5 * 60 * 1000;
 const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 const USAGE_POLICY = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -23,11 +25,21 @@ export type ApiActor = {
   scopes?: string[];
 };
 
+export type AdminActor = { type: "admin" | "system"; id: string };
+
+function apiCommandActor(actor: ApiActor): CommandActor {
+  return { type: "api_key", id: actor.id, workspaceId: actor.workspace_id };
+}
+
+function adminCommandActor(actor: AdminActor, workspaceId: string | null): CommandActor {
+  return { type: actor.type, id: actor.id, workspaceId };
+}
+
 export type SqlValue = string | number | boolean | null | Record<string, unknown> | SqlValue[];
 export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
 export type SqlExecutor = {
   query<Row = Record<string, unknown>>(sql: string, params?: readonly SqlValue[]): Promise<SqlQueryResult<Row>>;
-  transaction?<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  transaction<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
 };
 
 export type HyperdriveBinding = {
@@ -142,27 +154,36 @@ export class LocalRepository {
     },
   ) {}
 
-  async createWorkspace(input: { email: string; name?: string; now?: Date }): Promise<Workspace> {
+  async createWorkspace(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    email: string;
+    name?: string;
+    now?: Date;
+  }): Promise<Workspace> {
     const now = (input.now ?? new Date()).toISOString();
-    const workspace: Workspace = {
-      id: crypto.randomUUID(),
-      name: input.name ?? input.email.split("@")[0] ?? "workspace",
-      contact_email: input.email,
-      created_at: now,
-      updated_at: now,
-    };
-    this.workspaces.set(workspace.id, workspace);
-    this.addEvent(
-      "admin",
-      "operator",
-      "workspace.created",
-      "workspace",
-      workspace.id,
-      workspace.id,
-      { email: input.email },
-      now,
-    );
-    return workspace;
+    const cacheKey = `admin.workspace.create:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    return this.runIdempotent(cacheKey, () => {
+      const workspace: Workspace = {
+        id: crypto.randomUUID(),
+        name: input.name ?? input.email.split("@")[0] ?? "workspace",
+        contact_email: input.email,
+        created_at: now,
+        updated_at: now,
+      };
+      this.workspaces.set(workspace.id, workspace);
+      this.addEvent(
+        input.actor.type,
+        input.actor.id,
+        "workspace.created",
+        "workspace",
+        workspace.id,
+        workspace.id,
+        { email: input.email },
+        now,
+      );
+      return workspace;
+    });
   }
 
   listWorkspaces() {
@@ -172,55 +193,68 @@ export class LocalRepository {
     };
   }
 
-  async createApiKey(input: { workspaceId: string; name: string; now?: Date }) {
+  async createApiKey(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    workspaceId: string;
+    name: string;
+    now?: Date;
+  }) {
     const workspace = this.mustWorkspace(input.workspaceId);
+    const key = `admin.api_key.create:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    if (this.idempotency.has(key)) {
+      return this.idempotency.get(key) as { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
+    }
     const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
     const now = (input.now ?? new Date()).toISOString();
-    const apiKey: ApiKey = {
-      id: createId("key"),
-      workspace_id: workspace.id,
-      public_id: generated.publicId,
-      name: input.name,
-      secret_hmac: generated.secretHmac,
-      pepper_kid: 1,
-      scopes: ["publish", "read"],
-      revoked_at: null,
-      last_used_at: null,
-      created_at: now,
-    };
-    this.apiKeys.set(apiKey.id, apiKey);
-    this.addEvent(
-      "admin",
-      "operator",
-      "api_key.created",
-      "api_key",
-      apiKey.id,
-      workspace.id,
-      {
-        name: apiKey.name,
-        public_id: apiKey.public_id,
-      },
-      now,
-    );
-    return { api_key: toApiKeySummary(apiKey), secret: generated.secret };
+    return this.runIdempotent(key, () => {
+      const apiKey: ApiKey = {
+        id: createId("key"),
+        workspace_id: workspace.id,
+        public_id: generated.publicId,
+        name: input.name,
+        secret_hmac: generated.secretHmac,
+        pepper_kid: 1,
+        scopes: ["publish", "read"],
+        revoked_at: null,
+        last_used_at: null,
+        created_at: now,
+      };
+      this.apiKeys.set(apiKey.id, apiKey);
+      this.addEvent(
+        input.actor.type,
+        input.actor.id,
+        "api_key.created",
+        "api_key",
+        apiKey.id,
+        workspace.id,
+        { name: apiKey.name, public_id: apiKey.public_id },
+        now,
+      );
+      return { api_key: toApiKeySummary(apiKey), secret: generated.secret };
+    });
   }
 
-  revokeApiKey(apiKeyId: string, now = new Date()) {
-    const apiKey = this.mustApiKey(apiKeyId);
-    apiKey.revoked_at = now.toISOString();
-    this.addEvent(
-      "admin",
-      "operator",
-      "api_key.revoked",
-      "api_key",
-      apiKey.id,
-      apiKey.workspace_id,
-      {
-        public_id: apiKey.public_id,
+  revokeApiKey(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
+    const apiKey = this.mustApiKey(input.apiKeyId);
+    const revokedAt = (input.now ?? new Date()).toISOString();
+    return this.runIdempotent(
+      `admin.api_key.revoke:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`,
+      () => {
+        apiKey.revoked_at = revokedAt;
+        this.addEvent(
+          input.actor.type,
+          input.actor.id,
+          "api_key.revoked",
+          "api_key",
+          apiKey.id,
+          apiKey.workspace_id,
+          { public_id: apiKey.public_id },
+          apiKey.revoked_at,
+        );
+        return { api_key: toApiKeySummary(apiKey), revoked_at: apiKey.revoked_at };
       },
-      apiKey.revoked_at,
     );
-    return { api_key: toApiKeySummary(apiKey), revoked_at: apiKey.revoked_at };
   }
 
   async verifyApiKey(apiKeySecret: string): Promise<ApiActor | null> {
@@ -421,28 +455,41 @@ export class LocalRepository {
     return this.agentViewForArtifact(artifact, input.contentBaseUrl);
   }
 
-  async runCleanup(input: { actor: { type: "admin" | "system"; id: string }; dryRun: boolean; now: string }) {
-    let expiredArtifacts = 0;
-    let expiredUploadSessions = 0;
-    for (const artifact of this.artifacts.values()) {
-      if (artifact.status === "active" && new Date(artifact.expires_at).getTime() <= new Date(input.now).getTime()) {
-        expiredArtifacts += 1;
-        if (!input.dryRun) {
-          artifact.status = "expired";
-          artifact.deleted_at = input.now;
-          artifact.delete_reason = "expired";
-        }
-      }
-    }
-    for (const session of this.uploadSessions.values()) {
-      if (session.status === "pending" && new Date(session.expires_at).getTime() <= new Date(input.now).getTime()) {
-        expiredUploadSessions += 1;
-        if (!input.dryRun) {
-          session.status = "expired";
-        }
-      }
-    }
+  async runCleanup(input: {
+    actor: AdminActor;
+    idempotencyKey?: string;
+    dryRun: boolean;
+    batchSize?: number;
+    now: string;
+  }) {
+    const key = input.idempotencyKey ?? `cleanup:${input.actor.type}:${input.now}`;
+    return this.runIdempotent(`admin.cleanup.run:${input.actor.type}:${input.actor.id}:${key}`, () =>
+      this.runCleanupSync(input),
+    );
+  }
+
+  private runCleanupSync(input: { actor: AdminActor; dryRun: boolean; batchSize?: number; now: string }) {
+    const limit = input.batchSize ?? 100;
+    const nowMs = new Date(input.now).getTime();
+    const expiringArtifacts = [...this.artifacts.values()]
+      .filter((artifact) => artifact.status === "active" && new Date(artifact.expires_at).getTime() <= nowMs)
+      .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
+      .slice(0, limit);
+    const expiringSessions = [...this.uploadSessions.values()]
+      .filter((session) => session.status === "pending" && new Date(session.expires_at).getTime() <= nowMs)
+      .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
+      .slice(0, limit);
+
     if (!input.dryRun) {
+      for (const artifact of expiringArtifacts) {
+        artifact.status = "expired";
+        artifact.deleted_at = input.now;
+        artifact.delete_reason = "expired";
+        artifact.updated_at = input.now;
+      }
+      for (const session of expiringSessions) {
+        session.status = "expired";
+      }
       this.addEvent(
         input.actor.type,
         input.actor.id,
@@ -451,19 +498,17 @@ export class LocalRepository {
         "manual",
         null,
         {
-          expired_artifacts: expiredArtifacts,
-          expired_upload_sessions: expiredUploadSessions,
+          expired_artifacts: expiringArtifacts.length,
+          expired_upload_sessions: expiringSessions.length,
         },
         input.now,
       );
     }
     return {
       dry_run: input.dryRun,
-      expired_artifacts: expiredArtifacts,
-      expired_artifact_ids: [...this.artifacts.values()]
-        .filter((artifact) => artifact.deleted_at === input.now && artifact.delete_reason === "expired")
-        .map((artifact) => artifact.id),
-      expired_upload_sessions: expiredUploadSessions,
+      expired_artifacts: expiringArtifacts.length,
+      expired_artifact_ids: input.dryRun ? [] : expiringArtifacts.map((artifact) => artifact.id),
+      expired_upload_sessions: expiringSessions.length,
       deleted_r2_objects: 0,
       occurred_at: input.now,
     };
@@ -496,16 +541,30 @@ export class LocalRepository {
     };
   }
 
-  deleteArtifact(artifactId: string, now = new Date()) {
-    const artifact = this.artifacts.get(artifactId);
+  deleteArtifact(input: { actor: AdminActor; idempotencyKey: string; artifactId: string; now?: Date }) {
+    const artifact = this.artifacts.get(input.artifactId);
     if (!artifact) {
       throw new Error("artifact_not_found");
     }
-    artifact.status = "deleted";
-    artifact.deleted_at = now.toISOString();
-    artifact.delete_reason = "admin_delete";
-    artifact.updated_at = artifact.deleted_at;
-    return { artifact_id: artifact.id, deleted_at: artifact.deleted_at };
+    const deletedAt = (input.now ?? new Date()).toISOString();
+    const cacheKey = `admin.artifact.delete:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    return this.runIdempotent(cacheKey, () => {
+      artifact.status = "deleted";
+      artifact.deleted_at = deletedAt;
+      artifact.delete_reason = "admin_delete";
+      artifact.updated_at = deletedAt;
+      this.addEvent(
+        input.actor.type,
+        input.actor.id,
+        "artifact.deleted",
+        "artifact",
+        artifact.id,
+        artifact.workspace_id,
+        {},
+        deletedAt,
+      );
+      return { artifact_id: artifact.id, deleted_at: deletedAt };
+    });
   }
 
   listOperationEvents() {
@@ -631,7 +690,13 @@ export class PostgresRepository {
     },
   ) {}
 
-  async createWorkspace(input: { email: string; name?: string; now?: Date }): Promise<Workspace> {
+  async createWorkspace(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    email: string;
+    name?: string;
+    now?: Date;
+  }): Promise<Workspace> {
     const now = (input.now ?? new Date()).toISOString();
     const workspace: Workspace = {
       id: crypto.randomUUID(),
@@ -640,16 +705,16 @@ export class PostgresRepository {
       created_at: now,
       updated_at: now,
     };
-    return this.withTransaction(async (tx) => {
+    return this.runAdminCommand(input.actor, "admin.workspace.create", input.idempotencyKey, null, now, async (tx) => {
       await tx.query(
         `insert into workspaces (id, name, contact_email, created_at, updated_at)
-         values ($1, $2, $3, $4, $5)`,
+           values ($1, $2, $3, $4, $5)`,
         [workspace.id, workspace.name, workspace.contact_email, now, now],
       );
       await this.insertEvent(
         tx,
-        "admin",
-        "operator",
+        input.actor.type,
+        input.actor.id,
         "workspace.created",
         "workspace",
         workspace.id,
@@ -657,7 +722,7 @@ export class PostgresRepository {
         { email: input.email },
         now,
       );
-      return workspace;
+      return { result: workspace };
     });
   }
 
@@ -670,77 +735,92 @@ export class PostgresRepository {
     return { data: result.rows.map(toWorkspaceDetail), page_info: { next_cursor: null, has_more: false } };
   }
 
-  async createApiKey(input: { workspaceId: string; name: string; now?: Date }) {
+  async createApiKey(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    workspaceId: string;
+    name: string;
+    now?: Date;
+  }) {
     const now = (input.now ?? new Date()).toISOString();
-    const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
-    const apiKey: ApiKey = {
-      id: createId("key"),
-      workspace_id: input.workspaceId,
-      public_id: generated.publicId,
-      name: input.name,
-      secret_hmac: generated.secretHmac,
-      pepper_kid: 1,
-      scopes: ["publish", "read"],
-      revoked_at: null,
-      last_used_at: null,
-      created_at: now,
-    };
-    return this.withTransaction(async (tx) => {
-      await this.mustWorkspace(tx, input.workspaceId);
-      await tx.query(
-        `insert into api_keys
-           (id, workspace_id, public_id, name, secret_hmac, pepper_kid, scopes, revoked_at, last_used_at, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7::jsonb, null, null, $8)`,
-        [
+    return this.runAdminCommand(
+      input.actor,
+      "admin.api_key.create",
+      input.idempotencyKey,
+      input.workspaceId,
+      now,
+      async (tx) => {
+        await this.mustWorkspace(tx, input.workspaceId);
+        const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+        const apiKey: ApiKey = {
+          id: createId("key"),
+          workspace_id: input.workspaceId,
+          public_id: generated.publicId,
+          name: input.name,
+          secret_hmac: generated.secretHmac,
+          pepper_kid: 1,
+          scopes: ["publish", "read"],
+          revoked_at: null,
+          last_used_at: null,
+          created_at: now,
+        };
+        await tx.query(
+          `insert into api_keys
+             (id, workspace_id, public_id, name, secret_hmac, pepper_kid, scopes, revoked_at, last_used_at, created_at)
+           values ($1, $2, $3, $4, $5, $6, $7::jsonb, null, null, $8)`,
+          [
+            apiKey.id,
+            apiKey.workspace_id,
+            apiKey.public_id,
+            apiKey.name,
+            apiKey.secret_hmac,
+            apiKey.pepper_kid,
+            apiKey.scopes,
+            now,
+          ],
+        );
+        await this.insertEvent(
+          tx,
+          input.actor.type,
+          input.actor.id,
+          "api_key.created",
+          "api_key",
           apiKey.id,
           apiKey.workspace_id,
-          apiKey.public_id,
-          apiKey.name,
-          apiKey.secret_hmac,
-          apiKey.pepper_kid,
-          apiKey.scopes,
+          { name: apiKey.name, public_id: apiKey.public_id },
           now,
-        ],
-      );
-      await this.insertEvent(
-        tx,
-        "admin",
-        "operator",
-        "api_key.created",
-        "api_key",
-        apiKey.id,
-        apiKey.workspace_id,
-        {
-          name: apiKey.name,
-          public_id: apiKey.public_id,
-        },
-        now,
-      );
-      return { api_key: toApiKeySummary(apiKey), secret: generated.secret };
-    });
+        );
+        return { result: { api_key: toApiKeySummary(apiKey), secret: generated.secret } };
+      },
+    );
   }
 
-  async revokeApiKey(apiKeyId: string, now = new Date()) {
-    const revokedAt = now.toISOString();
-    return this.withTransaction(async (tx) => {
-      const apiKey = await this.mustApiKey(tx, apiKeyId);
-      const updated = { ...apiKey, revoked_at: revokedAt };
-      await tx.query(`update api_keys set revoked_at = $2 where id = $1`, [apiKeyId, revokedAt]);
-      await this.insertEvent(
-        tx,
-        "admin",
-        "operator",
-        "api_key.revoked",
-        "api_key",
-        apiKey.id,
-        apiKey.workspace_id,
-        {
-          public_id: apiKey.public_id,
-        },
-        revokedAt,
-      );
-      return { api_key: toApiKeySummary(updated), revoked_at: revokedAt };
-    });
+  async revokeApiKey(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
+    const revokedAt = (input.now ?? new Date()).toISOString();
+    const apiKey = await this.mustApiKey(this.db, input.apiKeyId);
+    return this.runAdminCommand(
+      input.actor,
+      "admin.api_key.revoke",
+      input.idempotencyKey,
+      apiKey.workspace_id,
+      revokedAt,
+      async (tx) => {
+        const updated = { ...apiKey, revoked_at: revokedAt };
+        await tx.query(`update api_keys set revoked_at = $2 where id = $1`, [input.apiKeyId, revokedAt]);
+        await this.insertEvent(
+          tx,
+          input.actor.type,
+          input.actor.id,
+          "api_key.revoked",
+          "api_key",
+          apiKey.id,
+          apiKey.workspace_id,
+          { public_id: apiKey.public_id },
+          revokedAt,
+        );
+        return { result: { api_key: toApiKeySummary(updated), revoked_at: revokedAt } };
+      },
+    );
   }
 
   async verifyApiKey(apiKeySecret: string): Promise<ApiActor | null> {
@@ -1032,66 +1112,75 @@ export class PostgresRepository {
   }
 
   async runCleanup(input: {
-    actor: { type: "admin" | "system"; id: string };
+    actor: AdminActor;
+    idempotencyKey?: string;
     dryRun: boolean;
     batchSize?: number;
     now: string;
   }) {
+    const idempotencyKey = input.idempotencyKey ?? `cleanup:${input.actor.type}:${input.now}`;
+    return this.runAdminCommand(input.actor, "admin.cleanup.run", idempotencyKey, null, input.now, async (tx) => ({
+      result: await this.runCleanupInternal(tx, input),
+    }));
+  }
+
+  private async runCleanupInternal(
+    tx: SqlExecutor,
+    input: { actor: AdminActor; dryRun: boolean; batchSize?: number; now: string },
+  ) {
     const limit = input.batchSize ?? 100;
-    return this.withTransaction(async (tx) => {
-      const expiredArtifacts = await tx.query<{ id: string; workspace_id: string }>(
-        `select id, workspace_id
-         from artifacts
-         where status = 'active' and expires_at <= $1
-         order by expires_at asc
-         limit $2`,
-        [input.now, limit],
+    const expiredArtifacts = await tx.query<{ id: string; workspace_id: string }>(
+      `select id, workspace_id
+       from artifacts
+       where status = 'active' and expires_at <= $1
+       order by expires_at asc
+       limit $2`,
+      [input.now, limit],
+    );
+    const expiredSessions = await tx.query<{ id: string; workspace_id: string }>(
+      `select id, workspace_id
+       from upload_sessions
+       where status = 'pending' and expires_at <= $1
+       order by expires_at asc
+       limit $2`,
+      [input.now, limit],
+    );
+    if (!input.dryRun) {
+      await tx.query(
+        `update artifacts
+         set status = 'expired', deleted_at = $1, delete_reason = 'expired', updated_at = $1
+         where status = 'active' and expires_at <= $1 and id = any($2::text[])`,
+        [input.now, expiredArtifacts.rows.map((row) => row.id)],
       );
-      const expiredSessions = await tx.query<{ id: string; workspace_id: string }>(
-        `select id, workspace_id
-         from upload_sessions
-         where status = 'pending' and expires_at <= $1
-         order by expires_at asc
-         limit $2`,
-        [input.now, limit],
+      await tx.query(
+        `update upload_sessions
+         set status = 'expired'
+         where status = 'pending' and expires_at <= $1 and id = any($2::text[])`,
+        [input.now, expiredSessions.rows.map((row) => row.id)],
       );
-      if (!input.dryRun) {
-        await tx.query(
-          `update artifacts
-           set status = 'expired', deleted_at = $1, delete_reason = 'expired', updated_at = $1
-           where status = 'active' and expires_at <= $1 and id = any($2::text[])`,
-          [input.now, expiredArtifacts.rows.map((row) => row.id)],
-        );
-        await tx.query(
-          `update upload_sessions
-           set status = 'expired'
-           where status = 'pending' and expires_at <= $1 and id = any($2::text[])`,
-          [input.now, expiredSessions.rows.map((row) => row.id)],
-        );
-        await this.insertEvent(
-          tx,
-          input.actor.type,
-          input.actor.id,
-          "cleanup.run",
-          "cleanup",
-          "manual",
-          null,
-          {
-            expired_artifacts: expiredArtifacts.rows.length,
-            expired_upload_sessions: expiredSessions.rows.length,
-          },
-          input.now,
-        );
-      }
-      return {
-        dry_run: input.dryRun,
-        expired_artifacts: expiredArtifacts.rows.length,
-        expired_artifact_ids: input.dryRun ? [] : expiredArtifacts.rows.map((row) => row.id),
-        expired_upload_sessions: expiredSessions.rows.length,
-        deleted_r2_objects: 0,
-        occurred_at: input.now,
-      };
-    });
+      await this.insertEvent(
+        tx,
+        input.actor.type,
+        input.actor.id,
+        "cleanup.run",
+        "cleanup",
+        "manual",
+        null,
+        {
+          expired_artifacts: expiredArtifacts.rows.length,
+          expired_upload_sessions: expiredSessions.rows.length,
+        },
+        input.now,
+      );
+    }
+    return {
+      dry_run: input.dryRun,
+      expired_artifacts: expiredArtifacts.rows.length,
+      expired_artifact_ids: input.dryRun ? [] : expiredArtifacts.rows.map((row) => row.id),
+      expired_upload_sessions: expiredSessions.rows.length,
+      deleted_r2_objects: 0,
+      occurred_at: input.now,
+    };
   }
 
   async listArtifacts(workspaceId?: string, status?: string) {
@@ -1138,32 +1227,43 @@ export class PostgresRepository {
     };
   }
 
-  async deleteArtifact(artifactId: string, now = new Date()) {
-    const deletedAt = now.toISOString();
-    return this.withTransaction(async (tx) => {
-      const artifact = await this.findArtifact(artifactId, undefined, tx);
-      if (!artifact) {
-        throw new Error("artifact_not_found");
-      }
-      await tx.query(
-        `update artifacts
-         set status = 'deleted', deleted_at = $2, delete_reason = 'admin_delete', updated_at = $2
-         where id = $1`,
-        [artifactId, deletedAt],
-      );
-      await this.insertEvent(
-        tx,
-        "admin",
-        "operator",
-        "artifact.deleted",
-        "artifact",
-        artifact.id,
-        artifact.workspace_id,
-        {},
-        deletedAt,
-      );
-      return { artifact_id: artifact.id, deleted_at: deletedAt };
-    });
+  async deleteArtifact(input: { actor: AdminActor; idempotencyKey: string; artifactId: string; now?: Date }) {
+    const deletedAt = (input.now ?? new Date()).toISOString();
+    const target = await this.findArtifact(input.artifactId);
+    if (!target) {
+      throw new Error("artifact_not_found");
+    }
+    return this.runAdminCommand(
+      input.actor,
+      "admin.artifact.delete",
+      input.idempotencyKey,
+      target.workspace_id,
+      deletedAt,
+      async (tx) => {
+        const artifact = await this.findArtifact(input.artifactId, undefined, tx);
+        if (!artifact) {
+          throw new Error("artifact_not_found");
+        }
+        await tx.query(
+          `update artifacts
+           set status = 'deleted', deleted_at = $2, delete_reason = 'admin_delete', updated_at = $2
+           where id = $1`,
+          [input.artifactId, deletedAt],
+        );
+        await this.insertEvent(
+          tx,
+          input.actor.type,
+          input.actor.id,
+          "artifact.deleted",
+          "artifact",
+          artifact.id,
+          artifact.workspace_id,
+          {},
+          deletedAt,
+        );
+        return { result: { artifact_id: artifact.id, deleted_at: deletedAt } };
+      },
+    );
   }
 
   async listOperationEvents() {
@@ -1182,58 +1282,36 @@ export class PostgresRepository {
     now: string,
     run: (tx: SqlExecutor) => Promise<T>,
   ): Promise<T> {
-    return this.withTransaction(async (tx) => {
-      const inserted = await tx.query<{ result_json: T | null }>(
-        `insert into idempotency_records
-           (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
-         values ($1, 'api_key', $2, $3, $4, 'in_flight', null, $5, null)
-         on conflict do nothing
-         returning result_json`,
-        [actor.workspace_id, actor.id, operation, idempotencyKey, now],
-      );
-      if (inserted.rows.length === 0) {
-        const existing = await tx.query<{ status: string; result_json: T | null; created_at: string }>(
-          `select status, result_json, created_at
-           from idempotency_records
-           where workspace_id = $1 and actor_type = 'api_key' and actor_id = $2 and operation = $3 and idempotency_key = $4
-           for update`,
-          [actor.workspace_id, actor.id, operation, idempotencyKey],
-        );
-        const record = existing.rows[0];
-        if (record?.status === "completed" && record.result_json !== null) {
-          return record.result_json;
-        }
-        if (record?.status === "in_flight" && isStaleIdempotencyRecord(record.created_at, now)) {
-          await tx.query(
-            `update idempotency_records
-             set created_at = $5, result_json = null, completed_at = null
-             where workspace_id = $1 and actor_type = 'api_key' and actor_id = $2 and operation = $3 and idempotency_key = $4`,
-            [actor.workspace_id, actor.id, operation, idempotencyKey, now],
-          );
-          const result = await run(tx);
-          await tx.query(
-            `update idempotency_records
-             set status = 'completed', result_json = $5::jsonb, completed_at = $6
-             where workspace_id = $1 and actor_type = 'api_key' and actor_id = $2 and operation = $3 and idempotency_key = $4`,
-            [actor.workspace_id, actor.id, operation, idempotencyKey, result as SqlValue, now],
-          );
-          return result;
-        }
-        throw new Error("idempotency_in_flight");
-      }
-      const result = await run(tx);
-      await tx.query(
-        `update idempotency_records
-         set status = 'completed', result_json = $5::jsonb, completed_at = $6
-         where workspace_id = $1 and actor_type = 'api_key' and actor_id = $2 and operation = $3 and idempotency_key = $4`,
-        [actor.workspace_id, actor.id, operation, idempotencyKey, result as SqlValue, now],
-      );
-      return result;
+    const command = await runCommand<T>({
+      executor: this.db,
+      actor: apiCommandActor(actor),
+      operation,
+      idempotencyKey,
+      workspaceId: actor.workspace_id,
+      now,
+      handler: async (tx) => ({ result: await run(tx) }),
     });
+    return command.result;
   }
 
-  private withTransaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
-    return this.db.transaction ? this.db.transaction(run) : run(this.db);
+  private async runAdminCommand<T>(
+    actor: AdminActor,
+    operation: string,
+    idempotencyKey: string,
+    workspaceId: string | null,
+    now: string,
+    run: (tx: SqlExecutor) => Promise<{ result: T; audit?: CommandAuditEvent[] }>,
+  ): Promise<T> {
+    const command = await runCommand<T>({
+      executor: this.db,
+      actor: adminCommandActor(actor, workspaceId),
+      operation,
+      idempotencyKey,
+      workspaceId,
+      now,
+      handler: run,
+    });
+    return command.result;
   }
 
   private async mustWorkspace(db: SqlExecutor, id: string) {
@@ -1412,7 +1490,7 @@ export function createPostgresExecutor(sql: PostgresUnsafeClient): SqlExecutor {
     },
     async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
       if (!sql.begin) {
-        return run(createPostgresExecutor(sql));
+        throw new Error("postgres_executor_missing_begin");
       }
       return sql.begin((tx) => run(createPostgresExecutor(tx)));
     },
@@ -1440,6 +1518,9 @@ export function createPostgresHttpExecutor(options: {
       }
       const body = (await response.json()) as { rows?: Row[] };
       return { rows: body.rows ?? [] };
+    },
+    async transaction<T>(_run: (tx: SqlExecutor) => Promise<T>): Promise<T> {
+      throw new Error("postgres_http_executor_no_transactions");
     },
   };
 }
@@ -1576,10 +1657,6 @@ function createId(prefix: string) {
 function randomCrockford(length: number) {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (byte: number) => CROCKFORD[byte % CROCKFORD.length]).join("");
-}
-
-function isStaleIdempotencyRecord(createdAt: string, now: string): boolean {
-  return new Date(now).getTime() - new Date(createdAt).getTime() >= IDEMPOTENCY_STALE_MS;
 }
 
 async function generateApiKey(env: "preview" | "production" | "live", pepper: string) {

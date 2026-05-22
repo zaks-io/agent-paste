@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import postgres from "postgres";
 
@@ -8,13 +8,17 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required.");
 }
 
-const migrationPath = resolve("migrations/0001_mvp_postgres.sql");
-const sqlText = await readFile(migrationPath, "utf8");
+const migrationsDir = resolve("migrations");
+const files = (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort();
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 
 try {
-  await sql.unsafe(sqlText);
-  process.stdout.write(`Applied ${migrationPath}\n`);
+  for (const file of files) {
+    const path = resolve(migrationsDir, file);
+    const sqlText = await readFile(path, "utf8");
+    await sql.unsafe(sqlText);
+    process.stdout.write(`Applied ${path}\n`);
+  }
 } finally {
   await sql.end({ timeout: 5 });
 }

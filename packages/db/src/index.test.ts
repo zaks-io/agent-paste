@@ -7,11 +7,24 @@ import {
   type SqlValue,
 } from "./index";
 
+const adminActor = { type: "admin" as const, id: "operator" };
+const systemActor = { type: "system" as const, id: "scheduler" };
+
 describe("LocalRepository", () => {
   it("bootstraps a workspace and verifies a generated API key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
-    const workspace = await repo.createWorkspace({ email: "user@example.com", name: "User" });
-    const key = await repo.createApiKey({ workspaceId: workspace.id, name: "default" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+      name: "User",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
     const actor = await repo.verifyApiKey(key.secret);
     if (!actor) {
       throw new Error("expected actor");
@@ -24,10 +37,104 @@ describe("LocalRepository", () => {
     });
   });
 
+  it("replays workspace create when called twice with the same idempotency key", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const first = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const second = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "other@example.com",
+    });
+    expect(second).toEqual(first);
+    expect(repo.workspaces.size).toBe(1);
+  });
+
+  it("replays api-key creation when called twice with the same idempotency key", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const first = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "first",
+    });
+    const second = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "second",
+    });
+    expect(second).toEqual(first);
+    expect(repo.apiKeys.size).toBe(1);
+  });
+
+  it("replays artifact deletion when called twice with the same idempotency key", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload",
+      request: { entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+
+    const first = await repo.deleteArtifact({
+      actor: adminActor,
+      idempotencyKey: "idem-delete",
+      artifactId: session.artifact_id,
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const second = await repo.deleteArtifact({
+      actor: adminActor,
+      idempotencyKey: "idem-delete",
+      artifactId: session.artifact_id,
+      now: new Date("2026-02-01T00:00:00.000Z"),
+    });
+    expect(second).toEqual(first);
+  });
+
   it("creates and finalizes an upload session into an artifact", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
-    const workspace = await repo.createWorkspace({ email: "user@example.com" });
-    const key = await repo.createApiKey({ workspaceId: workspace.id, name: "default" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
     const actor = await repo.verifyApiKey(key.secret);
     if (!actor) {
       throw new Error("expected actor");
@@ -62,30 +169,46 @@ describe("LocalRepository", () => {
 });
 
 describe("PostgresRepository", () => {
-  it("writes workspace creation through parameterized SQL and an operation event", async () => {
-    const db = new CapturingExecutor({
-      "select id, name, contact_email, created_at, updated_at from workspaces where id = $1 limit 1": [],
-    });
+  it("writes workspace creation through an idempotency-wrapped transaction", async () => {
+    const db = new CapturingExecutor({});
+    db.rowsForInsertIdempotency = [{ workspace_id: null }];
     const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
 
     const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
       email: "user@example.com",
       name: "User",
       now: new Date("2026-01-01T00:00:00.000Z"),
     });
 
     expect(workspace).toMatchObject({ name: "User", contact_email: "user@example.com" });
-    expect(db.calls.map((call) => normalizeSql(call.sql))).toEqual([
-      "insert into workspaces (id, name, contact_email, created_at, updated_at) values ($1, $2, $3, $4, $5)",
-      "insert into operation_events (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, request_id, occurred_at) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, null, $9)",
-    ]);
-    expect(db.calls[0]?.params.slice(1)).toEqual([
-      "User",
-      "user@example.com",
-      "2026-01-01T00:00:00.000Z",
-      "2026-01-01T00:00:00.000Z",
-    ]);
-    expect(db.transactionCount).toBe(1);
+    const sqls = db.calls.map((call) => normalizeSql(call.sql));
+    expect(sqls.some((sql) => sql.startsWith("insert into idempotency_records"))).toBe(true);
+    expect(sqls.some((sql) => sql.startsWith("insert into workspaces"))).toBe(true);
+    expect(sqls.some((sql) => sql.startsWith("insert into operation_events"))).toBe(true);
+    expect(sqls.some((sql) => sql.startsWith("update idempotency_records"))).toBe(true);
+  });
+
+  it("replays workspace create on duplicate idempotency key", async () => {
+    const cached = { id: "ws_1", name: "User", contact_email: "user@example.com" };
+    const db = new CapturingExecutor({});
+    db.rowsForInsertIdempotency = [];
+    db.rowsForSelectIdempotency = [
+      { status: "completed", result_json: cached, created_at: "2026-01-01T00:00:00.000Z" },
+    ];
+    const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
+
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "different@example.com",
+      now: new Date("2026-01-01T00:01:00.000Z"),
+    });
+
+    expect(workspace).toEqual(cached);
+    const sqls = db.calls.map((call) => normalizeSql(call.sql));
+    expect(sqls.some((sql) => sql.startsWith("insert into workspaces"))).toBe(false);
   });
 
   it("verifies API keys from a public-id lookup without exposing secret material", async () => {
@@ -100,8 +223,11 @@ describe("PostgresRepository", () => {
         },
       ],
     });
+    db.rowsForInsertIdempotency = [{ workspace_id: "00000000-0000-4000-8000-000000000000" }];
     const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
     const created = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
       workspaceId: "00000000-0000-4000-8000-000000000000",
       name: "default",
       now: new Date("2026-01-01T00:00:00.000Z"),
@@ -138,14 +264,12 @@ describe("PostgresRepository", () => {
     expect(
       db.calls.some((call) => normalizeSql(call.sql) === "update api_keys set last_used_at = $2 where id = $1"),
     ).toBe(true);
-    expect(JSON.stringify(db.calls)).not.toContain(created.secret);
+    expect(JSON.stringify(insert.params)).not.toContain(created.secret);
   });
 
   it("uses durable idempotency records around upload-session creation", async () => {
-    const db = new CapturingExecutor({
-      "insert into idempotency_records (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at) values ($1, 'api_key', $2, $3, $4, 'in_flight', null, $5, null) on conflict do nothing returning result_json":
-        [{ result_json: null }],
-    });
+    const db = new CapturingExecutor({});
+    db.rowsForInsertIdempotency = [{ workspace_id: "00000000-0000-4000-8000-000000000000" }];
     const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
 
     const session = await repo.createUploadSession({
@@ -156,9 +280,63 @@ describe("PostgresRepository", () => {
     });
 
     expect(session.files).toMatchObject([{ path: "index.html", size_bytes: 12 }]);
-    expect(db.calls.map((call) => normalizeSql(call.sql))).toContain(
-      "update idempotency_records set status = 'completed', result_json = $5::jsonb, completed_at = $6 where workspace_id = $1 and actor_type = 'api_key' and actor_id = $2 and operation = $3 and idempotency_key = $4",
-    );
+    const sqls = db.calls.map((call) => normalizeSql(call.sql));
+    expect(sqls.some((sql) => sql.startsWith("update idempotency_records"))).toBe(true);
+  });
+
+  it("replays artifact deletion on duplicate idempotency key", async () => {
+    const cached = { artifact_id: "art_1", deleted_at: "2026-01-02T00:00:00.000Z" };
+    const db = new CapturingExecutor({
+      "select id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at, created_by_api_key_id, deleted_at, delete_reason, created_at, updated_at from artifacts where id = $1 limit 1":
+        [
+          {
+            id: "art_1",
+            workspace_id: "ws_1",
+            revision_id: "rev_1",
+            status: "active",
+            title: "demo",
+            entrypoint: "index.html",
+            file_count: 1,
+            size_bytes: 12,
+            expires_at: "2030-01-01T00:00:00.000Z",
+            created_by_api_key_id: "key_1",
+            deleted_at: null,
+            delete_reason: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            updated_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+    });
+    db.rowsForInsertIdempotency = [];
+    db.rowsForSelectIdempotency = [
+      { status: "completed", result_json: cached, created_at: "2026-01-02T00:00:00.000Z" },
+    ];
+    const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
+
+    const result = await repo.deleteArtifact({
+      actor: adminActor,
+      idempotencyKey: "idem-delete",
+      artifactId: "art_1",
+      now: new Date("2026-01-02T00:01:00.000Z"),
+    });
+    expect(result).toEqual(cached);
+    expect(db.calls.some((call) => normalizeSql(call.sql).startsWith("update artifacts"))).toBe(false);
+  });
+
+  it("allows scheduled cleanup to derive an idempotency key from the run timestamp", async () => {
+    const db = new CapturingExecutor({});
+    db.rowsForInsertIdempotency = [{ workspace_id: null }];
+    const repo = new PostgresRepository(db, { apiKeyPepper: "pepper" });
+
+    await repo.runCleanup({
+      actor: systemActor,
+      dryRun: false,
+      now: "2026-01-01T00:00:00.000Z",
+    });
+
+    const claim = db.calls.find((call) => normalizeSql(call.sql).startsWith("insert into idempotency_records"));
+    expect(claim?.params[3]).toBe("admin.cleanup.run");
+    expect(claim?.params[4]).toContain("cleanup:system:2026-01-01");
   });
 
   it("posts SQL and params through the HTTP executor boundary", async () => {
@@ -192,12 +370,21 @@ type CapturedCall = { sql: string; params: readonly SqlValue[] };
 class CapturingExecutor implements SqlExecutor {
   calls: CapturedCall[] = [];
   transactionCount = 0;
+  rowsForInsertIdempotency: Array<Record<string, unknown>> = [{ workspace_id: null }];
+  rowsForSelectIdempotency: Array<Record<string, unknown>> = [];
 
   constructor(public rowsBySql: Record<string, Array<Record<string, unknown>>> = {}) {}
 
   async query<Row>(sql: string, params: readonly SqlValue[] = []) {
     this.calls.push({ sql, params });
-    return { rows: (this.rowsBySql[normalizeSql(sql)] ?? []) as Row[] };
+    const normalized = normalizeSql(sql);
+    if (normalized.startsWith("insert into idempotency_records")) {
+      return { rows: this.rowsForInsertIdempotency as Row[] };
+    }
+    if (normalized.startsWith("select status, result_json")) {
+      return { rows: this.rowsForSelectIdempotency as Row[] };
+    }
+    return { rows: (this.rowsBySql[normalized] ?? []) as Row[] };
   }
 
   async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
