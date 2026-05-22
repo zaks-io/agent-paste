@@ -264,11 +264,12 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### Consolidate content-signing secret names
 
-- Status: Done on 2026-05-22 by `<SHA>`.
+- Status: Done on 2026-05-22 via PR #7.
 - Drives: ADR 0028, ADR 0058
 - Files: `scripts/bootstrap-secrets.mjs`, `docs/ops/project-status.md`
 - Kept name: `CONTENT_SIGNING_SECRET`. `CONTENT_GATEWAY_SIGNING_KEY_V1` is removed from the bootstrap script and is no longer minted or bound on any Worker.
 - One-time rotation: for any environment that already holds the dropped binding, delete it after the next bootstrap run.
+
   ```sh
   wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-api-preview
   wrangler secret delete CONTENT_GATEWAY_SIGNING_KEY_V1 --name agent-paste-content-preview
