@@ -103,7 +103,7 @@ try {
   assert(cleanupDryRun.dry_run === true, "cleanup dry-run reports dry_run=true");
 
   await assertBytesPurgedAfterDelete(published, apiBaseUrl, adminToken);
-  await assertBytesPurgedAfterExpiry(apiEnv, apiBaseUrl, contentBaseUrl, adminToken);
+  await assertBytesPurgedAfterExpiry(apiEnv, apiBaseUrl, adminToken);
 
   const events = await runCliJson(["admin", "events", "list", "--json"], baseEnv);
   assert(events.data.length > 0, "operation events list is non-empty");
@@ -223,7 +223,7 @@ async function assertBytesPurgedAfterDelete(published, apiUrl, token) {
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
 }
 
-async function assertBytesPurgedAfterExpiry(apiEnv, apiUrl, contentUrl, token) {
+async function assertBytesPurgedAfterExpiry(apiEnv, apiUrl, token) {
   const expiryPublish = await runCliJson(
     [
       "publish",
