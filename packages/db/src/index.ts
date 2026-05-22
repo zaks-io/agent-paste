@@ -574,6 +574,16 @@ export class LocalRepository {
     };
   }
 
+  async forceExpireArtifact(input: { artifactId: string; expiresAt: string }) {
+    const artifact = this.artifacts.get(input.artifactId);
+    if (!artifact) {
+      return null;
+    }
+    artifact.expires_at = input.expiresAt;
+    artifact.updated_at = new Date().toISOString();
+    return { artifact_id: artifact.id, expires_at: artifact.expires_at };
+  }
+
   private publishResultForArtifact(artifact: Artifact, uploadSessionId: string) {
     const contentBaseUrl = this.options.contentBaseUrl ?? "http://127.0.0.1:8789";
     const apiBaseUrl = this.options.apiBaseUrl ?? "http://127.0.0.1:8787";
@@ -1273,6 +1283,15 @@ export class PostgresRepository {
        order by occurred_at desc`,
     );
     return { data: result.rows, page_info: { next_cursor: null, has_more: false } };
+  }
+
+  async forceExpireArtifact(input: { artifactId: string; expiresAt: string }) {
+    const result = await this.db.query<{ id: string; expires_at: string }>(
+      `update artifacts set expires_at = $1, updated_at = $1 where id = $2 returning id, expires_at`,
+      [input.expiresAt, input.artifactId],
+    );
+    const row = result.rows[0];
+    return row ? { artifact_id: row.id, expires_at: row.expires_at } : null;
   }
 
   private async runIdempotent<T>(

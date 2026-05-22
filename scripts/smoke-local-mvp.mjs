@@ -102,9 +102,8 @@ try {
   const cleanupDryRun = await runCliJson(["admin", "cleanup", "run", "--dry-run", "--json"], baseEnv);
   assert(cleanupDryRun.dry_run === true, "cleanup dry-run reports dry_run=true");
 
-  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"], baseEnv);
-  const deletedView = await fetch(published.view_url);
-  assert(deletedView.status === 404, `deleted artifact content returned ${deletedView.status}, expected 404`);
+  await assertBytesPurgedAfterDelete(published, apiBaseUrl, adminToken);
+  await assertBytesPurgedAfterExpiry(apiEnv, apiBaseUrl, contentBaseUrl, adminToken);
 
   const events = await runCliJson(["admin", "events", "list", "--json"], baseEnv);
   assert(events.data.length > 0, "operation events list is non-empty");
@@ -183,8 +182,9 @@ async function waitForHealthy(url, headers) {
   throw new Error(`local server did not become healthy at ${url}`);
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
+async function fetchJson(url, headers) {
+  const init = headers ? { headers } : undefined;
+  const response = await fetch(url, init);
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}`);
   }
@@ -200,4 +200,83 @@ function assert(condition, message) {
 function intEnv(name, fallback) {
   const value = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+async function assertBytesPurgedAfterDelete(published, apiUrl, token) {
+  const prefix = `artifacts/${published.artifact_id}/`;
+  const before = await listR2Keys(apiUrl, token, prefix);
+  assert(before.length > 0, "R2 prefix has keys before delete");
+
+  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"], {
+    ...process.env,
+    AGENT_PASTE_ADMIN_TOKEN: token,
+    AGENT_PASTE_ADMIN_URL: apiUrl,
+  });
+
+  const after = await listR2Keys(apiUrl, token, prefix);
+  assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
+
+  const deletedView = await fetch(published.view_url);
+  assert(deletedView.status === 404, `deleted content URL returned ${deletedView.status}, expected 404`);
+
+  const denyKey = await fetchDenylistKey(apiUrl, token, `artifact:${published.artifact_id}`);
+  assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
+}
+
+async function assertBytesPurgedAfterExpiry(apiEnv, apiUrl, contentUrl, token) {
+  const expiryPublish = await runCliJson(
+    [
+      "publish",
+      "examples/local-harness/site",
+      "--ttl",
+      "1d",
+      "--title",
+      "Local expiry harness",
+      "--json",
+    ],
+    apiEnv,
+  );
+  const prefix = `artifacts/${expiryPublish.artifact_id}/`;
+  const before = await listR2Keys(apiUrl, token, prefix);
+  assert(before.length > 0, "expiry harness: R2 prefix populated after publish");
+
+  const forceExpire = await fetch(`${apiUrl}/__test__/force-expire`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ artifact_id: expiryPublish.artifact_id }),
+  });
+  assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
+
+  const cleanup = await runCliJson(["admin", "cleanup", "run", "--yes", "--json"], {
+    ...process.env,
+    AGENT_PASTE_ADMIN_TOKEN: token,
+    AGENT_PASTE_ADMIN_URL: apiUrl,
+  });
+  assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
+  assert(cleanup.deleted_r2_objects >= before.length, "cleanup reports deleted_r2_objects matching purged keys");
+
+  const after = await listR2Keys(apiUrl, token, prefix);
+  assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
+
+  const expiredView = await fetch(expiryPublish.view_url);
+  assert(expiredView.status === 404, `expired content URL returned ${expiredView.status}, expected 404`);
+
+  const denyKey = await fetchDenylistKey(apiUrl, token, `artifact:${expiryPublish.artifact_id}`);
+  assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");
+}
+
+async function fetchDenylistKey(apiUrl, token, key) {
+  return fetchJson(`${apiUrl}/__test__/denylist?key=${encodeURIComponent(key)}`, {
+    Authorization: `Bearer ${token}`,
+  });
+}
+
+async function listR2Keys(apiUrl, token, prefix) {
+  const data = await fetchJson(`${apiUrl}/__test__/r2-list?prefix=${encodeURIComponent(prefix)}`, {
+    Authorization: `Bearer ${token}`,
+  });
+  return data.keys;
 }

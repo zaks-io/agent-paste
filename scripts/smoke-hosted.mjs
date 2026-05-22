@@ -60,8 +60,13 @@ assert(content.status === 200, `content HTML returned ${content.status}`);
 assert(content.headers.get("content-type")?.includes("text/html"), "content response is HTML");
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
 
-await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
-await waitForStatus(published.view_url, 404, "deleted content");
+if (target !== "production") {
+  await assertBytesPurgedAfterDelete(published);
+  await assertBytesPurgedAfterExpiry(userEnv, published);
+} else {
+  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
+  await waitForStatus(published.view_url, 404, "deleted content");
+}
 
 await smokeApex(config);
 
@@ -260,4 +265,72 @@ function unquote(value) {
     return value.slice(1, -1);
   }
   return value;
+}
+
+async function assertBytesPurgedAfterDelete(publishedArtifact) {
+  const prefix = `artifacts/${publishedArtifact.artifact_id}/`;
+  const before = await listR2Keys(prefix);
+  assert(before.length > 0, "R2 prefix has keys before delete");
+
+  await runCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
+  await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
+
+  const after = await listR2Keys(prefix);
+  assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
+
+  const denyKey = await fetchDenylistKey(`artifact:${publishedArtifact.artifact_id}`);
+  assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
+}
+
+async function assertBytesPurgedAfterExpiry(userEnv, original) {
+  const expiryPublish = await runCliJson(
+    ["publish", smokePath, "--ttl", "1d", "--title", `${config.title} expiry`, "--json"],
+    userEnv,
+  );
+  const prefix = `artifacts/${expiryPublish.artifact_id}/`;
+  const before = await listR2Keys(prefix);
+  assert(before.length > 0, "expiry harness: R2 prefix populated after publish");
+
+  const forceExpire = await fetch(`${config.apiBaseUrl}/__test__/force-expire`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.adminToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ artifact_id: expiryPublish.artifact_id }),
+  });
+  assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
+
+  const cleanup = await runCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
+  assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
+  assert(cleanup.deleted_r2_objects >= before.length, "cleanup deleted_r2_objects matches purged keys");
+
+  await waitForStatus(expiryPublish.view_url, 404, "expired content");
+
+  const after = await listR2Keys(prefix);
+  assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
+
+  const denyKey = await fetchDenylistKey(`artifact:${expiryPublish.artifact_id}`);
+  assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");
+}
+
+async function fetchDenylistKey(key) {
+  const response = await fetch(`${config.apiBaseUrl}/__test__/denylist?key=${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${config.adminToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`denylist returned ${response.status}`);
+  }
+  return response.json();
+}
+
+async function listR2Keys(prefix) {
+  const response = await fetch(`${config.apiBaseUrl}/__test__/r2-list?prefix=${encodeURIComponent(prefix)}`, {
+    headers: { Authorization: `Bearer ${config.adminToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`r2-list returned ${response.status}`);
+  }
+  const data = await response.json();
+  return data.keys;
 }
