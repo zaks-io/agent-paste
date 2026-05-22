@@ -229,6 +229,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### 8. Complete bootstrap hosting checklist
 
+- Status: Partial -- checklist ready, click-ops pending Isaac. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
