@@ -51,24 +51,24 @@ Open security follow-ups:
 
 ## Implementation Map
 
-| Component             | Status      | Source LOC | Tests | Key files / notes                                                                                                                        |
-| --------------------- | ----------- | ---------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api`            | Implemented | ~950       | Yes   | `src/index.ts`. Hono routing, `/openapi.json`, public Agent View, admin routes, scheduled cleanup, signed content URLs, denylist writes. |
-| `apps/upload`         | Implemented | ~14k       | Yes   | `src/index.ts`. Session create, signed PUT, R2 writes, finalize, signed Agent View URL minting.                                          |
-| `apps/content`        | Implemented | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist.                                               |
-| `apps/cli`            | Implemented | ~520       | Yes   | `src/index.ts`, `src/local.ts`. `whoami`, `publish`, admin commands. Destructive admin commands require `--yes`.                         |
-| `apps/jobs`           | Scaffolded  | ~65        | No    | `src/index.ts`. Hono + `healthz` only. Empty `runScheduledJobs()`. No queue consumers.                                                   |
-| `apps/web`            | Scaffolded  | ~50        | No    | Hono + `healthz` only. No Auth0, no routes, no UI.                                                                                       |
-| `apps/mcp`            | Scaffolded  | ~85        | No    | Hono + `healthz` only. No OAuth, no MCP transport.                                                                                       |
-| `packages/contracts`  | Implemented | ~810       | Yes   | Zod schemas, branded IDs, route registry. CLI-first MVP surface only.                                                                    |
-| `packages/db`         | Implemented | ~2070      | Yes   | Drizzle schema + SQL migration, repository helpers, Hyperdrive executor. Runtime is mostly raw SQL/repo, not Drizzle queries.            |
-| `packages/auth`       | Implemented | ~290       | Yes   | API key gen/parse/verify, admin token HMAC, `cachedLookup`, scope registry.                                                              |
-| `packages/api-client` | Implemented | ~340       | Yes   | Auth resolution, retry, idempotency, cursor pagination.                                                                                  |
-| `packages/storage`    | Implemented | ~60        | Yes   | MIME map, security headers, content-token placeholders.                                                                                  |
-| `packages/commands`   | Implemented | ~150       | Yes   | `runCommand`, `createOperationEvent`, idempotency helpers. Wired into mutation persistence paths in `api` and `upload`.                  |
-| `packages/config`     | Scaffolded  | ~65        | Yes   | Constants and a couple of helpers; no per-app env schema.                                                                                |
-| `packages/tsconfig`   | Config only | n/a        | n/a   | Shared TS base.                                                                                                                          |
-| `packages/repo-lint`  | Config only | n/a        | n/a   | Biome rules for docs/scripts.                                                                                                            |
+| Component             | Status      | Source LOC | Tests | Key files / notes                                                                                                                                                                                                                                               |
+| --------------------- | ----------- | ---------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`            | Implemented | ~950       | Yes   | `src/index.ts`. Hono routing, `/openapi.json`, public Agent View, admin routes, scheduled cleanup, signed content URLs, denylist writes.                                                                                                                        |
+| `apps/upload`         | Implemented | ~14k       | Yes   | `src/index.ts`. Session create, signed PUT, R2 writes, finalize, signed Agent View URL minting.                                                                                                                                                                 |
+| `apps/content`        | Implemented | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist.                                                                                                                                                                      |
+| `apps/cli`            | Implemented | ~520       | Yes   | `src/index.ts`, `src/local.ts`. `whoami`, `publish`, admin commands. Destructive admin commands require `--yes`.                                                                                                                                                |
+| `apps/jobs`           | Scaffolded  | ~65        | No    | `src/index.ts`. Hono + `healthz` only. Empty `runScheduledJobs()`. No queue consumers.                                                                                                                                                                          |
+| `apps/web`            | Scaffolded  | ~50        | No    | Hono + `healthz` only. No Auth0, no routes, no UI.                                                                                                                                                                                                              |
+| `apps/mcp`            | Scaffolded  | ~85        | No    | Hono + `healthz` only. No OAuth, no MCP transport.                                                                                                                                                                                                              |
+| `packages/contracts`  | Implemented | ~810       | Yes   | Zod schemas, branded IDs, route registry. CLI-first MVP surface only.                                                                                                                                                                                           |
+| `packages/db`         | Implemented | ~1800      | Yes   | Drizzle schema + SQL migration, repository split into `local-repository.ts`/`postgres/*`, query objects under `queries/*`. MVP runtime queries use Drizzle; admin/cleanup set-based updates keep raw SQL. `db:check` introspection guard runs in `pnpm verify`. |
+| `packages/auth`       | Implemented | ~290       | Yes   | API key gen/parse/verify, admin token HMAC, `cachedLookup`, scope registry.                                                                                                                                                                                     |
+| `packages/api-client` | Implemented | ~340       | Yes   | Auth resolution, retry, idempotency, cursor pagination.                                                                                                                                                                                                         |
+| `packages/storage`    | Implemented | ~60        | Yes   | MIME map, security headers, content-token placeholders.                                                                                                                                                                                                         |
+| `packages/commands`   | Implemented | ~150       | Yes   | `runCommand`, `createOperationEvent`, idempotency helpers. Wired into mutation persistence paths in `api` and `upload`.                                                                                                                                         |
+| `packages/config`     | Scaffolded  | ~65        | Yes   | Constants and a couple of helpers; no per-app env schema.                                                                                                                                                                                                       |
+| `packages/tsconfig`   | Config only | n/a        | n/a   | Shared TS base.                                                                                                                                                                                                                                                 |
+| `packages/repo-lint`  | Config only | n/a        | n/a   | Biome rules for docs/scripts.                                                                                                                                                                                                                                   |
 
 ## Spec Coverage
 
@@ -104,7 +104,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0004 audit wrapper for state changes      | Done         | `runCommand` writes the audit event in the same transaction as every mutation.                                                                                                  |
 | 0005 Workers + R2 + Postgres + Hyperdrive | Done         | All four bindings present in `wrangler.jsonc`.                                                                                                                                  |
 | 0006 small Workers by boundary            | Done         | api/upload/content split. jobs/web/mcp scaffolded for future.                                                                                                                   |
-| 0007 Drizzle migrations + preview envs    | Partial      | Migration exists; runtime not Drizzle. Preview Neon branch wired.                                                                                                               |
+| 0007 Drizzle migrations + preview envs    | Partial      | Migration exists; MVP runtime now goes through Drizzle queries with a `db:check` snapshot guard. Preview Neon branch wired.                                                     |
 | 0008 pnpm + Turborepo guardrails          | Done         | Lockfile, workspace config, CI install guardrails.                                                                                                                              |
 | 0009 TypeScript + per-app wrangler        | Done         | Per-app `wrangler.jsonc`.                                                                                                                                                       |
 | 0010 GitHub Actions on Blacksmith         | Done         | CI, PR preview, cleanup, production deploy workflows present.                                                                                                                   |
@@ -115,7 +115,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0015 shared auth primitives               | Done for MVP | `packages/auth` exports shared HMAC + cache.                                                                                                                                    |
 | 0016 Hono + OpenAPI                       | Done         | All Workers on Hono. `/openapi.json` is generated from `packages/contracts` via `@asteasolutions/zod-to-openapi` with golden diff in `pnpm verify`.                             |
 | 0017 OpenAPI contract + SDK/CLI           | Partial      | `packages/api-client` exists. OpenAPI schemas now generated from Zod; SDK regeneration pipeline still manual.                                                                   |
-| 0018 Drizzle for schema + queries         | Partial      | Schema in Drizzle, runtime in raw SQL/repo helpers.                                                                                                                             |
+| 0018 Drizzle for schema + queries         | Partial      | Schema in Drizzle; MVP workspace/api-key/upload-session/artifact reads + writes use Drizzle query objects (`packages/db/src/queries/*`); admin/cleanup set-based statements still raw SQL. |
 | 0019 Cloudflare Queues for jobs           | Deferred     | Phase 4+. Cleanup in `api` scheduled handler.                                                                                                                                   |
 | 0020 content caching by revision          | Partial      | Cache headers set; revision-hash cache-key validation not explicit.                                                                                                             |
 | 0021 ID-based R2 object key layout        | Done         | Keys follow `{artifact}/{revision}/{path}`.                                                                                                                                     |
@@ -185,25 +185,19 @@ Ordered. Each item has a verifiable Done. Items 1-4 close Phase 1; items 5-7 pre
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Move runtime queries to Drizzle
-
-- Drives: ADR 0018
-- Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
-- Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
-
-### 2. Apply Postgres RLS at runtime
+### 1. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 3. Exercise PR preview lifecycle on a same-repo PR
+### 2. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
 - Done: a same-repo PR (the one carrying items 1-3 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 4. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 3. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Status: Partial -- runbook ready, click-ops pending Isaac.
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
@@ -211,7 +205,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Runbook: [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) -- pre-flight, six Axiom datasets, six Logpush jobs, redaction list, three APL panels, verification curl + APL.
 - Done: all six Axiom datasets (preview + production for `api`/`upload`/`content`) receive Worker logs; dashboards show 5xx rate and p95 latency in both envs; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
 
-### 6. Complete bootstrap hosting checklist
+### 4. Complete bootstrap hosting checklist
 
 - Status: Partial -- checklist ready, click-ops pending Isaac. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
 - Drives: ADR 0058, this doc § Bootstrap
@@ -219,6 +213,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Move MVP runtime queries to Drizzle + introspection check
+
+- Status: Done on 2026-05-22.
+- Drives: ADR 0018
+- Files: `packages/db/src/index.ts` (now a barrel), `packages/db/src/{policy,types,id,api-keys,validation,transforms,agent-view,local-repository}.ts`, `packages/db/src/postgres/{drizzle,executor,repository,services}.ts`, `packages/db/src/queries/*`, `packages/db/scripts/introspect-check.mjs`, `packages/db/snapshot/schema.sql`, `packages/db/package.json`, `turbo.json`, root `package.json`, `packages/db/src/index.test.ts`.
+- Done: MVP workspace/api-key/upload-session/artifact reads and writes go through Drizzle query objects under `packages/db/src/queries/*`; `PostgresRepository` keeps the `runCommand` idempotency wrapper around mutations and binds a Drizzle instance to each `SqlExecutor` via a WeakMap so handlers can recover the typed client; admin/cleanup paths that need set-based updates keep raw `tx.query` calls; `pnpm verify` now runs `db:check`, a turbo task that calls `node packages/db/scripts/introspect-check.mjs` to compare a fresh `drizzle-kit export` against the checked-in `packages/db/snapshot/schema.sql` and exits 1 on drift; forced-drift smoke confirmed the check fails when the snapshot mutates and recovers when reverted.
 
 ### Generate OpenAPI from Zod contracts
 
@@ -390,7 +391,7 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 1. `pnpm setup:codex`
 2. `pnpm verify`
 3. `pnpm smoke:local` (use `AGENT_PASTE_LOCAL_*_PORT` overrides if ports collide)
-4. Address backlog items 1-7 (or document why they are deferred)
+4. Address backlog items 1-4 (or document why they are deferred)
 5. `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
 6. Open a same-repo PR to exercise the preview workflow
 7. Production deploy only with explicit Isaac approval: `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`

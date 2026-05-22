@@ -38,7 +38,7 @@
     "test": "turbo run test",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm format:docs:check && turbo run lint typecheck test openapi:check"
+    "verify": "pnpm format:docs:check && turbo run lint typecheck test openapi:check db:check"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
