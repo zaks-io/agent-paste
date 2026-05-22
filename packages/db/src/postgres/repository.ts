@@ -33,6 +33,7 @@ import type {
 } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import { type DrizzleConnection, type DrizzleDb, drizzleForExecutor } from "./drizzle.js";
+import { type RlsScope, rlsExecutor } from "./rls.js";
 
 type HandlerContext = { sql: SqlExecutor; drizzle: DrizzleDb };
 
@@ -110,8 +111,10 @@ export class PostgresRepository {
   }
 
   async listWorkspaces() {
-    const rows = await workspaceQueries.listAll(this.drizzleDb);
-    return { data: rows.map(toWorkspaceDetail), page_info: { next_cursor: null, has_more: false } };
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const rows = await workspaceQueries.listAll(ctx.drizzle);
+      return { data: rows.map(toWorkspaceDetail), page_info: { next_cursor: null, has_more: false } };
+    });
   }
 
   async createApiKey(input: {
@@ -162,7 +165,7 @@ export class PostgresRepository {
 
   async revokeApiKey(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
     const revokedAt = (input.now ?? new Date()).toISOString();
-    const apiKey = await this.mustApiKey(this.context(), input.apiKeyId);
+    const apiKey = await this.withScope(this.platformScope(), (ctx) => this.mustApiKey(ctx, input.apiKeyId));
     return this.runAdminCommand(
       input.actor,
       "admin.api_key.revoke",
@@ -193,8 +196,9 @@ export class PostgresRepository {
     if (!parsed) {
       return null;
     }
-    const ctx = this.context();
-    const record = await apiKeyQueries.findByPublicId(ctx.drizzle, parsed.publicId);
+    const record = await this.withScope(this.platformScope(), (ctx) =>
+      apiKeyQueries.findByPublicId(ctx.drizzle, parsed.publicId),
+    );
     if (!record || record.revoked_at) {
       return null;
     }
@@ -202,20 +206,23 @@ export class PostgresRepository {
     if (!ok) {
       return null;
     }
-    await apiKeyQueries.updateLastUsedAt(ctx.drizzle, record.id, new Date().toISOString());
+    await this.withScope(this.workspaceScope(record.workspace_id), (ctx) =>
+      apiKeyQueries.updateLastUsedAt(ctx.drizzle, record.id, new Date().toISOString()),
+    );
     return { type: "api_key", id: record.id, workspace_id: record.workspace_id, scopes: record.scopes };
   }
 
   async getWhoami(actor: ApiActor) {
-    const ctx = this.context();
-    const apiKey = await this.mustApiKey(ctx, actor.id);
-    const workspace = await this.mustWorkspace(ctx, apiKey.workspace_id);
-    return {
-      actor: { type: "api_key", id: apiKey.id, name: apiKey.name },
-      workspace: toWorkspaceSummary(workspace),
-      scopes: apiKey.scopes,
-      usage_policy: USAGE_POLICY,
-    };
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const apiKey = await this.mustApiKey(ctx, actor.id);
+      const workspace = await this.mustWorkspace(ctx, apiKey.workspace_id);
+      return {
+        actor: { type: "api_key", id: apiKey.id, name: apiKey.name },
+        workspace: toWorkspaceSummary(workspace),
+        scopes: apiKey.scopes,
+        usage_policy: USAGE_POLICY,
+      };
+    });
   }
 
   async createUploadSession(input: {
@@ -287,17 +294,18 @@ export class PostgresRepository {
     sizeBytes?: number;
     uploadedAt: string;
   }) {
-    await uploadSessionFileQueries.recordUpload(this.drizzleDb, input);
+    await this.withScope(this.platformScope(), (ctx) => uploadSessionFileQueries.recordUpload(ctx.drizzle, input));
   }
 
   async getUploadSession(input: { actor: ApiActor; sessionId: string }) {
-    const ctx = this.context();
-    const session = await uploadSessionQueries.findById(ctx.drizzle, input.sessionId, input.actor.workspace_id);
-    if (!session) {
-      return null;
-    }
-    const files = await uploadSessionFileQueries.listForSession(ctx.drizzle, session.id);
-    return toUploadSessionRecord(session, files);
+    return this.withScope(this.workspaceScope(input.actor.workspace_id), async (ctx) => {
+      const session = await uploadSessionQueries.findById(ctx.drizzle, input.sessionId, input.actor.workspace_id);
+      if (!session) {
+        return null;
+      }
+      const files = await uploadSessionFileQueries.listForSession(ctx.drizzle, session.id);
+      return toUploadSessionRecord(session, files);
+    });
   }
 
   async finalizeUploadSession(input: {
@@ -357,26 +365,30 @@ export class PostgresRepository {
 
   async getPublicAgentView(input: { token: string; contentBaseUrl: string }) {
     const artifactId = input.token.split(".")[0] ?? input.token;
-    const artifact = await artifactQueries.findById(this.drizzleDb, artifactId);
-    if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
-      return null;
-    }
-    const files = await artifactFileQueries.listForArtifact(this.drizzleDb, artifact.id);
-    return buildAgentView(artifact, files, input.contentBaseUrl);
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const artifact = await artifactQueries.findById(ctx.drizzle, artifactId);
+      if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
+        return null;
+      }
+      const files = await artifactFileQueries.listForArtifact(ctx.drizzle, artifact.id);
+      return buildAgentView(artifact, files, input.contentBaseUrl);
+    });
   }
 
   async getAgentView(input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string }) {
-    const artifact = await artifactQueries.findById(this.drizzleDb, input.artifactId, input.actor.workspace_id);
-    if (
-      !artifact ||
-      artifact.status !== "active" ||
-      (input.revisionId && artifact.revision_id !== input.revisionId) ||
-      new Date(artifact.expires_at).getTime() <= Date.now()
-    ) {
-      return null;
-    }
-    const files = await artifactFileQueries.listForArtifact(this.drizzleDb, artifact.id);
-    return buildAgentView(artifact, files, input.contentBaseUrl);
+    return this.withScope(this.workspaceScope(input.actor.workspace_id), async (ctx) => {
+      const artifact = await artifactQueries.findById(ctx.drizzle, input.artifactId, input.actor.workspace_id);
+      if (
+        !artifact ||
+        artifact.status !== "active" ||
+        (input.revisionId && artifact.revision_id !== input.revisionId) ||
+        new Date(artifact.expires_at).getTime() <= Date.now()
+      ) {
+        return null;
+      }
+      const files = await artifactFileQueries.listForArtifact(ctx.drizzle, artifact.id);
+      return buildAgentView(artifact, files, input.contentBaseUrl);
+    });
   }
 
   async runCleanup(input: {
@@ -452,32 +464,39 @@ export class PostgresRepository {
   }
 
   async listArtifacts(workspaceId?: string, status?: string) {
-    const rows = await artifactQueries.listFiltered(this.drizzleDb, workspaceId, status);
-    return { data: rows.map(toArtifactSummary), page_info: { next_cursor: null, has_more: false } };
+    const scope: RlsScope = workspaceId ? this.workspaceScope(workspaceId) : this.platformScope();
+    return this.withScope(scope, async (ctx) => {
+      const rows = await artifactQueries.listFiltered(ctx.drizzle, workspaceId, status);
+      return { data: rows.map(toArtifactSummary), page_info: { next_cursor: null, has_more: false } };
+    });
   }
 
   async getArtifactDetail(artifactId: string) {
-    const artifact = await artifactQueries.findById(this.drizzleDb, artifactId);
-    if (!artifact) {
-      return null;
-    }
-    const files = await artifactFileQueries.listForArtifact(this.drizzleDb, artifact.id);
-    const eventIds = await operationEventQueries.listIdsForTarget(this.drizzleDb, artifact.id);
-    return {
-      ...toArtifactSummary(artifact),
-      files: files.map(({ path, size_bytes, content_type, uploaded_at }) => ({
-        path,
-        size_bytes,
-        content_type,
-        uploaded_at: uploaded_at ?? artifact.created_at,
-      })),
-      operation_event_ids: eventIds,
-    };
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const artifact = await artifactQueries.findById(ctx.drizzle, artifactId);
+      if (!artifact) {
+        return null;
+      }
+      const files = await artifactFileQueries.listForArtifact(ctx.drizzle, artifact.id);
+      const eventIds = await operationEventQueries.listIdsForTarget(ctx.drizzle, artifact.id);
+      return {
+        ...toArtifactSummary(artifact),
+        files: files.map(({ path, size_bytes, content_type, uploaded_at }) => ({
+          path,
+          size_bytes,
+          content_type,
+          uploaded_at: uploaded_at ?? artifact.created_at,
+        })),
+        operation_event_ids: eventIds,
+      };
+    });
   }
 
   async deleteArtifact(input: { actor: AdminActor; idempotencyKey: string; artifactId: string; now?: Date }) {
     const deletedAt = (input.now ?? new Date()).toISOString();
-    const target = await artifactQueries.findById(this.drizzleDb, input.artifactId);
+    const target = await this.withScope(this.platformScope(), (ctx) =>
+      artifactQueries.findById(ctx.drizzle, input.artifactId),
+    );
     if (!target) {
       throw new Error("artifact_not_found");
     }
@@ -515,16 +534,28 @@ export class PostgresRepository {
   }
 
   async listOperationEvents() {
-    const data = await operationEventQueries.listAll(this.drizzleDb);
-    return { data, page_info: { next_cursor: null, has_more: false } };
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const data = await operationEventQueries.listAll(ctx.drizzle);
+      return { data, page_info: { next_cursor: null, has_more: false } };
+    });
   }
 
   async forceExpireArtifact(input: { artifactId: string; expiresAt: string }) {
-    return artifactQueries.updateExpiry(this.drizzleDb, input.artifactId, input.expiresAt);
+    return this.withScope(this.platformScope(), (ctx) =>
+      artifactQueries.updateExpiry(ctx.drizzle, input.artifactId, input.expiresAt),
+    );
   }
 
-  private context(): HandlerContext {
-    return { sql: this.executor, drizzle: this.drizzleDb };
+  private withScope<T>(scope: RlsScope, run: (ctx: HandlerContext) => Promise<T>): Promise<T> {
+    return rlsExecutor(this.executor, scope).transaction(async (tx) => run(withDrizzle(tx)));
+  }
+
+  private workspaceScope(workspaceId: string): RlsScope {
+    return { kind: "workspace", workspaceId };
+  }
+
+  private platformScope(): RlsScope {
+    return { kind: "platform" };
   }
 
   private async runIdempotent<T>(
@@ -534,8 +565,9 @@ export class PostgresRepository {
     now: string,
     run: (tx: SqlExecutor) => Promise<T>,
   ): Promise<T> {
+    const scope: RlsScope = { kind: "workspace", workspaceId: actor.workspace_id };
     const command = await runCommand<T>({
-      executor: this.executor,
+      executor: rlsExecutor(this.executor, scope),
       actor: commandActor(actor),
       operation,
       idempotencyKey,
@@ -554,8 +586,9 @@ export class PostgresRepository {
     now: string,
     run: (tx: SqlExecutor) => Promise<{ result: T; audit?: CommandAuditEvent[] }>,
   ): Promise<T> {
+    const scope: RlsScope = workspaceId ? { kind: "workspace", workspaceId } : { kind: "platform" };
     const command = await runCommand<T>({
-      executor: this.executor,
+      executor: rlsExecutor(this.executor, scope),
       actor: adminCommandActor(actor, workspaceId),
       operation,
       idempotencyKey,
