@@ -8,8 +8,8 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Snapshot
 
-- `main` is at `2dff9d2 feat: wire runCommand into mutation routes (#4)`.
-- Latest feature commit on `main`: `4bde837 feat(apex): add marketing worker at agent-paste.sh (#1)`.
+- `main` is at `7b963ad feat(db): enforce workspace RLS at runtime (#18)`.
+- Latest feature commit on `main`: `7b963ad feat(db): enforce workspace RLS at runtime (#18)`.
 - Three Workers (`api`, `upload`, `content`) and one CLI (`agent-paste`) are implemented and pass `pnpm smoke:local` and `pnpm smoke:preview`.
 - Every mutation route in `api` and `upload` now flows through `runCommand` with durable idempotency (`packages/db/migrations/0002_idempotency_admin_ops.sql`).
 - Three Workers (`jobs`, `web`, `mcp`) are Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
@@ -22,7 +22,7 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 | Check                   | Result        | Date       | Notes                                                                                                                                                                   |
 | ----------------------- | ------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm setup:codex`      | Pass          | 2026-05-21 | Network approval required first run.                                                                                                                                    |
-| `pnpm verify`           | Pass          | 2026-05-21 | 45 Turbo tasks under Node 24.15.0.                                                                                                                                      |
+| `pnpm verify`           | Pass          | 2026-05-22 | 61 Turbo tasks on `main` at `7b963ad` (post-RLS).                                                                                                                       |
 | `pnpm smoke:local`      | Pass          | 2026-05-21 | Used alt ports 18787-18789 because `workerd` held 8787.                                                                                                                 |
 | `pnpm smoke:preview`    | Pass          | 2026-05-21 | After preview admin token was bootstrapped.                                                                                                                             |
 | Production deploy       | Pass          | 2026-05-21 | GitHub Actions run `26245768366`.                                                                                                                                       |
