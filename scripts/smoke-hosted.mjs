@@ -56,6 +56,17 @@ assert(agentHtmlText.includes(published.artifact_id), "Agent View HTML renders a
 assert(agentHtmlText.includes("index.html"), "Agent View HTML renders file list");
 
 const content = await fetch(published.view_url);
+if (content.status !== 200) {
+  process.stderr.write(
+    `DEBUG content fetch failed:
+view_url: ${published.view_url}
+status:   ${content.status}
+content-type: ${content.headers.get("content-type")}
+body: ${await content.clone().text()}
+published: ${JSON.stringify(published, null, 2)}
+`,
+  );
+}
 assert(content.status === 200, `content HTML returned ${content.status}`);
 assert(content.headers.get("content-type")?.includes("text/html"), "content response is HTML");
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
