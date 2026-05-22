@@ -14,7 +14,7 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 - Every mutation route in `api` and `upload` now flows through `runCommand` with durable idempotency (`packages/db/migrations/0002_idempotency_admin_ops.sql`).
 - Three Workers (`jobs`, `web`, `mcp`) are Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
 - GitHub Actions ran successful CI and production-deploy workflows on `main` on 2026-05-21.
-- Open branches with unmerged work: `t3code/7bcd4587` (Apex/front-end + CI), `t3code/5b6355f9` (unreviewed), `t3code/3d4931ed` (contained in main).
+- No open `t3code/*` branches remain; all were verified contained in `main` or absent from origin and closed.
 - Per `docs/specs/phases.md` and `docs/adr/0066-cli-first-mvp-contract-narrowing.md`, the CLI-first MVP is the active phase; Auth0, web UI, MCP, queues, bundles, encryption are explicitly deferred.
 
 ## Verified State
@@ -221,19 +221,19 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 7. Review and merge `t3code/7bcd4587`
-
-- Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
-- Files: TBD until review.
-- Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
-
-### 8. Complete bootstrap hosting checklist
+### 7. Complete bootstrap hosting checklist
 
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Close obsolete `t3code/*` branches
+
+- Status: Done on 2026-05-21.
+- Drives: former backlog item #7 (review/merge `t3code/7bcd4587` and `t3code/5b6355f9`).
+- Action: `git fetch origin` plus `gh api repos/:owner/:repo/branches` confirmed neither `t3code/7bcd4587` nor `t3code/5b6355f9` exists on origin; the underlying commits are unreachable in this clone. The only Apex/front-end work that landed from the `t3code/*` family was the marketing worker scaffold merged via PR #1 (`4bde837 feat(apex): add marketing worker at agent-paste.sh`). Nothing left to salvage, so backlog item #7 is closed without a code change beyond removing the stale references from this doc.
 
 ### Verify bytes-after-delete and bytes-after-expiry cleanup
 
