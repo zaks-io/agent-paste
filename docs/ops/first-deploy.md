@@ -83,7 +83,7 @@ It creates a workspace and API key, publishes `examples/local-harness/site`, ver
 
 ## Dynamic PR Previews
 
-Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neon branch named `preview/pr-<number>` from `main`, runs migrations against that branch URL, creates a PR-scoped Hyperdrive config, deploys `agent-paste-{api,upload,content}-pr-<number>` Workers to `workers.dev`, runs the hosted smoke, and comments the URLs on the PR. `.github/workflows/cleanup-pr-preview.yml` deletes the Workers, Hyperdrive config, and Neon branch when the PR closes.
+Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neon branch named `preview/pr-<number>` from `main`, runs migrations against that branch URL, creates a PR-scoped Hyperdrive config, deploys `agent-paste-{api,upload,content}-pr-<number>` Workers to `workers.dev`, runs the hosted smoke, and comments the URLs on the PR. `.github/workflows/pr-preview-cleanup.yml` deletes the Workers, Hyperdrive config, and Neon branch when the PR closes.
 
 Required GitHub Actions values:
 
