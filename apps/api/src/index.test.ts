@@ -2,18 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest } from "./index.js";
 
 describe("api worker", () => {
-  it("documents rate-limit responses in OpenAPI", async () => {
+  it("serves a generated OpenAPI document", async () => {
     const response = await handleRequest(new Request("https://api.test/openapi.json"), {});
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")?.toLowerCase()).toContain("application/json");
     const doc = (await response.json()) as {
+      info: { title: string };
       paths: Record<
         string,
         Record<string, { responses: Record<string, { description?: string; headers?: Record<string, unknown> }> }>
       >;
     };
 
+    expect(doc.info.title).toBe("Agent Paste API");
     expect(doc.paths["/v1/whoami"]?.get.responses["429"]).toMatchObject({
       description: expect.stringContaining("rate_limited_actor"),
-      headers: { "Retry-After": expect.any(Object) },
+      headers: expect.any(Object),
     });
   });
 

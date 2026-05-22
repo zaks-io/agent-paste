@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { Mebibytes, Seconds } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
@@ -10,6 +9,7 @@ import {
   UploadSessionId,
   UrlString,
 } from "./primitives.js";
+import { z } from "./zod.js";
 
 export const UploadSessionFileInput = z.object({
   path: FilePath,

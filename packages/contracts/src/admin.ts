@@ -1,10 +1,10 @@
-import { z } from "zod";
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, DeleteArtifactResponse } from "./artifacts.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventAction, OperationEventTargetType } from "./enums.js";
 import { IsoDateTime, OperationEventId, WorkspaceId } from "./primitives.js";
 import { WorkspaceSummary } from "./workspace.js";
+import { z } from "./zod.js";
 
 export const CreateWorkspaceRequest = z.object({
   email: z.string().email(),

@@ -36,6 +36,11 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "openapi:check": {
+      "dependsOn": ["build"],
+      "inputs": ["src/openapi/**", "src/*.ts", "openapi/**"],
+      "outputs": []
     }
   }
 }

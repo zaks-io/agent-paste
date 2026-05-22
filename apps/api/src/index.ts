@@ -9,6 +9,7 @@ import {
   verifyAdminToken,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
 
@@ -140,7 +141,11 @@ const AUTH_CACHE_TTL_SECONDS = 60;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
 app.use("*", requestIdMiddleware());
-app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.get("/openapi.json", (context) =>
+  context.json(
+    buildApiOpenApiDocument({ serverUrl: context.env.API_BASE_URL, docsBaseUrl: context.env.DOCS_BASE_URL }),
+  ),
+);
 app.get("/v1/whoami", (context) => whoami(context));
 app.get("/v1/usage-policy", (context) => getUsagePolicy(context));
 app.get("/v1/public/agent-view/:token", (context) => publicAgentView(context, { token: context.req.param("token") }));
@@ -1023,206 +1028,6 @@ async function runIdempotent(context: AppContext, run: () => Promise<unknown>, s
     }
     throw error;
   }
-}
-
-function openApiDocument(): Record<string, unknown> {
-  return {
-    openapi: "3.1.0",
-    info: {
-      title: "Agent Paste API",
-      version: "0.1.0",
-    },
-    servers: [{ url: "https://api.agent-paste.sh" }],
-    paths: {
-      "/v1/whoami": {
-        get: {
-          operationId: "whoami.get",
-          security: [{ ApiKeyBearer: [] }],
-          responses: standardResponses("WhoamiResponse"),
-        },
-      },
-      "/v1/usage-policy": {
-        get: {
-          operationId: "usagePolicy.get",
-          security: [{ ApiKeyBearer: [] }],
-          responses: standardResponses("UsagePolicy"),
-        },
-      },
-      "/v1/public/agent-view/{token}": {
-        get: {
-          operationId: "agentView.public",
-          parameters: [pathParameter("token", "Signed Agent View token")],
-          responses: standardResponses("AgentView"),
-        },
-      },
-      "/v1/artifacts/{artifact_id}/agent-view": {
-        get: {
-          operationId: "agentView.getLatest",
-          security: [{ ApiKeyBearer: [] }],
-          parameters: [pathParameter("artifact_id", "Artifact id")],
-          responses: standardResponses("AgentView"),
-        },
-      },
-      "/v1/artifacts/{artifact_id}/revisions/{revision_id}/agent-view": {
-        get: {
-          operationId: "agentView.getRevision",
-          security: [{ ApiKeyBearer: [] }],
-          parameters: [pathParameter("artifact_id", "Artifact id"), pathParameter("revision_id", "Revision id")],
-          responses: standardResponses("AgentView"),
-        },
-      },
-      "/admin/workspaces": {
-        get: {
-          operationId: "admin.workspaces.list",
-          security: [{ AdminBearer: [] }],
-          responses: standardResponses("WorkspaceListResponse"),
-        },
-        post: {
-          operationId: "admin.workspaces.create",
-          security: [{ AdminBearer: [] }],
-          parameters: [idempotencyKeyParameter()],
-          responses: standardResponses("WorkspaceDetail", 201),
-        },
-      },
-      "/admin/workspaces/{workspace_id}/api-keys": {
-        post: {
-          operationId: "admin.apiKeys.create",
-          security: [{ AdminBearer: [] }],
-          parameters: [pathParameter("workspace_id", "Workspace id"), idempotencyKeyParameter()],
-          responses: standardResponses("CreateApiKeyResponse", 201),
-        },
-      },
-      "/admin/api-keys/{api_key_id}": {
-        delete: {
-          operationId: "admin.apiKeys.revoke",
-          security: [{ AdminBearer: [] }],
-          parameters: [pathParameter("api_key_id", "API key id"), idempotencyKeyParameter()],
-          responses: standardResponses("RevokeApiKeyResponse"),
-        },
-      },
-      "/admin/artifacts": {
-        get: {
-          operationId: "admin.artifacts.list",
-          security: [{ AdminBearer: [] }],
-          responses: standardResponses("ArtifactListResponse"),
-        },
-      },
-      "/admin/artifacts/{artifact_id}": {
-        get: {
-          operationId: "admin.artifacts.get",
-          security: [{ AdminBearer: [] }],
-          parameters: [pathParameter("artifact_id", "Artifact id")],
-          responses: standardResponses("ArtifactDetail"),
-        },
-        delete: {
-          operationId: "admin.artifacts.delete",
-          security: [{ AdminBearer: [] }],
-          parameters: [pathParameter("artifact_id", "Artifact id"), idempotencyKeyParameter()],
-          responses: standardResponses("DeleteArtifactResponse"),
-        },
-      },
-      "/admin/cleanup/run": {
-        post: {
-          operationId: "admin.cleanup.run",
-          security: [{ AdminBearer: [] }],
-          parameters: [idempotencyKeyParameter()],
-          responses: standardResponses("CleanupRunResponse"),
-        },
-      },
-      "/admin/operation-events": {
-        get: {
-          operationId: "admin.operationEvents.list",
-          security: [{ AdminBearer: [] }],
-          responses: standardResponses("OperationEventListResponse"),
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        ApiKeyBearer: { type: "http", scheme: "bearer" },
-        AdminBearer: { type: "http", scheme: "bearer" },
-      },
-      schemas: {
-        ErrorEnvelope: {
-          type: "object",
-          required: ["error"],
-          properties: {
-            error: {
-              type: "object",
-              required: ["code", "message"],
-              properties: {
-                code: { type: "string" },
-                message: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function pathParameter(name: string, description: string): Record<string, unknown> {
-  return {
-    name,
-    in: "path",
-    required: true,
-    description,
-    schema: { type: "string" },
-  };
-}
-
-function idempotencyKeyParameter(): Record<string, unknown> {
-  return {
-    name: "Idempotency-Key",
-    in: "header",
-    required: true,
-    schema: { type: "string" },
-  };
-}
-
-function standardResponses(schemaName: string, successStatus = 200): Record<string, unknown> {
-  return {
-    [successStatus]: {
-      description: schemaName,
-      content: { "application/json": { schema: { type: "object" } } },
-    },
-    400: errorResponseDescription(),
-    401: errorResponseDescription(),
-    404: errorResponseDescription(),
-    409: errorResponseDescription(),
-    429: rateLimitResponseDescription(),
-    500: errorResponseDescription(),
-    503: errorResponseDescription(),
-  };
-}
-
-function errorResponseDescription(): Record<string, unknown> {
-  return {
-    description: "Error envelope",
-    content: {
-      "application/json": {
-        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
-      },
-    },
-  };
-}
-
-function rateLimitResponseDescription(): Record<string, unknown> {
-  return {
-    description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
-    headers: {
-      "Retry-After": {
-        description: "Seconds to wait before retrying.",
-        schema: { type: "string" },
-      },
-    },
-    content: {
-      "application/json": {
-        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
-      },
-    },
-  };
 }
 
 function htmlAgentViewResponse(context: AppContext, view: unknown): Response {

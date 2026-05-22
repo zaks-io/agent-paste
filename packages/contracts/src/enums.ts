@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 
 export const Scope = z.enum(["publish", "read", "admin"]);
 export type Scope = z.infer<typeof Scope>;

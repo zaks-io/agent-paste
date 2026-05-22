@@ -29,6 +29,27 @@ async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
 }
 
 describe("content worker", () => {
+  it("serves a generated OpenAPI document", async () => {
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return null;
+        },
+      },
+    };
+    const response = await handleRequest(new Request("https://content.test/openapi.json"), env);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")?.toLowerCase()).toContain("application/json");
+    const doc = (await response.json()) as { info: { title: string } };
+    expect(doc.info.title).toBe("Agent Paste Content API");
+  });
+
   it("serves signed R2 content without a DB binding", async () => {
     const token = await signContentToken(
       {

@@ -24,6 +24,8 @@
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push",
     "lint": "turbo run lint",
+    "openapi:check": "node scripts/openapi-goldens.mjs",
+    "openapi:write": "node scripts/openapi-goldens.mjs --write",
     "migrate:preview": "node scripts/migrate.mjs preview",
     "migrate:production": "node scripts/migrate.mjs production",
     "migrate:live": "pnpm migrate:production",
@@ -36,7 +38,7 @@
     "test": "turbo run test",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm format:docs:check && turbo run lint typecheck test"
+    "verify": "pnpm format:docs:check && turbo run lint typecheck test openapi:check"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

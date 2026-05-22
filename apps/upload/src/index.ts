@@ -8,6 +8,7 @@ import {
   requestIdMiddleware,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError, peekIdempotentReplay } from "@agent-paste/commands";
+import { buildUploadOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
 
@@ -124,7 +125,9 @@ const UPLOAD_FILE_PATH_MARKER = "/files/";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
 app.use("*", requestIdMiddleware());
-app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.get("/openapi.json", (context) =>
+  context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),
+);
 app.post("/v1/upload-sessions", (context) => createUploadSession(context));
 app.put("/v1/upload-sessions/:sessionId/files/*", (context) =>
   putUploadFile(context, context.req.param("sessionId"), uploadFilePath(context)),
@@ -724,162 +727,6 @@ function encodePath(path: string): string {
 function ttlSeconds(env: Env): number {
   const parsed = Number.parseInt(env.UPLOAD_URL_TTL_SECONDS ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 900;
-}
-
-function openApiDocument(): Record<string, unknown> {
-  return {
-    openapi: "3.1.0",
-    info: {
-      title: "Agent Paste Upload API",
-      version: "0.1.0",
-    },
-    servers: [{ url: "https://upload.agent-paste.sh" }],
-    paths: {
-      "/v1/upload-sessions": {
-        post: {
-          operationId: "uploadSessions.create",
-          security: [{ ApiKeyBearer: [] }],
-          parameters: [idempotencyKeyParameter()],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/CreateUploadSessionRequest" },
-              },
-            },
-          },
-          responses: standardResponses("CreateUploadSessionResponse"),
-        },
-      },
-      "/v1/upload-sessions/{upload_session_id}/files/{path}": {
-        put: {
-          operationId: "uploadSessions.putFile",
-          parameters: [pathParameter("upload_session_id", "Upload session id"), pathParameter("path", "File path")],
-          responses: {
-            204: { description: "File accepted" },
-            400: errorResponseDescription(),
-            401: errorResponseDescription(),
-            404: errorResponseDescription(),
-            409: errorResponseDescription(),
-          },
-        },
-      },
-      "/v1/upload-sessions/{upload_session_id}/finalize": {
-        post: {
-          operationId: "uploadSessions.finalize",
-          security: [{ ApiKeyBearer: [] }],
-          parameters: [pathParameter("upload_session_id", "Upload session id"), idempotencyKeyParameter()],
-          responses: standardResponses("PublishResult"),
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        ApiKeyBearer: { type: "http", scheme: "bearer" },
-      },
-      schemas: {
-        CreateUploadSessionRequest: {
-          type: "object",
-          required: ["files"],
-          properties: {
-            title: { type: "string" },
-            ttl_seconds: { type: "integer", minimum: MIN_TTL_SECONDS, maximum: MAX_TTL_SECONDS },
-            entrypoint: { type: "string" },
-            files: {
-              type: "array",
-              minItems: 1,
-              items: {
-                type: "object",
-                required: ["path", "size_bytes"],
-                properties: {
-                  path: { type: "string" },
-                  size_bytes: { type: "integer", minimum: 0 },
-                  sha256: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        ErrorEnvelope: {
-          type: "object",
-          required: ["error"],
-          properties: {
-            error: {
-              type: "object",
-              required: ["code", "message"],
-              properties: {
-                code: { type: "string" },
-                message: { type: "string" },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-function pathParameter(name: string, description: string): Record<string, unknown> {
-  return {
-    name,
-    in: "path",
-    required: true,
-    description,
-    schema: { type: "string" },
-  };
-}
-
-function idempotencyKeyParameter(): Record<string, unknown> {
-  return {
-    name: "Idempotency-Key",
-    in: "header",
-    required: true,
-    schema: { type: "string" },
-  };
-}
-
-function standardResponses(schemaName: string): Record<string, unknown> {
-  return {
-    200: {
-      description: schemaName,
-      content: { "application/json": { schema: { type: "object" } } },
-    },
-    400: errorResponseDescription(),
-    401: errorResponseDescription(),
-    404: errorResponseDescription(),
-    409: errorResponseDescription(),
-    429: rateLimitResponseDescription(),
-    500: errorResponseDescription(),
-    503: errorResponseDescription(),
-  };
-}
-
-function errorResponseDescription(): Record<string, unknown> {
-  return {
-    description: "Error envelope",
-    content: {
-      "application/json": {
-        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
-      },
-    },
-  };
-}
-
-function rateLimitResponseDescription(): Record<string, unknown> {
-  return {
-    description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
-    headers: {
-      "Retry-After": {
-        description: "Seconds to wait before retrying.",
-        schema: { type: "string" },
-      },
-    },
-    content: {
-      "application/json": {
-        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
-      },
-    },
-  };
 }
 
 function jsonResponse(

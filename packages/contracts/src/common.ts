@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { Cursor, PositiveInteger } from "./primitives.js";
+import { z } from "./zod.js";
 
 export const ErrorCode = z.enum([
   "api_key_not_found",

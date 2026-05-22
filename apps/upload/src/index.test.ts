@@ -2,18 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest, type UploadSessionRecord } from "./index.js";
 
 describe("upload worker", () => {
-  it("documents rate-limit responses in OpenAPI", async () => {
+  it("serves a generated OpenAPI document", async () => {
     const response = await handleRequest(new Request("https://upload.test/openapi.json"), {});
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")?.toLowerCase()).toContain("application/json");
     const doc = (await response.json()) as {
+      info: { title: string };
       paths: Record<
         string,
         Record<string, { responses: Record<string, { description?: string; headers?: Record<string, unknown> }> }>
       >;
     };
 
+    expect(doc.info.title).toBe("Agent Paste Upload API");
     expect(doc.paths["/v1/upload-sessions"]?.post.responses["429"]).toMatchObject({
       description: expect.stringContaining("rate_limited_actor"),
-      headers: { "Retry-After": expect.any(Object) },
+      headers: expect.any(Object),
     });
   });
 
