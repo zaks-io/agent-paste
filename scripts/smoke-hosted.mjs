@@ -62,7 +62,7 @@ assert((await content.text()).includes("Agent Paste Local"), "content response i
 
 if (target !== "production") {
   await assertBytesPurgedAfterDelete(published);
-  await assertBytesPurgedAfterExpiry(userEnv, published);
+  await assertBytesPurgedAfterExpiry(userEnv);
   await assertActorRateLimitFires(key.secret);
 } else {
   await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
@@ -318,7 +318,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
 }
 
-async function assertBytesPurgedAfterExpiry(userEnv, original) {
+async function assertBytesPurgedAfterExpiry(userEnv) {
   const expiryPublish = await runCliJson(
     ["publish", smokePath, "--ttl", "1d", "--title", `${config.title} expiry`, "--json"],
     userEnv,
