@@ -1,8 +1,8 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { CreateUploadSessionRequest } from "../uploadSessions.js";
+import { z } from "../zod.js";
 import { emptyOkResponse, errorResponse, rateLimitResponse, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerUploadSchemas, requestIdHeader, securitySchemes } from "./shared.js";
-import { z } from "./zod-setup.js";
 
 const pathStringParam = (name: string, description: string) =>
   z.string().openapi({

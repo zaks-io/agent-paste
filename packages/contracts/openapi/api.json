@@ -1043,6 +1043,33 @@
           }
         },
         "required": ["data", "page_info"]
+      },
+      "RateLimitErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": ["rate_limited_actor", "rate_limited_workspace"]
+              },
+              "message": {
+                "type": "string"
+              },
+              "docs": {
+                "type": "string",
+                "format": "uri"
+              },
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["error"]
       }
     },
     "parameters": {}
@@ -1337,57 +1364,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -1804,57 +1781,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -2080,66 +2007,6 @@
               }
             }
           },
-          "401": {
-            "description": "Error envelope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
-                }
-              }
-            }
-          },
           "404": {
             "description": "Error envelope",
             "content": {
@@ -2275,57 +2142,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -2751,57 +2568,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -3236,57 +3003,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -3703,57 +3420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -4202,57 +3869,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -4712,57 +4329,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -5200,57 +4767,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -5667,57 +5184,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -6143,57 +5610,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -6629,57 +6046,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -7124,57 +6491,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }
@@ -7591,57 +6908,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "rate_limited_actor",
-                            "rate_limited_workspace",
-                            "revision_size_cap_exceeded",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
                 }
               }
             }

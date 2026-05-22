@@ -1,9 +1,9 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { CleanupRunRequest, CreateWorkspaceRequest } from "../admin.js";
 import { CreateApiKeyRequest } from "../apiKeys.js";
+import { z } from "../zod.js";
 import { schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerApiSchemas, requestIdHeader, securitySchemes } from "./shared.js";
-import { z } from "./zod-setup.js";
 
 const pathStringParam = (name: string, description: string) =>
   z.string().openapi({
@@ -54,7 +54,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       params: params({ token: pathStringParam("token", "Signed Agent View token.") }),
       headers: [requestIdHeader],
     },
-    responses: standardJsonResponses(schemaRef("AgentView")),
+    responses: standardJsonResponses(schemaRef("AgentView"), 200, { authenticated: false }),
   });
 
   registry.registerPath({

@@ -1,12 +1,17 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import { z } from "../zod.js";
 import { errorResponse } from "./responses.js";
 import { registerContentSchemas, requestIdHeader } from "./shared.js";
-import { z } from "./zod-setup.js";
 
 const pathStringParam = (name: string, description: string) =>
   z.string().openapi({
     param: { name, in: "path", required: true, description },
   });
+
+const contentPathParams = z.object({
+  token: pathStringParam("token", "Signed content token."),
+  path: pathStringParam("path", "File path within the artifact."),
+});
 
 export type ContentOpenApiOptions = {
   serverUrl?: string | undefined;
@@ -16,31 +21,22 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
   const registry = new OpenAPIRegistry();
   registerContentSchemas(registry);
 
-  const params = (paramSchemas: Record<string, ReturnType<typeof pathStringParam>>) => z.object(paramSchemas);
-
-  const fileBytesResponse = {
-    description: "Artifact file bytes",
-    content: {
-      "application/octet-stream": {
-        schema: { type: "string", format: "binary" },
-      },
-    },
-  } as const;
-
   registry.registerPath({
     method: "get",
     path: "/v/{token}/{path}",
     operationId: "content.get",
     summary: "Resolve and serve a signed artifact file.",
     request: {
-      params: params({
-        token: pathStringParam("token", "Signed content token."),
-        path: pathStringParam("path", "File path within the artifact."),
-      }),
+      params: contentPathParams,
       headers: [requestIdHeader],
     },
     responses: {
-      "200": fileBytesResponse,
+      "200": {
+        description: "Artifact file bytes",
+        content: {
+          "application/octet-stream": { schema: { type: "string", format: "binary" } },
+        },
+      },
       "404": errorResponse,
     },
   });
@@ -51,10 +47,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
     operationId: "content.head",
     summary: "Resolve metadata for a signed artifact file.",
     request: {
-      params: params({
-        token: pathStringParam("token", "Signed content token."),
-        path: pathStringParam("path", "File path within the artifact."),
-      }),
+      params: contentPathParams,
       headers: [requestIdHeader],
     },
     responses: {

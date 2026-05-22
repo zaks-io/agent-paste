@@ -15,7 +15,7 @@ import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactRe
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
 import { UsagePolicy, WhoamiResponse } from "../workspace.js";
-import { z } from "./zod-setup.js";
+import { z } from "../zod.js";
 
 export function registerSharedSchemas(registry: OpenAPIRegistry): void {
   registry.register("ErrorEnvelope", ErrorEnvelope);
