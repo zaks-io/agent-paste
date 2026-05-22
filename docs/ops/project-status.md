@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-22 (runtime Postgres RLS enforced via `SET LOCAL` per request).
+Last updated: 2026-05-22 (Bug A drizzle-on-TransactionSql + jsonb serializer fixes shipped, production smoke green).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -8,8 +8,8 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Snapshot
 
-- `main` is at `7b963ad feat(db): enforce workspace RLS at runtime (#18)`.
-- Latest feature commit on `main`: `7b963ad feat(db): enforce workspace RLS at runtime (#18)`.
+- `main` is at `6b9a3b5 fix(db): route nested transactions through drizzle.transaction (Bug A) (#21)`.
+- Latest feature commit on `main`: `7b963ad feat(db): enforce workspace RLS at runtime (#18)`. Subsequent commits are bug fixes (#19 docs, #20 migration idempotency, #21 Bug A).
 - Three Workers (`api`, `upload`, `content`) and one CLI (`agent-paste`) are implemented and pass `pnpm smoke:local` and `pnpm smoke:preview`.
 - Every mutation route in `api` and `upload` now flows through `runCommand` with durable idempotency (`packages/db/migrations/0002_idempotency_admin_ops.sql`).
 - Three Workers (`jobs`, `web`, `mcp`) are Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
@@ -19,16 +19,17 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Verified State
 
-| Check                   | Result        | Date       | Notes                                                                                                                                                                   |
-| ----------------------- | ------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm setup:codex`      | Pass          | 2026-05-21 | Network approval required first run.                                                                                                                                    |
-| `pnpm verify`           | Pass          | 2026-05-22 | 61 Turbo tasks on `main` at `7b963ad` (post-RLS).                                                                                                                       |
-| `pnpm smoke:local`      | Pass          | 2026-05-21 | Used alt ports 18787-18789 because `workerd` held 8787.                                                                                                                 |
-| `pnpm smoke:preview`    | Pass          | 2026-05-21 | After preview admin token was bootstrapped.                                                                                                                             |
-| Production deploy       | Pass          | 2026-05-21 | GitHub Actions run `26245768366`.                                                                                                                                       |
-| Security hardening pass | Pass          | 2026-05-21 | Content MIME/header hardening, API/upload rate-limit calls, admin CLI `--yes`, ADR 0067. `pnpm verify` pass under Node 25.9.0 with the expected Node 24 engine warning. |
-| PR preview workflow     | Not exercised | n/a        | No open same-repo PRs since workflow added.                                                                                                                             |
-| PR cleanup workflow     | Re-registered | 2026-05-22 | Renamed to `pr-preview-cleanup.yml` after the prior record's `pull_request.closed` trigger stopped firing for PRs #2--#9.                                               |
+| Check                   | Result        | Date       | Notes                                                                                                                                                                                                                                                                     |
+| ----------------------- | ------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm setup:codex`      | Pass          | 2026-05-21 | Network approval required first run.                                                                                                                                                                                                                                      |
+| `pnpm verify`           | Pass          | 2026-05-22 | 61 Turbo tasks on `main` at `6b9a3b5` (post-Bug A).                                                                                                                                                                                                                       |
+| `pnpm smoke:local`      | Pass          | 2026-05-21 | Used alt ports 18787-18789 because `workerd` held 8787.                                                                                                                                                                                                                   |
+| `pnpm smoke:preview`    | Pass          | 2026-05-22 | PR #21 preview deploy ran on `6b9a3b5`; admin workspace create returns 201 after the drizzle/jsonb fix.                                                                                                                                                                   |
+| `pnpm smoke:production` | Pass          | 2026-05-22 | After `6b9a3b5` deploy; full publish + Agent View + content fetch chain green. Run `26291734441`.                                                                                                                                                                         |
+| Production deploy       | Pass          | 2026-05-22 | GitHub Actions run `26291734441` (workflow_run auto-trigger off CI success on `6b9a3b5`). Three earlier `workflow_dispatch` retries on `da573a0` failed at validate-migrations until Bug A landed.                                                                        |
+| Security hardening pass | Pass          | 2026-05-21 | Content MIME/header hardening, API/upload rate-limit calls, admin CLI `--yes`, ADR 0067. `pnpm verify` pass under Node 25.9.0 with the expected Node 24 engine warning.                                                                                                   |
+| PR preview workflow     | Pass          | 2026-05-22 | PR #21 (`agents/bug-a-drizzle-tx`) ran the full lifecycle: deploy-pr-preview built per-PR Workers + Neon branch and ran `pnpm smoke:pr` against them (caught the jsonb regression before merge); pr-preview-cleanup tore Worker resources down on merge. Wave 4 exemplar. |
+| PR cleanup workflow     | Re-registered | 2026-05-22 | Renamed to `pr-preview-cleanup.yml` after the prior record's `pull_request.closed` trigger stopped firing for PRs #2--#9.                                                                                                                                                 |
 
 ## Security Pass 2026-05-21
 
@@ -206,6 +207,27 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Fix Bug A: admin workspace create returned 500 in production
+
+- Status: Done on 2026-05-22 via PR #21 (`6b9a3b5`).
+- Drives: incident triage; reproduced via `wrangler tail` on `agent-paste-api-production`.
+- Files: `packages/db/src/postgres/executor.ts`, `packages/db/src/postgres/drizzle.ts`, `packages/db/src/postgres/executor.test.ts`, `packages/commands/src/index.ts`, `packages/commands/src/index.test.ts`.
+- Symptom: every `POST /admin/workspaces` and the `*/15 * * * *` cleanup cron returned 500 with `TypeError: Cannot read properties of undefined (reading 'parsers')`, stack rooted in `drizzle → construct → createPostgresExecutor → sql.begin`. Started after PR #17 (Drizzle MVP-routes work).
+- Root cause 1: `createPostgresExecutor` called `drizzle(tx)` _inside_ `sql.begin`. `drizzle-orm/postgres-js`' `construct()` does `client.options.parsers[type] = ...`, but postgres-js' `TransactionSql` does not expose `.options`. Every nested transaction crashed before the handler ran.
+- Root cause 2 (surfaced in preview after root cause 1 was fixed): `construct()` also overwrites postgres-js' default jsonb (oid 3802) and json (oid 114) wire serializers with an identity function. Raw `tx.query` callers in `runCommand.executeHandler` that bind JS objects to `$N::jsonb` started throwing `ERR_INVALID_ARG_TYPE` once `construct()` actually ran on the outer client.
+- Fix 1: build the outer `DrizzleDb` once, then route nested transactions through `drizzleDb.transaction((txDb) => ...)`. Drizzle's own session hands us a tx-bound `DrizzleDb` whose `session.client` is the postgres-js `TransactionSql` — no re-construction. Applied to both `createPostgresExecutor` and the `DrizzleConnection` wrapper.
+- Fix 2: `JSON.stringify` `result_json` and `operation_events.details` in `packages/commands` before binding, so the wire encoder receives a string regardless of what drizzle did to the serializer table.
+- Regression coverage: stub `Sql` with `.options.parsers`, stub `TransactionSql` without `.options`, assert `executor.transaction` resolves and routes queries through the tx client; mock `runCommand` executor and assert jsonb params are sent as `JSON.stringify(...)` strings.
+- Verification: PR #21 Deploy PR Preview green, production deploy `26291734441` green, `pnpm smoke:production` exited 0.
+
+### Fix Bug B: 0003 RLS migration not idempotent
+
+- Status: Done on 2026-05-22 via PR #20 (`da573a0`).
+- Drives: incident triage; deploy-production validate-migrations step.
+- Files: `packages/db/migrations/0003_rls_runtime.sql`.
+- Symptom: the migration runner has no journal, so every statement must be re-runnable; the original 0003 used bare `create policy ...` which is not idempotent and broke validate-migrations on every re-run.
+- Fix: prefixed each `create policy` with `drop policy if exists` and made the `alter role ... nobypassrls` block conditional on `app.runtime_role` being set.
 
 ### Apply Postgres RLS at runtime
 
