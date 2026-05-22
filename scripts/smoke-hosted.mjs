@@ -61,9 +61,9 @@ assert(content.headers.get("content-type")?.includes("text/html"), "content resp
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
 
 if (target !== "production") {
-  await assertActorRateLimitFires(key.secret);
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(userEnv, published);
+  await assertActorRateLimitFires(key.secret);
 } else {
   await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
   await waitForStatus(published.view_url, 404, "deleted content");

@@ -181,7 +181,7 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-6 close Phase 1; items 7-10 prep hosted ops and Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-5 close Phase 1; items 6-8 prep hosted ops and Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
@@ -209,44 +209,45 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
 - Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
 
-### 5. Verify bytes-after-delete and bytes-after-expiry cleanup
-
-- Drives: ADR 0048, `docs/specs/acceptance.md`
-- Files: `apps/api/src/index.ts` (scheduled handler), `scripts/smoke-local-mvp.mjs`, `scripts/smoke-hosted.mjs`
-- Done: smoke creates an artifact with a 1-day TTL, advances clock (or uses a forced-expiry test endpoint), runs cleanup, confirms R2 prefix is empty and signed URL returns 404 with denylist hit logged.
-
-### 6. Exercise PR preview lifecycle on a same-repo PR
+### 5. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
-- Done: a same-repo PR (the one carrying items 1-5 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
+- Done: a same-repo PR (the one carrying items 1-4 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 7. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 6. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 8. Review and merge `t3code/7bcd4587`
+### 7. Review and merge `t3code/7bcd4587`
 
 - Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
 - Files: TBD until review.
 - Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
 
-### 9. CSP allowlist audit
-
-- Status: Partially implemented on 2026-05-21. Header allowlist and SVG override are in code; snapshots still need to cover CSS/JS/PNG explicitly.
-- Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
-- Files: `apps/content/src/index.ts`
-- Done: CSP `script-src` and `connect-src` allowlists are validated against the current ADR 0029 list; SVG responses use a strict CSP override; a vitest snapshot pins the CSP header for HTML, CSS, JS, SVG, and PNG.
-
-### 10. Complete bootstrap hosting checklist
+### 8. Complete bootstrap hosting checklist
 
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Verify bytes-after-delete and bytes-after-expiry cleanup
+
+- Status: Done on 2026-05-21 via PR #8.
+- Drives: ADR 0048, `docs/specs/acceptance.md`
+- Files: `apps/api/src/index.ts` (test-only force-expiry endpoint), `scripts/smoke-hosted.mjs`, `scripts/deploy-pr-preview.mjs`
+- Done: hosted smoke creates an artifact, deletes it, asserts R2 is empty and view URL returns 404; a second artifact is force-expired through a non-production test endpoint, the scheduled cleanup runs, and the same byte-purge + denylist invariants hold.
+
+### CSP allowlist audit
+
+- Status: Done on 2026-05-21 via PR #6.
+- Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
+- Files: `apps/content/test/csp-snapshot.test.ts`, `apps/content/src/index.ts`
+- Done: vitest snapshots pin the served CSP header for HTML, CSS, JS, SVG, and PNG; SVG responses use the strict CSP override; the helper used by the snapshots also asserts the constructed artifact key passed to `ARTIFACTS.get`.
 
 ### Enforce native rate-limit bindings
 
