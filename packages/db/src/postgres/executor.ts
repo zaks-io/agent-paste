@@ -2,38 +2,42 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import * as schema from "../schema.js";
 import type { HyperdriveBinding, SqlExecutor, SqlValue } from "../types.js";
-import { bindDrizzleToExecutor, DEFAULT_POSTGRES_OPTIONS } from "./drizzle.js";
+import { bindDrizzleToExecutor, DEFAULT_POSTGRES_OPTIONS, type DrizzleDb } from "./drizzle.js";
 
 type PostgresUnsafeClient = {
   unsafe<Row extends Record<string, unknown>[] = Record<string, unknown>[]>(
     query: string,
     parameters?: readonly unknown[],
   ): Promise<Row>;
-  begin?<T>(run: (tx: PostgresUnsafeClient) => Promise<T>): Promise<T>;
 };
 
 export function createHyperdriveExecutor(binding: HyperdriveBinding | string): SqlExecutor {
   const connectionString = typeof binding === "string" ? binding : binding.connectionString;
   const sql = postgres(connectionString, DEFAULT_POSTGRES_OPTIONS);
-  return createPostgresExecutor(sql as unknown as PostgresUnsafeClient, sql);
+  return createPostgresExecutor(sql);
 }
 
-export function createPostgresExecutor(sql: PostgresUnsafeClient, drizzleClient?: Sql): SqlExecutor {
+// drizzle(client, …) reads client.options.parsers, which postgres-js' TransactionSql
+// does not expose. Build the DrizzleDb once here and let drizzle.transaction() hand us
+// the tx-bound DrizzleDb + TransactionSql, instead of re-constructing inside sql.begin.
+export function createPostgresExecutor(sql: Sql): SqlExecutor {
+  return buildExecutor(sql, drizzle(sql, { schema }));
+}
+
+function buildExecutor(client: PostgresUnsafeClient, drizzleDb: DrizzleDb): SqlExecutor {
   const executor: SqlExecutor = {
     async query<Row = Record<string, unknown>>(query: string, params: readonly SqlValue[] = []) {
-      const rows = await sql.unsafe(query, params as unknown[]);
-      return { rows: rows as Row[] };
+      const rows = await client.unsafe(query, params as readonly unknown[]);
+      return { rows: rows as unknown as Row[] };
     },
     async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
-      if (!sql.begin) {
-        throw new Error("postgres_executor_missing_begin");
-      }
-      return sql.begin((tx) => run(createPostgresExecutor(tx, tx as unknown as Sql)));
+      return drizzleDb.transaction(async (txDb) => {
+        const txClient = (txDb as unknown as { session: { client: PostgresUnsafeClient } }).session.client;
+        return run(buildExecutor(txClient, txDb as unknown as DrizzleDb));
+      }) as Promise<T>;
     },
   };
-  if (drizzleClient) {
-    bindDrizzleToExecutor(executor, drizzle(drizzleClient, { schema }));
-  }
+  bindDrizzleToExecutor(executor, drizzleDb);
   return executor;
 }
 

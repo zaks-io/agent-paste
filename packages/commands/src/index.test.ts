@@ -231,6 +231,44 @@ describe("command helpers", () => {
       ).resolves.toBeNull();
     });
 
+    // Regression for prod Bug A (2026-05-22 second crash): drizzle's construct() clobbers
+    // postgres-js' default jsonb (oid 3802) serializer with an identity function, so raw
+    // tx.query callers must pre-serialize objects to strings before binding to ::jsonb.
+    it("sends jsonb params as JSON strings, not raw objects", async () => {
+      const executor = new MockExecutor((sql) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: "ws_1" }] };
+        }
+        return { rows: [] };
+      });
+
+      await runCommand({
+        actor,
+        operation: "artifact.create",
+        idempotencyKey: "key_1",
+        executor,
+        handler: async () => ({
+          result: { id: "artifact_1", nested: { count: 2 } },
+          audit: [
+            {
+              action: "artifact.create",
+              targetType: "artifact",
+              targetId: "artifact_1",
+              details: { source: "test", tags: ["a", "b"] },
+            },
+          ],
+        }),
+      });
+
+      const updateCompleted = executor.calls.find(
+        (c) => c.sql.includes("update idempotency_records") && c.sql.includes("status = 'completed'"),
+      );
+      expect(updateCompleted?.params[5]).toBe(JSON.stringify({ id: "artifact_1", nested: { count: 2 } }));
+
+      const insertEvent = executor.calls.find((c) => c.sql.includes("insert into operation_events"));
+      expect(insertEvent?.params[7]).toBe(JSON.stringify({ source: "test", tags: ["a", "b"] }));
+    });
+
     it("supports admin operations with null workspace_id", async () => {
       const executor = new MockExecutor((sql) => {
         if (sql.includes("insert into idempotency_records")) {

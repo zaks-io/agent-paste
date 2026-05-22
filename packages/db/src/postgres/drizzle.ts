@@ -35,22 +35,26 @@ export function createHyperdriveConnection(binding: HyperdriveBinding | string):
 }
 
 export function createDrizzleConnection(client: Sql): DrizzleConnection {
-  return wrap(client);
+  return wrap(client, drizzle(client, { schema }));
 }
 
-function wrap(client: Sql): DrizzleConnection {
-  const drizzleDb = drizzle(client, { schema });
+type UnsafeClient = {
+  unsafe(query: string, parameters?: readonly unknown[]): Promise<unknown>;
+};
+
+// drizzle(client, …) reads client.options.parsers; postgres-js TransactionSql does not
+// expose that. Route nested transactions through drizzle.transaction() so the tx-bound
+// DrizzleDb + its session.client are produced by drizzle itself.
+function wrap(client: UnsafeClient, drizzleDb: DrizzleDb): DrizzleConnection {
   const sql: SqlExecutor = {
     async query<Row = Record<string, unknown>>(query: string, params: readonly SqlValue[] = []) {
-      const rows = await client.unsafe(query, params as unknown as (string | number | boolean | null)[]);
-      return { rows: rows as unknown as Row[] };
+      const rows = (await client.unsafe(query, params as readonly unknown[])) as unknown;
+      return { rows: rows as Row[] };
     },
     async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
-      return client.begin((tx) => {
-        // Each nested wrap() also binds drizzle to the inner SqlExecutor via the
-        // module-level WeakMap, so handlers that promote tx -> Drizzle still work.
-        const txConn = wrap(tx as unknown as Sql);
-        return run(txConn.sql);
+      return drizzleDb.transaction(async (txDb) => {
+        const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
+        return run(wrap(txClient, txDb as unknown as DrizzleDb).sql);
       }) as Promise<T>;
     },
   };
@@ -58,11 +62,13 @@ function wrap(client: Sql): DrizzleConnection {
   return {
     sql,
     drizzle: drizzleDb,
-    // DrizzleConnection.transaction intentionally hands callers the full wrapped
-    // connection (sql + drizzle) so they can run typed queries; SqlExecutor.transaction
-    // sticks to the SqlExecutor contract for callers that only see raw SQL.
+    // DrizzleConnection.transaction hands callers the full wrapped connection (sql + drizzle)
+    // so they can run typed queries; SqlExecutor.transaction sticks to the SqlExecutor contract.
     async transaction<T>(run: (tx: DrizzleConnection) => Promise<T>) {
-      return client.begin(async (tx) => run(wrap(tx as unknown as Sql))) as Promise<T>;
+      return drizzleDb.transaction(async (txDb) => {
+        const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
+        return run(wrap(txClient, txDb as unknown as DrizzleDb));
+      }) as Promise<T>;
     },
   };
 }
