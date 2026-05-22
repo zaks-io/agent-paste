@@ -11,11 +11,11 @@ const writeMode = process.argv.includes("--write");
 
 function exportSchema() {
   const binary = resolve(packageRoot, "node_modules/.bin/drizzle-kit");
-  const stdout = execFileSync(
-    binary,
-    ["export", "--dialect", "postgresql", "--schema", "./src/schema.ts"],
-    { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
+  const stdout = execFileSync(binary, ["export", "--dialect", "postgresql", "--schema", "./src/schema.ts"], {
+    cwd: packageRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
   return normalize(stdout);
 }
 
