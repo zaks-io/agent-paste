@@ -45,7 +45,6 @@ Closed immediately:
 Open security follow-ups:
 
 - Runtime RLS is still not applied (`SET LOCAL app.workspace_id`) and workspace isolation still relies on application-layer predicates.
-- API-key requests are rate-limited before idempotency lookup; replay-before-limit ordering still needs a follow-up decision or smoke coverage.
 - Admin production identity is still the interim hashed bearer-token path. ADR 0067 requires Cloudflare Access/Auth0 operator identity before Phase 3 app/admin rollout.
 - `content` still needs unauthenticated artifact-level read throttling.
 - Secret rotation tooling (ADR 0045) still needs to be implemented.
@@ -137,7 +136,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0036 error envelope + generic 404         | Partial      | Envelope shape correct; `request_id` and `docs` fields not consistently emitted.                                                                                                |
 | 0037 internal api-client powers CLI       | Done         | `packages/api-client` powers CLI.                                                                                                                                               |
 | 0038 Zod as source of truth               | Partial      | Contracts in Zod; Workers don't validate every request/response through them.                                                                                                   |
-| 0039 authenticated rate limits            | Partial      | `api` and `upload` call native bindings for API-key traffic. Replay-before-limit ordering and hosted smoke coverage remain.                                                     |
+| 0039 authenticated rate limits            | Done         | `api` and `upload` call native bindings for API-key traffic; upload mutation routes peek the idempotency record before consuming budget; hosted smoke covers the 429 envelope.  |
 | 0040 platform lockdown                    | Partial      | KV denylist writes on delete/cleanup. Operator UI for lockdown deferred to Phase 3+.                                                                                            |
 | 0041 upload size caps                     | Done         | CLI + upload Worker enforce caps.                                                                                                                                               |
 | 0042 strict extension content type        | Done         | `content` ignores upload/R2 MIME metadata, derives from extension allowlist, downloads unknown extensions, and applies SVG strict CSP.                                          |
@@ -162,7 +161,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0061 MCP via Auth0 DCR                    | Deferred     | Phase 5.                                                                                                                                                                        |
 | 0062 two-layer cache for auth             | Done         | `cachedLookup` in `packages/auth` wired into `api` and `upload`.                                                                                                                |
 | 0063 app-layer encryption                 | Deferred     | Phase 6.                                                                                                                                                                        |
-| 0064 native rate-limit bindings           | Partial      | Bindings are called in `api` and `upload`; replay-before-limit ordering and broader smoke coverage remain.                                                                      |
+| 0064 native rate-limit bindings           | Done         | Bindings are called in `api` and `upload`; upload routes peek idempotency before rate-limit; hosted smoke asserts the per-actor 429.                                            |
 | 0065 wrangler JSONC                       | Done         | All Workers use `wrangler.jsonc`.                                                                                                                                               |
 | 0066 CLI-first MVP narrowing              | Done         | This is the controlling roadmap ADR.                                                                                                                                            |
 | 0067 interim production security baseline | Done         | Records live-before-app-service controls and follow-ups.                                                                                                                        |
@@ -182,79 +181,80 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-7 close Phase 1; items 8-11 prep hosted ops and Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-5 close Phase 1; items 6-8 prep hosted ops and Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Enforce native rate-limit bindings
-
-- Status: Partially implemented on 2026-05-21. `api` and `upload` call both bindings for API-key routes and focused 429 tests pass. Remaining work: idempotency replay-before-limit ordering and hosted smoke coverage.
-- Drives: ADR 0039, ADR 0064
-- Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/*/wrangler.jsonc`
-- Done: every authenticated mutation calls `env.ACTOR_RATE_LIMIT.limit(...)` and `env.WORKSPACE_BURST_CAP.limit(...)`; over-limit returns 429 with envelope; a smoke test triggers 429 from an in-test client.
-
-### 2. Generate OpenAPI from Zod contracts
+### 1. Generate OpenAPI from Zod contracts
 
 - Drives: ADR 0016, ADR 0017, ADR 0038
 - Files: `packages/contracts/src/*`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`
 - Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@hono/zod-openapi` (or equivalent); `pnpm verify` runs a schema-diff check against a checked-in golden; CI fails if contracts drift from served OpenAPI.
 
-### 3. Move runtime queries to Drizzle
+### 2. Move runtime queries to Drizzle
 
 - Drives: ADR 0018
 - Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
 - Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
 
-### 4. Apply Postgres RLS at runtime
+### 3. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 5. Complete error envelope (`request_id`, `docs`)
+### 4. Complete error envelope (`request_id`, `docs`)
 
 - Drives: ADR 0036, `docs/specs/contracts.md`
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
 - Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
 
-### 6. Verify bytes-after-delete and bytes-after-expiry cleanup
-
-- Drives: ADR 0048, `docs/specs/acceptance.md`
-- Files: `apps/api/src/index.ts` (scheduled handler), `scripts/smoke-local-mvp.mjs`, `scripts/smoke-hosted.mjs`
-- Done: smoke creates an artifact with a 1-day TTL, advances clock (or uses a forced-expiry test endpoint), runs cleanup, confirms R2 prefix is empty and signed URL returns 404 with denylist hit logged.
-
-### 7. Exercise PR preview lifecycle on a same-repo PR
+### 5. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
-- Done: a same-repo PR (the one carrying items 1-6 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
+- Done: a same-repo PR (the one carrying items 1-4 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 8. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 6. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 9. Review and merge `t3code/7bcd4587`
+### 7. Review and merge `t3code/7bcd4587`
 
 - Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
 - Files: TBD until review.
 - Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
 
-### 10. CSP allowlist audit
-
-- Status: Partially implemented on 2026-05-21. Header allowlist and SVG override are in code; snapshots still need to cover CSS/JS/PNG explicitly.
-- Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
-- Files: `apps/content/src/index.ts`
-- Done: CSP `script-src` and `connect-src` allowlists are validated against the current ADR 0029 list; SVG responses use a strict CSP override; a vitest snapshot pins the CSP header for HTML, CSS, JS, SVG, and PNG.
-
-### 11. Complete bootstrap hosting checklist
+### 8. Complete bootstrap hosting checklist
 
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Verify bytes-after-delete and bytes-after-expiry cleanup
+
+- Status: Done on 2026-05-21 via PR #8.
+- Drives: ADR 0048, `docs/specs/acceptance.md`
+- Files: `apps/api/src/index.ts` (test-only force-expiry endpoint), `scripts/smoke-hosted.mjs`, `scripts/deploy-pr-preview.mjs`
+- Done: hosted smoke creates an artifact, deletes it, asserts R2 is empty and view URL returns 404; a second artifact is force-expired through a non-production test endpoint, the scheduled cleanup runs, and the same byte-purge + denylist invariants hold.
+
+### CSP allowlist audit
+
+- Status: Done on 2026-05-21 via PR #6.
+- Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
+- Files: `apps/content/test/csp-snapshot.test.ts`, `apps/content/src/index.ts`
+- Done: vitest snapshots pin the served CSP header for HTML, CSS, JS, SVG, and PNG; SVG responses use the strict CSP override; the helper used by the snapshots also asserts the constructed artifact key passed to `ARTIFACTS.get`.
+
+### Enforce native rate-limit bindings
+
+- Status: Done on 2026-05-21 via PR #9.
+- Drives: ADR 0039, ADR 0064
+- Files: `packages/commands/src/index.ts`, `apps/upload/src/index.ts`, `scripts/smoke-hosted.mjs`
+- Done: every authenticated mutation calls `env.ACTOR_RATE_LIMIT.limit(...)` and `env.WORKSPACE_BURST_CAP.limit(...)`; over-limit returns 429 with envelope; idempotency replay is checked via the new `peekIdempotentReplay` helper before rate-limit accounting so retries of completed commands skip the budget; hosted smoke (`scripts/smoke-hosted.mjs`, preview/PR targets) hammers an upload mutation until it observes a 429 with the `rate_limited_actor` envelope.
 
 ### Consolidate content-signing secret names
 

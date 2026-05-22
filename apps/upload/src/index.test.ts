@@ -104,6 +104,69 @@ describe("upload worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_workspace" } });
   });
 
+  it("replays cached idempotent result without consuming rate budget", async () => {
+    const session: UploadSessionRecord = {
+      session_id: "upl_replay",
+      artifact_id: "art_replay",
+      revision_id: "rev_replay",
+      expires_at: "2030-01-01T00:00:00.000Z",
+      files: [{ path: "index.html", size_bytes: 12 }],
+    };
+    const rateLimitCalls = { actor: 0, workspace: 0 };
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+        },
+      },
+      DB: {
+        async createUploadSession() {
+          throw new Error("replayed requests must not create new sessions");
+        },
+        async getUploadSession() {
+          return null;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+        async peekIdempotentReplay({ idempotencyKey, operation }) {
+          if (operation === "upload.session.create" && idempotencyKey === "replay") {
+            return { result: session };
+          }
+          return null;
+        },
+      },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          rateLimitCalls.actor += 1;
+          return { success: false };
+        },
+      },
+      WORKSPACE_BURST_CAP: {
+        async limit() {
+          rateLimitCalls.workspace += 1;
+          return { success: false };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: { authorization: "Bearer ok", "idempotency-key": "replay", "content-type": "application/json" },
+        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
+    expect(body.upload_session_id).toBe("upl_replay");
+    expect(body.files[0]?.put_url).toContain("upl_replay");
+    expect(rateLimitCalls).toEqual({ actor: 0, workspace: 0 });
+  });
+
   it("fails open when a rate limit binding errors", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const session: UploadSessionRecord = {

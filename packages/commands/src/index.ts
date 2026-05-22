@@ -150,6 +150,30 @@ export function cleanupExpired<T extends { expiresAt?: string }>(items: T[], now
   return { removed, retained };
 }
 
+export type PeekIdempotentReplayInput = {
+  executor: SqlExecutor;
+  actor: CommandActor;
+  operation: string;
+  idempotencyKey: string;
+  workspaceId?: string | null;
+};
+
+export async function peekIdempotentReplay<T>(input: PeekIdempotentReplayInput): Promise<{ result: T } | null> {
+  const workspaceId = input.workspaceId === undefined ? input.actor.workspaceId : input.workspaceId;
+  const existing = await input.executor.query<{ status: string; result_json: T | null }>(
+    `select status, result_json
+     from idempotency_records
+     where workspace_id is not distinct from $1
+       and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5`,
+    [workspaceId, input.actor.type, input.actor.id, input.operation, input.idempotencyKey],
+  );
+  const record = existing.rows[0];
+  if (!record || record.status !== "completed") {
+    return null;
+  }
+  return { result: record.result_json as T };
+}
+
 export async function runCommand<T>(input: RunCommandInput<T>): Promise<RunCommandResult<T>> {
   const now = toIsoString(input.now ?? new Date());
   const workspaceId = input.workspaceId === undefined ? input.actor.workspaceId : input.workspaceId;
