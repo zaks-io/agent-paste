@@ -134,4 +134,11 @@ describe("postgres RLS runtime enforcement", () => {
     const rows = await platform.query<{ id: string }>("select id from artifacts order by id");
     expect(rows.rows.map((row) => row.id)).toEqual(["art-ws1", "art-ws2"]);
   });
+
+  // The deploy-production migration runner has no journal table; it re-applies
+  // every .sql file every run. Bare `create policy` failed here in 2026-05-22's
+  // prod deploys. Re-applying the migrations must be a no-op.
+  it("re-applies migrations idempotently", async () => {
+    await expect(applyMigrations(client)).resolves.toBeUndefined();
+  });
 });
