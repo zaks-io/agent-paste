@@ -105,6 +105,9 @@ importers:
       '@agent-paste/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@agent-paste/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
       '@agent-paste/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -173,6 +176,9 @@ importers:
       '@agent-paste/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@agent-paste/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
       '@agent-paste/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -228,6 +234,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@agent-paste/commands':
+        specifier: workspace:*
+        version: link:../commands
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260521.1)(postgres@3.4.9)
