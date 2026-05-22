@@ -13,7 +13,8 @@
     "API_BASE_URL": "http://127.0.0.1:8787",
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
     "UPLOAD_BASE_URL": "http://127.0.0.1:8788",
-    "UPLOAD_URL_TTL_SECONDS": "900"
+    "UPLOAD_URL_TTL_SECONDS": "900",
+    "DOCS_BASE_URL": ""
   },
   "r2_buckets": [
     {
@@ -55,7 +56,8 @@
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
         "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
         "UPLOAD_BASE_URL": "https://agent-paste-upload-preview.isaac-a46.workers.dev",
-        "UPLOAD_URL_TTL_SECONDS": "900"
+        "UPLOAD_URL_TTL_SECONDS": "900",
+        "DOCS_BASE_URL": ""
       },
       "hyperdrive": [
         {
@@ -102,7 +104,8 @@
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "UPLOAD_BASE_URL": "https://upload.agent-paste.sh",
-        "UPLOAD_URL_TTL_SECONDS": "900"
+        "UPLOAD_URL_TTL_SECONDS": "900",
+        "DOCS_BASE_URL": ""
       },
       "hyperdrive": [
         {

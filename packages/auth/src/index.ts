@@ -1,3 +1,16 @@
+export {
+  buildErrorBody,
+  type DocCode,
+  docsUrlFor,
+  type ErrorBody,
+  getRequestId,
+  REQUEST_ID_CONTEXT_KEY,
+  REQUEST_ID_HEADER,
+  type RequestIdVariables,
+  requestIdMiddleware,
+  resolveRequestId,
+} from "./request-id.js";
+
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const API_KEY_SECRET_BYTES = 32;
 

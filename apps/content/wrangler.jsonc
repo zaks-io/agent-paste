@@ -35,7 +35,8 @@
         }
       ],
       "vars": {
-        "CONTENT_SIGNING_KID": "v1"
+        "CONTENT_SIGNING_KID": "v1",
+        "DOCS_BASE_URL": ""
       },
       "r2_buckets": [
         {
@@ -60,7 +61,8 @@
         }
       ],
       "vars": {
-        "CONTENT_SIGNING_KID": "v1"
+        "CONTENT_SIGNING_KID": "v1",
+        "DOCS_BASE_URL": ""
       },
       "r2_buckets": [
         {

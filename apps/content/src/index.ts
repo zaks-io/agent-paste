@@ -1,3 +1,10 @@
+import {
+  buildErrorBody,
+  getRequestId,
+  REQUEST_ID_HEADER,
+  type RequestIdVariables,
+  requestIdMiddleware,
+} from "@agent-paste/auth";
 import { type Context, Hono } from "hono";
 
 export type R2ObjectBody = {
@@ -24,7 +31,10 @@ export type Env = {
   CONTENT_SIGNING_SECRET: string;
   CONTENT_BASE_URL?: string;
   ALLOW_DEV_TOKENS?: string;
+  DOCS_BASE_URL?: string;
 };
+
+type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
 export type ContentTokenPayload = {
   artifact_id: string;
@@ -65,21 +75,20 @@ const securityHeaders = {
   "x-content-type-options": "nosniff",
   "content-security-policy": baseContentSecurityPolicy,
 };
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
+app.use("*", requestIdMiddleware());
 app.get("/openapi.json", (context) =>
   context.json(openApiDocument(context.env.CONTENT_BASE_URL ?? requestOrigin(context.req.raw))),
 );
-app.get("/v/:token/*", (context) =>
-  serveSignedObject(context.req.raw, context.env, context.req.param("token"), contentPath(context)),
-);
+app.get("/v/:token/*", (context) => serveSignedObject(context, context.req.param("token"), contentPath(context)));
 app.on("HEAD", "/v/:token/*", (context) =>
-  serveSignedObject(context.req.raw, context.env, context.req.param("token"), contentPath(context)),
+  serveSignedObject(context, context.req.param("token"), contentPath(context)),
 );
-app.notFound(() => notFound());
-app.onError((error) => {
+app.notFound((context) => errorResponse(context, "not_found", 404));
+app.onError((error, context) => {
   console.error("Unhandled content error:", error);
-  return internalServerError();
+  return errorResponse(context, "internal_error", 500);
 });
 
 export default {
@@ -92,7 +101,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
-function contentPath(context: Context<{ Bindings: Env }>): string {
+function contentPath(context: AppContext): string {
   const pathname = new URL(context.req.raw.url).pathname;
   const encodedToken = pathname.split("/")[2];
   if (!encodedToken) {
@@ -108,11 +117,13 @@ export async function signContentToken(payload: ContentTokenPayload, secret: str
   return `${encodedPayload}.${signature}`;
 }
 
-async function serveSignedObject(request: Request, env: Env, token: string, path: string): Promise<Response> {
+async function serveSignedObject(context: AppContext, token: string, path: string): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
   const payload = await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
   const resolvedPayload = payload ?? (allowDevTokens(env) ? parseDevToken(token) : null);
   if (!resolvedPayload || !isAllowedPath(path, resolvedPayload)) {
-    return notFound();
+    return errorResponse(context, "not_found", 404);
   }
 
   const [artifactDenied, revisionDenied, tokenDenied] = await Promise.all([
@@ -122,17 +133,18 @@ async function serveSignedObject(request: Request, env: Env, token: string, path
   ]);
 
   if (artifactDenied || revisionDenied || tokenDenied) {
-    return notFound();
+    return errorResponse(context, "not_found", 404);
   }
 
   const key = objectKeyFor(resolvedPayload, path);
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
-    return notFound();
+    return errorResponse(context, "not_found", 404);
   }
 
   const headers = responseHeadersForPath(path, object.size, resolvedPayload.exp);
+  headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
 }
@@ -404,16 +416,20 @@ function errorResponseDescription(): Record<string, unknown> {
   };
 }
 
-function notFound(): Response {
-  return new Response(JSON.stringify({ error: { code: "not_found", message: "not_found" } }), {
-    status: 404,
-    headers: { "content-type": "application/json; charset=utf-8", ...securityHeaders },
+function errorResponse(context: AppContext, code: string, status: number, message?: string): Response {
+  const requestId = getRequestId(context);
+  const body = buildErrorBody({
+    code,
+    message: message ?? code,
+    requestId,
+    docsBaseUrl: context.env.DOCS_BASE_URL,
   });
-}
-
-function internalServerError(): Response {
-  return new Response(JSON.stringify({ error: { code: "internal_error", message: "internal_error" } }), {
-    status: 500,
-    headers: { "content-type": "application/json; charset=utf-8", ...securityHeaders },
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      [REQUEST_ID_HEADER]: requestId,
+      ...securityHeaders,
+    },
   });
 }

@@ -181,7 +181,7 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-5 close Phase 1; items 6-8 prep hosted ops and Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-4 close Phase 1; items 5-7 prep hosted ops and Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
@@ -203,19 +203,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 4. Complete error envelope (`request_id`, `docs`)
-
-- Drives: ADR 0036, `docs/specs/contracts.md`
-- Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
-- Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
-
-### 5. Exercise PR preview lifecycle on a same-repo PR
+### 4. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
-- Done: a same-repo PR (the one carrying items 1-4 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
+- Done: a same-repo PR (the one carrying items 1-3 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 6. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 5. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Status: Partial -- runbook ready, click-ops pending Isaac.
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
@@ -231,6 +225,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Complete error envelope (`request_id`, `docs`)
+
+- Status: Done on 2026-05-22 via PR #10.
+- Drives: ADR 0036, `docs/specs/contracts.md`
+- Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/auth/src/request-id.ts`, `apps/*/wrangler.jsonc`
+- Done: every Worker response (success or error) carries an `X-Request-Id` header; every error envelope body includes `request_id` matching the header; an optional `docs` URL is attached for codes with a documented remediation when `DOCS_BASE_URL` is set; inbound `X-Request-Id` matching `^[A-Za-z0-9_-]{8,128}$` is echoed, non-matching values are silently replaced with `crypto.randomUUID()`; golden tests in each Worker cover 404/401/409/4xx/429/500 envelope shape and request-id behavior.
 
 ### Fix PR preview cleanup workflow
 
@@ -343,7 +344,7 @@ pnpm hooks:install
 - [x] Project: `still-forest-91029005`.
 - [ ] Production branch points at production database.
 - [x] Shared preview branch in use via Hyperdrive `agent-paste-db-preview-branch`.
-- [ ] PR-preview branch creation confirmed end-to-end (item 8 in backlog).
+- [ ] PR-preview branch creation confirmed end-to-end (item 7 in backlog).
 - [ ] Hyperdrive runtime role and migration role separated.
 - [ ] Migration URL secrets restricted to migration workflows.
 
@@ -388,7 +389,7 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 1. `pnpm setup:codex`
 2. `pnpm verify`
 3. `pnpm smoke:local` (use `AGENT_PASTE_LOCAL_*_PORT` overrides if ports collide)
-4. Address backlog items 1-8 (or document why they are deferred)
+4. Address backlog items 1-7 (or document why they are deferred)
 5. `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
 6. Open a same-repo PR to exercise the preview workflow
 7. Production deploy only with explicit Isaac approval: `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`
