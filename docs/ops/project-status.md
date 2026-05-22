@@ -28,7 +28,7 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 | Production deploy       | Pass          | 2026-05-21 | GitHub Actions run `26245768366`.                                                                                                                                       |
 | Security hardening pass | Pass          | 2026-05-21 | Content MIME/header hardening, API/upload rate-limit calls, admin CLI `--yes`, ADR 0067. `pnpm verify` pass under Node 25.9.0 with the expected Node 24 engine warning. |
 | PR preview workflow     | Not exercised | n/a        | No open same-repo PRs since workflow added.                                                                                                                             |
-| PR cleanup workflow     | Not exercised | n/a        | Pending first PR.                                                                                                                                                       |
+| PR cleanup workflow     | Re-registered | 2026-05-22 | Renamed to `pr-preview-cleanup.yml` after the prior record's `pull_request.closed` trigger stopped firing for PRs #2--#9.                                               |
 
 ## Security Pass 2026-05-21
 
@@ -231,6 +231,15 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
 
 ## Recently Completed
+
+### Fix PR preview cleanup workflow
+
+- Status: Done on 2026-05-22.
+- Drives: this doc § PR cleanup workflow row
+- Files: `.github/workflows/pr-preview-cleanup.yml` (renamed from `cleanup-pr-preview.yml`), `docs/ops/first-deploy.md`
+- Root cause: PR #2 added `permissions: administration: write` to the cleanup workflow, but `administration` is not a valid `GITHUB_TOKEN` scope (only fine-grained PATs accept it). GitHub rejected the workflow at evaluation time, so every `pull_request.closed` event for PRs #2--#9 was silently dropped and every push registered a `startup_failure`. Eight stale Neon `preview/pr-N` branches accumulated and tripped the 10-branch free-tier cap, blocking PR #10/#11/#12 deploys with HTTP 422.
+- Fix: dropped the invalid permission key and the `deleteAnEnvironment` step that required it (left a one-line note in the cleanup PR comment pointing operators at the UI for the per-PR environment). Renamed the file so GitHub registers a fresh workflow record instead of reusing the wedged one. Added positive-integer validation on the resolved PR number.
+- Follow-up (operator-only, agent must not run): purge stale `preview/pr-2` through `preview/pr-9` Neon branches via console or `wrangler`/`neonctl`. The cleanup agent is forbidden from calling `neondatabase/delete-branch-action` autonomously.
 
 ### Close obsolete `t3code/*` branches
 

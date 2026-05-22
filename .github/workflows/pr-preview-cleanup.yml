@@ -1,4 +1,12 @@
-name: Cleanup PR Preview
+# Renamed from cleanup-pr-preview.yml and reset to a valid permissions
+# block. The previous file declared "administration: write" under
+# permissions, which is not a valid GITHUB_TOKEN scope; GitHub rejected
+# the workflow at evaluation time. Every push registered a startup_failure
+# and every pull_request.closed event (PRs #2--#9) was silently dropped,
+# leaving 8 stale preview/pr-N Neon branches. Renaming the file also
+# forces GitHub to register a fresh workflow record so the old wedged
+# entry stops swallowing events.
+name: PR Preview Cleanup
 
 on:
   pull_request:
@@ -13,7 +21,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  administration: write
 
 concurrency:
   group: pr-preview-cleanup-${{ github.event.pull_request.number || inputs.pr_number }}
@@ -51,7 +58,14 @@ jobs:
 
       - name: Resolve PR number
         id: pr
-        run: echo "number=${{ github.event.pull_request.number || inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+        env:
+          RESOLVED_PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          if ! [[ "$RESOLVED_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Resolved PR number is not a positive integer: '$RESOLVED_PR_NUMBER'"
+            exit 1
+          fi
+          echo "number=$RESOLVED_PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Delete Cloudflare PR resources
         env:
@@ -66,28 +80,6 @@ jobs:
           branch: preview/pr-${{ steps.pr.outputs.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      - name: Delete GitHub Preview environment
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const name = `pr-preview-${process.env.PR_NUMBER}`;
-            try {
-              await github.rest.repos.deleteAnEnvironment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                environment_name: name,
-              });
-              core.info(`Deleted environment ${name}`);
-            } catch (err) {
-              if (err.status === 404) {
-                core.info(`Environment ${name} not found; nothing to delete`);
-                return;
-              }
-              throw err;
-            }
-        env:
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
-
       - name: Comment cleanup status
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v8
@@ -97,5 +89,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: "agent-paste PR preview resources were cleaned up.",
+              body: "agent-paste PR preview resources were cleaned up. The pr-preview-${context.issue.number} environment is left in place; remove it from the GitHub UI if desired.",
             });
