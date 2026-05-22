@@ -87,6 +87,7 @@ function apiConfig() {
       API_BASE_URL: urls.api,
       CONTENT_BASE_URL: urls.content,
       CLEANUP_BATCH_SIZE: "100",
+      AGENT_PASTE_ENV: "preview",
     },
     hyperdrive: [{ binding: "DB", id: hyperdriveId }],
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
