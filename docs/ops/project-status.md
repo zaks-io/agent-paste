@@ -108,7 +108,7 @@ All 67 ADRs in numeric order. Status legend: **Done**, **Partial**, **Drift** (c
 | 0008 pnpm + Turborepo guardrails          | Done         | Lockfile, workspace config, CI install guardrails.                                                                                                                              |
 | 0009 TypeScript + per-app wrangler        | Done         | Per-app `wrangler.jsonc`.                                                                                                                                                       |
 | 0010 GitHub Actions on Blacksmith         | Done         | CI, PR preview, cleanup, production deploy workflows present.                                                                                                                   |
-| 0011 Cloudflare-first observability       | Partial      | Wrangler observability flag on. No Logpush → Axiom wiring.                                                                                                                      |
+| 0011 Cloudflare-first observability       | Partial      | Wrangler observability flag on. Logpush -> Axiom click-ops runbook published (`docs/ops/runbook-logpush.md`); console wiring pending Isaac.                                     |
 | 0012 preview + production only            | Done         | Wrangler envs match.                                                                                                                                                            |
 | 0013 wrangler-first local dev             | Done         | `pnpm dev:all` and local-mvp-server.mjs.                                                                                                                                        |
 | 0014 single-domain + hardened subdomain   | Partial      | Production routes match. Preview uses `*.preview.agent-paste.sh` — keep or document.                                                                                            |
@@ -217,9 +217,11 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### 6. Wire Logpush → Axiom for `api`/`upload`/`content`
 
+- Status: Partial -- runbook ready, click-ops pending Isaac.
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
-- Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
-- Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
+- Files: Cloudflare console + `docs/ops/runbook-logpush.md` (no Worker code change required).
+- Runbook: [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) -- pre-flight, six Axiom datasets, six Logpush jobs, redaction list, three APL panels, verification curl + APL.
+- Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs). When closed, move this entry to Recently Completed.
 
 ### 7. Review and merge `t3code/7bcd4587`
 
