@@ -127,7 +127,7 @@ Bitwarden entry checklist (one per row):
 - [ ] `agent-paste / infra / PRODUCTION_DATABASE_URL` (production-branch direct URL, NOT pooled)
 - [ ] `agent-paste / infra / TURBO_REMOTE_CACHE_SIGNATURE_KEY`
 
-`CLOUDFLARE_ACCOUNT_ID`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`, `TURBO_TEAM` are non-sensitive identifiers. They do not belong in Bitwarden, but they still must exist as GitHub secrets / vars so workflows can read them. The `gh secret set` block below covers them.
+`CLOUDFLARE_ACCOUNT_ID`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`, `TURBO_TEAM` are non-sensitive identifiers. They do not belong in Bitwarden, but workflows still need them. The `gh secret set` block below sets `NEON_PROJECT_ID` and `CLOUDFLARE_WORKERS_SUBDOMAIN`. `CLOUDFLARE_ACCOUNT_ID` and `TURBO_TEAM` are inherited from the `zaks-io` GitHub org; verify with `gh secret list --org zaks-io` and `gh variable list --org zaks-io`.
 
 ### GitHub secret mirror
 
