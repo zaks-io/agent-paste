@@ -72,10 +72,15 @@
                 "minLength": 1
               }
             },
-            "required": ["code", "message"]
+            "required": [
+              "code",
+              "message"
+            ]
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       },
       "WhoamiResponse": {
         "type": "object",
@@ -85,7 +90,9 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["api_key"]
+                "enum": [
+                  "api_key"
+                ]
               },
               "id": {
                 "type": "string",
@@ -97,7 +104,11 @@
                 "maxLength": 120
               }
             },
-            "required": ["type", "id", "name"]
+            "required": [
+              "type",
+              "id",
+              "name"
+            ]
           },
           "workspace": {
             "type": "object",
@@ -116,13 +127,21 @@
                 "format": "date-time"
               }
             },
-            "required": ["id", "name", "created_at"]
+            "required": [
+              "id",
+              "name",
+              "created_at"
+            ]
           },
           "scopes": {
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["publish", "read", "admin"]
+              "enum": [
+                "publish",
+                "read",
+                "admin"
+              ]
             }
           },
           "usage_policy": {
@@ -178,7 +197,12 @@
             ]
           }
         },
-        "required": ["actor", "workspace", "scopes", "usage_policy"]
+        "required": [
+          "actor",
+          "workspace",
+          "scopes",
+          "usage_policy"
+        ]
       },
       "UsagePolicy": {
         "type": "object",
@@ -249,7 +273,10 @@
             "maxLength": 160
           },
           "description": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 2000
           },
           "created_at": {
@@ -293,7 +320,12 @@
                   "format": "uri"
                 }
               },
-              "required": ["path", "size_bytes", "content_type", "url"]
+              "required": [
+                "path",
+                "size_bytes",
+                "content_type",
+                "url"
+              ]
             },
             "minItems": 1,
             "maxItems": 100
@@ -327,11 +359,19 @@
             "format": "date-time"
           },
           "contact_email": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "email"
           }
         },
-        "required": ["id", "name", "created_at", "contact_email"]
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "contact_email"
+        ]
       },
       "WorkspaceListResponse": {
         "type": "object",
@@ -355,18 +395,29 @@
                   "format": "date-time"
                 },
                 "contact_email": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "format": "email"
                 }
               },
-              "required": ["id", "name", "created_at", "contact_email"]
+              "required": [
+                "id",
+                "name",
+                "created_at",
+                "contact_email"
+              ]
             }
           },
           "page_info": {
             "type": "object",
             "properties": {
               "next_cursor": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "minLength": 1,
                 "maxLength": 500
               },
@@ -374,10 +425,16 @@
                 "type": "boolean"
               }
             },
-            "required": ["next_cursor", "has_more"]
+            "required": [
+              "next_cursor",
+              "has_more"
+            ]
           }
         },
-        "required": ["data", "page_info"]
+        "required": [
+          "data",
+          "page_info"
+        ]
       },
       "CreateWorkspaceRequest": {
         "type": "object",
@@ -392,7 +449,9 @@
             "maxLength": 120
           }
         },
-        "required": ["email"]
+        "required": [
+          "email"
+        ]
       },
       "CreateApiKeyRequest": {
         "type": "object",
@@ -407,7 +466,10 @@
             "maxLength": 120
           }
         },
-        "required": ["workspace_id", "name"]
+        "required": [
+          "workspace_id",
+          "name"
+        ]
       },
       "CreateApiKeyResponse": {
         "type": "object",
@@ -436,12 +498,19 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["publish", "read", "admin"]
+                  "enum": [
+                    "publish",
+                    "read",
+                    "admin"
+                  ]
                 },
                 "minItems": 1
               },
               "revoked_at": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "format": "date-time"
               },
               "created_at": {
@@ -449,7 +518,10 @@
                 "format": "date-time"
               },
               "last_used_at": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "format": "date-time"
               }
             },
@@ -469,7 +541,10 @@
             "pattern": "^ap_pk_(preview|production|live)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$"
           }
         },
-        "required": ["api_key", "secret"]
+        "required": [
+          "api_key",
+          "secret"
+        ]
       },
       "ApiKeySummary": {
         "type": "object",
@@ -495,12 +570,19 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["publish", "read", "admin"]
+              "enum": [
+                "publish",
+                "read",
+                "admin"
+              ]
             },
             "minItems": 1
           },
           "revoked_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "created_at": {
@@ -508,11 +590,23 @@
             "format": "date-time"
           },
           "last_used_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           }
         },
-        "required": ["id", "workspace_id", "name", "public_id", "scopes", "revoked_at", "created_at", "last_used_at"]
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "public_id",
+          "scopes",
+          "revoked_at",
+          "created_at",
+          "last_used_at"
+        ]
       },
       "RevokeApiKeyResponse": {
         "type": "object",
@@ -541,12 +635,19 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["publish", "read", "admin"]
+                  "enum": [
+                    "publish",
+                    "read",
+                    "admin"
+                  ]
                 },
                 "minItems": 1
               },
               "revoked_at": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "format": "date-time"
               },
               "created_at": {
@@ -554,7 +655,10 @@
                 "format": "date-time"
               },
               "last_used_at": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "format": "date-time"
               }
             },
@@ -574,7 +678,10 @@
             "format": "date-time"
           }
         },
-        "required": ["api_key", "revoked_at"]
+        "required": [
+          "api_key",
+          "revoked_at"
+        ]
       },
       "ArtifactSummary": {
         "type": "object",
@@ -589,7 +696,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "deleted", "expired"]
+            "enum": [
+              "active",
+              "deleted",
+              "expired"
+            ]
           },
           "title": {
             "type": "string",
@@ -622,11 +733,17 @@
             "format": "date-time"
           },
           "deleted_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "delete_reason": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -657,7 +774,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "deleted", "expired"]
+            "enum": [
+              "active",
+              "deleted",
+              "expired"
+            ]
           },
           "title": {
             "type": "string",
@@ -690,11 +811,17 @@
             "format": "date-time"
           },
           "deleted_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "delete_reason": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "files": {
             "type": "array",
@@ -719,7 +846,12 @@
                   "format": "date-time"
                 }
               },
-              "required": ["path", "size_bytes", "content_type", "uploaded_at"]
+              "required": [
+                "path",
+                "size_bytes",
+                "content_type",
+                "uploaded_at"
+              ]
             }
           },
           "operation_event_ids": {
@@ -764,7 +896,11 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["active", "deleted", "expired"]
+                  "enum": [
+                    "active",
+                    "deleted",
+                    "expired"
+                  ]
                 },
                 "title": {
                   "type": "string",
@@ -797,11 +933,17 @@
                   "format": "date-time"
                 },
                 "deleted_at": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "format": "date-time"
                 },
                 "delete_reason": {
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -824,7 +966,10 @@
             "type": "object",
             "properties": {
               "next_cursor": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "minLength": 1,
                 "maxLength": 500
               },
@@ -832,10 +977,16 @@
                 "type": "boolean"
               }
             },
-            "required": ["next_cursor", "has_more"]
+            "required": [
+              "next_cursor",
+              "has_more"
+            ]
           }
         },
-        "required": ["data", "page_info"]
+        "required": [
+          "data",
+          "page_info"
+        ]
       },
       "DeleteArtifactResponse": {
         "type": "object",
@@ -849,7 +1000,10 @@
             "format": "date-time"
           }
         },
-        "required": ["artifact_id", "deleted_at"]
+        "required": [
+          "artifact_id",
+          "deleted_at"
+        ]
       },
       "CleanupRunRequest": {
         "type": "object",
@@ -883,7 +1037,13 @@
             "format": "date-time"
           }
         },
-        "required": ["dry_run", "expired_artifacts", "expired_upload_sessions", "deleted_r2_objects", "occurred_at"]
+        "required": [
+          "dry_run",
+          "expired_artifacts",
+          "expired_upload_sessions",
+          "deleted_r2_objects",
+          "occurred_at"
+        ]
       },
       "OperationEvent": {
         "type": "object",
@@ -893,15 +1053,25 @@
             "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "workspace_id": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid"
           },
           "actor_type": {
             "type": "string",
-            "enum": ["api_key", "admin", "system"]
+            "enum": [
+              "api_key",
+              "admin",
+              "system"
+            ]
           },
           "actor_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "action": {
             "type": "string",
@@ -922,7 +1092,13 @@
           },
           "target_type": {
             "type": "string",
-            "enum": ["workspace", "api_key", "upload_session", "artifact", "cleanup"]
+            "enum": [
+              "workspace",
+              "api_key",
+              "upload_session",
+              "artifact",
+              "cleanup"
+            ]
           },
           "target_id": {
             "type": "string",
@@ -933,7 +1109,10 @@
             "additionalProperties": {}
           },
           "request_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "occurred_at": {
             "type": "string",
@@ -966,15 +1145,25 @@
                   "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
                 },
                 "workspace_id": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "format": "uuid"
                 },
                 "actor_type": {
                   "type": "string",
-                  "enum": ["api_key", "admin", "system"]
+                  "enum": [
+                    "api_key",
+                    "admin",
+                    "system"
+                  ]
                 },
                 "actor_id": {
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "action": {
                   "type": "string",
@@ -995,7 +1184,13 @@
                 },
                 "target_type": {
                   "type": "string",
-                  "enum": ["workspace", "api_key", "upload_session", "artifact", "cleanup"]
+                  "enum": [
+                    "workspace",
+                    "api_key",
+                    "upload_session",
+                    "artifact",
+                    "cleanup"
+                  ]
                 },
                 "target_id": {
                   "type": "string",
@@ -1006,7 +1201,10 @@
                   "additionalProperties": {}
                 },
                 "request_id": {
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "occurred_at": {
                   "type": "string",
@@ -1031,7 +1229,10 @@
             "type": "object",
             "properties": {
               "next_cursor": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "minLength": 1,
                 "maxLength": 500
               },
@@ -1039,10 +1240,16 @@
                 "type": "boolean"
               }
             },
-            "required": ["next_cursor", "has_more"]
+            "required": [
+              "next_cursor",
+              "has_more"
+            ]
           }
         },
-        "required": ["data", "page_info"]
+        "required": [
+          "data",
+          "page_info"
+        ]
       },
       "RateLimitErrorEnvelope": {
         "type": "object",
@@ -1052,7 +1259,10 @@
             "properties": {
               "code": {
                 "type": "string",
-                "enum": ["rate_limited_actor", "rate_limited_workspace"]
+                "enum": [
+                  "rate_limited_actor",
+                  "rate_limited_workspace"
+                ]
               },
               "message": {
                 "type": "string"
@@ -1066,10 +1276,15 @@
                 "minLength": 1
               }
             },
-            "required": ["code", "message"]
+            "required": [
+              "code",
+              "message"
+            ]
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       }
     },
     "parameters": {}
@@ -1161,10 +1376,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1221,10 +1441,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1281,10 +1506,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1341,10 +1571,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1421,10 +1656,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1481,10 +1721,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1578,10 +1823,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1638,10 +1888,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1698,10 +1953,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1758,10 +2018,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1838,10 +2103,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1898,10 +2168,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -1999,10 +2274,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2059,10 +2339,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2119,10 +2404,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2199,10 +2489,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2259,10 +2554,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2365,10 +2665,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2425,10 +2730,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2485,10 +2795,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2545,10 +2860,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2625,10 +2945,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2685,10 +3010,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2800,10 +3130,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2860,10 +3195,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2920,10 +3260,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -2980,10 +3325,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3060,10 +3410,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3120,10 +3475,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3217,10 +3577,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3277,10 +3642,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3337,10 +3707,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3397,10 +3772,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3477,10 +3857,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3537,10 +3922,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3598,7 +3988,9 @@
                     "maxLength": 120
                   }
                 },
-                "required": ["email"]
+                "required": [
+                  "email"
+                ]
               }
             }
           }
@@ -3666,10 +4058,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3726,10 +4123,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3786,10 +4188,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3846,10 +4253,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3926,10 +4338,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -3986,10 +4403,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4058,7 +4480,10 @@
                     "maxLength": 120
                   }
                 },
-                "required": ["workspace_id", "name"]
+                "required": [
+                  "workspace_id",
+                  "name"
+                ]
               }
             }
           }
@@ -4126,10 +4551,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4186,10 +4616,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4246,10 +4681,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4306,10 +4746,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4386,10 +4831,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4446,10 +4896,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4564,10 +5019,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4624,10 +5084,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4684,10 +5149,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4744,10 +5214,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4824,10 +5299,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4884,10 +5364,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -4981,10 +5466,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5041,10 +5531,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5101,10 +5596,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5161,10 +5661,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5241,10 +5746,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5301,10 +5811,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5407,10 +5922,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5467,10 +5987,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5527,10 +6052,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5587,10 +6117,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5667,10 +6202,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5727,10 +6267,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5843,10 +6388,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5903,10 +6453,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -5963,10 +6518,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6023,10 +6583,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6103,10 +6668,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6163,10 +6733,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6288,10 +6863,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6348,10 +6928,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6408,10 +6993,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6468,10 +7058,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6548,10 +7143,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6608,10 +7208,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6705,10 +7310,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6765,10 +7375,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6825,10 +7440,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6885,10 +7505,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -6965,10 +7590,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
@@ -7025,10 +7655,15 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["code", "message"]
+                      "required": [
+                        "code",
+                        "message"
+                      ]
                     }
                   },
-                  "required": ["error"]
+                  "required": [
+                    "error"
+                  ]
                 }
               }
             }
