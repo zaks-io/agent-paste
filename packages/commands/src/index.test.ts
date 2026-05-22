@@ -4,6 +4,7 @@ import {
   createIdempotencyStore,
   createOperationEvent,
   IdempotencyInFlightError,
+  peekIdempotentReplay,
   runCommand,
   runIdempotent,
   type SqlExecutor,
@@ -196,6 +197,38 @@ describe("command helpers", () => {
 
       expect(result.isReplay).toBe(false);
       expect(result.result).toEqual({ id: "artifact_1" });
+    });
+
+    it("peekIdempotentReplay returns cached result for completed records", async () => {
+      const cachedResult = { id: "artifact_1" };
+      const executor = new MockExecutor(() => ({
+        rows: [{ status: "completed", result_json: cachedResult }],
+      }));
+
+      const hit = await peekIdempotentReplay<{ id: string }>({
+        executor,
+        actor,
+        operation: "artifact.create",
+        idempotencyKey: "key_1",
+      });
+
+      expect(hit).toEqual({ result: cachedResult });
+      expect(executor.calls).toHaveLength(1);
+      expect(executor.calls[0]?.sql).toContain("select status, result_json");
+    });
+
+    it("peekIdempotentReplay returns null for in-flight or missing records", async () => {
+      const inFlight = new MockExecutor(() => ({
+        rows: [{ status: "in_flight", result_json: null }],
+      }));
+      const empty = new MockExecutor(() => ({ rows: [] }));
+
+      await expect(
+        peekIdempotentReplay({ executor: inFlight, actor, operation: "x", idempotencyKey: "k" }),
+      ).resolves.toBeNull();
+      await expect(
+        peekIdempotentReplay({ executor: empty, actor, operation: "x", idempotencyKey: "k" }),
+      ).resolves.toBeNull();
     });
 
     it("supports admin operations with null workspace_id", async () => {

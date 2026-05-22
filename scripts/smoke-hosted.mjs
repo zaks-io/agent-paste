@@ -61,6 +61,7 @@ assert(content.headers.get("content-type")?.includes("text/html"), "content resp
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
 
 if (target !== "production") {
+  await assertActorRateLimitFires(key.secret);
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(userEnv, published);
 } else {
@@ -265,6 +266,34 @@ function unquote(value) {
     return value.slice(1, -1);
   }
   return value;
+}
+
+async function assertActorRateLimitFires(apiKeySecret) {
+  const url = `${config.uploadBaseUrl}/v1/upload-sessions`;
+  const body = JSON.stringify({ files: [{ path: "rate-limit-probe.txt", size_bytes: 1 }] });
+  const maxAttempts = 120;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKeySecret}`,
+        "content-type": "application/json",
+        "idempotency-key": `rl-probe-${Date.now()}-${attempt}`,
+      },
+      body,
+    });
+    if (response.status === 429) {
+      const payload = await response.json();
+      assert(
+        payload?.error?.code === "rate_limited_actor",
+        `expected rate_limited_actor envelope, got ${JSON.stringify(payload)}`,
+      );
+      assert(response.headers.get("retry-after") === "60", "rate-limited response sets Retry-After: 60");
+      return;
+    }
+    await response.body?.cancel?.();
+  }
+  throw new Error(`upload mutation never returned 429 after ${maxAttempts} attempts`);
 }
 
 async function assertBytesPurgedAfterDelete(publishedArtifact) {
