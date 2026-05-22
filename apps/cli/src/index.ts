@@ -57,6 +57,7 @@ export async function main(argv = process.argv.slice(2), client = new ApiClient(
       );
     }
     case "admin key revoke":
+      requireYes(parsed, `Refusing to revoke ${requiredArg(parsed, 0, "api key id")} without --yes.`);
       return output(
         await client.admin.apiKeys.revoke(
           requiredArg(parsed, 0, "api key id"),
@@ -72,6 +73,7 @@ export async function main(argv = process.argv.slice(2), client = new ApiClient(
       return output(await client.admin.artifacts.get(requiredArg(parsed, 0, "artifact id")), parsed.global);
     case "admin artifact delete":
     case "delete":
+      requireYes(parsed, `Refusing to delete ${requiredArg(parsed, 0, "artifact id")} without --yes.`);
       return output(
         await client.admin.artifacts.delete(
           requiredArg(parsed, 0, "artifact id"),
@@ -80,6 +82,9 @@ export async function main(argv = process.argv.slice(2), client = new ApiClient(
         parsed.global,
       );
     case "admin cleanup run":
+      if (!booleanFlag(parsed, "dry-run", false)) {
+        requireYes(parsed, "Refusing to run mutating cleanup without --yes.");
+      }
       return output(
         await client.admin.cleanup.run(
           { dry_run: booleanFlag(parsed, "dry-run", false) },
@@ -209,6 +214,12 @@ function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: bool
   return typeof value === "boolean" ? value : fallback;
 }
 
+function requireYes(parsed: Parsed, message: string) {
+  if (!booleanFlag(parsed, "yes", false)) {
+    throw new Error(message);
+  }
+}
+
 function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
   if (global.json) {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -243,7 +254,10 @@ Usage:
   agent-paste publish <path> [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
   agent-paste admin workspace create <email> [--name <text>]
   agent-paste admin key create <workspace-id> [--name <text>]
-  agent-paste admin artifact list|get|delete ...
+  agent-paste admin key revoke <api-key-id> --yes
+  agent-paste admin artifact list|get ...
+  agent-paste admin artifact delete <artifact-id> --yes
+  agent-paste admin cleanup run [--dry-run|--yes]
 `);
 }
 

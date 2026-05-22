@@ -7,25 +7,25 @@ Every authenticated request hits storage to resolve actor identity, **Scopes**, 
 - **No caching beyond Cloudflare's edge.** Simpler, but KV's edge cache reduces latency, not billing — every `.get()` is metered even on a hot key. At one million authenticated requests per day from one **Workspace**, the auth lookup alone outweighs the queue, R2, and Postgres-write paths combined.
 - **Single-layer Cache API.** Covers most misses and has no per-op billing, but every hit deserializes a synthetic `Response` body; the module-scope Map handles the burst case (many requests per second from the same actor in the same isolate) at zero cost and zero deserialize. Two layers compose; either layer alone is a regression for one half of the traffic shape.
 - **Single-layer module-scope Map.** Zero cost on hit, but isolates are evicted on resource pressure and deploys. Every recycle in a hot colo turns into a billed KV/Postgres read with no backstop.
-- **Cache the rate-limit decision itself.** The Durable Object call from [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md) is the counter increment, not a side-effect-free lookup. Caching "allowed" skips the counter and the cap silently breaks. Only *terminal* results (`exceeded`, `error`, `billing_not_active`) are safe to cache because they do not need an increment to remain correct.
+- **Cache the rate-limit decision itself.** The Durable Object call from [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md) is the counter increment, not a side-effect-free lookup. Caching "allowed" skips the counter and the cap silently breaks. Only _terminal_ results (`exceeded`, `error`, `billing_not_active`) are safe to cache because they do not need an increment to remain correct.
 
 ## Consequences
 
 ### What is cached
 
-| Lookup | Worker | Source | TTL | Why it is safe |
-|---|---|---|---|---|
-| **API Key** row by `publicId` (status, `Scopes`, `hmac_kid`, `workspaceId`) | `api`, `upload` | Postgres via Hyperdrive | 60 s | The peppered HMAC compare from ADR 0043 still runs after the cache returns; the cache stores the row, not the verification. |
-| **Workspace** billing state and **Usage Policy** snapshot | `api`, `upload`, `jobs` | Postgres via Hyperdrive | 60 s | Tier and policy changes are infrequent; 60 s is the agreed propagation budget for everything that is not handled by the denylist. |
-| Denylist *negative* result for `wsd:`, `ad:`, `rd:`, `ald:` keys | `content` | KV per ADR 0057 | 60 s | Positive results are *not* cached so revocation propagates inside the 15-minute content-token window from [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md). |
-| **Workspace Member** session resolution on `api` after the `web` service-binding hop per [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md) | `api` | Auth0 + Postgres | 60 s | The Auth0 signature check runs before the cache layer; the cache stores the resolved member row. |
-| Terminal **Actor Rate Limit** / **Workspace Burst Cap** results (`exceeded`, `error`, `billing_not_active`) per ADR 0039 | `api`, `upload` | Per-actor counter store | 60 s | No counter increment is needed once the actor is over a terminal threshold; the first request to cross it still increments. |
+| Lookup                                                                                                                                                    | Worker                  | Source                  | TTL  | Why it is safe                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **API Key** row by `publicId` (status, `Scopes`, `hmac_kid`, `workspaceId`)                                                                               | `api`, `upload`         | Postgres via Hyperdrive | 60 s | The peppered HMAC compare from ADR 0043 still runs after the cache returns; the cache stores the row, not the verification.                                                          |
+| **Workspace** billing state and **Usage Policy** snapshot                                                                                                 | `api`, `upload`, `jobs` | Postgres via Hyperdrive | 60 s | Tier and policy changes are infrequent; 60 s is the agreed propagation budget for everything that is not handled by the denylist.                                                    |
+| Denylist _negative_ result for `wsd:`, `ad:`, `rd:`, `ald:` keys                                                                                          | `content`               | KV per ADR 0057         | 60 s | Positive results are _not_ cached so revocation propagates inside the 15-minute content-token window from [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md). |
+| **Workspace Member** session resolution on `api` after the `web` service-binding hop per [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md) | `api`                   | Auth0 + Postgres        | 60 s | The Auth0 signature check runs before the cache layer; the cache stores the resolved member row.                                                                                     |
+| Terminal **Actor Rate Limit** / **Workspace Burst Cap** results (`exceeded`, `error`, `billing_not_active`) per ADR 0039                                  | `api`, `upload`         | Per-actor counter store | 60 s | No counter increment is needed once the actor is over a terminal threshold; the first request to cross it still increments.                                                          |
 
 ### What is never cached
 
 - Counter increments for **Actor Rate Limit** and **Workspace Burst Cap**. Every authorized request reaches the authoritative counter.
 - Idempotency record creation per [ADR 0035](./0035-runcommand-sequencing-and-idempotency-records.md). The race the record exists to prevent occurs at create time.
-- *Positive* denylist hits per ADR 0057. Caching a denial would extend the revocation window past the content-token TTL and weaken the consistency contract.
+- _Positive_ denylist hits per ADR 0057. Caching a denial would extend the revocation window past the content-token TTL and weaken the consistency contract.
 - The HMAC verify result for an **API Key**. The compare is one SHA-256 and depends on the row's `hmac_kid` plus the per-environment pepper; caching the verify trades microseconds for a credential-confusion risk.
 
 ### Cache layout

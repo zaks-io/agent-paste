@@ -4,8 +4,8 @@ The `content` Worker serves untrusted artifact files from `usercontent.agent-pas
 
 ## URL Shape
 
-| Shape | Meaning |
-|---|---|
+| Shape               | Meaning                                      |
+| ------------------- | -------------------------------------------- |
 | `/v/{token}/{path}` | File bytes for one signed artifact revision. |
 
 The token is an opaque signed content token minted during publish. MVP tokens live in the URL path. Fragment-based access links are future work.
@@ -26,22 +26,22 @@ Internal logs may record the failure category and resolved ids, but must never r
 
 ## Extension Allowlist
 
-| Extensions | Served Content Type |
-|---|---|
-| `.html`, `.htm` | `text/html; charset=utf-8` |
-| `.css` | `text/css; charset=utf-8` |
-| `.js`, `.mjs` | `application/javascript; charset=utf-8` |
-| `.json` | `application/json; charset=utf-8` |
-| `.txt`, `.log` | `text/plain; charset=utf-8` |
-| `.md`, `.markdown` | `text/markdown; charset=utf-8` |
-| `.png` | `image/png` |
-| `.jpg`, `.jpeg` | `image/jpeg` |
-| `.gif` | `image/gif` |
-| `.webp` | `image/webp` |
-| `.svg` | `image/svg+xml` plus SVG-specific CSP |
-| `.ico` | `image/x-icon` |
-| `.woff` | `font/woff` |
-| `.woff2` | `font/woff2` |
+| Extensions         | Served Content Type                     |
+| ------------------ | --------------------------------------- |
+| `.html`, `.htm`    | `text/html; charset=utf-8`              |
+| `.css`             | `text/css; charset=utf-8`               |
+| `.js`, `.mjs`      | `application/javascript; charset=utf-8` |
+| `.json`            | `application/json; charset=utf-8`       |
+| `.txt`, `.log`     | `text/plain; charset=utf-8`             |
+| `.md`, `.markdown` | `text/markdown; charset=utf-8`          |
+| `.png`             | `image/png`                             |
+| `.jpg`, `.jpeg`    | `image/jpeg`                            |
+| `.gif`             | `image/gif`                             |
+| `.webp`            | `image/webp`                            |
+| `.svg`             | `image/svg+xml` plus SVG-specific CSP   |
+| `.ico`             | `image/x-icon`                          |
+| `.woff`            | `font/woff`                             |
+| `.woff2`           | `font/woff2`                            |
 
 Unknown extensions are served as `application/octet-stream` with `Content-Disposition: attachment`.
 
@@ -68,9 +68,9 @@ Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:
 
-| Entrypoint | Viewer URL | Notes |
-|---|---|---|
-| Single `.html` file | `/v/{token}/{file}` | Direct file response. |
+| Entrypoint               | Viewer URL              | Notes                                                                  |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------- |
+| Single `.html` file      | `/v/{token}/{file}`     | Direct file response.                                                  |
 | Folder with `index.html` | `/v/{token}/index.html` | Direct file response; relative assets load from the same signed token. |
 
 Markdown and text files may be included as downloadable files. Dedicated Markdown/text renderers are future work.

@@ -6,22 +6,22 @@ The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports
 
 ## Queues
 
-| Queue | Consumer | Batch | DLQ | DLQ Consumer | Purpose |
-|---|---|---:|---|---|---|
-| `byte-purge` | `jobs` | 50 | `byte-purge-dlq` | none | Delete R2 prefixes after Deletion, Retention, or Upload Cleanup. |
-| `safety-scan` | `jobs` | 1 | `safety-scan-dlq` | none | Run async scanner stub and replace warnings. |
-| `bundle-generate` | `jobs` | 1 | `bundle-generate-dlq` | yes | Generate revision bundle zip. |
+| Queue             | Consumer | Batch | DLQ                   | DLQ Consumer | Purpose                                                          |
+| ----------------- | -------- | ----: | --------------------- | ------------ | ---------------------------------------------------------------- |
+| `byte-purge`      | `jobs`   |    50 | `byte-purge-dlq`      | none         | Delete R2 prefixes after Deletion, Retention, or Upload Cleanup. |
+| `safety-scan`     | `jobs`   |     1 | `safety-scan-dlq`     | none         | Run async scanner stub and replace warnings.                     |
+| `bundle-generate` | `jobs`   |     1 | `bundle-generate-dlq` | yes          | Generate revision bundle zip.                                    |
 
 Only `bundle-generate-dlq` has a consumer because terminal bundle failure must update public product state to `failed`.
 
 ## Cron Triggers
 
-| Cron | Cadence | Sweep Cap | Work |
-|---|---:|---:|---|
-| Upload Cleanup | every 15 minutes | 200 | Expire stale Upload Sessions and enqueue orphan-byte purge. |
-| Auto Deletion | hourly | 200 | Delete unpinned published Artifacts past `auto_deletion_days`. |
-| Retention | hourly | 500 | Mark non-current Revisions retained when `revision_retention_days` is set. |
-| Maintenance GC | hourly | 5000 idempotency rows | Delete old idempotency rows and audit events past Audit Retention. |
+| Cron           |          Cadence |             Sweep Cap | Work                                                                       |
+| -------------- | ---------------: | --------------------: | -------------------------------------------------------------------------- |
+| Upload Cleanup | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                |
+| Auto Deletion  |           hourly |                   200 | Delete unpinned published Artifacts past `auto_deletion_days`.             |
+| Retention      |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set. |
+| Maintenance GC |           hourly | 5000 idempotency rows | Delete old idempotency rows and audit events past Audit Retention.         |
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
@@ -106,13 +106,13 @@ If KV denylist writes fail, do not enqueue purge. The next cron rediscovery is t
 
 ## System Actors
 
-| Work | `actor_type` | `actor_id` |
-|---|---|---|
-| Auto Deletion | `system` | `auto_deletion` |
-| Retention | `system` | `retention` |
-| Upload Cleanup | `system` | `upload_cleanup` |
-| Safety Scan | `system` | `safety_scan` |
-| Bundle Generate | `system` | `bundle_generate` |
+| Work            | `actor_type` | `actor_id`        |
+| --------------- | ------------ | ----------------- |
+| Auto Deletion   | `system`     | `auto_deletion`   |
+| Retention       | `system`     | `retention`       |
+| Upload Cleanup  | `system`     | `upload_cleanup`  |
+| Safety Scan     | `system`     | `safety_scan`     |
+| Bundle Generate | `system`     | `bundle_generate` |
 
 ## Alerts
 

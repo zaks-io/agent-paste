@@ -50,28 +50,28 @@ npx agent-paste publish ./report --ttl 7d
 
 The current MVP API exposes publish and repo-local admin verbs:
 
-| Command | Purpose |
-|---------|---------|
-| `agent-paste whoami` | Show the resolved **Workspace**, actor, and granted **Scopes**. |
-| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result. |
-| `agent-paste admin workspace create <email>` | Create a local/dev Workspace. |
-| `agent-paste admin workspace list` | List local/dev Workspaces. |
-| `agent-paste admin key create <workspace-id>` | Create a local/dev API Key. |
-| `agent-paste admin key revoke <api-key-id>` | Revoke a local/dev API Key. |
-| `agent-paste admin artifact list|get|delete` | Inspect or delete local/dev Artifacts. |
-| `agent-paste admin cleanup run` | Run cleanup in a local/dev harness. |
-| `agent-paste admin events list` | List operation events in a local/dev harness. |
+| Command                                           | Purpose                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `agent-paste whoami`                              | Show the resolved **Workspace**, actor, and granted **Scopes**.                                  |
+| `agent-paste publish <path>`                      | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result. |
+| `agent-paste admin workspace create <email>`      | Create a local/dev Workspace.                                                                    |
+| `agent-paste admin workspace list`                | List local/dev Workspaces.                                                                       |
+| `agent-paste admin key create <workspace-id>`     | Create a local/dev API Key.                                                                      |
+| `agent-paste admin key revoke <api-key-id> --yes` | Revoke a local/dev API Key.                                                                      |
+| `agent-paste admin artifact list/get/delete`      | Inspect or delete local/dev Artifacts; delete requires `--yes`.                                  |
+| `agent-paste admin cleanup run`                   | Run cleanup in a local/dev harness; mutating cleanup requires `--yes`.                           |
+| `agent-paste admin events list`                   | List operation events in a local/dev harness.                                                    |
 
 ## Flags
 
-| Flag | Purpose |
-|------|---------|
-| `--title <text>` | Set **Display Metadata** title. Default: path basename. |
-| `--entrypoint <path>` | Override the inferred **Entrypoint**. Must be a file inside the upload. |
+| Flag                   | Purpose                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--title <text>`       | Set **Display Metadata** title. Default: path basename.                                                          |
+| `--entrypoint <path>`  | Override the inferred **Entrypoint**. Must be a file inside the upload.                                          |
 | `--render-mode <mode>` | Override the inferred **Render Mode**. First-slice modes: `html`, `markdown`, `text`, `image`, `audio`, `video`. |
-| `--ttl <duration>` | Set Artifact retention for `publish`. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps. |
-| `--json` | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON. |
-| `--quiet` | Suppress stderr progress output. |
+| `--ttl <duration>`     | Set Artifact retention for `publish`. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.         |
+| `--json`               | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON.                                         |
+| `--quiet`              | Suppress human-readable stdout output.                                                                           |
 
 ## Repo-local admin harness
 

@@ -1,0 +1,13 @@
+# Prettier is intentionally docs-only. Biome owns code/config formatting.
+
+# Ignore everything by default, then reopen directories and Markdown files.
+**/*
+!**/
+!**/*.md
+
+node_modules/
+dist/
+**/dist/
+.turbo/
+.wrangler/
+coverage/

@@ -1,23 +1,28 @@
 export const MIME_TYPES_BY_EXTENSION = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
+  ".htm": "text/html; charset=utf-8",
   ".html": "text/html; charset=utf-8",
+  ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
-  ".js": "text/javascript; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".log": "text/plain; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
-  ".pdf": "application/pdf",
+  ".mjs": "application/javascript; charset=utf-8",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
   ".webp": "image/webp",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
 } as const;
 
 export const DEFAULT_MIME_TYPE = "application/octet-stream";
 
 export const SECURITY_HEADERS = {
-  "Cross-Origin-Resource-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "cross-origin",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
 } as const;

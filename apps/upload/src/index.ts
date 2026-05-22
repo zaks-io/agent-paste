@@ -64,6 +64,10 @@ export type R2Bucket = {
   head(key: string): Promise<R2Object | null>;
 };
 
+export type RateLimitBinding = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+};
+
 export type Env = {
   AUTH?: AuthService;
   DB?: UploadDatabase | HyperdriveBinding;
@@ -77,6 +81,8 @@ export type Env = {
   UPLOAD_SIGNING_SECRET?: string;
   UPLOAD_BASE_URL?: string;
   UPLOAD_URL_TTL_SECONDS?: string;
+  ACTOR_RATE_LIMIT?: RateLimitBinding;
+  WORKSPACE_BURST_CAP?: RateLimitBinding;
 };
 
 type SignedUploadPayload = {
@@ -93,7 +99,7 @@ type AgentViewTokenPayload = {
   exp: number;
 };
 
-const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
+const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
 const MIN_TTL_SECONDS = 24 * 60 * 60;
 const MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
 const AUTH_CACHE_TTL_SECONDS = 60;
@@ -135,6 +141,10 @@ async function createUploadSession(request: Request, env: Env): Promise<Response
   const actor = await authenticateApiKey(request, env);
   if (!actor) {
     return errorResponse("not_authenticated", 401);
+  }
+  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  if (limited) {
+    return limited;
   }
 
   const idempotencyKey = request.headers.get("idempotency-key");
@@ -241,6 +251,10 @@ async function finalizeUploadSession(request: Request, env: Env, sessionId: stri
   const actor = await authenticateApiKey(request, env);
   if (!actor) {
     return errorResponse("not_authenticated", 401);
+  }
+  const limited = await rateLimitAuthenticatedRequest(env, actor);
+  if (limited) {
+    return limited;
   }
 
   const idempotencyKey = request.headers.get("idempotency-key");
@@ -588,6 +602,44 @@ function base64UrlDecode(value: string): Uint8Array {
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 }
 
+async function rateLimitAuthenticatedRequest(env: Env, actor: UploadActor): Promise<Response | null> {
+  if (!env.ACTOR_RATE_LIMIT && !env.WORKSPACE_BURST_CAP) {
+    return null;
+  }
+  if (!actor.workspace_id) {
+    return errorResponse("not_authenticated", 401);
+  }
+
+  const actorOutcome = await rateLimitOrFailOpen(env.ACTOR_RATE_LIMIT, "actor", `${actor.workspace_id}:${actor.id}`);
+  if (actorOutcome && !actorOutcome.success) {
+    return errorResponse("rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
+  }
+
+  const workspaceOutcome = await rateLimitOrFailOpen(env.WORKSPACE_BURST_CAP, "workspace", actor.workspace_id);
+  if (workspaceOutcome && !workspaceOutcome.success) {
+    return errorResponse("rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
+  }
+
+  return null;
+}
+
+async function rateLimitOrFailOpen(
+  binding: RateLimitBinding | undefined,
+  scope: "actor" | "workspace",
+  key: string,
+): Promise<{ success: boolean } | undefined> {
+  if (!binding) {
+    return undefined;
+  }
+
+  try {
+    return await binding.limit({ key });
+  } catch (error) {
+    console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
+    return undefined;
+  }
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   const maxLength = Math.max(a.length, b.length);
   let diff = a.length ^ b.length;
@@ -729,6 +781,7 @@ function standardResponses(schemaName: string): Record<string, unknown> {
     401: errorResponseDescription(),
     404: errorResponseDescription(),
     409: errorResponseDescription(),
+    429: rateLimitResponseDescription(),
     500: errorResponseDescription(),
     503: errorResponseDescription(),
   };
@@ -745,10 +798,32 @@ function errorResponseDescription(): Record<string, unknown> {
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+function rateLimitResponseDescription(): Record<string, unknown> {
+  return {
+    description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+    headers: {
+      "Retry-After": {
+        description: "Seconds to wait before retrying.",
+        schema: { type: "string" },
+      },
+    },
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+      },
+    },
+  };
 }
 
-function errorResponse(code: string, status: number, message?: string): Response {
-  return jsonResponse({ error: { code, message: message ?? code } }, status);
+function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...jsonHeaders, ...extraHeaders } });
+}
+
+function errorResponse(
+  code: string,
+  status: number,
+  message?: string,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return jsonResponse({ error: { code, message: message ?? code } }, status, extraHeaders);
 }

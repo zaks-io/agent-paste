@@ -20,6 +20,7 @@ This directory is the implementation-facing decision log for agent-paste. ADRs a
 - [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) is the canonical interactive CLI auth model. `agent-paste login` is primary for humans; `AGENT_PASTE_API_KEY` remains for CI/headless use.
 - [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) is the canonical MCP model. MCP is OAuth-only, text-only for publish/update operations, and uses explicit `write`, `read`, and `share` scopes without dashboard implicit grants.
 - [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) narrows the executable contract to the CLI-first MVP. It supersedes broader platform-era contract assumptions for MVP implementation, including larger usage-policy caps and app-layer encryption as an immediate build gate.
+- [ADR 0067](./0067-interim-production-security-baseline-before-app-service.md) records the interim production security baseline while the app service, Auth0 dashboard, and MCP surface are still deferred.
 - [`packages/contracts`](../../packages/contracts) and [`docs/specs/contracts.md`](../specs/contracts.md) are the canonical MVP implementation contract for Zod schemas, ID formats, and the route registry. ADRs provide rationale; contracts provide field-level implementation shape.
 
 ## Best-Practice Baseline
@@ -88,10 +89,10 @@ These practices are part of the current architecture, not optional implementatio
 
 These files were renumbered to remove duplicate IDs:
 
-| Current | Previous duplicate | Decision |
-|---|---:|---|
-| [ADR 0048](./0048-transient-artifacts-by-default.md) | 0032 | Transient Artifacts by Default |
-| [ADR 0049](./0049-jobs-handler-patterns.md) | 0033 | Jobs Handler Patterns |
-| [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md) | 0034 | Bundle Availability and Asymmetric DLQ Consumption |
-| [ADR 0051](./0051-safety-scanner-lifecycle.md) | 0035 | Safety Scanner Lifecycle |
-| [ADR 0052](./0052-agent-view-discovery-from-access-link-signed-urls.md) | 0043 | Agent View Discovery from Access Link Signed URLs |
+| Current                                                                  | Previous duplicate | Decision                                           |
+| ------------------------------------------------------------------------ | -----------------: | -------------------------------------------------- |
+| [ADR 0048](./0048-transient-artifacts-by-default.md)                     |               0032 | Transient Artifacts by Default                     |
+| [ADR 0049](./0049-jobs-handler-patterns.md)                              |               0033 | Jobs Handler Patterns                              |
+| [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md) |               0034 | Bundle Availability and Asymmetric DLQ Consumption |
+| [ADR 0051](./0051-safety-scanner-lifecycle.md)                           |               0035 | Safety Scanner Lifecycle                           |
+| [ADR 0052](./0052-agent-view-discovery-from-access-link-signed-urls.md)  |               0043 | Agent View Discovery from Access Link Signed URLs  |

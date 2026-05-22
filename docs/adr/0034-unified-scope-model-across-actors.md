@@ -1,6 +1,6 @@
 # Unified Scope Model Across Actors
 
-**Scopes** apply uniformly to every actor that can call `api`: a **Workspace Member** is implicitly granted every **Scope** *when authenticated for direct workspace control through the dashboard*, and an **API Key** holds a named subset. A **Member-Only Scope** subset (`manage_keys`, `manage_workspace`, `read_audit`) authorizes operations that only a **Workspace Member** can perform; member-only **Scopes** cannot be granted to an **API Key**. This collapses authorization to a single `requireScopes` middleware while preserving the asymmetry between human and agent authority that ADR 0015 establishes.
+**Scopes** apply uniformly to every actor that can call `api`: a **Workspace Member** is implicitly granted every **Scope** _when authenticated for direct workspace control through the dashboard_, and an **API Key** holds a named subset. A **Member-Only Scope** subset (`manage_keys`, `manage_workspace`, `read_audit`) authorizes operations that only a **Workspace Member** can perform; member-only **Scopes** cannot be granted to an **API Key**. This collapses authorization to a single `requireScopes` middleware while preserving the asymmetry between human and agent authority that ADR 0015 establishes.
 
 ## Audience-scoped exception
 

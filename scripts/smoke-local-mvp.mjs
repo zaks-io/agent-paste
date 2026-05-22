@@ -102,7 +102,7 @@ try {
   const cleanupDryRun = await runCliJson(["admin", "cleanup", "run", "--dry-run", "--json"], baseEnv);
   assert(cleanupDryRun.dry_run === true, "cleanup dry-run reports dry_run=true");
 
-  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--json"], baseEnv);
+  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"], baseEnv);
   const deletedView = await fetch(published.view_url);
   assert(deletedView.status === 404, `deleted artifact content returned ${deletedView.status}, expected 404`);
 

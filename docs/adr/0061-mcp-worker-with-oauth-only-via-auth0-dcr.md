@@ -4,7 +4,7 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 
 ## Considered Options
 
-- **API Key in `Authorization` header.** Simplest path on the server because `api` already accepts API Keys end-to-end. Rejected because the central motivation for the MCP surface is *not* having long-lived secrets sitting in third-party host configs (ChatGPT, Claude.ai), which is exactly where pasted API Keys would live.
+- **API Key in `Authorization` header.** Simplest path on the server because `api` already accepts API Keys end-to-end. Rejected because the central motivation for the MCP surface is _not_ having long-lived secrets sitting in third-party host configs (ChatGPT, Claude.ai), which is exactly where pasted API Keys would live.
 - **API Key + OAuth dual path.** Lets sophisticated agents pick. Rejected for the same reason: it reintroduces the long-lived-secret surface under the guise of fallback, and there is no MCP use case that genuinely needs an API Key when OAuth is available.
 - **OAuth-only with manual Auth0 client per host.** Three hosts on day one, but the platform becomes the bottleneck for the fourth. Rejected; doesn't scale.
 - **OAuth-only with Auth0 DCR (chosen).** Self-serve host onboarding gated by user consent and a redirect-URI allowlist. The user is the trust boundary at the consent screen; Auth0 shows the client name.
@@ -29,7 +29,7 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
   - `https://*.claude.ai/api/mcp/auth_callback`
   - `claude-desktop://oauth/callback`
   - `cursor://oauth/callback`
-  After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in Auth0 configuration. Updates to this allowlist are an Auth0 config change, not a code deploy.
+    After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in Auth0 configuration. Updates to this allowlist are an Auth0 config change, not a code deploy.
 - **Throttling.** Auth0's built-in DCR rate limit handles abuse; no extra layer in v1.
 
 ### Token shape and authorization
@@ -43,20 +43,20 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 
 Twelve tools, named in snake_case to match common MCP convention. File-bearing operations accept text only.
 
-| Tool | Required Scope | Notes |
-|---|---|---|
-| `publish_artifact(title, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Artifact**, single file. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
-| `add_revision(artifact_id, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Revision** on existing **Artifact**. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**. |
-| `list_artifacts(cursor?)` | `read` | Paginated, cursor in/out per [ADR 0037](./0037-internal-api-client-package-powers-cli.md) |
-| `read_artifact(artifact_id)` | `read` | Returns **Agent View**: **Manifest**, file listing, `content_prefix`, **Display Metadata**, **Safety Warnings**, and **Bundle Availability**. It does not inline file bytes or text content; agents fetch needed files from the content URLs. |
-| `list_revisions(artifact_id, cursor?)` | `read` | |
-| `delete_artifact(artifact_id)` | `write` | |
-| `update_display_metadata(artifact_id, title?, description?)` | `write` | |
-| `create_share_link(artifact_id)` | `read share` | Returns the **Access Link Signed URL** per [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) |
-| `create_revision_link(artifact_id, revision_id)` | `read share` | Pinned link to a specific **Revision** |
-| `list_access_links(artifact_id)` | `read share` | Returns both **Share Links** and **Revision Links** with a `type` discriminator |
-| `revoke_access_link(access_link_id)` | `share` | Works on either link type |
-| `whoami()` | (any) | Returns Workspace Member identity, Workspace name, and granted scopes |
+| Tool                                                                     | Required Scope     | Notes                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publish_artifact(title, body, render_mode, share?, idempotency_key?)`   | `write read share` | New **Artifact**, single file. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**.                                                                                                   |
+| `add_revision(artifact_id, body, render_mode, share?, idempotency_key?)` | `write read share` | New **Revision** on existing **Artifact**. `share` controls optional **Share Link** creation; **Publish** still creates the required **Revision Link**.                                                                                       |
+| `list_artifacts(cursor?)`                                                | `read`             | Paginated, cursor in/out per [ADR 0037](./0037-internal-api-client-package-powers-cli.md)                                                                                                                                                     |
+| `read_artifact(artifact_id)`                                             | `read`             | Returns **Agent View**: **Manifest**, file listing, `content_prefix`, **Display Metadata**, **Safety Warnings**, and **Bundle Availability**. It does not inline file bytes or text content; agents fetch needed files from the content URLs. |
+| `list_revisions(artifact_id, cursor?)`                                   | `read`             |                                                                                                                                                                                                                                               |
+| `delete_artifact(artifact_id)`                                           | `write`            |                                                                                                                                                                                                                                               |
+| `update_display_metadata(artifact_id, title?, description?)`             | `write`            |                                                                                                                                                                                                                                               |
+| `create_share_link(artifact_id)`                                         | `read share`       | Returns the **Access Link Signed URL** per [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md)                                                                                                                         |
+| `create_revision_link(artifact_id, revision_id)`                         | `read share`       | Pinned link to a specific **Revision**                                                                                                                                                                                                        |
+| `list_access_links(artifact_id)`                                         | `read share`       | Returns both **Share Links** and **Revision Links** with a `type` discriminator                                                                                                                                                               |
+| `revoke_access_link(access_link_id)`                                     | `share`            | Works on either link type                                                                                                                                                                                                                     |
+| `whoami()`                                                               | (any)              | Returns Workspace Member identity, Workspace name, and granted scopes                                                                                                                                                                         |
 
 - **Render Modes accepted by `publish_artifact` and `add_revision`:** `text`, `markdown`, `html`. Code, JSON, YAML, CSV, and other text formats are `text` Render Mode.
 - **Entrypoint synthesis.** The MCP picks `index.html` / `index.md` / `content.txt` based on Render Mode; agents do not name the file.

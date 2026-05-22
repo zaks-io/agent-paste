@@ -16,7 +16,10 @@
     "deploy:preview": "pnpm migrate:preview && node scripts/deploy-preview.mjs preview",
     "deploy:production": "pnpm migrate:production && node scripts/deploy-preview.mjs production",
     "deploy:live": "pnpm deploy:production",
-    "format": "biome format --write .",
+    "format": "pnpm format:code && pnpm format:docs",
+    "format:code": "biome format --write .",
+    "format:docs": "prettier --write \"**/*.md\"",
+    "format:docs:check": "prettier --check \"**/*.md\"",
     "hooks:install": "lefthook install",
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push",
@@ -33,7 +36,7 @@
     "test": "turbo run test",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
-    "verify": "turbo run lint typecheck test"
+    "verify": "pnpm format:docs:check && turbo run lint typecheck test"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -41,6 +44,7 @@
     "@types/node": "^24.12.4",
     "@vitest/coverage-v8": "catalog:",
     "lefthook": "^2.1.8",
+    "prettier": "3.5.3",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

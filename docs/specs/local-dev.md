@@ -41,22 +41,22 @@ Do not commit real `.env` or `.dev.vars` files.
 
 ## Current Commands
 
-| Command | Purpose |
-|---|---|
-| `pnpm check` | Run the repo check pipeline through Turborepo. |
-| `pnpm dev:all` | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`. |
-| `pnpm smoke:local` | Build, start the local harness, drive the CLI through publish/read/admin/delete, and stop the harness. |
-| `pnpm hooks:install` | Install Lefthook git hooks. |
-| `pnpm typecheck` | Typecheck packages and apps. |
-| `pnpm test` | Run Vitest suites. |
-| `pnpm --filter @agent-paste/api test` | Run API tests, including the in-process local MVP vertical slice. |
-| `pnpm --filter @agent-paste/api dev` | Run the API Worker through Wrangler once Wrangler config/bindings exist. |
-| `pnpm --filter @agent-paste/upload dev` | Run the Upload Worker through Wrangler once Wrangler config/bindings exist. |
-| `pnpm --filter @agent-paste/content dev` | Run the Content Worker through Wrangler once Wrangler config/bindings exist. |
-| `pnpm cli:dev whoami --json` | Exercise the CLI against `AGENT_PASTE_API_URL`. |
-| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs. |
-| `pnpm cli:dev admin workspace list --json` | Exercise admin CLI calls against `AGENT_PASTE_ADMIN_URL`. |
-| `pnpm admin workspace list --json` | Repo-local shorthand for `pnpm cli:dev admin ...`. |
+| Command                                                                                    | Purpose                                                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                         |
+| `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.      |
+| `pnpm smoke:local`                                                                         | Build, start the local harness, drive the CLI through publish/read/admin/delete, and stop the harness. |
+| `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                            |
+| `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                           |
+| `pnpm test`                                                                                | Run Vitest suites.                                                                                     |
+| `pnpm --filter @agent-paste/api test`                                                      | Run API tests, including the in-process local MVP vertical slice.                                      |
+| `pnpm --filter @agent-paste/api dev`                                                       | Run the API Worker through Wrangler once Wrangler config/bindings exist.                               |
+| `pnpm --filter @agent-paste/upload dev`                                                    | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                            |
+| `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                           |
+| `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                        |
+| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                                  |
+| `pnpm cli:dev admin workspace list --json`                                                 | Exercise admin CLI calls against `AGENT_PASTE_ADMIN_URL`.                                              |
+| `pnpm admin workspace list --json`                                                         | Repo-local shorthand for `pnpm cli:dev admin ...`.                                                     |
 
 Future commands for `jobs`, `web`, and `mcp` should be added only when those phases begin.
 
