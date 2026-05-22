@@ -130,6 +130,19 @@ class MemoryR2Bucket {
     return this.#objectBody(object);
   }
 
+  async list(options = {}) {
+    const prefix = options.prefix ?? "";
+    const keys = [...this.#objects.keys()].filter((key) => key.startsWith(prefix)).sort();
+    return { objects: keys.map((key) => ({ key })), truncated: false };
+  }
+
+  async delete(keys) {
+    const targets = Array.isArray(keys) ? keys : [keys];
+    for (const key of targets) {
+      this.#objects.delete(key);
+    }
+  }
+
   #objectBody(object) {
     return {
       body: new Blob([object.bytes]).stream(),
@@ -179,6 +192,7 @@ function createApiDatabase(repo, denylistNamespace) {
     listArtifacts: repo.listArtifacts.bind(repo),
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
     listOperationEvents: repo.listOperationEvents.bind(repo),
+    forceExpireArtifact: repo.forceExpireArtifact.bind(repo),
     async deleteArtifact(input) {
       const result = await repo.deleteArtifact(input);
       await denylistNamespace.put(`artifact:${input.artifactId}`, JSON.stringify({ reason: "admin_delete" }));
@@ -211,11 +225,14 @@ const auth = services.auth;
 const apiEnv = {
   AUTH: auth,
   DB: apiDb,
+  ARTIFACTS: artifacts,
+  DENYLIST: denylist,
   ADMIN_TOKEN: adminToken,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
   CLEANUP_BATCH_SIZE: "100",
+  AGENT_PASTE_ENV: "dev",
 };
 const uploadEnv = {
   AUTH: auth,

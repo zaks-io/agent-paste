@@ -43,7 +43,11 @@ export type ApiDatabase = {
   revokeApiKey?(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string }): Promise<unknown>;
   listArtifacts?(workspaceId?: string, status?: string): unknown;
   getArtifactDetail?(artifactId: string): unknown | null;
-  deleteArtifact?(input: { actor: AdminActor; idempotencyKey: string; artifactId: string }): Promise<unknown>;
+  deleteArtifact?(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    artifactId: string;
+  }): Promise<{ artifact_id: string; revision_id?: string; deleted_at: string } | unknown>;
   listOperationEvents?(): unknown;
   runCleanup(input: {
     actor: AdminActor;
@@ -52,10 +56,22 @@ export type ApiDatabase = {
     batchSize: number;
     now: string;
   }): Promise<unknown>;
+  forceExpireArtifact?(input: {
+    artifactId: string;
+    expiresAt: string;
+  }): Promise<{ artifact_id: string; expires_at: string } | null>;
+};
+
+export type R2ListedObject = { key: string };
+export type R2Objects = { objects: R2ListedObject[]; truncated: boolean; cursor?: string };
+export type R2Bucket = {
+  list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<R2Objects>;
+  delete(keys: string | string[]): Promise<void>;
 };
 
 export type KVNamespace = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  get?(key: string): Promise<string | null>;
 };
 
 export type RateLimitBinding = {
@@ -65,6 +81,7 @@ export type RateLimitBinding = {
 export type Env = {
   AUTH?: AuthService;
   DB?: ApiDatabase | HyperdriveBinding;
+  ARTIFACTS?: R2Bucket;
   ADMIN_TOKEN?: string;
   ADMIN_TOKEN_HASH?: string;
   API_KEY_PEPPER_V1?: string;
@@ -78,6 +95,7 @@ export type Env = {
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ALLOW_LEGACY_AGENT_VIEW_TOKENS?: string;
+  AGENT_PASTE_ENV?: string;
 };
 
 type ScheduledEvent = {
@@ -146,6 +164,9 @@ app.delete("/admin/artifacts/:artifactId", (context) =>
 );
 app.post("/admin/cleanup/run", (context) => cleanup(context.req.raw, context.env));
 app.get("/admin/operation-events", (context) => listOperationEvents(context.req.raw, context.env));
+app.post("/__test__/force-expire", (context) => forceExpire(context.req.raw, context.env));
+app.get("/__test__/r2-list", (context) => listR2Prefix(context.req.raw, context.env));
+app.get("/__test__/denylist", (context) => getDenylistKey(context.req.raw, context.env));
 app.notFound(() => errorResponse("not_found", 404));
 app.onError((error) => {
   console.error("Unhandled API error:", error);
@@ -422,6 +443,10 @@ async function deleteArtifact(request: Request, env: Env, params: RouteParams): 
       artifactId,
     });
     await denyArtifact(env, artifactId);
+    const purged = await purgeArtifactBytes(env, artifactId);
+    if (result && typeof result === "object") {
+      return { ...(result as Record<string, unknown>), deleted_r2_objects: purged };
+    }
     return result;
   });
 }
@@ -560,7 +585,11 @@ async function runCleanupAndDeny(
   if (!dryRun && result && typeof result === "object" && "expired_artifact_ids" in result) {
     const ids = (result as { expired_artifact_ids?: unknown }).expired_artifact_ids;
     if (Array.isArray(ids)) {
-      await Promise.all(ids.flatMap((id) => (typeof id === "string" ? [denyArtifact(env, id)] : [])));
+      const stringIds = ids.filter((value): value is string => typeof value === "string");
+      await Promise.all(stringIds.map((id) => denyArtifact(env, id)));
+      const purgeCounts = await Promise.all(stringIds.map((id) => purgeArtifactBytes(env, id)));
+      const total = purgeCounts.reduce((sum, count) => sum + count, 0);
+      return { ...(result as Record<string, unknown>), deleted_r2_objects: total };
     }
   }
   return result;
@@ -571,6 +600,105 @@ async function denyArtifact(env: Env, artifactId: string): Promise<void> {
     return;
   }
   await env.DENYLIST.put(`artifact:${artifactId}`, "1", { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });
+}
+
+async function purgeArtifactBytes(env: Env, artifactId: string): Promise<number> {
+  if (!artifactId || !env.ARTIFACTS) {
+    return 0;
+  }
+  const prefix = `artifacts/${artifactId}/`;
+  let deleted = 0;
+  let cursor: string | undefined;
+  do {
+    const listOptions: { prefix: string; cursor?: string } = { prefix };
+    if (cursor) {
+      listOptions.cursor = cursor;
+    }
+    const page = await env.ARTIFACTS.list(listOptions);
+    const keys = page.objects.map((object) => object.key);
+    if (keys.length > 0) {
+      await env.ARTIFACTS.delete(keys);
+      deleted += keys.length;
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return deleted;
+}
+
+// Test-only routes. Gated to non-production environments so the production
+// API never exposes them, even if an operator with the admin token tried.
+async function forceExpire(request: Request, env: Env): Promise<Response> {
+  if (!isNonProductionEnv(env)) {
+    return errorResponse("not_found", 404);
+  }
+  const actor = await authenticateAdmin(request, env);
+  if (!actor) {
+    return errorResponse("not_authenticated", 401);
+  }
+  const db = apiDatabase(env);
+  if (!db?.forceExpireArtifact) {
+    return errorResponse("not_supported", 501);
+  }
+  const body = await readJsonObject(request);
+  const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
+  if (!artifactId) {
+    return errorResponse("invalid_request", 400, "artifact_id is required");
+  }
+  const expiresAt = new Date(Date.now() - 1000).toISOString();
+  const result = await db.forceExpireArtifact({ artifactId, expiresAt });
+  return result ? jsonResponse(result) : errorResponse("not_found", 404);
+}
+
+async function listR2Prefix(request: Request, env: Env): Promise<Response> {
+  if (!isNonProductionEnv(env)) {
+    return errorResponse("not_found", 404);
+  }
+  const actor = await authenticateAdmin(request, env);
+  if (!actor) {
+    return errorResponse("not_authenticated", 401);
+  }
+  if (!env.ARTIFACTS) {
+    return jsonResponse({ keys: [], r2_bound: false });
+  }
+  const prefix = new URL(request.url).searchParams.get("prefix") ?? "";
+  const keys: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const listOptions: { prefix: string; cursor?: string } = { prefix };
+    if (cursor) {
+      listOptions.cursor = cursor;
+    }
+    const page = await env.ARTIFACTS.list(listOptions);
+    for (const object of page.objects) {
+      keys.push(object.key);
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return jsonResponse({ keys, r2_bound: true });
+}
+
+async function getDenylistKey(request: Request, env: Env): Promise<Response> {
+  if (!isNonProductionEnv(env)) {
+    return errorResponse("not_found", 404);
+  }
+  const actor = await authenticateAdmin(request, env);
+  if (!actor) {
+    return errorResponse("not_authenticated", 401);
+  }
+  if (!env.DENYLIST?.get) {
+    return jsonResponse({ key: null, value: null, kv_bound: false });
+  }
+  const key = new URL(request.url).searchParams.get("key") ?? "";
+  if (!key) {
+    return errorResponse("invalid_request", 400, "key is required");
+  }
+  const value = await env.DENYLIST.get(key);
+  return jsonResponse({ key, value, kv_bound: true });
+}
+
+function isNonProductionEnv(env: Env): boolean {
+  const value = env.AGENT_PASTE_ENV;
+  return value !== undefined && value !== "production" && value !== "live";
 }
 
 function bearerToken(request: Request): string | null {
