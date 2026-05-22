@@ -182,7 +182,7 @@ Superseded ADRs: 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
 ## Next Steps Backlog
 
-Ordered. Each item has a verifiable Done. Items 1-8 close Phase 1; items 9-12 prep hosted ops and Phase 2.
+Ordered. Each item has a verifiable Done. Items 1-7 close Phase 1; items 8-11 prep hosted ops and Phase 2.
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
@@ -199,62 +199,56 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: `packages/contracts/src/*`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`
 - Done: `/openapi.json` on api/upload/content is generated from `packages/contracts` via `@hono/zod-openapi` (or equivalent); `pnpm verify` runs a schema-diff check against a checked-in golden; CI fails if contracts drift from served OpenAPI.
 
-### 3. Consolidate content-signing secret names
-
-- Drives: ADR 0028, ADR 0058
-- Files: `scripts/bootstrap-secrets.mjs`, `apps/*/wrangler.jsonc`, `apps/api/src/index.ts`, `apps/content/src/index.ts`
-- Done: only one of `CONTENT_SIGNING_SECRET` / `CONTENT_GATEWAY_SIGNING_KEY_V1` remains, named consistently across code, bootstrap script, and ADRs; a one-time rotation note is added to `docs/ops/runbook` (or this doc) for any environment that already holds both.
-
-### 4. Move runtime queries to Drizzle
+### 3. Move runtime queries to Drizzle
 
 - Drives: ADR 0018
 - Files: `packages/db/src/**`, callers in `apps/api`, `apps/upload`
 - Done: workspace/api-key/artifact/upload-session reads and writes flow through Drizzle query objects (not raw SQL templates); `pnpm verify` runs a Drizzle introspection check against the migration file. Scope this to MVP routes; leave admin/cleanup queries as a follow-up if the change balloons.
 
-### 5. Apply Postgres RLS at runtime
+### 4. Apply Postgres RLS at runtime
 
 - Drives: ADR 0044
 - Files: `packages/db/src/**`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `packages/db/migrations/*`
 - Done: Hyperdrive role is `NOBYPASSRLS`; every request opens a Postgres txn that issues `SET LOCAL app.workspace_id = $1` before any query; a vitest scenario inserts two workspaces and confirms cross-workspace reads return zero rows.
 
-### 6. Complete error envelope (`request_id`, `docs`)
+### 5. Complete error envelope (`request_id`, `docs`)
 
 - Drives: ADR 0036, `docs/specs/contracts.md`
 - Files: `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/content/src/index.ts`, `packages/contracts/src/*`
 - Done: every error response includes `request_id`; an optional `docs` URL is attached for codes that have a documented remediation; `X-Request-Id` header is echoed on every response (error or success); golden tests cover at least 404/401/409/422/429/500.
 
-### 7. Verify bytes-after-delete and bytes-after-expiry cleanup
+### 6. Verify bytes-after-delete and bytes-after-expiry cleanup
 
 - Drives: ADR 0048, `docs/specs/acceptance.md`
 - Files: `apps/api/src/index.ts` (scheduled handler), `scripts/smoke-local-mvp.mjs`, `scripts/smoke-hosted.mjs`
 - Done: smoke creates an artifact with a 1-day TTL, advances clock (or uses a forced-expiry test endpoint), runs cleanup, confirms R2 prefix is empty and signed URL returns 404 with denylist hit logged.
 
-### 8. Exercise PR preview lifecycle on a same-repo PR
+### 7. Exercise PR preview lifecycle on a same-repo PR
 
 - Drives: ADR 0007, ADR 0012, `.github/workflows/pr-preview.yml`
 - Files: workflow itself, `scripts/deploy-pr-preview.mjs`, `scripts/cleanup-pr-preview.mjs`
-- Done: a same-repo PR (the one carrying items 1-7 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
+- Done: a same-repo PR (the one carrying items 1-6 above is the natural candidate) creates a Neon branch, deploys preview Workers, runs hosted smoke, posts a comment with URLs, and tears everything down on close. Captured run links recorded in this doc.
 
-### 9. Wire Logpush → Axiom for `api`/`upload`/`content`
+### 8. Wire Logpush → Axiom for `api`/`upload`/`content`
 
 - Drives: ADR 0011, `docs/specs/phases.md` Phase 2
 - Files: Cloudflare console + `docs/ops/` runbook (no Worker code change required if using Cloudflare Logs config)
 - Done: an Axiom dataset receives Worker logs for all three Workers; a basic dashboard shows 5xx rate and p95 latency; secrets/PII redaction confirmed (no API key secret or signed-URL token in logs).
 
-### 10. Review and merge `t3code/7bcd4587`
+### 9. Review and merge `t3code/7bcd4587`
 
 - Drives: this branch holds Apex/front-end and CI work that needs to land or be discarded.
 - Files: TBD until review.
 - Done: branch is either merged to `main` (with conflicts resolved and CI green) or closed with a written reason. Same decision for `t3code/5b6355f9` if still extant.
 
-### 11. CSP allowlist audit
+### 10. CSP allowlist audit
 
 - Status: Partially implemented on 2026-05-21. Header allowlist and SVG override are in code; snapshots still need to cover CSS/JS/PNG explicitly.
 - Drives: ADR 0029, ADR 0030, `docs/specs/content-rendering.md`
 - Files: `apps/content/src/index.ts`
 - Done: CSP `script-src` and `connect-src` allowlists are validated against the current ADR 0029 list; SVG responses use a strict CSP override; a vitest snapshot pins the CSP header for HTML, CSS, JS, SVG, and PNG.
 
-### 12. Complete bootstrap hosting checklist
+### 11. Complete bootstrap hosting checklist
 
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
