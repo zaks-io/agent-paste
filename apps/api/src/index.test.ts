@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type Env, handleRequest } from "./index.js";
+import { type ApiDatabase, type Env, handleRequest } from "./index.js";
 
 describe("api worker", () => {
   it("serves a generated OpenAPI document", async () => {
@@ -512,6 +512,230 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it.each([
+    ["create", "https://api.test/v1/web/keys", { method: "POST", body: JSON.stringify({ name: "cli" }) }],
+    ["revoke", "https://api.test/v1/web/keys/key_1/revoke", { method: "POST" }],
+  ])("rejects API keys on web key %s routes", async (_label, url, init) => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+      },
+      DB: baseDbForTests(),
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        ...init,
+        headers: {
+          authorization: "Bearer ap_pk_preview_fake",
+          "content-type": "application/json",
+          "idempotency-key": "idem-1",
+        },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+  });
+
+  it("rejects web key creation for members without admin scope", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async createWebApiKey() {
+          throw new Error("create should not run without admin scope");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-create",
+        },
+        body: JSON.stringify({ name: "CLI" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
+  it.each([
+    ["create", "https://api.test/v1/web/keys", { method: "POST", body: JSON.stringify({ name: "CLI" }) }],
+    ["revoke", "https://api.test/v1/web/keys/key_1/revoke", { method: "POST" }],
+  ])("requires idempotency keys for web key %s", async (_label, url, init) => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async createWebApiKey() {
+          throw new Error("create should not run without idempotency");
+        },
+        async revokeWebApiKey() {
+          throw new Error("revoke should not run without idempotency");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        ...init,
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_idempotency_key" } });
+  });
+
+  it.each(["", " ".repeat(3), "x".repeat(121)])("rejects invalid web key name %#", async (name) => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async createWebApiKey() {
+          throw new Error("create should not run for invalid names");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-invalid",
+        },
+        body: JSON.stringify({ name }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
+  it("creates a web API key from the member workspace", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async createWebApiKey(input) {
+          expect(input.actor).toMatchObject({
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+          });
+          expect(input.idempotencyKey).toBe("idem-create");
+          expect(input.name).toBe("CLI Key");
+          return {
+            api_key: {
+              id: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: input.actor.workspace_id,
+              name: input.name,
+              public_id: "01HZY7Q8X9Y2S3T4",
+              scopes: ["publish", "read"],
+              revoked_at: null,
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_used_at: null,
+            },
+            secret: "ap_pk_preview_01HZY7Q8X9Y2S3T4_secretsecretsecretsecretsecret",
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-create",
+        },
+        body: JSON.stringify({ name: "  CLI Key  " }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      api_key: { name: "CLI Key", scopes: ["publish", "read"] },
+      secret: expect.stringMatching(/^ap_pk_preview_/),
+    });
+  });
+
+  it("revokes a web API key from the member workspace", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async revokeWebApiKey(input) {
+          expect(input).toMatchObject({
+            actor: { type: "member", id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ" },
+            idempotencyKey: "idem-revoke",
+            apiKeyId: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          });
+          return {
+            api_key: {
+              id: input.apiKeyId,
+              workspace_id: input.actor.workspace_id,
+              name: "CLI Key",
+              public_id: "01HZY7Q8X9Y2S3T4",
+              scopes: ["publish", "read"],
+              revoked_at: "2026-01-01T00:00:00.000Z",
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_used_at: null,
+            },
+            revoked_at: "2026-01-01T00:00:00.000Z",
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys/key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revoke", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-revoke" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      api_key: { revoked_at: "2026-01-01T00:00:00.000Z" },
+      revoked_at: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("returns generic not_found for missing web API key revocation targets", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async revokeWebApiKey() {
+          throw new Error("api_key_not_found");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys/key_missing/revoke", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-revoke" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
   it("fails open when a rate limit binding errors", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const env: Env = {
@@ -809,5 +1033,37 @@ function webAuthForTests(): Env["AUTH"] {
     async verifyWebToken(token) {
       return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" } : null;
     },
+  };
+}
+
+function baseDbForTests(): ApiDatabase {
+  return {
+    async getWhoami() {
+      return {};
+    },
+    async getAgentView() {
+      return null;
+    },
+    async getPublicAgentView() {
+      return null;
+    },
+    async runCleanup() {
+      return {};
+    },
+  };
+}
+
+function webMemberDbForTests(scopes: string[], overrides: Partial<ApiDatabase> = {}): ApiDatabase {
+  return {
+    ...baseDbForTests(),
+    async getWebMemberByWorkOsUserId() {
+      return {
+        type: "member",
+        id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+        workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+        scopes,
+      };
+    },
+    ...overrides,
   };
 }

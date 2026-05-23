@@ -134,6 +134,32 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "post",
+    path: "/v1/web/keys",
+    operationId: "web.apiKeys.create",
+    summary: "Create an API key for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: true, content: { "application/json": { schema: CreateApiKeyRequest } } },
+    },
+    responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/keys/{api_key_id}/revoke",
+    operationId: "web.apiKeys.revoke",
+    summary: "Revoke an API key for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ api_key_id: pathStringParam("api_key_id", "API key id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("RevokeApiKeyResponse")),
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/web/audit",
     operationId: "web.audit.list",

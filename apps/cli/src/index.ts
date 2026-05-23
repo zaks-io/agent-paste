@@ -50,7 +50,7 @@ export async function main(argv = process.argv.slice(2), client = new ApiClient(
       return output(
         await client.admin.apiKeys.create(
           workspaceId,
-          { workspace_id: workspaceId, name: stringFlag(parsed, "name") ?? "agent-paste CLI" },
+          { name: stringFlag(parsed, "name") ?? "agent-paste CLI" },
           createIdempotencyKey("cli_admin_key_create"),
         ),
         parsed.global,

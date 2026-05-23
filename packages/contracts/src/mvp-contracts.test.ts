@@ -16,6 +16,8 @@ describe("MVP route registry", () => {
       "web.artifacts.list",
       "web.artifacts.get",
       "web.apiKeys.list",
+      "web.apiKeys.create",
+      "web.apiKeys.revoke",
       "web.audit.list",
       "web.settings.get",
       "uploadSessions.create",

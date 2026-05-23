@@ -42,6 +42,7 @@ const adminMutationErrors = [
 ] as const;
 const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"] as const;
 const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
+const webIdempotentMutationErrors = [...webMutationErrors, "invalid_idempotency_key", "idempotency_in_flight"] as const;
 const webCallbackErrors = [...webMutationErrors, "idempotency_in_flight"] as const;
 
 export const routeContracts = [
@@ -132,6 +133,29 @@ export const routeContracts = [
     idempotency: "none",
     responseSchema: "WebApiKeyListResponse",
     errors: webReadErrors,
+  },
+  {
+    id: "web.apiKeys.create",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/keys",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    requestSchema: "CreateApiKeyRequest",
+    responseSchema: "CreateApiKeyResponse",
+    errors: webIdempotentMutationErrors,
+  },
+  {
+    id: "web.apiKeys.revoke",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/keys/{api_key_id}/revoke",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    responseSchema: "RevokeApiKeyResponse",
+    errors: [...webIdempotentMutationErrors, "not_found"],
   },
   {
     id: "web.audit.list",

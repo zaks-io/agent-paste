@@ -49,6 +49,13 @@ function commandActor(actor: ApiActor) {
   return { type: "api_key" as const, id: actor.id, workspaceId: actor.workspace_id };
 }
 
+function memberCommandActor(actor: ApiActor) {
+  if (actor.type !== "member") {
+    throw new Error(`unexpected_actor_type:${actor.type}`);
+  }
+  return { type: "member" as const, id: actor.id, workspaceId: actor.workspace_id };
+}
+
 function adminCommandActor(actor: AdminActor, workspaceId: string | null) {
   return { type: actor.type, id: actor.id, workspaceId };
 }
@@ -403,6 +410,70 @@ export class PostgresRepository {
         })),
         page_info: { next_cursor: null, has_more: false },
       };
+    });
+  }
+
+  async createWebApiKey(input: { actor: ApiActor; idempotencyKey: string; name: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const now = (input.now ?? new Date()).toISOString();
+    return this.runMemberCommand(input.actor, "web.api_key.create", input.idempotencyKey, now, async (tx) => {
+      const ctx = withDrizzle(tx);
+      const member = await this.mustWorkspaceMember(ctx, input.actor.id);
+      const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+      const apiKey: ApiKey = {
+        id: createId("key"),
+        workspace_id: member.workspace_id,
+        public_id: generated.publicId,
+        name: input.name,
+        secret_hmac: generated.secretHmac,
+        pepper_kid: 1,
+        scopes: ["publish", "read"],
+        revoked_at: null,
+        last_used_at: null,
+        created_at: now,
+      };
+      await apiKeyQueries.insert(ctx.drizzle, apiKey);
+      await operationEventQueries.insert(ctx.drizzle, {
+        actorType: "member",
+        actorId: member.id,
+        action: "api_key.created",
+        targetType: "api_key",
+        targetId: apiKey.id,
+        workspaceId: member.workspace_id,
+        details: { name: apiKey.name, public_id: apiKey.public_id },
+        occurredAt: now,
+      });
+      return { api_key: toApiKeySummary(apiKey), secret: generated.secret };
+    });
+  }
+
+  async revokeWebApiKey(input: { actor: ApiActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const revokedAt = (input.now ?? new Date()).toISOString();
+    return this.runMemberCommand(input.actor, "web.api_key.revoke", input.idempotencyKey, revokedAt, async (tx) => {
+      const ctx = withDrizzle(tx);
+      const member = await this.mustWorkspaceMember(ctx, input.actor.id);
+      const apiKey = await apiKeyQueries.findById(ctx.drizzle, input.apiKeyId);
+      if (!apiKey || apiKey.workspace_id !== member.workspace_id) {
+        throw new Error("api_key_not_found");
+      }
+      await apiKeyQueries.updateRevokedAt(ctx.drizzle, input.apiKeyId, revokedAt);
+      await operationEventQueries.insert(ctx.drizzle, {
+        actorType: "member",
+        actorId: member.id,
+        action: "api_key.revoked",
+        targetType: "api_key",
+        targetId: apiKey.id,
+        workspaceId: member.workspace_id,
+        details: { public_id: apiKey.public_id },
+        occurredAt: revokedAt,
+      });
+      const updated = { ...apiKey, revoked_at: revokedAt };
+      return { api_key: toApiKeySummary(updated), revoked_at: revokedAt };
     });
   }
 
@@ -771,6 +842,26 @@ export class PostgresRepository {
     const command = await runCommand<T>({
       executor: rlsExecutor(this.executor, scope),
       actor: commandActor(actor),
+      operation,
+      idempotencyKey,
+      workspaceId: actor.workspace_id,
+      now,
+      handler: async (tx) => ({ result: await run(tx) }),
+    });
+    return command.result;
+  }
+
+  private async runMemberCommand<T>(
+    actor: ApiActor,
+    operation: string,
+    idempotencyKey: string,
+    now: string,
+    run: (tx: SqlExecutor) => Promise<T>,
+  ): Promise<T> {
+    const scope: RlsScope = { kind: "workspace", workspaceId: actor.workspace_id };
+    const command = await runCommand<T>({
+      executor: rlsExecutor(this.executor, scope),
+      actor: memberCommandActor(actor),
       operation,
       idempotencyKey,
       workspaceId: actor.workspace_id,

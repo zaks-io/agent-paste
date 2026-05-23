@@ -157,6 +157,124 @@ describe("LocalRepository", () => {
     expect(repo.workspaceMembers.get(session.workspace_member.id)?.last_seen_at).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("creates member-owned API keys idempotently and writes a member audit event", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    if (!actor) {
+      throw new Error("expected member actor");
+    }
+
+    const first = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-web-key",
+      name: "Dashboard Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const second = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-web-key",
+      name: "Changed Name",
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    expect(second).toEqual(first);
+    expect(first.secret).toMatch(/^ap_pk_/);
+    expect(first.api_key).toMatchObject({
+      workspace_id: session.workspace.id,
+      name: "Dashboard Key",
+      scopes: ["publish", "read"],
+    });
+    expect(repo.apiKeys.size).toBe(2);
+    const events = [...repo.operationEvents.values()].filter((event) => event.target_id === first.api_key.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actor_type: "member",
+      actor_id: actor.id,
+      action: "api_key.created",
+      workspace_id: session.workspace.id,
+    });
+  });
+
+  it("revokes member-owned API keys and hides missing or cross-workspace keys", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const firstSession = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const secondSession = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNRR",
+      email: "other@example.com",
+      idempotencyKey: "workos-jti:second",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const firstActor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    const secondActor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNRR",
+    });
+    if (!firstActor || !secondActor) {
+      throw new Error("expected member actors");
+    }
+    const firstKey = await repo.createWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-web-key-first",
+      name: "First Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const secondKey = await repo.createWebApiKey({
+      actor: secondActor,
+      idempotencyKey: "idem-web-key-second",
+      name: "Second Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    const revoked = await repo.revokeWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: firstKey.api_key.id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    const replay = await repo.revokeWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: firstKey.api_key.id,
+      now: new Date("2026-01-04T00:00:00.000Z"),
+    });
+
+    expect(replay).toEqual(revoked);
+    expect(repo.apiKeys.get(firstKey.api_key.id)?.revoked_at).toBe("2026-01-03T00:00:00.000Z");
+    expect(revoked).toMatchObject({
+      api_key: { id: firstKey.api_key.id, revoked_at: "2026-01-03T00:00:00.000Z" },
+      revoked_at: "2026-01-03T00:00:00.000Z",
+    });
+    const events = [...repo.operationEvents.values()].filter((event) => event.target_id === firstKey.api_key.id);
+    expect(events.some((event) => event.actor_type === "member" && event.action === "api_key.revoked")).toBe(true);
+
+    await expect(
+      repo.revokeWebApiKey({ actor: firstActor, idempotencyKey: "idem-missing", apiKeyId: "key_missing" }),
+    ).rejects.toThrow("api_key_not_found");
+    await expect(
+      repo.revokeWebApiKey({
+        actor: firstActor,
+        idempotencyKey: "idem-cross",
+        apiKeyId: secondKey.api_key.id,
+      }),
+    ).rejects.toThrow("api_key_not_found");
+    expect(firstKey.api_key.workspace_id).toBe(firstSession.workspace.id);
+    expect(secondKey.api_key.workspace_id).toBe(secondSession.workspace.id);
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
