@@ -202,10 +202,11 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ### 3. Complete bootstrap hosting checklist
 
-- Status: Partial -- checklist ready, click-ops pending Isaac. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
+- Status: Partial -- production is live; remaining work is vault recordkeeping plus deciding whether to enforce the manual GitHub deploy gate. See [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md).
 - Drives: ADR 0058, this doc § Bootstrap
 - Files: GitHub repo settings, Cloudflare console, Neon console, Bitwarden vault
-- Done: DNS for `agent-paste.sh` on Cloudflare nameservers; `NEON_PRODUCTION_BRANCH_ID` and `CLOUDFLARE_ACCOUNT_ID` confirmed (the latter inherited from `zaks-io` org); GitHub `Production` environment has an approval policy; all one-time admin tokens are stored in Bitwarden.
+- Done: production DNS for `agent-paste.sh` is on Cloudflare nameservers; production custom domains and TLS are live; latest production deploy (`26292146578`) passed build, migration, Worker deploy, and smoke; repo/environment GitHub production secrets are present; GitHub `Production` branch policy restricts deploys to `main`.
+- Remaining: confirm/store production secrets in Bitwarden (or the chosen vault); decide whether GitHub `Production` should require a reviewer + 5-minute wait timer + admin bypass disabled. `NEON_PRODUCTION_BRANCH_ID` is PR-preview safety metadata, not a production bootstrap blocker.
 
 ## Recently Completed
 
@@ -394,15 +395,17 @@ pnpm hooks:install
 - [x] `TURBO_TOKEN` (org).
 - [x] `TURBO_TEAM=zaks-io` (org).
 - [x] `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
-- [ ] `CLOUDFLARE_ACCOUNT_ID` (likely org-inherited; current token cannot list org secrets).
+- [x] `CLOUDFLARE_ACCOUNT_ID` (org-inherited; current token cannot list org secrets, but latest production deploy used it successfully).
 - [x] `CLOUDFLARE_API_TOKEN`.
 - [x] `PRODUCTION_DATABASE_URL` in GitHub `Production` environment.
 - [x] `NEON_API_KEY`.
 - [x] `NEON_PROJECT_ID`.
-- [ ] `NEON_PRODUCTION_BRANCH_ID`.
+- [ ] `NEON_PRODUCTION_BRANCH_ID` (PR-preview safety guard; not required for production deploy).
 - [x] `CLOUDFLARE_WORKERS_SUBDOMAIN`.
 - [x] `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`.
-- [x] GitHub `Production` environment exists (approval policy still needs UI confirmation).
+- [x] GitHub `Production` environment exists.
+- [x] GitHub `Production` environment branch policy allows only `main`.
+- [ ] GitHub `Production` environment required reviewer + wait timer + admin bypass posture.
 - [ ] `NPM_TOKEN` only when public CLI publish is imminent.
 
 ### Worker secrets
