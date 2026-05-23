@@ -11,3 +11,4 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .agent-out/
+.claude/worktrees/
