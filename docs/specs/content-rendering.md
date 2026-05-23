@@ -20,7 +20,7 @@ For every request, `content` verifies:
 - KV denylist keys for artifact and revision when present.
 - Requested path is within the signed revision.
 
-Authorization failures return `404 { "code": "not_found" }`. Artifact read rate-limit failures return `429 { "code": "rate_limited_artifact" }` with `Retry-After`.
+Authorization failures return `404 { "error": { "code": "not_found" } }`. Artifact read rate-limit failures return `429 { "error": { "code": "rate_limited_artifact" } }` with `Retry-After`.
 
 Internal logs may record the failure category and resolved ids, but must never record the token or full signed URL.
 

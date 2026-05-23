@@ -157,12 +157,12 @@ After Bitwarden is populated, mirror the production secrets into GitHub:
 **Codex can handle** this block after `gh` auth is available outside the sandbox and the secret values are exported in the shell. It will require escalation approval for the `gh secret set` commands.
 
 ```sh
-gh secret set CLOUDFLARE_API_TOKEN          --repo zaks-io/agent-paste --body "$(...)"
-gh secret set TURBO_REMOTE_CACHE_SIGNATURE_KEY --repo zaks-io/agent-paste --body "$(...)"
+gh secret set CLOUDFLARE_API_TOKEN --repo zaks-io/agent-paste --body "$CLOUDFLARE_API_TOKEN"
+gh secret set TURBO_REMOTE_CACHE_SIGNATURE_KEY --repo zaks-io/agent-paste --body "$TURBO_REMOTE_CACHE_SIGNATURE_KEY"
 
 # Production-environment-scoped (NOT repo-scoped):
-gh secret set PRODUCTION_DATABASE_URL           --repo zaks-io/agent-paste --env Production --body "$(...)"
-gh secret set AGENT_PASTE_PRODUCTION_ADMIN_TOKEN --repo zaks-io/agent-paste --env Production --body "$(...)"
+gh secret set PRODUCTION_DATABASE_URL --repo zaks-io/agent-paste --env Production --body "$PRODUCTION_DATABASE_URL"
+gh secret set AGENT_PASTE_PRODUCTION_ADMIN_TOKEN --repo zaks-io/agent-paste --env Production --body "$AGENT_PASTE_PRODUCTION_ADMIN_TOKEN"
 ```
 
 Verify:
