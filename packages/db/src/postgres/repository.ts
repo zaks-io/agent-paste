@@ -477,10 +477,23 @@ export class PostgresRepository {
     });
   }
 
-  async listWebAuditEvents(actor: ApiActor) {
+  async listWebAuditEvents(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebAuditLimit(pagination.limit);
     return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
-      const rows = await operationEventQueries.listForWorkspace(ctx.drizzle, actor.workspace_id);
-      return { items: rows.map(toWebAuditRow), page_info: { next_cursor: null, has_more: false } };
+      const rows = await operationEventQueries.listWebPage(ctx.drizzle, {
+        workspaceId: actor.workspace_id,
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeWebAuditCursor(pagination.cursor) } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toWebAuditRow),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeWebAuditCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
     });
   }
 
@@ -1028,6 +1041,41 @@ function decodeWebArtifactCursor(cursor: string) {
 }
 
 function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
+}
+
+function encodeWebAuditCursor(event: OperationEvent): string {
+  return btoa(JSON.stringify({ occurred_at: event.occurred_at, id: event.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebAuditCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { occurred_at?: unknown; id?: unknown };
+    if (typeof raw.occurred_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const occurredAt = new Date(raw.occurred_at);
+    if (Number.isNaN(occurredAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { occurredAt, id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebAuditLimit(limit: number | undefined) {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw new Error("invalid_pagination_limit");

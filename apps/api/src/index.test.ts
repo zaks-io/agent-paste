@@ -471,6 +471,145 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  it("returns workspace-scoped dashboard audit events for a valid WorkOS member", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return {
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+            scopes: ["admin"],
+          };
+        },
+        async listWebAuditEvents(actor, pagination) {
+          expect(pagination).toEqual({ cursor: "next-page", limit: 2 });
+          return {
+            items: [
+              {
+                id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+                time: "2026-01-01T00:00:00.000Z",
+                actor: `member:${actor.id}`,
+                action: "artifact.published",
+                target: "artifact:art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+                change_summary: "file_count=1",
+                request_id: "req_1",
+              },
+            ],
+            page_info: { next_cursor: null, has_more: false },
+          };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/audit?limit=2&cursor=next-page", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [{ action: "artifact.published", actor: "member:mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ" }],
+    });
+  });
+
+  it("rejects invalid dashboard audit pagination limits", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return {
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+            scopes: ["admin"],
+          };
+        },
+        async listWebAuditEvents() {
+          throw new Error("audit pagination should fail before db lookup");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/audit?limit=0", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
+  it("rejects invalid dashboard audit cursors", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return {
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+            scopes: ["admin"],
+          };
+        },
+        async listWebAuditEvents() {
+          throw new Error("invalid_cursor");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/audit?cursor=not-base64", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_cursor" } });
+  });
+
   it("fails closed when a web member reads an artifact outside their workspace", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),

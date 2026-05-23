@@ -166,7 +166,7 @@ export const routeContracts = [
     scopes: ["admin"],
     idempotency: "none",
     responseSchema: "WebAuditListResponse",
-    errors: webReadErrors,
+    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.settings.get",
