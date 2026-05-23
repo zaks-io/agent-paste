@@ -816,7 +816,9 @@ async function denyArtifact(env: Env, artifactId: string): Promise<void> {
   if (!artifactId || !env.DENYLIST) {
     return;
   }
-  await env.DENYLIST.put(`artifact:${artifactId}`, "1", { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });
+  await env.DENYLIST.put(`ad:${artifactId}`, JSON.stringify({ reason: "deletion", at: new Date().toISOString() }), {
+    expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS,
+  });
 }
 
 async function purgeArtifactBytes(env: Env, artifactId: string): Promise<number> {

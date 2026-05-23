@@ -87,6 +87,72 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
   });
 
+  it("checks ADR 0057 artifact and revision denylist keys without a token-hash key", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const checkedKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get(key) {
+          checkedKeys.push(key);
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return { body: new Response("<h1>ok</h1>").body, size: 11 };
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(200);
+    expect(checkedKeys).toEqual(["ad:art_1", "rd:rev_1"]);
+  });
+
+  it("checks workspace and access-link denylist keys only when the token carries those ids", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: "00000000-0000-4000-8000-000000000001",
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        access_link_id: "al_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const checkedKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get(key) {
+          checkedKeys.push(key);
+          return key === "ald:al_1" ? "1" : null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("should not read denied content");
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(checkedKeys).toEqual(["wsd:00000000-0000-4000-8000-000000000001", "ad:art_1", "rd:rev_1", "ald:al_1"]);
+  });
+
   it("ignores client-provided R2 content type metadata", async () => {
     const token = await signContentToken(
       {
@@ -209,7 +275,7 @@ describe("content worker", () => {
       CONTENT_SIGNING_SECRET: "secret",
       DENYLIST: {
         async get(key) {
-          return key === "artifact:art_1" ? "1" : null;
+          return key === "ad:art_1" ? "1" : null;
         },
       },
       ARTIFACTS: {

@@ -58,7 +58,7 @@ describe("content error envelope", () => {
       CONTENT_SIGNING_SECRET: "secret",
       DENYLIST: {
         async get(key) {
-          return key === "artifact:art_1" ? "1" : null;
+          return key === "ad:art_1" ? "1" : null;
         },
       },
       ARTIFACTS: emptyArtifacts(),

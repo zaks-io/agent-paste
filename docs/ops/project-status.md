@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23 (web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068, ADR 0002 superseded for `apps/web`; status + ADR coverage reconciled; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-23 (ADR 0057 denylist key drift reconciled for the CLI-first MVP; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; Logpush and production deploy-gate work parked for later).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -156,7 +156,7 @@ All 68 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001
 | 0054 Agent View envelope                  | Done         | API response matches ADR shape.                                                                                                                                                                                                                                                                                                                                          |
 | 0055 signup auto-provisions workspace     | Deferred     | Phase 3. Admin CLI provisions workspaces today.                                                                                                                                                                                                                                                                                                                          |
 | 0056 MVP usage policy defaults            | Done         | Caps match: 10 MB file / 25 MB artifact / 100 files / 30d default TTL.                                                                                                                                                                                                                                                                                                   |
-| 0057 KV denylist namespace + write order  | Drift        | MVP code uses `artifact:*`, `revision:*`, and `content-token:*` read keys and writes `artifact:*` on delete/cleanup; ADR 0057 specifies `wsd:`, `ad:`, `rd:`, and `ald:`. Reconcile code or ADR before expanding lockdown/link revocation.                                                                                                                               |
+| 0057 KV denylist namespace + write order  | Done         | MVP code now reads `ad:`/`rd:` denylist keys, reads `wsd:`/`ald:` only when those IDs are present in the verified content token, writes `ad:` on delete/cleanup, and keeps denylist TTL aligned with the current longest signed content-token lifetime.                                                                                                                  |
 | 0058 first-deploy bootstrap               | Partial      | `scripts/bootstrap-secrets.mjs` works for the CLI-first MVP. It intentionally mints `UPLOAD_SIGNING_SECRET` and `ADMIN_TOKEN_HASH` and does not mint future `ACCESS_LINK_SIGNING_KEY_V1` / `WEB_SESSION_SEAL_KEY_V1` secrets until Phase 3 surfaces exist.                                                                                                               |
 | 0059 web app session sealing              | Partial      | Sealed `__agp_session` (HttpOnly, Secure, SameSite=Lax, no `Domain`) owned by WorkOS AuthKit (iron-session blob) per ADR 0068; PKCE state handled by AuthKit internally. WorkOS secrets still to be bound by the bootstrap script -- see [`web-app-todo.md`](../ops/web-app-todo.md).                                                                                    |
 | 0060 CLI auth via Auth0 loopback          | Deferred     | Phase 3. Today the CLI uses an env-var API key.                                                                                                                                                                                                                                                                                                                          |
@@ -175,7 +175,7 @@ Superseded ADRs: 0002 for `apps/web` (by 0068), 0031 (by 0028), part of 0015 (by
 
 | Phase                         | Goal                                                      | % done | What is left                                                                                                                                                                                                                                                                         |
 | ----------------------------- | --------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~90%   | Artifact read throttling, ADR 0057 denylist-key reconciliation, and final hosted smoke after changes.                                                                                                                                                                                |
+| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~92%   | Artifact read throttling and final hosted smoke after changes.                                                                                                                                                                                                                       |
 | Phase 2 — Admin ergonomics    | Admin CLI polish, observability depth                     | ~10%   | Richer event browser and rotation tooling (ADR 0045). Logpush → Axiom is parked for later.                                                                                                                                                                                           |
 | Phase 3 — Public OAuth + web  | WorkOS AuthKit, signup, dashboard, Access Links           | ~15%   | TanStack Start scaffold + style-guide tokens + WorkOS AuthKit wiring shipped per ADR 0068. Remaining: WorkOS project click-ops, `0004_workspace_members` migration (`workos_user_id` column), `/v1/web/*` endpoints, real loader wiring. See [`web-app-todo.md`](./web-app-todo.md). |
 | Phase 4 — Revisions + bundles | Multi-revision artifacts, bundle generation, queues       | 0%     | ADRs 0019, 0032, 0047, 0048 (revisions piece), 0049, 0050, 0052, 0053; spec `jobs.md`.                                                                                                                                                                                               |
@@ -188,19 +188,13 @@ Ordered for the active non-app-worker lane. Each item has a verifiable Done. Log
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Reconcile ADR 0057 denylist key drift
-
-- Drives: ADR 0028, ADR 0057, `docs/specs/content-rendering.md`
-- Files: `apps/api/src/index.ts`, `apps/content/src/index.ts`, tests, and possibly ADR 0057 if the MVP simplified key family is the intended path.
-- Done: either code uses the ADR 0057 prefixes (`wsd:`, `ad:`, `rd:`, `ald:`) with tests for delete/cleanup denylist reads and writes, or ADR 0057 is amended/superseded to document the current MVP key contract. Project status is updated with the decision.
-
-### 2. Add artifact-level read throttling on `content`
+### 1. Add artifact-level read throttling on `content`
 
 - Drives: ADR 0048, `docs/specs/content-rendering.md`, Security Pass follow-up.
 - Files: `apps/content/wrangler.jsonc`, `apps/content/src/index.ts`, content tests, hosted smoke if a binding is added.
 - Done: unauthenticated reads are limited per artifact with a stable `rate_limited_artifact` envelope and `Retry-After`; idempotent or cached internal checks do not bypass denylist; tests cover allowed and limited reads.
 
-### 3. Start ADR 0045 rotation tooling groundwork
+### 2. Start ADR 0045 rotation tooling groundwork
 
 - Drives: ADR 0045, ADR 0058, Phase 2.
 - Files: `packages/auth`, `scripts/bootstrap-secrets.mjs`, docs/ops rotation runbook or a new ADR if the MVP needs a narrowed path.
@@ -212,6 +206,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Production deploy-gate policy, wait timers, and Bitwarden recordkeeping remain in [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md) but are not active backlog items.
 
 ## Recently Completed
+
+### Reconcile ADR 0057 denylist key drift
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0028, ADR 0057, `docs/specs/content-rendering.md`.
+- Files: `apps/api/src/index.ts`, `apps/content/src/index.ts`, focused worker tests, `docs/adr/0057-kv-denylist-namespace-keys-and-write-order.md`.
+- Done: `content` no longer checks unwritten `content-token:*` keys. It reads `ad:{artifactId}` and `rd:{revisionId}` for every verified token, plus `wsd:{workspaceId}` and `ald:{accessLinkId}` only when the token payload carries those IDs. `api` delete/cleanup denylist writes now use `ad:{artifactId}` with a diagnostic JSON value and a TTL equal to the current maximum signed content-token lifetime, preserving direct MVP URLs that live until artifact expiration.
 
 ### Swap `apps/web` auth from Auth0 to WorkOS AuthKit
 
