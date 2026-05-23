@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -29,17 +30,13 @@ export const workspaceMembers = pgTable(
       .references(() => workspaces.id, { onDelete: "restrict" }),
     workosUserId: text("workos_user_id").notNull(),
     email: text("email").notNull(),
-    scopes: jsonb("scopes")
-      .$type<Array<"publish" | "read" | "admin">>()
-      .notNull()
-      .default(["publish", "read", "admin"]),
+    scopes: jsonb("scopes").$type<Array<"publish" | "read" | "admin">>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
   },
   (table) => [
     index("workspace_members_workspace_idx").on(table.workspaceId),
-    index("workspace_members_workos_user_idx").on(table.workosUserId),
-    unique("workspace_members_workspace_workos_user_unique").on(table.workspaceId, table.workosUserId),
+    uniqueIndex("workspace_members_workos_user_unique").on(table.workosUserId),
   ],
 );
 
