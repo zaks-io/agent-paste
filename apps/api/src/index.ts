@@ -12,7 +12,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
-import { resolveWorkOsIdentity, type WorkOsIdentity } from "./workos.js";
+import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -24,7 +24,7 @@ export type ApiActor = {
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiActor | null>;
   verifyAdminToken?(token: string): Promise<ApiActor | null>;
-  verifyWebToken?(token: string): Promise<WorkOsIdentity | null>;
+  verifyWebToken?(token: string): Promise<WebCallbackIdentity | null>;
 };
 
 type AdminActor = { type: "admin" | "system"; id: string };
@@ -38,8 +38,13 @@ export type ApiDatabase = {
     contentBaseUrl: string;
   }): Promise<unknown | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<unknown | null>;
-  resolveWebMember?(input: { workosUserId: string; email: string; now?: string }): Promise<unknown>;
-  getWebMemberByWorkOsUserId?(input: { workosUserId: string; email: string; now?: string }): Promise<ApiActor | null>;
+  resolveWebMember?(input: {
+    workosUserId: string;
+    email: string;
+    idempotencyKey: string;
+    now?: string;
+  }): Promise<unknown>;
+  getWebMemberByWorkOsUserId?(input: { workosUserId: string }): Promise<ApiActor | null>;
   getWebWorkspace?(actor: ApiActor): Promise<unknown>;
   listWebArtifacts?(actor: ApiActor): Promise<unknown>;
   getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
@@ -320,11 +325,16 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
   if (!db?.resolveWebMember) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  return jsonResponse(
-    context,
-    await db.resolveWebMember({
+  const resolveWebMember = db.resolveWebMember.bind(db);
+  if (!hasWebCallbackId(identity)) {
+    return errorResponse(context, "not_authenticated", 401, "missing WorkOS token_id or session_id");
+  }
+  const idempotencyKey = webCallbackIdempotencyKey(identity);
+  return runIdempotent(context, () =>
+    resolveWebMember({
       workosUserId: identity.workos_user_id,
       email: identity.email,
+      idempotencyKey,
       now: new Date().toISOString(),
     }),
   );
@@ -694,6 +704,20 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
   return resolveWorkOsIdentity(`Bearer ${token}`, options);
 }
 
+function hasWebCallbackId(identity: WorkOsIdentity): identity is WebCallbackIdentity {
+  return (
+    (typeof identity.token_id === "string" && identity.token_id.length > 0) ||
+    (typeof identity.session_id === "string" && identity.session_id.length > 0)
+  );
+}
+
+function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {
+  if (identity.token_id) {
+    return `workos-jti:${identity.token_id}`;
+  }
+  return `workos-session:${identity.session_id}`;
+}
+
 async function withWebMember(
   context: AppContext,
   requiredScopes: readonly string[],
@@ -711,8 +735,6 @@ async function withWebMember(
 
   const actor = await db.getWebMemberByWorkOsUserId({
     workosUserId: identity.workos_user_id,
-    email: identity.email,
-    now: new Date().toISOString(),
   });
   if (!actor || actor.type !== "member" || !actor.workspace_id) {
     return errorResponse(context, "forbidden", 403);

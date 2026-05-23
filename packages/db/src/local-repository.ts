@@ -26,6 +26,22 @@ import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload 
 
 const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
 
+type ResolveWebMemberInput = { workosUserId: string; email: string; idempotencyKey?: string; now?: string };
+type WebAuthDefaultApiKey = { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
+type WebAuthResponse = {
+  workspace: ReturnType<typeof toWorkspaceSummary>;
+  workspace_member: {
+    id: string;
+    workspace_id: string;
+    email: string;
+    scopes: string[];
+    created_at: string;
+    last_seen_at: string;
+  };
+  scopes: string[];
+  default_api_key: WebAuthDefaultApiKey | null;
+};
+
 export class LocalRepository {
   readonly workspaces = new Map<string, Workspace>();
   readonly workspaceMembers = new Map<string, WorkspaceMember>();
@@ -36,6 +52,7 @@ export class LocalRepository {
   readonly uploadSessionFiles = new Map<string, StoredFile>();
   readonly operationEvents = new Map<string, OperationEvent>();
   private readonly idempotency = new Map<string, unknown>();
+  private readonly webAuthIdempotency = new Map<string, WebAuthResponse | Promise<WebAuthResponse>>();
 
   constructor(private readonly options: RepositoryOptions) {}
 
@@ -169,7 +186,27 @@ export class LocalRepository {
     };
   }
 
-  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+  async resolveWebMember(input: ResolveWebMemberInput) {
+    if (input.idempotencyKey) {
+      const cached = this.webAuthIdempotency.get(input.idempotencyKey);
+      if (cached) {
+        return cached;
+      }
+      const pending = this.resolveWebMemberOnce(input);
+      this.webAuthIdempotency.set(input.idempotencyKey, pending);
+      try {
+        const response = await pending;
+        this.webAuthIdempotency.set(input.idempotencyKey, response);
+        return response;
+      } catch (error) {
+        this.webAuthIdempotency.delete(input.idempotencyKey);
+        throw error;
+      }
+    }
+    return this.resolveWebMemberOnce(input);
+  }
+
+  private async resolveWebMemberOnce(input: ResolveWebMemberInput): Promise<WebAuthResponse> {
     const now = input.now ?? new Date().toISOString();
     const existing = [...this.workspaceMembers.values()].find((member) => member.workos_user_id === input.workosUserId);
     if (existing) {
@@ -226,13 +263,11 @@ export class LocalRepository {
     return this.webAuthResponse(member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string }) {
     const member = [...this.workspaceMembers.values()].find((entry) => entry.workos_user_id === input.workosUserId);
     if (!member) {
       return null;
     }
-    member.email = input.email;
-    member.last_seen_at = input.now ?? new Date().toISOString();
     return {
       type: "member" as const,
       id: member.id,
