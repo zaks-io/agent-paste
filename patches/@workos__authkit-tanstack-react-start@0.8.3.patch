@@ -1,0 +1,33 @@
+diff --git a/dist/server/authkit-loader.js b/dist/server/authkit-loader.js
+index 87cf871ac649efbf266cf8950dd03a4975a39fb1..3258f91914be348bf08c8412d915e3fadd3fcff3 100644
+--- a/dist/server/authkit-loader.js
++++ b/dist/server/authkit-loader.js
+@@ -1,11 +1,15 @@
+ /**
+  * Central orchestrator for AuthKit service creation.
++ *
++ * NOTE: All `@workos/authkit-session` and `./storage.js` imports are dynamic to
++ * keep the server-only chain (`@workos-inc/node` -> `eventemitter3`) out of the
++ * client module graph. Matches upstream PR #93 (open against 0.8.3).
+  */
+-import { createAuthService, getConfig as getConfigFromSession, validateConfig as validateConfigFromSession, } from '@workos/authkit-session';
+-import { TanStackStartCookieSessionStorage } from './storage.js';
+ let authkitInstance;
+ export async function getAuthkit() {
+     if (!authkitInstance) {
++        const { createAuthService } = await import('@workos/authkit-session');
++        const { TanStackStartCookieSessionStorage } = await import('./storage.js');
+         authkitInstance = createAuthService({
+             sessionStorageFactory: (config) => new TanStackStartCookieSessionStorage(config),
+         });
+@@ -13,8 +17,10 @@ export async function getAuthkit() {
+     return authkitInstance;
+ }
+ export async function getConfig(key) {
++    const { getConfig: getConfigFromSession } = await import('@workos/authkit-session');
+     return getConfigFromSession(key);
+ }
+ export async function validateConfig() {
++    const { validateConfig: validateConfigFromSession } = await import('@workos/authkit-session');
+     return validateConfigFromSession();
+ }

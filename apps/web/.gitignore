@@ -1,0 +1,5 @@
+.output/
+.vinxi/
+.tanstack/
+src/routeTree.gen.ts
+worker-configuration.d.ts

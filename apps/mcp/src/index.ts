@@ -24,10 +24,10 @@ export default {
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {
   const resource = env.MCP_RESOURCE ?? "https://mcp.agent-paste.sh";
-  const authorizationServer = env.MCP_AUTHORIZATION_SERVER ?? "https://agent-paste.us.auth0.com";
+  const authorizationServer = env.MCP_AUTHORIZATION_SERVER;
   return {
     resource,
-    authorization_servers: [authorizationServer],
+    authorization_servers: authorizationServer ? [authorizationServer] : [],
     bearer_methods_supported: ["header"],
     scopes_supported: ["write", "read", "share"],
   };

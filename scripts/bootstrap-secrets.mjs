@@ -16,6 +16,13 @@ const secrets = {
   ADMIN_TOKEN: adminToken,
   ADMIN_TOKEN_HASH: hmacBase64Url(adminToken, apiKeyPepper),
   OPERATOR_EMAILS: options.operatorEmails,
+  ...(options.skipWeb
+    ? {}
+    : {
+        WORKOS_API_KEY: options.workosApiKey,
+        WORKOS_CLIENT_ID: options.workosClientId,
+        WORKOS_COOKIE_PASSWORD: secretBytes(32),
+      }),
 };
 
 const workerSecrets = [
@@ -25,6 +32,14 @@ const workerSecrets = [
   },
   { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
   { app: "content", names: ["CONTENT_SIGNING_SECRET"] },
+  ...(options.skipWeb
+    ? []
+    : [
+        {
+          app: "web",
+          names: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD", "OPERATOR_EMAILS"],
+        },
+      ]),
 ];
 
 if (!options.printOnly) {
@@ -52,11 +67,17 @@ function parseTarget(argv) {
 function parseOptions(argv) {
   const force = argv.includes("--force");
   const printOnly = argv.includes("--print-only");
+  const skipWeb = argv.includes("--skip-web");
   const operatorEmails = stringOption(argv, "--operator-emails") ?? process.env.OPERATOR_EMAILS;
   if (!operatorEmails) {
     usage("Set --operator-emails or OPERATOR_EMAILS.");
   }
-  return { force, printOnly, operatorEmails };
+  const workosApiKey = stringOption(argv, "--workos-api-key") ?? process.env.WORKOS_API_KEY;
+  const workosClientId = stringOption(argv, "--workos-client-id") ?? process.env.WORKOS_CLIENT_ID;
+  if (!skipWeb && (!workosApiKey || !workosClientId)) {
+    usage("Set --workos-api-key/--workos-client-id (or WORKOS_API_KEY/WORKOS_CLIENT_ID), or pass --skip-web.");
+  }
+  return { force, printOnly, skipWeb, operatorEmails, workosApiKey, workosClientId };
 }
 
 async function assertSafeToWrite() {
@@ -184,12 +205,21 @@ function usage(message) {
   process.stderr.write(`${message}
 
 Usage:
-  node scripts/bootstrap-secrets.mjs preview --operator-emails you@example.com
-  node scripts/bootstrap-secrets.mjs production --operator-emails you@example.com
+  node scripts/bootstrap-secrets.mjs preview \\
+    --operator-emails you@example.com \\
+    --workos-api-key sk_... \\
+    --workos-client-id client_...
+  node scripts/bootstrap-secrets.mjs production \\
+    --operator-emails you@example.com \\
+    --workos-api-key sk_... \\
+    --workos-client-id client_...
 
 Options:
-  --force       Allow overwriting existing secrets after typed confirmation.
-  --print-only  Generate and print values without calling wrangler.
+  --force              Allow overwriting existing secrets after typed confirmation.
+  --print-only         Generate and print values without calling wrangler.
+  --skip-web           Skip the web Worker; do not require WorkOS credentials.
+  --workos-api-key     WorkOS API key (sk_...). Env fallback: WORKOS_API_KEY.
+  --workos-client-id   WorkOS client id (client_...). Env fallback: WORKOS_CLIENT_ID.
 `);
   process.exit(1);
 }
