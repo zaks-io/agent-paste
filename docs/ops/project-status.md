@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23 (web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068, ADR 0002 superseded for `apps/web`; status + ADR coverage reconciled; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-23 (ADR 0045 rotation groundwork runbook added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; Logpush and production deploy-gate work parked for later).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -49,7 +49,7 @@ Open security follow-ups:
 
 - Admin production identity is still the interim hashed bearer-token path. ADR 0067 requires Cloudflare Access/Auth0 operator identity before Phase 3 app/admin rollout.
 - `content` still needs unauthenticated artifact-level read throttling.
-- Secret rotation tooling (ADR 0045) still needs to be implemented.
+- Secret rotation has MVP operator groundwork in [`runbook-rotation.md`](./runbook-rotation.md); tested multi-key/multi-pepper automation is still future ADR 0045 work.
 
 ## Implementation Map
 
@@ -79,7 +79,7 @@ Status legend: **Done** = code matches spec; **Partial** = main flow works, gaps
 | Spec                              | Status  | Gap / next action                                                                                                                                                                                                                                              |
 | --------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/specs/README.md`            | Done    | Reading-order index only.                                                                                                                                                                                                                                      |
-| `docs/specs/mvp.md`               | Partial | Publish/read flows work; delete/expiry byte-purge is verified in local/hosted smoke. Remaining MVP-shaped hardening is artifact read throttling plus the interim operator/rotation follow-ups.                                                                 |
+| `docs/specs/mvp.md`               | Partial | Publish/read flows work; delete/expiry byte-purge is verified in local/hosted smoke. Remaining MVP-shaped hardening is artifact read throttling plus interim operator identity follow-ups. Rotation has an MVP runbook; automation remains future work.        |
 | `docs/specs/phases.md`            | Partial | Phase 1 is functionally live; remaining active work is hardening/ADR drift cleanup. Phases 2-6 not started except scaffolds and ops runbooks.                                                                                                                  |
 | `docs/specs/features.md`          | Partial | MVP CLI + 3 Workers implemented; artifact read cap remains missing. Future features (multi-revision, OAuth, MCP, dashboard) are absent by design.                                                                                                              |
 | `docs/specs/api.md`               | Done    | All MVP routes implemented. Error envelopes include `request_id`/optional `docs`; `X-Request-Id` echo/generation is covered by Worker tests.                                                                                                                   |
@@ -144,7 +144,7 @@ All 68 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001
 | 0042 strict extension content type        | Done         | `content` ignores upload/R2 MIME metadata, derives from extension allowlist, downloads unknown extensions, and applies SVG strict CSP.                                                                                                                                                                                                                                   |
 | 0043 bearer credential format             | Done         | `ap_pk_{env}_...` format; HMAC + pepper storage.                                                                                                                                                                                                                                                                                                                         |
 | 0044 workspace isolation via RLS          | Done         | RLS enabled and forced on every tenant table. `PostgresRepository` runs every public method inside a tx that issues `SET LOCAL app.workspace_id` (tenant) or `app.platform = 'on'` (pre-auth, admin sweeps, public Agent View). `DATABASE_RUNTIME_ROLE` migration env strips `BYPASSRLS` from the Hyperdrive role.                                                       |
-| 0045 secret rotation cadence              | Partial      | Bootstrap mints `_V1` keys. Rotation tooling not implemented.                                                                                                                                                                                                                                                                                                            |
+| 0045 secret rotation cadence              | Partial      | [`runbook-rotation.md`](./runbook-rotation.md) covers current MVP secret names, WorkOS AuthKit secrets, and deferred Access Link/web-session exclusions. Tested multi-key/multi-pepper automation is not implemented.                                                                                                                                                    |
 | 0046 operator identity + admin surface    | Drift        | Single bearer admin token (`ADMIN_TOKEN_HASH`) used instead of Cloudflare Access + email allowlist. ADR 0067 accepts this only as interim CLI-first MVP posture before Phase 3.                                                                                                                                                                                          |
 | 0047 Access Link signed URL               | Deferred     | Phase 4+. Public Agent View uses simpler signed token.                                                                                                                                                                                                                                                                                                                   |
 | 0048 transient artifacts by default       | Partial      | TTL defaults, delete/expiry stop-serving behavior, R2 byte purge, and denylist writes are verified. Pinning and artifact-level unauthenticated read throttling remain absent/deferred.                                                                                                                                                                                   |
@@ -157,8 +157,8 @@ All 68 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001
 | 0055 signup auto-provisions workspace     | Deferred     | Phase 3. Admin CLI provisions workspaces today.                                                                                                                                                                                                                                                                                                                          |
 | 0056 MVP usage policy defaults            | Done         | Caps match: 10 MB file / 25 MB artifact / 100 files / 30d default TTL.                                                                                                                                                                                                                                                                                                   |
 | 0057 KV denylist namespace + write order  | Drift        | MVP code uses `artifact:*`, `revision:*`, and `content-token:*` read keys and writes `artifact:*` on delete/cleanup; ADR 0057 specifies `wsd:`, `ad:`, `rd:`, and `ald:`. Reconcile code or ADR before expanding lockdown/link revocation.                                                                                                                               |
-| 0058 first-deploy bootstrap               | Partial      | `scripts/bootstrap-secrets.mjs` works for the CLI-first MVP. It intentionally mints `UPLOAD_SIGNING_SECRET` and `ADMIN_TOKEN_HASH` and does not mint future `ACCESS_LINK_SIGNING_KEY_V1` / `WEB_SESSION_SEAL_KEY_V1` secrets until Phase 3 surfaces exist.                                                                                                               |
-| 0059 web app session sealing              | Partial      | Sealed `__agp_session` (HttpOnly, Secure, SameSite=Lax, no `Domain`) owned by WorkOS AuthKit (iron-session blob) per ADR 0068; PKCE state handled by AuthKit internally. WorkOS secrets still to be bound by the bootstrap script -- see [`web-app-todo.md`](../ops/web-app-todo.md).                                                                                    |
+| 0058 first-deploy bootstrap               | Partial      | `scripts/bootstrap-secrets.mjs` works for the CLI-first MVP. It mints `UPLOAD_SIGNING_SECRET`, `ADMIN_TOKEN_HASH`, and optional current WorkOS AuthKit secrets, and does not mint future `ACCESS_LINK_SIGNING_KEY_V1` / `WEB_SESSION_SEAL_KEY_V1` secrets.                                                                                                               |
+| 0059 web app session sealing              | Partial      | Sealed `__agp_session` (HttpOnly, Secure, SameSite=Lax, no `Domain`) owned by WorkOS AuthKit (iron-session blob) per ADR 0068; PKCE state handled by AuthKit internally. Current secret name is `WORKOS_COOKIE_PASSWORD`; `WEB_SESSION_SEAL_KEY_V1` is intentionally excluded from MVP rotation/bootstrap.                                                               |
 | 0060 CLI auth via Auth0 loopback          | Deferred     | Phase 3. Today the CLI uses an env-var API key.                                                                                                                                                                                                                                                                                                                          |
 | 0061 MCP via Auth0 DCR                    | Deferred     | Phase 5.                                                                                                                                                                                                                                                                                                                                                                 |
 | 0062 two-layer cache for auth             | Done         | `cachedLookup` in `packages/auth` wired into `api` and `upload`.                                                                                                                                                                                                                                                                                                         |
@@ -200,18 +200,19 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Files: `apps/content/wrangler.jsonc`, `apps/content/src/index.ts`, content tests, hosted smoke if a binding is added.
 - Done: unauthenticated reads are limited per artifact with a stable `rate_limited_artifact` envelope and `Retry-After`; idempotent or cached internal checks do not bypass denylist; tests cover allowed and limited reads.
 
-### 3. Start ADR 0045 rotation tooling groundwork
-
-- Drives: ADR 0045, ADR 0058, Phase 2.
-- Files: `packages/auth`, `scripts/bootstrap-secrets.mjs`, docs/ops rotation runbook or a new ADR if the MVP needs a narrowed path.
-- Done: there is a tested pepper/signing-key rotation primitive or a concrete runbook that matches the current MVP secret names and explicitly excludes deferred Access Link/web-session keys.
-
 ### Parked for later
 
 - Logpush -> Axiom wiring remains documented in [`docs/ops/runbook-logpush.md`](./runbook-logpush.md) but is not active until Isaac is ready for Cloudflare/Axiom click-ops.
 - Production deploy-gate policy, wait timers, and Bitwarden recordkeeping remain in [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md) but are not active backlog items.
 
 ## Recently Completed
+
+### Start ADR 0045 rotation tooling groundwork
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0045, ADR 0058, Phase 2.
+- Files: `docs/ops/runbook-rotation.md`, `docs/ops/project-status.md`.
+- Done: Added an MVP rotation runbook that matches the current deployed secret names: `CONTENT_SIGNING_SECRET`, `UPLOAD_SIGNING_SECRET`, `API_KEY_PEPPER_V1`, `ADMIN_TOKEN_HASH`, and WorkOS AuthKit's `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, and `WORKOS_COOKIE_PASSWORD`. The runbook explicitly excludes deferred `ACCESS_LINK_SIGNING_KEY_V1` and removed `WEB_SESSION_SEAL_KEY_V1`, and documents the current single-key invalidation behavior until tested multi-key/multi-pepper primitives land.
 
 ### Swap `apps/web` auth from Auth0 to WorkOS AuthKit
 
@@ -435,6 +436,9 @@ OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
 | `ADMIN_TOKEN`            | operator only        | Printed once. Capture in Bitwarden.     |
 | `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                  |
 | `OPERATOR_EMAILS`        | api                  | Allowlist value for operator context.   |
+| `WORKOS_API_KEY`         | api, web             | Current WorkOS AuthKit API credential.  |
+| `WORKOS_CLIENT_ID`       | api, web             | WorkOS project client id.               |
+| `WORKOS_COOKIE_PASSWORD` | web                  | AuthKit sealed-session password.        |
 
 ### Deploy order
 
