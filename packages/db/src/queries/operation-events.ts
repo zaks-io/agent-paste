@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { createId } from "../id.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { operationEvents } from "../schema.js";
@@ -59,5 +59,27 @@ export const operationEventQueries = {
         }),
       )
       .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at));
+  },
+
+  async listForWorkspace(db: DrizzleDb, workspaceId: string): Promise<OperationEvent[]> {
+    const rows = await db
+      .select()
+      .from(operationEvents)
+      .where(eq(operationEvents.workspaceId, workspaceId))
+      .orderBy(desc(operationEvents.occurredAt));
+    return rows.map(
+      (row): OperationEvent => ({
+        id: row.id,
+        workspace_id: row.workspaceId,
+        actor_type: row.actorType as OperationEvent["actor_type"],
+        actor_id: row.actorId,
+        action: row.action,
+        target_type: row.targetType,
+        target_id: row.targetId,
+        details: row.details,
+        request_id: row.requestId,
+        occurred_at: row.occurredAt.toISOString(),
+      }),
+    );
   },
 };

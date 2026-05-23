@@ -20,6 +20,22 @@ export const workspaces = pgTable("workspaces", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
 
+export const workspaceMembers = pgTable(
+  "workspace_members",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    workosUserId: text("workos_user_id").notNull().unique(),
+    email: text("email").notNull(),
+    scopes: jsonb("scopes").$type<Array<"publish" | "read" | "admin">>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("workspace_members_workspace_idx").on(table.workspaceId)],
+);
+
 export const apiKeys = pgTable(
   "api_keys",
   {

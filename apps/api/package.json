@@ -27,6 +27,7 @@
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
-    "hono": "^4.12.21"
+    "hono": "^4.12.21",
+    "jose": "^6.2.3"
   }
 }

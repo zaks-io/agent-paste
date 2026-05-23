@@ -58,6 +58,7 @@ jobs:
 
       - name: Verify dependency guardrails
         run: |
+          test "$(pnpm config get engine-strict)" = "true"
           test "$(pnpm config get minimumReleaseAge)" = "4320"
           test "$(pnpm config get nodeLinker)" = "isolated"
 

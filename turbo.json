@@ -4,6 +4,7 @@
   "globalDependencies": [
     ".env",
     ".env.*",
+    ".node-version",
     ".nvmrc",
     "package.json",
     "pnpm-lock.yaml",

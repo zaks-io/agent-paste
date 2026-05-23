@@ -1,0 +1,97 @@
+import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resolveWorkOsIdentity } from "./workos.js";
+
+const clientId = "client_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
+const apiKey = "sk_test_123";
+const issuer = "https://api.workos.com";
+const subject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
+let keyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
+
+describe("WorkOS access-token verification", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("accepts a valid WorkOS JWT and fetches the canonical user record", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toEqual({
+      workos_user_id: subject,
+      email: "user@example.com",
+    });
+  });
+
+  it("rejects a JWT with the wrong client_id claim", async () => {
+    const fixture = await tokenFixture({ client_id: "client_wrong" });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
+  it("rejects a JWT with the wrong issuer", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, iss: "https://evil.example" });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
+  it("rejects an expired JWT", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, expiresAt: Math.floor(Date.now() / 1000) - 60 });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
+  it("rejects a malformed bearer header before calling WorkOS", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(resolveWorkOsIdentity("not-a-bearer-token", options())).resolves.toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+function options() {
+  return {
+    apiKey,
+    clientId,
+    apiBaseUrl: "https://workos.test",
+    issuer,
+    requireClientIdClaim: true,
+  };
+}
+
+async function tokenFixture(input: { client_id?: string; iss?: string; expiresAt?: number }) {
+  keyPairPromise ??= generateKeyPair("RS256");
+  const { publicKey, privateKey } = await keyPairPromise;
+  const publicJwk = await exportJWK(publicKey);
+  publicJwk.kid = "test-key";
+  publicJwk.alg = "RS256";
+  const expiresAt = input.expiresAt ?? Math.floor(Date.now() / 1000) + 300;
+  const token = await new SignJWT(input.client_id ? { client_id: input.client_id } : {})
+    .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+    .setIssuer(input.iss ?? issuer)
+    .setSubject(subject)
+    .setIssuedAt()
+    .setExpirationTime(expiresAt)
+    .sign(privateKey);
+  return { token, publicJwk };
+}
+
+function stubWorkOsFetch(publicJwk: JWK) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith(`/sso/jwks/${clientId}`)) {
+        return Response.json({ keys: [publicJwk] });
+      }
+      if (href.endsWith(`/user_management/users/${subject}`)) {
+        return Response.json({ id: subject, email: "user@example.com" });
+      }
+      return new Response("not found", { status: 404 });
+    }),
+  );
+}

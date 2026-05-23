@@ -34,6 +34,7 @@
     "smoke:preview": "pnpm build && node scripts/smoke-hosted.mjs preview",
     "smoke:production": "pnpm build && node scripts/smoke-hosted.mjs production",
     "smoke:pr": "pnpm build && node scripts/smoke-hosted.mjs pr",
+    "smoke:web": "pnpm build && node scripts/smoke-web-api.mjs",
     "setup:codex": "node scripts/setup-codex-worktree.mjs",
     "test": "turbo run test",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",

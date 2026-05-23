@@ -8,4 +8,5 @@ export * from "./openapi/index.js";
 export * from "./primitives.js";
 export * from "./routes.js";
 export * from "./uploadSessions.js";
+export * from "./web.js";
 export * from "./workspace.js";

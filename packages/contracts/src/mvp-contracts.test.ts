@@ -6,11 +6,18 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const isoDate = "2026-05-20T12:00:00.000Z";
 
 describe("MVP route registry", () => {
-  it("exposes only the CLI-first MVP routes", () => {
+  it("exposes the CLI-first MVP routes plus web dashboard reads", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
       "whoami.get",
       "usagePolicy.get",
       "agentView.public",
+      "web.auth.callback",
+      "web.workspace.get",
+      "web.artifacts.list",
+      "web.artifacts.get",
+      "web.apiKeys.list",
+      "web.audit.list",
+      "web.settings.get",
       "uploadSessions.create",
       "uploadSessions.putFile",
       "uploadSessions.finalize",

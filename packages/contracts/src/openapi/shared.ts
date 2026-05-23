@@ -14,6 +14,18 @@ import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../api
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
+import {
+  WebApiKeyListResponse,
+  WebArtifactDetailResponse,
+  WebArtifactListResponse,
+  WebArtifactRow,
+  WebAuditListResponse,
+  WebAuditRow,
+  WebAuthCallbackResponse,
+  WebSettingsResponse,
+  WebWorkspaceResponse,
+  WorkspaceMemberSummary,
+} from "../web.js";
 import { UsagePolicy, WhoamiResponse } from "../workspace.js";
 import { z } from "../zod.js";
 
@@ -41,6 +53,16 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("CleanupRunResponse", CleanupRunResponse);
   registry.register("OperationEvent", OperationEvent);
   registry.register("OperationEventListResponse", OperationEventListResponse);
+  registry.register("WorkspaceMemberSummary", WorkspaceMemberSummary);
+  registry.register("WebAuthCallbackResponse", WebAuthCallbackResponse);
+  registry.register("WebWorkspaceResponse", WebWorkspaceResponse);
+  registry.register("WebArtifactRow", WebArtifactRow);
+  registry.register("WebArtifactListResponse", WebArtifactListResponse);
+  registry.register("WebArtifactDetailResponse", WebArtifactDetailResponse);
+  registry.register("WebApiKeyListResponse", WebApiKeyListResponse);
+  registry.register("WebAuditRow", WebAuditRow);
+  registry.register("WebAuditListResponse", WebAuditListResponse);
+  registry.register("WebSettingsResponse", WebSettingsResponse);
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {
@@ -65,6 +87,11 @@ export const securitySchemes = {
     type: "http",
     scheme: "bearer",
     description: "Operator admin token.",
+  },
+  WorkOsBearer: {
+    type: "http",
+    scheme: "bearer",
+    description: "WorkOS AuthKit access token forwarded by the web Worker.",
   },
 } as const;
 

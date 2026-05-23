@@ -15,7 +15,7 @@ import { type Context, Hono } from "hono";
 export type UploadActor = {
   type: "api_key";
   id: string;
-  workspace_id?: string;
+  workspace_id: string;
 };
 
 export type AuthService = {
