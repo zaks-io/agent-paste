@@ -160,14 +160,27 @@ async function waitForAdminAuth(c) {
   let lastStatus = 0;
   let lastBody = "";
   while (Date.now() < deadline) {
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: { authorization: `Bearer ${c.adminToken}` },
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        cache: "no-store",
+        headers: { authorization: `Bearer ${c.adminToken}` },
+      });
+    } catch (error) {
+      lastStatus = "transport_error";
+      lastBody = error instanceof Error ? error.message : String(error);
+      await sleep(2000);
+      continue;
+    }
     lastStatus = response.status;
     lastBody = await response.text().catch(() => "");
     if (response.status === 200) {
       return;
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        `admin token from c.adminToken was rejected by ${url} with ${response.status}: ${lastBody.slice(0, 200)}`,
+      );
     }
     await sleep(2000);
   }
