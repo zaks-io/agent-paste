@@ -39,8 +39,8 @@ Implementation note: web secret setup is opt-in for first deploy. Plain CLI-firs
 
 Order matters — each later item depends on the earlier ones.
 
-- [ ] `POST /v1/auth/web/callback` — verify the WorkOS access token via JWKS at `https://api.workos.com/sso/jwks/<client_id>`, match the `client_id` claim, upsert `workspace_members` row, return `{workspace_id, workspace_member_id, scopes}`. Drives ADR 0055 + ADR 0059. Until this exists, login completes the AuthKit cookie seal but the dashboard cannot resolve a Workspace Member, so every loader falls back to `EmptyState`.
-  - Implementation note: use `jose.createRemoteJWKSet(new URL('https://api.workos.com/sso/jwks/' + client_id))` and match the `client_id` claim. The WorkOS JWKS API reference confirms access tokens carry `client_id` (the AuthKit Sessions docs page omits it from its list but the reference is authoritative). Cache the remote JWKS for the process lifetime.
+- [x] `POST /v1/auth/web/callback` — verify the WorkOS access token via JWKS at `https://api.workos.com/sso/jwks/<client_id>`, match the `client_id` claim, upsert `workspace_members` row, return the web callback contract shape. Drives ADR 0055 + ADR 0059.
+  - Done in `agents/workos-callback-api`: `apps/api` uses `jose.createRemoteJWKSet(new URL('https://api.workos.com/sso/jwks/' + client_id))` with a finite JWKS cache TTL, resolves the WorkOS user email server-side, extracts `session_id` from JWT `sid` and `token_id` from JWT `jti`, derives callback idempotency as `workos-jti:{jti}` or `workos-session:{sid}`, provisions the Personal Workspace + Workspace Member + default API Key through `runCommand`, keys first-time provisioning by `workos-user:{workos_user_id}` to prevent duplicate Personal Workspaces, and returns `{ workspace, workspace_member, scopes, default_api_key }`.
 - [ ] `GET /v1/web/workspace` — workspace name, usage policy, first-run default-key flag.
 - [ ] `GET /v1/web/artifacts` (cursor paginated) and `GET /v1/web/artifacts/{artifactId}`.
 - [ ] `GET /v1/web/keys`, `POST /v1/web/keys`, `POST /v1/web/keys/{id}/revoke`.

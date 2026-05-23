@@ -6,6 +6,8 @@ const clientId = "client_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 const apiKey = "sk_test_123";
 const issuer = "https://api.workos.com";
 const subject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
+const sessionId = "session_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
+const tokenId = "test-token-id";
 let keyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
 
 describe("WorkOS access-token verification", () => {
@@ -20,6 +22,8 @@ describe("WorkOS access-token verification", () => {
     await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toEqual({
       workos_user_id: subject,
       email: "user@example.com",
+      session_id: sessionId,
+      token_id: tokenId,
     });
   });
 
@@ -46,6 +50,13 @@ describe("WorkOS access-token verification", () => {
 
   it("rejects an expired JWT", async () => {
     const fixture = await tokenFixture({ client_id: clientId, expiresAt: Math.floor(Date.now() / 1000) - 60 });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
+  it("rejects a JWT without a token id or session id", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, sessionId: null, tokenId: null });
     stubWorkOsFetch(fixture.publicJwk);
 
     await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
@@ -81,19 +92,32 @@ function options() {
   };
 }
 
-async function tokenFixture(input: { client_id?: string; iss?: string; expiresAt?: number; aud?: string }) {
+async function tokenFixture(input: {
+  client_id?: string;
+  iss?: string;
+  expiresAt?: number;
+  aud?: string;
+  sessionId?: string | null;
+  tokenId?: string | null;
+}) {
   keyPairPromise ??= generateKeyPair("RS256");
   const { publicKey, privateKey } = await keyPairPromise;
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "test-key";
   publicJwk.alg = "RS256";
   const expiresAt = input.expiresAt ?? Math.floor(Date.now() / 1000) + 300;
-  const jwt = new SignJWT(input.client_id ? { client_id: input.client_id } : {})
+  const jwt = new SignJWT({
+    ...(input.client_id ? { client_id: input.client_id } : {}),
+    ...(input.sessionId !== null ? { sid: input.sessionId ?? sessionId } : {}),
+  })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuer(input.iss ?? issuer)
     .setSubject(subject)
     .setIssuedAt()
     .setExpirationTime(expiresAt);
+  if (input.tokenId !== null) {
+    jwt.setJti(input.tokenId ?? tokenId);
+  }
   if (input.aud) {
     jwt.setAudience(input.aud);
   }
@@ -105,7 +129,7 @@ function stubWorkOsFetch(publicJwk: JWK, options: { userResponse?: Response } = 
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string | URL | Request) => {
-      const href = String(url);
+      const href = url instanceof Request ? url.url : String(url);
       if (href.endsWith(`/sso/jwks/${clientId}`)) {
         return Response.json({ keys: [publicJwk] });
       }
