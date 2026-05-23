@@ -705,7 +705,10 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
 }
 
 function hasWebCallbackId(identity: WorkOsIdentity): identity is WebCallbackIdentity {
-  return typeof identity.token_id === "string" || typeof identity.session_id === "string";
+  return (
+    (typeof identity.token_id === "string" && identity.token_id.length > 0) ||
+    (typeof identity.session_id === "string" && identity.session_id.length > 0)
+  );
 }
 
 function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {

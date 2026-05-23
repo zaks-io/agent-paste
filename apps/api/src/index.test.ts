@@ -153,14 +153,17 @@ describe("api worker", () => {
     });
   });
 
-  it("rejects callback identities without a WorkOS token or session id", async () => {
+  it.each([
+    ["missing", {}],
+    ["blank", { token_id: "", session_id: "" }],
+  ])("rejects %s callback identities without a WorkOS token or session id", async (_label, ids) => {
     const env: Env = {
       AUTH: {
         async verifyApiKey() {
           return null;
         },
         async verifyWebToken() {
-          return { workos_user_id: "user_1", email: "user@example.com" } as never;
+          return { workos_user_id: "user_1", email: "user@example.com", ...ids } as never;
         },
       },
       DB: {
@@ -208,7 +211,8 @@ describe("api worker", () => {
       async getPublicAgentView() {
         return null;
       },
-      async resolveWebMember(this: { marker: string }, input: { email: string }) {
+      async resolveWebMember(this: { marker: string }, input: { email: string; idempotencyKey: string }) {
+        expect(input.idempotencyKey).toBe("workos-session:sess_1");
         return { receiver: this.marker, email: input.email };
       },
       async runCleanup() {
