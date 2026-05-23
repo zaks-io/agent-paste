@@ -38,8 +38,10 @@ export type Env = {
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
 export type ContentTokenPayload = {
+  workspace_id?: string;
   artifact_id: string;
   revision_id: string;
+  access_link_id?: string;
   key_prefix?: string;
   paths?: string[];
   exp: number;
@@ -129,13 +131,11 @@ async function serveSignedObject(context: AppContext, token: string, path: strin
     return errorResponse(context, "not_found", 404);
   }
 
-  const [artifactDenied, revisionDenied, tokenDenied] = await Promise.all([
-    env.DENYLIST.get(`artifact:${resolvedPayload.artifact_id}`),
-    env.DENYLIST.get(`revision:${resolvedPayload.revision_id}`),
-    env.DENYLIST.get(`content-token:${await sha256(token)}`),
-  ]);
+  const denylistResults = await Promise.all(
+    denylistKeysForPayload(resolvedPayload).map((key) => env.DENYLIST.get(key)),
+  );
 
-  if (artifactDenied || revisionDenied || tokenDenied) {
+  if (denylistResults.some((value) => value !== null)) {
     return errorResponse(context, "not_found", 404);
   }
 
@@ -209,12 +209,25 @@ function isValidContentTokenPayload(value: unknown): value is ContentTokenPayloa
     payload.artifact_id.startsWith("art_") &&
     typeof payload.revision_id === "string" &&
     payload.revision_id.startsWith("rev_") &&
+    (payload.workspace_id === undefined ||
+      (typeof payload.workspace_id === "string" && payload.workspace_id.length > 0)) &&
+    (payload.access_link_id === undefined ||
+      (typeof payload.access_link_id === "string" && payload.access_link_id.startsWith("al_"))) &&
     (payload.key_prefix === undefined || (typeof payload.key_prefix === "string" && payload.key_prefix.length > 0)) &&
     (payload.paths === undefined ||
       (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );
+}
+
+function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
+  return [
+    ...(payload.workspace_id ? [`wsd:${payload.workspace_id}`] : []),
+    `ad:${payload.artifact_id}`,
+    `rd:${payload.revision_id}`,
+    ...(payload.access_link_id ? [`ald:${payload.access_link_id}`] : []),
+  ];
 }
 
 function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
@@ -307,11 +320,6 @@ async function hmac(value: string, secret: string): Promise<string> {
   );
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return base64UrlEncode(new Uint8Array(signature));
-}
-
-async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return base64UrlEncode(new Uint8Array(digest));
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {

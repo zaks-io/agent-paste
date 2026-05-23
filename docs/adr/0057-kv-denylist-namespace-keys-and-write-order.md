@@ -1,17 +1,17 @@
 # KV Denylist Namespace, Keys, and Write Order
 
-The Workers KV denylist referenced by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) is one namespace bound as `DENYLIST` to `content` (read), `api` (write), and `jobs` (write). Entries live behind four key prefixes — one per entity scope — with a small JSON value for ops diagnostics and a 15-minute TTL matching the content-gateway token TTL from [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md). The content Worker performs up to four parallel KV reads per request and denies on any non-null result, returning the generic `not_found` envelope from [ADR 0036](./0036-error-envelope-and-generic-404-boundary.md).
+The Workers KV denylist referenced by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) is one namespace bound as `DENYLIST` to `content` (read), `api` (write), and `jobs` (write). Entries live behind four key prefixes — one per entity scope — with a small value for ops diagnostics and a TTL matching the longest currently minted content-gateway token lifetime. The content Worker performs parallel KV reads for the entity IDs present in the verified token payload and denies on any non-null result, returning the generic `not_found` envelope from [ADR 0036](./0036-error-envelope-and-generic-404-boundary.md).
 
 ## Key formats
 
 | Prefix | Key                  | Written on                                                                                                | Read by `content`                                                                                             |
 | ------ | -------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `wsd:` | `wsd:{workspaceId}`  | Workspace-scope **Platform Lockdown** set                                                                 | always                                                                                                        |
+| `wsd:` | `wsd:{workspaceId}`  | Workspace-scope **Platform Lockdown** set                                                                 | only when the resolved content-gateway token carries `workspaceId`                                            |
 | `ad:`  | `ad:{artifactId}`    | **Artifact** Deletion; Artifact-scope **Platform Lockdown**; **Access Link Lockdown** on the **Artifact** | always                                                                                                        |
 | `rd:`  | `rd:{revisionId}`    | **Retention** removal of a **Revision**                                                                   | always                                                                                                        |
 | `ald:` | `ald:{accessLinkId}` | **Access Link** revocation                                                                                | only when the resolved content-gateway token carries `accessLinkId` (Access Link path; never on Private Link) |
 
-IDs use the public IDs from the rest of the platform: `workspaceId` is the **Workspace** UUID, while `artifactId`, `revisionId`, and `accessLinkId` are the prefixed IDs (`art_...`, `rev_...`, `al_...`). `workspaceId`, `artifactId`, and `revisionId` are derivable from the content-gateway token payload per [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), so `content` performs no Postgres lookup before the denylist check.
+IDs use the public IDs from the rest of the platform: `workspaceId` is the **Workspace** UUID, while `artifactId`, `revisionId`, and `accessLinkId` are the prefixed IDs (`art_...`, `rev_...`, `al_...`). The CLI-first MVP token payload always carries `artifactId` and `revisionId`; `workspaceId` and `accessLinkId` are optional until the corresponding lockdown and Access Link flows mint those IDs into content tokens. `content` performs no Postgres lookup before the denylist check.
 
 ## Value payload
 
@@ -26,15 +26,15 @@ IDs use the public IDs from the rest of the platform: `workspaceId` is the **Wor
 
 ## TTL
 
-**15 minutes.** Matches content-gateway token TTL from [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md). A token minted before the denylist write expires within 15 minutes on its own, so a longer TTL adds nothing. KV propagation latency, not entry TTL, bounds the consistency window.
+Entries must live at least as long as the longest content-gateway token that could have been minted before the denylist write. In the CLI-first MVP, signed file URLs currently expire at the **Artifact** expiration time and can live up to the 90-day `max_ttl_seconds` from [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md), so `api` denylist writes use that maximum TTL. When stable app/Access Link flows remint short-lived content URLs, this TTL can narrow to the short content-token TTL without weakening deletion or revocation.
 
 ## Read pattern
 
-`content` issues up to four parallel KV reads per request:
+`content` issues parallel KV reads per request for required artifact/revision keys and for optional workspace/access-link keys only when those IDs are present in the verified token payload:
 
 ```ts
 const [ws, art, rev, al] = await Promise.all([
-  env.DENYLIST.get(`wsd:${workspaceId}`),
+  workspaceId ? env.DENYLIST.get(`wsd:${workspaceId}`) : Promise.resolve(null),
   env.DENYLIST.get(`ad:${artifactId}`),
   env.DENYLIST.get(`rd:${revisionId}`),
   accessLinkId
@@ -54,7 +54,7 @@ State-changing handlers on `api` and sweep handlers on `jobs` use the same order
 2. Write the corresponding denylist key.
 3. Enqueue any byte-purge job on Cloudflare Queues per [ADR 0019](./0019-cloudflare-queues-for-background-jobs.md).
 
-A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery sweep referenced in the ADR 0028 README cross-reference and [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md). The accepted consistency window is the 15-minute token TTL.
+A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery sweep referenced in the ADR 0028 README cross-reference and [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md). Once written, denylist entries still live for the maximum currently minted content-token lifetime described above; the accepted revocation consistency window is limited to KV/cache propagation, not a shorter entry TTL.
 
 ## Bindings
 

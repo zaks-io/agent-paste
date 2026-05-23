@@ -388,6 +388,150 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toEqual({ dry_run: true });
   });
 
+  it("writes the ADR 0057 artifact denylist key when an admin deletes an artifact", async () => {
+    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
+    const env: Env = {
+      ADMIN_TOKEN: "admin",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async deleteArtifact() {
+          return {
+            artifact_id: "art_1",
+            revision_id: "rev_1",
+            deleted_at: "2026-01-01T00:00:00.000Z",
+          };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+      DENYLIST: {
+        async put(key, value, options) {
+          puts.push({ key, value, expirationTtl: options?.expirationTtl });
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/admin/artifacts/art_1", {
+        method: "DELETE",
+        headers: { authorization: "Bearer admin", "idempotency-key": "delete-1" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ artifact_id: "art_1", deleted_r2_objects: 0 });
+    expect(puts).toHaveLength(1);
+    expect(puts[0]).toMatchObject({ key: "ad:art_1", expirationTtl: 90 * 24 * 60 * 60 });
+    expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({ reason: "deletion", at: expect.any(String) });
+  });
+
+  it("writes ADR 0057 artifact denylist keys for expired cleanup artifacts", async () => {
+    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
+    const env: Env = {
+      ADMIN_TOKEN: "admin",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup(input) {
+          return input.dryRun ? { expired_artifact_ids: [] } : { expired_artifact_ids: ["art_1", "art_2"] };
+        },
+      },
+      DENYLIST: {
+        async put(key, value, options) {
+          puts.push({ key, value, expirationTtl: options?.expirationTtl });
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/admin/cleanup/run", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer admin",
+          "content-type": "application/json",
+          "idempotency-key": "cleanup-2",
+        },
+        body: JSON.stringify({ dry_run: false }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      expired_artifact_ids: ["art_1", "art_2"],
+      deleted_r2_objects: 0,
+    });
+    expect(puts).toHaveLength(2);
+    expect(puts.map((put) => ({ key: put.key, expirationTtl: put.expirationTtl }))).toEqual([
+      { key: "ad:art_1", expirationTtl: 90 * 24 * 60 * 60 },
+      { key: "ad:art_2", expirationTtl: 90 * 24 * 60 * 60 },
+    ]);
+    expect(puts.map((put) => JSON.parse(put.value))).toEqual([
+      { reason: "deletion", at: expect.any(String) },
+      { reason: "deletion", at: expect.any(String) },
+    ]);
+  });
+
+  it("does not write denylist keys during dry-run cleanup", async () => {
+    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
+    const env: Env = {
+      ADMIN_TOKEN: "admin",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup(input) {
+          return input.dryRun ? { expired_artifact_ids: [] } : { expired_artifact_ids: ["art_1", "art_2"] };
+        },
+      },
+      DENYLIST: {
+        async put(key, value, options) {
+          puts.push({ key, value, expirationTtl: options?.expirationTtl });
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/admin/cleanup/run", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer admin",
+          "content-type": "application/json",
+          "idempotency-key": "cleanup-dry-run",
+        },
+        body: JSON.stringify({ dry_run: true }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ expired_artifact_ids: [] });
+    expect(puts).toHaveLength(0);
+  });
+
   it("renders public Agent View as HTML for browsers", async () => {
     const env: Env = {
       ALLOW_LEGACY_AGENT_VIEW_TOKENS: "true",
