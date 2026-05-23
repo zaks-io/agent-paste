@@ -12,6 +12,7 @@
     "bootstrap:preview": "node scripts/bootstrap-secrets.mjs preview",
     "bootstrap:production": "node scripts/bootstrap-secrets.mjs production",
     "bootstrap:live": "pnpm bootstrap:production",
+    "ci:check": "pnpm verify",
     "cli:test": "pnpm --filter agent-paste test",
     "deploy:preview": "pnpm migrate:preview && node scripts/deploy-preview.mjs preview",
     "deploy:production": "pnpm migrate:production && node scripts/deploy-preview.mjs production",
