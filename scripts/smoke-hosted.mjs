@@ -389,7 +389,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   const after = await listR2Keys(prefix);
   assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
 
-  const denyKey = await fetchDenylistKey(`artifact:${publishedArtifact.artifact_id}`);
+  const denyKey = await fetchDenylistKey(`ad:${publishedArtifact.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
 }
 
@@ -421,7 +421,7 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
   const after = await listR2Keys(prefix);
   assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
 
-  const denyKey = await fetchDenylistKey(`artifact:${expiryPublish.artifact_id}`);
+  const denyKey = await fetchDenylistKey(`ad:${expiryPublish.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");
 }
 

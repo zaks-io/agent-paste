@@ -219,7 +219,7 @@ async function assertBytesPurgedAfterDelete(published, apiUrl, token) {
   const deletedView = await fetch(published.view_url);
   assert(deletedView.status === 404, `deleted content URL returned ${deletedView.status}, expected 404`);
 
-  const denyKey = await fetchDenylistKey(apiUrl, token, `artifact:${published.artifact_id}`);
+  const denyKey = await fetchDenylistKey(apiUrl, token, `ad:${published.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
 }
 
@@ -264,7 +264,7 @@ async function assertBytesPurgedAfterExpiry(apiEnv, apiUrl, token) {
   const expiredView = await fetch(expiryPublish.view_url);
   assert(expiredView.status === 404, `expired content URL returned ${expiredView.status}, expected 404`);
 
-  const denyKey = await fetchDenylistKey(apiUrl, token, `artifact:${expiryPublish.artifact_id}`);
+  const denyKey = await fetchDenylistKey(apiUrl, token, `ad:${expiryPublish.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");
 }
 
