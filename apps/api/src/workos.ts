@@ -1,8 +1,10 @@
-import { createLocalJWKSet, type JSONWebKeySet, type JWTPayload, jwtVerify } from "jose";
+import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 
 export type WorkOsIdentity = {
   workos_user_id: string;
   email: string;
+  session_id?: string;
+  token_id?: string;
 };
 
 export type WorkOsVerificationOptions = {
@@ -21,8 +23,7 @@ type WorkOsUser = {
 
 const DEFAULT_WORKOS_API_BASE_URL = "https://api.workos.com";
 const DEFAULT_WORKOS_ISSUER = "https://api.workos.com";
-const jwksCache = new Map<string, { fetchedAt: number; set: JSONWebKeySet }>();
-const JWKS_CACHE_TTL_MS = 5 * 60 * 1000;
+const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export async function resolveWorkOsIdentity(
   bearerValue: string,
@@ -43,15 +44,20 @@ export async function resolveWorkOsIdentity(
     return null;
   }
 
-  return { workos_user_id: user.id, email: user.email };
+  return {
+    workos_user_id: user.id,
+    email: user.email,
+    ...(verified.sessionId ? { session_id: verified.sessionId } : {}),
+    ...(verified.tokenId ? { token_id: verified.tokenId } : {}),
+  };
 }
 
 export async function verifyWorkOsAccessToken(
   token: string,
   options: WorkOsVerificationOptions,
-): Promise<{ sub: string; payload: JWTPayload } | null> {
+): Promise<{ sub: string; payload: JWTPayload; sessionId?: string; tokenId?: string } | null> {
   try {
-    const jwks = createLocalJWKSet(await fetchWorkOsJwks(options));
+    const jwks = remoteWorkOsJwks(options);
     const { payload } = await jwtVerify(token, jwks, { algorithms: ["RS256"] });
     if (
       !payload.sub ||
@@ -63,7 +69,14 @@ export async function verifyWorkOsAccessToken(
     if (!clientIdMatches(payload, options.clientId, options.requireClientIdClaim === true)) {
       return null;
     }
-    return { sub: payload.sub, payload };
+    const sessionId = stringClaim(payload.sid);
+    const tokenId = stringClaim(payload.jti);
+    return {
+      sub: payload.sub,
+      payload,
+      ...(sessionId ? { sessionId } : {}),
+      ...(tokenId ? { tokenId } : {}),
+    };
   } catch {
     return null;
   }
@@ -96,22 +109,22 @@ function parseBearerToken(value: string): string | null {
   return match?.[1] ?? null;
 }
 
-async function fetchWorkOsJwks(options: WorkOsVerificationOptions): Promise<JSONWebKeySet> {
+function remoteWorkOsJwks(options: WorkOsVerificationOptions): ReturnType<typeof createRemoteJWKSet> {
   const url =
     options.jwksUrl ?? `${workOsBaseUrl(options.apiBaseUrl)}/sso/jwks/${encodeURIComponent(options.clientId)}`;
-  const cacheKey = `${url}:${options.apiKey}`;
-  const cached = jwksCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
-    return cached.set;
+  const authorization = `Bearer ${options.apiKey}`;
+  const cacheKey = `${url}:${authorization}`;
+  const cached = remoteJwksCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
-  const response = await fetch(url, { headers: { authorization: `Bearer ${options.apiKey}` } });
-  if (!response.ok) {
-    throw new Error("workos_jwks_unavailable");
-  }
-  const set = (await response.json()) as JSONWebKeySet;
-  jwksCache.set(cacheKey, { fetchedAt: Date.now(), set });
-  return set;
+  const remote = createRemoteJWKSet(new URL(url), {
+    cacheMaxAge: Infinity,
+    headers: { authorization },
+  });
+  remoteJwksCache.set(cacheKey, remote);
+  return remote;
 }
 
 function workOsBaseUrl(value: string | undefined): string {

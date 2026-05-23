@@ -80,11 +80,13 @@ describe("LocalRepository", () => {
     const first = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
       now: "2026-01-01T00:00:00.000Z",
     });
     const second = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "renamed@example.com",
+      idempotencyKey: "workos-jti:second",
       now: "2026-01-02T00:00:00.000Z",
     });
 
@@ -97,6 +99,29 @@ describe("LocalRepository", () => {
     expect(repo.workspaces.size).toBe(1);
     expect(repo.workspaceMembers.size).toBe(1);
     expect(repo.apiKeys.size).toBe(1);
+  });
+
+  it("resolves a web member actor without mutating login timestamps", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "renamed@example.com",
+    });
+
+    expect(actor).toMatchObject({
+      type: "member",
+      id: session.workspace_member.id,
+      workspace_id: session.workspace.id,
+      email: "user@example.com",
+    });
+    expect(repo.workspaceMembers.get(session.workspace_member.id)?.last_seen_at).toBe("2026-01-01T00:00:00.000Z");
   });
 
   it("rejects API-key actors on member-only web workspace reads", async () => {

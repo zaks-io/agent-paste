@@ -169,7 +169,7 @@ export class LocalRepository {
     };
   }
 
-  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+  async resolveWebMember(input: { workosUserId: string; email: string; idempotencyKey?: string; now?: string }) {
     const now = input.now ?? new Date().toISOString();
     const existing = [...this.workspaceMembers.values()].find((member) => member.workos_user_id === input.workosUserId);
     if (existing) {
@@ -226,13 +226,11 @@ export class LocalRepository {
     return this.webAuthResponse(member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string }) {
     const member = [...this.workspaceMembers.values()].find((entry) => entry.workos_user_id === input.workosUserId);
     if (!member) {
       return null;
     }
-    member.email = input.email;
-    member.last_seen_at = input.now ?? new Date().toISOString();
     return {
       type: "member" as const,
       id: member.id,

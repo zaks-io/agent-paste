@@ -230,95 +230,114 @@ export class PostgresRepository {
     });
   }
 
-  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+  async resolveWebMember(input: { workosUserId: string; email: string; idempotencyKey: string; now?: string }) {
     const now = input.now ?? new Date().toISOString();
-    return this.withScope(this.platformScope(), async (ctx) => {
-      const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
-      if (existing) {
-        const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
+    const existing = await this.withScope(this.platformScope(), (ctx) =>
+      workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId),
+    );
+    if (existing) {
+      return this.runAdminCommand(
+        { type: "system", id: "web-auth" },
+        "web.member.seen",
+        input.idempotencyKey,
+        existing.workspace_id,
+        now,
+        async (tx) => {
+          const ctx = withDrizzle(tx);
+          const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
+            email: input.email,
+            lastSeenAt: now,
+          });
+          return { result: await this.webAuthResponse(ctx, member ?? existing, null) };
+        },
+      );
+    }
+
+    return this.runAdminCommand(
+      { type: "system", id: "web-auth" },
+      "web.member.provision",
+      `workos-user:${input.workosUserId}`,
+      null,
+      now,
+      async (tx) => {
+        const ctx = withDrizzle(tx);
+        const workspace: Workspace = {
+          id: crypto.randomUUID(),
+          name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
+          contact_email: input.email,
+          created_at: now,
+          updated_at: now,
+        };
+        await workspaceQueries.insert(ctx.drizzle, workspace);
+
+        const member: WorkspaceMember = {
+          id: createId("mem"),
+          workspace_id: workspace.id,
+          workos_user_id: input.workosUserId,
           email: input.email,
-          lastSeenAt: now,
+          scopes: [...DEFAULT_MEMBER_SCOPES],
+          created_at: now,
+          last_seen_at: now,
+        };
+        await workspaceMemberQueries.insert(ctx.drizzle, member);
+
+        const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+        const apiKey: ApiKey = {
+          id: createId("key"),
+          workspace_id: workspace.id,
+          public_id: generated.publicId,
+          name: "Default",
+          secret_hmac: generated.secretHmac,
+          pepper_kid: 1,
+          scopes: ["publish", "read"],
+          revoked_at: null,
+          last_used_at: null,
+          created_at: now,
+        };
+        await apiKeyQueries.insert(ctx.drizzle, apiKey);
+        await operationEventQueries.insert(ctx.drizzle, {
+          actorType: "system",
+          actorId: "web-auth",
+          action: "workspace.created",
+          targetType: "workspace",
+          targetId: workspace.id,
+          workspaceId: workspace.id,
+          details: {},
+          occurredAt: now,
         });
-        return this.webAuthResponse(ctx, member ?? existing, null);
-      }
+        await operationEventQueries.insert(ctx.drizzle, {
+          actorType: "system",
+          actorId: "web-auth",
+          action: "api_key.created",
+          targetType: "api_key",
+          targetId: apiKey.id,
+          workspaceId: workspace.id,
+          details: { name: apiKey.name, public_id: apiKey.public_id },
+          occurredAt: now,
+        });
 
-      const workspace: Workspace = {
-        id: crypto.randomUUID(),
-        name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
-        contact_email: input.email,
-        created_at: now,
-        updated_at: now,
-      };
-      await workspaceQueries.insert(ctx.drizzle, workspace);
-
-      const member: WorkspaceMember = {
-        id: createId("mem"),
-        workspace_id: workspace.id,
-        workos_user_id: input.workosUserId,
-        email: input.email,
-        scopes: [...DEFAULT_MEMBER_SCOPES],
-        created_at: now,
-        last_seen_at: now,
-      };
-      await workspaceMemberQueries.insert(ctx.drizzle, member);
-
-      const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
-      const apiKey: ApiKey = {
-        id: createId("key"),
-        workspace_id: workspace.id,
-        public_id: generated.publicId,
-        name: "Default",
-        secret_hmac: generated.secretHmac,
-        pepper_kid: 1,
-        scopes: ["publish", "read"],
-        revoked_at: null,
-        last_used_at: null,
-        created_at: now,
-      };
-      await apiKeyQueries.insert(ctx.drizzle, apiKey);
-      await operationEventQueries.insert(ctx.drizzle, {
-        actorType: "system",
-        actorId: "web-auth",
-        action: "workspace.created",
-        targetType: "workspace",
-        targetId: workspace.id,
-        workspaceId: workspace.id,
-        details: {},
-        occurredAt: now,
-      });
-      await operationEventQueries.insert(ctx.drizzle, {
-        actorType: "system",
-        actorId: "web-auth",
-        action: "api_key.created",
-        targetType: "api_key",
-        targetId: apiKey.id,
-        workspaceId: workspace.id,
-        details: { name: apiKey.name, public_id: apiKey.public_id },
-        occurredAt: now,
-      });
-
-      return this.webAuthResponse(ctx, member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
-    });
+        return {
+          result: await this.webAuthResponse(ctx, member, {
+            api_key: toApiKeySummary(apiKey),
+            secret: generated.secret,
+          }),
+        };
+      },
+    );
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
-    const now = input.now ?? new Date().toISOString();
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string }) {
     return this.withScope(this.platformScope(), async (ctx) => {
       const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
       if (!existing) {
         return null;
       }
-      const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
-        email: input.email,
-        lastSeenAt: now,
-      });
-      const updated = member ?? existing;
       return {
         type: "member" as const,
-        id: updated.id,
-        workspace_id: updated.workspace_id,
-        email: updated.email,
-        scopes: updated.scopes,
+        id: existing.id,
+        workspace_id: existing.workspace_id,
+        email: existing.email,
+        scopes: existing.scopes,
       };
     });
   }

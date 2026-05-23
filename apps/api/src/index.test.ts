@@ -97,7 +97,9 @@ describe("api worker", () => {
           return null;
         },
         async verifyWebToken(token) {
-          return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com" } : null;
+          return token === "workos-ok"
+            ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" }
+            : null;
         },
       },
       DB: {
@@ -111,6 +113,7 @@ describe("api worker", () => {
           return null;
         },
         async resolveWebMember(input) {
+          expect(input.idempotencyKey).toBe("workos-jti:jti_1");
           return {
             workspace: {
               id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
