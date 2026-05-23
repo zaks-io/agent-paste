@@ -99,6 +99,27 @@ describe("LocalRepository", () => {
     expect(repo.apiKeys.size).toBe(1);
   });
 
+  it("rejects API-key actors on member-only web workspace reads", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+
+    await expect(repo.getWebWorkspace(actor)).rejects.toThrow("unexpected_actor_type:api_key");
+  });
+
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

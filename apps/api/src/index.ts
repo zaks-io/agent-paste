@@ -675,9 +675,11 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
     apiBaseUrl?: string;
     issuer?: string;
     jwksUrl?: string;
+    requireClientIdClaim?: boolean;
   } = {
     apiKey: env.WORKOS_API_KEY,
     clientId: env.WORKOS_CLIENT_ID,
+    requireClientIdClaim: true,
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
@@ -712,7 +714,7 @@ async function withWebMember(
     email: identity.email,
     now: new Date().toISOString(),
   });
-  if (!actor) {
+  if (!actor || actor.type !== "member" || !actor.workspace_id) {
     return errorResponse(context, "forbidden", 403);
   }
 

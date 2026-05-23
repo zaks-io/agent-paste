@@ -30,6 +30,13 @@ describe("WorkOS access-token verification", () => {
     await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
   });
 
+  it("rejects an aud-only JWT when strict client claims are required", async () => {
+    const fixture = await tokenFixture({ aud: clientId });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
   it("rejects a JWT with the wrong issuer", async () => {
     const fixture = await tokenFixture({ client_id: clientId, iss: "https://evil.example" });
     stubWorkOsFetch(fixture.publicJwk);
@@ -51,6 +58,17 @@ describe("WorkOS access-token verification", () => {
     await expect(resolveWorkOsIdentity("not-a-bearer-token", options())).resolves.toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it("returns null when the WorkOS user response cannot be parsed", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, {
+      userResponse: new Response("not-json", {
+        headers: { "content-type": "application/json" },
+      }),
+    });
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
 });
 
 function options() {
@@ -63,24 +81,27 @@ function options() {
   };
 }
 
-async function tokenFixture(input: { client_id?: string; iss?: string; expiresAt?: number }) {
+async function tokenFixture(input: { client_id?: string; iss?: string; expiresAt?: number; aud?: string }) {
   keyPairPromise ??= generateKeyPair("RS256");
   const { publicKey, privateKey } = await keyPairPromise;
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "test-key";
   publicJwk.alg = "RS256";
   const expiresAt = input.expiresAt ?? Math.floor(Date.now() / 1000) + 300;
-  const token = await new SignJWT(input.client_id ? { client_id: input.client_id } : {})
+  const jwt = new SignJWT(input.client_id ? { client_id: input.client_id } : {})
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuer(input.iss ?? issuer)
     .setSubject(subject)
     .setIssuedAt()
-    .setExpirationTime(expiresAt)
-    .sign(privateKey);
+    .setExpirationTime(expiresAt);
+  if (input.aud) {
+    jwt.setAudience(input.aud);
+  }
+  const token = await jwt.sign(privateKey);
   return { token, publicJwk };
 }
 
-function stubWorkOsFetch(publicJwk: JWK) {
+function stubWorkOsFetch(publicJwk: JWK, options: { userResponse?: Response } = {}) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string | URL | Request) => {
@@ -89,7 +110,7 @@ function stubWorkOsFetch(publicJwk: JWK) {
         return Response.json({ keys: [publicJwk] });
       }
       if (href.endsWith(`/user_management/users/${subject}`)) {
-        return Response.json({ id: subject, email: "user@example.com" });
+        return options.userResponse ?? Response.json({ id: subject, email: "user@example.com" });
       }
       return new Response("not found", { status: 404 });
     }),

@@ -73,18 +73,22 @@ export async function fetchWorkOsUser(
   workosUserId: string,
   options: Pick<WorkOsVerificationOptions, "apiBaseUrl" | "apiKey">,
 ): Promise<WorkOsUser | null> {
-  const response = await fetch(
-    `${workOsBaseUrl(options.apiBaseUrl)}/user_management/users/${encodeURIComponent(workosUserId)}`,
-    {
-      headers: { authorization: `Bearer ${options.apiKey}` },
-    },
-  );
-  if (!response.ok) {
+  try {
+    const response = await fetch(
+      `${workOsBaseUrl(options.apiBaseUrl)}/user_management/users/${encodeURIComponent(workosUserId)}`,
+      {
+        headers: { authorization: `Bearer ${options.apiKey}` },
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const value = await response.json();
+    const user = normalizeWorkOsUser(value);
+    return user?.id === workosUserId ? user : null;
+  } catch {
     return null;
   }
-  const value = await response.json();
-  const user = normalizeWorkOsUser(value);
-  return user?.id === workosUserId ? user : null;
 }
 
 function parseBearerToken(value: string): string | null {
@@ -127,10 +131,13 @@ function trimTrailingSlash(value: string): string {
 
 function clientIdMatches(payload: JWTPayload, clientId: string, requireClaim: boolean): boolean {
   const clientClaim = stringClaim(payload.client_id) ?? stringClaim(payload.azp);
-  const audience = payload.aud;
   if (clientClaim) {
     return clientClaim === clientId;
   }
+  if (requireClaim) {
+    return false;
+  }
+  const audience = payload.aud;
   if (typeof audience === "string") {
     return audience === clientId;
   }

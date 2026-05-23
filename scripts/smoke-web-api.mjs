@@ -4,6 +4,7 @@ import { createSign, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("..", import.meta.url);
 const apiPort = intEnv("AGENT_PASTE_WEB_SMOKE_API_PORT", 18887);
@@ -16,8 +17,8 @@ const workosBaseUrl = `http://127.0.0.1:${workosPort}`;
 const adminToken = process.env.AGENT_PASTE_ADMIN_TOKEN ?? "local-admin-token";
 const workosApiKey = "sk_test_local_web_smoke";
 const workosClientId = "client_local_web_smoke";
-const cliEntry = new URL("../apps/cli/dist/src/index.js", import.meta.url).pathname;
-const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
+const cliEntry = fileURLToPath(new URL("../apps/cli/dist/src/index.js", import.meta.url));
+const serverEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
 const keyId = "local-web-smoke-key";
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const publicJwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, use: "sig", alg: "RS256" };

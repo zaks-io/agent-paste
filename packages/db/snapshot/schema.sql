@@ -102,10 +102,10 @@ CREATE TABLE "workspace_members" (
 	"workspace_id" uuid NOT NULL,
 	"workos_user_id" text NOT NULL,
 	"email" text NOT NULL,
-	"scopes" jsonb NOT NULL,
+	"scopes" jsonb DEFAULT '["publish","read","admin"]'::jsonb NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"last_seen_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "workspace_members_workos_user_id_unique" UNIQUE("workos_user_id")
+	CONSTRAINT "workspace_members_workspace_workos_user_unique" UNIQUE("workspace_id","workos_user_id")
 );
 
 CREATE TABLE "workspaces" (
@@ -134,3 +134,4 @@ CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING bt
 CREATE INDEX "operation_events_workspace_occurred_idx" ON "operation_events" USING btree ("workspace_id","occurred_at");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
+CREATE INDEX "workspace_members_workos_user_idx" ON "workspace_members" USING btree ("workos_user_id");

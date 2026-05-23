@@ -27,13 +27,20 @@ export const workspaceMembers = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
-    workosUserId: text("workos_user_id").notNull().unique(),
+    workosUserId: text("workos_user_id").notNull(),
     email: text("email").notNull(),
-    scopes: jsonb("scopes").$type<Array<"publish" | "read" | "admin">>().notNull(),
+    scopes: jsonb("scopes")
+      .$type<Array<"publish" | "read" | "admin">>()
+      .notNull()
+      .default(["publish", "read", "admin"]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("workspace_members_workspace_idx").on(table.workspaceId)],
+  (table) => [
+    index("workspace_members_workspace_idx").on(table.workspaceId),
+    index("workspace_members_workos_user_idx").on(table.workosUserId),
+    unique("workspace_members_workspace_workos_user_unique").on(table.workspaceId, table.workosUserId),
+  ],
 );
 
 export const apiKeys = pgTable(

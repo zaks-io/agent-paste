@@ -243,6 +243,9 @@ export class LocalRepository {
   }
 
   async getWebWorkspace(actor: ApiActor) {
+    if (actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${actor.type}`);
+    }
     const member = this.mustWorkspaceMember(actor.id);
     return {
       workspace: toWorkspaceSummary(this.mustWorkspace(actor.workspace_id)),

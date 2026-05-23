@@ -324,6 +324,9 @@ export class PostgresRepository {
   }
 
   async getWebWorkspace(actor: ApiActor) {
+    if (actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${actor.type}`);
+    }
     return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
       const member = await this.mustWorkspaceMember(ctx, actor.id);
       const workspace = await this.mustWorkspace(ctx, member.workspace_id);

@@ -182,6 +182,37 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
   });
 
+  it("rejects non-member actors returned by web member resolution", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/workspace", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
   it("returns workspace-scoped dashboard artifacts for a valid WorkOS member", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
