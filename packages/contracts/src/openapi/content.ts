@@ -1,6 +1,6 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod.js";
-import { errorResponse } from "./responses.js";
+import { artifactRateLimitResponse, errorResponse } from "./responses.js";
 import { registerContentSchemas, requestIdHeader } from "./shared.js";
 
 const pathStringParam = (name: string, description: string) =>
@@ -38,6 +38,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
         },
       },
       "404": errorResponse,
+      "429": artifactRateLimitResponse,
     },
   });
 
@@ -53,6 +54,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
     responses: {
       "200": { description: "Artifact file metadata" },
       "404": errorResponse,
+      "429": artifactRateLimitResponse,
     },
   });
 

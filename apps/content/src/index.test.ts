@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest, signContentToken } from "./index.js";
 
 async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
@@ -60,6 +60,7 @@ describe("content worker", () => {
       },
       "secret",
     );
+    const rateLimitKeys: string[] = [];
     const env: Env = {
       CONTENT_SIGNING_SECRET: "secret",
       DENYLIST: {
@@ -76,15 +77,242 @@ describe("content worker", () => {
           };
         },
       },
+      ARTIFACT_RATE_LIMIT: {
+        async limit({ key }) {
+          rateLimitKeys.push(key);
+          return { success: true };
+        },
+      },
     };
 
     const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
 
     expect(response.status).toBe(200);
+    expect(rateLimitKeys).toEqual(["art_1"]);
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
+  });
+
+  it("serves signed HEAD metadata under the artifact read limit", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const rateLimitKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("HEAD should use R2 head when available");
+        },
+        async head(key) {
+          expect(key).toBe("artifacts/art_1/revisions/rev_1/files/index.html");
+          return {
+            body: null,
+            size: 11,
+          };
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit({ key }) {
+          rateLimitKeys.push(key);
+          return { success: true };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { method: "HEAD" }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(rateLimitKeys).toEqual(["art_1"]);
+    expect(response.headers.get("content-length")).toBe("11");
+    await expect(response.text()).resolves.toBe("");
+  });
+
+  it("returns rate_limited_artifact before reading R2 when the artifact limit is exceeded", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("should not read over-limit content");
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit({ key }) {
+          expect(key).toBe("art_1");
+          return { success: false };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { headers: { "x-request-id": "limit-req-12345" } }),
+      env,
+    );
+    const body = (await response.json()) as { error: { code: string; request_id: string } };
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    expect(response.headers.get("x-request-id")).toBe("limit-req-12345");
+    expect(body.error.code).toBe("rate_limited_artifact");
+    expect(body.error.request_id).toBe("limit-req-12345");
+  });
+
+  it("does not call the artifact limiter for invalid tokens or paths", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    let limitCalls = 0;
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("should not read invalid content");
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          limitCalls += 1;
+          return { success: true };
+        },
+      },
+    };
+
+    const invalidTokenResponse = await handleRequest(new Request("https://content.test/v/bogus.token/index.html"), env);
+    const invalidPathResponse = await handleRequest(new Request(`https://content.test/v/${token}/admin.html`), env);
+
+    expect(invalidTokenResponse.status).toBe(404);
+    expect(invalidPathResponse.status).toBe(404);
+    expect(limitCalls).toBe(0);
+  });
+
+  it("does not call the artifact limiter for denylisted artifacts or revisions", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    let limitCalls = 0;
+    const envForDenyKey = (denyKey: string): Env => ({
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get(key) {
+          return key === denyKey ? "1" : null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("should not read denied content");
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          limitCalls += 1;
+          return { success: true };
+        },
+      },
+    });
+
+    const artifactResponse = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`),
+      envForDenyKey("ad:art_1"),
+    );
+    const revisionResponse = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`),
+      envForDenyKey("rd:rev_1"),
+    );
+
+    expect(artifactResponse.status).toBe(404);
+    expect(revisionResponse.status).toBe(404);
+    expect(limitCalls).toBe(0);
+  });
+
+  it("allows the read and logs a warning when the artifact rate-limit binding fails", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return {
+            body: new Response("<h1>ok</h1>").body,
+            size: 11,
+          };
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          throw new Error("rate limit unavailable");
+        },
+      },
+    };
+
+    try {
+      const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe("<h1>ok</h1>");
+      expect(warn).toHaveBeenCalledWith("Rate limit artifact binding failed; allowing request.", expect.any(Error));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("checks ADR 0057 artifact and revision denylist keys without a token-hash key", async () => {

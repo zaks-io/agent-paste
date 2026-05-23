@@ -38,6 +38,7 @@
                   "not_authenticated",
                   "not_found",
                   "rate_limited_actor",
+                  "rate_limited_artifact",
                   "rate_limited_workspace",
                   "revision_size_cap_exceeded",
                   "storage_unavailable",
@@ -46,6 +47,40 @@
                   "upload_session_expired",
                   "upload_session_not_found",
                   "usage_policy_exceeded"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "docs": {
+                "type": "string",
+                "format": "uri"
+              },
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ArtifactRateLimitErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "rate_limited_artifact"
                 ]
               },
               "message": {
@@ -152,6 +187,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -183,6 +219,26 @@
                   "required": [
                     "error"
                   ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Artifact read rate limit exceeded. Error code is rate_limited_artifact.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRateLimitErrorEnvelope"
                 }
               }
             }
@@ -258,6 +314,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -289,6 +346,26 @@
                   "required": [
                     "error"
                   ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Artifact read rate limit exceeded. Error code is rate_limited_artifact.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRateLimitErrorEnvelope"
                 }
               }
             }
