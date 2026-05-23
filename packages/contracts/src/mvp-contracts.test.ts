@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AgentView, CreateUploadSessionRequest, mvpUsagePolicy, PublishResult, routeContracts } from "./index.js";
+import {
+  AgentView,
+  buildContentOpenApiDocument,
+  CreateUploadSessionRequest,
+  ErrorCode,
+  mvpUsagePolicy,
+  PublishResult,
+  routeContracts,
+} from "./index.js";
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -32,6 +40,17 @@ describe("MVP route registry", () => {
       "admin.cleanup.run",
       "admin.operationEvents.list",
     ]);
+  });
+
+  it("documents artifact-level content read throttling", () => {
+    const contentGet = routeContracts.find((route) => route.id === "content.get");
+    const contentOpenApi = JSON.stringify(buildContentOpenApiDocument());
+
+    expect(ErrorCode.options).toContain("rate_limited_artifact");
+    expect(contentGet?.errors).toContain("rate_limited_artifact");
+    expect(contentOpenApi).toContain('"429"');
+    expect(contentOpenApi).toContain("Retry-After");
+    expect(contentOpenApi).toContain("rate_limited_artifact");
   });
 });
 

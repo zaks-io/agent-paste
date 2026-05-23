@@ -7,6 +7,7 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
 export type DocCode =
   | "rate_limited_actor"
+  | "rate_limited_artifact"
   | "rate_limited_workspace"
   | "idempotency_in_flight"
   | "invalid_idempotency_key"
@@ -17,6 +18,7 @@ export type DocCode =
 
 const DOC_PATHS: Record<DocCode, string> = {
   rate_limited_actor: "/errors/rate_limited_actor",
+  rate_limited_artifact: "/errors/rate_limited_artifact",
   rate_limited_workspace: "/errors/rate_limited_workspace",
   idempotency_in_flight: "/errors/idempotency_in_flight",
   invalid_idempotency_key: "/errors/invalid_idempotency_key",

@@ -217,7 +217,7 @@ export const routeContracts = [
     scopes: [],
     idempotency: "none",
     responseSchema: "Response",
-    errors: ["not_found"],
+    errors: ["not_found", "rate_limited_artifact"],
   },
   {
     id: "admin.workspaces.create",
