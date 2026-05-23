@@ -11,7 +11,6 @@ const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () =
   if (!auth.user) return { redirectTo: "/api/auth/sign-in" as const };
   return {
     user: auth.user,
-    accessToken: auth.accessToken,
     isOperator: isOperator(getWebEnv(), auth.user.email),
   };
 });

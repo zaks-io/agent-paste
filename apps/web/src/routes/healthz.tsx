@@ -1,15 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getWebEnv } from "../server/runtime";
 
 const healthFn = createServerFn({ method: "GET" }).handler(async () => {
-  const env = getWebEnv();
-  return {
-    ok: true,
-    app: "web",
-    env: env.AGENT_PASTE_ENV,
-    api_base_url: env.API_BASE_URL,
-  };
+  return { ok: true, app: "web" };
 });
 
 export const Route = createFileRoute("/healthz")({

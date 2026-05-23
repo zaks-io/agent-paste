@@ -5,7 +5,8 @@ export const Route = createFileRoute("/api/auth/sign-in")({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
-        const returnPathname = new URL(request.url).searchParams.get("returnPathname");
+        const raw = new URL(request.url).searchParams.get("returnPathname");
+        const returnPathname = raw?.startsWith("/") && !raw.startsWith("//") ? raw : undefined;
         const url = await getSignInUrl(returnPathname ? { data: { returnPathname } } : undefined);
         return new Response(null, {
           status: 307,

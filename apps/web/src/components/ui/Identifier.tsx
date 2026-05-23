@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { truncateId } from "../../lib/format";
 
@@ -11,12 +11,24 @@ type Props = {
 
 export function Identifier({ value, truncate = true, className, label }: Props) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   const onClick = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      setTimeout(() => setCopied(false), 700);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setCopied(false);
+        timerRef.current = null;
+      }, 700);
     } catch {
       // clipboard may be unavailable (no user gesture / insecure context); fail silently
     }

@@ -31,7 +31,8 @@ export function formatRelativeTime(input: Date | string | number): string {
 export function formatBytes(bytes: number, fractionDigits = 1): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const exponent = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const raw = Math.floor(Math.log(Math.abs(bytes)) / Math.log(1024));
+  const exponent = Math.min(units.length - 1, Math.max(0, raw));
   const value = bytes / 1024 ** exponent;
   const formatted = exponent === 0 ? Math.round(value).toString() : value.toFixed(fractionDigits);
   return `${formatted} ${units[exponent]}`;

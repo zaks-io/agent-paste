@@ -7,7 +7,7 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 ## Stack
 
 - TanStack Start (file-based routes, server functions, SSR) on Cloudflare Workers via `@cloudflare/vite-plugin` (`viteEnvironment: { name: "ssr" }`).
-- WorkOS AuthKit via [`@workos/authkit-tanstack-react-start`](https://github.com/workos/authkit-tanstack-start). Middleware in `src/start.ts` validates and refreshes sessions on every request; route loaders call `getAuth()` (and our `getCurrentUser()` shim) to read the authenticated user.
+- WorkOS AuthKit via [`@workos/authkit-tanstack-react-start`](https://github.com/workos/authkit-tanstack-start). Middleware in `src/start.ts` validates and refreshes sessions on every request; route loaders call `getAuth()` directly to read the authenticated user.
 - Sealed `__agp_session` cookie owned by AuthKit (iron-session blob, HttpOnly, Secure, SameSite=Lax, no `Domain`). Cookie name is set via `WORKOS_COOKIE_NAME`. PKCE state lives in short-lived AuthKit-owned cookies cleared on callback.
 - Service binding `API` to `agent-paste-api-{preview,production}`; the WorkOS access token is forwarded as `Authorization: Bearer`.
 - Tailwind v4 with style-guide `@theme` tokens. Hand-rolled component primitives (no shadcn dependency at runtime — only the pattern).
@@ -19,9 +19,9 @@ Every spec route from `docs/specs/web.md` resolves. Loaders for `/v1/web/*` endp
 
 ```
 /                          → redirect by session
-/login                     server fn calls getSignInUrl()
-/logout                    loader calls signOut()
-/auth/callback             AuthKit handleCallbackRoute()
+/api/auth/sign-in          307 → WorkOS hosted flow
+/api/auth/sign-out         POST → signOut()
+/api/auth/callback         AuthKit handleCallbackRoute()
 /al/:publicId              Access Link viewer (no session imports, lint-enforced)
 /healthz                   JSON health
 /dashboard                 _authed
@@ -45,14 +45,14 @@ pnpm --filter @agent-paste/web dev   # http://localhost:5173
 ```
 WORKOS_CLIENT_ID=client_...
 WORKOS_API_KEY=sk_...
-WORKOS_REDIRECT_URI=http://localhost:5173/auth/callback
+WORKOS_REDIRECT_URI=http://localhost:5173/api/auth/callback
 WORKOS_COOKIE_PASSWORD=...        # at least 32 chars
 WORKOS_COOKIE_NAME=__agp_session
 WEB_BASE_URL=http://localhost:5173
 OPERATOR_EMAILS=isaac@isaacsuttell.com
 ```
 
-Without a WorkOS project provisioned, `/login` still redirects to the AuthKit hosted flow; the callback fails. Dashboard chrome and `EmptyState` rendering work without secrets.
+Without a WorkOS project provisioned, `/api/auth/sign-in` still redirects to the AuthKit hosted flow; the callback fails. Dashboard chrome and `EmptyState` rendering work without secrets.
 
 ## Scripts
 

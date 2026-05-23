@@ -160,10 +160,11 @@
   --color-destructive: hsl(var(--destructive));
   --color-info: hsl(var(--info));
 
-  --radius: var(--radius-md);
-  --radius-sm: var(--radius-sm);
-  --radius-lg: var(--radius-lg);
-  --radius-full: var(--radius-full);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
 }
 
 *,

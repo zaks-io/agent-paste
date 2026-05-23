@@ -43,22 +43,27 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { className, variant = "primary", size = "md", loading, children, disabled, ...rest },
+  { className, variant = "primary", size = "md", loading, children, disabled, type, ...rest },
   ref,
 ) {
   const isLink = variant === "link";
   return (
     <button
       ref={ref}
+      type={type ?? "button"}
       className={cn(BASE, VARIANTS[variant], !isLink && SIZES[size], className)}
       disabled={disabled || loading}
       data-loading={loading ? "true" : undefined}
+      aria-busy={loading ? true : undefined}
       {...rest}
     >
       {loading ? (
-        <span aria-hidden className="opacity-50">
-          ···
-        </span>
+        <>
+          <span aria-hidden className="opacity-50">
+            ···
+          </span>
+          <span className="sr-only">Loading</span>
+        </>
       ) : (
         children
       )}

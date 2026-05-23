@@ -4,7 +4,7 @@ import { env as cloudflareEnv } from "cloudflare:workers";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import type { WebEnv } from "./env";
 
-const REQUIRED_ENV_KEYS = [
+const REQUIRED_NON_EMPTY_ENV_KEYS = [
   "AGENT_PASTE_ENV",
   "API_BASE_URL",
   "WEB_BASE_URL",
@@ -14,12 +14,18 @@ const REQUIRED_ENV_KEYS = [
   "WORKOS_COOKIE_PASSWORD",
 ] as const satisfies ReadonlyArray<keyof WebEnv>;
 
+const REQUIRED_PRESENT_ENV_KEYS = ["OPERATOR_EMAILS"] as const satisfies ReadonlyArray<keyof WebEnv>;
+
 export function getWebEnv(): WebEnv {
   const env = cloudflareEnv as unknown as Record<string, unknown>;
-  const missing = REQUIRED_ENV_KEYS.filter((key) => {
+  const missing: string[] = [];
+  for (const key of REQUIRED_NON_EMPTY_ENV_KEYS) {
     const value = env[key];
-    return typeof value !== "string" || value.length === 0;
-  });
+    if (typeof value !== "string" || value.length === 0) missing.push(key);
+  }
+  for (const key of REQUIRED_PRESENT_ENV_KEYS) {
+    if (typeof env[key] !== "string") missing.push(key);
+  }
   if (missing.length > 0) {
     throw new Error(`web env missing required keys: ${missing.join(", ")}`);
   }

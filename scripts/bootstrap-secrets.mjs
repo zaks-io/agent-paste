@@ -190,7 +190,12 @@ function stringOption(argv, name) {
     return inline.slice(name.length + 1);
   }
   const index = argv.indexOf(name);
-  return index === -1 ? undefined : argv[index + 1];
+  if (index === -1) return undefined;
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    throw new Error(`Missing value for ${name}`);
+  }
+  return value;
 }
 
 function secretBytes(byteLength = 48) {

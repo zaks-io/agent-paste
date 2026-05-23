@@ -31,4 +31,8 @@ describe("formatBytes", () => {
   it("scales into megabytes", () => {
     expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MB");
   });
+
+  it("clamps sub-byte input to the bytes unit", () => {
+    expect(formatBytes(0.5)).toBe("1 B");
+  });
 });

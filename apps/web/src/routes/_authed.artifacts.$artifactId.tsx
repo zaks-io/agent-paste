@@ -18,7 +18,7 @@ const getArtifactFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const auth = await getAuth();
     if (!auth.user) return { data: null, empty: true, error: null };
-    return apiFetchOrEmpty<ArtifactDetail>(`/v1/web/artifacts/${data.artifactId}`, {
+    return apiFetchOrEmpty<ArtifactDetail>(`/v1/web/artifacts/${encodeURIComponent(data.artifactId)}`, {
       accessToken: auth.accessToken,
     });
   });

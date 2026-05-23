@@ -7,6 +7,17 @@ type ResolveResult =
   | { kind: "not_found" }
   | { kind: "resolved"; render_mode: string; iframe_src?: string; title?: string };
 
+type ResolveBody = { render_mode: string; iframe_src?: string; title?: string };
+
+function isResolveBody(value: unknown): value is ResolveBody {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (typeof v.render_mode !== "string") return false;
+  if (v.iframe_src !== undefined && typeof v.iframe_src !== "string") return false;
+  if (v.title !== undefined && typeof v.title !== "string") return false;
+  return true;
+}
+
 export const Route = createFileRoute("/al/$publicId")({
   component: AccessLinkViewer,
   head: () => ({
@@ -38,11 +49,11 @@ function AccessLinkViewer() {
           setState({ kind: "not_found" });
           return;
         }
-        const body = (await res.json()) as {
-          render_mode: string;
-          iframe_src?: string;
-          title?: string;
-        };
+        const body = (await res.json()) as unknown;
+        if (!isResolveBody(body)) {
+          setState({ kind: "not_found" });
+          return;
+        }
         const resolved: ResolveResult = {
           kind: "resolved",
           render_mode: body.render_mode,
