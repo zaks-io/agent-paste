@@ -203,7 +203,7 @@ function createApiDatabase(repo, denylistNamespace) {
     getWebSettings: repo.getWebSettings.bind(repo),
     async deleteArtifact(input) {
       const result = await repo.deleteArtifact(input);
-      await denylistNamespace.put(`artifact:${input.artifactId}`, JSON.stringify({ reason: "admin_delete" }));
+      await denylistNamespace.put(`ad:${input.artifactId}`, JSON.stringify({ reason: "deletion" }));
       return result;
     },
     async runCleanup(input) {
@@ -211,7 +211,7 @@ function createApiDatabase(repo, denylistNamespace) {
       if (!input.dryRun) {
         for (const artifact of repo.artifacts.values()) {
           if (artifact.status !== "active") {
-            await denylistNamespace.put(`artifact:${artifact.id}`, JSON.stringify({ reason: artifact.status }));
+            await denylistNamespace.put(`ad:${artifact.id}`, JSON.stringify({ reason: "retention" }));
           }
         }
       }
