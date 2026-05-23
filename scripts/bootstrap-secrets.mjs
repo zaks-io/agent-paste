@@ -28,7 +28,13 @@ const secrets = {
 const workerSecrets = [
   {
     app: "api",
-    names: ["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH", "OPERATOR_EMAILS"],
+    names: [
+      "CONTENT_SIGNING_SECRET",
+      "API_KEY_PEPPER_V1",
+      "ADMIN_TOKEN_HASH",
+      "OPERATOR_EMAILS",
+      ...(options.skipWeb ? [] : ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"]),
+    ],
   },
   { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
   { app: "content", names: ["CONTENT_SIGNING_SECRET"] },

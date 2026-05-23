@@ -193,6 +193,14 @@ function createApiDatabase(repo, denylistNamespace) {
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
     listOperationEvents: repo.listOperationEvents.bind(repo),
     forceExpireArtifact: repo.forceExpireArtifact.bind(repo),
+    resolveWebMember: repo.resolveWebMember.bind(repo),
+    getWebMemberByWorkOsUserId: repo.getWebMemberByWorkOsUserId.bind(repo),
+    getWebWorkspace: repo.getWebWorkspace.bind(repo),
+    listWebArtifacts: repo.listWebArtifacts.bind(repo),
+    getWebArtifact: repo.getWebArtifact.bind(repo),
+    listWebApiKeys: repo.listWebApiKeys.bind(repo),
+    listWebAuditEvents: repo.listWebAuditEvents.bind(repo),
+    getWebSettings: repo.getWebSettings.bind(repo),
     async deleteArtifact(input) {
       const result = await repo.deleteArtifact(input);
       await denylistNamespace.put(`artifact:${input.artifactId}`, JSON.stringify({ reason: "admin_delete" }));
@@ -233,6 +241,11 @@ const apiEnv = {
   CONTENT_SIGNING_SECRET: contentSecret,
   CLEANUP_BATCH_SIZE: "100",
   AGENT_PASTE_ENV: "dev",
+  WORKOS_API_KEY: process.env.WORKOS_API_KEY,
+  WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID,
+  WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
+  WORKOS_ISSUER: process.env.WORKOS_ISSUER,
+  WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
 };
 const uploadEnv = {
   AUTH: auth,

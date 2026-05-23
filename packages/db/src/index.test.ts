@@ -75,6 +75,51 @@ describe("LocalRepository", () => {
     expect(repo.apiKeys.size).toBe(1);
   });
 
+  it("provisions exactly one web workspace, member, and default key", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const first = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const second = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "renamed@example.com",
+      now: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(first.default_api_key?.secret).toMatch(/^ap_pk_/);
+    expect(second.default_api_key).toBeNull();
+    expect(second.workspace.id).toBe(first.workspace.id);
+    expect(second.workspace_member.id).toBe(first.workspace_member.id);
+    expect(second.workspace_member.email).toBe("renamed@example.com");
+    expect(second.workspace_member.last_seen_at).toBe("2026-01-02T00:00:00.000Z");
+    expect(repo.workspaces.size).toBe(1);
+    expect(repo.workspaceMembers.size).toBe(1);
+    expect(repo.apiKeys.size).toBe(1);
+  });
+
+  it("rejects API-key actors on member-only web workspace reads", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+
+    await expect(repo.getWebWorkspace(actor)).rejects.toThrow("unexpected_actor_type:api_key");
+  });
+
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

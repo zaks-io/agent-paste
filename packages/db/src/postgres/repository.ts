@@ -10,6 +10,7 @@ import {
   operationEventQueries,
   uploadSessionFileQueries,
   uploadSessionQueries,
+  workspaceMemberQueries,
   workspaceQueries,
 } from "../queries/index.js";
 import {
@@ -23,21 +24,28 @@ import type {
   AdminActor,
   ApiActor,
   ApiKey,
+  ApiKeyActor,
   Artifact,
+  OperationEvent,
   RepositoryOptions,
   SqlExecutor,
   SqlValue,
   StoredFile,
   UploadSession,
   Workspace,
+  WorkspaceMember,
 } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import { type DrizzleConnection, type DrizzleDb, drizzleForExecutor } from "./drizzle.js";
 import { type RlsScope, rlsExecutor } from "./rls.js";
 
 type HandlerContext = { sql: SqlExecutor; drizzle: DrizzleDb };
+const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
 
 function commandActor(actor: ApiActor) {
+  if (actor.type !== "api_key") {
+    throw new Error(`unexpected_actor_type:${actor.type}`);
+  }
   return { type: "api_key" as const, id: actor.id, workspaceId: actor.workspace_id };
 }
 
@@ -59,7 +67,6 @@ function isDrizzleConnection(value: SqlExecutor | DrizzleConnection): value is D
 
 export class PostgresRepository {
   private readonly executor: SqlExecutor;
-  private readonly drizzleDb: DrizzleDb;
 
   constructor(
     connection: SqlExecutor | DrizzleConnection,
@@ -67,14 +74,12 @@ export class PostgresRepository {
   ) {
     if (isDrizzleConnection(connection)) {
       this.executor = connection.sql;
-      this.drizzleDb = connection.drizzle;
     } else {
       this.executor = connection;
       const bound = drizzleForExecutor(connection);
       if (!bound) {
         throw new Error("executor_missing_drizzle_binding");
       }
-      this.drizzleDb = bound;
     }
   }
 
@@ -191,7 +196,7 @@ export class PostgresRepository {
     );
   }
 
-  async verifyApiKey(apiKeySecret: string): Promise<ApiActor | null> {
+  async verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null> {
     const parsed = parseApiKey(apiKeySecret);
     if (!parsed) {
       return null;
@@ -221,6 +226,172 @@ export class PostgresRepository {
         workspace: toWorkspaceSummary(workspace),
         scopes: apiKey.scopes,
         usage_policy: USAGE_POLICY,
+      };
+    });
+  }
+
+  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
+      if (existing) {
+        const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
+          email: input.email,
+          lastSeenAt: now,
+        });
+        return this.webAuthResponse(ctx, member ?? existing, null);
+      }
+
+      const workspace: Workspace = {
+        id: crypto.randomUUID(),
+        name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
+        contact_email: input.email,
+        created_at: now,
+        updated_at: now,
+      };
+      await workspaceQueries.insert(ctx.drizzle, workspace);
+
+      const member: WorkspaceMember = {
+        id: createId("mem"),
+        workspace_id: workspace.id,
+        workos_user_id: input.workosUserId,
+        email: input.email,
+        scopes: [...DEFAULT_MEMBER_SCOPES],
+        created_at: now,
+        last_seen_at: now,
+      };
+      await workspaceMemberQueries.insert(ctx.drizzle, member);
+
+      const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+      const apiKey: ApiKey = {
+        id: createId("key"),
+        workspace_id: workspace.id,
+        public_id: generated.publicId,
+        name: "Default",
+        secret_hmac: generated.secretHmac,
+        pepper_kid: 1,
+        scopes: ["publish", "read"],
+        revoked_at: null,
+        last_used_at: null,
+        created_at: now,
+      };
+      await apiKeyQueries.insert(ctx.drizzle, apiKey);
+      await operationEventQueries.insert(ctx.drizzle, {
+        actorType: "system",
+        actorId: "web-auth",
+        action: "workspace.created",
+        targetType: "workspace",
+        targetId: workspace.id,
+        workspaceId: workspace.id,
+        details: {},
+        occurredAt: now,
+      });
+      await operationEventQueries.insert(ctx.drizzle, {
+        actorType: "system",
+        actorId: "web-auth",
+        action: "api_key.created",
+        targetType: "api_key",
+        targetId: apiKey.id,
+        workspaceId: workspace.id,
+        details: { name: apiKey.name, public_id: apiKey.public_id },
+        occurredAt: now,
+      });
+
+      return this.webAuthResponse(ctx, member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
+    });
+  }
+
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.withScope(this.platformScope(), async (ctx) => {
+      const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
+      if (!existing) {
+        return null;
+      }
+      const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
+        email: input.email,
+        lastSeenAt: now,
+      });
+      const updated = member ?? existing;
+      return {
+        type: "member" as const,
+        id: updated.id,
+        workspace_id: updated.workspace_id,
+        email: updated.email,
+        scopes: updated.scopes,
+      };
+    });
+  }
+
+  async getWebWorkspace(actor: ApiActor) {
+    if (actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${actor.type}`);
+    }
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const member = await this.mustWorkspaceMember(ctx, actor.id);
+      const workspace = await this.mustWorkspace(ctx, member.workspace_id);
+      return {
+        workspace: toWorkspaceSummary(workspace),
+        workspace_member: this.toWorkspaceMemberSummary(member),
+        usage_policy: USAGE_POLICY,
+        default_key_first_run: false,
+      };
+    });
+  }
+
+  async listWebArtifacts(actor: ApiActor) {
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const rows = await artifactQueries.listFiltered(ctx.drizzle, actor.workspace_id);
+      return { items: rows.map(toWebArtifactRow), page_info: { next_cursor: null, has_more: false } };
+    });
+  }
+
+  async getWebArtifact(actor: ApiActor, artifactId: string) {
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const artifact = await artifactQueries.findById(ctx.drizzle, artifactId, actor.workspace_id);
+      if (!artifact) {
+        return null;
+      }
+      return {
+        ...toWebArtifactRow(artifact),
+        entrypoint: artifact.entrypoint,
+        file_count: artifact.file_count,
+        size_bytes: artifact.size_bytes,
+      };
+    });
+  }
+
+  async listWebApiKeys(actor: ApiActor) {
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const rows = await apiKeyQueries.listForWorkspace(ctx.drizzle, actor.workspace_id);
+      return {
+        items: rows.map((apiKey) => ({
+          ...toApiKeySummary(apiKey),
+          expires_at: null,
+          revoked: apiKey.revoked_at !== null,
+        })),
+        page_info: { next_cursor: null, has_more: false },
+      };
+    });
+  }
+
+  async listWebAuditEvents(actor: ApiActor) {
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const rows = await operationEventQueries.listForWorkspace(ctx.drizzle, actor.workspace_id);
+      return { items: rows.map(toWebAuditRow), page_info: { next_cursor: null, has_more: false } };
+    });
+  }
+
+  async getWebSettings(actor: ApiActor) {
+    return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
+      const workspace = await this.mustWorkspace(ctx, actor.workspace_id);
+      return {
+        workspace_name: workspace.name,
+        auto_deletion_days: Math.floor(USAGE_POLICY.default_ttl_seconds / (24 * 60 * 60)),
+        usage_policy: {
+          artifacts_per_day: 0,
+          bytes_per_day: USAGE_POLICY.artifact_size_cap_bytes,
+        },
       };
     });
   }
@@ -614,6 +785,85 @@ export class PostgresRepository {
     }
     return apiKey;
   }
+
+  private async mustWorkspaceMember(ctx: HandlerContext, id: string) {
+    const member = await workspaceMemberQueries.findById(ctx.drizzle, id);
+    if (!member) {
+      throw new Error("workspace_member_not_found");
+    }
+    return member;
+  }
+
+  private toWorkspaceMemberSummary(member: WorkspaceMember) {
+    return {
+      id: member.id,
+      workspace_id: member.workspace_id,
+      email: member.email,
+      scopes: member.scopes,
+      created_at: member.created_at,
+      last_seen_at: member.last_seen_at,
+    };
+  }
+
+  private async webAuthResponse(
+    ctx: HandlerContext,
+    member: WorkspaceMember,
+    defaultApiKey: { api_key: ReturnType<typeof toApiKeySummary>; secret: string } | null,
+  ) {
+    const workspace = await this.mustWorkspace(ctx, member.workspace_id);
+    return {
+      workspace: toWorkspaceSummary(workspace),
+      workspace_member: this.toWorkspaceMemberSummary(member),
+      scopes: member.scopes,
+      default_api_key: defaultApiKey,
+    };
+  }
+}
+
+function toWebArtifactRow(artifact: Artifact) {
+  return {
+    id: artifact.id,
+    title: artifact.title,
+    status: webArtifactStatus(artifact),
+    latest_revision_id: artifact.revision_id,
+    pinned: false,
+    lockdown: false,
+    last_published_at: artifact.created_at,
+    auto_delete_at: artifact.status === "deleted" ? null : artifact.expires_at,
+  };
+}
+
+function webArtifactStatus(artifact: Artifact): "Published" | "Deleted" | "Expired" {
+  if (artifact.status === "deleted") {
+    return "Deleted";
+  }
+  if (artifact.status === "expired") {
+    return "Expired";
+  }
+  return "Published";
+}
+
+function toWebAuditRow(event: OperationEvent) {
+  return {
+    id: event.id,
+    time: event.occurred_at,
+    actor: `${event.actor_type}:${event.actor_id ?? "unknown"}`,
+    action: event.action,
+    target: `${event.target_type}:${event.target_id}`,
+    change_summary: summarizeEventDetails(event.details),
+    request_id: event.request_id ?? "",
+  };
+}
+
+function summarizeEventDetails(details: Record<string, unknown>): string {
+  const keys = Object.keys(details);
+  if (keys.length === 0) {
+    return "";
+  }
+  return keys
+    .sort()
+    .map((key) => `${key}=${String(details[key])}`)
+    .join(", ");
 }
 
 // Re-export type for legacy SqlValue users

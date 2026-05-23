@@ -201,14 +201,14 @@ function workspacePath(path) {
 }
 
 function createPrSecrets() {
-  const apiKeyPepper = process.env.PREVIEW_API_KEY_PEPPER_V1 ?? secretBytes();
+  const apiKeyPepper = process.env.PREVIEW_API_KEY_PEPPER_V1 ?? prPreviewSecret("api-key-pepper");
   const adminToken =
     process.env.AGENT_PASTE_PR_ADMIN_TOKEN ??
     process.env.AGENT_PASTE_PREVIEW_ADMIN_TOKEN ??
-    `ap_admin_${secretBytes(32)}`;
+    `ap_admin_${prPreviewSecret("admin-token", 32)}`;
   const values = {
-    CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? secretBytes(),
-    UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? secretBytes(),
+    CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? prPreviewSecret("content-signing"),
+    UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? prPreviewSecret("upload-signing"),
     API_KEY_PEPPER_V1: apiKeyPepper,
     ADMIN_TOKEN: adminToken,
     ADMIN_TOKEN_HASH: process.env.PREVIEW_ADMIN_TOKEN_HASH ?? hmacBase64Url(adminToken, apiKeyPepper),
@@ -220,6 +220,18 @@ function createPrSecrets() {
     }
   }
   return values;
+}
+
+function prPreviewSecret(label, byteLength = 48) {
+  const seed = process.env.PR_PREVIEW_SECRET_SEED;
+  if (!seed) {
+    return secretBytes(byteLength);
+  }
+  const encodedLength = Math.ceil((byteLength * 4) / 3);
+  return createHmac("sha512", seed)
+    .update(`agent-paste:pr-preview:${prNumber}:${label}`)
+    .digest("base64url")
+    .slice(0, encodedLength);
 }
 
 function secretBytes(byteLength = 48) {

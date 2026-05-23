@@ -16,7 +16,8 @@
     "API_BASE_URL": "http://127.0.0.1:8787",
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
     "CLEANUP_BATCH_SIZE": "100",
-    "DOCS_BASE_URL": ""
+    "DOCS_BASE_URL": "",
+    "WORKOS_CLIENT_ID": ""
   },
   "r2_buckets": [
     {
@@ -65,7 +66,8 @@
         "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "preview",
-        "DOCS_BASE_URL": ""
+        "DOCS_BASE_URL": "",
+        "WORKOS_CLIENT_ID": ""
       },
       "hyperdrive": [
         {
@@ -119,7 +121,8 @@
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "production",
-        "DOCS_BASE_URL": ""
+        "DOCS_BASE_URL": "",
+        "WORKOS_CLIENT_ID": ""
       },
       "hyperdrive": [
         {

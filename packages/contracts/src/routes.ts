@@ -7,6 +7,7 @@ export type AuthRequirement =
   | "none"
   | "api_key"
   | "admin_token"
+  | "workos_access_token"
   | "signed_agent_view_token"
   | "signed_upload_url"
   | "signed_content_token";
@@ -39,6 +40,8 @@ const adminMutationErrors = [
   "idempotency_in_flight",
   "invalid_request",
 ] as const;
+const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"] as const;
+const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
 
 export const routeContracts = [
   {
@@ -73,6 +76,83 @@ export const routeContracts = [
     idempotency: "none",
     responseSchema: "AgentView",
     errors: ["not_found", "database_unavailable"],
+  },
+  {
+    id: "web.auth.callback",
+    app: "api",
+    method: "POST",
+    path: "/v1/auth/web/callback",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "WebAuthCallbackResponse",
+    errors: webMutationErrors,
+  },
+  {
+    id: "web.workspace.get",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/workspace",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "WebWorkspaceResponse",
+    errors: webReadErrors,
+  },
+  {
+    id: "web.artifacts.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/artifacts",
+    auth: "workos_access_token",
+    scopes: ["read"],
+    idempotency: "none",
+    responseSchema: "WebArtifactListResponse",
+    errors: webReadErrors,
+  },
+  {
+    id: "web.artifacts.get",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/artifacts/{artifact_id}",
+    auth: "workos_access_token",
+    scopes: ["read"],
+    idempotency: "none",
+    responseSchema: "WebArtifactDetailResponse",
+    errors: [...webReadErrors, "artifact_not_found"],
+  },
+  {
+    id: "web.apiKeys.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/keys",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "none",
+    responseSchema: "WebApiKeyListResponse",
+    errors: webReadErrors,
+  },
+  {
+    id: "web.audit.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/audit",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "none",
+    responseSchema: "WebAuditListResponse",
+    errors: webReadErrors,
+  },
+  {
+    id: "web.settings.get",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/settings",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "none",
+    responseSchema: "WebSettingsResponse",
+    errors: webReadErrors,
   },
   {
     id: "uploadSessions.create",

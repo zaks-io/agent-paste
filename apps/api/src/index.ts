@@ -12,6 +12,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
+import { resolveWorkOsIdentity, type WorkOsIdentity } from "./workos.js";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -23,6 +24,7 @@ export type ApiActor = {
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiActor | null>;
   verifyAdminToken?(token: string): Promise<ApiActor | null>;
+  verifyWebToken?(token: string): Promise<WorkOsIdentity | null>;
 };
 
 type AdminActor = { type: "admin" | "system"; id: string };
@@ -36,6 +38,14 @@ export type ApiDatabase = {
     contentBaseUrl: string;
   }): Promise<unknown | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<unknown | null>;
+  resolveWebMember?(input: { workosUserId: string; email: string; now?: string }): Promise<unknown>;
+  getWebMemberByWorkOsUserId?(input: { workosUserId: string; email: string; now?: string }): Promise<ApiActor | null>;
+  getWebWorkspace?(actor: ApiActor): Promise<unknown>;
+  listWebArtifacts?(actor: ApiActor): Promise<unknown>;
+  getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
+  listWebApiKeys?(actor: ApiActor): Promise<unknown>;
+  listWebAuditEvents?(actor: ApiActor): Promise<unknown>;
+  getWebSettings?(actor: ApiActor): Promise<unknown>;
   getAdminWhoami?(actor: ApiActor): Promise<unknown>;
   createWorkspace?(input: {
     actor: AdminActor;
@@ -107,6 +117,11 @@ export type Env = {
   ALLOW_LEGACY_AGENT_VIEW_TOKENS?: string;
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
+  WORKOS_API_KEY?: string;
+  WORKOS_CLIENT_ID?: string;
+  WORKOS_API_BASE_URL?: string;
+  WORKOS_ISSUER?: string;
+  WORKOS_JWKS_URL?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
@@ -149,6 +164,15 @@ app.get("/openapi.json", (context) =>
 app.get("/v1/whoami", (context) => whoami(context));
 app.get("/v1/usage-policy", (context) => getUsagePolicy(context));
 app.get("/v1/public/agent-view/:token", (context) => publicAgentView(context, { token: context.req.param("token") }));
+app.post("/v1/auth/web/callback", (context) => webAuthCallback(context));
+app.get("/v1/web/workspace", (context) => webWorkspace(context));
+app.get("/v1/web/artifacts", (context) => webArtifacts(context));
+app.get("/v1/web/artifacts/:artifactId", (context) =>
+  webArtifactDetail(context, { artifactId: context.req.param("artifactId") }),
+);
+app.get("/v1/web/keys", (context) => webApiKeys(context));
+app.get("/v1/web/audit", (context) => webAudit(context));
+app.get("/v1/web/settings", (context) => webSettings(context));
 app.get("/v1/artifacts/:artifactId/agent-view", (context) =>
   authenticatedAgentView(context, { artifactId: context.req.param("artifactId") }),
 );
@@ -287,6 +311,75 @@ async function publicAgentView(context: AppContext, params: RouteParams): Promis
   return wantsHtml(context.req.raw) ? htmlAgentViewResponse(context, signedView) : jsonResponse(context, signedView);
 }
 
+async function webAuthCallback(context: AppContext): Promise<Response> {
+  const identity = await authenticateWebIdentity(context.req.raw, context.env);
+  if (!identity) {
+    return errorResponse(context, "not_authenticated", 401);
+  }
+  const db = apiDatabase(context.env);
+  if (!db?.resolveWebMember) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  return jsonResponse(
+    context,
+    await db.resolveWebMember({
+      workosUserId: identity.workos_user_id,
+      email: identity.email,
+      now: new Date().toISOString(),
+    }),
+  );
+}
+
+async function webWorkspace(context: AppContext): Promise<Response> {
+  return withWebMember(context, [], async (db, actor) =>
+    db.getWebWorkspace
+      ? jsonResponse(context, await db.getWebWorkspace(actor))
+      : errorResponse(context, "database_unavailable", 503),
+  );
+}
+
+async function webArtifacts(context: AppContext): Promise<Response> {
+  return withWebMember(context, ["read"], async (db, actor) =>
+    db.listWebArtifacts
+      ? jsonResponse(context, await db.listWebArtifacts(actor))
+      : errorResponse(context, "database_unavailable", 503),
+  );
+}
+
+async function webArtifactDetail(context: AppContext, params: RouteParams): Promise<Response> {
+  return withWebMember(context, ["read"], async (db, actor) => {
+    if (!db.getWebArtifact) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
+    return detail ? jsonResponse(context, detail) : errorResponse(context, "artifact_not_found", 404);
+  });
+}
+
+async function webApiKeys(context: AppContext): Promise<Response> {
+  return withWebMember(context, ["admin"], async (db, actor) =>
+    db.listWebApiKeys
+      ? jsonResponse(context, await db.listWebApiKeys(actor))
+      : errorResponse(context, "database_unavailable", 503),
+  );
+}
+
+async function webAudit(context: AppContext): Promise<Response> {
+  return withWebMember(context, ["admin"], async (db, actor) =>
+    db.listWebAuditEvents
+      ? jsonResponse(context, await db.listWebAuditEvents(actor))
+      : errorResponse(context, "database_unavailable", 503),
+  );
+}
+
+async function webSettings(context: AppContext): Promise<Response> {
+  return withWebMember(context, ["admin"], async (db, actor) =>
+    db.getWebSettings
+      ? jsonResponse(context, await db.getWebSettings(actor))
+      : errorResponse(context, "database_unavailable", 503),
+  );
+}
+
 async function adminWhoami(context: AppContext): Promise<Response> {
   const env = context.env;
   const actor = await authenticateAdmin(context.req.raw, env);
@@ -342,6 +435,7 @@ async function createWorkspace(context: AppContext): Promise<Response> {
   if (!db?.createWorkspace) {
     return errorResponse(context, "database_unavailable", 503);
   }
+  const dbWithCreateWorkspace = db as ApiDatabase & Required<Pick<ApiDatabase, "createWorkspace">>;
   const body = await readJsonObject(request);
   if (typeof body.email !== "string") {
     return errorResponse(context, "invalid_request", 400, "email is required");
@@ -355,7 +449,7 @@ async function createWorkspace(context: AppContext): Promise<Response> {
   if (typeof body.name === "string") {
     input.name = body.name;
   }
-  return runIdempotent(context, () => db.createWorkspace!(input), 201);
+  return runIdempotent(context, () => dbWithCreateWorkspace.createWorkspace(input), 201);
 }
 
 async function listWorkspaces(context: AppContext): Promise<Response> {
@@ -385,6 +479,7 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
   if (!db?.createApiKey) {
     return errorResponse(context, "database_unavailable", 503);
   }
+  const dbWithCreateApiKey = db as ApiDatabase & Required<Pick<ApiDatabase, "createApiKey">>;
   const body = await readJsonObject(request);
   if (typeof body.name !== "string") {
     return errorResponse(context, "invalid_request", 400, "name is required");
@@ -392,7 +487,7 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
   return runIdempotent(
     context,
     () =>
-      db.createApiKey!({
+      dbWithCreateApiKey.createApiKey({
         actor: adminActor(actor),
         idempotencyKey,
         workspaceId: params.workspaceId ?? "",
@@ -417,8 +512,9 @@ async function revokeApiKey(context: AppContext, params: RouteParams): Promise<R
   if (!db?.revokeApiKey) {
     return errorResponse(context, "database_unavailable", 503);
   }
+  const dbWithRevokeApiKey = db as ApiDatabase & Required<Pick<ApiDatabase, "revokeApiKey">>;
   return runIdempotent(context, () =>
-    db.revokeApiKey!({
+    dbWithRevokeApiKey.revokeApiKey({
       actor: adminActor(actor),
       idempotencyKey,
       apiKeyId: params.apiKeyId ?? "",
@@ -473,8 +569,9 @@ async function deleteArtifact(context: AppContext, params: RouteParams): Promise
   if (!db?.deleteArtifact) {
     return errorResponse(context, "database_unavailable", 503);
   }
+  const dbWithDeleteArtifact = db as ApiDatabase & Required<Pick<ApiDatabase, "deleteArtifact">>;
   return runIdempotent(context, async () => {
-    const result = await db.deleteArtifact!({
+    const result = await dbWithDeleteArtifact.deleteArtifact({
       actor: adminActor(actor),
       idempotencyKey,
       artifactId,
@@ -556,6 +653,88 @@ async function authenticateAdmin(request: Request, env: Env): Promise<ApiActor |
   }
 
   return env.ADMIN_TOKEN && constantTimeEqual(token, env.ADMIN_TOKEN) ? { type: "admin", id: "operator" } : null;
+}
+
+async function authenticateWebIdentity(request: Request, env: Env): Promise<WorkOsIdentity | null> {
+  const token = bearerToken(request);
+  if (!token) {
+    return null;
+  }
+
+  if (env.AUTH?.verifyWebToken) {
+    return env.AUTH.verifyWebToken(token);
+  }
+
+  if (!env.WORKOS_API_KEY || !env.WORKOS_CLIENT_ID) {
+    return null;
+  }
+
+  const options: {
+    apiKey: string;
+    clientId: string;
+    apiBaseUrl?: string;
+    issuer?: string;
+    jwksUrl?: string;
+    requireClientIdClaim?: boolean;
+  } = {
+    apiKey: env.WORKOS_API_KEY,
+    clientId: env.WORKOS_CLIENT_ID,
+    requireClientIdClaim: true,
+  };
+  if (env.WORKOS_API_BASE_URL) {
+    options.apiBaseUrl = env.WORKOS_API_BASE_URL;
+  }
+  if (env.WORKOS_ISSUER) {
+    options.issuer = env.WORKOS_ISSUER;
+  }
+  if (env.WORKOS_JWKS_URL) {
+    options.jwksUrl = env.WORKOS_JWKS_URL;
+  }
+
+  return resolveWorkOsIdentity(`Bearer ${token}`, options);
+}
+
+async function withWebMember(
+  context: AppContext,
+  requiredScopes: readonly string[],
+  run: (db: ApiDatabase, actor: ApiActor) => Promise<Response>,
+): Promise<Response> {
+  const identity = await authenticateWebIdentity(context.req.raw, context.env);
+  if (!identity) {
+    return errorResponse(context, "not_authenticated", 401);
+  }
+
+  const db = apiDatabase(context.env);
+  if (!db?.getWebMemberByWorkOsUserId) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+
+  const actor = await db.getWebMemberByWorkOsUserId({
+    workosUserId: identity.workos_user_id,
+    email: identity.email,
+    now: new Date().toISOString(),
+  });
+  if (!actor || actor.type !== "member" || !actor.workspace_id) {
+    return errorResponse(context, "forbidden", 403);
+  }
+
+  const limited = await rateLimitAuthenticatedRequest(context, actor);
+  if (limited) {
+    return limited;
+  }
+  if (!hasScopes(actor, requiredScopes)) {
+    return errorResponse(context, "forbidden", 403);
+  }
+
+  return run(db, actor);
+}
+
+function hasScopes(actor: ApiActor, requiredScopes: readonly string[]): boolean {
+  if (requiredScopes.length === 0) {
+    return true;
+  }
+  const actorScopes = new Set(actor.scopes ?? []);
+  return requiredScopes.every((scope) => actorScopes.has(scope));
 }
 
 function authService(env: Env): AuthService | undefined {

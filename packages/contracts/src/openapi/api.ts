@@ -58,6 +58,79 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "post",
+    path: "/v1/auth/web/callback",
+    operationId: "web.auth.callback",
+    summary: "Resolve or provision a Workspace Member from a WorkOS AuthKit session.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebAuthCallbackResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/workspace",
+    operationId: "web.workspace.get",
+    summary: "Read the current web Workspace context.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebWorkspaceResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/artifacts",
+    operationId: "web.artifacts.list",
+    summary: "List artifacts for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebArtifactListResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/artifacts/{artifact_id}",
+    operationId: "web.artifacts.get",
+    summary: "Read an artifact for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebArtifactDetailResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/keys",
+    operationId: "web.apiKeys.list",
+    summary: "List API keys for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebApiKeyListResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/audit",
+    operationId: "web.audit.list",
+    summary: "List Audit Events for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebAuditListResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/settings",
+    operationId: "web.settings.get",
+    summary: "Read web Workspace settings.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebSettingsResponse")),
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/artifacts/{artifact_id}/agent-view",
     operationId: "agentView.getLatest",

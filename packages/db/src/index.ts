@@ -16,6 +16,7 @@ export type {
   AdminActor,
   ApiActor,
   ApiKey,
+  ApiKeyActor,
   Artifact,
   HyperdriveBinding,
   OperationEvent,
@@ -26,4 +27,6 @@ export type {
   StoredFile,
   UploadSession,
   Workspace,
+  WorkspaceMember,
+  WorkspaceMemberActor,
 } from "./types.js";

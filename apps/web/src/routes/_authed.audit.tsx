@@ -1,3 +1,4 @@
+import type { WebAuditListResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
@@ -9,20 +10,10 @@ import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
-type AuditRow = {
-  id: string;
-  time: string;
-  actor: string;
-  action: string;
-  target: string;
-  change_summary: string;
-  request_id: string;
-};
-
 const listAuditFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
   if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<{ items: AuditRow[] }>("/v1/web/audit", {
+  return apiFetchOrEmpty<WebAuditListResponse>("/v1/web/audit", {
     accessToken: auth.accessToken,
   });
 });
@@ -34,7 +25,7 @@ export const Route = createFileRoute("/_authed/audit")({
 
 function AuditPage() {
   const result = Route.useLoaderData();
-  const rows = result.data?.items ?? [];
+  const rows: WebAuditListResponse["items"] = result.data?.items ?? [];
 
   return (
     <>

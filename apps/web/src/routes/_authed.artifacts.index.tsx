@@ -1,3 +1,4 @@
+import type { WebArtifactListResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
@@ -10,21 +11,10 @@ import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
-type ArtifactRow = {
-  id: string;
-  title: string | null;
-  status: "Published" | "Unpublished" | "Draft";
-  latest_revision_id: string | null;
-  pinned: boolean;
-  lockdown: boolean;
-  last_published_at: string | null;
-  auto_delete_at: string | null;
-};
-
 const listArtifactsFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
   if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<{ items: ArtifactRow[] }>("/v1/web/artifacts", {
+  return apiFetchOrEmpty<WebArtifactListResponse>("/v1/web/artifacts", {
     accessToken: auth.accessToken,
   });
 });
@@ -36,7 +26,7 @@ export const Route = createFileRoute("/_authed/artifacts/")({
 
 function ArtifactsListPage() {
   const result = Route.useLoaderData();
-  const rows = result.data?.items ?? [];
+  const rows: WebArtifactListResponse["items"] = result.data?.items ?? [];
 
   return (
     <>

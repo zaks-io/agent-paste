@@ -17,7 +17,9 @@ const adminEnv = {
   AGENT_PASTE_UPLOAD_URL: config.uploadBaseUrl,
 };
 
-const workspace = await runCliJson([
+await waitForAdminAuth(config);
+
+const workspace = await runAdminCliJson([
   "admin",
   "workspace",
   "create",
@@ -28,7 +30,7 @@ const workspace = await runCliJson([
 ]);
 assert(workspace.id, "workspace create returned an id");
 
-const key = await runCliJson(["admin", "key", "create", workspace.id, "--name", config.slug, "--json"]);
+const key = await runAdminCliJson(["admin", "key", "create", workspace.id, "--name", config.slug, "--json"]);
 assert(
   typeof key.secret === "string" && key.secret.startsWith(config.expectedApiKeyPrefix),
   `api key create returned a ${config.expectedApiKeyPrefix} secret`,
@@ -65,7 +67,7 @@ if (target !== "production") {
   await assertBytesPurgedAfterExpiry(userEnv);
   await assertActorRateLimitFires(key.secret);
 } else {
-  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
+  await runAdminCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
   await waitForStatus(published.view_url, 404, "deleted content");
 }
 
@@ -123,6 +125,32 @@ async function runCliJson(args, commandEnv = adminEnv) {
   }
 }
 
+async function runAdminCliJson(args) {
+  const deadline = Date.now() + 60_000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      return await runCliJson(args, adminEnv);
+    } catch (error) {
+      if (!isNotAuthenticatedError(error)) {
+        throw error;
+      }
+      lastError = error;
+      await waitForAdminAuth(config);
+      await sleep(2000);
+    }
+  }
+  throw new Error(`admin CLI ${args.join(" ")} did not authenticate before deadline: ${errorMessage(lastError)}`);
+}
+
+function isNotAuthenticatedError(error) {
+  return errorMessage(error).includes("not_authenticated");
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function run(command, args, commandEnv) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: root, env: commandEnv, stdio: ["ignore", "pipe", "pipe"] });
@@ -152,6 +180,45 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function waitForAdminAuth(c) {
+  const url = `${c.apiBaseUrl}/admin/whoami`;
+  const deadline = Date.now() + 60_000;
+  let lastStatus = 0;
+  let lastBody = "";
+  while (Date.now() < deadline) {
+    let response;
+    try {
+      response = await fetch(url, {
+        cache: "no-store",
+        headers: { authorization: `Bearer ${c.adminToken}` },
+      });
+    } catch (error) {
+      lastStatus = -1;
+      lastBody = error instanceof Error ? error.message : String(error);
+      await sleep(2000);
+      continue;
+    }
+    lastStatus = response.status;
+    lastBody = await response.text().catch(() => "");
+    if (response.status === 200) {
+      return;
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        `admin token from c.adminToken was rejected by ${url} with ${response.status}: ${lastBody.slice(0, 200)}`,
+      );
+    }
+    await sleep(2000);
+  }
+  throw new Error(
+    `admin auth did not become ready at ${url}; last response ${formatAdminAuthStatus(lastStatus)}: ${lastBody.slice(0, 200)}`,
+  );
+}
+
+function formatAdminAuthStatus(status) {
+  return status === -1 ? "transport_error" : String(status);
+}
+
 async function waitForStatus(url, expectedStatus, label) {
   const deadline = Date.now() + 30_000;
   let lastStatus = 0;
@@ -161,9 +228,13 @@ async function waitForStatus(url, expectedStatus, label) {
     if (response.status === expectedStatus) {
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await sleep(1000);
   }
   throw new Error(`${label} returned ${lastStatus}, expected ${expectedStatus}`);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function smokeConfig(target) {
@@ -289,7 +360,9 @@ async function assertActorRateLimitFires(apiKeySecret) {
       ),
     );
     const limited = responses.find((response) => response.status === 429);
-    await Promise.all(responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()));
+    await Promise.all(
+      responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()),
+    );
     if (limited) {
       const payload = await limited.json();
       assert(
@@ -300,7 +373,9 @@ async function assertActorRateLimitFires(apiKeySecret) {
       return;
     }
   }
-  throw new Error(`upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`);
+  throw new Error(
+    `upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
+  );
 }
 
 async function assertBytesPurgedAfterDelete(publishedArtifact) {
@@ -308,7 +383,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   const before = await listR2Keys(prefix);
   assert(before.length > 0, "R2 prefix has keys before delete");
 
-  await runCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
+  await runAdminCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
   await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
 
   const after = await listR2Keys(prefix);
@@ -337,7 +412,7 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
   });
   assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
 
-  const cleanup = await runCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
+  const cleanup = await runAdminCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
   assert(cleanup.deleted_r2_objects >= before.length, "cleanup deleted_r2_objects matches purged keys");
 

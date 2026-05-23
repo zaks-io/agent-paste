@@ -97,6 +97,17 @@ CREATE TABLE "upload_sessions" (
 	"finalized_at" timestamp with time zone
 );
 
+CREATE TABLE "workspace_members" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"workos_user_id" text NOT NULL,
+	"email" text NOT NULL,
+	"scopes" jsonb DEFAULT '["publish","read","admin"]'::jsonb NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"last_seen_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "workspace_members_workspace_workos_user_unique" UNIQUE("workspace_id","workos_user_id")
+);
+
 CREATE TABLE "workspaces" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -115,9 +126,12 @@ ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspac
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_idx" ON "operation_events" USING btree ("workspace_id","occurred_at");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
+CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
+CREATE INDEX "workspace_members_workos_user_idx" ON "workspace_members" USING btree ("workos_user_id");

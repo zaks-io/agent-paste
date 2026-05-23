@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { apiKeys } from "../schema.js";
 import type { ApiKey } from "../types.js";
@@ -29,6 +29,15 @@ export const apiKeyQueries = {
     const rows = await db.select().from(apiKeys).where(eq(apiKeys.publicId, publicId)).limit(1);
     const row = rows[0];
     return row ? mapApiKey(row) : null;
+  },
+
+  async listForWorkspace(db: DrizzleDb, workspaceId: string): Promise<ApiKey[]> {
+    const rows = await db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.workspaceId, workspaceId))
+      .orderBy(desc(apiKeys.createdAt));
+    return rows.map(mapApiKey);
   },
 
   async updateLastUsedAt(db: DrizzleDb, id: string, lastUsedAt: string) {

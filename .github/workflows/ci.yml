@@ -58,6 +58,8 @@ jobs:
 
       - name: Verify dependency guardrails
         run: |
+          test "$(tr -d '[:space:]' < .nvmrc)" = "$(tr -d '[:space:]' < .node-version)"
+          test "$(pnpm config get engine-strict)" = "true"
           test "$(pnpm config get minimumReleaseAge)" = "4320"
           test "$(pnpm config get nodeLinker)" = "isolated"
 

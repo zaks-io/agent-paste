@@ -1,3 +1,4 @@
+import type { WebApiKeyListResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
@@ -11,21 +12,10 @@ import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
-type KeyRow = {
-  id: string;
-  name: string;
-  public_id: string;
-  scopes: ReadonlyArray<"read" | "write" | "share">;
-  expires_at: string | null;
-  last_used_at: string | null;
-  created_at: string;
-  revoked: boolean;
-};
-
 const listKeysFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
   if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<{ items: KeyRow[] }>("/v1/web/keys", {
+  return apiFetchOrEmpty<WebApiKeyListResponse>("/v1/web/keys", {
     accessToken: auth.accessToken,
   });
 });
@@ -37,7 +27,7 @@ export const Route = createFileRoute("/_authed/keys")({
 
 function KeysPage() {
   const result = Route.useLoaderData();
-  const rows = result.data?.items ?? [];
+  const rows: WebApiKeyListResponse["items"] = result.data?.items ?? [];
 
   return (
     <>

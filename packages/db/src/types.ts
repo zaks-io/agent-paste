@@ -1,9 +1,21 @@
-export type ApiActor = {
+type Scope = "publish" | "read" | "admin";
+
+export type ApiKeyActor = {
   type: "api_key";
   id: string;
   workspace_id: string;
-  scopes?: Array<"publish" | "read">;
+  scopes?: Array<Extract<Scope, "publish" | "read">>;
 };
+
+export type WorkspaceMemberActor = {
+  type: "member";
+  id: string;
+  workspace_id: string;
+  email: string;
+  scopes: Scope[];
+};
+
+export type ApiActor = ApiKeyActor | WorkspaceMemberActor;
 
 export type AdminActor = { type: "admin" | "system"; id: string };
 
@@ -39,6 +51,16 @@ export type ApiKey = {
   revoked_at: string | null;
   last_used_at: string | null;
   created_at: string;
+};
+
+export type WorkspaceMember = {
+  id: string;
+  workspace_id: string;
+  workos_user_id: string;
+  email: string;
+  scopes: Array<"publish" | "read" | "admin">;
+  created_at: string;
+  last_seen_at: string;
 };
 
 export type Artifact = {

@@ -1,3 +1,4 @@
+import type { WebSettingsResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
@@ -9,16 +10,10 @@ import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
 import { apiFetchOrEmpty } from "../server/api-client";
 
-type Settings = {
-  workspace_name: string;
-  auto_deletion_days: number;
-  usage_policy: { artifacts_per_day: number; bytes_per_day: number };
-};
-
 const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
   if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<Settings>("/v1/web/settings", {
+  return apiFetchOrEmpty<WebSettingsResponse>("/v1/web/settings", {
     accessToken: auth.accessToken,
   });
 });
@@ -38,7 +33,7 @@ function SettingsPage() {
       {result.error ? (
         <ErrorBanner title="Couldn't load settings" message={result.error.message} requestId={result.error.requestId} />
       ) : !settings ? (
-        <EmptyState title="No settings yet." body="The web API for settings isn't wired up yet." />
+        <EmptyState title="No settings yet." body="This workspace has not been provisioned yet." />
       ) : (
         <div className="grid gap-6">
           <Card>

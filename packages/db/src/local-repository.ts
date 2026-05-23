@@ -13,17 +13,22 @@ import type {
   AdminActor,
   ApiActor,
   ApiKey,
+  ApiKeyActor,
   Artifact,
   OperationEvent,
   RepositoryOptions,
   StoredFile,
   UploadSession,
   Workspace,
+  WorkspaceMember,
 } from "./types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "./validation.js";
 
+const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
+
 export class LocalRepository {
   readonly workspaces = new Map<string, Workspace>();
+  readonly workspaceMembers = new Map<string, WorkspaceMember>();
   readonly apiKeys = new Map<string, ApiKey>();
   readonly artifacts = new Map<string, Artifact>();
   readonly artifactFiles = new Map<string, StoredFile>();
@@ -137,7 +142,7 @@ export class LocalRepository {
     );
   }
 
-  async verifyApiKey(apiKeySecret: string): Promise<ApiActor | null> {
+  async verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null> {
     const parsed = parseApiKey(apiKeySecret);
     if (!parsed) {
       return null;
@@ -161,6 +166,145 @@ export class LocalRepository {
       workspace: toWorkspaceSummary(this.mustWorkspace(apiKey.workspace_id)),
       scopes: apiKey.scopes,
       usage_policy: USAGE_POLICY,
+    };
+  }
+
+  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    const existing = [...this.workspaceMembers.values()].find((member) => member.workos_user_id === input.workosUserId);
+    if (existing) {
+      existing.email = input.email;
+      existing.last_seen_at = now;
+      return this.webAuthResponse(existing, null);
+    }
+
+    const workspace: Workspace = {
+      id: crypto.randomUUID(),
+      name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
+      contact_email: input.email,
+      created_at: now,
+      updated_at: now,
+    };
+    this.workspaces.set(workspace.id, workspace);
+
+    const member: WorkspaceMember = {
+      id: createId("mem"),
+      workspace_id: workspace.id,
+      workos_user_id: input.workosUserId,
+      email: input.email,
+      scopes: [...DEFAULT_MEMBER_SCOPES],
+      created_at: now,
+      last_seen_at: now,
+    };
+    this.workspaceMembers.set(member.id, member);
+
+    const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+    const apiKey: ApiKey = {
+      id: createId("key"),
+      workspace_id: workspace.id,
+      public_id: generated.publicId,
+      name: "Default",
+      secret_hmac: generated.secretHmac,
+      pepper_kid: 1,
+      scopes: ["publish", "read"],
+      revoked_at: null,
+      last_used_at: null,
+      created_at: now,
+    };
+    this.apiKeys.set(apiKey.id, apiKey);
+    this.addEvent("system", "web-auth", "workspace.created", "workspace", workspace.id, workspace.id, {}, now);
+    this.addEvent(
+      "system",
+      "web-auth",
+      "api_key.created",
+      "api_key",
+      apiKey.id,
+      workspace.id,
+      { name: apiKey.name, public_id: apiKey.public_id },
+      now,
+    );
+    return this.webAuthResponse(member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
+  }
+
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
+    const member = [...this.workspaceMembers.values()].find((entry) => entry.workos_user_id === input.workosUserId);
+    if (!member) {
+      return null;
+    }
+    member.email = input.email;
+    member.last_seen_at = input.now ?? new Date().toISOString();
+    return {
+      type: "member" as const,
+      id: member.id,
+      workspace_id: member.workspace_id,
+      email: member.email,
+      scopes: member.scopes,
+    };
+  }
+
+  async getWebWorkspace(actor: ApiActor) {
+    if (actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${actor.type}`);
+    }
+    const member = this.mustWorkspaceMember(actor.id);
+    return {
+      workspace: toWorkspaceSummary(this.mustWorkspace(actor.workspace_id)),
+      workspace_member: this.toWorkspaceMemberSummary(member),
+      usage_policy: USAGE_POLICY,
+      default_key_first_run: false,
+    };
+  }
+
+  listWebArtifacts(actor: ApiActor) {
+    const items = [...this.artifacts.values()]
+      .filter((artifact) => artifact.workspace_id === actor.workspace_id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .map(toWebArtifactRow);
+    return { items, page_info: { next_cursor: null, has_more: false } };
+  }
+
+  getWebArtifact(actor: ApiActor, artifactId: string) {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact || artifact.workspace_id !== actor.workspace_id) {
+      return null;
+    }
+    return {
+      ...toWebArtifactRow(artifact),
+      entrypoint: artifact.entrypoint,
+      file_count: artifact.file_count,
+      size_bytes: artifact.size_bytes,
+    };
+  }
+
+  listWebApiKeys(actor: ApiActor) {
+    const items = [...this.apiKeys.values()]
+      .filter((apiKey) => apiKey.workspace_id === actor.workspace_id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .map((apiKey) => ({
+        ...toApiKeySummary(apiKey),
+        expires_at: null,
+        revoked: apiKey.revoked_at !== null,
+      }));
+    return { items, page_info: { next_cursor: null, has_more: false } };
+  }
+
+  listWebAuditEvents(actor: ApiActor) {
+    const items = [...this.operationEvents.values()]
+      .filter((event) => event.workspace_id === actor.workspace_id)
+      .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at))
+      .map(toWebAuditRow);
+    return { items, page_info: { next_cursor: null, has_more: false } };
+  }
+
+  getWebSettings(actor: ApiActor) {
+    const workspace = this.mustWorkspace(actor.workspace_id);
+    return {
+      workspace_name: workspace.name,
+      auto_deletion_days: Math.floor(USAGE_POLICY.default_ttl_seconds / (24 * 60 * 60)),
+      usage_policy: {
+        artifacts_per_day: 0,
+        bytes_per_day: USAGE_POLICY.artifact_size_cap_bytes,
+      },
     };
   }
 
@@ -478,6 +622,37 @@ export class LocalRepository {
     return apiKey;
   }
 
+  private mustWorkspaceMember(id: string) {
+    const member = this.workspaceMembers.get(id);
+    if (!member) {
+      throw new Error("workspace_member_not_found");
+    }
+    return member;
+  }
+
+  private toWorkspaceMemberSummary(member: WorkspaceMember) {
+    return {
+      id: member.id,
+      workspace_id: member.workspace_id,
+      email: member.email,
+      scopes: member.scopes,
+      created_at: member.created_at,
+      last_seen_at: member.last_seen_at,
+    };
+  }
+
+  private webAuthResponse(
+    member: WorkspaceMember,
+    defaultApiKey: { api_key: ReturnType<typeof toApiKeySummary>; secret: string } | null,
+  ) {
+    return {
+      workspace: toWorkspaceSummary(this.mustWorkspace(member.workspace_id)),
+      workspace_member: this.toWorkspaceMemberSummary(member),
+      scopes: member.scopes,
+      default_api_key: defaultApiKey,
+    };
+  }
+
   private runIdempotent<T>(key: string, run: () => T): T {
     if (this.idempotency.has(key)) {
       return this.idempotency.get(key) as T;
@@ -512,6 +687,52 @@ export class LocalRepository {
     this.operationEvents.set(event.id, event);
     return event;
   }
+}
+
+function toWebArtifactRow(artifact: Artifact) {
+  return {
+    id: artifact.id,
+    title: artifact.title,
+    status: webArtifactStatus(artifact),
+    latest_revision_id: artifact.revision_id,
+    pinned: false,
+    lockdown: false,
+    last_published_at: artifact.created_at,
+    auto_delete_at: artifact.status === "deleted" ? null : artifact.expires_at,
+  };
+}
+
+function webArtifactStatus(artifact: Artifact): "Published" | "Deleted" | "Expired" {
+  if (artifact.status === "deleted") {
+    return "Deleted";
+  }
+  if (artifact.status === "expired") {
+    return "Expired";
+  }
+  return "Published";
+}
+
+function toWebAuditRow(event: OperationEvent) {
+  return {
+    id: event.id,
+    time: event.occurred_at,
+    actor: `${event.actor_type}:${event.actor_id ?? "unknown"}`,
+    action: event.action,
+    target: `${event.target_type}:${event.target_id}`,
+    change_summary: summarizeEventDetails(event.details),
+    request_id: event.request_id ?? "",
+  };
+}
+
+function summarizeEventDetails(details: Record<string, unknown>): string {
+  const keys = Object.keys(details);
+  if (keys.length === 0) {
+    return "";
+  }
+  return keys
+    .sort()
+    .map((key) => `${key}=${String(details[key])}`)
+    .join(", ");
 }
 
 export function createLocalServices(options: RepositoryOptions) {
