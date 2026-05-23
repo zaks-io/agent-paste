@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { createServer } from "node:http";
-import { generateKeyPairSync, createSign } from "node:crypto";
 import { spawn } from "node:child_process";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
+import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 
 const root = new URL("..", import.meta.url);
