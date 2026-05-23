@@ -52,7 +52,8 @@ CREATE TABLE "idempotency_records" (
 	"result_json" jsonb,
 	"created_at" timestamp with time zone NOT NULL,
 	"completed_at" timestamp with time zone,
-	CONSTRAINT "idempotency_records_unique" UNIQUE NULLS NOT DISTINCT("workspace_id","actor_type","actor_id","operation","idempotency_key")
+	CONSTRAINT "idempotency_records_unique" UNIQUE NULLS NOT DISTINCT("workspace_id","actor_type","actor_id","operation","idempotency_key"),
+	CONSTRAINT "idempotency_records_actor_type_check" CHECK ("idempotency_records"."actor_type" in ('api_key', 'member', 'admin', 'system'))
 );
 
 CREATE TABLE "operation_events" (
@@ -65,7 +66,8 @@ CREATE TABLE "operation_events" (
 	"target_id" text NOT NULL,
 	"details" jsonb NOT NULL,
 	"request_id" text,
-	"occurred_at" timestamp with time zone NOT NULL
+	"occurred_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "operation_events_actor_type_check" CHECK ("operation_events"."actor_type" in ('api_key', 'member', 'admin', 'system'))
 );
 
 CREATE TABLE "upload_session_files" (

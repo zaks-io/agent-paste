@@ -8,7 +8,7 @@ export const operationEventQueries = {
   async insert(
     db: DrizzleDb,
     input: {
-      actorType: "api_key" | "admin" | "system";
+      actorType: "api_key" | "member" | "admin" | "system";
       actorId: string | null;
       action: string;
       targetType: string;

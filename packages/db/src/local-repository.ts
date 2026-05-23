@@ -339,6 +339,74 @@ export class LocalRepository {
     return { items, page_info: { next_cursor: null, has_more: false } };
   }
 
+  async createWebApiKey(input: { actor: ApiActor; idempotencyKey: string; name: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const member = this.mustWorkspaceMember(input.actor.id);
+    const key = `web.api_key.create:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`;
+    if (this.idempotency.has(key)) {
+      return this.idempotency.get(key) as { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
+    }
+    const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+    const now = (input.now ?? new Date()).toISOString();
+    return this.runIdempotent(key, () => {
+      const apiKey: ApiKey = {
+        id: createId("key"),
+        workspace_id: member.workspace_id,
+        public_id: generated.publicId,
+        name: input.name,
+        secret_hmac: generated.secretHmac,
+        pepper_kid: 1,
+        scopes: ["publish", "read"],
+        revoked_at: null,
+        last_used_at: null,
+        created_at: now,
+      };
+      this.apiKeys.set(apiKey.id, apiKey);
+      this.addEvent(
+        "member",
+        member.id,
+        "api_key.created",
+        "api_key",
+        apiKey.id,
+        member.workspace_id,
+        { name: apiKey.name, public_id: apiKey.public_id },
+        now,
+      );
+      return { api_key: toApiKeySummary(apiKey), secret: generated.secret };
+    });
+  }
+
+  async revokeWebApiKey(input: { actor: ApiActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const member = this.mustWorkspaceMember(input.actor.id);
+    const apiKey = this.apiKeys.get(input.apiKeyId);
+    if (!apiKey || apiKey.workspace_id !== member.workspace_id) {
+      throw new Error("api_key_not_found");
+    }
+    const revokedAt = (input.now ?? new Date()).toISOString();
+    return this.runIdempotent(
+      `web.api_key.revoke:${input.actor.type}:${input.actor.id}:${input.idempotencyKey}`,
+      () => {
+        apiKey.revoked_at = revokedAt;
+        this.addEvent(
+          "member",
+          member.id,
+          "api_key.revoked",
+          "api_key",
+          apiKey.id,
+          member.workspace_id,
+          { public_id: apiKey.public_id },
+          apiKey.revoked_at,
+        );
+        return { api_key: toApiKeySummary(apiKey), revoked_at: apiKey.revoked_at };
+      },
+    );
+  }
+
   listWebAuditEvents(actor: ApiActor) {
     const items = [...this.operationEvents.values()]
       .filter((event) => event.workspace_id === actor.workspace_id)
@@ -714,7 +782,7 @@ export class LocalRepository {
   }
 
   private addEvent(
-    actorType: "api_key" | "admin" | "system",
+    actorType: "api_key" | "member" | "admin" | "system",
     actorId: string | null,
     action: string,
     targetType: string,

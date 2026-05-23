@@ -3,7 +3,7 @@ import { z } from "./zod.js";
 export const Scope = z.enum(["publish", "read", "admin"]);
 export type Scope = z.infer<typeof Scope>;
 
-export const ActorType = z.enum(["api_key", "admin", "system"]);
+export const ActorType = z.enum(["api_key", "member", "admin", "system"]);
 export type ActorType = z.infer<typeof ActorType>;
 
 export const ArtifactStatus = z.enum(["active", "deleted", "expired"]);
