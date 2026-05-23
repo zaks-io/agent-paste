@@ -6,24 +6,9 @@ import { createInterface } from "node:readline/promises";
 const target = parseTarget(process.argv.slice(2));
 const options = parseOptions(process.argv.slice(2));
 const generatedAt = new Date().toISOString();
+const webSecretNames = ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD"];
 
-const adminToken = `ap_admin_${secretBytes(32)}`;
-const apiKeyPepper = secretBytes();
-const secrets = {
-  CONTENT_SIGNING_SECRET: secretBytes(),
-  UPLOAD_SIGNING_SECRET: secretBytes(),
-  API_KEY_PEPPER_V1: apiKeyPepper,
-  ADMIN_TOKEN: adminToken,
-  ADMIN_TOKEN_HASH: hmacBase64Url(adminToken, apiKeyPepper),
-  OPERATOR_EMAILS: options.operatorEmails,
-  ...(options.skipWeb
-    ? {}
-    : {
-        WORKOS_API_KEY: options.workosApiKey,
-        WORKOS_CLIENT_ID: options.workosClientId,
-        WORKOS_COOKIE_PASSWORD: secretBytes(32),
-      }),
-};
+const secrets = options.dryRun ? plannedSecrets() : generatedSecrets();
 
 const workerSecrets = [
   {
@@ -33,22 +18,22 @@ const workerSecrets = [
       "API_KEY_PEPPER_V1",
       "ADMIN_TOKEN_HASH",
       "OPERATOR_EMAILS",
-      ...(options.skipWeb ? [] : ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"]),
+      ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
   },
   { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
   { app: "content", names: ["CONTENT_SIGNING_SECRET"] },
-  ...(options.skipWeb
-    ? []
-    : [
+  ...(options.includeWeb
+    ? [
         {
           app: "web",
           names: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD", "OPERATOR_EMAILS"],
         },
-      ]),
+      ]
+    : []),
 ];
 
-if (!options.printOnly) {
+if (!options.printOnly && !options.dryRun) {
   await assertSafeToWrite();
   for (const binding of workerSecrets) {
     for (const name of binding.names) {
@@ -73,17 +58,46 @@ function parseTarget(argv) {
 function parseOptions(argv) {
   const force = argv.includes("--force");
   const printOnly = argv.includes("--print-only");
+  const dryRun = argv.includes("--dry-run");
   const skipWeb = argv.includes("--skip-web");
+  const withWeb = argv.includes("--with-web");
   const operatorEmails = stringOption(argv, "--operator-emails") ?? process.env.OPERATOR_EMAILS;
   if (!operatorEmails) {
     usage("Set --operator-emails or OPERATOR_EMAILS.");
   }
   const workosApiKey = stringOption(argv, "--workos-api-key") ?? process.env.WORKOS_API_KEY;
   const workosClientId = stringOption(argv, "--workos-client-id") ?? process.env.WORKOS_CLIENT_ID;
-  if (!skipWeb && (!workosApiKey || !workosClientId)) {
-    usage("Set --workos-api-key/--workos-client-id (or WORKOS_API_KEY/WORKOS_CLIENT_ID), or pass --skip-web.");
+  const workosCookiePassword = stringOption(argv, "--workos-cookie-password") ?? process.env.WORKOS_COOKIE_PASSWORD;
+  const providedWebValueCount = [workosApiKey, workosClientId, workosCookiePassword].filter(Boolean).length;
+  if (skipWeb && (withWeb || providedWebValueCount > 0)) {
+    usage("--skip-web cannot be combined with --with-web or WorkOS secret inputs.");
   }
-  return { force, printOnly, skipWeb, operatorEmails, workosApiKey, workosClientId };
+  const includeWeb = !skipWeb && (withWeb || providedWebValueCount > 0);
+  if (includeWeb) {
+    const missing = [
+      ["--workos-api-key or WORKOS_API_KEY", workosApiKey],
+      ["--workos-client-id or WORKOS_CLIENT_ID", workosClientId],
+      ["--workos-cookie-password or WORKOS_COOKIE_PASSWORD", workosCookiePassword],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+    if (missing.length > 0) {
+      usage(`Web secret setup requires all WorkOS inputs. Missing: ${missing.join(", ")}.`);
+    }
+    if (workosCookiePassword.length < 32) {
+      usage("WORKOS_COOKIE_PASSWORD must be at least 32 characters.");
+    }
+  }
+  return {
+    force,
+    printOnly,
+    dryRun,
+    includeWeb,
+    operatorEmails,
+    workosApiKey,
+    workosClientId,
+    workosCookiePassword,
+  };
 }
 
 async function assertSafeToWrite() {
@@ -148,6 +162,44 @@ function workerName(app) {
   return `agent-paste-${app}-${target}`;
 }
 
+function generatedSecrets() {
+  const adminToken = `ap_admin_${secretBytes(32)}`;
+  const apiKeyPepper = secretBytes();
+  return {
+    CONTENT_SIGNING_SECRET: secretBytes(),
+    UPLOAD_SIGNING_SECRET: secretBytes(),
+    API_KEY_PEPPER_V1: apiKeyPepper,
+    ADMIN_TOKEN: adminToken,
+    ADMIN_TOKEN_HASH: hmacBase64Url(adminToken, apiKeyPepper),
+    OPERATOR_EMAILS: options.operatorEmails,
+    ...(options.includeWeb
+      ? {
+          WORKOS_API_KEY: options.workosApiKey,
+          WORKOS_CLIENT_ID: options.workosClientId,
+          WORKOS_COOKIE_PASSWORD: options.workosCookiePassword,
+        }
+      : {}),
+  };
+}
+
+function plannedSecrets() {
+  return {
+    CONTENT_SIGNING_SECRET: "<generated>",
+    UPLOAD_SIGNING_SECRET: "<generated>",
+    API_KEY_PEPPER_V1: "<generated>",
+    ADMIN_TOKEN: "<generated>",
+    ADMIN_TOKEN_HASH: "<generated from ADMIN_TOKEN + API_KEY_PEPPER_V1>",
+    OPERATOR_EMAILS: "<provided>",
+    ...(options.includeWeb
+      ? {
+          WORKOS_API_KEY: "<provided>",
+          WORKOS_CLIENT_ID: "<provided>",
+          WORKOS_COOKIE_PASSWORD: "<provided>",
+        }
+      : {}),
+  };
+}
+
 function run(command, args, stdin, runOptions = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
@@ -177,17 +229,33 @@ function run(command, args, stdin, runOptions = {}) {
 }
 
 function printCaptureBlock() {
-  process.stdout.write(`agent-paste ${target} secrets generated at ${generatedAt}
+  const bindingHeader = options.dryRun || options.printOnly ? "Worker bindings planned:" : "Worker bindings written:";
+  const intro = options.dryRun
+    ? "Review this redacted binding plan before running the real bootstrap."
+    : "Capture these values in the password manager before closing this terminal.";
+  process.stdout.write(`agent-paste ${target} ${options.dryRun ? "secret binding plan" : "secrets generated"} at ${generatedAt}
 
-Capture these values in the password manager before closing this terminal.
+${intro}
+${options.dryRun ? "No secrets were generated or written because --dry-run was set.\n" : ""}
 ${options.printOnly ? "No secrets were written because --print-only was set.\n" : ""}
 ${Object.entries(secrets)
-  .map(([name, value]) => `${name}=${value}`)
+  .map(([name, value]) => `${name}=${displaySecretValue(name, value)}`)
   .join("\n")}
 
-Worker bindings written:
+${bindingHeader}
 ${workerSecrets.map((binding) => `  ${workerName(binding.app)}: ${binding.names.join(", ")}`).join("\n")}
+${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this script. The wrangler.jsonc vars remain non-secret deployment metadata/placeholders and are not modified here.\n" : ""}
 `);
+}
+
+function displaySecretValue(name, value) {
+  if (options.dryRun) {
+    return value;
+  }
+  if (name === "OPERATOR_EMAILS" || webSecretNames.includes(name)) {
+    return "<provided; redacted>";
+  }
+  return value;
 }
 
 function stringOption(argv, name) {
@@ -217,20 +285,30 @@ function usage(message) {
 
 Usage:
   node scripts/bootstrap-secrets.mjs preview \\
+    --operator-emails you@example.com
+  node scripts/bootstrap-secrets.mjs preview \\
     --operator-emails you@example.com \\
+    --with-web \\
     --workos-api-key sk_... \\
-    --workos-client-id client_...
+    --workos-client-id client_... \\
+    --workos-cookie-password ...
   node scripts/bootstrap-secrets.mjs production \\
     --operator-emails you@example.com \\
+    --with-web \\
     --workos-api-key sk_... \\
-    --workos-client-id client_...
+    --workos-client-id client_... \\
+    --workos-cookie-password ...
 
 Options:
   --force              Allow overwriting existing secrets after typed confirmation.
+  --dry-run            Print a redacted binding plan without generating values or calling wrangler.
   --print-only         Generate and print values without calling wrangler.
-  --skip-web           Skip the web Worker; do not require WorkOS credentials.
+  --with-web           Include WorkOS AuthKit secrets for api and web Workers.
+  --skip-web           Force CLI-first bootstrap only; cannot be combined with WorkOS inputs.
   --workos-api-key     WorkOS API key (sk_...). Env fallback: WORKOS_API_KEY.
   --workos-client-id   WorkOS client id (client_...). Env fallback: WORKOS_CLIENT_ID.
+  --workos-cookie-password
+                       32+ char AuthKit cookie password. Env fallback: WORKOS_COOKIE_PASSWORD.
 `);
   process.exit(1);
 }
