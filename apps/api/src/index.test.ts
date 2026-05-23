@@ -97,7 +97,9 @@ describe("api worker", () => {
           return null;
         },
         async verifyWebToken(token) {
-          return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com" } : null;
+          return token === "workos-ok"
+            ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" }
+            : null;
         },
       },
       DB: {
@@ -111,6 +113,7 @@ describe("api worker", () => {
           return null;
         },
         async resolveWebMember(input) {
+          expect(input.idempotencyKey).toBe("workos-jti:jti_1");
           return {
             workspace: {
               id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
@@ -148,6 +151,96 @@ describe("api worker", () => {
       workspace_member: { email: "user@example.com" },
       default_api_key: null,
     });
+  });
+
+  it.each([
+    ["missing", {}],
+    ["blank", { token_id: "", session_id: "" }],
+  ])("rejects %s callback identities without a WorkOS token or session id", async (_label, ids) => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return { workos_user_id: "user_1", email: "user@example.com", ...ids } as never;
+        },
+      },
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async resolveWebMember() {
+          throw new Error("callback should fail before member resolution");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/auth/web/callback", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "not_authenticated", message: "missing WorkOS token_id or session_id" },
+    });
+  });
+
+  it("calls resolveWebMember with the database receiver intact", async () => {
+    const db = {
+      marker: "receiver-kept",
+      async getWhoami() {
+        return {};
+      },
+      async getAgentView() {
+        return null;
+      },
+      async getPublicAgentView() {
+        return null;
+      },
+      async resolveWebMember(this: { marker: string }, input: { email: string; idempotencyKey: string }) {
+        expect(input.idempotencyKey).toBe("workos-session:sess_1");
+        return { receiver: this.marker, email: input.email };
+      },
+      async runCleanup() {
+        return {};
+      },
+    };
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return { workos_user_id: "user_1", email: "user@example.com", session_id: "sess_1" };
+        },
+      },
+      DB: db as unknown as Env["DB"],
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/auth/web/callback", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ receiver: "receiver-kept", email: "user@example.com" });
   });
 
   it("rejects API keys on web dashboard routes", async () => {
@@ -213,6 +306,75 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
   });
 
+  it("returns workspace context for a valid WorkOS member", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return {
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+            scopes: ["read"],
+          };
+        },
+        async getWebWorkspace(actor) {
+          return {
+            workspace: {
+              id: actor.workspace_id,
+              name: "User",
+              created_at: "2026-01-01T00:00:00.000Z",
+            },
+            workspace_member: {
+              id: actor.id,
+              workspace_id: actor.workspace_id,
+              email: "user@example.com",
+              scopes: ["read"],
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_seen_at: "2026-01-02T00:00:00.000Z",
+            },
+            usage_policy: {
+              file_size_cap_bytes: 10 * 1024 * 1024,
+              artifact_size_cap_bytes: 25 * 1024 * 1024,
+              file_count_cap: 100,
+              actor_rate_limit_per_minute: 60,
+              workspace_burst_cap_per_minute: 300,
+              upload_session_ttl_seconds: 24 * 60 * 60,
+              default_ttl_seconds: 30 * 24 * 60 * 60,
+              min_ttl_seconds: 24 * 60 * 60,
+              max_ttl_seconds: 90 * 24 * 60 * 60,
+            },
+            default_key_first_run: false,
+          };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/workspace", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      workspace: { name: "User" },
+      usage_policy: { file_count_cap: 100 },
+      default_key_first_run: false,
+    });
+  });
+
   it("returns workspace-scoped dashboard artifacts for a valid WorkOS member", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
@@ -234,7 +396,8 @@ describe("api worker", () => {
             scopes: ["read"],
           };
         },
-        async listWebArtifacts(actor) {
+        async listWebArtifacts(actor, pagination) {
+          expect(pagination).toEqual({ cursor: "next-page", limit: 2 });
           return {
             items: [
               {
@@ -258,7 +421,9 @@ describe("api worker", () => {
     };
 
     const response = await handleRequest(
-      new Request("https://api.test/v1/web/artifacts", { headers: { authorization: "Bearer workos-ok" } }),
+      new Request("https://api.test/v1/web/artifacts?limit=2&cursor=next-page", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
       env,
     );
 
@@ -266,6 +431,44 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({
       items: [{ title: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a" }],
     });
+  });
+
+  it("rejects invalid dashboard artifact pagination", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async getWebMemberByWorkOsUserId() {
+          return {
+            type: "member",
+            id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+            workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+            scopes: ["read"],
+          };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/artifacts?limit=0", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
   });
 
   it("fails closed when a web member reads an artifact outside their workspace", async () => {
@@ -306,7 +509,7 @@ describe("api worker", () => {
     );
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({ error: { code: "artifact_not_found" } });
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
   it("fails open when a rate limit binding errors", async () => {
@@ -604,7 +807,7 @@ function webAuthForTests(): Env["AUTH"] {
       return null;
     },
     async verifyWebToken(token) {
-      return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com" } : null;
+      return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" } : null;
     },
   };
 }

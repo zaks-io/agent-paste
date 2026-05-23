@@ -26,6 +26,22 @@ import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload 
 
 const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
 
+type ResolveWebMemberInput = { workosUserId: string; email: string; idempotencyKey?: string; now?: string };
+type WebAuthDefaultApiKey = { api_key: ReturnType<typeof toApiKeySummary>; secret: string };
+type WebAuthResponse = {
+  workspace: ReturnType<typeof toWorkspaceSummary>;
+  workspace_member: {
+    id: string;
+    workspace_id: string;
+    email: string;
+    scopes: string[];
+    created_at: string;
+    last_seen_at: string;
+  };
+  scopes: string[];
+  default_api_key: WebAuthDefaultApiKey | null;
+};
+
 export class LocalRepository {
   readonly workspaces = new Map<string, Workspace>();
   readonly workspaceMembers = new Map<string, WorkspaceMember>();
@@ -36,6 +52,7 @@ export class LocalRepository {
   readonly uploadSessionFiles = new Map<string, StoredFile>();
   readonly operationEvents = new Map<string, OperationEvent>();
   private readonly idempotency = new Map<string, unknown>();
+  private readonly webAuthIdempotency = new Map<string, WebAuthResponse | Promise<WebAuthResponse>>();
 
   constructor(private readonly options: RepositoryOptions) {}
 
@@ -169,7 +186,27 @@ export class LocalRepository {
     };
   }
 
-  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+  async resolveWebMember(input: ResolveWebMemberInput) {
+    if (input.idempotencyKey) {
+      const cached = this.webAuthIdempotency.get(input.idempotencyKey);
+      if (cached) {
+        return cached;
+      }
+      const pending = this.resolveWebMemberOnce(input);
+      this.webAuthIdempotency.set(input.idempotencyKey, pending);
+      try {
+        const response = await pending;
+        this.webAuthIdempotency.set(input.idempotencyKey, response);
+        return response;
+      } catch (error) {
+        this.webAuthIdempotency.delete(input.idempotencyKey);
+        throw error;
+      }
+    }
+    return this.resolveWebMemberOnce(input);
+  }
+
+  private async resolveWebMemberOnce(input: ResolveWebMemberInput): Promise<WebAuthResponse> {
     const now = input.now ?? new Date().toISOString();
     const existing = [...this.workspaceMembers.values()].find((member) => member.workos_user_id === input.workosUserId);
     if (existing) {
@@ -226,13 +263,11 @@ export class LocalRepository {
     return this.webAuthResponse(member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string }) {
     const member = [...this.workspaceMembers.values()].find((entry) => entry.workos_user_id === input.workosUserId);
     if (!member) {
       return null;
     }
-    member.email = input.email;
-    member.last_seen_at = input.now ?? new Date().toISOString();
     return {
       type: "member" as const,
       id: member.id,
@@ -255,12 +290,28 @@ export class LocalRepository {
     };
   }
 
-  listWebArtifacts(actor: ApiActor) {
-    const items = [...this.artifacts.values()]
+  listWebArtifacts(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebArtifactLimit(pagination.limit);
+    const cursor = pagination.cursor ? decodeWebArtifactCursor(pagination.cursor) : null;
+    const rows = [...this.artifacts.values()]
       .filter((artifact) => artifact.workspace_id === actor.workspace_id)
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))
-      .map(toWebArtifactRow);
-    return { items, page_info: { next_cursor: null, has_more: false } };
+      .filter(
+        (artifact) =>
+          !cursor ||
+          artifact.created_at < cursor.created_at ||
+          (artifact.created_at === cursor.created_at && artifact.id < cursor.id),
+      )
+      .sort(compareArtifactsForWeb);
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    const hasMore = limit < rows.length;
+    return {
+      items: page.map(toWebArtifactRow),
+      page_info: {
+        next_cursor: hasMore && last ? encodeWebArtifactCursor(last) : null,
+        has_more: hasMore,
+      },
+    };
   }
 
   getWebArtifact(actor: ApiActor, artifactId: string) {
@@ -700,6 +751,46 @@ function toWebArtifactRow(artifact: Artifact) {
     last_published_at: artifact.created_at,
     auto_delete_at: artifact.status === "deleted" ? null : artifact.expires_at,
   };
+}
+
+function compareArtifactsForWeb(left: Artifact, right: Artifact) {
+  const created = right.created_at.localeCompare(left.created_at);
+  return created === 0 ? right.id.localeCompare(left.id) : created;
+}
+
+function encodeWebArtifactCursor(artifact: Artifact): string {
+  return btoa(JSON.stringify({ created_at: artifact.created_at, id: artifact.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebArtifactCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { created_at?: unknown; id?: unknown };
+    if (typeof raw.created_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const createdAt = new Date(raw.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { created_at: createdAt.toISOString(), id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
 }
 
 function webArtifactStatus(artifact: Artifact): "Published" | "Deleted" | "Expired" {

@@ -12,7 +12,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
-import { resolveWorkOsIdentity, type WorkOsIdentity } from "./workos.js";
+import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -24,7 +24,7 @@ export type ApiActor = {
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiActor | null>;
   verifyAdminToken?(token: string): Promise<ApiActor | null>;
-  verifyWebToken?(token: string): Promise<WorkOsIdentity | null>;
+  verifyWebToken?(token: string): Promise<WebCallbackIdentity | null>;
 };
 
 type AdminActor = { type: "admin" | "system"; id: string };
@@ -38,10 +38,15 @@ export type ApiDatabase = {
     contentBaseUrl: string;
   }): Promise<unknown | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<unknown | null>;
-  resolveWebMember?(input: { workosUserId: string; email: string; now?: string }): Promise<unknown>;
-  getWebMemberByWorkOsUserId?(input: { workosUserId: string; email: string; now?: string }): Promise<ApiActor | null>;
+  resolveWebMember?(input: {
+    workosUserId: string;
+    email: string;
+    idempotencyKey: string;
+    now?: string;
+  }): Promise<unknown>;
+  getWebMemberByWorkOsUserId?(input: { workosUserId: string }): Promise<ApiActor | null>;
   getWebWorkspace?(actor: ApiActor): Promise<unknown>;
-  listWebArtifacts?(actor: ApiActor): Promise<unknown>;
+  listWebArtifacts?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
   getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
   listWebApiKeys?(actor: ApiActor): Promise<unknown>;
   listWebAuditEvents?(actor: ApiActor): Promise<unknown>;
@@ -80,6 +85,11 @@ export type ApiDatabase = {
     artifactId: string;
     expiresAt: string;
   }): Promise<{ artifact_id: string; expires_at: string } | null>;
+};
+
+type PaginationInput = {
+  cursor?: string;
+  limit: number;
 };
 
 export type R2ListedObject = { key: string };
@@ -320,11 +330,16 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
   if (!db?.resolveWebMember) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  return jsonResponse(
-    context,
-    await db.resolveWebMember({
+  const resolveWebMember = db.resolveWebMember.bind(db);
+  if (!hasWebCallbackId(identity)) {
+    return errorResponse(context, "not_authenticated", 401, "missing WorkOS token_id or session_id");
+  }
+  const idempotencyKey = webCallbackIdempotencyKey(identity);
+  return runIdempotent(context, () =>
+    resolveWebMember({
       workosUserId: identity.workos_user_id,
       email: identity.email,
+      idempotencyKey,
       now: new Date().toISOString(),
     }),
   );
@@ -339,11 +354,23 @@ async function webWorkspace(context: AppContext): Promise<Response> {
 }
 
 async function webArtifacts(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["read"], async (db, actor) =>
-    db.listWebArtifacts
-      ? jsonResponse(context, await db.listWebArtifacts(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, ["read"], async (db, actor) => {
+    const pagination = parsePagination(context.req.raw);
+    if (!pagination.ok) {
+      return errorResponse(context, pagination.code, 400);
+    }
+    if (!db.listWebArtifacts) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    try {
+      return jsonResponse(context, await db.listWebArtifacts(actor, pagination.value));
+    } catch (error) {
+      if (error instanceof Error && error.message === "invalid_cursor") {
+        return errorResponse(context, "invalid_cursor", 400);
+      }
+      throw error;
+    }
+  });
 }
 
 async function webArtifactDetail(context: AppContext, params: RouteParams): Promise<Response> {
@@ -352,8 +379,24 @@ async function webArtifactDetail(context: AppContext, params: RouteParams): Prom
       return errorResponse(context, "database_unavailable", 503);
     }
     const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
-    return detail ? jsonResponse(context, detail) : errorResponse(context, "artifact_not_found", 404);
+    return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
   });
+}
+
+function parsePagination(
+  request: Request,
+): { ok: true; value: PaginationInput } | { ok: false; code: "invalid_cursor" | "invalid_request" } {
+  const url = new URL(request.url);
+  const cursor = url.searchParams.get("cursor") ?? undefined;
+  const limitParam = url.searchParams.get("limit");
+  const limit = limitParam === null ? 50 : Number(limitParam);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return { ok: false, code: "invalid_request" };
+  }
+  if (cursor !== undefined && (cursor.length < 1 || cursor.length > 500)) {
+    return { ok: false, code: "invalid_cursor" };
+  }
+  return { ok: true, value: cursor === undefined ? { limit } : { limit, cursor } };
 }
 
 async function webApiKeys(context: AppContext): Promise<Response> {
@@ -694,6 +737,20 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
   return resolveWorkOsIdentity(`Bearer ${token}`, options);
 }
 
+function hasWebCallbackId(identity: WorkOsIdentity): identity is WebCallbackIdentity {
+  return (
+    (typeof identity.token_id === "string" && identity.token_id.length > 0) ||
+    (typeof identity.session_id === "string" && identity.session_id.length > 0)
+  );
+}
+
+function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {
+  if (identity.token_id) {
+    return `workos-jti:${identity.token_id}`;
+  }
+  return `workos-session:${identity.session_id}`;
+}
+
 async function withWebMember(
   context: AppContext,
   requiredScopes: readonly string[],
@@ -711,8 +768,6 @@ async function withWebMember(
 
   const actor = await db.getWebMemberByWorkOsUserId({
     workosUserId: identity.workos_user_id,
-    email: identity.email,
-    now: new Date().toISOString(),
   });
   if (!actor || actor.type !== "member" || !actor.workspace_id) {
     return errorResponse(context, "forbidden", 403);

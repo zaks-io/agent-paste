@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, type SQL } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { artifactFiles, artifacts } from "../schema.js";
 import type { Artifact, StoredFile } from "../types.js";
@@ -47,6 +47,29 @@ export const artifactQueries = {
     return rows.map(mapArtifact);
   },
 
+  async listWebPage(
+    db: DrizzleDb,
+    input: { workspaceId: string; limit: number; cursor?: ArtifactCursor },
+  ): Promise<Artifact[]> {
+    const conditions: SQL[] = [eq(artifacts.workspaceId, input.workspaceId)];
+    if (input.cursor) {
+      const cursorPredicate = or(
+        lt(artifacts.createdAt, input.cursor.createdAt),
+        and(eq(artifacts.createdAt, input.cursor.createdAt), lt(artifacts.id, input.cursor.id)),
+      );
+      if (cursorPredicate) {
+        conditions.push(cursorPredicate);
+      }
+    }
+    const rows = await db
+      .select()
+      .from(artifacts)
+      .where(and(...conditions))
+      .orderBy(desc(artifacts.createdAt), desc(artifacts.id))
+      .limit(input.limit);
+    return rows.map(mapArtifact);
+  },
+
   async updateExpiry(db: DrizzleDb, artifactId: string, expiresAt: string) {
     const expires = new Date(expiresAt);
     const rows = await db
@@ -57,6 +80,11 @@ export const artifactQueries = {
     const row = rows[0];
     return row ? { artifact_id: row.id, expires_at: row.expiresAt.toISOString() } : null;
   },
+};
+
+export type ArtifactCursor = {
+  createdAt: Date;
+  id: string;
 };
 
 export const artifactFileQueries = {

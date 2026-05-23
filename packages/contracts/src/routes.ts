@@ -42,6 +42,7 @@ const adminMutationErrors = [
 ] as const;
 const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"] as const;
 const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
+const webCallbackErrors = [...webMutationErrors, "idempotency_in_flight"] as const;
 
 export const routeContracts = [
   {
@@ -86,7 +87,7 @@ export const routeContracts = [
     scopes: [],
     idempotency: "none",
     responseSchema: "WebAuthCallbackResponse",
-    errors: webMutationErrors,
+    errors: webCallbackErrors,
   },
   {
     id: "web.workspace.get",
@@ -108,7 +109,7 @@ export const routeContracts = [
     scopes: ["read"],
     idempotency: "none",
     responseSchema: "WebArtifactListResponse",
-    errors: webReadErrors,
+    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.artifacts.get",
@@ -119,7 +120,7 @@ export const routeContracts = [
     scopes: ["read"],
     idempotency: "none",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webReadErrors, "artifact_not_found"],
+    errors: [...webReadErrors, "not_found"],
   },
   {
     id: "web.apiKeys.list",

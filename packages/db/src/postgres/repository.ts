@@ -230,95 +230,113 @@ export class PostgresRepository {
     });
   }
 
-  async resolveWebMember(input: { workosUserId: string; email: string; now?: string }) {
+  async resolveWebMember(input: { workosUserId: string; email: string; idempotencyKey: string; now?: string }) {
     const now = input.now ?? new Date().toISOString();
-    return this.withScope(this.platformScope(), async (ctx) => {
+    const actor = { type: "system" as const, id: "web-auth" };
+
+    // Replay the exact callback response before branching on member existence.
+    // The nested per-user command still serializes concurrent first provisioning.
+    return this.runAdminCommand(actor, "web.member.callback", input.idempotencyKey, null, now, async (tx) => {
+      const ctx = withDrizzle(tx);
       const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
       if (existing) {
         const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
           email: input.email,
           lastSeenAt: now,
         });
-        return this.webAuthResponse(ctx, member ?? existing, null);
+        return { result: await this.webAuthResponse(ctx, member ?? existing, null) };
       }
 
-      const workspace: Workspace = {
-        id: crypto.randomUUID(),
-        name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
-        contact_email: input.email,
-        created_at: now,
-        updated_at: now,
-      };
-      await workspaceQueries.insert(ctx.drizzle, workspace);
+      const result = await this.runAdminCommandWithExecutor(
+        tx,
+        actor,
+        "web.member.provision",
+        // Provisioning is keyed by WorkOS user, not token, so concurrent first-login
+        // callbacks cannot create duplicate Personal Workspaces for the same user.
+        `workos-user:${input.workosUserId}`,
+        null,
+        now,
+        async (provisionTx) => {
+          const provisionCtx = withDrizzle(provisionTx);
+          const workspace: Workspace = {
+            id: crypto.randomUUID(),
+            name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
+            contact_email: input.email,
+            created_at: now,
+            updated_at: now,
+          };
+          await workspaceQueries.insert(provisionCtx.drizzle, workspace);
 
-      const member: WorkspaceMember = {
-        id: createId("mem"),
-        workspace_id: workspace.id,
-        workos_user_id: input.workosUserId,
-        email: input.email,
-        scopes: [...DEFAULT_MEMBER_SCOPES],
-        created_at: now,
-        last_seen_at: now,
-      };
-      await workspaceMemberQueries.insert(ctx.drizzle, member);
+          const member: WorkspaceMember = {
+            id: createId("mem"),
+            workspace_id: workspace.id,
+            workos_user_id: input.workosUserId,
+            email: input.email,
+            scopes: [...DEFAULT_MEMBER_SCOPES],
+            created_at: now,
+            last_seen_at: now,
+          };
+          await workspaceMemberQueries.insert(provisionCtx.drizzle, member);
 
-      const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
-      const apiKey: ApiKey = {
-        id: createId("key"),
-        workspace_id: workspace.id,
-        public_id: generated.publicId,
-        name: "Default",
-        secret_hmac: generated.secretHmac,
-        pepper_kid: 1,
-        scopes: ["publish", "read"],
-        revoked_at: null,
-        last_used_at: null,
-        created_at: now,
-      };
-      await apiKeyQueries.insert(ctx.drizzle, apiKey);
-      await operationEventQueries.insert(ctx.drizzle, {
-        actorType: "system",
-        actorId: "web-auth",
-        action: "workspace.created",
-        targetType: "workspace",
-        targetId: workspace.id,
-        workspaceId: workspace.id,
-        details: {},
-        occurredAt: now,
-      });
-      await operationEventQueries.insert(ctx.drizzle, {
-        actorType: "system",
-        actorId: "web-auth",
-        action: "api_key.created",
-        targetType: "api_key",
-        targetId: apiKey.id,
-        workspaceId: workspace.id,
-        details: { name: apiKey.name, public_id: apiKey.public_id },
-        occurredAt: now,
-      });
+          const generated = await generateApiKey(this.options.apiKeyEnv ?? "preview", this.options.apiKeyPepper);
+          const apiKey: ApiKey = {
+            id: createId("key"),
+            workspace_id: workspace.id,
+            public_id: generated.publicId,
+            name: "Default",
+            secret_hmac: generated.secretHmac,
+            pepper_kid: 1,
+            scopes: ["publish", "read"],
+            revoked_at: null,
+            last_used_at: null,
+            created_at: now,
+          };
+          await apiKeyQueries.insert(provisionCtx.drizzle, apiKey);
+          await operationEventQueries.insert(provisionCtx.drizzle, {
+            actorType: "system",
+            actorId: "web-auth",
+            action: "workspace.created",
+            targetType: "workspace",
+            targetId: workspace.id,
+            workspaceId: workspace.id,
+            details: {},
+            occurredAt: now,
+          });
+          await operationEventQueries.insert(provisionCtx.drizzle, {
+            actorType: "system",
+            actorId: "web-auth",
+            action: "api_key.created",
+            targetType: "api_key",
+            targetId: apiKey.id,
+            workspaceId: workspace.id,
+            details: { name: apiKey.name, public_id: apiKey.public_id },
+            occurredAt: now,
+          });
 
-      return this.webAuthResponse(ctx, member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
+          return {
+            result: await this.webAuthResponse(provisionCtx, member, {
+              api_key: toApiKeySummary(apiKey),
+              secret: generated.secret,
+            }),
+          };
+        },
+      );
+      return { result };
     });
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string; now?: string }) {
-    const now = input.now ?? new Date().toISOString();
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string }) {
     return this.withScope(this.platformScope(), async (ctx) => {
       const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
       if (!existing) {
         return null;
       }
-      const member = await workspaceMemberQueries.updateSeen(ctx.drizzle, existing.id, {
-        email: input.email,
-        lastSeenAt: now,
-      });
-      const updated = member ?? existing;
       return {
         type: "member" as const,
-        id: updated.id,
-        workspace_id: updated.workspace_id,
-        email: updated.email,
-        scopes: updated.scopes,
+        id: existing.id,
+        workspace_id: existing.workspace_id,
+        email: existing.email,
+        scopes: existing.scopes,
       };
     });
   }
@@ -339,10 +357,23 @@ export class PostgresRepository {
     });
   }
 
-  async listWebArtifacts(actor: ApiActor) {
+  async listWebArtifacts(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebArtifactLimit(pagination.limit);
     return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
-      const rows = await artifactQueries.listFiltered(ctx.drizzle, actor.workspace_id);
-      return { items: rows.map(toWebArtifactRow), page_info: { next_cursor: null, has_more: false } };
+      const rows = await artifactQueries.listWebPage(ctx.drizzle, {
+        workspaceId: actor.workspace_id,
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeWebArtifactCursor(pagination.cursor) } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toWebArtifactRow),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeWebArtifactCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
     });
   }
 
@@ -757,9 +788,21 @@ export class PostgresRepository {
     now: string,
     run: (tx: SqlExecutor) => Promise<{ result: T; audit?: CommandAuditEvent[] }>,
   ): Promise<T> {
+    return this.runAdminCommandWithExecutor(this.executor, actor, operation, idempotencyKey, workspaceId, now, run);
+  }
+
+  private async runAdminCommandWithExecutor<T>(
+    executor: SqlExecutor,
+    actor: AdminActor,
+    operation: string,
+    idempotencyKey: string,
+    workspaceId: string | null,
+    now: string,
+    run: (tx: SqlExecutor) => Promise<{ result: T; audit?: CommandAuditEvent[] }>,
+  ): Promise<T> {
     const scope: RlsScope = workspaceId ? { kind: "workspace", workspaceId } : { kind: "platform" };
     const command = await runCommand<T>({
-      executor: rlsExecutor(this.executor, scope),
+      executor: rlsExecutor(executor, scope),
       actor: adminCommandActor(actor, workspaceId),
       operation,
       idempotencyKey,
@@ -864,6 +907,41 @@ function summarizeEventDetails(details: Record<string, unknown>): string {
     .sort()
     .map((key) => `${key}=${String(details[key])}`)
     .join(", ");
+}
+
+function encodeWebArtifactCursor(artifact: Artifact): string {
+  return btoa(JSON.stringify({ created_at: artifact.created_at, id: artifact.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebArtifactCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { created_at?: unknown; id?: unknown };
+    if (typeof raw.created_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const createdAt = new Date(raw.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { createdAt, id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
 }
 
 // Re-export type for legacy SqlValue users
