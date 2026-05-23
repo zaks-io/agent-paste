@@ -19,7 +19,7 @@ const adminEnv = {
 
 await waitForAdminAuth(config);
 
-const workspace = await runCliJson([
+const workspace = await runAdminCliJson([
   "admin",
   "workspace",
   "create",
@@ -30,7 +30,7 @@ const workspace = await runCliJson([
 ]);
 assert(workspace.id, "workspace create returned an id");
 
-const key = await runCliJson(["admin", "key", "create", workspace.id, "--name", config.slug, "--json"]);
+const key = await runAdminCliJson(["admin", "key", "create", workspace.id, "--name", config.slug, "--json"]);
 assert(
   typeof key.secret === "string" && key.secret.startsWith(config.expectedApiKeyPrefix),
   `api key create returned a ${config.expectedApiKeyPrefix} secret`,
@@ -67,7 +67,7 @@ if (target !== "production") {
   await assertBytesPurgedAfterExpiry(userEnv);
   await assertActorRateLimitFires(key.secret);
 } else {
-  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
+  await runAdminCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
   await waitForStatus(published.view_url, 404, "deleted content");
 }
 
@@ -123,6 +123,32 @@ async function runCliJson(args, commandEnv = adminEnv) {
   } catch {
     throw new Error(`CLI did not return JSON for ${args.join(" ")}:\n${output}`);
   }
+}
+
+async function runAdminCliJson(args) {
+  const deadline = Date.now() + 60_000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      return await runCliJson(args, adminEnv);
+    } catch (error) {
+      if (!isNotAuthenticatedError(error)) {
+        throw error;
+      }
+      lastError = error;
+      await waitForAdminAuth(config);
+      await sleep(2000);
+    }
+  }
+  throw new Error(`admin CLI ${args.join(" ")} did not authenticate before deadline: ${errorMessage(lastError)}`);
+}
+
+function isNotAuthenticatedError(error) {
+  return errorMessage(error).includes("not_authenticated");
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function run(command, args, commandEnv) {
@@ -351,7 +377,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   const before = await listR2Keys(prefix);
   assert(before.length > 0, "R2 prefix has keys before delete");
 
-  await runCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
+  await runAdminCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
   await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
 
   const after = await listR2Keys(prefix);
@@ -380,7 +406,7 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
   });
   assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
 
-  const cleanup = await runCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
+  const cleanup = await runAdminCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
   assert(cleanup.deleted_r2_objects >= before.length, "cleanup deleted_r2_objects matches purged keys");
 
