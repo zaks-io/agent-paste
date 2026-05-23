@@ -288,6 +288,158 @@ describe("content worker", () => {
     const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
     expect(response.status).toBe(404);
   });
+
+  it("rate limits reads by artifact id after checking the denylist and object existence", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const checkedKeys: string[] = [];
+    const limitKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get(key) {
+          checkedKeys.push(key);
+          return null;
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit(options) {
+          limitKeys.push(options.key);
+          return { success: false };
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return { body: new Response("<h1>ok</h1>").body, size: 11 };
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+    const body = (await response.json()) as { error: { code: string } };
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(body.error.code).toBe("rate_limited_artifact");
+    expect(checkedKeys).toEqual(["ad:art_1", "rd:rev_1"]);
+    expect(limitKeys).toEqual(["art_1"]);
+  });
+
+  it("does not rate limit missing R2 objects", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["missing.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const limitKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit(options) {
+          limitKeys.push(options.key);
+          return { success: false };
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return null;
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/missing.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(limitKeys).toEqual([]);
+  });
+
+  it("does not let throttling reveal denylisted artifacts", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const limitKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get(key) {
+          return key === "ad:art_1" ? "1" : null;
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit(options) {
+          limitKeys.push(options.key);
+          return { success: false };
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("should not read denied content");
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(limitKeys).toEqual([]);
+  });
+
+  it("fails open when the artifact rate-limit binding errors", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          throw new Error("binding unavailable");
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return { body: new Response("<h1>ok</h1>").body, size: 11 };
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("<h1>ok</h1>");
+  });
 });
 
 describe("CSP header per content type", () => {

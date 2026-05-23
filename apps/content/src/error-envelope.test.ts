@@ -80,6 +80,56 @@ describe("content error envelope", () => {
     await expectEnvelope(response, "not_found");
   });
 
+  it("keeps missing R2 objects as 404 even when the artifact bucket is limited", async () => {
+    const token = await signContentToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          return { success: false };
+        },
+      },
+      ARTIFACTS: emptyArtifacts(),
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Retry-After")).toBeNull();
+    await expectEnvelope(response, "not_found");
+  });
+
+  it("429 rate_limited_artifact includes Retry-After when the object exists", async () => {
+    const token = await signContentToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          return { success: false };
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return { body: new Response("<h1>ok</h1>").body, size: 11 };
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    await expectEnvelope(response, "rate_limited_artifact");
+  });
+
   it("500 envelope echoes a valid inbound X-Request-Id", async () => {
     const token = await signContentToken(
       { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
