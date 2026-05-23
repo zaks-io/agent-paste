@@ -226,7 +226,7 @@ export class LocalRepository {
     return this.webAuthResponse(member, { api_key: toApiKeySummary(apiKey), secret: generated.secret });
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string }) {
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string }) {
     const member = [...this.workspaceMembers.values()].find((entry) => entry.workos_user_id === input.workosUserId);
     if (!member) {
       return null;

@@ -256,6 +256,8 @@ export class PostgresRepository {
     return this.runAdminCommand(
       { type: "system", id: "web-auth" },
       "web.member.provision",
+      // Provisioning is keyed by WorkOS user, not token, so concurrent first-login
+      // callbacks cannot create duplicate Personal Workspaces for the same user.
       `workos-user:${input.workosUserId}`,
       null,
       now,
@@ -326,7 +328,7 @@ export class PostgresRepository {
     );
   }
 
-  async getWebMemberByWorkOsUserId(input: { workosUserId: string; email: string }) {
+  async getWebMemberByWorkOsUserId(input: { workosUserId: string }) {
     return this.withScope(this.platformScope(), async (ctx) => {
       const existing = await workspaceMemberQueries.findByWorkOsUserId(ctx.drizzle, input.workosUserId);
       if (!existing) {

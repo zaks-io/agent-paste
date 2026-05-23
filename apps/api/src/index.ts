@@ -44,7 +44,7 @@ export type ApiDatabase = {
     idempotencyKey: string;
     now?: string;
   }): Promise<unknown>;
-  getWebMemberByWorkOsUserId?(input: { workosUserId: string; email: string }): Promise<ApiActor | null>;
+  getWebMemberByWorkOsUserId?(input: { workosUserId: string }): Promise<ApiActor | null>;
   getWebWorkspace?(actor: ApiActor): Promise<unknown>;
   listWebArtifacts?(actor: ApiActor): Promise<unknown>;
   getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
@@ -325,12 +325,16 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
   if (!db?.resolveWebMember) {
     return errorResponse(context, "database_unavailable", 503);
   }
+  const idempotencyKey = webCallbackIdempotencyKey(identity);
+  if (!idempotencyKey) {
+    return errorResponse(context, "not_authenticated", 401);
+  }
   const resolveWebMember = db.resolveWebMember;
   return runIdempotent(context, () =>
     resolveWebMember({
       workosUserId: identity.workos_user_id,
       email: identity.email,
-      idempotencyKey: webCallbackIdempotencyKey(identity),
+      idempotencyKey,
       now: new Date().toISOString(),
     }),
   );
@@ -700,18 +704,14 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
   return resolveWorkOsIdentity(`Bearer ${token}`, options);
 }
 
-function webCallbackIdempotencyKey(identity: WorkOsIdentity): string {
+function webCallbackIdempotencyKey(identity: WorkOsIdentity): string | null {
   if (identity.token_id) {
     return `workos-jti:${identity.token_id}`;
   }
   if (identity.session_id) {
     return `workos-session:${identity.session_id}`;
   }
-  return `workos-callback:${identity.workos_user_id}:${randomUuid()}`;
-}
-
-function randomUuid(): string {
-  return crypto.randomUUID?.() ?? `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+  return null;
 }
 
 async function withWebMember(
@@ -731,7 +731,6 @@ async function withWebMember(
 
   const actor = await db.getWebMemberByWorkOsUserId({
     workosUserId: identity.workos_user_id,
-    email: identity.email,
   });
   if (!actor || actor.type !== "member" || !actor.workspace_id) {
     return errorResponse(context, "forbidden", 403);

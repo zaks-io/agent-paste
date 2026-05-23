@@ -212,7 +212,7 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Status: Done on 2026-05-23.
 - Drives: ADR 0055, ADR 0059, ADR 0068.
 - Files: `apps/api/src/workos.ts`, `apps/api/src/index.ts`, `packages/db/src/postgres/repository.ts`, `packages/db/src/local-repository.ts`, `packages/db/src/index.test.ts`, `apps/api/src/{index,workos}.test.ts`, `docs/ops/web-app-todo.md`.
-- Done: `POST /v1/auth/web/callback` accepts the AuthKit access token forwarded by `apps/web`, verifies it against WorkOS JWKS with a required `client_id` claim, resolves the canonical WorkOS user email server-side, and provisions or updates the Workspace Member. First sign-in creates the Personal Workspace, Workspace Member, and default API Key through `runCommand`; later callbacks update `last_seen_at` through a per-token command and return no default key.
+- Done: `POST /v1/auth/web/callback` accepts the AuthKit access token forwarded by `apps/web`, verifies it against WorkOS JWKS with a required `client_id` claim, extracts `session_id` from JWT `sid` and `token_id` from JWT `jti` into `WorkOsIdentity`, resolves the canonical WorkOS user email server-side, and provisions or updates the Workspace Member. Callback idempotency uses `workos-jti:{jti}` or `workos-session:{sid}`; first-time provisioning is keyed by `workos-user:{workos_user_id}` so concurrent first-login callbacks cannot create duplicate Personal Workspaces. First sign-in creates the Personal Workspace, Workspace Member, and default API Key through `runCommand`; later callbacks update `last_seen_at` through a per-token command and return no default key.
 
 ### Add `workspace_members` DB foundation for WorkOS web auth
 

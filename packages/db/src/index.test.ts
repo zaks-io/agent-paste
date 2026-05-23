@@ -112,7 +112,6 @@ describe("LocalRepository", () => {
 
     const actor = await repo.getWebMemberByWorkOsUserId({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
-      email: "renamed@example.com",
     });
 
     expect(actor).toMatchObject({
