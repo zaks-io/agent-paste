@@ -138,15 +138,18 @@ describe("postgres RLS runtime enforcement", () => {
   });
 
   it("enforces a globally unique WorkOS user id", async () => {
-    await expect(
-      platformQuery(
+    try {
+      await platformQuery(
         executor,
         `insert into workspace_members
            (id, workspace_id, workos_user_id, email, created_at, last_seen_at)
          values ('mem-dupe', $1, 'user-ws1', 'dupe@example.com', now(), now())`,
         [ws2Id],
-      ),
-    ).rejects.toThrow();
+      );
+      throw new Error("expected duplicate workos_user_id to fail");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "23505" });
+    }
   });
 
   it("fails to insert a row whose workspace_id does not match the tenant scope", async () => {
