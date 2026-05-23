@@ -54,7 +54,7 @@ State-changing handlers on `api` and sweep handlers on `jobs` use the same order
 2. Write the corresponding denylist key.
 3. Enqueue any byte-purge job on Cloudflare Queues per [ADR 0019](./0019-cloudflare-queues-for-background-jobs.md).
 
-A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery sweep referenced in the ADR 0028 README cross-reference and [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md). The accepted consistency window is the 15-minute token TTL.
+A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery sweep referenced in the ADR 0028 README cross-reference and [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md). Once written, denylist entries still live for the maximum currently minted content-token lifetime described above; the accepted revocation consistency window is limited to KV/cache propagation, not a shorter entry TTL.
 
 ## Bindings
 
