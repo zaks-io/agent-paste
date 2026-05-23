@@ -5,10 +5,13 @@ create table if not exists workspace_members (
   workspace_id uuid not null references workspaces(id) on delete restrict,
   workos_user_id text not null,
   email text not null,
-  scopes jsonb not null default '["publish","read","admin"]'::jsonb,
+  scopes jsonb not null default '[]'::jsonb,
   created_at timestamptz not null,
   last_seen_at timestamptz not null
 );
+
+alter table workspace_members
+  drop constraint if exists workspace_members_workspace_workos_user_unique;
 
 alter table workspace_members
   drop constraint if exists workspace_members_workos_user_id_unique;
@@ -16,17 +19,18 @@ alter table workspace_members
 alter table workspace_members
   drop constraint if exists workspace_members_workos_user_id_key;
 
+drop index if exists workspace_members_workspace_workos_user_unique;
+
+drop index if exists workspace_members_workos_user_idx;
+
 alter table workspace_members
-  alter column scopes set default '["publish","read","admin"]'::jsonb;
+  alter column scopes set default '[]'::jsonb;
 
 create index if not exists workspace_members_workspace_idx
   on workspace_members(workspace_id);
 
-create index if not exists workspace_members_workos_user_idx
+create unique index if not exists workspace_members_workos_user_unique
   on workspace_members(workos_user_id);
-
-create unique index if not exists workspace_members_workspace_workos_user_unique
-  on workspace_members(workspace_id, workos_user_id);
 
 alter table workspace_members enable row level security;
 alter table workspace_members force row level security;

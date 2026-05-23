@@ -25,11 +25,11 @@ Scope clarification: this file tracks only the work that closes Phase 3 (`docs/s
 
 ## DB schema (drives login completion)
 
-- [ ] Migration `packages/db/migrations/0004_workspace_members.sql`:
-  - `workspace_members(id ulid pk, workspace_id ulid fk, workos_user_id text unique, email text, scopes jsonb not null default '[]', created_at timestamptz, last_seen_at timestamptz)`.
+- [x] Migration `packages/db/migrations/0004_workspace_members.sql`:
+  - `workspace_members(id text pk, workspace_id uuid fk, workos_user_id text unique, email text, scopes jsonb not null default '[]', created_at timestamptz, last_seen_at timestamptz)`.
   - RLS policies mirroring ADR 0044: tenant policy keyed on `current_setting('app.workspace_id', true)`, platform policy for the resolve path.
   - Idempotent: Postgres does not support `CREATE POLICY IF NOT EXISTS`; use the Bug B / migration 0003 pattern of `DROP POLICY IF EXISTS … ON …; CREATE POLICY … ON …` for each policy so the migration is safe to re-run.
-- [ ] Add the Drizzle schema entry and refresh `packages/db/snapshot/schema.sql`; `pnpm db:check` must stay green.
+- [x] Add the Drizzle schema entry and refresh `packages/db/snapshot/schema.sql`; `pnpm db:check` must stay green.
 
 ## `api` endpoints (unblock the dashboard)
 

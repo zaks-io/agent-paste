@@ -48,7 +48,8 @@ async function provisionRuntimeRole(client: PGlite) {
     create role agent_paste_runtime nosuperuser nobypassrls;
     grant select, insert, update, delete on
       workspaces, api_keys, upload_sessions, upload_session_files,
-      artifacts, artifact_files, operation_events, idempotency_records
+      artifacts, artifact_files, operation_events, idempotency_records,
+      workspace_members
     to agent_paste_runtime;
   `);
 }
@@ -85,6 +86,21 @@ async function insertArtifact(executor: SqlExecutor, workspaceId: string, artifa
   );
 }
 
+async function insertWorkspaceMember(
+  executor: SqlExecutor,
+  workspaceId: string,
+  memberId: string,
+  workosUserId: string,
+) {
+  const tenant = rlsExecutor(executor, { kind: "workspace", workspaceId });
+  await tenant.query(
+    `insert into workspace_members
+       (id, workspace_id, workos_user_id, email, created_at, last_seen_at)
+     values ($1, $2, $3, $4, now(), now())`,
+    [memberId, workspaceId, workosUserId, `${memberId}@example.com`],
+  );
+}
+
 describe("postgres RLS runtime enforcement", () => {
   let client: PGlite;
   let executor: SqlExecutor;
@@ -95,6 +111,8 @@ describe("postgres RLS runtime enforcement", () => {
     await provisionRuntimeRole(client);
     executor = executorForPglite(client, "agent_paste_runtime");
     await seedWorkspaces(executor);
+    await insertWorkspaceMember(executor, ws1Id, "mem-ws1", "user-ws1");
+    await insertWorkspaceMember(executor, ws2Id, "mem-ws2", "user-ws2");
     await insertArtifact(executor, ws1Id, "art-ws1", "key-ws1");
     await insertArtifact(executor, ws2Id, "art-ws2", "key-ws2");
   });
@@ -109,6 +127,26 @@ describe("postgres RLS runtime enforcement", () => {
     const ws2 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws2Id });
     const rows = await ws2.query("select id from artifacts where id = $1", ["art-ws1"]);
     expect(rows.rows).toEqual([]);
+  });
+
+  it("returns only the tenant's workspace members when scoped to a workspace", async () => {
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    const rows = await ws1.query<{ id: string; workos_user_id: string }>(
+      "select id, workos_user_id from workspace_members order by id",
+    );
+    expect(rows.rows).toEqual([{ id: "mem-ws1", workos_user_id: "user-ws1" }]);
+  });
+
+  it("enforces a globally unique WorkOS user id", async () => {
+    await expect(
+      platformQuery(
+        executor,
+        `insert into workspace_members
+           (id, workspace_id, workos_user_id, email, created_at, last_seen_at)
+         values ('mem-dupe', $1, 'user-ws1', 'dupe@example.com', now(), now())`,
+        [ws2Id],
+      ),
+    ).rejects.toThrow();
   });
 
   it("fails to insert a row whose workspace_id does not match the tenant scope", async () => {
