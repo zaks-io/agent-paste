@@ -16,12 +16,14 @@ Scope clarification: this file tracks only the work that closes Phase 3 (`docs/s
 
 ## Bootstrap script (small follow-up PR)
 
-- [ ] Extend `scripts/bootstrap-secrets.mjs` to push the new web secrets to both Workers (`agent-paste-web-preview` and `agent-paste-web-production`):
+- [x] Extend `scripts/bootstrap-secrets.mjs` to push the new web secrets to both Workers (`agent-paste-web-preview` and `agent-paste-web-production`):
   - `WORKOS_API_KEY`
   - `WORKOS_COOKIE_PASSWORD`
   - `WORKOS_CLIENT_ID` (also kept in `wrangler.jsonc` vars for non-secret reference; secret value lives only as a Worker secret)
   - `OPERATOR_EMAILS` (CSV)
-- [ ] Update the Worker-secrets table in `docs/ops/project-status.md` once these are present.
+- [x] Update the Worker-secrets table in `docs/ops/project-status.md` once these are present.
+
+Implementation note: web secret setup is opt-in for first deploy. Plain CLI-first bootstrap still writes only the MVP `api`/`upload`/`content` secrets; passing `--with-web` or a complete WorkOS input set adds the `api` WorkOS bindings plus the `web` Worker bindings. `WORKOS_CLIENT_ID` is written through `wrangler secret put`; the `apps/api` and `apps/web` `wrangler.jsonc` vars remain non-secret deployment metadata/placeholders and are not edited by the script.
 
 ## DB schema (drives login completion)
 
