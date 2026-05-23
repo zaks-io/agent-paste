@@ -193,7 +193,7 @@ async function waitForAdminAuth(c) {
         headers: { authorization: `Bearer ${c.adminToken}` },
       });
     } catch (error) {
-      lastStatus = "transport_error";
+      lastStatus = -1;
       lastBody = error instanceof Error ? error.message : String(error);
       await sleep(2000);
       continue;
@@ -210,7 +210,13 @@ async function waitForAdminAuth(c) {
     }
     await sleep(2000);
   }
-  throw new Error(`admin auth did not become ready at ${url}; last response ${lastStatus}: ${lastBody.slice(0, 200)}`);
+  throw new Error(
+    `admin auth did not become ready at ${url}; last response ${formatAdminAuthStatus(lastStatus)}: ${lastBody.slice(0, 200)}`,
+  );
+}
+
+function formatAdminAuthStatus(status) {
+  return status === -1 ? "transport_error" : String(status);
 }
 
 async function waitForStatus(url, expectedStatus, label) {
