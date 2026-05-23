@@ -9,6 +9,7 @@
       "!.turbo",
       "!.wrangler",
       "!**/worker-configuration.d.ts",
+      "!**/routeTree.gen.ts",
       "!packages/contracts/openapi/*.json"
     ]
   },
@@ -30,5 +31,32 @@
       "semicolons": "always",
       "trailingCommas": "all"
     }
-  }
+  },
+  "css": {
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/src/routes/al.*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@workos/authkit-tanstack-react-start": "Access Link routes must not import auth modules (ADR 0033).",
+                  "@workos/authkit-session": "Access Link routes must not import auth modules (ADR 0033).",
+                  "@tanstack/react-start/server": "Access Link routes must not import sealed-session helpers (ADR 0033)."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

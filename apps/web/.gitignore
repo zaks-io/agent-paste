@@ -1,0 +1,4 @@
+.output/
+.vinxi/
+.tanstack/
+worker-configuration.d.ts

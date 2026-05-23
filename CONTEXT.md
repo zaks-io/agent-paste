@@ -307,7 +307,7 @@ _Avoid_: frontend worker, dashboard worker, app worker
 
 <a id="cli"></a>
 **cli**:
-The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with an Auth0 loopback flow for humans or with `AGENT_PASTE_API_KEY` for CI and headless agents.
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with an OIDC loopback flow for humans (provider chosen when CLI human auth lands) or with `AGENT_PASTE_API_KEY` for CI and headless agents.
 _Avoid_: client, sdk, ap tool
 
 <a id="mcp"></a>

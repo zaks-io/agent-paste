@@ -2,8 +2,16 @@ packages:
   - apps/*
   - packages/*
 
-nodeLinker: isolated
+catalog:
+  '@biomejs/biome': ^2.4.15
+  '@vitest/coverage-v8': ^4.1.7
+  turbo: ^2.9.14
+  typescript: ^6.0.3
+  vitest: ^4.1.7
+  zod: ^4.4.3
+
 minimumReleaseAge: 4320
+
 minimumReleaseAgeExclude:
   - '@biomejs/biome'
   - '@cloudflare/workers-types'
@@ -15,22 +23,12 @@ minimumReleaseAgeExclude:
   - vitest
   - wrangler
 
-supportedArchitectures:
-  os:
-    - linux
-    - darwin
-    - win32
-  cpu:
-    - x64
-    - arm64
-  libc:
-    - glibc
-    - musl
+nodeLinker: isolated
 
-catalog:
-  '@biomejs/biome': ^2.4.15
-  '@vitest/coverage-v8': ^4.1.7
-  turbo: ^2.9.14
-  typescript: ^6.0.3
-  vitest: ^4.1.7
-  zod: ^4.4.3
+patchedDependencies:
+  '@workos/authkit-tanstack-react-start@0.8.3': patches/@workos__authkit-tanstack-react-start@0.8.3.patch
+
+supportedArchitectures:
+  cpu: [x64, arm64]
+  libc: [glibc, musl]
+  os: [linux, darwin, win32]
