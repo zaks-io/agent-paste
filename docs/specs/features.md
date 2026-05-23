@@ -51,6 +51,7 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Upload session TTL | Partial uploads expire and are cleaned up.                                                 | System        |
 | Scheduled cleanup  | API Worker scheduled handler expires artifacts and upload sessions, then deletes R2 bytes. | System        |
 | Manual cleanup     | Admin CLI can trigger cleanup.                                                             | Operator      |
+| Artifact read cap  | Unauthenticated content reads are throttled per Artifact as an abuse ceiling.              | System        |
 | Operation events   | Lightweight event log for workspace, key, upload, artifact, cleanup, and admin actions.    | Operator      |
 
 ### Admin
