@@ -12,7 +12,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
 import { type Context, Hono } from "hono";
-import { resolveWorkOsIdentity, type WorkOsIdentity } from "./workos.js";
+import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
 export type ApiActor = {
   type: "api_key" | "member" | "admin" | "system";
@@ -24,7 +24,7 @@ export type ApiActor = {
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiActor | null>;
   verifyAdminToken?(token: string): Promise<ApiActor | null>;
-  verifyWebToken?(token: string): Promise<WorkOsIdentity | null>;
+  verifyWebToken?(token: string): Promise<WebCallbackIdentity | null>;
 };
 
 type AdminActor = { type: "admin" | "system"; id: string };
@@ -325,11 +325,11 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
   if (!db?.resolveWebMember) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const idempotencyKey = webCallbackIdempotencyKey(identity);
-  if (!idempotencyKey) {
-    return errorResponse(context, "not_authenticated", 401);
+  const resolveWebMember = db.resolveWebMember.bind(db);
+  if (!hasWebCallbackId(identity)) {
+    return errorResponse(context, "not_authenticated", 401, "missing WorkOS token_id or session_id");
   }
-  const resolveWebMember = db.resolveWebMember;
+  const idempotencyKey = webCallbackIdempotencyKey(identity);
   return runIdempotent(context, () =>
     resolveWebMember({
       workosUserId: identity.workos_user_id,
@@ -704,14 +704,15 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
   return resolveWorkOsIdentity(`Bearer ${token}`, options);
 }
 
-function webCallbackIdempotencyKey(identity: WorkOsIdentity): string | null {
+function hasWebCallbackId(identity: WorkOsIdentity): identity is WebCallbackIdentity {
+  return typeof identity.token_id === "string" || typeof identity.session_id === "string";
+}
+
+function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {
   if (identity.token_id) {
     return `workos-jti:${identity.token_id}`;
   }
-  if (identity.session_id) {
-    return `workos-session:${identity.session_id}`;
-  }
-  return null;
+  return `workos-session:${identity.session_id}`;
 }
 
 async function withWebMember(

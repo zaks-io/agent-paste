@@ -153,6 +153,92 @@ describe("api worker", () => {
     });
   });
 
+  it("rejects callback identities without a WorkOS token or session id", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return { workos_user_id: "user_1", email: "user@example.com" } as never;
+        },
+      },
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async resolveWebMember() {
+          throw new Error("callback should fail before member resolution");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/auth/web/callback", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "not_authenticated", message: "missing WorkOS token_id or session_id" },
+    });
+  });
+
+  it("calls resolveWebMember with the database receiver intact", async () => {
+    const db = {
+      marker: "receiver-kept",
+      async getWhoami() {
+        return {};
+      },
+      async getAgentView() {
+        return null;
+      },
+      async getPublicAgentView() {
+        return null;
+      },
+      async resolveWebMember(this: { marker: string }, input: { email: string }) {
+        return { receiver: this.marker, email: input.email };
+      },
+      async runCleanup() {
+        return {};
+      },
+    };
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return { workos_user_id: "user_1", email: "user@example.com", session_id: "sess_1" };
+        },
+      },
+      DB: db as unknown as Env["DB"],
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/auth/web/callback", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ receiver: "receiver-kept", email: "user@example.com" });
+  });
+
   it("rejects API keys on web dashboard routes", async () => {
     const env: Env = {
       AUTH: {
@@ -463,7 +549,7 @@ function webAuthForTests(): Env["AUTH"] {
       return null;
     },
     async verifyWebToken(token) {
-      return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com" } : null;
+      return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" } : null;
     },
   };
 }

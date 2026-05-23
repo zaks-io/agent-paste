@@ -101,6 +101,32 @@ describe("LocalRepository", () => {
     expect(repo.apiKeys.size).toBe(1);
   });
 
+  it("replays web member resolution by idempotency key without mutating member state", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const first = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:same",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const second = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "renamed@example.com",
+      idempotencyKey: "workos-jti:same",
+      now: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(second).toEqual(first);
+    expect(repo.workspaceMembers.get(first.workspace_member.id)).toMatchObject({
+      email: "user@example.com",
+      last_seen_at: "2026-01-01T00:00:00.000Z",
+    });
+    expect(repo.workspaces.size).toBe(1);
+    expect(repo.workspaceMembers.size).toBe(1);
+    expect(repo.apiKeys.size).toBe(1);
+    expect(repo.operationEvents.size).toBe(2);
+  });
+
   it("resolves a web member actor without mutating login timestamps", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({

@@ -55,6 +55,13 @@ describe("WorkOS access-token verification", () => {
     await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
   });
 
+  it("rejects a JWT without a token id or session id", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, sessionId: null, tokenId: null });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
+  });
+
   it("rejects a malformed bearer header before calling WorkOS", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
@@ -85,20 +92,32 @@ function options() {
   };
 }
 
-async function tokenFixture(input: { client_id?: string; iss?: string; expiresAt?: number; aud?: string }) {
+async function tokenFixture(input: {
+  client_id?: string;
+  iss?: string;
+  expiresAt?: number;
+  aud?: string;
+  sessionId?: string | null;
+  tokenId?: string | null;
+}) {
   keyPairPromise ??= generateKeyPair("RS256");
   const { publicKey, privateKey } = await keyPairPromise;
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "test-key";
   publicJwk.alg = "RS256";
   const expiresAt = input.expiresAt ?? Math.floor(Date.now() / 1000) + 300;
-  const jwt = new SignJWT({ ...(input.client_id ? { client_id: input.client_id } : {}), sid: sessionId })
+  const jwt = new SignJWT({
+    ...(input.client_id ? { client_id: input.client_id } : {}),
+    ...(input.sessionId !== null ? { sid: input.sessionId ?? sessionId } : {}),
+  })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuer(input.iss ?? issuer)
     .setSubject(subject)
-    .setJti(tokenId)
     .setIssuedAt()
     .setExpirationTime(expiresAt);
+  if (input.tokenId !== null) {
+    jwt.setJti(input.tokenId ?? tokenId);
+  }
   if (input.aud) {
     jwt.setAudience(input.aud);
   }

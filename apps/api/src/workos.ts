@@ -7,6 +7,8 @@ export type WorkOsIdentity = {
   token_id?: string;
 };
 
+export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });
+
 export type WorkOsVerificationOptions = {
   apiKey: string;
   clientId: string;
@@ -23,12 +25,13 @@ type WorkOsUser = {
 
 const DEFAULT_WORKOS_API_BASE_URL = "https://api.workos.com";
 const DEFAULT_WORKOS_ISSUER = "https://api.workos.com";
+const WORKOS_JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export async function resolveWorkOsIdentity(
   bearerValue: string,
   options: WorkOsVerificationOptions,
-): Promise<WorkOsIdentity | null> {
+): Promise<WebCallbackIdentity | null> {
   const token = parseBearerToken(bearerValue);
   if (!token) {
     return null;
@@ -44,12 +47,18 @@ export async function resolveWorkOsIdentity(
     return null;
   }
 
-  return {
+  const identity = {
     workos_user_id: user.id,
     email: user.email,
     ...(verified.sessionId ? { session_id: verified.sessionId } : {}),
-    ...(verified.tokenId ? { token_id: verified.tokenId } : {}),
   };
+  if (verified.tokenId) {
+    return { ...identity, token_id: verified.tokenId };
+  }
+  if (verified.sessionId) {
+    return { workos_user_id: user.id, email: user.email, session_id: verified.sessionId };
+  }
+  return null;
 }
 
 export async function verifyWorkOsAccessToken(
@@ -120,7 +129,7 @@ function remoteWorkOsJwks(options: WorkOsVerificationOptions): ReturnType<typeof
   }
 
   const remote = createRemoteJWKSet(new URL(url), {
-    cacheMaxAge: Infinity,
+    cacheMaxAge: WORKOS_JWKS_CACHE_MAX_AGE_MS,
     headers: { authorization },
   });
   remoteJwksCache.set(cacheKey, remote);
