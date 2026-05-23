@@ -20,9 +20,17 @@ For every request, `content` verifies:
 - KV denylist keys for artifact and revision when present.
 - Requested path is within the signed revision.
 
-Authorization failures return `404 { "code": "not_found" }`. Rate-limit failures return `429 { "code": "rate_limited" }` with `Retry-After`.
+Authorization failures return `404 { "error": { "code": "not_found" } }`. Artifact read rate-limit failures return `429 { "error": { "code": "rate_limited_artifact" } }` with `Retry-After`.
 
 Internal logs may record the failure category and resolved ids, but must never record the token or full signed URL.
+
+## Artifact Read Throttling
+
+The content origin applies a platform-controlled unauthenticated read cap per Artifact. The bucket key is derived from the signed token payload after signature verification, not from the raw token or URL.
+
+The throttle covers direct content-origin reads for every file in the Artifact. It is an abuse ceiling, not a billing meter; occasional eventual consistency across Cloudflare locations is acceptable.
+
+When the cap is exceeded, `content` returns the public error envelope with `error.code = "rate_limited_artifact"` and a `Retry-After` header. It does not reveal whether the Artifact exists beyond what a valid signed token already proves.
 
 ## Extension Allowlist
 

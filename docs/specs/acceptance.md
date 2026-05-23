@@ -34,14 +34,15 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Reading
 
-| Scenario               | Expected Result                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------ |
-| Open `view_url`        | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers.         |
-| Load static asset      | Asset referenced by HTML loads from the same content origin when included in the artifact. |
-| Fetch `agent_view_url` | Returns Agent View JSON with full per-file signed URLs.                                    |
-| Fetch unknown path     | Returns generic `not_found`.                                                               |
-| Expired signed token   | Returns generic `not_found`.                                                               |
-| Deleted artifact token | Returns generic `not_found` after denylist propagation.                                    |
+| Scenario               | Expected Result                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Open `view_url`        | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers.                     |
+| Load static asset      | Asset referenced by HTML loads from the same content origin when included in the artifact.             |
+| Fetch `agent_view_url` | Returns Agent View JSON with full per-file signed URLs.                                                |
+| Fetch unknown path     | Returns generic `not_found`.                                                                           |
+| Expired signed token   | Returns generic `not_found`.                                                                           |
+| Deleted artifact token | Returns generic `not_found` after denylist propagation.                                                |
+| Artifact read throttle | Excess unauthenticated reads for one Artifact return HTTP 429 + `rate_limited_artifact` + Retry-After. |
 
 ## Retention
 
