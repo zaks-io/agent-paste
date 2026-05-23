@@ -5670,6 +5670,28 @@
           {
             "schema": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor returned by the previous page."
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of Audit Events to return, up to 100. Defaults to 50."
+          },
+          {
+            "schema": {
+              "type": "string",
               "minLength": 8,
               "maxLength": 128,
               "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."

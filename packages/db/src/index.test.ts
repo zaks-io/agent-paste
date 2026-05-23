@@ -256,6 +256,102 @@ describe("LocalRepository", () => {
     expect(() => repo.listWebArtifacts(memberActor, { limit: 101 })).toThrow("invalid_pagination_limit");
   });
 
+  it("cursor-paginates web audit events inside the member workspace", () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "first",
+      target_type: "artifact",
+      target_id: "art_1",
+      details: {},
+      request_id: "req_1",
+      occurred_at: "2026-01-01T00:00:01.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "second",
+      target_type: "artifact",
+      target_id: "art_2",
+      details: {},
+      request_id: "req_2",
+      occurred_at: "2026-01-01T00:00:02.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "third",
+      target_type: "artifact",
+      target_id: "art_3",
+      details: {},
+      request_id: "req_3",
+      occurred_at: "2026-01-01T00:00:03.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z4", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z4",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "fourth",
+      target_type: "artifact",
+      target_id: "art_4",
+      details: {},
+      request_id: "req_4",
+      occurred_at: "2026-01-01T00:00:03.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z5", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z5",
+      workspace_id: "22222222-2222-2222-2222-222222222222",
+      actor_type: "api_key",
+      actor_id: "key_2",
+      action: "cross-workspace",
+      target_type: "artifact",
+      target_id: "art_5",
+      details: {},
+      request_id: "req_5",
+      occurred_at: "2026-01-01T00:00:04.000Z",
+    });
+
+    expect(repo.listWebAuditEvents(memberActor).items.map((item) => item.action)).toEqual([
+      "fourth",
+      "third",
+      "second",
+      "first",
+    ]);
+
+    const firstPage = repo.listWebAuditEvents(memberActor, { limit: 2 });
+    expect(firstPage.items.map((item) => item.action)).toEqual(["fourth", "third"]);
+    expect(firstPage.page_info.has_more).toBe(true);
+    expect(firstPage.page_info.next_cursor).toEqual(expect.any(String));
+
+    const secondPage = repo.listWebAuditEvents(memberActor, {
+      limit: 2,
+      cursor: firstPage.page_info.next_cursor ?? "",
+    });
+    expect(secondPage.items.map((item) => item.action)).toEqual(["second", "first"]);
+    expect(secondPage.page_info).toEqual({ next_cursor: null, has_more: false });
+  });
+
+  it("validates web audit cursors and limits", () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const invalidDateCursor = webAuditCursor({
+      occurred_at: "not-a-date",
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
+    });
+
+    expect(() => repo.listWebAuditEvents(memberActor, { cursor: invalidDateCursor })).toThrow("invalid_cursor");
+    expect(() => repo.listWebAuditEvents(memberActor, { cursor: "not-base64-json" })).toThrow("invalid_cursor");
+    expect(() => repo.listWebAuditEvents(memberActor, { limit: 0 })).toThrow("invalid_pagination_limit");
+    expect(() => repo.listWebAuditEvents(memberActor, { limit: 101 })).toThrow("invalid_pagination_limit");
+  });
+
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
@@ -376,6 +472,22 @@ describe("PostgresRepository", () => {
     await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
+
+  it("rejects invalid web audit pagination limits before querying", async () => {
+    const stub: SqlExecutor = {
+      async query() {
+        throw new Error("unexpected_query");
+      },
+      async transaction() {
+        throw new Error("unexpected_transaction");
+      },
+    };
+    const connection = { sql: stub, drizzle: {} as DrizzleConnection["drizzle"] };
+    const repo = new PostgresRepository(connection, { apiKeyPepper: "pepper" });
+
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
+  });
 });
 
 describe("createPostgresHttpExecutor", () => {
@@ -431,6 +543,10 @@ async function publishLocalArtifact(
 }
 
 function webArtifactCursor(input: { created_at: string; id: string }) {
+  return btoa(JSON.stringify(input)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function webAuditCursor(input: { occurred_at: string; id: string }) {
   return btoa(JSON.stringify(input)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 

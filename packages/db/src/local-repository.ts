@@ -339,12 +339,28 @@ export class LocalRepository {
     return { items, page_info: { next_cursor: null, has_more: false } };
   }
 
-  listWebAuditEvents(actor: ApiActor) {
-    const items = [...this.operationEvents.values()]
+  listWebAuditEvents(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebAuditLimit(pagination.limit);
+    const cursor = pagination.cursor ? decodeWebAuditCursor(pagination.cursor) : null;
+    const rows = [...this.operationEvents.values()]
       .filter((event) => event.workspace_id === actor.workspace_id)
-      .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at))
-      .map(toWebAuditRow);
-    return { items, page_info: { next_cursor: null, has_more: false } };
+      .filter(
+        (event) =>
+          !cursor ||
+          event.occurred_at < cursor.occurred_at ||
+          (event.occurred_at === cursor.occurred_at && event.id < cursor.id),
+      )
+      .sort(compareOperationEventsForWeb);
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    const hasMore = limit < rows.length;
+    return {
+      items: page.map(toWebAuditRow),
+      page_info: {
+        next_cursor: hasMore && last ? encodeWebAuditCursor(last) : null,
+        has_more: hasMore,
+      },
+    };
   }
 
   getWebSettings(actor: ApiActor) {
@@ -786,6 +802,46 @@ function decodeWebArtifactCursor(cursor: string) {
 }
 
 function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
+}
+
+function compareOperationEventsForWeb(left: OperationEvent, right: OperationEvent) {
+  const occurred = right.occurred_at.localeCompare(left.occurred_at);
+  return occurred === 0 ? right.id.localeCompare(left.id) : occurred;
+}
+
+function encodeWebAuditCursor(event: OperationEvent): string {
+  return btoa(JSON.stringify({ occurred_at: event.occurred_at, id: event.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebAuditCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { occurred_at?: unknown; id?: unknown };
+    if (typeof raw.occurred_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const occurredAt = new Date(raw.occurred_at);
+    if (Number.isNaN(occurredAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { occurred_at: occurredAt.toISOString(), id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebAuditLimit(limit: number | undefined) {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw new Error("invalid_pagination_limit");

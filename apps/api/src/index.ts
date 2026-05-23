@@ -49,7 +49,7 @@ export type ApiDatabase = {
   listWebArtifacts?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
   getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
   listWebApiKeys?(actor: ApiActor): Promise<unknown>;
-  listWebAuditEvents?(actor: ApiActor): Promise<unknown>;
+  listWebAuditEvents?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
   getWebSettings?(actor: ApiActor): Promise<unknown>;
   getAdminWhoami?(actor: ApiActor): Promise<unknown>;
   createWorkspace?(input: {
@@ -408,11 +408,23 @@ async function webApiKeys(context: AppContext): Promise<Response> {
 }
 
 async function webAudit(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["admin"], async (db, actor) =>
-    db.listWebAuditEvents
-      ? jsonResponse(context, await db.listWebAuditEvents(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, ["admin"], async (db, actor) => {
+    const pagination = parsePagination(context.req.raw);
+    if (!pagination.ok) {
+      return errorResponse(context, pagination.code, 400);
+    }
+    if (!db.listWebAuditEvents) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    try {
+      return jsonResponse(context, await db.listWebAuditEvents(actor, pagination.value));
+    } catch (error) {
+      if (error instanceof Error && error.message === "invalid_cursor") {
+        return errorResponse(context, "invalid_cursor", 400);
+      }
+      throw error;
+    }
+  });
 }
 
 async function webSettings(context: AppContext): Promise<Response> {
