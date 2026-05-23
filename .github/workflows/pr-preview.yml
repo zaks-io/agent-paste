@@ -94,6 +94,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.hyperdrive_id }}
           CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          PR_PREVIEW_SECRET_SEED: ${{ secrets.PR_PREVIEW_SECRET_SEED || secrets.CLOUDFLARE_API_TOKEN }}
           OPERATOR_EMAILS: isaac@zaks.io
         run: node scripts/deploy-pr-preview.mjs
 

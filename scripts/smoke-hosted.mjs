@@ -17,6 +17,8 @@ const adminEnv = {
   AGENT_PASTE_UPLOAD_URL: config.uploadBaseUrl,
 };
 
+await waitForAdminAuth(config);
+
 const workspace = await runCliJson([
   "admin",
   "workspace",
@@ -152,6 +154,26 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function waitForAdminAuth(c) {
+  const url = `${c.apiBaseUrl}/admin/whoami`;
+  const deadline = Date.now() + 60_000;
+  let lastStatus = 0;
+  let lastBody = "";
+  while (Date.now() < deadline) {
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: { authorization: `Bearer ${c.adminToken}` },
+    });
+    lastStatus = response.status;
+    lastBody = await response.text().catch(() => "");
+    if (response.status === 200) {
+      return;
+    }
+    await sleep(2000);
+  }
+  throw new Error(`admin auth did not become ready at ${url}; last response ${lastStatus}: ${lastBody.slice(0, 200)}`);
+}
+
 async function waitForStatus(url, expectedStatus, label) {
   const deadline = Date.now() + 30_000;
   let lastStatus = 0;
@@ -161,9 +183,13 @@ async function waitForStatus(url, expectedStatus, label) {
     if (response.status === expectedStatus) {
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await sleep(1000);
   }
   throw new Error(`${label} returned ${lastStatus}, expected ${expectedStatus}`);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function smokeConfig(target) {
@@ -289,7 +315,9 @@ async function assertActorRateLimitFires(apiKeySecret) {
       ),
     );
     const limited = responses.find((response) => response.status === 429);
-    await Promise.all(responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()));
+    await Promise.all(
+      responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()),
+    );
     if (limited) {
       const payload = await limited.json();
       assert(
@@ -300,7 +328,9 @@ async function assertActorRateLimitFires(apiKeySecret) {
       return;
     }
   }
-  throw new Error(`upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`);
+  throw new Error(
+    `upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
+  );
 }
 
 async function assertBytesPurgedAfterDelete(publishedArtifact) {
