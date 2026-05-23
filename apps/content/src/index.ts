@@ -145,16 +145,16 @@ async function serveSignedObject(context: AppContext, token: string, path: strin
     return errorResponse(context, "not_found", 404);
   }
 
-  const rateLimitResponse = await rateLimitArtifactRead(context, resolvedPayload);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   const key = objectKeyFor(resolvedPayload, path);
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
     return errorResponse(context, "not_found", 404);
+  }
+
+  const rateLimitResponse = await rateLimitArtifactRead(context, resolvedPayload);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const headers = responseHeadersForPath(path, object.size, resolvedPayload.exp);

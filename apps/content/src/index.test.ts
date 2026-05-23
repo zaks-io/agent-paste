@@ -289,7 +289,7 @@ describe("content worker", () => {
     expect(response.status).toBe(404);
   });
 
-  it("rate limits reads by artifact id after checking the denylist", async () => {
+  it("rate limits reads by artifact id after checking the denylist and object existence", async () => {
     const token = await signContentToken(
       {
         artifact_id: "art_1",
@@ -317,7 +317,7 @@ describe("content worker", () => {
       },
       ARTIFACTS: {
         async get() {
-          throw new Error("should not read rate-limited content");
+          return { body: new Response("<h1>ok</h1>").body, size: 11 };
         },
       },
     };
@@ -330,6 +330,43 @@ describe("content worker", () => {
     expect(body.error.code).toBe("rate_limited_artifact");
     expect(checkedKeys).toEqual(["ad:art_1", "rd:rev_1"]);
     expect(limitKeys).toEqual(["art_1"]);
+  });
+
+  it("does not rate limit missing R2 objects", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["missing.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const limitKeys: string[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit(options) {
+          limitKeys.push(options.key);
+          return { success: false };
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return null;
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/missing.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(limitKeys).toEqual([]);
   });
 
   it("does not let throttling reveal denylisted artifacts", async () => {
