@@ -34,10 +34,10 @@ Do not create or rotate these names for the CLI-first MVP:
 - Before writing, capture the current secret names only:
 
   ```sh
-  wrangler secret list --name agent-paste-api-preview --json
-  wrangler secret list --name agent-paste-upload-preview --json
-  wrangler secret list --name agent-paste-content-preview --json
-  wrangler secret list --name agent-paste-web-preview --json
+  wrangler secret list --cwd apps/api --env preview --json
+  wrangler secret list --cwd apps/upload --env preview --json
+  wrangler secret list --cwd apps/content --env preview --json
+  wrangler secret list --cwd apps/web --env preview --json
   ```
 
 - After writing, run the environment smoke test with the new admin token:
@@ -58,9 +58,9 @@ Procedure:
 3. Write the same value to all three Workers:
 
    ```sh
-   wrangler secret put CONTENT_SIGNING_SECRET --name agent-paste-api-preview
-   wrangler secret put CONTENT_SIGNING_SECRET --name agent-paste-upload-preview
-   wrangler secret put CONTENT_SIGNING_SECRET --name agent-paste-content-preview
+   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/api --env preview
+   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/upload --env preview
+   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/content --env preview
    ```
 
 4. Repeat for `production` only when intentionally rotating production.
@@ -81,7 +81,7 @@ Procedure:
 4. Write it to `upload`:
 
    ```sh
-   wrangler secret put UPLOAD_SIGNING_SECRET --name agent-paste-upload-preview
+   wrangler secret put UPLOAD_SIGNING_SECRET --cwd apps/upload --env preview
    ```
 
 5. Run hosted smoke. Failed old PUT URLs are expected; clients should create a new upload session.
@@ -99,9 +99,9 @@ Procedure:
 5. Write the new pepper to `api` and `upload`, then the new admin hash to `api`:
 
    ```sh
-   wrangler secret put API_KEY_PEPPER_V1 --name agent-paste-api-preview
-   wrangler secret put API_KEY_PEPPER_V1 --name agent-paste-upload-preview
-   wrangler secret put ADMIN_TOKEN_HASH --name agent-paste-api-preview
+   wrangler secret put API_KEY_PEPPER_V1 --cwd apps/api --env preview
+   wrangler secret put API_KEY_PEPPER_V1 --cwd apps/upload --env preview
+   wrangler secret put ADMIN_TOKEN_HASH --cwd apps/api --env preview
    ```
 
 6. Run hosted smoke with the new admin token. The smoke creates a fresh workspace API Key under the new pepper.
@@ -120,7 +120,7 @@ Procedure:
 3. Write only the hash:
 
    ```sh
-   wrangler secret put ADMIN_TOKEN_HASH --name agent-paste-api-preview
+   wrangler secret put ADMIN_TOKEN_HASH --cwd apps/api --env preview
    ```
 
 4. Run hosted smoke with the new admin token.
@@ -137,8 +137,8 @@ Current status: WorkOS AuthKit is the current web auth stack, but the dashboard 
 3. Write it to both `api` and `web`:
 
    ```sh
-   wrangler secret put WORKOS_API_KEY --name agent-paste-api-preview
-   wrangler secret put WORKOS_API_KEY --name agent-paste-web-preview
+   wrangler secret put WORKOS_API_KEY --cwd apps/api --env preview
+   wrangler secret put WORKOS_API_KEY --cwd apps/web --env preview
    ```
 
 4. Run the focused web smoke when available; until then, run `pnpm --filter @agent-paste/web typecheck` plus the hosted MVP smoke.
@@ -157,7 +157,7 @@ Rotate this only for a WorkOS project/client swap.
 2. Write it to `web`:
 
    ```sh
-   wrangler secret put WORKOS_COOKIE_PASSWORD --name agent-paste-web-preview
+   wrangler secret put WORKOS_COOKIE_PASSWORD --cwd apps/web --env preview
    ```
 
 3. Expect existing dashboard sessions to be invalidated and require sign-in again.
