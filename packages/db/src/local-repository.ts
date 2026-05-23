@@ -290,12 +290,28 @@ export class LocalRepository {
     };
   }
 
-  listWebArtifacts(actor: ApiActor) {
-    const items = [...this.artifacts.values()]
+  listWebArtifacts(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebArtifactLimit(pagination.limit);
+    const cursor = pagination.cursor ? decodeWebArtifactCursor(pagination.cursor) : null;
+    const rows = [...this.artifacts.values()]
       .filter((artifact) => artifact.workspace_id === actor.workspace_id)
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))
-      .map(toWebArtifactRow);
-    return { items, page_info: { next_cursor: null, has_more: false } };
+      .filter(
+        (artifact) =>
+          !cursor ||
+          artifact.created_at < cursor.created_at ||
+          (artifact.created_at === cursor.created_at && artifact.id < cursor.id),
+      )
+      .sort(compareArtifactsForWeb);
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    const hasMore = limit < rows.length;
+    return {
+      items: page.map(toWebArtifactRow),
+      page_info: {
+        next_cursor: hasMore && last ? encodeWebArtifactCursor(last) : null,
+        has_more: hasMore,
+      },
+    };
   }
 
   getWebArtifact(actor: ApiActor, artifactId: string) {
@@ -735,6 +751,46 @@ function toWebArtifactRow(artifact: Artifact) {
     last_published_at: artifact.created_at,
     auto_delete_at: artifact.status === "deleted" ? null : artifact.expires_at,
   };
+}
+
+function compareArtifactsForWeb(left: Artifact, right: Artifact) {
+  const created = right.created_at.localeCompare(left.created_at);
+  return created === 0 ? right.id.localeCompare(left.id) : created;
+}
+
+function encodeWebArtifactCursor(artifact: Artifact): string {
+  return btoa(JSON.stringify({ created_at: artifact.created_at, id: artifact.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebArtifactCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { created_at?: unknown; id?: unknown };
+    if (typeof raw.created_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const createdAt = new Date(raw.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { created_at: createdAt.toISOString(), id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
 }
 
 function webArtifactStatus(artifact: Artifact): "Published" | "Deleted" | "Expired" {

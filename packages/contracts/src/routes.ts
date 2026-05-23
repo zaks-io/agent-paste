@@ -109,7 +109,7 @@ export const routeContracts = [
     scopes: ["read"],
     idempotency: "none",
     responseSchema: "WebArtifactListResponse",
-    errors: webReadErrors,
+    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.artifacts.get",
@@ -120,7 +120,7 @@ export const routeContracts = [
     scopes: ["read"],
     idempotency: "none",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webReadErrors, "artifact_not_found"],
+    errors: [...webReadErrors, "not_found"],
   },
   {
     id: "web.apiKeys.list",

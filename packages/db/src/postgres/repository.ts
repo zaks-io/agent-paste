@@ -357,10 +357,23 @@ export class PostgresRepository {
     });
   }
 
-  async listWebArtifacts(actor: ApiActor) {
+  async listWebArtifacts(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebArtifactLimit(pagination.limit);
     return this.withScope(this.workspaceScope(actor.workspace_id), async (ctx) => {
-      const rows = await artifactQueries.listFiltered(ctx.drizzle, actor.workspace_id);
-      return { items: rows.map(toWebArtifactRow), page_info: { next_cursor: null, has_more: false } };
+      const rows = await artifactQueries.listWebPage(ctx.drizzle, {
+        workspaceId: actor.workspace_id,
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeWebArtifactCursor(pagination.cursor) } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toWebArtifactRow),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeWebArtifactCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
     });
   }
 
@@ -894,6 +907,41 @@ function summarizeEventDetails(details: Record<string, unknown>): string {
     .sort()
     .map((key) => `${key}=${String(details[key])}`)
     .join(", ");
+}
+
+function encodeWebArtifactCursor(artifact: Artifact): string {
+  return btoa(JSON.stringify({ created_at: artifact.created_at, id: artifact.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeWebArtifactCursor(cursor: string) {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { created_at?: unknown; id?: unknown };
+    if (typeof raw.created_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const createdAt = new Date(raw.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { createdAt, id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+function normalizeWebArtifactLimit(limit: number | undefined) {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
 }
 
 // Re-export type for legacy SqlValue users

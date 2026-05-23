@@ -1,6 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { CleanupRunRequest, CreateWorkspaceRequest } from "../admin.js";
 import { CreateApiKeyRequest } from "../apiKeys.js";
+import { Cursor } from "../primitives.js";
 import { z } from "../zod.js";
 import { schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerApiSchemas, requestIdHeader, securitySchemes } from "./shared.js";
@@ -9,6 +10,22 @@ const pathStringParam = (name: string, description: string) =>
   z.string().openapi({
     param: { name, in: "path", required: true, description },
   });
+
+const queryCursorParam = (name: string, description: string) =>
+  Cursor.openapi({
+    param: { name, in: "query", required: false, description },
+  }).optional();
+
+const queryPageSizeParam = (name: string, description: string) =>
+  z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .openapi({
+      param: { name, in: "query", required: false, description },
+    });
 
 export type ApiOpenApiOptions = {
   serverUrl?: string | undefined;
@@ -83,7 +100,13 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     operationId: "web.artifacts.list",
     summary: "List artifacts for the current Workspace Member.",
     security: [{ WorkOsBearer: [] }],
-    request: { headers: [requestIdHeader] },
+    request: {
+      query: z.object({
+        cursor: queryCursorParam("cursor", "Opaque pagination cursor returned by the previous page."),
+        limit: queryPageSizeParam("limit", "Maximum number of artifacts to return, up to 100. Defaults to 50."),
+      }),
+      headers: [requestIdHeader],
+    },
     responses: standardJsonResponses(schemaRef("WebArtifactListResponse")),
   });
 
@@ -279,5 +302,34 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     servers: [{ url: options.serverUrl ?? "https://api.agent-paste.sh" }],
     ...(options.docsBaseUrl ? { externalDocs: { url: options.docsBaseUrl } } : {}),
   });
+  applyWebArtifactCursorParameterBounds(document as unknown as Record<string, unknown>);
   return document as unknown as Record<string, unknown>;
+}
+
+function applyWebArtifactCursorParameterBounds(document: Record<string, unknown>) {
+  const paths = document.paths;
+  if (!isRecord(paths)) {
+    return;
+  }
+  const webArtifacts = paths["/v1/web/artifacts"];
+  if (!isRecord(webArtifacts)) {
+    return;
+  }
+  const getOperation = webArtifacts.get;
+  if (!isRecord(getOperation) || !Array.isArray(getOperation.parameters)) {
+    return;
+  }
+
+  const cursorParameter = getOperation.parameters.find(
+    (parameter): parameter is { schema: Record<string, unknown> } =>
+      isRecord(parameter) && parameter.name === "cursor" && parameter.in === "query" && isRecord(parameter.schema),
+  );
+  if (cursorParameter) {
+    cursorParameter.schema.minLength = 1;
+    cursorParameter.schema.maxLength = 500;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

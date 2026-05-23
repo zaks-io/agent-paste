@@ -46,7 +46,7 @@ export type ApiDatabase = {
   }): Promise<unknown>;
   getWebMemberByWorkOsUserId?(input: { workosUserId: string }): Promise<ApiActor | null>;
   getWebWorkspace?(actor: ApiActor): Promise<unknown>;
-  listWebArtifacts?(actor: ApiActor): Promise<unknown>;
+  listWebArtifacts?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
   getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
   listWebApiKeys?(actor: ApiActor): Promise<unknown>;
   listWebAuditEvents?(actor: ApiActor): Promise<unknown>;
@@ -85,6 +85,11 @@ export type ApiDatabase = {
     artifactId: string;
     expiresAt: string;
   }): Promise<{ artifact_id: string; expires_at: string } | null>;
+};
+
+type PaginationInput = {
+  cursor?: string;
+  limit: number;
 };
 
 export type R2ListedObject = { key: string };
@@ -349,11 +354,23 @@ async function webWorkspace(context: AppContext): Promise<Response> {
 }
 
 async function webArtifacts(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["read"], async (db, actor) =>
-    db.listWebArtifacts
-      ? jsonResponse(context, await db.listWebArtifacts(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, ["read"], async (db, actor) => {
+    const pagination = parsePagination(context.req.raw);
+    if (!pagination.ok) {
+      return errorResponse(context, pagination.code, 400);
+    }
+    if (!db.listWebArtifacts) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    try {
+      return jsonResponse(context, await db.listWebArtifacts(actor, pagination.value));
+    } catch (error) {
+      if (error instanceof Error && error.message === "invalid_cursor") {
+        return errorResponse(context, "invalid_cursor", 400);
+      }
+      throw error;
+    }
+  });
 }
 
 async function webArtifactDetail(context: AppContext, params: RouteParams): Promise<Response> {
@@ -362,8 +379,24 @@ async function webArtifactDetail(context: AppContext, params: RouteParams): Prom
       return errorResponse(context, "database_unavailable", 503);
     }
     const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
-    return detail ? jsonResponse(context, detail) : errorResponse(context, "artifact_not_found", 404);
+    return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
   });
+}
+
+function parsePagination(
+  request: Request,
+): { ok: true; value: PaginationInput } | { ok: false; code: "invalid_cursor" | "invalid_request" } {
+  const url = new URL(request.url);
+  const cursor = url.searchParams.get("cursor") ?? undefined;
+  const limitParam = url.searchParams.get("limit");
+  const limit = limitParam === null ? 50 : Number(limitParam);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return { ok: false, code: "invalid_request" };
+  }
+  if (cursor !== undefined && (cursor.length < 1 || cursor.length > 500)) {
+    return { ok: false, code: "invalid_cursor" };
+  }
+  return { ok: true, value: cursor === undefined ? { limit } : { limit, cursor } };
 }
 
 async function webApiKeys(context: AppContext): Promise<Response> {
