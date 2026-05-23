@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23 (ADR 0045 rotation groundwork runbook added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; workspace member DB foundation completed; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-23 (ADR 0045 rotation groundwork runbook added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; workspace member DB foundation and web Worker secret bootstrap follow-ups completed; Logpush and production deploy-gate work parked for later).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -213,6 +213,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Drives: ADR 0044, ADR 0055, ADR 0059, ADR 0068.
 - Files: `packages/db/migrations/0004_workspace_members.sql`, `packages/db/src/schema.ts`, `packages/db/snapshot/schema.sql`, `packages/db/src/postgres/rls.test.ts`, `docs/ops/web-app-todo.md`.
 - Done: `workspace_members` has text member IDs, `workspace_id` FK to `workspaces(id)`, globally unique `workos_user_id`, email, `scopes jsonb not null default '[]'`, created/last-seen timestamps, tenant and platform RLS policies using the migration 0003 drop/create policy pattern, Drizzle schema exposure, and a refreshed schema snapshot. RLS tests cover tenant scoping and global WorkOS-user uniqueness. `pnpm --filter @agent-paste/db db:check`, `pnpm --filter @agent-paste/db check`, and `pnpm verify` are green.
+
+### Extend first-deploy bootstrap for WorkOS web secrets
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0058, ADR 0068, `docs/ops/web-app-todo.md`.
+- Files: `scripts/bootstrap-secrets.mjs`, `docs/ops/web-app-todo.md`, `docs/ops/project-status.md`.
+- Done: `scripts/bootstrap-secrets.mjs` keeps plain CLI-first bootstrap on the existing `api`/`upload`/`content` secrets, and adds WorkOS setup only when `--with-web` is passed or all WorkOS inputs are supplied. Web setup writes `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_COOKIE_PASSWORD`, and `OPERATOR_EMAILS` to `agent-paste-web-{preview,production}`, plus the required WorkOS bindings on `api`. `WORKOS_CLIENT_ID` is written through `wrangler secret put`; matching `wrangler.jsonc` vars remain non-secret deployment metadata/placeholders and are not edited by the script.
 
 ### Start ADR 0045 rotation tooling groundwork
 
@@ -428,24 +435,26 @@ pnpm hooks:install
 
 ### Worker secrets
 
-`scripts/bootstrap-secrets.mjs` writes the current MVP Worker secrets.
+`scripts/bootstrap-secrets.mjs` writes the current MVP Worker secrets. Web Worker secrets are opt-in for first deploy: add `--with-web` and provide all WorkOS inputs, or provide the complete `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, and `WORKOS_COOKIE_PASSWORD` environment set.
 
 ```sh
 OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:preview
 OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
+OPERATOR_EMAILS=isaac@isaacsuttell.com WORKOS_API_KEY=... WORKOS_CLIENT_ID=... WORKOS_COOKIE_PASSWORD=... pnpm bootstrap:preview -- --with-web
+OPERATOR_EMAILS=isaac@isaacsuttell.com WORKOS_API_KEY=... WORKOS_CLIENT_ID=... WORKOS_COOKIE_PASSWORD=... pnpm bootstrap:production -- --with-web
 ```
 
-| Secret                   | Bound on             | Notes                                   |
-| ------------------------ | -------------------- | --------------------------------------- |
-| `CONTENT_SIGNING_SECRET` | api, upload, content | Active content-token signing secret.    |
-| `UPLOAD_SIGNING_SECRET`  | upload               | Active upload PUT token signing secret. |
-| `API_KEY_PEPPER_V1`      | api, upload          | Active API-key/admin-token HMAC pepper. |
-| `ADMIN_TOKEN`            | operator only        | Printed once. Capture in Bitwarden.     |
-| `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                  |
-| `OPERATOR_EMAILS`        | api                  | Allowlist value for operator context.   |
-| `WORKOS_API_KEY`         | api, web             | Current WorkOS AuthKit API credential.  |
-| `WORKOS_CLIENT_ID`       | api, web             | WorkOS project client id.               |
-| `WORKOS_COOKIE_PASSWORD` | web                  | AuthKit sealed-session password.        |
+| Secret                   | Bound on             | Notes                                                                                          |
+| ------------------------ | -------------------- | ---------------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET` | api, upload, content | Active content-token signing secret.                                                           |
+| `UPLOAD_SIGNING_SECRET`  | upload               | Active upload PUT token signing secret.                                                        |
+| `API_KEY_PEPPER_V1`      | api, upload          | Active API-key/admin-token HMAC pepper.                                                        |
+| `ADMIN_TOKEN`            | operator only        | Printed once. Capture in Bitwarden.                                                            |
+| `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                                                                         |
+| `OPERATOR_EMAILS`        | api, web             | Allowlist value for operator context.                                                          |
+| `WORKOS_API_KEY`         | api, web             | Current WorkOS AuthKit API credential.                                                         |
+| `WORKOS_CLIENT_ID`       | api, web             | Written as a Worker secret; Wrangler vars stay as non-secret deployment metadata/placeholders. |
+| `WORKOS_COOKIE_PASSWORD` | web                  | AuthKit sealed-session password.                                                               |
 
 ### Deploy order
 
