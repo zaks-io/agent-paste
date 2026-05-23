@@ -26,9 +26,14 @@ export type KVNamespace = {
   get(key: string): Promise<string | null>;
 };
 
+export type RateLimitBinding = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+};
+
 export type Env = {
   ARTIFACTS: R2Bucket;
   DENYLIST: KVNamespace;
+  ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
   CONTENT_BASE_URL?: string;
   ALLOW_DEV_TOKENS?: string;
@@ -69,6 +74,7 @@ const baseContentSecurityPolicy = [
 ].join("; ");
 
 const svgContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
+const artifactRateLimitRetryAfterSeconds = "60";
 
 const securityHeaders = {
   "cross-origin-opener-policy": "same-origin",
@@ -137,6 +143,11 @@ async function serveSignedObject(context: AppContext, token: string, path: strin
 
   if (denylistResults.some((value) => value !== null)) {
     return errorResponse(context, "not_found", 404);
+  }
+
+  const rateLimitResponse = await rateLimitArtifactRead(context, resolvedPayload);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const key = objectKeyFor(resolvedPayload, path);
@@ -228,6 +239,33 @@ function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
     `rd:${payload.revision_id}`,
     ...(payload.access_link_id ? [`ald:${payload.access_link_id}`] : []),
   ];
+}
+
+async function rateLimitArtifactRead(context: AppContext, payload: ContentTokenPayload): Promise<Response | null> {
+  const outcome = await rateLimitOrFailOpen(context.env.ARTIFACT_RATE_LIMIT, payload.artifact_id);
+  if (outcome && !outcome.success) {
+    return errorResponse(context, "rate_limited_artifact", 429, "rate_limited_artifact", {
+      "Retry-After": artifactRateLimitRetryAfterSeconds,
+    });
+  }
+
+  return null;
+}
+
+async function rateLimitOrFailOpen(
+  binding: RateLimitBinding | undefined,
+  key: string,
+): Promise<{ success: boolean } | undefined> {
+  if (!binding) {
+    return undefined;
+  }
+
+  try {
+    return await binding.limit({ key });
+  } catch (error) {
+    console.warn("Rate limit artifact binding failed; allowing request.", error);
+    return undefined;
+  }
 }
 
 function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
@@ -353,7 +391,13 @@ function safeDecodeURIComponent(value: string): string | null {
   }
 }
 
-function errorResponse(context: AppContext, code: string, status: number, message?: string): Response {
+function errorResponse(
+  context: AppContext,
+  code: string,
+  status: number,
+  message?: string,
+  extraHeaders: Record<string, string> = {},
+): Response {
   const requestId = getRequestId(context);
   const body = buildErrorBody({
     code,
@@ -367,6 +411,7 @@ function errorResponse(context: AppContext, code: string, status: number, messag
       "content-type": "application/json; charset=utf-8",
       [REQUEST_ID_HEADER]: requestId,
       ...securityHeaders,
+      ...extraHeaders,
     },
   });
 }

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23 (ADR 0057 denylist key drift reconciled for the CLI-first MVP; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-23 (ADR 0057 denylist key drift reconciled for the CLI-first MVP; content artifact read throttling added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; Logpush and production deploy-gate work parked for later).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -48,7 +48,6 @@ Closed immediately:
 Open security follow-ups:
 
 - Admin production identity is still the interim hashed bearer-token path. ADR 0067 requires Cloudflare Access/Auth0 operator identity before Phase 3 app/admin rollout.
-- `content` still needs unauthenticated artifact-level read throttling.
 - Secret rotation tooling (ADR 0045) still needs to be implemented.
 
 ## Implementation Map
@@ -57,7 +56,7 @@ Open security follow-ups:
 | --------------------- | ---------------------- | ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api`            | Implemented            | ~950       | Yes   | `src/index.ts`. Hono routing, `/openapi.json`, public Agent View, admin routes, scheduled cleanup, signed content URLs, denylist writes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `apps/upload`         | Implemented            | ~14k       | Yes   | `src/index.ts`. Session create, signed PUT, R2 writes, finalize, signed Agent View URL minting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `apps/content`        | Implemented            | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `apps/content`        | Implemented            | ~14k       | Yes   | `src/index.ts`. Signed content URL verification, CSP, extension content-type, KV denylist, artifact-level read throttling.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `apps/cli`            | Implemented            | ~520       | Yes   | `src/index.ts`, `src/local.ts`. `whoami`, `publish`, admin commands. Destructive admin commands require `--yes`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `apps/jobs`           | Scaffolded             | ~65        | No    | `src/index.ts`. Hono + `healthz` only. Empty `runScheduledJobs()`. No queue consumers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `apps/web`            | Implemented (scaffold) | ~2.3k      | Yes   | TanStack Start on Workers (`@cloudflare/vite-plugin`, `viteEnvironment: ssr`). Twelve routes per `docs/specs/web.md`. WorkOS AuthKit via `@workos/authkit-tanstack-react-start` + `@workos/authkit-session` (ADR 0068); sealed `__agp_session` cookie owned by AuthKit (HttpOnly, Secure, SameSite=Lax, no `Domain`). Tailwind v4 + style-guide tokens. Service binding to `api` declared; loaders that hit not-yet-built endpoints render `EmptyState` (404/501 fallback). Lint rule blocks session + AuthKit imports from `/al/*` per ADR 0033. Vitest suite (`format`, `Identifier`) green. Remaining work in [`web-app-todo.md`](./web-app-todo.md). |
@@ -175,7 +174,7 @@ Superseded ADRs: 0002 for `apps/web` (by 0068), 0031 (by 0028), part of 0015 (by
 
 | Phase                         | Goal                                                      | % done | What is left                                                                                                                                                                                                                                                                         |
 | ----------------------------- | --------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~92%   | Artifact read throttling and final hosted smoke after changes.                                                                                                                                                                                                                       |
+| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~96%   | Final hosted smoke after content throttle deploy.                                                                                                                                                                                                                                    |
 | Phase 2 — Admin ergonomics    | Admin CLI polish, observability depth                     | ~10%   | Richer event browser and rotation tooling (ADR 0045). Logpush → Axiom is parked for later.                                                                                                                                                                                           |
 | Phase 3 — Public OAuth + web  | WorkOS AuthKit, signup, dashboard, Access Links           | ~15%   | TanStack Start scaffold + style-guide tokens + WorkOS AuthKit wiring shipped per ADR 0068. Remaining: WorkOS project click-ops, `0004_workspace_members` migration (`workos_user_id` column), `/v1/web/*` endpoints, real loader wiring. See [`web-app-todo.md`](./web-app-todo.md). |
 | Phase 4 — Revisions + bundles | Multi-revision artifacts, bundle generation, queues       | 0%     | ADRs 0019, 0032, 0047, 0048 (revisions piece), 0049, 0050, 0052, 0053; spec `jobs.md`.                                                                                                                                                                                               |
@@ -188,13 +187,7 @@ Ordered for the active non-app-worker lane. Each item has a verifiable Done. Log
 
 When you say "implement the next step," start with item 1 unless we have agreed to skip it.
 
-### 1. Add artifact-level read throttling on `content`
-
-- Drives: ADR 0048, `docs/specs/content-rendering.md`, Security Pass follow-up.
-- Files: `apps/content/wrangler.jsonc`, `apps/content/src/index.ts`, content tests, hosted smoke if a binding is added.
-- Done: unauthenticated reads are limited per artifact with a stable `rate_limited_artifact` envelope and `Retry-After`; idempotent or cached internal checks do not bypass denylist; tests cover allowed and limited reads.
-
-### 2. Start ADR 0045 rotation tooling groundwork
+### 1. Start ADR 0045 rotation tooling groundwork
 
 - Drives: ADR 0045, ADR 0058, Phase 2.
 - Files: `packages/auth`, `scripts/bootstrap-secrets.mjs`, docs/ops rotation runbook or a new ADR if the MVP needs a narrowed path.
@@ -206,6 +199,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Production deploy-gate policy, wait timers, and Bitwarden recordkeeping remain in [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md) but are not active backlog items.
 
 ## Recently Completed
+
+### Add artifact-level read throttling on `content`
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0048, `docs/specs/content-rendering.md`, Security Pass follow-up.
+- Files: `apps/content/wrangler.jsonc`, `apps/content/src/index.ts`, focused content tests, `apps/content/src/worker-configuration.d.ts`.
+- Done: `content` declares an optional Cloudflare native `ARTIFACT_RATE_LIMIT` binding at 60 req/min and keys it by `artifact_id` from the resolved content-token payload rather than the raw token or URL. The Worker verifies token signature/path first, checks KV denylist keys next, and only then consumes the artifact rate-limit bucket, so deleted/revoked content still returns the stable generic 404 and throttling cannot bypass denylist. Over-limit reads return the public `rate_limited_artifact` 429 envelope with `Retry-After: 60`; absent or failing bindings fail open per the existing app convention.
 
 ### Reconcile ADR 0057 denylist key drift
 
