@@ -16,7 +16,7 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 | `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present.              |
 | `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                               |
 
-`OPERATOR_EMAILS` is an operator allowlist value, not a cryptographic secret, but it is written through Worker secret bindings today and should be checked during rotation.
+`OPERATOR_EMAILS` is an operator allowlist value, not a cryptographic secret, but it is written through Worker secret bindings today and should be checked during rotation. Cloudflare does not reveal secret values after write; compare the password-manager record to the expected operator list, confirm the binding name exists, and rewrite the binding if the list changed.
 
 ## Explicit Exclusions
 
@@ -47,6 +47,29 @@ Do not create or rotate these names for the CLI-first MVP:
   AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
   ```
 
+- If smoke fails, roll back the changed secret bindings from the previous password-manager values, not from `wrangler secret list` output. Check formatting and encoding for the secret named by the failure, confirm cross-Worker shared secrets match when required, rerun the relevant smoke test, then collect Worker logs and escalate if the rollback smoke still fails.
+
+## Verify Operator Allowlist
+
+Do this once during each rotation window, even when `OPERATOR_EMAILS` is not the secret being rotated.
+
+1. Confirm `OPERATOR_EMAILS` exists in the relevant Worker secret bindings:
+
+   ```sh
+   wrangler secret list --cwd apps/api --env preview --json
+   wrangler secret list --cwd apps/web --env preview --json
+   ```
+
+2. Compare the password-manager value with the expected operator allowlist.
+3. If unchanged, record `OPERATOR_EMAILS verified unchanged` in the completion record.
+4. If changed, update the Worker secret binding, deploy the affected Worker, and run smoke:
+
+   ```sh
+   wrangler secret put OPERATOR_EMAILS --cwd apps/api --env preview
+   wrangler secret put OPERATOR_EMAILS --cwd apps/web --env preview
+   AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+   ```
+
 ## Rotate Content Signing
 
 Current status: `CONTENT_SIGNING_SECRET` is a single shared HMAC secret with no active `kid` overlap primitive. Rotating it invalidates previously minted `view_url`, file URLs, and signed public Agent View URLs.
@@ -55,12 +78,12 @@ Procedure:
 
 1. Pick a maintenance window. Treat old public content URLs as expiring immediately after the cut.
 2. Generate a new high-entropy base64url value and store it in the password manager.
-3. Write the same value to all three Workers:
+3. Write the same value to all three Workers. There is a seconds-to-minutes propagation window where signers and verifier can disagree, so schedule this during low traffic. Update the verifier first, then signers:
 
    ```sh
-   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/api --env preview
-   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/upload --env preview
    wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/content --env preview
+   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/upload --env preview
+   wrangler secret put CONTENT_SIGNING_SECRET --cwd apps/api --env preview
    ```
 
 4. Repeat for `production` only when intentionally rotating production.
@@ -75,7 +98,7 @@ Current status: `UPLOAD_SIGNING_SECRET` is used only by `upload` for signed PUT 
 
 Procedure:
 
-1. Stop starting new upload sessions for the target environment if there is active traffic.
+1. There is no built-in upload pause mechanism today. Schedule the rotation during a low-traffic window, using Workers metrics, logs, or normal off-hours to confirm low session-create and finalize traffic.
 2. Wait for in-flight signed upload URLs to expire. The default `UPLOAD_URL_TTL_SECONDS` is 900 seconds in Wrangler config.
 3. Generate and store a new high-entropy base64url value.
 4. Write it to `upload`:
@@ -95,13 +118,13 @@ Procedure:
 1. Plan this as an emergency credential reset or a coordinated API-key replacement window.
 2. Generate and store a new `API_KEY_PEPPER_V1`.
 3. Generate a new one-time `ADMIN_TOKEN` shaped `ap_admin_<base64url>`.
-4. Compute `ADMIN_TOKEN_HASH` as HMAC-SHA-256 of the raw `ADMIN_TOKEN` with the new pepper, base64url encoded.
-5. Write the new pepper to `api` and `upload`, then the new admin hash to `api`:
+4. Compute `ADMIN_TOKEN_HASH` as HMAC-SHA-256 of the raw `ADMIN_TOKEN` with the new pepper, base64url encoded. Use `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs` as the implementation reference; do not run the bootstrap script for rotation.
+5. Write the new pepper and admin hash to `api` together, then write the pepper to `upload`. Transient auth failures are possible until both Workers have the new pepper, and no new API Key should be issued until both writes complete:
 
    ```sh
    wrangler secret put API_KEY_PEPPER_V1 --cwd apps/api --env preview
-   wrangler secret put API_KEY_PEPPER_V1 --cwd apps/upload --env preview
    wrangler secret put ADMIN_TOKEN_HASH --cwd apps/api --env preview
+   wrangler secret put API_KEY_PEPPER_V1 --cwd apps/upload --env preview
    ```
 
 6. Run hosted smoke with the new admin token. The smoke creates a fresh workspace API Key under the new pepper.
@@ -116,7 +139,7 @@ Use this when the admin bearer token is exposed but the API key pepper is still 
 Procedure:
 
 1. Generate a new `ADMIN_TOKEN` shaped `ap_admin_<base64url>` and store it in the password manager.
-2. Compute `ADMIN_TOKEN_HASH` with the current `API_KEY_PEPPER_V1`.
+2. Compute `ADMIN_TOKEN_HASH` with the current `API_KEY_PEPPER_V1`, using `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs` as the implementation reference.
 3. Write only the hash:
 
    ```sh
@@ -134,14 +157,14 @@ Current status: WorkOS AuthKit is the current web auth stack, but the dashboard 
 
 1. Create or rotate the API key in the WorkOS dashboard for the target environment's WorkOS project.
 2. Store the new value in the password manager.
-3. Write it to both `api` and `web`:
+3. Write it to both `api` and `web` during a maintenance window. There is a short propagation window where one service can be on the new WorkOS key while the other is still on the old one, so update the backend first, then the frontend:
 
    ```sh
    wrangler secret put WORKOS_API_KEY --cwd apps/api --env preview
    wrangler secret put WORKOS_API_KEY --cwd apps/web --env preview
    ```
 
-4. Run the focused web smoke when available; until then, run `pnpm --filter @agent-paste/web typecheck` plus the hosted MVP smoke.
+4. Verify both services after the writes. Run the focused web smoke when available; until then, run `pnpm --filter @agent-paste/web typecheck` plus the hosted MVP smoke.
 
 ### `WORKOS_CLIENT_ID`
 
@@ -149,7 +172,8 @@ Rotate this only for a WorkOS project/client swap.
 
 1. Configure redirect URIs in the new WorkOS project before switching.
 2. Update `WORKOS_CLIENT_ID` in both Worker secrets and the matching `apps/api` / `apps/web` Wrangler vars.
-3. Deploy the config change and verify login against the new WorkOS project.
+3. Deploy the Wrangler var changes before verification. For preview, run `pnpm deploy:preview`. For production, merge through `deploy-production.yml` rather than doing an ad hoc local production deploy.
+4. Verify login against the new WorkOS project.
 
 ### `WORKOS_COOKIE_PASSWORD`
 
@@ -172,4 +196,5 @@ For each rotation, record in the ops log:
 - operator
 - timestamp
 - verification command and result
+- `OPERATOR_EMAILS` verified unchanged or rotated
 - known invalidation: content URLs, upload URLs, API Keys, admin token, or web sessions
