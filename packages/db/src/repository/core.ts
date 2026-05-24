@@ -1,7 +1,13 @@
 import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
-import { DEFAULT_AUTO_DELETION_DAYS, DEFAULT_UPLOAD_SESSION_TTL_MS, USAGE_POLICY } from "../policy.js";
+import {
+  DEFAULT_AUTO_DELETION_DAYS,
+  DEFAULT_UPLOAD_SESSION_TTL_MS,
+  MAX_AUTO_DELETION_DAYS,
+  MIN_AUTO_DELETION_DAYS,
+  USAGE_POLICY,
+} from "../policy.js";
 import {
   toApiKeySummary,
   toArtifactSummary,
@@ -485,6 +491,11 @@ export class RepositoryCore implements Repository {
   }) {
     if (input.actor.type !== "member") {
       throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    // Fail closed in the core: the local adapter has no DB CHECK constraint, so a
+    // direct repository call must not persist a value Postgres would reject.
+    if (input.autoDeletionDays < MIN_AUTO_DELETION_DAYS || input.autoDeletionDays > MAX_AUTO_DELETION_DAYS) {
+      throw new Error("invalid_auto_deletion_days");
     }
     const now = nowIso(input.now);
     return this.uow.command(

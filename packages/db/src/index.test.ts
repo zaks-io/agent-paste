@@ -361,6 +361,33 @@ describe("LocalRepository", () => {
     ).rejects.toThrow("unexpected_actor_type:api_key");
   });
 
+  it("rejects out-of-range auto_deletion_days in the repository core", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    if (!actor) {
+      throw new Error("expected member actor");
+    }
+
+    for (const autoDeletionDays of [0, 91]) {
+      await expect(
+        repo.updateWebSettings({
+          actor,
+          idempotencyKey: `idem-settings-${autoDeletionDays}`,
+          workspaceName: "ws",
+          autoDeletionDays,
+        }),
+      ).rejects.toThrow("invalid_auto_deletion_days");
+    }
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
