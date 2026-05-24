@@ -10,83 +10,22 @@ import {
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildApiOpenApiDocument, CreateApiKeyRequest } from "@agent-paste/contracts";
-import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
+import {
+  type AdminActor,
+  type ApiActor,
+  type ApiKeyActor,
+  createHyperdriveExecutor,
+  createPostgresServices,
+  type HyperdriveBinding,
+  type Repository,
+} from "@agent-paste/db";
 import { type Context, Hono } from "hono";
 import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
-export type ApiActor = {
-  type: "api_key" | "member" | "admin" | "system";
-  id: string;
-  workspace_id?: string;
-  scopes?: string[];
-};
-
 export type AuthService = {
-  verifyApiKey(apiKey: string): Promise<ApiActor | null>;
-  verifyAdminToken?(token: string): Promise<ApiActor | null>;
+  verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;
+  verifyAdminToken?(token: string): Promise<AdminActor | null>;
   verifyWebToken?(token: string): Promise<WebCallbackIdentity | null>;
-};
-
-type AdminActor = { type: "admin" | "system"; id: string };
-
-export type ApiDatabase = {
-  getWhoami(actor: ApiActor): Promise<unknown>;
-  getAgentView(input: {
-    actor: ApiActor;
-    artifactId: string;
-    revisionId?: string;
-    contentBaseUrl: string;
-  }): Promise<unknown | null>;
-  getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<unknown | null>;
-  resolveWebMember?(input: {
-    workosUserId: string;
-    email: string;
-    idempotencyKey: string;
-    now?: string;
-  }): Promise<unknown>;
-  getWebMemberByWorkOsUserId?(input: { workosUserId: string }): Promise<ApiActor | null>;
-  getWebWorkspace?(actor: ApiActor): Promise<unknown>;
-  listWebArtifacts?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
-  getWebArtifact?(actor: ApiActor, artifactId: string): Promise<unknown | null>;
-  listWebApiKeys?(actor: ApiActor): Promise<unknown>;
-  createWebApiKey?(input: { actor: ApiActor; idempotencyKey: string; name: string }): Promise<unknown>;
-  revokeWebApiKey?(input: { actor: ApiActor; idempotencyKey: string; apiKeyId: string }): Promise<unknown>;
-  listWebAuditEvents?(actor: ApiActor, pagination?: PaginationInput): Promise<unknown>;
-  getWebSettings?(actor: ApiActor): Promise<unknown>;
-  getAdminWhoami?(actor: ApiActor): Promise<unknown>;
-  createWorkspace?(input: {
-    actor: AdminActor;
-    idempotencyKey: string;
-    email: string;
-    name?: string;
-  }): Promise<unknown>;
-  listWorkspaces?(): unknown;
-  createApiKey?(input: {
-    actor: AdminActor;
-    idempotencyKey: string;
-    workspaceId: string;
-    name: string;
-  }): Promise<unknown>;
-  revokeApiKey?(input: { actor: AdminActor; idempotencyKey: string; apiKeyId: string }): Promise<unknown>;
-  listArtifacts?(workspaceId?: string, status?: string): unknown;
-  getArtifactDetail?(artifactId: string): unknown | null;
-  deleteArtifact?(input: {
-    actor: AdminActor;
-    idempotencyKey: string;
-    artifactId: string;
-  }): Promise<{ artifact_id: string; revision_id?: string; deleted_at: string } | unknown>;
-  listOperationEvents?(): unknown;
-  runCleanup(input: {
-    actor: AdminActor;
-    idempotencyKey?: string;
-    dryRun: boolean;
-    batchSize: number;
-    now: string;
-  }): Promise<unknown>;
-  forceExpireArtifact?(input: {
-    artifactId: string;
-    expiresAt: string;
-  }): Promise<{ artifact_id: string; expires_at: string } | null>;
 };
 
 type PaginationInput = {
@@ -112,7 +51,7 @@ export type RateLimitBinding = {
 
 export type Env = {
   AUTH?: AuthService;
-  DB?: ApiDatabase | HyperdriveBinding;
+  DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   ADMIN_TOKEN?: string;
   ADMIN_TOKEN_HASH?: string;
@@ -333,16 +272,15 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
     return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(context.env);
-  if (!db?.resolveWebMember) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const resolveWebMember = db.resolveWebMember.bind(db);
   if (!hasWebCallbackId(identity)) {
     return errorResponse(context, "not_authenticated", 401, "missing WorkOS token_id or session_id");
   }
   const idempotencyKey = webCallbackIdempotencyKey(identity);
   return runIdempotent(context, () =>
-    resolveWebMember({
+    db.resolveWebMember({
       workosUserId: identity.workos_user_id,
       email: identity.email,
       idempotencyKey,
@@ -352,11 +290,7 @@ async function webAuthCallback(context: AppContext): Promise<Response> {
 }
 
 async function webWorkspace(context: AppContext): Promise<Response> {
-  return withWebMember(context, [], async (db, actor) =>
-    db.getWebWorkspace
-      ? jsonResponse(context, await db.getWebWorkspace(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, [], async (db, actor) => jsonResponse(context, await db.getWebWorkspace(actor)));
 }
 
 async function webArtifacts(context: AppContext): Promise<Response> {
@@ -364,9 +298,6 @@ async function webArtifacts(context: AppContext): Promise<Response> {
     const pagination = parsePagination(context.req.raw);
     if (!pagination.ok) {
       return errorResponse(context, pagination.code, 400);
-    }
-    if (!db.listWebArtifacts) {
-      return errorResponse(context, "database_unavailable", 503);
     }
     try {
       return jsonResponse(context, await db.listWebArtifacts(actor, pagination.value));
@@ -381,9 +312,6 @@ async function webArtifacts(context: AppContext): Promise<Response> {
 
 async function webArtifactDetail(context: AppContext, params: RouteParams): Promise<Response> {
   return withWebMember(context, ["read"], async (db, actor) => {
-    if (!db.getWebArtifact) {
-      return errorResponse(context, "database_unavailable", 503);
-    }
     const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
     return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
   });
@@ -406,11 +334,7 @@ function parsePagination(
 }
 
 async function webApiKeys(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["admin"], async (db, actor) =>
-    db.listWebApiKeys
-      ? jsonResponse(context, await db.listWebApiKeys(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, ["admin"], async (db, actor) => jsonResponse(context, await db.listWebApiKeys(actor)));
 }
 
 async function webCreateApiKey(context: AppContext): Promise<Response> {
@@ -485,25 +409,14 @@ async function webAudit(context: AppContext): Promise<Response> {
 }
 
 async function webSettings(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["admin"], async (db, actor) =>
-    db.getWebSettings
-      ? jsonResponse(context, await db.getWebSettings(actor))
-      : errorResponse(context, "database_unavailable", 503),
-  );
+  return withWebMember(context, ["admin"], async (db, actor) => jsonResponse(context, await db.getWebSettings(actor)));
 }
 
 async function adminWhoami(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const actor = await authenticateAdmin(context.req.raw, env);
+  const actor = await authenticateAdmin(context.req.raw, context.env);
   if (!actor) {
     return errorResponse(context, "not_authenticated", 401);
   }
-
-  const db = apiDatabase(env);
-  if (db?.getAdminWhoami) {
-    return jsonResponse(context, await db.getAdminWhoami(actor));
-  }
-
   return jsonResponse(context, { actor });
 }
 
@@ -529,7 +442,7 @@ async function cleanup(context: AppContext): Promise<Response> {
   const dryRun = body.dry_run === true;
   const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
 
-  return runIdempotent(context, () => runCleanupAndDeny(env, db, adminActor(actor), dryRun, batchSize, idempotencyKey));
+  return runIdempotent(context, () => runCleanupAndDeny(env, db, actor, dryRun, batchSize, idempotencyKey));
 }
 
 async function createWorkspace(context: AppContext): Promise<Response> {
@@ -544,10 +457,9 @@ async function createWorkspace(context: AppContext): Promise<Response> {
     return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
-  if (!db?.createWorkspace) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const dbWithCreateWorkspace = db as ApiDatabase & Required<Pick<ApiDatabase, "createWorkspace">>;
   const body = await readJsonObject(request);
   if (typeof body.email !== "string") {
     return errorResponse(context, "invalid_request", 400, "email is required");
@@ -557,11 +469,11 @@ async function createWorkspace(context: AppContext): Promise<Response> {
     idempotencyKey: string;
     email: string;
     name?: string;
-  } = { actor: adminActor(actor), idempotencyKey, email: body.email };
+  } = { actor: actor, idempotencyKey, email: body.email };
   if (typeof body.name === "string") {
     input.name = body.name;
   }
-  return runIdempotent(context, () => dbWithCreateWorkspace.createWorkspace(input), 201);
+  return runIdempotent(context, () => db.createWorkspace(input), 201);
 }
 
 async function listWorkspaces(context: AppContext): Promise<Response> {
@@ -571,9 +483,7 @@ async function listWorkspaces(context: AppContext): Promise<Response> {
     return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
-  return db?.listWorkspaces
-    ? jsonResponse(context, await db.listWorkspaces())
-    : errorResponse(context, "database_unavailable", 503);
+  return db ? jsonResponse(context, await db.listWorkspaces()) : errorResponse(context, "database_unavailable", 503);
 }
 
 async function createApiKey(context: AppContext, params: RouteParams): Promise<Response> {
@@ -588,10 +498,9 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
     return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
-  if (!db?.createApiKey) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const dbWithCreateApiKey = db as ApiDatabase & Required<Pick<ApiDatabase, "createApiKey">>;
   const body = await readJsonObject(request);
   const parsed = CreateApiKeyRequest.safeParse(body);
   if (!parsed.success) {
@@ -600,8 +509,8 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
   return runIdempotent(
     context,
     () =>
-      dbWithCreateApiKey.createApiKey({
-        actor: adminActor(actor),
+      db.createApiKey({
+        actor: actor,
         idempotencyKey,
         workspaceId: params.workspaceId ?? "",
         name: parsed.data.name,
@@ -622,13 +531,12 @@ async function revokeApiKey(context: AppContext, params: RouteParams): Promise<R
     return errorResponse(context, "invalid_idempotency_key", 400);
   }
   const db = apiDatabase(env);
-  if (!db?.revokeApiKey) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const dbWithRevokeApiKey = db as ApiDatabase & Required<Pick<ApiDatabase, "revokeApiKey">>;
   return runIdempotent(context, () =>
-    dbWithRevokeApiKey.revokeApiKey({
-      actor: adminActor(actor),
+    db.revokeApiKey({
+      actor: actor,
       idempotencyKey,
       apiKeyId: params.apiKeyId ?? "",
     }),
@@ -644,7 +552,7 @@ async function listArtifacts(context: AppContext): Promise<Response> {
   }
   const url = new URL(request.url);
   const db = apiDatabase(env);
-  return db?.listArtifacts
+  return db
     ? jsonResponse(
         context,
         await db.listArtifacts(
@@ -662,7 +570,10 @@ async function inspectArtifact(context: AppContext, params: RouteParams): Promis
     return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
-  const detail = await db?.getArtifactDetail?.(params.artifactId ?? "");
+  if (!db) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  const detail = await db.getArtifactDetail(params.artifactId ?? "");
   return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
 }
 
@@ -679,22 +590,18 @@ async function deleteArtifact(context: AppContext, params: RouteParams): Promise
   }
   const artifactId = params.artifactId ?? "";
   const db = apiDatabase(env);
-  if (!db?.deleteArtifact) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
-  const dbWithDeleteArtifact = db as ApiDatabase & Required<Pick<ApiDatabase, "deleteArtifact">>;
   return runIdempotent(context, async () => {
-    const result = await dbWithDeleteArtifact.deleteArtifact({
-      actor: adminActor(actor),
+    const result = await db.deleteArtifact({
+      actor: actor,
       idempotencyKey,
       artifactId,
     });
     await denyArtifact(env, artifactId);
     const purged = await purgeArtifactBytes(env, artifactId);
-    if (result && typeof result === "object") {
-      return { ...(result as Record<string, unknown>), deleted_r2_objects: purged };
-    }
-    return result;
+    return { ...result, deleted_r2_objects: purged };
   });
 }
 
@@ -705,7 +612,7 @@ async function listOperationEvents(context: AppContext): Promise<Response> {
     return errorResponse(context, "not_authenticated", 401);
   }
   const db = apiDatabase(env);
-  return db?.listOperationEvents
+  return db
     ? jsonResponse(context, await db.listOperationEvents())
     : errorResponse(context, "database_unavailable", 503);
 }
@@ -725,7 +632,7 @@ async function runScheduledCleanup(env: Env): Promise<void> {
   );
 }
 
-async function authenticateApiKey(request: Request, env: Env): Promise<ApiActor | null> {
+async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyActor | null> {
   const token = bearerToken(request);
   if (!token) {
     return null;
@@ -748,7 +655,7 @@ async function authenticateApiKey(request: Request, env: Env): Promise<ApiActor 
   });
 }
 
-async function authenticateAdmin(request: Request, env: Env): Promise<ApiActor | null> {
+async function authenticateAdmin(request: Request, env: Env): Promise<AdminActor | null> {
   const token = bearerToken(request);
   if (!token) {
     return null;
@@ -824,7 +731,7 @@ function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {
 async function withWebMember(
   context: AppContext,
   requiredScopes: readonly string[],
-  run: (db: ApiDatabase, actor: ApiActor) => Promise<Response>,
+  run: (db: Repository, actor: ApiActor) => Promise<Response>,
 ): Promise<Response> {
   const identity = await authenticateWebIdentity(context.req.raw, context.env);
   if (!identity) {
@@ -832,7 +739,7 @@ async function withWebMember(
   }
 
   const db = apiDatabase(context.env);
-  if (!db?.getWebMemberByWorkOsUserId) {
+  if (!db) {
     return errorResponse(context, "database_unavailable", 503);
   }
 
@@ -858,7 +765,7 @@ function hasScopes(actor: ApiActor, requiredScopes: readonly string[]): boolean 
   if (requiredScopes.length === 0) {
     return true;
   }
-  const actorScopes = new Set(actor.scopes ?? []);
+  const actorScopes = new Set<string>(actor.scopes ?? []);
   return requiredScopes.every((scope) => actorScopes.has(scope));
 }
 
@@ -869,14 +776,14 @@ function authService(env: Env): AuthService | undefined {
   return postgresRuntime(env)?.auth;
 }
 
-function apiDatabase(env: Env): ApiDatabase | undefined {
+function apiDatabase(env: Env): Repository | undefined {
   if (isApiDatabase(env.DB)) {
     return env.DB;
   }
   return postgresRuntime(env)?.db;
 }
 
-function postgresRuntime(env: Env): { auth: AuthService; db: ApiDatabase } | undefined {
+function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
   if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
     return undefined;
   }
@@ -890,7 +797,7 @@ function postgresRuntime(env: Env): { auth: AuthService; db: ApiDatabase } | und
   return { auth: services.auth, db: services.apiDb };
 }
 
-function isApiDatabase(value: Env["DB"]): value is ApiDatabase {
+function isApiDatabase(value: Env["DB"]): value is Repository {
   return typeof value === "object" && value !== null && "getWhoami" in value;
 }
 
@@ -902,8 +809,8 @@ function isHyperdriveBinding(value: Env["DB"]): value is HyperdriveBinding {
 
 async function runCleanupAndDeny(
   env: Env,
-  db: ApiDatabase,
-  actor: { type: "admin" | "system"; id: string },
+  db: Repository,
+  actor: AdminActor,
   dryRun: boolean,
   batchSize: number,
   idempotencyKey?: string,
@@ -1316,13 +1223,6 @@ function errorResponse(
     docsBaseUrl: context.env.DOCS_BASE_URL,
   });
   return jsonResponse(context, body, status, extraHeaders);
-}
-
-function adminActor(actor: ApiActor): AdminActor {
-  if (actor.type !== "admin" && actor.type !== "system") {
-    throw new Error(`unexpected_actor_type:${actor.type}`);
-  }
-  return { type: actor.type, id: actor.id };
 }
 
 async function runIdempotent(context: AppContext, run: () => Promise<unknown>, successStatus = 200): Promise<Response> {

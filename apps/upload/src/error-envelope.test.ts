@@ -72,6 +72,9 @@ describe("upload error envelope", () => {
         async finalizeUploadSession() {
           return {};
         },
+        async peekIdempotentReplay() {
+          return null;
+        },
       },
     };
 
@@ -107,6 +110,9 @@ describe("upload error envelope", () => {
         async finalizeUploadSession() {
           return {};
         },
+        async peekIdempotentReplay() {
+          return null;
+        },
       },
     };
     const response = await handleRequest(
@@ -139,6 +145,9 @@ describe("upload error envelope", () => {
         },
         async finalizeUploadSession() {
           return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
         },
       },
       ACTOR_RATE_LIMIT: {
@@ -183,6 +192,9 @@ describe("upload error envelope", () => {
         },
         async finalizeUploadSession() {
           return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
         },
       },
     };
@@ -230,6 +242,9 @@ describe("upload error envelope", () => {
         },
         async finalizeUploadSession() {
           return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
         },
       },
     };
