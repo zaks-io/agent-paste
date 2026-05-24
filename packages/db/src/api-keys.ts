@@ -1,3 +1,4 @@
+import { constantTimeEqual, hmac } from "@agent-paste/tokens/crypto";
 import { base64UrlEncode, randomCrockford } from "./id.js";
 
 export type GeneratedApiKey = {
@@ -12,7 +13,7 @@ export async function generateApiKey(env: "preview" | "production" | "live", pep
   return {
     secret: `ap_pk_${env}_${publicId}_${secretSegment}`,
     publicId,
-    secretHmac: await hmacBase64Url(secretSegment, pepper),
+    secretHmac: await hmac(secretSegment, pepper),
   };
 }
 
@@ -34,28 +35,5 @@ export async function verifyApiKeySecret(
   if (!parsed || parsed.publicId !== expectedPublicId) {
     return false;
   }
-  return constantTimeEqual(await hmacBase64Url(parsed.secret, pepper), expectedSecretHmac);
-}
-
-async function hmacBase64Url(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return base64UrlEncode(new Uint8Array(signature));
-}
-
-function constantTimeEqual(left: string, right: string) {
-  if (left.length !== right.length) {
-    return false;
-  }
-  let diff = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return diff === 0;
+  return constantTimeEqual(await hmac(parsed.secret, pepper), expectedSecretHmac);
 }

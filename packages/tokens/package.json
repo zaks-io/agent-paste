@@ -1,5 +1,5 @@
 {
-  "name": "@agent-paste/db",
+  "name": "@agent-paste/tokens",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,27 +7,33 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./crypto": {
+      "types": "./src/crypto.ts",
+      "import": "./dist/crypto.js"
+    },
+    "./content": {
+      "types": "./src/content.ts",
+      "import": "./dist/content.js"
+    },
+    "./agent-view": {
+      "types": "./src/agent-view.ts",
+      "import": "./dist/agent-view.js"
+    },
+    "./upload-url": {
+      "types": "./src/upload-url.ts",
+      "import": "./dist/upload-url.js"
     }
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck && pnpm test",
-    "db:check": "node scripts/introspect-check.mjs",
     "lint": "biome lint .",
-    "migrate": "node scripts/migrate.mjs",
     "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.4.5",
-    "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  },
-  "dependencies": {
-    "@agent-paste/commands": "workspace:*",
-    "@agent-paste/tokens": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9"
   }
 }

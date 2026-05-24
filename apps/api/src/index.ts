@@ -19,6 +19,9 @@ import {
   type HyperdriveBinding,
   type Repository,
 } from "@agent-paste/db";
+import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
+import { mintContentUrl } from "@agent-paste/tokens/content";
+import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import { type Context, Hono } from "hono";
 import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
@@ -84,11 +87,6 @@ type ScheduledEvent = {
 };
 
 type RouteParams = Record<string, string>;
-type AgentViewTokenPayload = {
-  artifact_id: string;
-  revision_id: string;
-  exp: number;
-};
 
 const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
 const usagePolicy = {
@@ -987,8 +985,8 @@ async function publicAgentViewDatabaseToken(token: string, env: Env): Promise<st
     return allowLegacyAgentViewTokens(env) ? legacyAgentViewToken(token) : null;
   }
 
-  const payload = await verifySignedPayload<AgentViewTokenPayload>(token, secret);
-  if (!payload || !isValidAgentViewTokenPayload(payload)) {
+  const payload = await verifyAgentViewToken(token, secret);
+  if (!payload) {
     return null;
   }
 
@@ -1006,17 +1004,6 @@ function legacyAgentViewToken(token: string): string | null {
 
 function allowLegacyAgentViewTokens(env: Env): boolean {
   return env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "true" || env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "1";
-}
-
-function isValidAgentViewTokenPayload(payload: AgentViewTokenPayload): boolean {
-  return (
-    typeof payload.artifact_id === "string" &&
-    payload.artifact_id.startsWith("art_") &&
-    typeof payload.revision_id === "string" &&
-    payload.revision_id.startsWith("rev_") &&
-    typeof payload.exp === "number" &&
-    payload.exp >= Math.floor(Date.now() / 1000)
-  );
 }
 
 async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknown> {
@@ -1079,73 +1066,22 @@ async function signedContentUrl(
   if (!env.CONTENT_SIGNING_SECRET) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
-  const token = await signContentToken(
-    {
+  return mintContentUrl({
+    baseUrl: contentBaseUrl(env),
+    secret: env.CONTENT_SIGNING_SECRET,
+    payload: {
       artifact_id: artifactId,
       revision_id: revisionId,
       paths: [path],
       exp: contentTokenExpiration(expiresAt),
     },
-    env.CONTENT_SIGNING_SECRET,
-  );
-  return `${contentBaseUrl(env)}/v/${encodeURIComponent(token)}/${encodePath(path)}`;
+    path,
+  });
 }
 
 function contentTokenExpiration(expiresAt: string | undefined): number {
   const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + usagePolicy.default_ttl_seconds;
-}
-
-async function signContentToken(
-  payload: { artifact_id: string; revision_id: string; paths: string[]; exp: number },
-  secret: string,
-): Promise<string> {
-  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signature = await hmac(encodedPayload, secret);
-  return `${encodedPayload}.${signature}`;
-}
-
-async function verifySignedPayload<T>(token: string, secret: string): Promise<T | null> {
-  const [encodedPayload, signature] = token.split(".");
-  if (!encodedPayload || !signature) {
-    return null;
-  }
-
-  const expected = await hmac(encodedPayload, secret);
-  if (!constantTimeEqual(signature, expected)) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function hmac(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return base64UrlEncode(new Uint8Array(signature));
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index] ?? 0);
-  }
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const padded = `${value}${"=".repeat((4 - (value.length % 4)) % 4)}`.replaceAll("-", "+").replaceAll("_", "/");
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 }
 
 function encodePath(path: string): string {
@@ -1307,14 +1243,4 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
   return escapeHtml(value).replaceAll("`", "&#96;");
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const maxLength = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let index = 0; index < maxLength; index += 1) {
-    diff |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
-
-  return diff === 0;
 }
