@@ -69,7 +69,7 @@
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
-        "WORKOS_CLIENT_ID": "",
+        "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
@@ -126,7 +126,7 @@
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
-        "WORKOS_CLIENT_ID": "",
+        "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
