@@ -152,7 +152,7 @@ export function decodeLockdownCursor(cursor: string): LockdownCursor {
       throw new Error("invalid_cursor");
     }
     const setAt = new Date(raw.set_at);
-    if (Number.isNaN(setAt.getTime())) {
+    if (Number.isNaN(setAt.getTime()) || setAt.toISOString() !== raw.set_at) {
       throw new Error("invalid_cursor");
     }
     return { setAt, id: raw.id };

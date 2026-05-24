@@ -1675,7 +1675,8 @@ describe("api worker", () => {
       OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
-        async listLockdowns() {
+        async listLockdowns(_actor, pagination) {
+          expect(pagination).toEqual({ limit: 50, cursor: "not-base64" });
           throw new Error("invalid_cursor");
         },
       }),

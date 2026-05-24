@@ -405,7 +405,7 @@ function applyWebCursorParameterBounds(document: Record<string, unknown>) {
   if (!isRecord(paths)) {
     return;
   }
-  for (const path of ["/v1/web/artifacts", "/v1/web/audit"]) {
+  for (const path of ["/v1/web/artifacts", "/v1/web/audit", "/v1/web/admin/lockdowns"]) {
     const webListPath = paths[path];
     if (!isRecord(webListPath)) {
       continue;
