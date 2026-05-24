@@ -130,7 +130,7 @@ export function localEntities(state: LocalState): Entities {
           .filter((artifact) => artifact.status === "active" && new Date(artifact.expires_at).getTime() <= nowMs)
           .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
           .slice(0, limit)
-          .map((artifact) => ({ id: artifact.id, workspace_id: artifact.workspace_id }));
+          .map((artifact) => ({ id: artifact.id }));
       },
       async expireBatch(now, ids) {
         for (const id of ids) {
@@ -181,7 +181,7 @@ export function localEntities(state: LocalState): Entities {
           .filter((session) => session.status === "pending" && new Date(session.expires_at).getTime() <= nowMs)
           .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
           .slice(0, limit)
-          .map((session) => ({ id: session.id, workspace_id: session.workspace_id }));
+          .map((session) => ({ id: session.id }));
       },
       async expireBatch(_now, ids) {
         for (const id of ids) {

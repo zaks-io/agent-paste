@@ -54,8 +54,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
         );
       },
       listExpiring: async (now, limit) => {
-        const result = await sql.query<{ id: string; workspace_id: string }>(
-          `select id, workspace_id
+        const result = await sql.query<{ id: string }>(
+          `select id
            from artifacts
            where status = 'active' and expires_at <= $1
            order by expires_at asc
@@ -83,8 +83,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       findById: (sessionId, workspaceId) => uploadSessionQueries.findById(drizzle, sessionId, workspaceId),
       markFinalized: (sessionId, finalizedAt) => uploadSessionQueries.markFinalized(drizzle, sessionId, finalizedAt),
       listExpiring: async (now, limit) => {
-        const result = await sql.query<{ id: string; workspace_id: string }>(
-          `select id, workspace_id
+        const result = await sql.query<{ id: string }>(
+          `select id
            from upload_sessions
            where status = 'pending' and expires_at <= $1
            order by expires_at asc

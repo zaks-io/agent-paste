@@ -104,7 +104,7 @@ export type Repository = {
     now?: Date;
   }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
   verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null>;
-  getWhoami(actor: ApiActor): Promise<Whoami>;
+  getWhoami(actor: ApiKeyActor): Promise<Whoami>;
   resolveWebMember(input: {
     workosUserId: string;
     email: string;
@@ -179,7 +179,7 @@ export type Repository = {
     expiresAt: string;
   }): Promise<{ artifact_id: string; expires_at: string } | null>;
   peekIdempotentReplay(input: {
-    actor: ApiActor;
+    actor: ApiKeyActor;
     operation: string;
     idempotencyKey: string;
   }): Promise<{ result: unknown } | null>;

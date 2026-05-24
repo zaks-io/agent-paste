@@ -47,3 +47,23 @@ orchestration in one place, which is the point of the unification. It is over th
 - [ ] If it keeps growing, split by surface area (admin/cleanup, upload-session lifecycle,
       web-member provisioning, public agent view) into sibling modules that the core composes,
       without reintroducing a second copy of any orchestration. Do not split per backend.
+
+## `deleted_r2_objects` is not part of the idempotent delete result
+
+`deleteArtifact` in `apps/api/src/index.ts` wraps `db.deleteArtifact` (which claims the
+idempotency key and replays the stored DB result) but computes `deleted_r2_objects` from a
+`purgeArtifactBytes` call that runs _outside_ that idempotent boundary. The first call returns
+the real purge count; a retry with the same key replays the DB result but re-runs the purge,
+which now finds nothing and returns 0. So the replayed payload differs from the original.
+
+This predates the repository unification (the purge-then-merge shape came from #24, commit
+22c4b36; the unification only swapped `dbWithDeleteArtifact` for `db`). R2 purge accounting
+lives in the Worker on purpose: `runCleanup` likewise always reports `deleted_r2_objects: 0`
+and leaves object deletion to the jobs path. Reconciling that is a behavior change to delete
+semantics, deliberately out of scope for the behavior-preserving unification.
+
+- [ ] Decide where the authoritative R2 purge count lives: either compute it inside the
+      idempotent command (persist it on the operation event / command result so replays return
+      the same number), or document that `deleted_r2_objects` is best-effort and not replay-stable.
+- [ ] If it becomes replay-stable, add a test that issues the same delete idempotency key twice
+      and asserts identical `deleted_r2_objects` across both responses.

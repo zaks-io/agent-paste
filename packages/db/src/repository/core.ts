@@ -195,7 +195,7 @@ export class RepositoryCore implements Repository {
     return { type: "api_key", id: record.id, workspace_id: record.workspace_id, scopes: record.scopes };
   }
 
-  async getWhoami(actor: ApiActor) {
+  async getWhoami(actor: ApiKeyActor) {
     return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
       const apiKey = await this.mustApiKey(entities, actor.id);
       const workspace = await this.mustWorkspace(entities, apiKey.workspace_id);
@@ -690,7 +690,7 @@ export class RepositoryCore implements Repository {
     );
   }
 
-  async peekIdempotentReplay(input: { actor: ApiActor; operation: string; idempotencyKey: string }) {
+  async peekIdempotentReplay(input: { actor: ApiKeyActor; operation: string; idempotencyKey: string }) {
     return this.uow.peekReplay<unknown>({
       actor: apiCommandActor(input.actor),
       operation: input.operation,

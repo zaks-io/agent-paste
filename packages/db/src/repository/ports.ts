@@ -53,7 +53,7 @@ export type Entities = {
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;
     markDeleted(artifactId: string, deletedAt: string): Promise<void>;
-    listExpiring(now: string, limit: number): Promise<Array<{ id: string; workspace_id: string }>>;
+    listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
   };
   artifactFiles: {
@@ -64,7 +64,7 @@ export type Entities = {
     insert(session: UploadSession): Promise<void>;
     findById(sessionId: string, workspaceId?: string): Promise<UploadSession | null>;
     markFinalized(sessionId: string, finalizedAt: string): Promise<void>;
-    listExpiring(now: string, limit: number): Promise<Array<{ id: string; workspace_id: string }>>;
+    listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
   };
   uploadSessionFiles: {
