@@ -54,4 +54,5 @@ Everything else earns its way in.
 - Keep one revision per artifact until updates are a real use case.
 - Use direct signed content URLs for MVP, then move to fragment-based links later.
 - Include retention from day one.
+- Treat artifacts as transient handoffs, not hosted assets. Keep read and concurrent-viewer ceilings low; high-traffic hosting belongs on a real host, not here.
 - Do not let MCP, dashboard, bundles, or link lifecycle sneak into Phase 1.

@@ -31,6 +31,11 @@ _Avoid_: Partial update, pending files
 The **Revision** currently visible through stable **Artifact** links.
 _Avoid_: Live version, current snapshot
 
+<a id="live-update"></a>
+**Live Update**:
+The behavior by which an already-open **Private Link** or **Share Link** viewer advances to the latest **Published Revision** without a manual reload. A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**. A viewer that has fallen behind reconciles to the current **Published Revision** rather than replaying the **Revisions** it missed.
+_Avoid_: Live edit, real-time sync, hot reload, watch mode
+
 <a id="upload-session"></a>
 **Upload Session**:
 A temporary workflow for collecting files that will become a complete **Revision** when finalized.
@@ -305,6 +310,11 @@ _Avoid_: workers (plural), background worker, cron worker
 The Worker that serves the TanStack Start dashboard, terminates **Workspace Member** sessions, and forwards authenticated requests to `api` over a **Service Binding**. Holds no Postgres, no R2, no KV bindings; auth state flows through `api`.
 _Avoid_: frontend worker, dashboard worker, app worker
 
+<a id="stream"></a>
+**stream**:
+The Worker that owns the per-**Artifact** **Live Update** channel. It holds a Durable Object that fans out **Published Revision** pointers to connected **Private Link** and **Share Link** viewers over a held streaming connection, and it authorizes each connection by forwarding the viewer's **Access Link** credential or **Workspace Member** session to `api` over a **Service Binding**. Holds no Postgres, no R2, and no KV; carries no secrets and serves no **Untrusted Content**. `api` notifies it on **Publish**.
+_Avoid_: sse worker, push worker, realtime gateway
+
 <a id="cli"></a>
 **cli**:
 The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with an OIDC loopback flow for humans (provider chosen when CLI human auth lands) or with `AGENT_PASTE_API_KEY` for CI and headless agents.
@@ -368,6 +378,10 @@ _Avoid_: internal API, worker RPC, internal call
 - A **Private Link** cannot be pinned to an older **Revision**
 - A **Private Link** grants authenticated read access to human views and the **Agent View**
 - A **Private Link** is not an **Access Link**
+- A **Live Update** advances an open **Private Link** or **Share Link** viewer to the latest **Published Revision** without a manual reload
+- A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**
+- A **Revision Link** never receives a **Live Update** because it is pinned to one **Revision**
+- A viewer that has fallen behind reconciles to the current **Published Revision** on reconnect rather than replaying missed **Revisions**
 - **Share Links** and **Revision Links** are **Access Links**
 - An **Access Link** grants unauthenticated read-only access to the **Agent View** and published **Untrusted Content**
 - An **Access Link** has no **Expiration** unless one is set
@@ -577,6 +591,9 @@ _Avoid_: internal API, worker RPC, internal call
 - A **Workspace Member** controls a **Workspace** directly through `web` (dashboard) and through delegated agent surfaces `cli` and `mcp`
 - An **API Key** authenticates against `api` and `upload`; it is never accepted by `mcp` or by operator-only `/admin/...` routes on `api`
 - `web` reaches `api` over a **Service Binding**; `mcp` reaches `api` over a **Service Binding**
+- `stream` reaches `api` over a **Service Binding** to authorize each **Live Update** viewer connection
+- `api` notifies `stream` on **Publish** so it can fan out the new **Published Revision** to connected viewers
+- `stream` holds no Postgres, R2, or KV binding; the **Published Revision** pointer it relays is platform-controlled data, not **Untrusted Content**
 - A **Service Binding** call still carries the original bearer; the downstream Worker re-verifies it rather than trusting the upstream Worker
 - `jobs` is the only Worker that consumes Cloudflare Queues; `api` and `upload` are queue producers
 - The `cli` is not a Worker; it runs on a developer or agent machine and authenticates against `api` and `upload` over HTTPS
