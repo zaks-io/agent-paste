@@ -157,10 +157,11 @@ function idempotencyGuard(
     return { ok: true, state: {} };
   }
   const idempotencyKey = context.req.raw.headers.get("idempotency-key");
-  if (!idempotencyKey) {
+  const normalized = idempotencyKey?.trim();
+  if (!normalized) {
     return { ok: false, code: "invalid_idempotency_key" };
   }
-  return { ok: true, state: { idempotencyKey } };
+  return { ok: true, state: { idempotencyKey: normalized } };
 }
 
 function hasScopes(principal: Principal, requiredScopes: readonly Scope[]): boolean {

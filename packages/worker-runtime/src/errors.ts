@@ -66,6 +66,7 @@ export function errorResponse(context: Context, code: ErrorCodeValue, options: E
   return new Response(JSON.stringify(body), {
     status: ERROR_STATUS[code],
     headers: {
+      "cache-control": "no-store",
       "content-type": "application/json; charset=utf-8",
       ...(options.defaultHeaders ?? {}),
       ...(options.headers ?? {}),

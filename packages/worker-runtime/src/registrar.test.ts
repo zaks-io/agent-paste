@@ -44,6 +44,7 @@ describe("contract-driven registrar", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("x-request-id")).toBe("req-12345678");
+    expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
   });
 
@@ -141,6 +142,34 @@ describe("contract-driven registrar", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_idempotency_key" } });
+  });
+
+  it("rejects whitespace-only idempotency keys and normalizes accepted keys", async () => {
+    const seenKeys: string[] = [];
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal();
+        },
+      },
+    }).mount({ ...baseContract, method: "POST", idempotency: "required" }, async (_context, _principal, guard) => {
+      seenKeys.push(guard.idempotencyKey ?? "");
+      return jsonOk({ ok: true });
+    });
+
+    const whitespace = await app.fetch(
+      new Request("https://worker.test/test", { method: "POST", headers: { "idempotency-key": "   " } }),
+    );
+    const accepted = await app.fetch(
+      new Request("https://worker.test/test", { method: "POST", headers: { "idempotency-key": "  idem-1  " } }),
+    );
+
+    expect(whitespace.status).toBe(400);
+    await expect(whitespace.json()).resolves.toMatchObject({ error: { code: "invalid_idempotency_key" } });
+    expect(accepted.status).toBe(200);
+    expect(seenKeys).toEqual(["idem-1"]);
   });
 
   it("converts in-flight idempotency collisions to 409 envelopes", async () => {
