@@ -1,5 +1,6 @@
+import { routeContracts } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { type Env, handleRequest, signContentToken } from "./index.js";
+import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, signContentToken } from "./index.js";
 
 async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
   const token = await signContentToken(
@@ -29,6 +30,16 @@ async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
 }
 
 describe("content worker", () => {
+  it("mounts every content route contract", () => {
+    expect([...mountedRouteIds].sort()).toEqual(
+      routeContracts
+        .filter((route) => route.app === "content")
+        .map((route) => route.id)
+        .sort(),
+    );
+    expect([...nonContractRoutePaths]).toEqual(["/openapi.json"]);
+  });
+
   it("serves a generated OpenAPI document", async () => {
     const env: Env = {
       CONTENT_SIGNING_SECRET: "secret",

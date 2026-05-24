@@ -5,8 +5,9 @@ import {
   type RequestIdVariables,
   requestIdMiddleware,
 } from "@agent-paste/auth";
-import { buildContentOpenApiDocument } from "@agent-paste/contracts";
+import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
 import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
+import { createRegistrar } from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 
 export type { ContentTokenPayload };
@@ -77,6 +78,8 @@ const securityHeaders = {
   "content-security-policy": baseContentSecurityPolicy,
 };
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
+export const mountedRouteIds = new Set<string>();
+export const nonContractRoutePaths = ["/openapi.json"] as const;
 
 app.use("*", requestIdMiddleware());
 app.get("/openapi.json", (context) =>
@@ -84,9 +87,48 @@ app.get("/openapi.json", (context) =>
     buildContentOpenApiDocument({ serverUrl: context.env.CONTENT_BASE_URL ?? new URL(context.req.raw.url).origin }),
   ),
 );
-app.get("/v/:token/*", (context) => serveSignedObject(context, context.req.param("token"), contentPath(context)));
-app.on("HEAD", "/v/:token/*", (context) =>
-  serveSignedObject(context, context.req.param("token"), contentPath(context)),
+const contentRegistrar = createRegistrar({
+  app,
+  auth: {
+    async signed_content_token(context) {
+      const path = contentPath(context as AppContext);
+      const payload = await verifyContentToken(
+        context.req.param("token") ?? "",
+        (context.env as Env).CONTENT_SIGNING_SECRET,
+      );
+      if (!payload || !isAllowedPath(path, payload)) {
+        return { ok: false, code: "not_found" };
+      }
+      if (await isDenylisted(context.env as Env, payload)) {
+        return { ok: false, code: "not_found" };
+      }
+      return { ok: true, principal: { kind: "signed_content_token", payload } };
+    },
+  },
+  rateLimitBindings: (context) => ({ artifact: (context.env as Env).ARTIFACT_RATE_LIMIT }),
+  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  defaultErrorHeaders: () => securityHeaders,
+  onMount: (contract) => {
+    mountedRouteIds.add(contract.id);
+  },
+});
+contentRegistrar.mount(contractById("content.get"), async (context, principal) =>
+  principal.kind === "signed_content_token"
+    ? serveSignedObject(
+        context as AppContext,
+        principal.payload as ContentTokenPayload,
+        contentPath(context as AppContext),
+      )
+    : errorResponse(context as AppContext, "not_found", 404),
+);
+contentRegistrar.mount(contractById("content.head"), async (context, principal) =>
+  principal.kind === "signed_content_token"
+    ? serveSignedObject(
+        context as AppContext,
+        principal.payload as ContentTokenPayload,
+        contentPath(context as AppContext),
+      )
+    : errorResponse(context as AppContext, "not_found", 404),
 );
 app.notFound((context) => errorResponse(context, "not_found", 404));
 app.onError((error, context) => {
@@ -114,24 +156,9 @@ function contentPath(context: AppContext): string {
   return safeDecodeURIComponent(pathname.slice(marker.length)) ?? "";
 }
 
-async function serveSignedObject(context: AppContext, token: string, path: string): Promise<Response> {
+async function serveSignedObject(context: AppContext, payload: ContentTokenPayload, path: string): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  const payload = await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
-  if (!payload || !isAllowedPath(path, payload)) {
-    return errorResponse(context, "not_found", 404);
-  }
-
-  const denylistResults = await Promise.all(denylistKeysForPayload(payload).map((key) => env.DENYLIST.get(key)));
-
-  if (denylistResults.some((value) => value !== null)) {
-    return errorResponse(context, "not_found", 404);
-  }
-
-  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, payload.artifact_id);
-  if (artifactRateLimit && !artifactRateLimit.success) {
-    return errorResponse(context, "rate_limited_artifact", 429, "rate_limited_artifact", { "Retry-After": "60" });
-  }
 
   const key = objectKeyFor(payload, path);
   const object =
@@ -155,6 +182,11 @@ function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
   ];
 }
 
+async function isDenylisted(env: Env, payload: ContentTokenPayload): Promise<boolean> {
+  const denylistResults = await Promise.all(denylistKeysForPayload(payload).map((key) => env.DENYLIST.get(key)));
+  return denylistResults.some((value) => value !== null);
+}
+
 function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
   if (!isSafePath(path)) {
     return false;
@@ -170,22 +202,6 @@ function isSafePath(path: string): boolean {
 function objectKeyFor(payload: ContentTokenPayload, path: string): string {
   const prefix = payload.key_prefix ?? `artifacts/${payload.artifact_id}/revisions/${payload.revision_id}/files`;
   return `${prefix.replace(/\/+$/, "")}/${path}`;
-}
-
-async function rateLimitArtifactRead(
-  binding: RateLimitBinding | undefined,
-  artifactId: string,
-): Promise<{ success: boolean } | undefined> {
-  if (!binding) {
-    return undefined;
-  }
-
-  try {
-    return await binding.limit({ key: artifactId });
-  } catch (error) {
-    console.warn("Rate limit artifact binding failed; allowing request.", error);
-    return undefined;
-  }
 }
 
 function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {
@@ -257,6 +273,14 @@ function safeDecodeURIComponent(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {
+  const contract = routeContracts.find((route) => route.id === id);
+  if (!contract) {
+    throw new Error(`Missing route contract ${id}`);
+  }
+  return contract;
 }
 
 function errorResponse(

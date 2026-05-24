@@ -1,0 +1,65 @@
+import type { AuthRequirement, ErrorCode, Scope } from "@agent-paste/contracts";
+
+export type ScopedActor = {
+  type: string;
+  id: string;
+  workspace_id?: string;
+  scopes?: readonly Scope[];
+};
+
+export type ApiKeyPrincipal<Actor extends ScopedActor = ScopedActor> = {
+  kind: "api_key";
+  actor: Actor;
+};
+
+export type AdminTokenPrincipal<Actor = unknown> = {
+  kind: "admin_token";
+  actor: Actor;
+};
+
+export type WorkOsAccessTokenPrincipal<Identity = unknown, Actor extends ScopedActor = ScopedActor> = {
+  kind: "workos_access_token";
+  identity: Identity;
+  actor?: Actor;
+};
+
+export type SignedAgentViewTokenPrincipal<Payload = unknown> = {
+  kind: "signed_agent_view_token";
+  payload: Payload;
+};
+
+export type SignedUploadUrlPrincipal<Payload = unknown> = {
+  kind: "signed_upload_url";
+  payload: Payload;
+};
+
+export type SignedContentTokenPrincipal<Payload = unknown> = {
+  kind: "signed_content_token";
+  payload: Payload;
+};
+
+export type Principal =
+  | ApiKeyPrincipal
+  | AdminTokenPrincipal
+  | WorkOsAccessTokenPrincipal
+  | SignedAgentViewTokenPrincipal
+  | SignedUploadUrlPrincipal
+  | SignedContentTokenPrincipal;
+
+export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
+  ? ApiKeyPrincipal
+  : Auth extends "admin_token"
+    ? AdminTokenPrincipal
+    : Auth extends "workos_access_token"
+      ? WorkOsAccessTokenPrincipal
+      : Auth extends "signed_agent_view_token"
+        ? SignedAgentViewTokenPrincipal
+        : Auth extends "signed_upload_url"
+          ? SignedUploadUrlPrincipal
+          : Auth extends "signed_content_token"
+            ? SignedContentTokenPrincipal
+            : Principal;
+
+export type AuthSuccess<P extends Principal = Principal> = { ok: true; principal: P };
+export type AuthFailure = { ok: false; code: ErrorCode; message?: string };
+export type AuthResult<P extends Principal = Principal> = AuthSuccess<P> | AuthFailure;

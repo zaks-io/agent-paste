@@ -19,6 +19,8 @@ describe("MVP route registry", () => {
       "whoami.get",
       "usagePolicy.get",
       "agentView.public",
+      "agentView.getLatest",
+      "agentView.getRevision",
       "web.auth.callback",
       "web.workspace.get",
       "web.artifacts.list",
@@ -43,6 +45,38 @@ describe("MVP route registry", () => {
       "admin.cleanup.run",
       "admin.operationEvents.list",
     ]);
+  });
+
+  it("declares runtime rate-limit classes for every route", () => {
+    expect(routeContracts.every((route) => ["none", "actor", "artifact"].includes(route.rateLimit))).toBe(true);
+    expect(
+      routeContracts
+        .filter((route) => route.rateLimit === "actor")
+        .map((route) => route.id)
+        .sort(),
+    ).toEqual(
+      [
+        "agentView.getLatest",
+        "agentView.getRevision",
+        "uploadSessions.create",
+        "uploadSessions.finalize",
+        "web.apiKeys.create",
+        "web.apiKeys.list",
+        "web.apiKeys.revoke",
+        "web.artifacts.get",
+        "web.artifacts.list",
+        "web.audit.list",
+        "web.settings.get",
+        "web.workspace.get",
+        "whoami.get",
+      ].sort(),
+    );
+    expect(
+      routeContracts
+        .filter((route) => route.rateLimit === "artifact")
+        .map((route) => route.id)
+        .sort(),
+    ).toEqual(["content.get", "content.head"]);
   });
 
   it("documents artifact-level content read throttling", () => {

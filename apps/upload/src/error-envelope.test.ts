@@ -21,7 +21,7 @@ function workspaceSession(): UploadSessionRecord {
 function workspaceAuth(): NonNullable<Env["AUTH"]> {
   return {
     async verifyApiKey() {
-      return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+      return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
     },
   };
 }

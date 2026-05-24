@@ -8,7 +8,7 @@ import {
   requestIdMiddleware,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { buildUploadOpenApiDocument } from "@agent-paste/contracts";
+import { buildUploadOpenApiDocument, type RouteContract, routeContracts } from "@agent-paste/contracts";
 import {
   createHyperdriveExecutor,
   createPostgresServices,
@@ -22,6 +22,7 @@ import {
   type SignedUploadPayload,
   verifyUploadToken as verifyUploadTokenSignature,
 } from "@agent-paste/tokens/upload-url";
+import { createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 
 export type UploadActor = {
@@ -92,17 +93,61 @@ const AUTH_CACHE_TTL_SECONDS = 60;
 const DEFAULT_API_BASE_URL = "https://api.agent-paste.sh";
 const UPLOAD_FILE_PATH_MARKER = "/files/";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
+export const mountedRouteIds = new Set<string>();
+export const nonContractRoutePaths = ["/openapi.json"] as const;
 
 app.use("*", requestIdMiddleware());
 app.get("/openapi.json", (context) =>
   context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),
 );
-app.post("/v1/upload-sessions", (context) => createUploadSession(context));
-app.put("/v1/upload-sessions/:sessionId/files/*", (context) =>
-  putUploadFile(context, context.req.param("sessionId"), uploadFilePath(context)),
+const uploadDbRegistrar = createRegistrar<Repository>({
+  app,
+  auth: {
+    async api_key(context) {
+      const actor = await authenticateApiKey(context.req.raw, context.env as Env);
+      return actor ? { ok: true, principal: { kind: "api_key", actor } } : { ok: false, code: "not_authenticated" };
+    },
+  },
+  db: (context) => uploadDatabase(context.env as Env),
+  rateLimitBindings: (context) => ({
+    actor: (context.env as Env).ACTOR_RATE_LIMIT,
+    workspace: (context.env as Env).WORKSPACE_BURST_CAP,
+  }),
+  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  replay: uploadReplay,
+  onMount: (contract) => {
+    mountedRouteIds.add(contract.id);
+  },
+});
+const uploadNoDbRegistrar = createRegistrar({
+  app,
+  auth: {
+    async signed_upload_url(context) {
+      const payload = await verifyUploadToken(
+        new URL(context.req.raw.url).searchParams.get("token"),
+        context.env as Env,
+      );
+      const sessionId = context.req.param("upload_session_id");
+      const path = uploadFilePath(context as AppContext);
+      if (!payload || payload.sid !== sessionId || payload.path !== path) {
+        return { ok: false, code: "not_authenticated" };
+      }
+      return { ok: true, principal: { kind: "signed_upload_url", payload } };
+    },
+  },
+  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  onMount: (contract) => {
+    mountedRouteIds.add(contract.id);
+  },
+});
+uploadDbRegistrar.mount(contractById("uploadSessions.create"), async (context, principal, db, guard) =>
+  createUploadSession(context as AppContext, principal, db, guard),
 );
-app.post("/v1/upload-sessions/:sessionId/finalize", (context) =>
-  finalizeUploadSession(context, context.req.param("sessionId")),
+uploadNoDbRegistrar.mount(contractById("uploadSessions.putFile"), async (context, principal) =>
+  putUploadFile(context as AppContext, principal),
+);
+uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context, principal, db, guard) =>
+  finalizeUploadSession(context as AppContext, principal, db, guard),
 );
 app.notFound((context) => errorResponse(context, "not_found", 404));
 app.onError((error, context) => {
@@ -126,33 +171,19 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
-async function createUploadSession(context: AppContext): Promise<Response> {
+async function createUploadSession(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  const actor = await authenticateApiKey(request, env);
-  if (!actor) {
+  if (principal.kind !== "api_key") {
     return errorResponse(context, "not_authenticated", 401);
   }
-
-  const idempotencyKey = request.headers.get("idempotency-key");
-  if (!idempotencyKey) {
-    return errorResponse(context, "invalid_idempotency_key", 400);
-  }
-
-  const db = uploadDatabase(env);
-  if (!db) {
-    return errorResponse(context, "database_unavailable", 503);
-  }
-
-  const replay = await peekUploadReplay<UploadSessionRecord>(db, actor, "upload.session.create", idempotencyKey);
-  if (replay) {
-    return jsonResponse(context, await buildCreateSessionResponse(request, env, replay));
-  }
-
-  const limited = await rateLimitAuthenticatedRequest(context, actor);
-  if (limited) {
-    return limited;
-  }
+  const actor = principal.actor as UploadActor;
+  const idempotencyKey = guard.idempotencyKey ?? "";
 
   const body = await readJsonObject(request);
   const files = parseFiles(body.files);
@@ -218,17 +249,17 @@ async function buildCreateSessionResponse(
   };
 }
 
-async function putUploadFile(context: AppContext, sessionId: string, path: string): Promise<Response> {
+async function putUploadFile(context: AppContext, principal: Principal): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   if (!env.ARTIFACTS) {
     return errorResponse(context, "storage_unavailable", 503);
   }
 
-  const payload = await verifyUploadToken(new URL(request.url).searchParams.get("token"), env);
-  if (!payload || payload.sid !== sessionId || payload.path !== path) {
+  if (principal.kind !== "signed_upload_url") {
     return errorResponse(context, "not_authenticated", 401);
   }
+  const payload = principal.payload as SignedUploadPayload;
 
   if (!request.body) {
     return errorResponse(context, "invalid_request", 400, "request body is required");
@@ -244,8 +275,8 @@ async function putUploadFile(context: AppContext, sessionId: string, path: strin
   });
 
   await uploadDatabase(env)?.recordUploadedFile({
-    sessionId,
-    path,
+    sessionId: payload.sid,
+    path: payload.path,
     objectKey: payload.key,
     sizeBytes: payload.size,
     uploadedAt: new Date().toISOString(),
@@ -254,33 +285,19 @@ async function putUploadFile(context: AppContext, sessionId: string, path: strin
   return new Response(null, { status: 204, headers: { [REQUEST_ID_HEADER]: getRequestId(context) } });
 }
 
-async function finalizeUploadSession(context: AppContext, sessionId: string): Promise<Response> {
+async function finalizeUploadSession(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+): Promise<Response> {
   const env = context.env;
-  const request = context.req.raw;
-  const actor = await authenticateApiKey(request, env);
-  if (!actor) {
+  if (principal.kind !== "api_key") {
     return errorResponse(context, "not_authenticated", 401);
   }
-
-  const idempotencyKey = request.headers.get("idempotency-key");
-  if (!idempotencyKey) {
-    return errorResponse(context, "invalid_idempotency_key", 400);
-  }
-
-  const db = uploadDatabase(env);
-  if (!db) {
-    return errorResponse(context, "database_unavailable", 503);
-  }
-
-  const replay = await peekUploadReplay<unknown>(db, actor, "upload.session.finalize", idempotencyKey);
-  if (replay) {
-    return jsonResponse(context, await signPublishContentUrl(replay, env));
-  }
-
-  const limited = await rateLimitAuthenticatedRequest(context, actor);
-  if (limited) {
-    return limited;
-  }
+  const actor = principal.actor as UploadActor;
+  const idempotencyKey = guard.idempotencyKey ?? "";
+  const sessionId = context.req.param("upload_session_id") ?? "";
 
   if (!env.ARTIFACTS) {
     return errorResponse(context, "storage_unavailable", 503);
@@ -359,6 +376,41 @@ async function peekUploadReplay<T>(
 ): Promise<T | null> {
   const hit = await db.peekIdempotentReplay({ actor, operation, idempotencyKey });
   return hit ? (hit.result as T) : null;
+}
+
+async function uploadReplay(input: {
+  context: Context;
+  contract: RouteContract;
+  principal: Principal;
+  db: Repository;
+  guard: GuardState;
+}): Promise<Response | null> {
+  if (input.principal.kind !== "api_key" || !input.guard.idempotencyKey) {
+    return null;
+  }
+  const context = input.context as AppContext;
+  const actor = input.principal.actor as UploadActor;
+  if (input.contract.id === "uploadSessions.create") {
+    const replay = await peekUploadReplay<UploadSessionRecord>(
+      input.db,
+      actor,
+      "upload.session.create",
+      input.guard.idempotencyKey,
+    );
+    return replay
+      ? jsonResponse(context, await buildCreateSessionResponse(context.req.raw, context.env, replay))
+      : null;
+  }
+  if (input.contract.id === "uploadSessions.finalize") {
+    const replay = await peekUploadReplay<unknown>(
+      input.db,
+      actor,
+      "upload.session.finalize",
+      input.guard.idempotencyKey,
+    );
+    return replay ? jsonResponse(context, await signPublishContentUrl(replay, context.env)) : null;
+  }
+  return null;
 }
 
 function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
@@ -579,45 +631,6 @@ function pathFromViewUrl(viewUrl: string, artifactId: string, revisionId: string
   return decodeURIComponent(viewUrl.slice(index + marker.length));
 }
 
-async function rateLimitAuthenticatedRequest(context: AppContext, actor: UploadActor): Promise<Response | null> {
-  const env = context.env;
-  if (!env.ACTOR_RATE_LIMIT && !env.WORKSPACE_BURST_CAP) {
-    return null;
-  }
-  if (!actor.workspace_id) {
-    return errorResponse(context, "not_authenticated", 401);
-  }
-
-  const actorOutcome = await rateLimitOrFailOpen(env.ACTOR_RATE_LIMIT, "actor", `${actor.workspace_id}:${actor.id}`);
-  if (actorOutcome && !actorOutcome.success) {
-    return errorResponse(context, "rate_limited_actor", 429, "rate_limited_actor", { "Retry-After": "60" });
-  }
-
-  const workspaceOutcome = await rateLimitOrFailOpen(env.WORKSPACE_BURST_CAP, "workspace", actor.workspace_id);
-  if (workspaceOutcome && !workspaceOutcome.success) {
-    return errorResponse(context, "rate_limited_workspace", 429, "rate_limited_workspace", { "Retry-After": "10" });
-  }
-
-  return null;
-}
-
-async function rateLimitOrFailOpen(
-  binding: RateLimitBinding | undefined,
-  scope: "actor" | "workspace",
-  key: string,
-): Promise<{ success: boolean } | undefined> {
-  if (!binding) {
-    return undefined;
-  }
-
-  try {
-    return await binding.limit({ key });
-  } catch (error) {
-    console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
-    return undefined;
-  }
-}
-
 function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
 }
@@ -653,4 +666,12 @@ function errorResponse(
     docsBaseUrl: context.env.DOCS_BASE_URL,
   });
   return jsonResponse(context, body, status, extraHeaders);
+}
+
+function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {
+  const contract = routeContracts.find((route) => route.id === id);
+  if (!contract) {
+    throw new Error(`Missing route contract ${id}`);
+  }
+  return contract;
 }

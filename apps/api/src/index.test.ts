@@ -1,8 +1,25 @@
+import { routeContracts } from "@agent-paste/contracts";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
-import { type ApiDatabase, type Env, handleRequest } from "./index.js";
+import { type ApiDatabase, type Env, handleRequest, mountedRouteIds, nonContractRoutePaths } from "./index.js";
 
 describe("api worker", () => {
+  it("mounts every api and admin route contract", () => {
+    expect([...mountedRouteIds].sort()).toEqual(
+      routeContracts
+        .filter((route) => route.app === "api" || route.app === "admin")
+        .map((route) => route.id)
+        .sort(),
+    );
+    expect([...nonContractRoutePaths]).toEqual([
+      "/openapi.json",
+      "/admin/whoami",
+      "/__test__/force-expire",
+      "/__test__/r2-list",
+      "/__test__/denylist",
+    ]);
+  });
+
   it("serves a generated OpenAPI document", async () => {
     const response = await handleRequest(new Request("https://api.test/openapi.json"), {});
     expect(response.status).toBe(200);
@@ -89,6 +106,40 @@ describe("api worker", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
+  });
+
+  it("requires read scope for authenticated Agent View", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
+        },
+      },
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          throw new Error("Agent View should not run without read scope");
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/agent-view", {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
   });
 
   it("provisions a WorkOS web member from the callback route", async () => {

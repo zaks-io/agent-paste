@@ -1,7 +1,18 @@
+import { routeContracts } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { type Env, handleRequest, type UploadSessionRecord } from "./index.js";
+import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, type UploadSessionRecord } from "./index.js";
 
 describe("upload worker", () => {
+  it("mounts every upload route contract", () => {
+    expect([...mountedRouteIds].sort()).toEqual(
+      routeContracts
+        .filter((route) => route.app === "upload")
+        .map((route) => route.id)
+        .sort(),
+    );
+    expect([...nonContractRoutePaths]).toEqual(["/openapi.json"]);
+  });
+
   it("serves a generated OpenAPI document", async () => {
     const response = await handleRequest(new Request("https://upload.test/openapi.json"), {});
     expect(response.status).toBe(200);
@@ -33,7 +44,7 @@ describe("upload worker", () => {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: {
         async verifyApiKey() {
-          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
         },
       },
       DB: {
@@ -71,7 +82,7 @@ describe("upload worker", () => {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: {
         async verifyApiKey() {
-          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
         },
       },
       DB: {
@@ -114,6 +125,49 @@ describe("upload worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_workspace" } });
   });
 
+  it.each([
+    [
+      "create",
+      "https://upload.test/v1/upload-sessions",
+      { method: "POST", body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }) },
+    ],
+    ["finalize", "https://upload.test/v1/upload-sessions/upl_1/finalize", { method: "POST" }],
+  ])("requires publish scope for upload session %s", async (_label, url, init) => {
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+      },
+      DB: {
+        async createUploadSession() {
+          throw new Error("create should not run without publish scope");
+        },
+        async getUploadSession() {
+          throw new Error("finalize should not run without publish scope");
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        ...init,
+        headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
   it("replays cached idempotent result without consuming rate budget", async () => {
     const session: UploadSessionRecord = {
       session_id: "upl_replay",
@@ -127,7 +181,7 @@ describe("upload worker", () => {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: {
         async verifyApiKey() {
-          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
         },
       },
       DB: {
@@ -190,7 +244,7 @@ describe("upload worker", () => {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: {
         async verifyApiKey() {
-          return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
         },
       },
       DB: {

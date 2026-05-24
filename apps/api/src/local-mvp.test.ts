@@ -196,7 +196,12 @@ describe("local MVP vertical slice", () => {
     const auth = {
       verifyApiKey: async (apiKey: string) =>
         apiKey === "api-key"
-          ? { type: "api_key" as const, id: "key_00000000000000000000000000", workspace_id: db.workspace.id }
+          ? {
+              type: "api_key" as const,
+              id: "key_00000000000000000000000000",
+              workspace_id: db.workspace.id,
+              scopes: ["publish" as const, "read" as const],
+            }
           : null,
     };
     const artifacts = new MemoryR2();
