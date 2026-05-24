@@ -1692,6 +1692,30 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_cursor" } });
   });
 
+  it("rejects invalid lockdown pagination limits for an operator", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("listLockdowns must not run for an invalid limit");
+        },
+      }),
+    };
+
+    for (const limit of ["0", "101"]) {
+      const response = await handleRequest(
+        new Request(`https://api.test/v1/web/admin/lockdowns?limit=${limit}`, {
+          headers: { authorization: "Bearer workos-ok" },
+        }),
+        env,
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+    }
+  });
+
   it("returns 404 listing lockdowns for a WorkOS session whose email is not an operator", async () => {
     const env: Env = {
       OPERATOR_EMAILS: "ops@example.com",
