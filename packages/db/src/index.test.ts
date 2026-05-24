@@ -259,7 +259,8 @@ describe("LocalRepository", () => {
       revoked_at: "2026-01-03T00:00:00.000Z",
     });
     const events = [...repo.operationEvents.values()].filter((event) => event.target_id === firstKey.api_key.id);
-    expect(events.some((event) => event.actor_type === "member" && event.action === "api_key.revoked")).toBe(true);
+    const revokedEvents = events.filter((event) => event.actor_type === "member" && event.action === "api_key.revoked");
+    expect(revokedEvents).toHaveLength(1);
 
     await expect(
       repo.revokeWebApiKey({ actor: firstActor, idempotencyKey: "idem-missing", apiKeyId: "key_missing" }),

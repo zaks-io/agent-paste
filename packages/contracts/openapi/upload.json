@@ -249,7 +249,6 @@
                 "type": "string",
                 "enum": [
                   "rate_limited_actor",
-                  "rate_limited_artifact",
                   "rate_limited_workspace"
                 ]
               },
@@ -647,7 +646,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1106,7 +1105,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1448,7 +1447,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {

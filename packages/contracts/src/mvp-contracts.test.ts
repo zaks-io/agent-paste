@@ -64,6 +64,7 @@ describe("MVP route registry", () => {
       components?: { schemas?: Record<string, unknown> };
     };
     const rateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["429"];
+    const notFoundResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["404"];
 
     expect(ErrorCode.options).toContain("rate_limited_artifact");
     expect(contentGet).toBeDefined();
@@ -75,6 +76,12 @@ describe("MVP route registry", () => {
     );
     expect(contentOpenApi.components?.schemas?.ArtifactRateLimitErrorEnvelope).toMatchObject({
       properties: { error: { properties: { code: { enum: ["rate_limited_artifact"] } } } },
+    });
+    expect(notFoundResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ContentNotFoundErrorEnvelope",
+    );
+    expect(contentOpenApi.components?.schemas?.ContentNotFoundErrorEnvelope).toMatchObject({
+      properties: { error: { properties: { code: { enum: ["not_found"] } } } },
     });
   });
 });

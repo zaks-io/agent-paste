@@ -2080,7 +2080,6 @@
                 "type": "string",
                 "enum": [
                   "rate_limited_actor",
-                  "rate_limited_artifact",
                   "rate_limited_workspace"
                 ]
               },
@@ -2409,7 +2408,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2862,7 +2861,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3253,7 +3252,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3706,7 +3705,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4159,7 +4158,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4634,7 +4633,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5096,7 +5095,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5549,7 +5548,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5741,17 +5740,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
               }
             }
           }
@@ -6032,7 +6021,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6506,7 +6495,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6981,7 +6970,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -7434,7 +7423,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -7896,7 +7885,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -8367,7 +8356,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -8820,7 +8809,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -9012,21 +9001,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "email"
-                ]
+                "$ref": "#/components/schemas/CreateWorkspaceRequest"
               }
             }
           }
@@ -9307,7 +9282,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -9510,17 +9485,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
               }
             }
           }
@@ -9801,7 +9766,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -10275,7 +10240,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -10728,7 +10693,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -11190,7 +11155,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -11662,7 +11627,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -12143,7 +12108,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -12596,7 +12561,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
             "headers": {
               "Retry-After": {
                 "schema": {

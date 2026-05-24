@@ -9,7 +9,7 @@ const errorEnvelopeContent = {
 const RateLimitErrorEnvelope = z
   .object({
     error: z.object({
-      code: z.enum(["rate_limited_actor", "rate_limited_artifact", "rate_limited_workspace"]),
+      code: z.enum(["rate_limited_actor", "rate_limited_workspace"]),
       message: z.string(),
       docs: z.string().url().optional(),
       request_id: z.string().min(1).optional(),
@@ -56,7 +56,7 @@ export const errorResponse: ResponseConfig = {
 };
 
 export const rateLimitResponse: ResponseConfig = {
-  description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+  description: "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
   headers: retryAfterHeaders,
   content: rateLimitContent,
 };

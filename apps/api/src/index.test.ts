@@ -16,7 +16,7 @@ describe("api worker", () => {
 
     expect(doc.info.title).toBe("Agent Paste API");
     expect(doc.paths["/v1/whoami"]?.get.responses["429"]).toMatchObject({
-      description: expect.stringContaining("rate_limited_actor"),
+      description: expect.stringContaining("Actor or workspace rate limit"),
       headers: expect.any(Object),
     });
   });

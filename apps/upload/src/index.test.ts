@@ -16,7 +16,7 @@ describe("upload worker", () => {
 
     expect(doc.info.title).toBe("Agent Paste Upload API");
     expect(doc.paths["/v1/upload-sessions"]?.post.responses["429"]).toMatchObject({
-      description: expect.stringContaining("rate_limited_actor"),
+      description: expect.stringContaining("Actor or workspace rate limit"),
       headers: expect.any(Object),
     });
   });

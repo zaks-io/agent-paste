@@ -1,6 +1,6 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod.js";
-import { artifactRateLimitResponse, errorResponse } from "./responses.js";
+import { artifactRateLimitResponse } from "./responses.js";
 import { registerContentSchemas, requestIdHeader } from "./shared.js";
 
 const pathStringParam = (name: string, description: string) =>
@@ -12,6 +12,24 @@ const contentPathParams = z.object({
   token: pathStringParam("token", "Signed content token."),
   path: pathStringParam("path", "File path within the artifact."),
 });
+
+const ContentNotFoundErrorEnvelope = z
+  .object({
+    error: z.object({
+      code: z.enum(["not_found"]),
+      message: z.string(),
+      docs: z.string().url().optional(),
+      request_id: z.string().min(1).optional(),
+    }),
+  })
+  .openapi("ContentNotFoundErrorEnvelope");
+
+const contentNotFoundResponse = {
+  description: "Signed content token or artifact file was not found.",
+  content: {
+    "application/json": { schema: ContentNotFoundErrorEnvelope },
+  },
+};
 
 export type ContentOpenApiOptions = {
   serverUrl?: string | undefined;
@@ -37,7 +55,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
           "application/octet-stream": { schema: { type: "string", format: "binary" } },
         },
       },
-      "404": errorResponse,
+      "404": contentNotFoundResponse,
       "429": artifactRateLimitResponse,
     },
   });
@@ -53,7 +71,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
     },
     responses: {
       "200": { description: "Artifact file metadata" },
-      "404": errorResponse,
+      "404": contentNotFoundResponse,
       "429": artifactRateLimitResponse,
     },
   });

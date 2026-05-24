@@ -1,6 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
-import { CleanupRunRequest, CreateWorkspaceRequest } from "../admin.js";
-import { CreateApiKeyRequest } from "../apiKeys.js";
+import { CleanupRunRequest } from "../admin.js";
 import { Cursor } from "../primitives.js";
 import { z } from "../zod.js";
 import { schemaRef, standardJsonResponses } from "./responses.js";
@@ -141,7 +140,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     security: [{ WorkOsBearer: [] }],
     request: {
       headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CreateApiKeyRequest } } },
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateApiKeyRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
   });
@@ -232,7 +231,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     security: [{ AdminBearer: [] }],
     request: {
       headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CreateWorkspaceRequest } } },
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateWorkspaceRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("WorkspaceDetail"), 201),
   });
@@ -246,7 +245,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     request: {
       params: params({ workspace_id: pathStringParam("workspace_id", "Workspace id.") }),
       headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CreateApiKeyRequest } } },
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateApiKeyRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
   });
