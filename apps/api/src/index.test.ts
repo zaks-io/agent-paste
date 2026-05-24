@@ -762,6 +762,33 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  it("rejects malformed JSON for web key creation", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async createWebApiKey() {
+          throw new Error("create should not run for malformed JSON");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-invalid-json",
+        },
+        body: "{",
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
   it("creates a web API key from the member workspace", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),

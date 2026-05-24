@@ -423,7 +423,12 @@ async function webCreateApiKey(context: AppContext): Promise<Response> {
       return errorResponse(context, "database_unavailable", 503);
     }
     const createWebApiKey = db.createWebApiKey.bind(db);
-    const body = await readJsonObject(context.req.raw);
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonObject(context.req.raw);
+    } catch {
+      return errorResponse(context, "invalid_request", 400);
+    }
     const parsed = CreateApiKeyRequest.safeParse(body);
     if (!parsed.success) {
       return errorResponse(context, "invalid_request", 400);
