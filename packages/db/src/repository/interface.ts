@@ -1,0 +1,186 @@
+import type { buildAgentView, buildPublishResult } from "../agent-view.js";
+import type {
+  toApiKeySummary,
+  toArtifactSummary,
+  toUploadSessionRecord,
+  toWorkspaceDetail,
+  toWorkspaceSummary,
+} from "../transforms.js";
+import type { AdminActor, ApiActor, ApiKeyActor, OperationEvent, Workspace } from "../types.js";
+import type { toWebArtifactRow, toWebAuditRow } from "./web-transforms.js";
+
+type AgentView = ReturnType<typeof buildAgentView>;
+type PublishResult = ReturnType<typeof buildPublishResult>;
+type WorkspaceSummary = ReturnType<typeof toWorkspaceSummary>;
+type ApiKeySummary = ReturnType<typeof toApiKeySummary>;
+type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
+type WebArtifactRow = ReturnType<typeof toWebArtifactRow>;
+type WebAuditRow = ReturnType<typeof toWebAuditRow>;
+
+type PageInfo = { next_cursor: string | null; has_more: boolean };
+
+type WorkspaceMemberSummary = {
+  id: string;
+  workspace_id: string;
+  email: string;
+  scopes: string[];
+  created_at: string;
+  last_seen_at: string;
+};
+
+type WebMemberActor = {
+  type: "member";
+  id: string;
+  workspace_id: string;
+  email: string;
+  scopes: Array<"publish" | "read" | "admin">;
+};
+
+type WebAuthResponse = {
+  workspace: WorkspaceSummary;
+  workspace_member: WorkspaceMemberSummary;
+  scopes: Array<"publish" | "read" | "admin">;
+  default_api_key: { api_key: ApiKeySummary; secret: string } | null;
+};
+
+type Whoami = {
+  actor: { type: string; id: string; name: string };
+  workspace: WorkspaceSummary;
+  scopes: Array<"publish" | "read">;
+  usage_policy: unknown;
+};
+
+type WebWorkspaceView = {
+  workspace: WorkspaceSummary;
+  workspace_member: WorkspaceMemberSummary;
+  usage_policy: unknown;
+  default_key_first_run: boolean;
+};
+
+type WebArtifactDetail = WebArtifactRow & { entrypoint: string; file_count: number; size_bytes: number };
+
+type WebApiKeyRow = ApiKeySummary & { expires_at: null; revoked: boolean };
+
+type ArtifactSummary = ReturnType<typeof toArtifactSummary>;
+
+type ArtifactDetail = ArtifactSummary & {
+  files: Array<{ path: string; size_bytes: number; content_type: string; uploaded_at: string }>;
+  operation_event_ids: string[];
+};
+
+type CleanupResult = {
+  dry_run: boolean;
+  expired_artifacts: number;
+  expired_artifact_ids: string[];
+  expired_upload_sessions: number;
+  deleted_r2_objects: number;
+  occurred_at: string;
+};
+
+type UploadSessionFile = { path: string; objectKey: string; sizeBytes: number };
+
+// Single backend-agnostic contract. Both the Postgres and local repositories
+// implement this exactly; the api and upload workers consume it directly.
+export type Repository = {
+  createWorkspace(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    email: string;
+    name?: string;
+    now?: Date;
+  }): Promise<Workspace>;
+  listWorkspaces(): Promise<{ data: ReturnType<typeof toWorkspaceDetail>[]; page_info: PageInfo }>;
+  createApiKey(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    workspaceId: string;
+    name: string;
+    now?: Date;
+  }): Promise<{ api_key: ApiKeySummary; secret: string }>;
+  revokeApiKey(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    apiKeyId: string;
+    now?: Date;
+  }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
+  verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null>;
+  getWhoami(actor: ApiActor): Promise<Whoami>;
+  resolveWebMember(input: {
+    workosUserId: string;
+    email: string;
+    idempotencyKey: string;
+    now?: string;
+  }): Promise<WebAuthResponse>;
+  getWebMemberByWorkOsUserId(input: { workosUserId: string }): Promise<WebMemberActor | null>;
+  getWebWorkspace(actor: ApiActor): Promise<WebWorkspaceView>;
+  listWebArtifacts(
+    actor: ApiActor,
+    pagination?: { cursor?: string; limit?: number },
+  ): Promise<{ items: WebArtifactRow[]; page_info: PageInfo }>;
+  getWebArtifact(actor: ApiActor, artifactId: string): Promise<WebArtifactDetail | null>;
+  listWebApiKeys(actor: ApiActor): Promise<{ items: WebApiKeyRow[]; page_info: PageInfo }>;
+  listWebAuditEvents(actor: ApiActor): Promise<{ items: WebAuditRow[]; page_info: PageInfo }>;
+  getWebSettings(actor: ApiActor): Promise<{
+    workspace_name: string;
+    auto_deletion_days: number;
+    usage_policy: { artifacts_per_day: number; bytes_per_day: number };
+  }>;
+  createUploadSession(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    request: {
+      title?: string;
+      ttl_seconds?: number;
+      entrypoint?: string;
+      files: Array<{ path: string; size_bytes: number }>;
+    };
+    now: string;
+  }): Promise<UploadSessionRecord>;
+  recordUploadedFile(input: {
+    sessionId: string;
+    path: string;
+    objectKey?: string;
+    sizeBytes?: number;
+    uploadedAt: string;
+  }): Promise<void>;
+  getUploadSession(input: { actor: ApiActor; sessionId: string }): Promise<UploadSessionRecord | null>;
+  finalizeUploadSession(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    sessionId: string;
+    observedFiles: UploadSessionFile[];
+    now: string;
+  }): Promise<PublishResult>;
+  getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<AgentView | null>;
+  getAgentView(input: {
+    actor: ApiActor;
+    artifactId: string;
+    revisionId?: string;
+    contentBaseUrl: string;
+  }): Promise<AgentView | null>;
+  runCleanup(input: {
+    actor: AdminActor;
+    idempotencyKey?: string;
+    dryRun: boolean;
+    batchSize?: number;
+    now: string;
+  }): Promise<CleanupResult>;
+  listArtifacts(workspaceId?: string, status?: string): Promise<{ data: ArtifactSummary[]; page_info: PageInfo }>;
+  getArtifactDetail(artifactId: string): Promise<ArtifactDetail | null>;
+  deleteArtifact(input: {
+    actor: AdminActor;
+    idempotencyKey: string;
+    artifactId: string;
+    now?: Date;
+  }): Promise<{ artifact_id: string; deleted_at: string }>;
+  listOperationEvents(): Promise<{ data: OperationEvent[]; page_info: PageInfo }>;
+  forceExpireArtifact(input: {
+    artifactId: string;
+    expiresAt: string;
+  }): Promise<{ artifact_id: string; expires_at: string } | null>;
+  peekIdempotentReplay(input: {
+    actor: ApiActor;
+    operation: string;
+    idempotencyKey: string;
+  }): Promise<{ result: unknown } | null>;
+};
