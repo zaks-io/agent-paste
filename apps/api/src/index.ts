@@ -137,8 +137,12 @@ const apiAuthResolvers = {
       : ({ ok: false, code: "not_authenticated" } as const);
   },
   async signed_agent_view_token(context: Context) {
+    const token = context.req.param("token");
+    if (!token) {
+      return { ok: false, code: "not_found" } as const;
+    }
     const secret = agentViewSigningSecret(context.env as Env);
-    const payload = secret ? await verifyAgentViewToken(context.req.param("token") ?? "", secret) : null;
+    const payload = secret ? await verifyAgentViewToken(token, secret) : null;
     return payload
       ? ({ ok: true, principal: { kind: "signed_agent_view_token", payload } } as const)
       : ({ ok: false, code: "not_found" } as const);
@@ -432,7 +436,7 @@ async function webCreateApiKey(
   if (!actor) {
     return errorResponse(context, "forbidden", 403);
   }
-  const idempotencyKey = guard.idempotencyKey ?? "";
+  const idempotencyKey = guard.idempotencyKey as string;
   if (!db.createWebApiKey) {
     return errorResponse(context, "database_unavailable", 503);
   }
