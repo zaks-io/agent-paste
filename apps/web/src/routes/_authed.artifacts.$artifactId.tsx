@@ -2,10 +2,13 @@ import type { WebArtifactDetailResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { Badge } from "../components/ui/Badge";
+import { Card, CardHeader } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
+import { formatBytes, formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const getArtifactFn = createServerFn({ method: "GET" })
@@ -49,8 +52,32 @@ function ArtifactDetailPage() {
 
   return (
     <>
-      <PageHeader title={artifact.title ?? "Untitled"} description={<Identifier value={artifact.id} />} />
-      <p className="text-[14px] text-[hsl(var(--muted))]">Status: {artifact.status}</p>
+      <PageHeader
+        title={artifact.title}
+        description={<Identifier value={artifact.id} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge tone={artifact.status === "Published" ? "success" : "neutral"}>{artifact.status}</Badge>
+            {artifact.pinned ? <Badge tone="accent">Pinned</Badge> : null}
+            {artifact.lockdown ? <Badge tone="destructive">Locked down</Badge> : null}
+          </div>
+        }
+      />
+      <Card>
+        <CardHeader title="Latest revision" subtitle="The currently published file tree." />
+        <dl className="grid grid-cols-2 gap-y-2 text-[13px]">
+          <dt className="text-[hsl(var(--muted))]">Entrypoint</dt>
+          <dd className="font-mono text-right">{artifact.entrypoint}</dd>
+          <dt className="text-[hsl(var(--muted))]">Files</dt>
+          <dd className="font-mono tabular-nums text-right">{artifact.file_count}</dd>
+          <dt className="text-[hsl(var(--muted))]">Size</dt>
+          <dd className="font-mono tabular-nums text-right">{formatBytes(artifact.size_bytes)}</dd>
+          <dt className="text-[hsl(var(--muted))]">Last published</dt>
+          <dd className="font-mono text-right">
+            {artifact.last_published_at ? formatRelativeTime(artifact.last_published_at) : "—"}
+          </dd>
+        </dl>
+      </Card>
     </>
   );
 }

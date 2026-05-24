@@ -1,5 +1,5 @@
 import type { WebArtifactListResponse } from "@agent-paste/contracts";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Badge } from "../components/ui/Badge";
@@ -57,7 +57,15 @@ function ArtifactsListPage() {
           <TBody>
             {rows.map((row) => (
               <TR key={row.id}>
-                <TD className="font-medium">{row.title ?? "Untitled"}</TD>
+                <TD className="font-medium">
+                  <Link
+                    to="/artifacts/$artifactId"
+                    params={{ artifactId: row.id }}
+                    className="hover:text-[hsl(var(--accent))]"
+                  >
+                    {row.title}
+                  </Link>
+                </TD>
                 <TD>
                   <Identifier value={row.id} />
                 </TD>
@@ -71,7 +79,9 @@ function ArtifactsListPage() {
                     "—"
                   )}
                 </TD>
-                <TD className="text-right text-[hsl(var(--muted))]">⋯</TD>
+                <TD className="text-right text-[hsl(var(--muted))]">
+                  {row.pinned ? <Badge tone="accent">Pinned</Badge> : null}
+                </TD>
               </TR>
             ))}
           </TBody>
