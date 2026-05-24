@@ -9,7 +9,7 @@ import {
   verifyAdminToken,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { buildApiOpenApiDocument } from "@agent-paste/contracts";
+import { buildApiOpenApiDocument, mvpUsagePolicy } from "@agent-paste/contracts";
 import {
   type AdminActor,
   type ApiActor,
@@ -91,18 +91,7 @@ type AgentViewTokenPayload = {
 };
 
 const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
-const usagePolicy = {
-  file_size_cap_bytes: 10 * 1024 * 1024,
-  artifact_size_cap_bytes: 25 * 1024 * 1024,
-  file_count_cap: 100,
-  actor_rate_limit_per_minute: 60,
-  workspace_burst_cap_per_minute: 300,
-  upload_session_ttl_seconds: 24 * 60 * 60,
-  default_ttl_seconds: 30 * 24 * 60 * 60,
-  min_ttl_seconds: 24 * 60 * 60,
-  max_ttl_seconds: 90 * 24 * 60 * 60,
-};
-const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
+const DENYLIST_EXPIRATION_TTL_SECONDS = mvpUsagePolicy.max_ttl_seconds;
 const AUTH_CACHE_TTL_SECONDS = 60;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 
@@ -202,7 +191,7 @@ async function getUsagePolicy(context: AppContext): Promise<Response> {
   if (limited) {
     return limited;
   }
-  return jsonResponse(context, usagePolicy);
+  return jsonResponse(context, mvpUsagePolicy);
 }
 
 async function authenticatedAgentView(context: AppContext, params: RouteParams): Promise<Response> {
@@ -1023,7 +1012,7 @@ async function signedContentUrl(
 
 function contentTokenExpiration(expiresAt: string | undefined): number {
   const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + usagePolicy.default_ttl_seconds;
+  return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + mvpUsagePolicy.default_ttl_seconds;
 }
 
 async function signContentToken(
