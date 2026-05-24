@@ -1,0 +1,83 @@
+import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
+import { ErrorCode, type ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
+import type { Context } from "hono";
+
+export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
+  invalid_auth: 400,
+  invalid_content_length: 400,
+  invalid_cursor: 400,
+  invalid_idempotency_key: 400,
+  invalid_request: 400,
+  file_count_cap_exceeded: 400,
+  file_size_cap_exceeded: 400,
+  revision_size_cap_exceeded: 400,
+  not_authenticated: 401,
+  forbidden: 403,
+  not_found: 404,
+  artifact_not_found: 404,
+  api_key_not_found: 404,
+  upload_session_not_found: 404,
+  api_key_revoked: 409,
+  idempotency_in_flight: 409,
+  unexpected_upload_object: 409,
+  upload_incomplete: 409,
+  upload_session_expired: 409,
+  entrypoint_not_in_revision: 422,
+  rate_limited_actor: 429,
+  rate_limited_artifact: 429,
+  rate_limited_workspace: 429,
+  usage_policy_exceeded: 429,
+  database_unavailable: 503,
+  storage_unavailable: 503,
+};
+
+export type ErrorResponseOptions = {
+  message?: string | undefined;
+  headers?: Record<string, string> | undefined;
+  docsBaseUrl?: string | undefined;
+  defaultHeaders?: Record<string, string> | undefined;
+};
+
+export function jsonResponse(
+  context: Context,
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "cache-control": "no-store",
+      "content-type": "application/json; charset=utf-8",
+      [REQUEST_ID_HEADER]: getRequestId(context),
+      ...extraHeaders,
+    },
+  });
+}
+
+export function errorResponse(context: Context, code: ErrorCodeValue, options: ErrorResponseOptions = {}): Response {
+  const requestId = getRequestId(context);
+  const body = buildErrorBody({
+    code,
+    ...(options.message !== undefined ? { message: options.message } : {}),
+    requestId,
+    docsBaseUrl: options.docsBaseUrl,
+  });
+  return new Response(JSON.stringify(body), {
+    status: ERROR_STATUS[code],
+    headers: {
+      "cache-control": "no-store",
+      "content-type": "application/json; charset=utf-8",
+      ...(options.defaultHeaders ?? {}),
+      ...(options.headers ?? {}),
+      [REQUEST_ID_HEADER]: requestId,
+    },
+  });
+}
+
+export function unknownErrorToCode(error: unknown): ErrorCodeValue | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+  return ErrorCode.options.includes(error.message as ErrorCodeValue) ? (error.message as ErrorCodeValue) : null;
+}
