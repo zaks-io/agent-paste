@@ -4,7 +4,7 @@ Source of truth for what's left after the TanStack Start scaffold landed in `app
 
 Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). Phase 1/2 work continues to be tracked in `docs/ops/project-status.md`.
 
-## Operator click-ops (blocks first real login)
+## Operator click-ops (preview login verified; production + admin gate remain)
 
 - [x] Provision the WorkOS project. One WorkOS project (single `client_id` `client_01KSAJTF1EX1YZCCXJS9B0GJ46`) backs preview + production; AuthKit is the provider.
   - Redirect URIs configured: `https://app.preview.agent-paste.sh/api/auth/callback`, `https://app.agent-paste.sh/api/auth/callback` (Default), `http://localhost:5173/api/auth/callback`.
@@ -54,14 +54,14 @@ Order matters — each later item depends on the earlier ones.
   - Done in `agents/web-settings-patch` (#44): retention persists per-workspace via new `workspaces.auto_deletion_days` column (migration 0007, DB CHECK 1–90); `PATCH` runs through WorkOS member auth, requires `admin` scope + `Idempotency-Key`, bounds `auto_deletion_days` by the ADR 0048 caps (shared `MIN/MAX_AUTO_DELETION_DAYS`), and `RepositoryCore.updateWebSettings` fails closed against those bounds before persisting (local adapter has no DB constraint). Audit event `workspace.settings.updated`.
 - [x] `POST /v1/web/admin/lockdowns` + `DELETE /v1/web/admin/lockdowns/{scope}/{target_id}` (operator-only; in production gated by Cloudflare Access then `requireOperator()`, which accepts a WorkOS operator session or the rotation agent's Access service token and rejects API-key auth outright, per ADR 0046).
   - Done in `agents/web-admin-lockdown`: new `operator` auth requirement + `apps/api/src/operator.ts` (OPERATOR_EMAILS allow-list + Cloudflare Access service-token JWT verification requiring `common_name`). All operator-route auth failures (missing/invalid WorkOS token, non-operator email, API-key bearer, missing/invalid Access JWT) collapse to a generic `not_found` (404) so the surface stays non-enumerable. New `platform` actor type, `platform_lockdowns` table (migration 0008, partial unique index on effective rows, forced RLS via `app.platform`), idempotent `setLockdown`/`liftLockdown` through `runCommand`, KV denylist `wsd:`/`ad:` writes on set and deletes on lift (after the Postgres commit). Operator routes rate-limit by `platform:{operator-id}` with no workspace dimension.
-  - Deferred follow-up: no `GET` list/inspect endpoint for active lockdowns in this slice. Add `GET /v1/web/admin/lockdowns` (operator-only, paginated) when an operator dashboard needs to enumerate them.
+  - [x] `GET /v1/web/admin/lockdowns` list endpoint — Done (#48): operator-only, cursor-paginated (`set_at desc, id desc`) with canonical-cursor validation. Same `requireOperator()` posture (WorkOS operator session or rotation-agent Access service token; API keys rejected; all auth failures collapse to `not_found`). The operator dashboard UI that enumerates them is not yet wired.
 
 All mutations through `runCommand` (ADR 0022/0035); all reads under the request's Workspace Member RLS scope (ADR 0044). New routes register Zod schemas in `packages/contracts` and the `openapi:check` golden regenerates.
 
 ## `web` follow-up wiring (lands after each `api` endpoint)
 
 - [x] Replace each route's `apiFetchOrEmpty(404|501) → EmptyState` fallback with the real loader call.
-  - Done in `agents/web-loader-wiring`: dashboard now loads `GET /v1/web/workspace` + recent artifacts + recent audit in parallel; artifact detail surfaces entrypoint/file count/size; artifacts index and audit rows link through. Keys create/revoke and settings save are wired through `createServerFn` -> `apiFetch` with a generated `Idempotency-Key`. Access Links and the operator lockdown list stay `EmptyState` (endpoints deferred, Phase 4 / not built).
+  - Done in `agents/web-loader-wiring`: dashboard now loads `GET /v1/web/workspace` + recent artifacts + recent audit in parallel; artifact detail surfaces entrypoint/file count/size; artifacts index and audit rows link through. Keys create/revoke and settings save are wired through `createServerFn` -> `apiFetch` with a generated `Idempotency-Key`. Access Links stay `EmptyState` (Phase 4, not built). The operator lockdown list endpoint now exists (`GET /v1/web/admin/lockdowns`, #48), but the dashboard's operator lockdown list UI is not yet wired to it — it stays `EmptyState` pending the operator dashboard surface.
 - [x] First-run key card: render when `GET /v1/web/workspace` returns `default_key_first_run = true`; secret stays in component state only.
   - Done: the dashboard renders `FirstRunKeyCard` gated on `default_key_first_run`; the one-time secret is the `default_api_key.secret` from the `_authed` callback loader (the only place it is returned) and is held in component state, revealed on click. The provisioning callback secret is no longer surfaced in the `_authed` layout banner.
 - [x] Toasts surface `api` error envelopes: code + message + a link to `/audit?request_id=…`.
@@ -73,8 +73,8 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 
 ## Smoke / CI
 
-- [ ] Add `pnpm smoke:web` covering `/healthz` and `/login` 302 to the WorkOS hosted flow. Wire into `pnpm smoke:preview`.
-- [ ] Extend the PR preview workflow to deploy `web` alongside `api`/`upload`/`content` with the right service binding (`agent-paste-api-pr-{N}`).
+- [ ] Add `pnpm smoke:web` covering `/healthz` and `/api/auth/sign-in` 307 to the WorkOS hosted flow. Wire into `pnpm smoke:preview`. (Web preview deploy now works via `pnpm --filter @agent-paste/web deploy:preview` — CLOUDFLARE_ENV mechanism, #49 — and `agent-paste-web-preview` is live at `app.preview.agent-paste.sh`.)
+- [ ] Extend the PR preview workflow to deploy `web` alongside `api`/`upload`/`content` with the right service binding (`agent-paste-api-pr-{N}`). (Manual preview deploy is now wired via `deploy:preview`; this item is the per-PR workflow integration.)
 - [ ] Lighthouse a11y check on `/dashboard` (empty state). Fail the preview job below 95.
 
 ## Documentation
