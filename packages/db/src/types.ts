@@ -125,7 +125,7 @@ export type OperationEvent = {
 
 export type RepositoryOptions = {
   apiKeyPepper: string;
-  apiKeyEnv?: "preview" | "production" | "live";
+  apiKeyEnv?: "preview" | "production";
   apiBaseUrl?: string;
   contentBaseUrl?: string;
 };

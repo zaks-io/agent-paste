@@ -6,7 +6,11 @@ import {
   requestIdMiddleware,
 } from "@agent-paste/auth";
 import { buildContentOpenApiDocument } from "@agent-paste/contracts";
+import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
 import { type Context, Hono } from "hono";
+
+export type { ContentTokenPayload };
+export { mintContentToken as signContentToken };
 
 export type R2ObjectBody = {
   body: ReadableStream | null;
@@ -36,21 +40,10 @@ export type Env = {
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
   CONTENT_BASE_URL?: string;
-  ALLOW_DEV_TOKENS?: string;
   DOCS_BASE_URL?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
-
-export type ContentTokenPayload = {
-  workspace_id?: string;
-  artifact_id: string;
-  revision_id: string;
-  access_link_id?: string;
-  key_prefix?: string;
-  paths?: string[];
-  exp: number;
-};
 
 type ServedContent = {
   contentType: string;
@@ -121,114 +114,36 @@ function contentPath(context: AppContext): string {
   return safeDecodeURIComponent(pathname.slice(marker.length)) ?? "";
 }
 
-export async function signContentToken(payload: ContentTokenPayload, secret: string): Promise<string> {
-  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signature = await hmac(encodedPayload, secret);
-  return `${encodedPayload}.${signature}`;
-}
-
 async function serveSignedObject(context: AppContext, token: string, path: string): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   const payload = await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
-  const resolvedPayload = payload ?? (allowDevTokens(env) ? parseDevToken(token) : null);
-  if (!resolvedPayload || !isAllowedPath(path, resolvedPayload)) {
+  if (!payload || !isAllowedPath(path, payload)) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const denylistResults = await Promise.all(
-    denylistKeysForPayload(resolvedPayload).map((key) => env.DENYLIST.get(key)),
-  );
+  const denylistResults = await Promise.all(denylistKeysForPayload(payload).map((key) => env.DENYLIST.get(key)));
 
   if (denylistResults.some((value) => value !== null)) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, resolvedPayload.artifact_id);
+  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, payload.artifact_id);
   if (artifactRateLimit && !artifactRateLimit.success) {
     return errorResponse(context, "rate_limited_artifact", 429, "rate_limited_artifact", { "Retry-After": "60" });
   }
 
-  const key = objectKeyFor(resolvedPayload, path);
+  const key = objectKeyFor(payload, path);
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const headers = responseHeadersForPath(path, object.size, resolvedPayload.exp);
+  const headers = responseHeadersForPath(path, object.size, payload.exp);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
-}
-
-function parseDevToken(token: string): ContentTokenPayload | null {
-  const [artifactId, revisionId] = token.split(".");
-  if (!artifactId?.startsWith("art_") || !revisionId?.startsWith("rev_")) {
-    return null;
-  }
-  return {
-    artifact_id: artifactId,
-    revision_id: revisionId,
-    exp: Math.floor(Date.now() / 1000) + 60,
-  };
-}
-
-function allowDevTokens(env: Env): boolean {
-  return env.ALLOW_DEV_TOKENS === "true" || env.ALLOW_DEV_TOKENS === "1";
-}
-
-async function verifyContentToken(token: string, secret: string): Promise<ContentTokenPayload | null> {
-  const parts = token.split(".");
-  if (parts.length !== 2) {
-    return null;
-  }
-  const [encodedPayload, signature] = parts;
-  if (!encodedPayload || !signature) {
-    return null;
-  }
-
-  const expected = await hmac(encodedPayload, secret);
-  if (!constantTimeEqual(signature, expected)) {
-    return null;
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload)));
-  } catch {
-    return null;
-  }
-  if (!isValidContentTokenPayload(payload)) {
-    return null;
-  }
-  if (payload.exp < Math.floor(Date.now() / 1000)) {
-    return null;
-  }
-
-  return payload;
-}
-
-function isValidContentTokenPayload(value: unknown): value is ContentTokenPayload {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const payload = value as Partial<ContentTokenPayload>;
-  return (
-    typeof payload.artifact_id === "string" &&
-    payload.artifact_id.startsWith("art_") &&
-    typeof payload.revision_id === "string" &&
-    payload.revision_id.startsWith("rev_") &&
-    (payload.workspace_id === undefined ||
-      (typeof payload.workspace_id === "string" && payload.workspace_id.length > 0)) &&
-    (payload.access_link_id === undefined ||
-      (typeof payload.access_link_id === "string" && payload.access_link_id.startsWith("al_"))) &&
-    (payload.key_prefix === undefined || (typeof payload.key_prefix === "string" && payload.key_prefix.length > 0)) &&
-    (payload.paths === undefined ||
-      (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
-    typeof payload.exp === "number" &&
-    Number.isInteger(payload.exp)
-  );
 }
 
 function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
@@ -334,41 +249,6 @@ function inlineContent(contentType: string): ServedContent {
 function attachmentFilename(path: string): string {
   const basename = path.split("/").at(-1) || "download";
   return basename.replaceAll(/["\\\r\n]/gu, "_");
-}
-
-async function hmac(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return base64UrlEncode(new Uint8Array(signature));
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index] ?? 0);
-  }
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const padded = `${value}${"=".repeat((4 - (value.length % 4)) % 4)}`.replaceAll("-", "+").replaceAll("_", "/");
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const maxLength = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let index = 0; index < maxLength; index += 1) {
-    diff |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
-
-  return diff === 0;
 }
 
 function safeDecodeURIComponent(value: string): string | null {

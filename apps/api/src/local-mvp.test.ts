@@ -302,7 +302,6 @@ describe("local MVP vertical slice", () => {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
       CONTENT_SIGNING_SECRET: "content-secret",
-      ALLOW_DEV_TOKENS: "true",
     });
     expect(contentResponse.status).toBe(200);
     await expect(contentResponse.text()).resolves.toBe("hello world!");

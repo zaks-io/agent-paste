@@ -15,6 +15,13 @@ import {
   type HyperdriveBinding,
   type Repository,
 } from "@agent-paste/db";
+import { mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
+import { mintContentUrl } from "@agent-paste/tokens/content";
+import {
+  mintUploadUrl,
+  type SignedUploadPayload,
+  verifyUploadToken as verifyUploadTokenSignature,
+} from "@agent-paste/tokens/upload-url";
 import { type Context, Hono } from "hono";
 
 export type UploadActor = {
@@ -63,7 +70,7 @@ export type Env = {
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   API_KEY_PEPPER_V1?: string;
-  API_KEY_ENV?: "preview" | "production" | "live";
+  API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
@@ -77,20 +84,6 @@ export type Env = {
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
-
-type SignedUploadPayload = {
-  sid: string;
-  path: string;
-  key: string;
-  size: number;
-  exp: number;
-};
-
-type AgentViewTokenPayload = {
-  artifact_id: string;
-  revision_id: string;
-  exp: number;
-};
 
 const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
 const MIN_TTL_SECONDS = 24 * 60 * 60;
@@ -407,17 +400,17 @@ async function signUploadUrl(
     throw new Error("UPLOAD_SIGNING_SECRET is required");
   }
 
-  const exp = Math.floor(Date.now() / 1000) + ttlSeconds(env);
-  const payload: SignedUploadPayload = {
-    sid: session.session_id,
-    path: file.path,
-    key: objectKeyFor(session, file.path, file.object_key),
-    size: file.size_bytes,
-    exp,
-  };
-  const token = await signPayload(payload, env.UPLOAD_SIGNING_SECRET);
-  const baseUrl = env.UPLOAD_BASE_URL ?? new URL(request.url).origin;
-  return `${baseUrl}/v1/upload-sessions/${encodeURIComponent(session.session_id)}/files/${encodePath(file.path)}?token=${encodeURIComponent(token)}`;
+  return mintUploadUrl({
+    baseUrl: env.UPLOAD_BASE_URL ?? new URL(request.url).origin,
+    secret: env.UPLOAD_SIGNING_SECRET,
+    payload: {
+      sid: session.session_id,
+      path: file.path,
+      key: objectKeyFor(session, file.path, file.object_key),
+      size: file.size_bytes,
+      exp: Math.floor(Date.now() / 1000) + ttlSeconds(env),
+    },
+  });
 }
 
 async function verifyUploadToken(token: string | null, env: Env): Promise<SignedUploadPayload | null> {
@@ -425,12 +418,7 @@ async function verifyUploadToken(token: string | null, env: Env): Promise<Signed
     return null;
   }
 
-  const payload = await verifyPayload<SignedUploadPayload>(token, env.UPLOAD_SIGNING_SECRET);
-  if (!payload || payload.exp < Math.floor(Date.now() / 1000)) {
-    return null;
-  }
-
-  return payload;
+  return verifyUploadTokenSignature(token, env.UPLOAD_SIGNING_SECRET);
 }
 
 function objectKeyFor(session: UploadSessionRecord, path: string, explicitKey?: string): string {
@@ -542,15 +530,15 @@ async function signedAgentViewUrl(
     return fallbackUrl ?? `${baseUrl}/v1/public/agent-view/${artifactId}.${revisionId}`;
   }
 
-  const token = await signPayload(
-    {
+  return mintAgentViewUrl({
+    baseUrl,
+    secret,
+    payload: {
       artifact_id: artifactId,
       revision_id: revisionId,
       exp: contentTokenExpiration(expiresAt),
-    } satisfies AgentViewTokenPayload,
-    secret,
-  );
-  return `${baseUrl}/v1/public/agent-view/${encodeURIComponent(token)}`;
+    },
+  });
 }
 
 async function signedContentUrl(
@@ -560,19 +548,21 @@ async function signedContentUrl(
   path: string,
   expiresAt?: string,
 ): Promise<string> {
+  const baseUrl = env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.sh";
   if (!env.CONTENT_SIGNING_SECRET) {
-    return `${env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.sh"}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
+    return `${baseUrl}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
-  const token = await signPayload(
-    {
+  return mintContentUrl({
+    baseUrl,
+    secret: env.CONTENT_SIGNING_SECRET,
+    payload: {
       artifact_id: artifactId,
       revision_id: revisionId,
       paths: [path],
       exp: contentTokenExpiration(expiresAt),
     },
-    env.CONTENT_SIGNING_SECRET,
-  );
-  return `${env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.sh"}/v/${encodeURIComponent(token)}/${encodePath(path)}`;
+    path,
+  });
 }
 
 function contentTokenExpiration(expiresAt: string | undefined): number {
@@ -587,51 +577,6 @@ function pathFromViewUrl(viewUrl: string, artifactId: string, revisionId: string
     return "index.html";
   }
   return decodeURIComponent(viewUrl.slice(index + marker.length));
-}
-
-async function signPayload(payload: object, secret: string): Promise<string> {
-  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signature = await hmac(encodedPayload, secret);
-  return `${encodedPayload}.${signature}`;
-}
-
-async function verifyPayload<T>(token: string, secret: string): Promise<T | null> {
-  const [encodedPayload, signature] = token.split(".");
-  if (!encodedPayload || !signature) {
-    return null;
-  }
-
-  const expected = await hmac(encodedPayload, secret);
-  if (!constantTimeEqual(signature, expected)) {
-    return null;
-  }
-
-  return JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as T;
-}
-
-async function hmac(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return base64UrlEncode(new Uint8Array(signature));
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index] ?? 0);
-  }
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const padded = `${value}${"=".repeat((4 - (value.length % 4)) % 4)}`.replaceAll("-", "+").replaceAll("_", "/");
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 }
 
 async function rateLimitAuthenticatedRequest(context: AppContext, actor: UploadActor): Promise<Response | null> {
@@ -671,16 +616,6 @@ async function rateLimitOrFailOpen(
     console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
     return undefined;
   }
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const maxLength = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let index = 0; index < maxLength; index += 1) {
-    diff |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
-
-  return diff === 0;
 }
 
 function encodePath(path: string): string {

@@ -206,6 +206,11 @@ _Avoid_: Rejection, policy violation
 The isolated web origin where **Untrusted Content** is viewed or fetched.
 _Avoid_: App domain, storage URL
 
+<a id="content-gateway-token"></a>
+**Content-Gateway Token**:
+A short-lived HMAC-signed bearer token, carried in the `content` request path as `/v/{token}/{path}`, that authorizes read access to **Untrusted Content** for one **Revision**. `api` and `upload` mint it; `content` verifies its signature, expiration, and shape, then derives the denylist keys it checks before serving, with no database lookup; the **Workspace**, **Artifact**, and **Revision** identities are read from the verified payload. Carried as the `signed_content_token` auth requirement in the route contract. Distinct from the **Access Link Signed URL**, which is fragment-encoded and resolved by `api` against the database; both share the `base64url(payload).hmac` wire scheme.
+_Avoid_: Content token, gateway token
+
 <a id="execution-policy"></a>
 **Execution Policy**:
 The platform-controlled browser restrictions applied when viewing **Untrusted Content**.
@@ -271,6 +276,11 @@ _Avoid_: TTL, timeout
 The machine-readable read surface that exposes an **Artifact**'s **Manifest**, file listing, content links, **Display Metadata**, and **Safety Warnings**.
 _Avoid_: API preview, metadata endpoint
 
+<a id="agent-view-token"></a>
+**Agent-View Token**:
+A short-lived HMAC-signed bearer token that authorizes unauthenticated read of one **Revision**'s **Agent View** through `api`'s public agent-view route. `api` and `upload` mint it; `api` verifies it on resolve. It shares the **Content-Gateway Token**'s `base64url(payload).hmac` wire scheme and signing-secret family but resolves on `api` rather than the **Content Origin**, and is carried as the `signed_agent_view_token` auth requirement in the route contract.
+_Avoid_: Agent token, view token
+
 <a id="publish"></a>
 **Publish**:
 The agent-facing action that creates or updates an **Artifact** and makes a complete **Revision** visible.
@@ -329,6 +339,28 @@ _Avoid_: mcp server, mcp endpoint, agent endpoint
 **Service Binding**:
 A typed Cloudflare Workers binding that lets one Worker call another inside the Cloudflare network without a public HTTP round-trip. Used for `web → api` and `mcp → api`. The downstream Worker re-verifies the bearer rather than trusting the upstream Worker blindly.
 _Avoid_: internal API, worker RPC, internal call
+
+## Runtime primitives
+
+<a id="route-contract"></a>
+**Route Contract**:
+The declarative record for one HTTP route, owned by `packages/contracts`: its app, method, path, auth requirement, required **Scope**s, rate-limit class, idempotency requirement, request/response schema names, and error codes. Historically read only by OpenAPI generation; the **Route Registrar** makes it the single source the runtime reads to enforce auth, scopes, rate limiting, and idempotency.
+_Avoid_: route config, endpoint spec, handler metadata
+
+<a id="signed-token-codec"></a>
+**Signed Token Codec**:
+The shared wire scheme and verification discipline for every HMAC-signed bearer token the platform mints: `base64url(JSON.stringify(payload)) + "." + base64url(hmac)`. One implementation in `packages/tokens` mints and verifies the **Content-Gateway Token**, the **Agent-View Token**, and the upload PUT signed-URL token; each has its own signing secret and payload shape but shares the codec. Verification checks signature, shape, and expiration together and returns the typed payload or nothing, never throwing.
+_Avoid_: token format, HMAC helper, sign/verify util
+
+<a id="route-registrar"></a>
+**Route Registrar**:
+The `packages/worker-runtime` module that mounts a **Route Contract** onto a Worker: it reads the contract, runs the **Request Guard**, then calls the handler with the resolved principal and the repository, except on `content`, which has no database. Replaces the per-Worker inlined guard chains and the `withWebMember` wrapper.
+_Avoid_: router, route factory, mount helper
+
+<a id="request-guard"></a>
+**Request Guard**:
+The uniform pre-handler chain the **Route Registrar** runs for every route, derived from the **Route Contract**: resolve the principal for the auth requirement, apply the rate-limit class, check **Scope**s, shape the `Idempotency-Key` header outcome, and render failures into the fixed error envelope. The only per-Worker seam is the auth resolver set; everything else is a pure function. The durable idempotency claim stays inside `runCommand`, not the guard.
+_Avoid_: middleware, interceptor, auth filter
 
 ## Relationships
 
