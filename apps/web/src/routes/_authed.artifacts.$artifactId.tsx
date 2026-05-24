@@ -8,6 +8,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
+import { artifactStatusTone } from "../lib/artifact-status";
 import { formatBytes, formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -57,7 +58,7 @@ function ArtifactDetailPage() {
         description={<Identifier value={artifact.id} />}
         actions={
           <div className="flex items-center gap-2">
-            <Badge tone={artifact.status === "Published" ? "success" : "neutral"}>{artifact.status}</Badge>
+            <Badge tone={artifactStatusTone(artifact.status)}>{artifact.status}</Badge>
             {artifact.pinned ? <Badge tone="accent">Pinned</Badge> : null}
             {artifact.lockdown ? <Badge tone="destructive">Locked down</Badge> : null}
           </div>

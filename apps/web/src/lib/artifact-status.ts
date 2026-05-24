@@ -8,5 +8,5 @@ const TONE_BY_STATUS: Record<WebArtifactStatus, BadgeTone> = {
 };
 
 export function artifactStatusTone(status: WebArtifactStatus): BadgeTone {
-  return TONE_BY_STATUS[status] ?? "neutral";
+  return TONE_BY_STATUS[status];
 }
