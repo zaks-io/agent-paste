@@ -56,4 +56,15 @@ describe("SettingsForm", () => {
     await waitFor(() => expect(screen.getByText("Couldn't save settings")).toBeInTheDocument());
     expect(invalidate).not.toHaveBeenCalled();
   });
+
+  it("rejects out-of-range auto-deletion days client-side without calling the server", async () => {
+    const { container } = renderForm();
+    fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "200" } });
+    // Submit the form directly: native max=90 constraint validation would otherwise
+    // block a button click, but the JS guard is our real defense-in-depth here.
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+
+    await waitFor(() => expect(screen.getByText("Invalid auto-deletion")).toBeInTheDocument());
+    expect(saveSettingsFn).not.toHaveBeenCalled();
+  });
 });

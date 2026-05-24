@@ -66,6 +66,7 @@ function AuditPage() {
             {rows.map((row) => (
               <TR
                 key={row.id}
+                aria-current={highlightedRequestId === row.request_id ? "true" : undefined}
                 data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
                 className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
               >

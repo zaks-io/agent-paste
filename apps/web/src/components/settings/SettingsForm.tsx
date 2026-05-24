@@ -18,8 +18,8 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
     event.preventDefault();
     if (pending) return;
     const parsedDays = Number(days);
-    if (!Number.isInteger(parsedDays)) {
-      push({ tone: "error", title: "Invalid auto-deletion", message: "Enter a whole number of days." });
+    if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 90) {
+      push({ tone: "error", title: "Invalid auto-deletion", message: "Enter a whole number between 1 and 90." });
       return;
     }
     setPending(true);
