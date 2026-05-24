@@ -6,13 +6,16 @@ Scope clarification: this file tracks only the work that closes Phase 3 (`docs/s
 
 ## Operator click-ops (blocks first real login)
 
-- [ ] Provision the WorkOS project in the existing WorkOS organization (or create one).
-  - Configure AuthKit; enable email/password, magic link, or any social/SSO providers desired.
-  - Redirect URIs (AuthKit → Configuration → Redirects): `https://app.preview.agent-paste.sh/api/auth/callback`, `https://app.agent-paste.sh/api/auth/callback`, plus `http://localhost:5173/api/auth/callback` for local dev.
-  - Allowed logout redirects: `https://app.preview.agent-paste.sh`, `https://app.agent-paste.sh`, `http://localhost:5173`.
-  - Capture `WORKOS_CLIENT_ID` (preview + production, separate projects) and the corresponding `WORKOS_API_KEY` secrets.
-- [ ] Add `app.agent-paste.sh` and `app.preview.agent-paste.sh` custom domains to the `agent-paste-web-production` and `agent-paste-web-preview` Workers (Cloudflare console).
-- [ ] Generate a 32+ char cookie password for `WORKOS_COOKIE_PASSWORD` (one per environment) and store in Bitwarden under `agent-paste / workos cookie password preview` and `… production`.
+- [x] Provision the WorkOS project. One WorkOS project (single `client_id` `client_01KSAJTF1EX1YZCCXJS9B0GJ46`) backs preview + production; AuthKit is the provider.
+  - Redirect URIs configured: `https://app.preview.agent-paste.sh/api/auth/callback`, `https://app.agent-paste.sh/api/auth/callback` (Default), `http://localhost:5173/api/auth/callback`.
+  - WorkOS is per-environment, not per-app: one `client_id` + one `WORKOS_API_KEY` per WorkOS environment, not an Auth0-style OAuth client per service. `WORKOS_CLIENT_ID` is a public identifier kept in `wrangler.jsonc` vars; the API key and cookie password are Worker secrets.
+  - Still pending for the CLI (backlog #5, not web): add the `http://127.0.0.1:<port>/callback` loopback redirect.
+- Custom domains (created automatically by `custom_domain: true` routes on deploy):
+  - [x] `app.preview.agent-paste.sh` → `agent-paste-web-preview` (deployed 2026-05-24).
+  - [ ] `app.agent-paste.sh` → `agent-paste-web-production` (lands with the first production web deploy; needs explicit approval).
+- Cookie password (`WORKOS_COOKIE_PASSWORD`, 32+ char, one per environment):
+  - [x] preview: set as a Worker secret on `agent-paste-web-preview`.
+  - [ ] production: set on `agent-paste-web-production` at first production deploy.
 
 ## Bootstrap script (small follow-up PR)
 
