@@ -262,7 +262,6 @@ const contentEnv = {
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   CONTENT_SIGNING_SECRET: contentSecret,
-  ALLOW_DEV_TOKENS: "true",
 };
 
 await seedProofArtifacts(services.repo, artifacts);

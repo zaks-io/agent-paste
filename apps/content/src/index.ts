@@ -40,7 +40,6 @@ export type Env = {
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
   CONTENT_BASE_URL?: string;
-  ALLOW_DEV_TOKENS?: string;
   DOCS_BASE_URL?: string;
 };
 
@@ -119,51 +118,32 @@ async function serveSignedObject(context: AppContext, token: string, path: strin
   const env = context.env;
   const request = context.req.raw;
   const payload = await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
-  const resolvedPayload = payload ?? (allowDevTokens(env) ? parseDevToken(token) : null);
-  if (!resolvedPayload || !isAllowedPath(path, resolvedPayload)) {
+  if (!payload || !isAllowedPath(path, payload)) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const denylistResults = await Promise.all(
-    denylistKeysForPayload(resolvedPayload).map((key) => env.DENYLIST.get(key)),
-  );
+  const denylistResults = await Promise.all(denylistKeysForPayload(payload).map((key) => env.DENYLIST.get(key)));
 
   if (denylistResults.some((value) => value !== null)) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, resolvedPayload.artifact_id);
+  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, payload.artifact_id);
   if (artifactRateLimit && !artifactRateLimit.success) {
     return errorResponse(context, "rate_limited_artifact", 429, "rate_limited_artifact", { "Retry-After": "60" });
   }
 
-  const key = objectKeyFor(resolvedPayload, path);
+  const key = objectKeyFor(payload, path);
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
     return errorResponse(context, "not_found", 404);
   }
 
-  const headers = responseHeadersForPath(path, object.size, resolvedPayload.exp);
+  const headers = responseHeadersForPath(path, object.size, payload.exp);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
-}
-
-function parseDevToken(token: string): ContentTokenPayload | null {
-  const [artifactId, revisionId] = token.split(".");
-  if (!artifactId?.startsWith("art_") || !revisionId?.startsWith("rev_")) {
-    return null;
-  }
-  return {
-    artifact_id: artifactId,
-    revision_id: revisionId,
-    exp: Math.floor(Date.now() / 1000) + 60,
-  };
-}
-
-function allowDevTokens(env: Env): boolean {
-  return env.ALLOW_DEV_TOKENS === "true" || env.ALLOW_DEV_TOKENS === "1";
 }
 
 function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
