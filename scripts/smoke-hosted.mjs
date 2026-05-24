@@ -63,6 +63,7 @@ assert(content.headers.get("content-type")?.includes("text/html"), "content resp
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
 
 if (target !== "production") {
+  await assertArtifactRateLimitFires(published.view_url);
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(userEnv);
   await assertActorRateLimitFires(key.secret);
@@ -376,6 +377,39 @@ async function assertActorRateLimitFires(apiKeySecret) {
   throw new Error(
     `upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
   );
+}
+
+async function assertArtifactRateLimitFires(contentUrl) {
+  const waveSize = 80;
+  const maxWaves = 4;
+  const probeStart = Date.now();
+  for (let wave = 1; wave <= maxWaves; wave += 1) {
+    const responses = await Promise.all(
+      Array.from({ length: waveSize }, (_, index) => fetch(rateLimitProbeUrl(contentUrl, probeStart, wave, index))),
+    );
+    const limited = responses.find((response) => response.status === 429);
+    await Promise.all(
+      responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()),
+    );
+    if (limited) {
+      const payload = await limited.json();
+      assert(
+        payload?.error?.code === "rate_limited_artifact",
+        `expected rate_limited_artifact envelope, got ${JSON.stringify(payload)}`,
+      );
+      assert(limited.headers.get("retry-after") === "60", "content rate-limited response sets Retry-After: 60");
+      return;
+    }
+  }
+  throw new Error(
+    `content Artifact Rate Limit never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
+  );
+}
+
+function rateLimitProbeUrl(contentUrl, probeStart, wave, index) {
+  const url = new URL(contentUrl);
+  url.searchParams.set("rl_probe", `${probeStart}-w${wave}-${index}`);
+  return url;
 }
 
 async function assertBytesPurgedAfterDelete(publishedArtifact) {
