@@ -173,7 +173,10 @@ export const operationEvents = pgTable(
   },
   (table) => [
     index("operation_events_workspace_occurred_id_idx").on(table.workspaceId, table.occurredAt.desc(), table.id.desc()),
-    check("operation_events_actor_type_check", sql`${table.actorType} in ('api_key', 'member', 'admin', 'system')`),
+    check(
+      "operation_events_actor_type_check",
+      sql`${table.actorType} in ('api_key', 'member', 'admin', 'system', 'platform')`,
+    ),
   ],
 );
 
@@ -195,6 +198,29 @@ export const idempotencyRecords = pgTable(
       .on(table.workspaceId, table.actorType, table.actorId, table.operation, table.idempotencyKey)
       .nullsNotDistinct(),
     index("idempotency_records_created_idx").on(table.createdAt),
-    check("idempotency_records_actor_type_check", sql`${table.actorType} in ('api_key', 'member', 'admin', 'system')`),
+    check(
+      "idempotency_records_actor_type_check",
+      sql`${table.actorType} in ('api_key', 'member', 'admin', 'system', 'platform')`,
+    ),
+  ],
+);
+
+export const platformLockdowns = pgTable(
+  "platform_lockdowns",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").notNull(),
+    targetId: text("target_id").notNull(),
+    reasonCode: text("reason_code").notNull(),
+    setAt: timestamp("set_at", { withTimezone: true }).notNull(),
+    setBy: text("set_by").notNull(),
+    liftedAt: timestamp("lifted_at", { withTimezone: true }),
+    liftedBy: text("lifted_by"),
+  },
+  (table) => [
+    check("platform_lockdowns_scope_check", sql`${table.scope} in ('workspace', 'artifact')`),
+    uniqueIndex("platform_lockdowns_effective_unique")
+      .on(table.scope, table.targetId)
+      .where(sql`${table.liftedAt} is null`),
   ],
 );

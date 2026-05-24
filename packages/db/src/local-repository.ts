@@ -5,6 +5,7 @@ import type {
   ApiKey,
   Artifact,
   OperationEvent,
+  PlatformLockdown,
   RepositoryOptions,
   StoredFile,
   UploadSession,
@@ -24,6 +25,7 @@ export class LocalRepository extends RepositoryCore {
   readonly uploadSessions: Map<string, UploadSession>;
   readonly uploadSessionFiles: Map<string, StoredFile>;
   readonly operationEvents: Map<string, OperationEvent>;
+  readonly platformLockdowns: Map<string, PlatformLockdown>;
 
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
@@ -36,6 +38,7 @@ export class LocalRepository extends RepositoryCore {
     this.uploadSessions = state.uploadSessions;
     this.uploadSessionFiles = state.uploadSessionFiles;
     this.operationEvents = state.operationEvents;
+    this.platformLockdowns = state.platformLockdowns;
   }
 }
 

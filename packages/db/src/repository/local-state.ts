@@ -2,6 +2,7 @@ import type {
   ApiKey,
   Artifact,
   OperationEvent,
+  PlatformLockdown,
   StoredFile,
   UploadSession,
   Workspace,
@@ -19,6 +20,7 @@ export type LocalState = {
   uploadSessions: Map<string, UploadSession>;
   uploadSessionFiles: Map<string, StoredFile>;
   operationEvents: Map<string, OperationEvent>;
+  platformLockdowns: Map<string, PlatformLockdown>;
 };
 
 export function createLocalState(): LocalState {
@@ -31,5 +33,6 @@ export function createLocalState(): LocalState {
     uploadSessions: new Map(),
     uploadSessionFiles: new Map(),
     operationEvents: new Map(),
+    platformLockdowns: new Map(),
   };
 }

@@ -5,6 +5,7 @@ export type {
   AuthFailure,
   AuthResult,
   AuthSuccess,
+  OperatorPrincipal,
   Principal,
   PrincipalFor,
   ScopedActor,

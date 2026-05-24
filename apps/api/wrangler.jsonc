@@ -17,7 +17,9 @@
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
     "CLEANUP_BATCH_SIZE": "100",
     "DOCS_BASE_URL": "",
-    "WORKOS_CLIENT_ID": ""
+    "WORKOS_CLIENT_ID": "",
+    "CF_ACCESS_TEAM_DOMAIN": "",
+    "CF_ACCESS_AUD": ""
   },
   "r2_buckets": [
     {
@@ -67,7 +69,9 @@
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
-        "WORKOS_CLIENT_ID": ""
+        "WORKOS_CLIENT_ID": "",
+        "CF_ACCESS_TEAM_DOMAIN": "",
+        "CF_ACCESS_AUD": ""
       },
       "hyperdrive": [
         {
@@ -122,7 +126,9 @@
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
-        "WORKOS_CLIENT_ID": ""
+        "WORKOS_CLIENT_ID": "",
+        "CF_ACCESS_TEAM_DOMAIN": "",
+        "CF_ACCESS_AUD": ""
       },
       "hyperdrive": [
         {

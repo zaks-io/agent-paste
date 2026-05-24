@@ -12,8 +12,10 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import {
   buildApiOpenApiDocument,
   CreateApiKeyRequest,
+  LockdownScope,
   type RouteContract,
   routeContracts,
+  SetLockdownRequest,
   UpdateWebSettingsRequest,
 } from "@agent-paste/contracts";
 import {
@@ -23,6 +25,7 @@ import {
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
+  type PlatformActor,
   type Repository,
 } from "@agent-paste/db";
 import { type AgentViewTokenPayload, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -30,6 +33,7 @@ import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import { type AuthResolvers, createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
+import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
 
 export type AuthService = {
@@ -53,6 +57,7 @@ export type R2Bucket = {
 export type KVNamespace = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   get?(key: string): Promise<string | null>;
+  delete(key: string): Promise<void>;
 };
 
 export type RateLimitBinding = {
@@ -82,6 +87,9 @@ export type Env = {
   WORKOS_API_BASE_URL?: string;
   WORKOS_ISSUER?: string;
   WORKOS_JWKS_URL?: string;
+  OPERATOR_EMAILS?: string;
+  CF_ACCESS_TEAM_DOMAIN?: string;
+  CF_ACCESS_AUD?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
@@ -166,6 +174,12 @@ const apiAuthResolvers = {
     }
     return { ok: true, principal: { kind: "workos_access_token", identity, actor } } as const;
   },
+  async operator(context: Context) {
+    const id = await authenticateOperator(context.req.raw, context.env as Env);
+    return id
+      ? ({ ok: true, principal: { kind: "operator", actor: { type: "platform", id } } } as const)
+      : ({ ok: false, code: "not_found" } as const);
+  },
 } satisfies AuthResolvers;
 const apiDbRegistrar = createRegistrar<Repository>({
   app,
@@ -239,6 +253,15 @@ apiDbRegistrar.mount(contractById("web.settings.get"), async (context, principal
 );
 apiDbRegistrar.mount(contractById("web.settings.update"), async (context, principal, db, guard) =>
   webUpdateSettings(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("web.admin.lockdown.set"), async (context, principal, db, guard) =>
+  webAdminSetLockdown(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("web.admin.lockdown.lift"), async (context, principal, db, guard) =>
+  webAdminLiftLockdown(context as AppContext, principal, db, guard, {
+    scope: context.req.param("scope") ?? "",
+    targetId: context.req.param("target_id") ?? "",
+  }),
 );
 app.get("/admin/whoami", (context) => adminWhoami(context));
 apiDbRegistrar.mount(contractById("admin.workspaces.create"), async (context, principal, db, guard) =>
@@ -552,6 +575,121 @@ async function webUpdateSettings(
   );
 }
 
+async function webAdminSetLockdown(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+): Promise<Response> {
+  const actor = platformActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_found", 404);
+  }
+  if (!db.setLockdown) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  const setLockdown = db.setLockdown.bind(db);
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(context.req.raw);
+  } catch {
+    return errorResponse(context, "invalid_request", 400);
+  }
+  const parsed = SetLockdownRequest.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(context, "invalid_request", 400);
+  }
+  const env = context.env;
+  return runIdempotent(
+    context,
+    async () => {
+      const detail = await setLockdown({
+        actor,
+        idempotencyKey: guard.idempotencyKey as string,
+        scope: parsed.data.scope,
+        targetId: parsed.data.target_id,
+        reasonCode: parsed.data.reason_code,
+      });
+      await writeDenylistEntry(env, parsed.data.scope, parsed.data.target_id);
+      return detail;
+    },
+    201,
+  );
+}
+
+async function webAdminLiftLockdown(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+  params: { scope: string; targetId: string },
+): Promise<Response> {
+  const actor = platformActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_found", 404);
+  }
+  if (!db.liftLockdown) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  const liftLockdown = db.liftLockdown.bind(db);
+  const scopeResult = LockdownScope.safeParse(params.scope);
+  if (!scopeResult.success) {
+    return errorResponse(context, "not_found", 404);
+  }
+  const scope = scopeResult.data;
+  const env = context.env;
+  try {
+    return await runIdempotent(context, async () => {
+      const detail = await liftLockdown({
+        actor,
+        idempotencyKey: guard.idempotencyKey as string,
+        scope,
+        targetId: params.targetId,
+      });
+      await deleteDenylistEntry(env, scope, params.targetId);
+      return detail;
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "not_found") {
+      return errorResponse(context, "not_found", 404);
+    }
+    throw error;
+  }
+}
+
+function denylistKey(scope: LockdownScope, targetId: string): string {
+  return scope === "workspace" ? `wsd:${targetId}` : `ad:${targetId}`;
+}
+
+// Denylist writes run after the Postgres commit (ADR 0057). They are
+// best-effort: the lockdown is already durable, so a KV failure is logged
+// rather than surfaced, matching the cleanup path's fail-open behavior.
+async function writeDenylistEntry(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
+  if (!env.DENYLIST) {
+    return;
+  }
+  try {
+    await env.DENYLIST.put(
+      denylistKey(scope, targetId),
+      JSON.stringify({ reason: `platform_lockdown_${scope}`, at: new Date().toISOString() }),
+      { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS },
+    );
+  } catch (error) {
+    console.warn(`Denylist write failed for ${scope} lockdown ${targetId}; lockdown persisted.`, error);
+  }
+}
+
+async function deleteDenylistEntry(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
+  if (!env.DENYLIST) {
+    return;
+  }
+  try {
+    await env.DENYLIST.delete(denylistKey(scope, targetId));
+  } catch (error) {
+    console.warn(`Denylist delete failed for ${scope} lockdown ${targetId}; lockdown lifted.`, error);
+  }
+}
+
 async function adminWhoami(context: AppContext): Promise<Response> {
   const actor = await authenticateAdmin(context.req.raw, context.env);
   if (!actor) {
@@ -823,6 +961,29 @@ async function authenticateWebIdentity(request: Request, env: Env): Promise<Work
   return resolveWorkOsIdentity(`Bearer ${token}`, options);
 }
 
+// Operator routes accept exactly two identities and collapse every failure to
+// null so the registrar returns a generic not_found (ADR 0046): (1) a WorkOS
+// session whose verified email is in OPERATOR_EMAILS, or (2) a Cloudflare Access
+// service-token JWT carrying a common_name. API keys never reach this path.
+async function authenticateOperator(request: Request, env: Env): Promise<string | null> {
+  const identity = await authenticateWebIdentity(request, env);
+  if (identity && isOperator(env.OPERATOR_EMAILS, identity.email)) {
+    return identity.email.toLowerCase();
+  }
+
+  if (env.CF_ACCESS_TEAM_DOMAIN && env.CF_ACCESS_AUD) {
+    const commonName = await verifyCfAccessServiceToken(request.headers.get("Cf-Access-Jwt-Assertion"), {
+      teamDomain: env.CF_ACCESS_TEAM_DOMAIN,
+      aud: env.CF_ACCESS_AUD,
+    });
+    if (commonName) {
+      return commonName;
+    }
+  }
+
+  return null;
+}
+
 function hasWebCallbackId(identity: WorkOsIdentity): identity is WebCallbackIdentity {
   return (
     (typeof identity.token_id === "string" && identity.token_id.length > 0) ||
@@ -842,6 +1003,13 @@ function webMemberActor(principal: Principal): ApiActor | null {
     return null;
   }
   return principal.actor as ApiActor;
+}
+
+function platformActor(principal: Principal): PlatformActor | null {
+  if (principal.kind !== "operator") {
+    return null;
+  }
+  return { type: "platform", id: principal.actor.id };
 }
 
 function authService(env: Env): AuthService | undefined {

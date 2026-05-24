@@ -30,6 +30,14 @@ export async function applyRateLimit(
 }
 
 async function applyActorRateLimit(principal: Principal, bindings: RateLimitBindings | undefined) {
+  if (principal.kind === "operator") {
+    const actorOutcome = await rateLimitOrFailOpen(bindings?.actor, "actor", `platform:${principal.actor.id}`);
+    if (actorOutcome && !actorOutcome.success) {
+      return { ok: false, code: "rate_limited_actor", retryAfter: "60" } as const;
+    }
+    return { ok: true } as const;
+  }
+
   const actor = actorForPrincipal(principal);
   if (!actor?.workspace_id) {
     return { ok: false, code: "not_authenticated", retryAfter: "60" } as const;
