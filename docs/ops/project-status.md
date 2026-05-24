@@ -10,8 +10,8 @@ This doc replaces `mvp-bootstrap-checklist.md`. The MVP work is one slice of a l
 
 ## Snapshot
 
-- `origin/main` is at `22c4b36 Add WorkOS dashboard API foundation (#24)`, atop `361bf4c feat(web): bootstrap apps/web with WorkOS AuthKit + TanStack Start (#23)`. This local `main` is ahead with docs/ignore housekeeping only.
-- Latest feature commits on `main`: `361bf4c` (#23 web bootstrap) and `22c4b36` (#24 WorkOS dashboard API). Earlier runtime commits are bug fixes (#20 migration idempotency, #21 Bug A); #22 is status docs.
+- `origin/main` and local `main` are both at `76c2b34 test: assert hosted content throttling (#42)`. Working tree clean.
+- Latest feature/refactor commits on `main`: `0b57218` (#41 worker-runtime registrar, ADR 0072), `ae119fd` (#40 token crypto unification, ADR 0071), `88d9bf3` (#36 content throttle + dashboard APIs), `53fe779` (#38 repository core, ADR 0070). `76c2b34` (#42) added the hosted Artifact Rate Limit smoke assertion (Deploy PR Preview green on PR #42, 2026-05-24).
 - Three Workers (`api`, `upload`, `content`) and one CLI (`agent-paste`) are implemented and pass `pnpm smoke:local`, `pnpm smoke:preview`, and `pnpm smoke:production`.
 - Every mutation route in `api` and `upload` now flows through `runCommand` with durable idempotency (`packages/db/migrations/0002_idempotency_admin_ops.sql`).
 - `apps/web` is a full TanStack Start scaffold (WorkOS AuthKit, twelve routes, `EmptyState` loaders) per ADR 0033/0068. `api` now has the workspace/artifact read, API key lifecycle, and cursor-paginated audit read dashboard endpoints. `jobs` and `mcp` remain Hono scaffolds only: `healthz` + `/openapi.json` + no business logic.
@@ -181,7 +181,7 @@ Superseded ADRs: 0002 for `apps/web` (by 0068), 0031 (by 0028), part of 0015 (by
 
 | Phase                         | Goal                                                      | % done | What is left                                                                                                                                                                                                                                                                                                                                                                                  |
 | ----------------------------- | --------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~94%   | Final hosted smoke after artifact read throttling.                                                                                                                                                                                                                                                                                                                                            |
+| Phase 1 — CLI-first MVP       | Real hosted publish loop, expiration, observability floor | ~99%   | Hosted PR-preview smoke now asserts the Artifact Rate Limit 429 (#42). Only the parked Logpush → Axiom observability floor remains, deferred to Isaac.                                                                                                                                                                                                                                        |
 | Phase 2 — Admin ergonomics    | Admin CLI polish, observability depth                     | ~10%   | Richer event browser and rotation tooling (ADR 0045). Logpush → Axiom is parked for later.                                                                                                                                                                                                                                                                                                    |
 | Phase 3 — Public OAuth + web  | WorkOS AuthKit, signup, dashboard, Access Links           | ~25%   | TanStack Start scaffold + style-guide tokens + WorkOS AuthKit wiring shipped per ADR 0068; `workspace_members` schema is in place; dashboard workspace/artifact reads, key lifecycle, and audit pagination APIs are implemented. Remaining: WorkOS project click-ops, settings/admin `/v1/web/*` endpoints, Access Links, and real loader wiring. See [`web-app-todo.md`](./web-app-todo.md). |
 | Phase 4 — Revisions + bundles | Multi-revision artifacts, bundle generation, queues       | 0%     | ADRs 0019, 0032, 0047, 0048 (revisions piece), 0049, 0050, 0052, 0053; spec `jobs.md`. ADR 0069 (Live Updates) builds on this phase; see [`live-updates-todo.md`](./live-updates-todo.md).                                                                                                                                                                                                    |
@@ -190,15 +190,7 @@ Superseded ADRs: 0002 for `apps/web` (by 0068), 0031 (by 0028), part of 0015 (by
 
 ## Next Steps Backlog
 
-Ordered for the active non-app-worker lane. Each item has a verifiable Done. Logpush/Axiom and production deploy-gate/vault recordkeeping are parked for Isaac/later and are not the next implementation step.
-
-When you say "implement the next step," start with item 1 unless we have agreed to skip it.
-
-### 1. Run final hosted smoke for content read throttling
-
-- Drives: ADR 0048, `docs/specs/content-rendering.md`, Security Pass follow-up.
-- Files: hosted preview/PR smoke only unless the smoke exposes a regression.
-- Done: preview or PR smoke exercises the deployed `content` Worker after the new rate-limit binding is present, and any deployment-only binding/config regression is fixed.
+No active item remains in the non-app-worker lane. The final Phase 1 backlog item (hosted smoke for content read throttling) is done — see Recently Completed below. The next implementation step is a roadmap decision: either start the Phase 3 app-worker lane (WorkOS project click-ops, settings/admin `/v1/web/*` endpoints, Access Links, web loader wiring — see [`web-app-todo.md`](./web-app-todo.md)) or Phase 2 admin ergonomics. Logpush/Axiom and production deploy-gate/vault recordkeeping stay parked for Isaac/later.
 
 ### Parked for later
 
@@ -206,6 +198,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Production deploy-gate policy, wait timers, and Bitwarden recordkeeping remain in [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md) but are not active backlog items.
 
 ## Recently Completed
+
+### Assert hosted content read throttling in PR-preview smoke
+
+- Status: Done on 2026-05-24 (#42).
+- Drives: ADR 0048, `docs/specs/content-rendering.md`, Security Pass follow-up.
+- Files: `scripts/smoke-hosted.mjs`, `scripts/deploy-pr-preview.mjs`, `scripts/README.md`.
+- Done: `smoke-hosted.mjs` now runs `assertArtifactRateLimitFires` for non-production targets — it fires up to four parallel waves of 80 cache-busted reads against the deployed `content` Agent View URL and asserts a 429 carrying the `rate_limited_artifact` envelope and `Retry-After: 60`. PR #42's Deploy PR Preview check ran this green against per-PR Workers, confirming the `ARTIFACT_RATE_LIMIT` binding is present and enforcing in a hosted env. Closes the last tracked Phase 1 backlog item.
 
 ### Make the route contract the runtime enforcement source via `packages/worker-runtime`
 
