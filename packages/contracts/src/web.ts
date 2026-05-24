@@ -2,8 +2,12 @@ import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { Scope } from "./enums.js";
 import { ApiKeyId, ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
-import { UsagePolicy, WorkspaceSummary } from "./workspace.js";
+import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
+
+const SECONDS_PER_DAY = 24 * 60 * 60;
+const MIN_AUTO_DELETION_DAYS = Math.floor(mvpUsagePolicy.min_ttl_seconds / SECONDS_PER_DAY);
+const MAX_AUTO_DELETION_DAYS = Math.floor(mvpUsagePolicy.max_ttl_seconds / SECONDS_PER_DAY);
 
 export const WorkspaceMemberId = z
   .string()
@@ -104,3 +108,9 @@ export const WebSettingsResponse = z.object({
   }),
 });
 export type WebSettingsResponse = z.infer<typeof WebSettingsResponse>;
+
+export const UpdateWebSettingsRequest = z.object({
+  workspace_name: z.string().min(1).max(120),
+  auto_deletion_days: z.number().int().min(MIN_AUTO_DELETION_DAYS).max(MAX_AUTO_DELETION_DAYS),
+});
+export type UpdateWebSettingsRequest = z.infer<typeof UpdateWebSettingsRequest>;

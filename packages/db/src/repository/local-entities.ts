@@ -31,6 +31,14 @@ export function localEntities(state: LocalState): Entities {
       async listAll() {
         return [...state.workspaces.values()].sort((left, right) => right.created_at.localeCompare(left.created_at));
       },
+      async update(id, input) {
+        const workspace = state.workspaces.get(id);
+        if (workspace) {
+          workspace.name = input.name;
+          workspace.auto_deletion_days = input.autoDeletionDays;
+          workspace.updated_at = input.updatedAt;
+        }
+      },
     },
     apiKeys: {
       async insert(apiKey) {

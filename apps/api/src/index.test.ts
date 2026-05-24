@@ -954,6 +954,129 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it("updates web settings from the member workspace", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async updateWebSettings(input) {
+          expect(input).toMatchObject({
+            actor: { type: "member", id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ" },
+            idempotencyKey: "idem-settings",
+            workspaceName: "Renamed Workspace",
+            autoDeletionDays: 14,
+          });
+          return {
+            workspace_name: input.workspaceName,
+            auto_deletion_days: input.autoDeletionDays,
+            usage_policy: { artifacts_per_day: 0, bytes_per_day: 26_214_400 },
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-settings",
+        },
+        body: JSON.stringify({ workspace_name: "Renamed Workspace", auto_deletion_days: 14 }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      workspace_name: "Renamed Workspace",
+      auto_deletion_days: 14,
+    });
+  });
+
+  it.each([
+    ["below the minimum", { workspace_name: "ok", auto_deletion_days: 0 }],
+    ["above the maximum", { workspace_name: "ok", auto_deletion_days: 91 }],
+    ["a non-integer", { workspace_name: "ok", auto_deletion_days: 1.5 }],
+    ["a blank name", { workspace_name: "", auto_deletion_days: 30 }],
+    ["a too-long name", { workspace_name: "x".repeat(121), auto_deletion_days: 30 }],
+  ])("rejects web settings updates with %s", async (_label, body) => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async updateWebSettings() {
+          throw new Error("update should not run for invalid bodies");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-settings-invalid",
+        },
+        body: JSON.stringify(body),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
+  it("requires an idempotency key for web settings updates", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["admin"], {
+        async updateWebSettings() {
+          throw new Error("update should not run without idempotency");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 30 }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_idempotency_key" } });
+  });
+
+  it("rejects web settings updates for members without admin scope", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async updateWebSettings() {
+          throw new Error("update should not run without admin scope");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-settings-scope",
+        },
+        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 30 }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
   it("fails open when a rate limit binding errors", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const env: Env = {

@@ -9,6 +9,7 @@ export const workspaceQueries = {
       id: row.id,
       name: row.name,
       contactEmail: row.contact_email,
+      autoDeletionDays: row.auto_deletion_days,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
@@ -24,6 +25,13 @@ export const workspaceQueries = {
     const rows = await db.select().from(workspaces);
     return rows.map(mapWorkspace).sort((left, right) => right.created_at.localeCompare(left.created_at));
   },
+
+  async update(db: DrizzleDb, id: string, input: { name: string; autoDeletionDays: number; updatedAt: string }) {
+    await db
+      .update(workspaces)
+      .set({ name: input.name, autoDeletionDays: input.autoDeletionDays, updatedAt: new Date(input.updatedAt) })
+      .where(eq(workspaces.id, id));
+  },
 };
 
 function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
@@ -31,6 +39,7 @@ function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
     id: row.id,
     name: row.name,
     contact_email: row.contactEmail,
+    auto_deletion_days: row.autoDeletionDays,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

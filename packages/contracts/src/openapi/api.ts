@@ -185,6 +185,19 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "patch",
+    path: "/v1/web/settings",
+    operationId: "web.settings.update",
+    summary: "Update web Workspace settings.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: true, content: { "application/json": { schema: schemaRef("UpdateWebSettingsRequest") } } },
+    },
+    responses: standardJsonResponses(schemaRef("WebSettingsResponse")),
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/artifacts/{artifact_id}/agent-view",
     operationId: "agentView.getLatest",

@@ -14,6 +14,7 @@ import {
   CreateApiKeyRequest,
   type RouteContract,
   routeContracts,
+  UpdateWebSettingsRequest,
 } from "@agent-paste/contracts";
 import {
   type AdminActor,
@@ -235,6 +236,9 @@ apiDbRegistrar.mount(contractById("web.audit.list"), async (context, principal, 
 );
 apiDbRegistrar.mount(contractById("web.settings.get"), async (context, principal, db) =>
   webSettings(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("web.settings.update"), async (context, principal, db, guard) =>
+  webUpdateSettings(context as AppContext, principal, db, guard),
 );
 app.get("/admin/whoami", (context) => adminWhoami(context));
 apiDbRegistrar.mount(contractById("admin.workspaces.create"), async (context, principal, db, guard) =>
@@ -511,6 +515,41 @@ async function webAudit(context: AppContext, principal: Principal, db: Repositor
 async function webSettings(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   return actor ? jsonResponse(context, await db.getWebSettings(actor)) : errorResponse(context, "forbidden", 403);
+}
+
+async function webUpdateSettings(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return errorResponse(context, "forbidden", 403);
+  }
+  const idempotencyKey = guard.idempotencyKey as string;
+  if (!db.updateWebSettings) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  const updateWebSettings = db.updateWebSettings.bind(db);
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(context.req.raw);
+  } catch {
+    return errorResponse(context, "invalid_request", 400);
+  }
+  const parsed = UpdateWebSettingsRequest.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(context, "invalid_request", 400);
+  }
+  return runIdempotent(context, () =>
+    updateWebSettings({
+      actor,
+      idempotencyKey,
+      workspaceName: parsed.data.workspace_name,
+      autoDeletionDays: parsed.data.auto_deletion_days,
+    }),
+  );
 }
 
 async function adminWhoami(context: AppContext): Promise<Response> {

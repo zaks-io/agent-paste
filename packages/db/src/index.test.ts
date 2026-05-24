@@ -276,6 +276,91 @@ describe("LocalRepository", () => {
     expect(secondKey.api_key.workspace_id).toBe(secondSession.workspace.id);
   });
 
+  it("persists web settings updates and reflects them in getWebSettings", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    if (!actor) {
+      throw new Error("expected member actor");
+    }
+
+    await expect(repo.getWebSettings(actor)).resolves.toMatchObject({ auto_deletion_days: 30 });
+
+    const updated = await repo.updateWebSettings({
+      actor,
+      idempotencyKey: "idem-settings",
+      workspaceName: "Renamed Workspace",
+      autoDeletionDays: 14,
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    expect(updated).toMatchObject({ workspace_name: "Renamed Workspace", auto_deletion_days: 14 });
+
+    await expect(repo.getWebSettings(actor)).resolves.toMatchObject({
+      workspace_name: "Renamed Workspace",
+      auto_deletion_days: 14,
+    });
+    expect(repo.workspaces.get(session.workspace.id)).toMatchObject({
+      name: "Renamed Workspace",
+      auto_deletion_days: 14,
+      updated_at: "2026-01-02T00:00:00.000Z",
+    });
+
+    const replay = await repo.updateWebSettings({
+      actor,
+      idempotencyKey: "idem-settings",
+      workspaceName: "Different Name",
+      autoDeletionDays: 7,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    expect(replay).toEqual(updated);
+
+    const events = [...repo.operationEvents.values()].filter((event) => event.action === "workspace.settings.updated");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actor_type: "member",
+      actor_id: actor.id,
+      target_type: "workspace",
+      target_id: session.workspace.id,
+      workspace_id: session.workspace.id,
+      details: { workspace_name: "Renamed Workspace", auto_deletion_days: 14 },
+    });
+  });
+
+  it("rejects API-key actors on web settings updates", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+
+    await expect(
+      repo.updateWebSettings({
+        actor,
+        idempotencyKey: "idem-settings",
+        workspaceName: "ws",
+        autoDeletionDays: 30,
+      }),
+    ).rejects.toThrow("unexpected_actor_type:api_key");
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

@@ -15,6 +15,7 @@ import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactRe
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
 import {
+  UpdateWebSettingsRequest,
   WebApiKeyListResponse,
   WebArtifactDetailResponse,
   WebArtifactListResponse,
@@ -63,6 +64,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
   registry.register("WebSettingsResponse", WebSettingsResponse);
+  registry.register("UpdateWebSettingsRequest", UpdateWebSettingsRequest);
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {
