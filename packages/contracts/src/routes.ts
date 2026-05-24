@@ -2,7 +2,7 @@ import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
-export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT";
+export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT" | "HEAD";
 export type AuthRequirement =
   | "none"
   | "api_key"
@@ -236,6 +236,17 @@ export const routeContracts = [
     id: "content.get",
     app: "content",
     method: "GET",
+    path: "/v/{token}/{path}",
+    auth: "signed_content_token",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "Response",
+    errors: ["not_found", "rate_limited_artifact"],
+  },
+  {
+    id: "content.head",
+    app: "content",
+    method: "HEAD",
     path: "/v/{token}/{path}",
     auth: "signed_content_token",
     scopes: [],

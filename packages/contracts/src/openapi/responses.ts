@@ -56,7 +56,7 @@ export const errorResponse: ResponseConfig = {
 };
 
 export const rateLimitResponse: ResponseConfig = {
-  description: "Actor or workspace rate limit exceeded. Artifact read limits use ArtifactRateLimitErrorEnvelope.",
+  description: "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
   headers: retryAfterHeaders,
   content: rateLimitContent,
 };

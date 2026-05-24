@@ -32,6 +32,7 @@ describe("MVP route registry", () => {
       "uploadSessions.putFile",
       "uploadSessions.finalize",
       "content.get",
+      "content.head",
       "admin.workspaces.create",
       "admin.workspaces.list",
       "admin.apiKeys.create",
@@ -46,11 +47,21 @@ describe("MVP route registry", () => {
 
   it("documents artifact-level content read throttling", () => {
     const contentGet = routeContracts.find((route) => route.id === "content.get");
+    const contentHead = routeContracts.find((route) => route.id === "content.head");
     const contentOpenApi = buildContentOpenApiDocument() as {
       paths?: Record<
         string,
         {
           get?: {
+            responses?: Record<
+              string,
+              {
+                headers?: Record<string, unknown>;
+                content?: Record<string, { schema?: { $ref?: string } }>;
+              }
+            >;
+          };
+          head?: {
             responses?: Record<
               string,
               {
@@ -65,10 +76,14 @@ describe("MVP route registry", () => {
     };
     const rateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["429"];
     const notFoundResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["404"];
+    const headRateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.head?.responses?.["429"];
+    const headNotFoundResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.head?.responses?.["404"];
 
     expect(ErrorCode.options).toContain("rate_limited_artifact");
     expect(contentGet).toBeDefined();
     expect(contentGet?.errors).toContain("rate_limited_artifact");
+    expect(contentHead).toBeDefined();
+    expect(contentHead?.errors).toContain("rate_limited_artifact");
     expect(rateLimitResponse).toBeDefined();
     expect(rateLimitResponse?.headers).toHaveProperty("Retry-After");
     expect(rateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
@@ -83,6 +98,14 @@ describe("MVP route registry", () => {
     expect(contentOpenApi.components?.schemas?.ContentNotFoundErrorEnvelope).toMatchObject({
       properties: { error: { properties: { code: { enum: ["not_found"] } } } },
     });
+    expect(headRateLimitResponse).toBeDefined();
+    expect(headRateLimitResponse?.headers).toHaveProperty("Retry-After");
+    expect(headRateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ArtifactRateLimitErrorEnvelope",
+    );
+    expect(headNotFoundResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ContentNotFoundErrorEnvelope",
+    );
   });
 });
 
