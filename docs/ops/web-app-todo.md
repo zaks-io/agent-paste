@@ -47,7 +47,8 @@ Order matters — each later item depends on the earlier ones.
   - Done in `agents/next-three-status-items`: key create/revoke runs through WorkOS Workspace Member auth, requires `admin` scope and an `Idempotency-Key`, derives the Workspace from the member, writes `member` actor idempotency/audit rows, returns one-time secrets only on create/replay, and uses generic `not_found` for missing or cross-workspace revokes.
 - [x] `GET /v1/web/audit` (cursor paginated).
   - Done in `agents/next-three-status-items`: accepts `limit` and opaque `cursor`, orders by `occurred_at desc, id desc`, and returns only Audit Events visible under the member Workspace RLS scope.
-- [ ] `GET /v1/web/settings`, `PATCH /v1/web/settings` (name, auto-deletion days).
+- [x] `GET /v1/web/settings`, `PATCH /v1/web/settings` (name, auto-deletion days).
+  - Done in `agents/web-settings-patch` (#44): retention persists per-workspace via new `workspaces.auto_deletion_days` column (migration 0007, DB CHECK 1–90); `PATCH` runs through WorkOS member auth, requires `admin` scope + `Idempotency-Key`, bounds `auto_deletion_days` by the ADR 0048 caps (shared `MIN/MAX_AUTO_DELETION_DAYS`), and `RepositoryCore.updateWebSettings` fails closed against those bounds before persisting (local adapter has no DB constraint). Audit event `workspace.settings.updated`.
 - [ ] `POST /v1/web/admin/lockdown/...` + `DELETE /v1/web/admin/lockdown/...` (operator-only; in production gated by Cloudflare Access then `requireOperator()`, which accepts a WorkOS operator session or the rotation agent's Access service token and rejects API-key auth outright, per ADR 0046).
 
 All mutations through `runCommand` (ADR 0022/0035); all reads under the request's Workspace Member RLS scope (ADR 0044). New routes register Zod schemas in `packages/contracts` and the `openapi:check` golden regenerates.
