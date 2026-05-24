@@ -66,10 +66,8 @@ export const operationEventQueries = {
       const cursorPredicate = or(
         lt(operationEvents.occurredAt, input.cursor.occurredAt),
         and(eq(operationEvents.occurredAt, input.cursor.occurredAt), lt(operationEvents.id, input.cursor.id)),
-      );
-      if (cursorPredicate) {
-        conditions.push(cursorPredicate);
-      }
+      ) as SQL;
+      conditions.push(cursorPredicate);
     }
     const rows = await db
       .select()

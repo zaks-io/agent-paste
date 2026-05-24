@@ -412,12 +412,13 @@ export class LocalRepository {
     const cursor = pagination.cursor ? decodeWebAuditCursor(pagination.cursor) : null;
     const rows = [...this.operationEvents.values()]
       .filter((event) => event.workspace_id === actor.workspace_id)
-      .filter(
-        (event) =>
-          !cursor ||
-          event.occurred_at < cursor.occurred_at ||
-          (event.occurred_at === cursor.occurred_at && event.id < cursor.id),
-      )
+      .filter((event) => {
+        if (!cursor) {
+          return true;
+        }
+        const cursorOccurredAt = cursor.occurredAt.toISOString();
+        return event.occurred_at < cursorOccurredAt || (event.occurred_at === cursorOccurredAt && event.id < cursor.id);
+      })
       .sort(compareOperationEventsForWeb);
     const page = rows.slice(0, limit);
     const last = page.at(-1);
@@ -903,7 +904,7 @@ function decodeWebAuditCursor(cursor: string) {
     if (Number.isNaN(occurredAt.getTime())) {
       throw new Error("invalid_cursor");
     }
-    return { occurred_at: occurredAt.toISOString(), id: raw.id };
+    return { occurredAt, id: raw.id };
   } catch {
     throw new Error("invalid_cursor");
   }
