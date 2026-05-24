@@ -8,6 +8,7 @@ export type AuthRequirement =
   | "api_key"
   | "admin_token"
   | "workos_access_token"
+  | "operator"
   | "signed_agent_view_token"
   | "signed_upload_url"
   | "signed_content_token";
@@ -47,6 +48,16 @@ const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"]
 const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
 const webIdempotentMutationErrors = [...webMutationErrors, "invalid_idempotency_key", "idempotency_in_flight"] as const;
 const webCallbackErrors = [...webMutationErrors, "idempotency_in_flight"] as const;
+// Operator routes never advertise not_authenticated/forbidden: every auth
+// failure collapses to a generic not_found so the surface is non-enumerable
+// (ADR 0046).
+const operatorMutationErrors = [
+  "not_found",
+  "invalid_request",
+  "invalid_idempotency_key",
+  "idempotency_in_flight",
+  "database_unavailable",
+] as const;
 
 export const routeContracts = [
   {
@@ -231,6 +242,31 @@ export const routeContracts = [
     requestSchema: "UpdateWebSettingsRequest",
     responseSchema: "WebSettingsResponse",
     errors: webIdempotentMutationErrors,
+  },
+  {
+    id: "web.admin.lockdown.set",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/admin/lockdowns",
+    auth: "operator",
+    scopes: [],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "SetLockdownRequest",
+    responseSchema: "LockdownDetail",
+    errors: operatorMutationErrors,
+  },
+  {
+    id: "web.admin.lockdown.lift",
+    app: "api",
+    method: "DELETE",
+    path: "/v1/web/admin/lockdowns/{scope}/{target_id}",
+    auth: "operator",
+    scopes: [],
+    idempotency: "required",
+    rateLimit: "actor",
+    responseSchema: "LockdownDetail",
+    errors: operatorMutationErrors,
   },
   {
     id: "uploadSessions.create",

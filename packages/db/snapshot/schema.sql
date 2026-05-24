@@ -53,7 +53,7 @@ CREATE TABLE "idempotency_records" (
 	"created_at" timestamp with time zone NOT NULL,
 	"completed_at" timestamp with time zone,
 	CONSTRAINT "idempotency_records_unique" UNIQUE NULLS NOT DISTINCT("workspace_id","actor_type","actor_id","operation","idempotency_key"),
-	CONSTRAINT "idempotency_records_actor_type_check" CHECK ("idempotency_records"."actor_type" in ('api_key', 'member', 'admin', 'system'))
+	CONSTRAINT "idempotency_records_actor_type_check" CHECK ("idempotency_records"."actor_type" in ('api_key', 'member', 'admin', 'system', 'platform'))
 );
 
 CREATE TABLE "operation_events" (
@@ -67,7 +67,19 @@ CREATE TABLE "operation_events" (
 	"details" jsonb NOT NULL,
 	"request_id" text,
 	"occurred_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "operation_events_actor_type_check" CHECK ("operation_events"."actor_type" in ('api_key', 'member', 'admin', 'system'))
+	CONSTRAINT "operation_events_actor_type_check" CHECK ("operation_events"."actor_type" in ('api_key', 'member', 'admin', 'system', 'platform'))
+);
+
+CREATE TABLE "platform_lockdowns" (
+	"id" text PRIMARY KEY NOT NULL,
+	"scope" text NOT NULL,
+	"target_id" text NOT NULL,
+	"reason_code" text NOT NULL,
+	"set_at" timestamp with time zone NOT NULL,
+	"set_by" text NOT NULL,
+	"lifted_at" timestamp with time zone,
+	"lifted_by" text,
+	CONSTRAINT "platform_lockdowns_scope_check" CHECK ("platform_lockdowns"."scope" in ('workspace', 'artifact'))
 );
 
 CREATE TABLE "upload_session_files" (
@@ -135,6 +147,7 @@ CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("work
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
+CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "workspace_members_workos_user_unique" ON "workspace_members" USING btree ("workos_user_id");

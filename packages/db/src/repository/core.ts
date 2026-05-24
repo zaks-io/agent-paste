@@ -20,6 +20,8 @@ import type {
   ApiActor,
   ApiKeyActor,
   Artifact,
+  PlatformActor,
+  PlatformLockdown,
   RepositoryOptions,
   StoredFile,
   UploadSession,
@@ -63,6 +65,22 @@ function memberCommandActor(actor: ApiActor): CommandActor {
 
 function adminCommandActor(actor: AdminActor, workspaceId: string | null): CommandActor {
   return { type: actor.type, id: actor.id, workspaceId };
+}
+
+function platformCommandActor(actor: PlatformActor): CommandActor {
+  return { type: "platform", id: actor.id, workspaceId: null };
+}
+
+function toLockdownDetail(lockdown: PlatformLockdown) {
+  return {
+    scope: lockdown.scope,
+    target_id: lockdown.target_id,
+    reason_code: lockdown.reason_code,
+    set_at: lockdown.set_at,
+    set_by: lockdown.set_by,
+    lifted_at: lockdown.lifted_at,
+    lifted_by: lockdown.lifted_by,
+  };
 }
 
 function nowIso(value?: Date): string {
@@ -525,6 +543,92 @@ export class RepositoryCore implements Repository {
         });
         const workspace = await this.mustWorkspace(entities, member.workspace_id);
         return toWebSettings(workspace);
+      },
+    );
+  }
+
+  async setLockdown(input: {
+    actor: PlatformActor;
+    idempotencyKey: string;
+    scope: "workspace" | "artifact";
+    targetId: string;
+    reasonCode: string;
+    now?: Date;
+  }) {
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: platformCommandActor(input.actor),
+        operation: "platform.lockdown.set",
+        idempotencyKey: input.idempotencyKey,
+        scope: PLATFORM_SCOPE,
+        now,
+      },
+      async (entities) => {
+        // One effective row per target: an existing lockdown is a no-op replay.
+        const existing = await entities.platformLockdowns.findEffective(input.scope, input.targetId);
+        if (existing) {
+          return toLockdownDetail(existing);
+        }
+        const lockdown: PlatformLockdown = {
+          id: createId("lkd"),
+          scope: input.scope,
+          target_id: input.targetId,
+          reason_code: input.reasonCode,
+          set_at: now,
+          set_by: input.actor.id,
+          lifted_at: null,
+          lifted_by: null,
+        };
+        await entities.platformLockdowns.insert(lockdown);
+        await entities.operationEvents.insert({
+          actorType: "platform",
+          actorId: input.actor.id,
+          action: "platform.lockdown.set",
+          targetType: input.scope,
+          targetId: input.targetId,
+          workspaceId: null,
+          details: { scope: input.scope, reason_code: input.reasonCode },
+          occurredAt: now,
+        });
+        return toLockdownDetail(lockdown);
+      },
+    );
+  }
+
+  async liftLockdown(input: {
+    actor: PlatformActor;
+    idempotencyKey: string;
+    scope: "workspace" | "artifact";
+    targetId: string;
+    now?: Date;
+  }) {
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: platformCommandActor(input.actor),
+        operation: "platform.lockdown.lift",
+        idempotencyKey: input.idempotencyKey,
+        scope: PLATFORM_SCOPE,
+        now,
+      },
+      async (entities) => {
+        const existing = await entities.platformLockdowns.findEffective(input.scope, input.targetId);
+        if (!existing) {
+          throw new Error("not_found");
+        }
+        await entities.platformLockdowns.markLifted(existing.id, { liftedAt: now, liftedBy: input.actor.id });
+        await entities.operationEvents.insert({
+          actorType: "platform",
+          actorId: input.actor.id,
+          action: "platform.lockdown.lifted",
+          targetType: input.scope,
+          targetId: input.targetId,
+          workspaceId: null,
+          details: { scope: input.scope, reason_code: existing.reason_code },
+          occurredAt: now,
+        });
+        return toLockdownDetail({ ...existing, lifted_at: now, lifted_by: input.actor.id });
       },
     );
   }

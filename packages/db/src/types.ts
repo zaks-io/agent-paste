@@ -19,6 +19,10 @@ export type ApiActor = ApiKeyActor | WorkspaceMemberActor;
 
 export type AdminActor = { type: "admin" | "system"; id: string };
 
+// Platform operator identity (ADR 0046). Always platform-scoped; never tied to a
+// single workspace. id is the operator email or the Access service-token common_name.
+export type PlatformActor = { type: "platform"; id: string };
+
 export type SqlValue = string | number | boolean | null | Record<string, unknown> | SqlValue[];
 
 export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
@@ -111,10 +115,21 @@ export type StoredFile = {
   put_url_expires_at?: string;
 };
 
+export type PlatformLockdown = {
+  id: string;
+  scope: "workspace" | "artifact";
+  target_id: string;
+  reason_code: string;
+  set_at: string;
+  set_by: string;
+  lifted_at: string | null;
+  lifted_by: string | null;
+};
+
 export type OperationEvent = {
   id: string;
   workspace_id: string | null;
-  actor_type: "api_key" | "member" | "admin" | "system";
+  actor_type: "api_key" | "member" | "admin" | "system" | "platform";
   actor_id: string | null;
   action: string;
   target_type: string;

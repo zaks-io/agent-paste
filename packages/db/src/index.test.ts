@@ -388,6 +388,86 @@ describe("LocalRepository", () => {
     }
   });
 
+  it("sets a platform lockdown, replays it, and lifts it", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+
+    const set = await repo.setLockdown({
+      actor: operator,
+      idempotencyKey: "idem-set",
+      scope: "workspace",
+      targetId: "11111111-1111-1111-1111-111111111111",
+      reasonCode: "abuse",
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    expect(set).toMatchObject({
+      scope: "workspace",
+      target_id: "11111111-1111-1111-1111-111111111111",
+      reason_code: "abuse",
+      set_by: "operator@example.com",
+      lifted_at: null,
+      lifted_by: null,
+    });
+    expect(repo.platformLockdowns.size).toBe(1);
+
+    // A second set against the same effective target is a no-op that returns the
+    // existing row, so the partial unique index is never violated.
+    const replaySet = await repo.setLockdown({
+      actor: operator,
+      idempotencyKey: "idem-set-2",
+      scope: "workspace",
+      targetId: "11111111-1111-1111-1111-111111111111",
+      reasonCode: "different",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    expect(replaySet).toEqual(set);
+    expect(repo.platformLockdowns.size).toBe(1);
+
+    const lifted = await repo.liftLockdown({
+      actor: operator,
+      idempotencyKey: "idem-lift",
+      scope: "workspace",
+      targetId: "11111111-1111-1111-1111-111111111111",
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    expect(lifted).toMatchObject({
+      lifted_at: "2026-01-03T00:00:00.000Z",
+      lifted_by: "operator@example.com",
+    });
+
+    const setEvents = [...repo.operationEvents.values()].filter((event) => event.action === "platform.lockdown.set");
+    const liftEvents = [...repo.operationEvents.values()].filter(
+      (event) => event.action === "platform.lockdown.lifted",
+    );
+    expect(setEvents).toHaveLength(1);
+    expect(setEvents[0]).toMatchObject({ actor_type: "platform", actor_id: "operator@example.com" });
+    expect(liftEvents).toHaveLength(1);
+
+    // After lifting, the same target may be locked down again under a fresh row.
+    const relock = await repo.setLockdown({
+      actor: operator,
+      idempotencyKey: "idem-set-3",
+      scope: "workspace",
+      targetId: "11111111-1111-1111-1111-111111111111",
+      reasonCode: "again",
+      now: new Date("2026-01-04T00:00:00.000Z"),
+    });
+    expect(relock.lifted_at).toBeNull();
+    expect(repo.platformLockdowns.size).toBe(2);
+  });
+
+  it("returns not_found when lifting a lockdown that does not exist", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await expect(
+      repo.liftLockdown({
+        actor: { type: "platform", id: "operator@example.com" },
+        idempotencyKey: "idem-lift-missing",
+        scope: "artifact",
+        targetId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }),
+    ).rejects.toThrow("not_found");
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

@@ -10,6 +10,11 @@ const pathStringParam = (name: string, description: string) =>
     param: { name, in: "path", required: true, description },
   });
 
+const pathEnumParam = (name: string, values: readonly [string, ...string[]], description: string) =>
+  z.enum(values).openapi({
+    param: { name, in: "path", required: true, description },
+  });
+
 const queryCursorParam = (name: string, description: string) =>
   Cursor.openapi({
     param: { name, in: "query", required: false, description },
@@ -39,7 +44,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     registry.registerComponent("securitySchemes", name, scheme);
   }
 
-  const params = (paramSchemas: Record<string, ReturnType<typeof pathStringParam>>) => z.object(paramSchemas);
+  const params = (paramSchemas: Record<string, z.ZodTypeAny>) => z.object(paramSchemas);
 
   registry.registerPath({
     method: "get",
@@ -195,6 +200,35 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       body: { required: true, content: { "application/json": { schema: schemaRef("UpdateWebSettingsRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("WebSettingsResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/admin/lockdowns",
+    operationId: "web.admin.lockdown.set",
+    summary: "Set a platform lockdown on a workspace or artifact (operator only).",
+    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    request: {
+      headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: true, content: { "application/json": { schema: schemaRef("SetLockdownRequest") } } },
+    },
+    responses: standardJsonResponses(schemaRef("LockdownDetail"), 201, { authenticated: false }),
+  });
+
+  registry.registerPath({
+    method: "delete",
+    path: "/v1/web/admin/lockdowns/{scope}/{target_id}",
+    operationId: "web.admin.lockdown.lift",
+    summary: "Lift a platform lockdown on a workspace or artifact (operator only).",
+    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    request: {
+      params: params({
+        scope: pathEnumParam("scope", ["workspace", "artifact"], "Lockdown scope: workspace or artifact."),
+        target_id: pathStringParam("target_id", "Locked-down workspace or artifact id."),
+      }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("LockdownDetail"), 200, { authenticated: false }),
   });
 
   registry.registerPath({

@@ -21,6 +21,7 @@ export type {
   Artifact,
   HyperdriveBinding,
   OperationEvent,
+  PlatformActor,
   RepositoryOptions,
   SqlExecutor,
   SqlQueryResult,

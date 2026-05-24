@@ -1369,6 +1369,235 @@ describe("api worker", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("sets a lockdown for a WorkOS operator and writes the denylist key", async () => {
+    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async setLockdown(input) {
+          expect(input).toMatchObject({
+            actor: { type: "platform", id: "user@example.com" },
+            idempotencyKey: "lock-1",
+            scope: "workspace",
+            targetId: "w_123",
+            reasonCode: "abuse",
+          });
+          return lockdownDetail({ scope: "workspace", target_id: "w_123", reason_code: "abuse" });
+        },
+      }),
+      DENYLIST: {
+        async put(key, value, options) {
+          puts.push({ key, value, expirationTtl: options?.expirationTtl });
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "lock-1",
+        },
+        body: JSON.stringify({ scope: "workspace", target_id: "w_123", reason_code: "abuse" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({ scope: "workspace", target_id: "w_123" });
+    expect(puts).toHaveLength(1);
+    expect(puts[0]).toMatchObject({ key: "wsd:w_123", expirationTtl: 90 * 24 * 60 * 60 });
+    expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({
+      reason: "platform_lockdown_workspace",
+      at: expect.any(String),
+    });
+  });
+
+  it("lifts a lockdown and deletes the denylist key", async () => {
+    const deletes: string[] = [];
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async liftLockdown(input) {
+          expect(input).toMatchObject({ scope: "artifact", targetId: "art_9", idempotencyKey: "lift-1" });
+          return lockdownDetail({
+            scope: "artifact",
+            target_id: "art_9",
+            lifted_at: "2026-01-02T00:00:00.000Z",
+            lifted_by: "user@example.com",
+          });
+        },
+      }),
+      DENYLIST: {
+        async put() {},
+        async delete(key) {
+          deletes.push(key);
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns/artifact/art_9", {
+        method: "DELETE",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "lift-1" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      scope: "artifact",
+      target_id: "art_9",
+      lifted_by: "user@example.com",
+    });
+    expect(deletes).toEqual(["ad:art_9"]);
+  });
+
+  it("returns 404 when lifting a lockdown that does not exist", async () => {
+    const deletes: string[] = [];
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async liftLockdown() {
+          throw new Error("not_found");
+        },
+      }),
+      DENYLIST: {
+        async put() {},
+        async delete(key) {
+          deletes.push(key);
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns/workspace/missing", {
+        method: "DELETE",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "lift-missing" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+    expect(deletes).toEqual([]);
+  });
+
+  it("returns 404 when lifting a lockdown with an unsupported scope", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async liftLockdown() {
+          throw new Error("liftLockdown must not run for an invalid scope");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns/tenant/t_1", {
+        method: "DELETE",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "lift-badscope" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 for a WorkOS session whose email is not an operator", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "ops@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async setLockdown() {
+          throw new Error("setLockdown must not run for non-operators");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "lock-deny",
+        },
+        body: JSON.stringify({ scope: "workspace", target_id: "w_123", reason_code: "abuse" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 for an API-key bearer on operator routes", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "ap_pk_live_example" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
+        },
+        async verifyWebToken() {
+          return null;
+        },
+      },
+      DB: operatorDbForTests({
+        async setLockdown() {
+          throw new Error("setLockdown must not run for api keys");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer ap_pk_live_example",
+          "content-type": "application/json",
+          "idempotency-key": "lock-apikey",
+        },
+        body: JSON.stringify({ scope: "workspace", target_id: "w_123", reason_code: "abuse" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 when no authentication is provided to operator routes", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async setLockdown() {
+          throw new Error("setLockdown must not run without auth");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": "lock-noauth" },
+        body: JSON.stringify({ scope: "workspace", target_id: "w_123", reason_code: "abuse" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
 });
 
 function webAuthForTests(): Env["AUTH"] {
@@ -1396,6 +1625,26 @@ function baseDbForTests(): ApiDatabase {
     async runCleanup() {
       return {};
     },
+  };
+}
+
+function operatorDbForTests(overrides: Partial<ApiDatabase> = {}): ApiDatabase {
+  return {
+    ...baseDbForTests(),
+    ...overrides,
+  };
+}
+
+function lockdownDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    scope: "workspace",
+    target_id: "w_123",
+    reason_code: "abuse",
+    set_at: "2026-01-01T00:00:00.000Z",
+    set_by: "user@example.com",
+    lifted_at: null,
+    lifted_by: null,
+    ...overrides,
   };
 }
 

@@ -13,6 +13,7 @@ import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
+import { LockdownDetail, SetLockdownRequest } from "../lockdown.js";
 import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
@@ -65,6 +66,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebAuditListResponse", WebAuditListResponse);
   registry.register("WebSettingsResponse", WebSettingsResponse);
   registry.register("UpdateWebSettingsRequest", UpdateWebSettingsRequest);
+  registry.register("SetLockdownRequest", SetLockdownRequest);
+  registry.register("LockdownDetail", LockdownDetail);
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {
@@ -94,6 +97,12 @@ export const securitySchemes = {
     type: "http",
     scheme: "bearer",
     description: "WorkOS AuthKit access token forwarded by the web Worker.",
+  },
+  CfAccessServiceToken: {
+    type: "apiKey",
+    in: "header",
+    name: "Cf-Access-Jwt-Assertion",
+    description: "Cloudflare Access service-token JWT (rotation agent machine identity).",
   },
 } as const;
 

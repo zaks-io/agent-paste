@@ -2,6 +2,7 @@ import type {
   ApiKey,
   Artifact,
   OperationEvent,
+  PlatformLockdown,
   StoredFile,
   UploadSession,
   Workspace,
@@ -13,7 +14,11 @@ import type { WebArtifactCursor, WebAuditCursor } from "./web-transforms.js";
 // translate this into RLS config (Postgres) or simple Map filtering (local).
 export type RunScope = { kind: "workspace"; workspaceId: string } | { kind: "platform" };
 
-export type CommandActor = { type: "api_key" | "member" | "admin" | "system"; id: string; workspaceId: string | null };
+export type CommandActor = {
+  type: "api_key" | "member" | "admin" | "system" | "platform";
+  id: string;
+  workspaceId: string | null;
+};
 
 // Inputs the durable command runner needs to claim, replay, or recover idempotency.
 export type CommandSpec = {
@@ -79,9 +84,14 @@ export type Entities = {
       uploadedAt: string;
     }): Promise<void>;
   };
+  platformLockdowns: {
+    findEffective(scope: PlatformLockdown["scope"], targetId: string): Promise<PlatformLockdown | null>;
+    insert(lockdown: PlatformLockdown): Promise<void>;
+    markLifted(id: string, input: { liftedAt: string; liftedBy: string }): Promise<void>;
+  };
   operationEvents: {
     insert(input: {
-      actorType: "api_key" | "member" | "admin" | "system";
+      actorType: "api_key" | "member" | "admin" | "system" | "platform";
       actorId: string | null;
       action: string;
       targetType: string;

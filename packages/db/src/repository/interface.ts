@@ -6,7 +6,7 @@ import type {
   toWorkspaceDetail,
   toWorkspaceSummary,
 } from "../transforms.js";
-import type { AdminActor, ApiActor, ApiKeyActor, OperationEvent, Workspace } from "../types.js";
+import type { AdminActor, ApiActor, ApiKeyActor, OperationEvent, PlatformActor, Workspace } from "../types.js";
 import type { toWebArtifactRow, toWebAuditRow } from "./web-transforms.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
@@ -85,6 +85,18 @@ type CleanupResult = {
 
 type UploadSessionFile = { path: string; objectKey: string; sizeBytes: number };
 
+type LockdownScope = "workspace" | "artifact";
+
+type LockdownDetail = {
+  scope: LockdownScope;
+  target_id: string;
+  reason_code: string;
+  set_at: string;
+  set_by: string;
+  lifted_at: string | null;
+  lifted_by: string | null;
+};
+
 // Single backend-agnostic contract. Both the Postgres and local repositories
 // implement this exactly; the api and upload workers consume it directly.
 export type Repository = {
@@ -149,6 +161,21 @@ export type Repository = {
     autoDeletionDays: number;
     now?: Date;
   }): Promise<WebSettings>;
+  setLockdown(input: {
+    actor: PlatformActor;
+    idempotencyKey: string;
+    scope: LockdownScope;
+    targetId: string;
+    reasonCode: string;
+    now?: Date;
+  }): Promise<LockdownDetail>;
+  liftLockdown(input: {
+    actor: PlatformActor;
+    idempotencyKey: string;
+    scope: LockdownScope;
+    targetId: string;
+    now?: Date;
+  }): Promise<LockdownDetail>;
   createUploadSession(input: {
     actor: ApiActor;
     idempotencyKey: string;

@@ -1,5 +1,5 @@
 import { createId } from "../id.js";
-import type { Artifact, OperationEvent } from "../types.js";
+import type { Artifact, OperationEvent, PlatformLockdown } from "../types.js";
 import type { LocalState } from "./local-state.js";
 import type { Entities } from "./ports.js";
 
@@ -216,6 +216,25 @@ export function localEntities(state: LocalState): Entities {
         const file = state.uploadSessionFiles.get(`${input.sessionId}:${input.path}`);
         if (file) {
           file.uploaded_at = input.uploadedAt;
+        }
+      },
+    },
+    platformLockdowns: {
+      async findEffective(scope, targetId) {
+        return (
+          [...state.platformLockdowns.values()].find(
+            (lockdown) => lockdown.scope === scope && lockdown.target_id === targetId && lockdown.lifted_at === null,
+          ) ?? null
+        );
+      },
+      async insert(lockdown: PlatformLockdown) {
+        state.platformLockdowns.set(lockdown.id, lockdown);
+      },
+      async markLifted(id, input) {
+        const lockdown = state.platformLockdowns.get(id);
+        if (lockdown) {
+          lockdown.lifted_at = input.liftedAt;
+          lockdown.lifted_by = input.liftedBy;
         }
       },
     },

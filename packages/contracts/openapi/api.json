@@ -26,6 +26,12 @@
         "type": "http",
         "scheme": "bearer",
         "description": "WorkOS AuthKit access token forwarded by the web Worker."
+      },
+      "CfAccessServiceToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Cf-Access-Jwt-Assertion",
+        "description": "Cloudflare Access service-token JWT (rotation agent machine identity)."
       }
     },
     "schemas": {
@@ -1066,7 +1072,8 @@
               "api_key",
               "member",
               "admin",
-              "system"
+              "system",
+              "platform"
             ]
           },
           "actor_id": {
@@ -1159,7 +1166,8 @@
                     "api_key",
                     "member",
                     "admin",
-                    "system"
+                    "system",
+                    "platform"
                   ]
                 },
                 "actor_id": {
@@ -2087,6 +2095,84 @@
         "required": [
           "workspace_name",
           "auto_deletion_days"
+        ]
+      },
+      "SetLockdownRequest": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "artifact"
+            ]
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "scope",
+          "target_id",
+          "reason_code"
+        ]
+      },
+      "LockdownDetail": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "artifact"
+            ]
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "set_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "set_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lifted_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "scope",
+          "target_id",
+          "reason_code",
+          "set_at",
+          "set_by",
+          "lifted_at",
+          "lifted_by"
         ]
       },
       "RateLimitErrorEnvelope": {
@@ -7717,6 +7803,842 @@
             }
           },
           "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web/admin/lockdowns": {
+      "post": {
+        "operationId": "web.admin.lockdown.set",
+        "summary": "Set a platform lockdown on a workspace or artifact (operator only).",
+        "security": [
+          {
+            "WorkOsBearer": []
+          },
+          {
+            "CfAccessServiceToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLockdownRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success (201)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockdownDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web/admin/lockdowns/{scope}/{target_id}": {
+      "delete": {
+        "operationId": "web.admin.lockdown.lift",
+        "summary": "Lift a platform lockdown on a workspace or artifact (operator only).",
+        "security": [
+          {
+            "WorkOsBearer": []
+          },
+          {
+            "CfAccessServiceToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "artifact"
+              ]
+            },
+            "required": true,
+            "name": "scope",
+            "in": "path",
+            "description": "Lockdown scope: workspace or artifact."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "target_id",
+            "in": "path",
+            "description": "Locked-down workspace or artifact id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockdownDetail"
+                }
+              }
+            }
+          },
+          "400": {
             "description": "Error envelope",
             "content": {
               "application/json": {

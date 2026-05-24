@@ -4,6 +4,7 @@ import {
   artifactFileQueries,
   artifactQueries,
   operationEventQueries,
+  platformLockdownQueries,
   uploadSessionFileQueries,
   uploadSessionQueries,
   workspaceMemberQueries,
@@ -107,6 +108,11 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       insert: (sessionId, file) => uploadSessionFileQueries.insert(drizzle, sessionId, file),
       listForSession: (sessionId) => uploadSessionFileQueries.listForSession(drizzle, sessionId),
       recordUpload: (input) => uploadSessionFileQueries.recordUpload(drizzle, input),
+    },
+    platformLockdowns: {
+      findEffective: (scope, targetId) => platformLockdownQueries.findEffective(drizzle, scope, targetId),
+      insert: (lockdown) => platformLockdownQueries.insert(drizzle, lockdown),
+      markLifted: (id, input) => platformLockdownQueries.markLifted(drizzle, id, input),
     },
     operationEvents: {
       insert: (input) => operationEventQueries.insert(drizzle, input),
