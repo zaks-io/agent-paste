@@ -5,7 +5,7 @@ backend-agnostic core in `packages/db/src/repository/`. Owner: Isaac. Snapshot d
 
 Scope clarification: this file tracks cleanup that was deliberately deferred so the
 unification PR stayed behavior-preserving except for the three reconciliations recorded in
-[ADR 0069](../adr/0069-repository-core-ports-and-adapters.md). It does not re-litigate that
+[ADR 0070](../adr/0070-repository-core-ports-and-adapters.md). It does not re-litigate that
 design.
 
 ## Local idempotency is a resolved-value cache, not in-flight serialization
