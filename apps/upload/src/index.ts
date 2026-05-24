@@ -7,9 +7,14 @@ import {
   type RequestIdVariables,
   requestIdMiddleware,
 } from "@agent-paste/auth";
-import { IdempotencyInFlightError, peekIdempotentReplay } from "@agent-paste/commands";
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildUploadOpenApiDocument } from "@agent-paste/contracts";
-import { createHyperdriveExecutor, createPostgresServices, type HyperdriveBinding } from "@agent-paste/db";
+import {
+  createHyperdriveExecutor,
+  createPostgresServices,
+  type HyperdriveBinding,
+  type Repository,
+} from "@agent-paste/db";
 import { type Context, Hono } from "hono";
 
 export type UploadActor = {
@@ -36,35 +41,6 @@ export type UploadSessionRecord = {
   files: Array<UploadFileInput & { object_key?: string; put_url?: string; expires_at?: string }>;
 };
 
-export type UploadDatabase = {
-  createUploadSession(input: {
-    actor: UploadActor;
-    idempotencyKey: string;
-    request: { title?: string; ttl_seconds?: number; entrypoint?: string; files: UploadFileInput[] };
-    now: string;
-  }): Promise<UploadSessionRecord>;
-  recordUploadedFile?(input: {
-    sessionId: string;
-    path: string;
-    objectKey: string;
-    sizeBytes: number;
-    uploadedAt: string;
-  }): Promise<void>;
-  getUploadSession(input: { actor: UploadActor; sessionId: string }): Promise<UploadSessionRecord | null>;
-  finalizeUploadSession(input: {
-    actor: UploadActor;
-    idempotencyKey: string;
-    sessionId: string;
-    observedFiles: Array<{ path: string; objectKey: string; sizeBytes: number }>;
-    now: string;
-  }): Promise<unknown>;
-  peekIdempotentReplay?(input: {
-    actor: UploadActor;
-    operation: string;
-    idempotencyKey: string;
-  }): Promise<{ result: unknown } | null>;
-};
-
 export type R2Object = {
   size: number;
 };
@@ -84,7 +60,7 @@ export type RateLimitBinding = {
 
 export type Env = {
   AUTH?: AuthService;
-  DB?: UploadDatabase | HyperdriveBinding;
+  DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   API_KEY_PEPPER_V1?: string;
   API_KEY_ENV?: "preview" | "production" | "live";
@@ -175,7 +151,7 @@ async function createUploadSession(context: AppContext): Promise<Response> {
     return errorResponse(context, "database_unavailable", 503);
   }
 
-  const replay = await peekUploadReplay<UploadSessionRecord>(db, env, actor, "upload.session.create", idempotencyKey);
+  const replay = await peekUploadReplay<UploadSessionRecord>(db, actor, "upload.session.create", idempotencyKey);
   if (replay) {
     return jsonResponse(context, await buildCreateSessionResponse(request, env, replay));
   }
@@ -274,7 +250,7 @@ async function putUploadFile(context: AppContext, sessionId: string, path: strin
     httpMetadata: { contentType: request.headers.get("content-type") ?? "application/octet-stream" },
   });
 
-  await uploadDatabase(env)?.recordUploadedFile?.({
+  await uploadDatabase(env)?.recordUploadedFile({
     sessionId,
     path,
     objectKey: payload.key,
@@ -303,7 +279,7 @@ async function finalizeUploadSession(context: AppContext, sessionId: string): Pr
     return errorResponse(context, "database_unavailable", 503);
   }
 
-  const replay = await peekUploadReplay<unknown>(db, env, actor, "upload.session.finalize", idempotencyKey);
+  const replay = await peekUploadReplay<unknown>(db, actor, "upload.session.finalize", idempotencyKey);
   if (replay) {
     return jsonResponse(context, await signPublishContentUrl(replay, env));
   }
@@ -375,7 +351,7 @@ async function authenticateApiKey(request: Request, env: Env): Promise<UploadAct
   });
 }
 
-function uploadDatabase(env: Env): UploadDatabase | undefined {
+function uploadDatabase(env: Env): Repository | undefined {
   if (isUploadDatabase(env.DB)) {
     return env.DB;
   }
@@ -383,29 +359,16 @@ function uploadDatabase(env: Env): UploadDatabase | undefined {
 }
 
 async function peekUploadReplay<T>(
-  db: UploadDatabase,
-  env: Env,
+  db: Repository,
   actor: UploadActor,
   operation: string,
   idempotencyKey: string,
 ): Promise<T | null> {
-  if (db.peekIdempotentReplay) {
-    const hit = await db.peekIdempotentReplay({ actor, operation, idempotencyKey });
-    return hit ? (hit.result as T) : null;
-  }
-  if (!isHyperdriveBinding(env.DB) || !actor.workspace_id) {
-    return null;
-  }
-  const hit = await peekIdempotentReplay<T>({
-    executor: createHyperdriveExecutor(env.DB),
-    actor: { type: actor.type, id: actor.id, workspaceId: actor.workspace_id },
-    operation,
-    idempotencyKey,
-  });
-  return hit ? hit.result : null;
+  const hit = await db.peekIdempotentReplay({ actor, operation, idempotencyKey });
+  return hit ? (hit.result as T) : null;
 }
 
-function postgresRuntime(env: Env): { auth: AuthService; db: UploadDatabase } | undefined {
+function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
   if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
     return undefined;
   }
@@ -424,7 +387,7 @@ function postgresRuntime(env: Env): { auth: AuthService; db: UploadDatabase } | 
   return { auth: services.auth, db: services.uploadDb };
 }
 
-function isUploadDatabase(value: Env["DB"]): value is UploadDatabase {
+function isUploadDatabase(value: Env["DB"]): value is Repository {
   return typeof value === "object" && value !== null && "createUploadSession" in value;
 }
 

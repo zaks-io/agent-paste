@@ -129,6 +129,10 @@ class MemoryDb {
 
   async recordUploadedFile() {}
 
+  async peekIdempotentReplay() {
+    return null;
+  }
+
   async getUploadSession() {
     return this.session ? { ...this.session, session_id: this.session.upload_session_id } : null;
   }

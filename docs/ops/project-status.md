@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23 (first dashboard read API tranche implemented after WorkOS callback; ADR 0057 denylist key drift reconciled for the CLI-first MVP; ADR 0045 rotation groundwork runbook added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; workspace member DB foundation and web Worker secret bootstrap follow-ups completed; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-23 (repository adapters unified behind a backend-agnostic `RepositoryCore` and a single exported `Repository` interface per ADR 0070; first dashboard read API tranche implemented after WorkOS callback; ADR 0057 denylist key drift reconciled for the CLI-first MVP; ADR 0045 rotation groundwork runbook added; web auth swapped from Auth0 to WorkOS AuthKit per ADR 0068; workspace member DB foundation and web Worker secret bootstrap follow-ups completed; Logpush and production deploy-gate work parked for later).
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
@@ -96,7 +96,7 @@ Status legend: **Done** = code matches spec; **Partial** = main flow works, gaps
 
 ## ADR Coverage
 
-All 69 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001` through `0068` file has a row here; ADR 0069 (Live Updates) was added 2026-05-23 and is recorded below; rows 0029/0030 were corrected to match the ADR filenames. Status legend: **Done**, **Partial**, **Drift** (code differs from ADR by intent), **Deferred** (post-MVP per ADR 0066 or phases.md), **Superseded**.
+All 70 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001` through `0068` file has a row here; ADR 0069 (Live Updates) and ADR 0070 (repository core) were added 2026-05-23 and are recorded below; rows 0029/0030 were corrected to match the ADR filenames. Status legend: **Done**, **Partial**, **Drift** (code differs from ADR by intent), **Deferred** (post-MVP per ADR 0066 or phases.md), **Superseded**.
 
 | ADR                                       | Status       | Gap                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ----------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -169,6 +169,7 @@ All 69 ADRs in numeric order. Audit on 2026-05-23 confirmed every `docs/adr/0001
 | 0067 interim production security baseline | Done         | Records live-before-app-service controls and follow-ups.                                                                                                                                                                                                                                                                                                                                                                            |
 | 0068 WorkOS AuthKit for web app auth      | Partial      | `apps/web` swapped to `@workos/authkit-tanstack-react-start`; arctic + bespoke `session.ts` removed. `apps/api` now verifies WorkOS access tokens with JWKS + `client_id` and provisions Workspace Members. WorkOS project click-ops + secret bootstrap still pending -- see [`web-app-todo.md`](./web-app-todo.md).                                                                                                                |
 | 0069 live updates via stream Worker       | Deferred     | Phase 3/4+. Dedicated `stream` Worker + per-Artifact Durable Object fan out Published Revision pointers to open Private Link / Share Link viewers over SSE; `api` notifies on Publish. Depends on multi-revision artifacts + latest-moving Share Links. See [`live-updates-todo.md`](./live-updates-todo.md).                                                                                                                       |
+| 0070 repository core ports and adapters   | Done         | `packages/db/src/repository/` holds one backend-agnostic `RepositoryCore` plus `Entities`/`UnitOfWork` ports and Postgres/local adapters; `PostgresRepository` and `LocalRepository` are thin subclasses. `apps/api` and `apps/upload` import the single exported `Repository` interface. Local in-flight idempotency faithfulness and a possible `core.ts` split are tracked in [`repository-todo.md`](./repository-todo.md).      |
 
 Superseded ADRs: 0002 for `apps/web` (by 0068), 0031 (by 0028), part of 0015 (by 0047 for Access Links).
 
@@ -201,6 +202,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 - Production deploy-gate policy, wait timers, and Bitwarden recordkeeping remain in [`docs/ops/bootstrap-hosting-checklist.md`](./bootstrap-hosting-checklist.md) but are not active backlog items.
 
 ## Recently Completed
+
+### Unify repository adapters behind a backend-agnostic core
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0070 (new); ADR 0022, ADR 0035, ADR 0044 (preserved).
+- Files: `packages/db/src/repository/{core,interface,ports,shared,web-transforms,postgres-entities,postgres-unit-of-work,local-entities,local-state,local-unit-of-work}.ts` (new), `packages/db/src/{index,index.test,local-repository}.ts`, `packages/db/src/postgres/repository.ts`, `apps/api/src/index.ts`, `apps/upload/src/index.ts`, `apps/api/src/local-mvp.test.ts`, `apps/upload/src/{index,error-envelope}.test.ts`, `docs/adr/0070-repository-core-ports-and-adapters.md`, `docs/adr/README.md`, `docs/ops/repository-todo.md`.
+- Done: `PostgresRepository` and `LocalRepository` no longer re-implement the same ~26 methods. All domain orchestration lives in one `RepositoryCore` that `implements Repository`; each backend supplies only an `Entities` accessor and a `UnitOfWork` runner (`read`/`command`/`peekReplay`) behind the ports in `ports.ts`. `apps/api` and `apps/upload` import the single exported `Repository` interface and drop their local `ApiDatabase`/`UploadDatabase` types, `Required<Pick<…>>` and `db as …` casts, defensive `unknown` re-parsing, and per-method 503 guards (the single `if (!db) return 503` stays). Three reconciliations are the only behavior changes: one `recordUploadedFile` shape (Postgres superset; local ignores `objectKey`/`sizeBytes`), one core cursor type `{ createdAt: Date; id }` with the wire format unchanged, and `peekIdempotentReplay` on `Repository` with `apps/upload` switched off the direct `@agent-paste/commands` peek + `createHyperdriveExecutor` fallback (`apps/api` gains no peek). `packages/commands` and `packages/db/src/postgres/executor.ts` were untouched. `pnpm verify` green across 62 Turbo tasks. Deferred follow-ups (faithful local in-flight idempotency, possible `core.ts` split) are tracked in [`repository-todo.md`](./repository-todo.md).
 
 ### Implement first dashboard read API tranche
 

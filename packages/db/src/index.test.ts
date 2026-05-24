@@ -202,12 +202,15 @@ describe("LocalRepository", () => {
     await publishLocalArtifact(repo, apiActor, "second", "2026-01-01T00:00:02.000Z");
     await publishLocalArtifact(repo, apiActor, "third", "2026-01-01T00:00:03.000Z");
 
-    const firstPage = repo.listWebArtifacts(webActor, { limit: 2 });
+    const firstPage = await repo.listWebArtifacts(webActor, { limit: 2 });
     expect(firstPage.items.map((item) => item.title)).toEqual(["third", "second"]);
     expect(firstPage.page_info.has_more).toBe(true);
     expect(firstPage.page_info.next_cursor).toEqual(expect.any(String));
 
-    const secondPage = repo.listWebArtifacts(webActor, { limit: 2, cursor: firstPage.page_info.next_cursor ?? "" });
+    const secondPage = await repo.listWebArtifacts(webActor, {
+      limit: 2,
+      cursor: firstPage.page_info.next_cursor ?? "",
+    });
     expect(secondPage.items.map((item) => item.title)).toEqual(["first"]);
     expect(secondPage.page_info).toEqual({ next_cursor: null, has_more: false });
   });
@@ -241,19 +244,19 @@ describe("LocalRepository", () => {
     }
 
     const nonCanonicalCursor = webArtifactCursor({ created_at: "2026-01-01T00:00:02Z", id: secondArtifact.id });
-    expect(repo.listWebArtifacts(webActor, { cursor: nonCanonicalCursor }).items.map((item) => item.title)).toEqual([
-      "first",
-    ]);
+    expect(
+      (await repo.listWebArtifacts(webActor, { cursor: nonCanonicalCursor })).items.map((item) => item.title),
+    ).toEqual(["first"]);
 
     const invalidDateCursor = webArtifactCursor({ created_at: "not-a-date", id: secondArtifact.id });
-    expect(() => repo.listWebArtifacts(webActor, { cursor: invalidDateCursor })).toThrow("invalid_cursor");
+    await expect(repo.listWebArtifacts(webActor, { cursor: invalidDateCursor })).rejects.toThrow("invalid_cursor");
   });
 
-  it("rejects invalid web artifact pagination limits", () => {
+  it("rejects invalid web artifact pagination limits", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
 
-    expect(() => repo.listWebArtifacts(memberActor, { limit: 0 })).toThrow("invalid_pagination_limit");
-    expect(() => repo.listWebArtifacts(memberActor, { limit: 101 })).toThrow("invalid_pagination_limit");
+    await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
+    await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
 
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
@@ -341,7 +344,7 @@ describe("LocalRepository", () => {
     });
 
     expect(result).toMatchObject({ title: "demo", artifact_id: session.artifact_id });
-    expect(repo.getArtifactDetail(session.artifact_id)).toMatchObject({
+    expect(await repo.getArtifactDetail(session.artifact_id)).toMatchObject({
       title: "demo",
       files: [{ path: "index.html" }],
     });
