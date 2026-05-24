@@ -1,7 +1,13 @@
 import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
-import { DEFAULT_UPLOAD_SESSION_TTL_MS, USAGE_POLICY } from "../policy.js";
+import {
+  DEFAULT_AUTO_DELETION_DAYS,
+  DEFAULT_UPLOAD_SESSION_TTL_MS,
+  MAX_AUTO_DELETION_DAYS,
+  MIN_AUTO_DELETION_DAYS,
+  USAGE_POLICY,
+} from "../policy.js";
 import {
   toApiKeySummary,
   toArtifactSummary,
@@ -63,6 +69,14 @@ function nowIso(value?: Date): string {
   return (value ?? new Date()).toISOString();
 }
 
+function toWebSettings(workspace: Workspace) {
+  return {
+    workspace_name: workspace.name,
+    auto_deletion_days: workspace.auto_deletion_days,
+    usage_policy: { artifacts_per_day: 0, bytes_per_day: USAGE_POLICY.artifact_size_cap_bytes },
+  };
+}
+
 // Backend-agnostic domain orchestration. Every method delegates storage to the
 // scope-bound Entities accessor and durability to the UnitOfWork. The Postgres and
 // local adapters supply those ports; this class holds the one copy of the logic.
@@ -84,6 +98,7 @@ export class RepositoryCore implements Repository {
       id: crypto.randomUUID(),
       name: input.name ?? input.email.split("@")[0] ?? "workspace",
       contact_email: input.email,
+      auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
       created_at: now,
       updated_at: now,
     };
@@ -248,6 +263,7 @@ export class RepositoryCore implements Repository {
       id: crypto.randomUUID(),
       name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
       contact_email: input.email,
+      auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
       created_at: now,
       updated_at: now,
     };
@@ -462,12 +478,55 @@ export class RepositoryCore implements Repository {
   async getWebSettings(actor: ApiActor) {
     return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
       const workspace = await this.mustWorkspace(entities, actor.workspace_id);
-      return {
-        workspace_name: workspace.name,
-        auto_deletion_days: Math.floor(USAGE_POLICY.default_ttl_seconds / (24 * 60 * 60)),
-        usage_policy: { artifacts_per_day: 0, bytes_per_day: USAGE_POLICY.artifact_size_cap_bytes },
-      };
+      return toWebSettings(workspace);
     });
+  }
+
+  async updateWebSettings(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    workspaceName: string;
+    autoDeletionDays: number;
+    now?: Date;
+  }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    // Fail closed in the core: the local adapter has no DB CHECK constraint, so a
+    // direct repository call must not persist a value Postgres would reject.
+    if (input.autoDeletionDays < MIN_AUTO_DELETION_DAYS || input.autoDeletionDays > MAX_AUTO_DELETION_DAYS) {
+      throw new Error("invalid_auto_deletion_days");
+    }
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: memberCommandActor(input.actor),
+        operation: "web.settings.update",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const member = await this.mustMember(entities, input.actor.id);
+        await entities.workspaces.update(member.workspace_id, {
+          name: input.workspaceName,
+          autoDeletionDays: input.autoDeletionDays,
+          updatedAt: now,
+        });
+        await entities.operationEvents.insert({
+          actorType: "member",
+          actorId: member.id,
+          action: "workspace.settings.updated",
+          targetType: "workspace",
+          targetId: member.workspace_id,
+          workspaceId: member.workspace_id,
+          details: { workspace_name: input.workspaceName, auto_deletion_days: input.autoDeletionDays },
+          occurredAt: now,
+        });
+        const workspace = await this.mustWorkspace(entities, member.workspace_id);
+        return toWebSettings(workspace);
+      },
+    );
   }
 
   async createUploadSession(input: {

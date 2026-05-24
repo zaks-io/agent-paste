@@ -24,6 +24,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       insert: (workspace) => workspaceQueries.insert(drizzle, workspace),
       findById: (id) => workspaceQueries.findById(drizzle, id),
       listAll: () => workspaceQueries.listAll(drizzle),
+      update: (id, input) => workspaceQueries.update(drizzle, id, input),
     },
     apiKeys: {
       insert: (apiKey) => apiKeyQueries.insert(drizzle, apiKey),

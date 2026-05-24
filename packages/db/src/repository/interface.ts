@@ -61,6 +61,12 @@ type WebArtifactDetail = WebArtifactRow & { entrypoint: string; file_count: numb
 
 type WebApiKeyRow = ApiKeySummary & { expires_at: null; revoked: boolean };
 
+type WebSettings = {
+  workspace_name: string;
+  auto_deletion_days: number;
+  usage_policy: { artifacts_per_day: number; bytes_per_day: number };
+};
+
 type ArtifactSummary = ReturnType<typeof toArtifactSummary>;
 
 type ArtifactDetail = ArtifactSummary & {
@@ -135,11 +141,14 @@ export type Repository = {
     actor: ApiActor,
     pagination?: { cursor?: string; limit?: number },
   ): Promise<{ items: WebAuditRow[]; page_info: PageInfo }>;
-  getWebSettings(actor: ApiActor): Promise<{
-    workspace_name: string;
-    auto_deletion_days: number;
-    usage_policy: { artifacts_per_day: number; bytes_per_day: number };
-  }>;
+  getWebSettings(actor: ApiActor): Promise<WebSettings>;
+  updateWebSettings(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    workspaceName: string;
+    autoDeletionDays: number;
+    now?: Date;
+  }): Promise<WebSettings>;
   createUploadSession(input: {
     actor: ApiActor;
     idempotencyKey: string;

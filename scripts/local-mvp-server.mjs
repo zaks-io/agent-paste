@@ -323,6 +323,7 @@ async function seedProofArtifacts(repo, bucket) {
     id: "local-proof-workspace",
     name: "Local Proof",
     contact_email: "local-proof@example.test",
+    auto_deletion_days: 30,
     created_at: now,
     updated_at: now,
   };

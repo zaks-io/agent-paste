@@ -15,13 +15,18 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const workspaces = pgTable("workspaces", {
-  id: uuid("id").primaryKey(),
-  name: text("name").notNull(),
-  contactEmail: text("contact_email"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
-});
+export const workspaces = pgTable(
+  "workspaces",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    contactEmail: text("contact_email"),
+    autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`)],
+);
 
 export const workspaceMembers = pgTable(
   "workspace_members",

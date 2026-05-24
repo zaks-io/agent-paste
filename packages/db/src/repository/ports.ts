@@ -31,6 +31,7 @@ export type Entities = {
     insert(workspace: Workspace): Promise<void>;
     findById(id: string): Promise<Workspace | null>;
     listAll(): Promise<Workspace[]>;
+    update(id: string, input: { name: string; autoDeletionDays: number; updatedAt: string }): Promise<void>;
   };
   apiKeys: {
     insert(apiKey: ApiKey): Promise<void>;

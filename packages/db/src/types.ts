@@ -36,6 +36,7 @@ export type Workspace = {
   id: string;
   name: string;
   contact_email: string | null;
+  auto_deletion_days: number;
   created_at: string;
   updated_at: string;
 };

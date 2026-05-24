@@ -2,7 +2,7 @@ import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
-export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT" | "HEAD";
+export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
 export type AuthRequirement =
   | "none"
   | "api_key"
@@ -218,6 +218,19 @@ export const routeContracts = [
     rateLimit: "actor",
     responseSchema: "WebSettingsResponse",
     errors: webReadErrors,
+  },
+  {
+    id: "web.settings.update",
+    app: "api",
+    method: "PATCH",
+    path: "/v1/web/settings",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "UpdateWebSettingsRequest",
+    responseSchema: "WebSettingsResponse",
+    errors: webIdempotentMutationErrors,
   },
   {
     id: "uploadSessions.create",
