@@ -5,6 +5,7 @@ import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Sidebar } from "../components/chrome/Sidebar";
 import { Topbar } from "../components/chrome/Topbar";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { ToastProvider } from "../components/ui/ToastProvider";
 import { apiFetchOrEmpty } from "../server/api-client";
 import { isOperator } from "../server/env";
 import { getWebEnv } from "../server/runtime";
@@ -38,35 +39,28 @@ export const Route = createFileRoute("/_authed")({
 
 function AuthedLayout() {
   const { user, isOperator, apiSession } = Route.useLoaderData();
-  const defaultApiKey = apiSession.data?.default_api_key;
   return (
-    <div className="min-h-screen flex flex-col">
-      <Topbar user={user} />
-      <div className="flex flex-1 min-h-0">
-        <Sidebar isOperator={isOperator} />
-        <main className="flex-1 min-w-0 overflow-x-auto">
-          <div className="mx-auto w-full max-w-[1040px] px-6 py-10">
-            {apiSession.error ? (
-              <div className="mb-6">
-                <ErrorBanner
-                  title="Couldn't provision workspace"
-                  message={apiSession.error.message}
-                  requestId={apiSession.error.requestId}
-                />
-              </div>
-            ) : null}
-            {defaultApiKey ? (
-              <div className="mb-6 rounded border border-[hsl(var(--rule))] bg-[hsl(var(--panel))] p-4">
-                <p className="text-[14px] font-semibold">Default API key created</p>
-                <code className="mt-3 block overflow-x-auto rounded bg-[hsl(var(--surface))] px-3 py-2 text-[12px]">
-                  {defaultApiKey.secret}
-                </code>
-              </div>
-            ) : null}
-            <Outlet />
-          </div>
-        </main>
+    <ToastProvider>
+      <div className="min-h-screen flex flex-col">
+        <Topbar user={user} />
+        <div className="flex flex-1 min-h-0">
+          <Sidebar isOperator={isOperator} />
+          <main className="flex-1 min-w-0 overflow-x-auto">
+            <div className="mx-auto w-full max-w-[1040px] px-6 py-10">
+              {apiSession.error ? (
+                <div className="mb-6">
+                  <ErrorBanner
+                    title="Couldn't provision workspace"
+                    message={apiSession.error.message}
+                    requestId={apiSession.error.requestId}
+                  />
+                </div>
+              ) : null}
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

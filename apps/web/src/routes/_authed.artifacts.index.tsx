@@ -1,5 +1,5 @@
 import type { WebArtifactListResponse } from "@agent-paste/contracts";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Badge } from "../components/ui/Badge";
@@ -8,6 +8,7 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
+import { artifactStatusTone } from "../lib/artifact-status";
 import { formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -57,12 +58,20 @@ function ArtifactsListPage() {
           <TBody>
             {rows.map((row) => (
               <TR key={row.id}>
-                <TD className="font-medium">{row.title ?? "Untitled"}</TD>
+                <TD className="font-medium">
+                  <Link
+                    to="/artifacts/$artifactId"
+                    params={{ artifactId: row.id }}
+                    className="hover:text-[hsl(var(--accent))]"
+                  >
+                    {row.title || "Untitled"}
+                  </Link>
+                </TD>
                 <TD>
                   <Identifier value={row.id} />
                 </TD>
                 <TD>
-                  <Badge tone={row.status === "Published" ? "success" : "neutral"}>{row.status}</Badge>
+                  <Badge tone={artifactStatusTone(row.status)}>{row.status}</Badge>
                 </TD>
                 <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
                   {row.last_published_at ? (
@@ -71,7 +80,9 @@ function ArtifactsListPage() {
                     "—"
                   )}
                 </TD>
-                <TD className="text-right text-[hsl(var(--muted))]">⋯</TD>
+                <TD className="text-right text-[hsl(var(--muted))]">
+                  {row.pinned ? <Badge tone="accent">Pinned</Badge> : null}
+                </TD>
               </TR>
             ))}
           </TBody>

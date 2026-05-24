@@ -19,17 +19,30 @@ const listAuditFn = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/_authed/audit")({
+  validateSearch: (search: Record<string, unknown>): { request_id?: string } => {
+    const requestId = search.request_id;
+    return typeof requestId === "string" && requestId.length > 0 ? { request_id: requestId } : {};
+  },
   loader: () => listAuditFn(),
   component: AuditPage,
 });
 
 function AuditPage() {
   const result = Route.useLoaderData();
+  const { request_id: highlightedRequestId } = Route.useSearch();
   const rows: WebAuditListResponse["items"] = result.data?.items ?? [];
+
+  const highlightMatched = highlightedRequestId ? rows.some((row) => row.request_id === highlightedRequestId) : true;
 
   return (
     <>
       <PageHeader title="Audit Log" description="Every meaningful action in this workspace." />
+      {highlightedRequestId && !highlightMatched ? (
+        <p className="mb-4 text-[13px] text-[hsl(var(--muted))]">
+          No recent event matches request_id <span className="font-mono">{highlightedRequestId}</span>. It may be older
+          than the latest page.
+        </p>
+      ) : null}
       {result.error ? (
         <ErrorBanner
           title="Couldn't load audit log"
@@ -51,7 +64,12 @@ function AuditPage() {
           </THead>
           <TBody>
             {rows.map((row) => (
-              <TR key={row.id}>
+              <TR
+                key={row.id}
+                aria-current={highlightedRequestId === row.request_id ? "true" : undefined}
+                data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
+                className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
+              >
                 <TD className="font-mono text-[12px] text-[hsl(var(--muted))]" title={row.time}>
                   {formatRelativeTime(row.time)}
                 </TD>

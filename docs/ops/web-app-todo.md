@@ -57,9 +57,12 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 
 ## `web` follow-up wiring (lands after each `api` endpoint)
 
-- [ ] Replace each route's `apiFetchOrEmpty(404|501) → EmptyState` fallback with the real loader call.
-- [ ] First-run key card: render when `GET /v1/web/workspace` returns `default_key_first_run = true`; secret stays in component state only.
-- [ ] Toasts surface `api` error envelopes: code + message + a link to `/audit?request_id=…`.
+- [x] Replace each route's `apiFetchOrEmpty(404|501) → EmptyState` fallback with the real loader call.
+  - Done in `agents/web-loader-wiring`: dashboard now loads `GET /v1/web/workspace` + recent artifacts + recent audit in parallel; artifact detail surfaces entrypoint/file count/size; artifacts index and audit rows link through. Keys create/revoke and settings save are wired through `createServerFn` -> `apiFetch` with a generated `Idempotency-Key`. Access Links and the operator lockdown list stay `EmptyState` (endpoints deferred, Phase 4 / not built).
+- [x] First-run key card: render when `GET /v1/web/workspace` returns `default_key_first_run = true`; secret stays in component state only.
+  - Done: the dashboard renders `FirstRunKeyCard` gated on `default_key_first_run`; the one-time secret is the `default_api_key.secret` from the `_authed` callback loader (the only place it is returned) and is held in component state, revealed on click. The provisioning callback secret is no longer surfaced in the `_authed` layout banner.
+- [x] Toasts surface `api` error envelopes: code + message + a link to `/audit?request_id=…`.
+  - Done: `ToastProvider`/`useToast` (mounted in `_authed`) plus an `errorToast(title, ApiErrorInfo)` helper; mutation failures push a toast carrying the error `code`, `message`, and a link to `/audit?request_id=<requestId>`. The audit route reads the `request_id` search param and highlights the matching row.
 
 ## Access Link viewer
 
