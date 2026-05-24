@@ -46,13 +46,36 @@ describe("MVP route registry", () => {
 
   it("documents artifact-level content read throttling", () => {
     const contentGet = routeContracts.find((route) => route.id === "content.get");
-    const contentOpenApi = JSON.stringify(buildContentOpenApiDocument());
+    const contentOpenApi = buildContentOpenApiDocument() as {
+      paths?: Record<
+        string,
+        {
+          get?: {
+            responses?: Record<
+              string,
+              {
+                headers?: Record<string, unknown>;
+                content?: Record<string, { schema?: { $ref?: string } }>;
+              }
+            >;
+          };
+        }
+      >;
+      components?: { schemas?: Record<string, unknown> };
+    };
+    const rateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["429"];
 
     expect(ErrorCode.options).toContain("rate_limited_artifact");
+    expect(contentGet).toBeDefined();
     expect(contentGet?.errors).toContain("rate_limited_artifact");
-    expect(contentOpenApi).toContain('"429"');
-    expect(contentOpenApi).toContain("Retry-After");
-    expect(contentOpenApi).toContain("rate_limited_artifact");
+    expect(rateLimitResponse).toBeDefined();
+    expect(rateLimitResponse?.headers).toHaveProperty("Retry-After");
+    expect(rateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ArtifactRateLimitErrorEnvelope",
+    );
+    expect(contentOpenApi.components?.schemas?.ArtifactRateLimitErrorEnvelope).toMatchObject({
+      properties: { error: { properties: { code: { enum: ["rate_limited_artifact"] } } } },
+    });
   });
 });
 

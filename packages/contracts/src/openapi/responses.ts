@@ -56,8 +56,7 @@ export const errorResponse: ResponseConfig = {
 };
 
 export const rateLimitResponse: ResponseConfig = {
-  description:
-    "Rate limit exceeded. Error codes include rate_limited_actor, rate_limited_artifact, and rate_limited_workspace.",
+  description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
   headers: retryAfterHeaders,
   content: rateLimitContent,
 };
