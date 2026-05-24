@@ -119,7 +119,22 @@ export type Repository = {
   ): Promise<{ items: WebArtifactRow[]; page_info: PageInfo }>;
   getWebArtifact(actor: ApiActor, artifactId: string): Promise<WebArtifactDetail | null>;
   listWebApiKeys(actor: ApiActor): Promise<{ items: WebApiKeyRow[]; page_info: PageInfo }>;
-  listWebAuditEvents(actor: ApiActor): Promise<{ items: WebAuditRow[]; page_info: PageInfo }>;
+  createWebApiKey(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    name: string;
+    now?: Date;
+  }): Promise<{ api_key: ApiKeySummary; secret: string }>;
+  revokeWebApiKey(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    apiKeyId: string;
+    now?: Date;
+  }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
+  listWebAuditEvents(
+    actor: ApiActor,
+    pagination?: { cursor?: string; limit?: number },
+  ): Promise<{ items: WebAuditRow[]; page_info: PageInfo }>;
   getWebSettings(actor: ApiActor): Promise<{
     workspace_name: string;
     auto_deletion_days: number;

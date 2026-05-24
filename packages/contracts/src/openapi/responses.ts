@@ -21,6 +21,21 @@ const rateLimitContent = {
   "application/json": { schema: RateLimitErrorEnvelope },
 };
 
+const ArtifactRateLimitErrorEnvelope = z
+  .object({
+    error: z.object({
+      code: z.enum(["rate_limited_artifact"]),
+      message: z.string(),
+      docs: z.string().url().optional(),
+      request_id: z.string().min(1).optional(),
+    }),
+  })
+  .openapi("ArtifactRateLimitErrorEnvelope");
+
+const artifactRateLimitContent = {
+  "application/json": { schema: ArtifactRateLimitErrorEnvelope },
+};
+
 const retryAfterHeaders = z
   .object({
     "Retry-After": z.string().openapi({ description: "Seconds to wait before retrying." }),
@@ -41,9 +56,15 @@ export const errorResponse: ResponseConfig = {
 };
 
 export const rateLimitResponse: ResponseConfig = {
-  description: "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+  description: "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
   headers: retryAfterHeaders,
   content: rateLimitContent,
+};
+
+export const artifactRateLimitResponse: ResponseConfig = {
+  description: "Artifact read rate limit exceeded. Error code is rate_limited_artifact.",
+  headers: retryAfterHeaders,
+  content: artifactRateLimitContent,
 };
 
 export const emptyOkResponse: ResponseConfig = {

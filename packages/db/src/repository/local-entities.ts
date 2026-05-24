@@ -8,6 +8,11 @@ function compareArtifactsForWeb(left: Artifact, right: Artifact) {
   return created === 0 ? right.id.localeCompare(left.id) : created;
 }
 
+function compareOperationEventsForWeb(left: OperationEvent, right: OperationEvent) {
+  const occurred = right.occurred_at.localeCompare(left.occurred_at);
+  return occurred === 0 ? right.id.localeCompare(left.id) : occurred;
+}
+
 // Build the grouped Entities accessor over the in-memory Maps. The local backend has
 // no transactions, so reads and writes apply directly; cursor comparison canonicalizes
 // the cursor Date back to an ISO string to match stored created_at values exactly.
@@ -231,6 +236,21 @@ export function localEntities(state: LocalState): Entities {
         return [...state.operationEvents.values()]
           .filter((event) => event.workspace_id === workspaceId)
           .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at));
+      },
+      async listWebPage(input) {
+        const cursorOccurredAt = input.cursor ? input.cursor.occurredAt.toISOString() : null;
+        const cursorId = input.cursor?.id ?? null;
+        return [...state.operationEvents.values()]
+          .filter((event) => event.workspace_id === input.workspaceId)
+          .filter(
+            (event) =>
+              cursorOccurredAt === null ||
+              cursorId === null ||
+              event.occurred_at < cursorOccurredAt ||
+              (event.occurred_at === cursorOccurredAt && event.id < cursorId),
+          )
+          .sort(compareOperationEventsForWeb)
+          .slice(0, input.limit);
       },
       async listIdsForTarget(targetId) {
         return [...state.operationEvents.values()]

@@ -9,7 +9,7 @@ import {
   verifyAdminToken,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { buildApiOpenApiDocument } from "@agent-paste/contracts";
+import { buildApiOpenApiDocument, CreateApiKeyRequest } from "@agent-paste/contracts";
 import {
   type AdminActor,
   type ApiActor,
@@ -122,6 +122,10 @@ app.get("/v1/web/artifacts/:artifactId", (context) =>
   webArtifactDetail(context, { artifactId: context.req.param("artifactId") }),
 );
 app.get("/v1/web/keys", (context) => webApiKeys(context));
+app.post("/v1/web/keys", (context) => webCreateApiKey(context));
+app.post("/v1/web/keys/:apiKeyId/revoke", (context) =>
+  webRevokeApiKey(context, { apiKeyId: context.req.param("apiKeyId") }),
+);
 app.get("/v1/web/audit", (context) => webAudit(context));
 app.get("/v1/web/settings", (context) => webSettings(context));
 app.get("/v1/artifacts/:artifactId/agent-view", (context) =>
@@ -333,10 +337,75 @@ async function webApiKeys(context: AppContext): Promise<Response> {
   return withWebMember(context, ["admin"], async (db, actor) => jsonResponse(context, await db.listWebApiKeys(actor)));
 }
 
+async function webCreateApiKey(context: AppContext): Promise<Response> {
+  return withWebMember(context, ["admin"], async (db, actor) => {
+    const idempotencyKey = context.req.raw.headers.get("idempotency-key");
+    if (!idempotencyKey) {
+      return errorResponse(context, "invalid_idempotency_key", 400);
+    }
+    if (!db.createWebApiKey) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    const createWebApiKey = db.createWebApiKey.bind(db);
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonObject(context.req.raw);
+    } catch {
+      return errorResponse(context, "invalid_request", 400);
+    }
+    const parsed = CreateApiKeyRequest.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(context, "invalid_request", 400);
+    }
+    return runIdempotent(context, () => createWebApiKey({ actor, idempotencyKey, name: parsed.data.name }), 201);
+  });
+}
+
+async function webRevokeApiKey(context: AppContext, params: RouteParams): Promise<Response> {
+  return withWebMember(context, ["admin"], async (db, actor) => {
+    const idempotencyKey = context.req.raw.headers.get("idempotency-key");
+    if (!idempotencyKey) {
+      return errorResponse(context, "invalid_idempotency_key", 400);
+    }
+    if (!db.revokeWebApiKey) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    const revokeWebApiKey = db.revokeWebApiKey.bind(db);
+    try {
+      return await runIdempotent(context, () =>
+        revokeWebApiKey({
+          actor,
+          idempotencyKey,
+          apiKeyId: params.apiKeyId ?? "",
+        }),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "api_key_not_found") {
+        return errorResponse(context, "not_found", 404);
+      }
+      throw error;
+    }
+  });
+}
+
 async function webAudit(context: AppContext): Promise<Response> {
-  return withWebMember(context, ["admin"], async (db, actor) =>
-    jsonResponse(context, await db.listWebAuditEvents(actor)),
-  );
+  return withWebMember(context, ["admin"], async (db, actor) => {
+    const pagination = parsePagination(context.req.raw);
+    if (!pagination.ok) {
+      return errorResponse(context, pagination.code, 400);
+    }
+    if (!db.listWebAuditEvents) {
+      return errorResponse(context, "database_unavailable", 503);
+    }
+    try {
+      return jsonResponse(context, await db.listWebAuditEvents(actor, pagination.value));
+    } catch (error) {
+      if (error instanceof Error && error.message === "invalid_cursor") {
+        return errorResponse(context, "invalid_cursor", 400);
+      }
+      throw error;
+    }
+  });
 }
 
 async function webSettings(context: AppContext): Promise<Response> {
@@ -433,8 +502,9 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
     return errorResponse(context, "database_unavailable", 503);
   }
   const body = await readJsonObject(request);
-  if (typeof body.name !== "string") {
-    return errorResponse(context, "invalid_request", 400, "name is required");
+  const parsed = CreateApiKeyRequest.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(context, "invalid_request", 400);
   }
   return runIdempotent(
     context,
@@ -443,7 +513,7 @@ async function createApiKey(context: AppContext, params: RouteParams): Promise<R
         actor: actor,
         idempotencyKey,
         workspaceId: params.workspaceId ?? "",
-        name: body.name as string,
+        name: parsed.data.name,
       }),
     201,
   );

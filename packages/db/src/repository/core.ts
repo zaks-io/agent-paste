@@ -26,8 +26,11 @@ import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
 import {
   decodeWebArtifactCursor,
+  decodeWebAuditCursor,
   encodeWebArtifactCursor,
+  encodeWebAuditCursor,
   normalizeWebArtifactLimit,
+  normalizeWebAuditLimit,
   toWebArtifactRow,
   toWebAuditRow,
 } from "./web-transforms.js";
@@ -43,6 +46,13 @@ function apiCommandActor(actor: ApiActor): CommandActor {
     throw new Error(`unexpected_actor_type:${actor.type}`);
   }
   return { type: "api_key", id: actor.id, workspaceId: actor.workspace_id };
+}
+
+function memberCommandActor(actor: ApiActor): CommandActor {
+  if (actor.type !== "member") {
+    throw new Error(`unexpected_actor_type:${actor.type}`);
+  }
+  return { type: "member", id: actor.id, workspaceId: actor.workspace_id };
 }
 
 function adminCommandActor(actor: AdminActor, workspaceId: string | null): CommandActor {
@@ -358,10 +368,94 @@ export class RepositoryCore implements Repository {
     });
   }
 
-  async listWebAuditEvents(actor: ApiActor) {
+  async createWebApiKey(input: { actor: ApiActor; idempotencyKey: string; name: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: memberCommandActor(input.actor),
+        operation: "web.api_key.create",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const member = await this.mustMember(entities, input.actor.id);
+        const { apiKey, secret } = await buildApiKey(this.options, {
+          workspaceId: member.workspace_id,
+          name: input.name,
+          now,
+        });
+        await entities.apiKeys.insert(apiKey);
+        await entities.operationEvents.insert({
+          actorType: "member",
+          actorId: member.id,
+          action: "api_key.created",
+          targetType: "api_key",
+          targetId: apiKey.id,
+          workspaceId: member.workspace_id,
+          details: { name: apiKey.name, public_id: apiKey.public_id },
+          occurredAt: now,
+        });
+        return { api_key: toApiKeySummary(apiKey), secret };
+      },
+    );
+  }
+
+  async revokeWebApiKey(input: { actor: ApiActor; idempotencyKey: string; apiKeyId: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const revokedAt = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: memberCommandActor(input.actor),
+        operation: "web.api_key.revoke",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now: revokedAt,
+      },
+      async (entities) => {
+        const member = await this.mustMember(entities, input.actor.id);
+        const apiKey = await entities.apiKeys.findById(input.apiKeyId);
+        if (!apiKey || apiKey.workspace_id !== member.workspace_id) {
+          throw new Error("api_key_not_found");
+        }
+        await entities.apiKeys.updateRevokedAt(input.apiKeyId, revokedAt);
+        await entities.operationEvents.insert({
+          actorType: "member",
+          actorId: member.id,
+          action: "api_key.revoked",
+          targetType: "api_key",
+          targetId: apiKey.id,
+          workspaceId: member.workspace_id,
+          details: { public_id: apiKey.public_id },
+          occurredAt: revokedAt,
+        });
+        return { api_key: toApiKeySummary({ ...apiKey, revoked_at: revokedAt }), revoked_at: revokedAt };
+      },
+    );
+  }
+
+  async listWebAuditEvents(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebAuditLimit(pagination.limit);
     return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
-      const rows = await entities.operationEvents.listForWorkspace(actor.workspace_id);
-      return { items: rows.map(toWebAuditRow), page_info: { next_cursor: null, has_more: false } };
+      const rows = await entities.operationEvents.listWebPage({
+        workspaceId: actor.workspace_id,
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeWebAuditCursor(pagination.cursor) } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toWebAuditRow),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeWebAuditCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
     });
   }
 

@@ -55,6 +55,7 @@
                   "not_authenticated",
                   "not_found",
                   "rate_limited_actor",
+                  "rate_limited_artifact",
                   "rate_limited_workspace",
                   "revision_size_cap_exceeded",
                   "storage_unavailable",
@@ -461,10 +462,6 @@
       "CreateApiKeyRequest": {
         "type": "object",
         "properties": {
-          "workspace_id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -472,7 +469,6 @@
           }
         },
         "required": [
-          "workspace_id",
           "name"
         ]
       },
@@ -1068,6 +1064,7 @@
             "type": "string",
             "enum": [
               "api_key",
+              "member",
               "admin",
               "system"
             ]
@@ -1160,6 +1157,7 @@
                   "type": "string",
                   "enum": [
                     "api_key",
+                    "member",
                     "admin",
                     "system"
                   ]
@@ -2175,6 +2173,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2240,6 +2239,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2305,6 +2305,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2370,6 +2371,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2406,7 +2408,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2455,6 +2457,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2520,6 +2523,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2622,6 +2626,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2687,6 +2692,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2752,6 +2758,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2817,6 +2824,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2853,7 +2861,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2902,6 +2910,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -2967,6 +2976,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3073,6 +3083,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3138,6 +3149,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3203,6 +3215,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3239,7 +3252,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3288,6 +3301,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3353,6 +3367,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3455,6 +3470,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3520,6 +3536,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3585,6 +3602,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3650,6 +3668,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3686,7 +3705,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3735,6 +3754,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3800,6 +3820,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3902,6 +3923,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -3967,6 +3989,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4032,6 +4055,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4097,6 +4121,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4133,7 +4158,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4182,6 +4207,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4247,6 +4273,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4371,6 +4398,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4436,6 +4464,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4501,6 +4530,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4566,6 +4596,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4602,7 +4633,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4651,6 +4682,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4716,6 +4748,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4827,6 +4860,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4892,6 +4926,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -4957,6 +4992,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5022,6 +5058,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5058,7 +5095,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5107,6 +5144,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5172,6 +5210,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5274,6 +5313,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5339,6 +5379,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5404,6 +5445,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5469,6 +5511,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5505,7 +5548,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5554,6 +5597,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5619,6 +5663,954 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "web.apiKeys.create",
+        "summary": "Create an API key for the current Workspace Member.",
+        "security": [
+          {
+            "WorkOsBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success (201)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateApiKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web/keys/{api_key_id}/revoke": {
+      "post": {
+        "operationId": "web.apiKeys.revoke",
+        "summary": "Revoke an API key for the current Workspace Member.",
+        "security": [
+          {
+            "WorkOsBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "api_key_id",
+            "in": "path",
+            "description": "API key id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeApiKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_size_cap_exceeded",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5667,6 +6659,28 @@
           }
         ],
         "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque pagination cursor returned by the previous page."
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of Audit Events to return, up to 100. Defaults to 50."
+          },
           {
             "schema": {
               "type": "string",
@@ -5721,6 +6735,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5786,6 +6801,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5851,6 +6867,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5916,6 +6933,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -5952,7 +6970,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6001,6 +7019,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6066,6 +7085,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6168,6 +7188,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6233,6 +7254,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6298,6 +7320,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6363,6 +7386,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6399,7 +7423,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6448,6 +7472,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6513,6 +7538,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6624,6 +7650,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6689,6 +7716,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6754,6 +7782,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6819,6 +7848,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6855,7 +7885,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6904,6 +7934,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -6969,6 +8000,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7089,6 +8121,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7154,6 +8187,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7219,6 +8253,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7284,6 +8319,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7320,7 +8356,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -7369,6 +8405,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7434,6 +8471,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7536,6 +8574,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7601,6 +8640,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7666,6 +8706,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7731,6 +8772,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7767,7 +8809,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -7816,6 +8858,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7881,6 +8924,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -7957,21 +9001,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "email"
-                ]
+                "$ref": "#/components/schemas/CreateWorkspaceRequest"
               }
             }
           }
@@ -8017,6 +9047,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8082,6 +9113,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8147,6 +9179,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8212,6 +9245,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8248,7 +9282,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -8297,6 +9331,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8362,6 +9397,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8449,22 +9485,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "workspace_id": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
-                  }
-                },
-                "required": [
-                  "workspace_id",
-                  "name"
-                ]
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
               }
             }
           }
@@ -8510,6 +9531,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8575,6 +9597,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8640,6 +9663,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8705,6 +9729,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8741,7 +9766,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -8790,6 +9815,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8855,6 +9881,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -8978,6 +10005,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9043,6 +10071,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9108,6 +10137,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9173,6 +10203,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9209,7 +10240,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -9258,6 +10289,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9323,6 +10355,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9425,6 +10458,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9490,6 +10524,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9555,6 +10590,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9620,6 +10656,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9656,7 +10693,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -9705,6 +10742,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9770,6 +10808,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9881,6 +10920,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -9946,6 +10986,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10011,6 +11052,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10076,6 +11118,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10112,7 +11155,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -10161,6 +11204,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10226,6 +11270,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10347,6 +11392,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10412,6 +11458,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10477,6 +11524,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10542,6 +11590,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10578,7 +11627,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -10627,6 +11676,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10692,6 +11742,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10822,6 +11873,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10887,6 +11939,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -10952,6 +12005,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11017,6 +12071,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11053,7 +12108,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -11102,6 +12157,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11167,6 +12223,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11269,6 +12326,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11334,6 +12392,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11399,6 +12458,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11464,6 +12524,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11500,7 +12561,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -11549,6 +12610,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -11614,6 +12676,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",

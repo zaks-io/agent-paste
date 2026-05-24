@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AgentView, CreateUploadSessionRequest, mvpUsagePolicy, PublishResult, routeContracts } from "./index.js";
+import {
+  AgentView,
+  buildContentOpenApiDocument,
+  CreateUploadSessionRequest,
+  ErrorCode,
+  mvpUsagePolicy,
+  PublishResult,
+  routeContracts,
+} from "./index.js";
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -16,12 +24,15 @@ describe("MVP route registry", () => {
       "web.artifacts.list",
       "web.artifacts.get",
       "web.apiKeys.list",
+      "web.apiKeys.create",
+      "web.apiKeys.revoke",
       "web.audit.list",
       "web.settings.get",
       "uploadSessions.create",
       "uploadSessions.putFile",
       "uploadSessions.finalize",
       "content.get",
+      "content.head",
       "admin.workspaces.create",
       "admin.workspaces.list",
       "admin.apiKeys.create",
@@ -32,6 +43,69 @@ describe("MVP route registry", () => {
       "admin.cleanup.run",
       "admin.operationEvents.list",
     ]);
+  });
+
+  it("documents artifact-level content read throttling", () => {
+    const contentGet = routeContracts.find((route) => route.id === "content.get");
+    const contentHead = routeContracts.find((route) => route.id === "content.head");
+    const contentOpenApi = buildContentOpenApiDocument() as {
+      paths?: Record<
+        string,
+        {
+          get?: {
+            responses?: Record<
+              string,
+              {
+                headers?: Record<string, unknown>;
+                content?: Record<string, { schema?: { $ref?: string } }>;
+              }
+            >;
+          };
+          head?: {
+            responses?: Record<
+              string,
+              {
+                headers?: Record<string, unknown>;
+                content?: Record<string, { schema?: { $ref?: string } }>;
+              }
+            >;
+          };
+        }
+      >;
+      components?: { schemas?: Record<string, unknown> };
+    };
+    const rateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["429"];
+    const notFoundResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.get?.responses?.["404"];
+    const headRateLimitResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.head?.responses?.["429"];
+    const headNotFoundResponse = contentOpenApi.paths?.["/v/{token}/{path}"]?.head?.responses?.["404"];
+
+    expect(ErrorCode.options).toContain("rate_limited_artifact");
+    expect(contentGet).toBeDefined();
+    expect(contentGet?.errors).toContain("rate_limited_artifact");
+    expect(contentHead).toBeDefined();
+    expect(contentHead?.errors).toContain("rate_limited_artifact");
+    expect(rateLimitResponse).toBeDefined();
+    expect(rateLimitResponse?.headers).toHaveProperty("Retry-After");
+    expect(rateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ArtifactRateLimitErrorEnvelope",
+    );
+    expect(contentOpenApi.components?.schemas?.ArtifactRateLimitErrorEnvelope).toMatchObject({
+      properties: { error: { properties: { code: { enum: ["rate_limited_artifact"] } } } },
+    });
+    expect(notFoundResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ContentNotFoundErrorEnvelope",
+    );
+    expect(contentOpenApi.components?.schemas?.ContentNotFoundErrorEnvelope).toMatchObject({
+      properties: { error: { properties: { code: { enum: ["not_found"] } } } },
+    });
+    expect(headRateLimitResponse).toBeDefined();
+    expect(headRateLimitResponse?.headers).toHaveProperty("Retry-After");
+    expect(headRateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ArtifactRateLimitErrorEnvelope",
+    );
+    expect(headNotFoundResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ContentNotFoundErrorEnvelope",
+    );
   });
 });
 

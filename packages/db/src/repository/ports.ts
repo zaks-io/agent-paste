@@ -7,13 +7,13 @@ import type {
   Workspace,
   WorkspaceMember,
 } from "../types.js";
-import type { WebArtifactCursor } from "./web-transforms.js";
+import type { WebArtifactCursor, WebAuditCursor } from "./web-transforms.js";
 
 // Scope a unit of work to a single workspace or to the whole platform. Adapters
 // translate this into RLS config (Postgres) or simple Map filtering (local).
 export type RunScope = { kind: "workspace"; workspaceId: string } | { kind: "platform" };
 
-export type CommandActor = { type: "api_key" | "admin" | "system"; id: string; workspaceId: string | null };
+export type CommandActor = { type: "api_key" | "member" | "admin" | "system"; id: string; workspaceId: string | null };
 
 // Inputs the durable command runner needs to claim, replay, or recover idempotency.
 export type CommandSpec = {
@@ -80,7 +80,7 @@ export type Entities = {
   };
   operationEvents: {
     insert(input: {
-      actorType: "api_key" | "admin" | "system";
+      actorType: "api_key" | "member" | "admin" | "system";
       actorId: string | null;
       action: string;
       targetType: string;
@@ -91,6 +91,7 @@ export type Entities = {
     }): Promise<void>;
     listAll(): Promise<OperationEvent[]>;
     listForWorkspace(workspaceId: string): Promise<OperationEvent[]>;
+    listWebPage(input: { workspaceId: string; limit: number; cursor?: WebAuditCursor }): Promise<OperationEvent[]>;
     listIdsForTarget(targetId: string): Promise<string[]>;
   };
 };

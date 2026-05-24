@@ -27,7 +27,7 @@ export type CleanupResult<T> = {
   retained: T[];
 };
 
-export type ActorType = "api_key" | "admin" | "system";
+export type ActorType = "api_key" | "member" | "admin" | "system";
 
 export type CommandActor = {
   type: ActorType;

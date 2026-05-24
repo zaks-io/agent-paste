@@ -8,6 +8,11 @@ export type WebArtifactCursor = {
   id: string;
 };
 
+export type WebAuditCursor = {
+  occurredAt: Date;
+  id: string;
+};
+
 export function toWebArtifactRow(artifact: Artifact) {
   return {
     id: artifact.id,
@@ -82,6 +87,41 @@ export function decodeWebArtifactCursor(cursor: string): WebArtifactCursor {
 }
 
 export function normalizeWebArtifactLimit(limit: number | undefined): number {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
+}
+
+export function encodeWebAuditCursor(event: OperationEvent): string {
+  return btoa(JSON.stringify({ occurred_at: event.occurred_at, id: event.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+export function decodeWebAuditCursor(cursor: string): WebAuditCursor {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { occurred_at?: unknown; id?: unknown };
+    if (typeof raw.occurred_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const occurredAt = new Date(raw.occurred_at);
+    if (Number.isNaN(occurredAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { occurredAt, id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+export function normalizeWebAuditLimit(limit: number | undefined): number {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw new Error("invalid_pagination_limit");

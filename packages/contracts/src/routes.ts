@@ -2,7 +2,7 @@ import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
-export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT";
+export type HttpMethod = "GET" | "POST" | "DELETE" | "PUT" | "HEAD";
 export type AuthRequirement =
   | "none"
   | "api_key"
@@ -42,6 +42,7 @@ const adminMutationErrors = [
 ] as const;
 const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"] as const;
 const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
+const webIdempotentMutationErrors = [...webMutationErrors, "invalid_idempotency_key", "idempotency_in_flight"] as const;
 const webCallbackErrors = [...webMutationErrors, "idempotency_in_flight"] as const;
 
 export const routeContracts = [
@@ -134,6 +135,29 @@ export const routeContracts = [
     errors: webReadErrors,
   },
   {
+    id: "web.apiKeys.create",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/keys",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    requestSchema: "CreateApiKeyRequest",
+    responseSchema: "CreateApiKeyResponse",
+    errors: webIdempotentMutationErrors,
+  },
+  {
+    id: "web.apiKeys.revoke",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/keys/{api_key_id}/revoke",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    responseSchema: "RevokeApiKeyResponse",
+    errors: [...webIdempotentMutationErrors, "not_found"],
+  },
+  {
     id: "web.audit.list",
     app: "api",
     method: "GET",
@@ -142,7 +166,7 @@ export const routeContracts = [
     scopes: ["admin"],
     idempotency: "none",
     responseSchema: "WebAuditListResponse",
-    errors: webReadErrors,
+    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.settings.get",
@@ -217,7 +241,18 @@ export const routeContracts = [
     scopes: [],
     idempotency: "none",
     responseSchema: "Response",
-    errors: ["not_found"],
+    errors: ["not_found", "rate_limited_artifact"],
+  },
+  {
+    id: "content.head",
+    app: "content",
+    method: "HEAD",
+    path: "/v/{token}/{path}",
+    auth: "signed_content_token",
+    scopes: [],
+    idempotency: "none",
+    responseSchema: "Response",
+    errors: ["not_found", "rate_limited_artifact"],
   },
   {
     id: "admin.workspaces.create",

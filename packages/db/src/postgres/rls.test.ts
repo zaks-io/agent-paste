@@ -176,6 +176,51 @@ describe("postgres RLS runtime enforcement", () => {
     expect(rows.rows.map((row) => row.id)).toEqual(["art-ws1", "art-ws2"]);
   });
 
+  it("accepts member actor operation events and idempotency records", async () => {
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    await ws1.query(
+      `insert into operation_events
+         (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, occurred_at)
+       values ('evt-member-actor', $1, 'member', 'mem-ws1', 'api_key.created', 'api_key', 'key-member', '{}'::jsonb, now())`,
+      [ws1Id],
+    );
+    await ws1.query(
+      `insert into idempotency_records
+         (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
+       values ($1, 'member', 'mem-ws1', 'web.api_key.create', 'idem-member', 'completed', '{}'::jsonb, now(), now())`,
+      [ws1Id],
+    );
+
+    const events = await ws1.query<{ actor_type: string; actor_id: string }>(
+      "select actor_type, actor_id from operation_events where id = 'evt-member-actor'",
+    );
+    const records = await ws1.query<{ actor_type: string; actor_id: string }>(
+      "select actor_type, actor_id from idempotency_records where idempotency_key = 'idem-member'",
+    );
+    expect(events.rows).toEqual([{ actor_type: "member", actor_id: "mem-ws1" }]);
+    expect(records.rows).toEqual([{ actor_type: "member", actor_id: "mem-ws1" }]);
+  });
+
+  it("rejects invalid actor types in operation events and idempotency records", async () => {
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    await expect(
+      ws1.query(
+        `insert into operation_events
+           (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, occurred_at)
+         values ('evt-invalid-actor', $1, 'invalid_actor', 'mem-ws1', 'api_key.created', 'api_key', 'key-invalid', '{}'::jsonb, now())`,
+        [ws1Id],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      ws1.query(
+        `insert into idempotency_records
+           (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
+         values ($1, 'invalid_actor', 'mem-ws1', 'web.api_key.create', 'idem-invalid-actor', 'completed', '{}'::jsonb, now(), now())`,
+        [ws1Id],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
   // The deploy-production migration runner has no journal table; it re-applies
   // every .sql file every run. Bare `create policy` failed here in 2026-05-22's
   // prod deploys. Re-applying the migrations must be a no-op.

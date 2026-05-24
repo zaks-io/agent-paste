@@ -15,7 +15,7 @@
     "lint": "biome lint .",
     "openapi:check": "node ../../scripts/openapi-goldens.mjs",
     "openapi:write": "node ../../scripts/openapi-goldens.mjs --write",
-    "test": "pnpm --dir ../.. exec vitest run packages/contracts/src/mvp-contracts.test.ts",
+    "test": "vitest run src/mvp-contracts.test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

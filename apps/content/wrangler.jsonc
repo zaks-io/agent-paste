@@ -24,6 +24,16 @@
       "id": "00000000000000000000000000000000"
     }
   ],
+  "ratelimits": [
+    {
+      "name": "ARTIFACT_RATE_LIMIT",
+      "namespace_id": "1000003",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
   "env": {
     "preview": {
       "name": "agent-paste-content-preview",
@@ -48,6 +58,16 @@
         {
           "binding": "DENYLIST",
           "id": "5780695433d4494897dcbb78bcb4f180"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ARTIFACT_RATE_LIMIT",
+          "namespace_id": "2000003",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
         }
       ]
     },
@@ -74,6 +94,16 @@
         {
           "binding": "DENYLIST",
           "id": "86d8b139223e45108d320533277a235d"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "ARTIFACT_RATE_LIMIT",
+          "namespace_id": "3000003",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
         }
       ]
     }

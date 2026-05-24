@@ -111,6 +111,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       insert: (input) => operationEventQueries.insert(drizzle, input),
       listAll: () => operationEventQueries.listAll(drizzle),
       listForWorkspace: (workspaceId) => operationEventQueries.listForWorkspace(drizzle, workspaceId),
+      listWebPage: (input) => operationEventQueries.listWebPage(drizzle, input),
       listIdsForTarget: (targetId) => operationEventQueries.listIdsForTarget(drizzle, targetId),
     },
   };

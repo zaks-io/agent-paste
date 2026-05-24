@@ -1,6 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
-import { CleanupRunRequest, CreateWorkspaceRequest } from "../admin.js";
-import { CreateApiKeyRequest } from "../apiKeys.js";
+import { CleanupRunRequest } from "../admin.js";
 import { Cursor } from "../primitives.js";
 import { z } from "../zod.js";
 import { schemaRef, standardJsonResponses } from "./responses.js";
@@ -134,12 +133,44 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "post",
+    path: "/v1/web/keys",
+    operationId: "web.apiKeys.create",
+    summary: "Create an API key for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateApiKeyRequest") } } },
+    },
+    responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/keys/{api_key_id}/revoke",
+    operationId: "web.apiKeys.revoke",
+    summary: "Revoke an API key for the current Workspace Member.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ api_key_id: pathStringParam("api_key_id", "API key id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("RevokeApiKeyResponse")),
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/web/audit",
     operationId: "web.audit.list",
     summary: "List Audit Events for the current Workspace Member.",
     security: [{ WorkOsBearer: [] }],
-    request: { headers: [requestIdHeader] },
+    request: {
+      query: z.object({
+        cursor: queryCursorParam("cursor", "Opaque pagination cursor returned by the previous page."),
+        limit: queryPageSizeParam("limit", "Maximum number of Audit Events to return, up to 100. Defaults to 50."),
+      }),
+      headers: [requestIdHeader],
+    },
     responses: standardJsonResponses(schemaRef("WebAuditListResponse")),
   });
 
@@ -200,7 +231,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     security: [{ AdminBearer: [] }],
     request: {
       headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CreateWorkspaceRequest } } },
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateWorkspaceRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("WorkspaceDetail"), 201),
   });
@@ -214,7 +245,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     request: {
       params: params({ workspace_id: pathStringParam("workspace_id", "Workspace id.") }),
       headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CreateApiKeyRequest } } },
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateApiKeyRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
   });
@@ -302,31 +333,33 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     servers: [{ url: options.serverUrl ?? "https://api.agent-paste.sh" }],
     ...(options.docsBaseUrl ? { externalDocs: { url: options.docsBaseUrl } } : {}),
   });
-  applyWebArtifactCursorParameterBounds(document as unknown as Record<string, unknown>);
+  applyWebCursorParameterBounds(document as unknown as Record<string, unknown>);
   return document as unknown as Record<string, unknown>;
 }
 
-function applyWebArtifactCursorParameterBounds(document: Record<string, unknown>) {
+function applyWebCursorParameterBounds(document: Record<string, unknown>) {
   const paths = document.paths;
   if (!isRecord(paths)) {
     return;
   }
-  const webArtifacts = paths["/v1/web/artifacts"];
-  if (!isRecord(webArtifacts)) {
-    return;
-  }
-  const getOperation = webArtifacts.get;
-  if (!isRecord(getOperation) || !Array.isArray(getOperation.parameters)) {
-    return;
-  }
+  for (const path of ["/v1/web/artifacts", "/v1/web/audit"]) {
+    const webListPath = paths[path];
+    if (!isRecord(webListPath)) {
+      continue;
+    }
+    const getOperation = webListPath.get;
+    if (!isRecord(getOperation) || !Array.isArray(getOperation.parameters)) {
+      continue;
+    }
 
-  const cursorParameter = getOperation.parameters.find(
-    (parameter): parameter is { schema: Record<string, unknown> } =>
-      isRecord(parameter) && parameter.name === "cursor" && parameter.in === "query" && isRecord(parameter.schema),
-  );
-  if (cursorParameter) {
-    cursorParameter.schema.minLength = 1;
-    cursorParameter.schema.maxLength = 500;
+    const cursorParameter = getOperation.parameters.find(
+      (parameter): parameter is { schema: Record<string, unknown> } =>
+        isRecord(parameter) && parameter.name === "cursor" && parameter.in === "query" && isRecord(parameter.schema),
+    );
+    if (cursorParameter) {
+      cursorParameter.schema.minLength = 1;
+      cursorParameter.schema.maxLength = 500;
+    }
   }
 }
 

@@ -45,6 +45,7 @@
                   "not_authenticated",
                   "not_found",
                   "rate_limited_actor",
+                  "rate_limited_artifact",
                   "rate_limited_workspace",
                   "revision_size_cap_exceeded",
                   "storage_unavailable",
@@ -410,6 +411,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -475,6 +477,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -540,6 +543,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -605,6 +609,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -641,7 +646,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -690,6 +695,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -755,6 +761,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -863,6 +870,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -928,6 +936,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -993,6 +1002,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1058,6 +1068,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1094,7 +1105,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1201,6 +1212,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1266,6 +1278,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1331,6 +1344,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1396,6 +1410,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1432,7 +1447,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. Error codes include rate_limited_actor and rate_limited_workspace.",
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1481,6 +1496,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",
@@ -1546,6 +1562,7 @@
                             "not_authenticated",
                             "not_found",
                             "rate_limited_actor",
+                            "rate_limited_artifact",
                             "rate_limited_workspace",
                             "revision_size_cap_exceeded",
                             "storage_unavailable",

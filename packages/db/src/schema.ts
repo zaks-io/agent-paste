@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
+  check,
   index,
   integer,
   jsonb,
@@ -164,7 +166,10 @@ export const operationEvents = pgTable(
     requestId: text("request_id"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("operation_events_workspace_occurred_idx").on(table.workspaceId, table.occurredAt)],
+  (table) => [
+    index("operation_events_workspace_occurred_id_idx").on(table.workspaceId, table.occurredAt.desc(), table.id.desc()),
+    check("operation_events_actor_type_check", sql`${table.actorType} in ('api_key', 'member', 'admin', 'system')`),
+  ],
 );
 
 export const idempotencyRecords = pgTable(
@@ -185,5 +190,6 @@ export const idempotencyRecords = pgTable(
       .on(table.workspaceId, table.actorType, table.actorId, table.operation, table.idempotencyKey)
       .nullsNotDistinct(),
     index("idempotency_records_created_idx").on(table.createdAt),
+    check("idempotency_records_actor_type_check", sql`${table.actorType} in ('api_key', 'member', 'admin', 'system')`),
   ],
 );

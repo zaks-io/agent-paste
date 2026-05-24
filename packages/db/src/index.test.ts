@@ -157,6 +157,125 @@ describe("LocalRepository", () => {
     expect(repo.workspaceMembers.get(session.workspace_member.id)?.last_seen_at).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("creates member-owned API keys idempotently and writes a member audit event", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    if (!actor) {
+      throw new Error("expected member actor");
+    }
+
+    const first = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-web-key",
+      name: "Dashboard Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const second = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-web-key",
+      name: "Changed Name",
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    expect(second).toEqual(first);
+    expect(first.secret).toMatch(/^ap_pk_/);
+    expect(first.api_key).toMatchObject({
+      workspace_id: session.workspace.id,
+      name: "Dashboard Key",
+      scopes: ["publish", "read"],
+    });
+    expect(repo.apiKeys.size).toBe(2);
+    const events = [...repo.operationEvents.values()].filter((event) => event.target_id === first.api_key.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actor_type: "member",
+      actor_id: actor.id,
+      action: "api_key.created",
+      workspace_id: session.workspace.id,
+    });
+  });
+
+  it("revokes member-owned API keys and hides missing or cross-workspace keys", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const firstSession = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const secondSession = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNRR",
+      email: "other@example.com",
+      idempotencyKey: "workos-jti:second",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const firstActor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    const secondActor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNRR",
+    });
+    if (!firstActor || !secondActor) {
+      throw new Error("expected member actors");
+    }
+    const firstKey = await repo.createWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-web-key-first",
+      name: "First Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const secondKey = await repo.createWebApiKey({
+      actor: secondActor,
+      idempotencyKey: "idem-web-key-second",
+      name: "Second Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    const revoked = await repo.revokeWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: firstKey.api_key.id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    const replay = await repo.revokeWebApiKey({
+      actor: firstActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: firstKey.api_key.id,
+      now: new Date("2026-01-04T00:00:00.000Z"),
+    });
+
+    expect(replay).toEqual(revoked);
+    expect(repo.apiKeys.get(firstKey.api_key.id)?.revoked_at).toBe("2026-01-03T00:00:00.000Z");
+    expect(revoked).toMatchObject({
+      api_key: { id: firstKey.api_key.id, revoked_at: "2026-01-03T00:00:00.000Z" },
+      revoked_at: "2026-01-03T00:00:00.000Z",
+    });
+    const events = [...repo.operationEvents.values()].filter((event) => event.target_id === firstKey.api_key.id);
+    const revokedEvents = events.filter((event) => event.actor_type === "member" && event.action === "api_key.revoked");
+    expect(revokedEvents).toHaveLength(1);
+
+    await expect(
+      repo.revokeWebApiKey({ actor: firstActor, idempotencyKey: "idem-missing", apiKeyId: "key_missing" }),
+    ).rejects.toThrow("api_key_not_found");
+    await expect(
+      repo.revokeWebApiKey({
+        actor: firstActor,
+        idempotencyKey: "idem-cross",
+        apiKeyId: secondKey.api_key.id,
+      }),
+    ).rejects.toThrow("api_key_not_found");
+    expect(firstKey.api_key.workspace_id).toBe(firstSession.workspace.id);
+    expect(secondKey.api_key.workspace_id).toBe(secondSession.workspace.id);
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
@@ -257,6 +376,102 @@ describe("LocalRepository", () => {
 
     await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
+  });
+
+  it("cursor-paginates web audit events inside the member workspace", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "first",
+      target_type: "artifact",
+      target_id: "art_1",
+      details: {},
+      request_id: "req_1",
+      occurred_at: "2026-01-01T00:00:01.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "second",
+      target_type: "artifact",
+      target_id: "art_2",
+      details: {},
+      request_id: "req_2",
+      occurred_at: "2026-01-01T00:00:02.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "third",
+      target_type: "artifact",
+      target_id: "art_3",
+      details: {},
+      request_id: "req_3",
+      occurred_at: "2026-01-01T00:00:03.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z4", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z4",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "api_key",
+      actor_id: "key_1",
+      action: "fourth",
+      target_type: "artifact",
+      target_id: "art_4",
+      details: {},
+      request_id: "req_4",
+      occurred_at: "2026-01-01T00:00:03.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z5", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z5",
+      workspace_id: "22222222-2222-2222-2222-222222222222",
+      actor_type: "api_key",
+      actor_id: "key_2",
+      action: "cross-workspace",
+      target_type: "artifact",
+      target_id: "art_5",
+      details: {},
+      request_id: "req_5",
+      occurred_at: "2026-01-01T00:00:04.000Z",
+    });
+
+    expect((await repo.listWebAuditEvents(memberActor)).items.map((item) => item.action)).toEqual([
+      "fourth",
+      "third",
+      "second",
+      "first",
+    ]);
+
+    const firstPage = await repo.listWebAuditEvents(memberActor, { limit: 2 });
+    expect(firstPage.items.map((item) => item.action)).toEqual(["fourth", "third"]);
+    expect(firstPage.page_info.has_more).toBe(true);
+    expect(firstPage.page_info.next_cursor).toEqual(expect.any(String));
+
+    const secondPage = await repo.listWebAuditEvents(memberActor, {
+      limit: 2,
+      cursor: firstPage.page_info.next_cursor ?? "",
+    });
+    expect(secondPage.items.map((item) => item.action)).toEqual(["second", "first"]);
+    expect(secondPage.page_info).toEqual({ next_cursor: null, has_more: false });
+  });
+
+  it("validates web audit cursors and limits", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const invalidDateCursor = webAuditCursor({
+      occurred_at: "not-a-date",
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
+    });
+
+    await expect(repo.listWebAuditEvents(memberActor, { cursor: invalidDateCursor })).rejects.toThrow("invalid_cursor");
+    await expect(repo.listWebAuditEvents(memberActor, { cursor: "not-base64-json" })).rejects.toThrow("invalid_cursor");
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
 
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
@@ -379,6 +594,22 @@ describe("PostgresRepository", () => {
     await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
+
+  it("rejects invalid web audit pagination limits before querying", async () => {
+    const stub: SqlExecutor = {
+      async query() {
+        throw new Error("unexpected_query");
+      },
+      async transaction() {
+        throw new Error("unexpected_transaction");
+      },
+    };
+    const connection = { sql: stub, drizzle: {} as DrizzleConnection["drizzle"] };
+    const repo = new PostgresRepository(connection, { apiKeyPepper: "pepper" });
+
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
+    await expect(repo.listWebAuditEvents(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
+  });
 });
 
 describe("createPostgresHttpExecutor", () => {
@@ -434,6 +665,10 @@ async function publishLocalArtifact(
 }
 
 function webArtifactCursor(input: { created_at: string; id: string }) {
+  return btoa(JSON.stringify(input)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function webAuditCursor(input: { occurred_at: string; id: string }) {
   return btoa(JSON.stringify(input)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 

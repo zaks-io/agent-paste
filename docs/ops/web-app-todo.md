@@ -43,8 +43,10 @@ Order matters — each later item depends on the earlier ones.
   - Done in `agents/workos-callback-api`: `apps/api` uses `jose.createRemoteJWKSet(new URL('https://api.workos.com/sso/jwks/' + client_id))` with a finite JWKS cache TTL, resolves the WorkOS user email server-side, extracts `session_id` from JWT `sid` and `token_id` from JWT `jti`, derives callback idempotency as `workos-jti:{jti}` or `workos-session:{sid}`, provisions the Personal Workspace + Workspace Member + default API Key through `runCommand`, keys first-time provisioning by `workos-user:{workos_user_id}` to prevent duplicate Personal Workspaces, and returns `{ workspace, workspace_member, scopes, default_api_key }`.
 - [x] `GET /v1/web/workspace` — workspace name, usage policy, first-run default-key flag.
 - [x] `GET /v1/web/artifacts` (cursor paginated) and `GET /v1/web/artifacts/{artifactId}`.
-- [ ] `GET /v1/web/keys`, `POST /v1/web/keys`, `POST /v1/web/keys/{id}/revoke`.
-- [ ] `GET /v1/web/audit` (cursor paginated).
+- [x] `GET /v1/web/keys`, `POST /v1/web/keys`, `POST /v1/web/keys/{id}/revoke`.
+  - Done in `agents/next-three-status-items`: key create/revoke runs through WorkOS Workspace Member auth, requires `admin` scope and an `Idempotency-Key`, derives the Workspace from the member, writes `member` actor idempotency/audit rows, returns one-time secrets only on create/replay, and uses generic `not_found` for missing or cross-workspace revokes.
+- [x] `GET /v1/web/audit` (cursor paginated).
+  - Done in `agents/next-three-status-items`: accepts `limit` and opaque `cursor`, orders by `occurred_at desc, id desc`, and returns only Audit Events visible under the member Workspace RLS scope.
 - [ ] `GET /v1/web/settings`, `PATCH /v1/web/settings` (name, auto-deletion days).
 - [ ] `POST /v1/web/admin/lockdown/...` + `DELETE /v1/web/admin/lockdown/...` (operator-only; reject API-key auth before scope checks per ADR 0046).
 

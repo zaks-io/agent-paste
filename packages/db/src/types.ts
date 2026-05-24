@@ -113,7 +113,7 @@ export type StoredFile = {
 export type OperationEvent = {
   id: string;
   workspace_id: string | null;
-  actor_type: "api_key" | "admin" | "system";
+  actor_type: "api_key" | "member" | "admin" | "system";
   actor_id: string | null;
   action: string;
   target_type: string;

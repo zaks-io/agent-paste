@@ -26,9 +26,14 @@ export type KVNamespace = {
   get(key: string): Promise<string | null>;
 };
 
+export type RateLimitBinding = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+};
+
 export type Env = {
   ARTIFACTS: R2Bucket;
   DENYLIST: KVNamespace;
+  ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
   CONTENT_BASE_URL?: string;
   ALLOW_DEV_TOKENS?: string;
@@ -139,6 +144,11 @@ async function serveSignedObject(context: AppContext, token: string, path: strin
     return errorResponse(context, "not_found", 404);
   }
 
+  const artifactRateLimit = await rateLimitArtifactRead(env.ARTIFACT_RATE_LIMIT, resolvedPayload.artifact_id);
+  if (artifactRateLimit && !artifactRateLimit.success) {
+    return errorResponse(context, "rate_limited_artifact", 429, "rate_limited_artifact", { "Retry-After": "60" });
+  }
+
   const key = objectKeyFor(resolvedPayload, path);
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
@@ -247,6 +257,22 @@ function objectKeyFor(payload: ContentTokenPayload, path: string): string {
   return `${prefix.replace(/\/+$/, "")}/${path}`;
 }
 
+async function rateLimitArtifactRead(
+  binding: RateLimitBinding | undefined,
+  artifactId: string,
+): Promise<{ success: boolean } | undefined> {
+  if (!binding) {
+    return undefined;
+  }
+
+  try {
+    return await binding.limit({ key: artifactId });
+  } catch (error) {
+    console.warn("Rate limit artifact binding failed; allowing request.", error);
+    return undefined;
+  }
+}
+
 function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {
   const served = servedContentFor(path);
   const headers = new Headers(securityHeaders);
@@ -353,7 +379,13 @@ function safeDecodeURIComponent(value: string): string | null {
   }
 }
 
-function errorResponse(context: AppContext, code: string, status: number, message?: string): Response {
+function errorResponse(
+  context: AppContext,
+  code: string,
+  status: number,
+  message?: string,
+  extraHeaders: Record<string, string> = {},
+): Response {
   const requestId = getRequestId(context);
   const body = buildErrorBody({
     code,
@@ -365,8 +397,9 @@ function errorResponse(context: AppContext, code: string, status: number, messag
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      [REQUEST_ID_HEADER]: requestId,
       ...securityHeaders,
+      ...extraHeaders,
+      [REQUEST_ID_HEADER]: requestId,
     },
   });
 }

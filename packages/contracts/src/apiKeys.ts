@@ -22,7 +22,6 @@ export const ApiKeyListResponse = z.object({
 export type ApiKeyListResponse = z.infer<typeof ApiKeyListResponse>;
 
 export const CreateApiKeyRequest = z.object({
-  workspace_id: WorkspaceId,
   name: z.string().trim().min(1).max(120),
 });
 export type CreateApiKeyRequest = z.infer<typeof CreateApiKeyRequest>;

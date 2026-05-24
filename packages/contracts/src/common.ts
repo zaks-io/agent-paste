@@ -19,6 +19,7 @@ export const ErrorCode = z.enum([
   "not_authenticated",
   "not_found",
   "rate_limited_actor",
+  "rate_limited_artifact",
   "rate_limited_workspace",
   "revision_size_cap_exceeded",
   "storage_unavailable",
