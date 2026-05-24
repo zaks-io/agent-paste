@@ -588,6 +588,9 @@ export class RepositoryCore implements Repository {
           if (winner) {
             return toLockdownDetail(winner);
           }
+          // Insert was rejected but no effective row exists: an inconsistent
+          // state we must not paper over with a misleading audit event.
+          throw new Error("lockdown_insert_conflict");
         }
         await entities.operationEvents.insert({
           actorType: "platform",
