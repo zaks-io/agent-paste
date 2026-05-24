@@ -203,6 +203,22 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "get",
+    path: "/v1/web/admin/lockdowns",
+    operationId: "web.admin.lockdown.list",
+    summary: "List effective platform lockdowns (operator only).",
+    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    request: {
+      query: z.object({
+        cursor: queryCursorParam("cursor", "Opaque pagination cursor returned by the previous page."),
+        limit: queryPageSizeParam("limit", "Maximum number of lockdowns to return, up to 100. Defaults to 50."),
+      }),
+      headers: [requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("LockdownListResponse"), 200, { authenticated: false }),
+  });
+
+  registry.registerPath({
     method: "post",
     path: "/v1/web/admin/lockdowns",
     operationId: "web.admin.lockdown.set",

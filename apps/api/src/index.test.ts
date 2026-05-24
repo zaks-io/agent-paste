@@ -1603,6 +1603,193 @@ describe("api worker", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
+
+  it("lists effective lockdowns for a WorkOS operator", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns(actor, pagination) {
+          expect(actor).toMatchObject({ type: "platform", id: "user@example.com" });
+          expect(pagination).toEqual({ limit: 50 });
+          return {
+            items: [
+              lockdownDetail({ scope: "workspace", target_id: "w_1" }),
+              lockdownDetail({ scope: "artifact", target_id: "art_2" }),
+            ],
+            page_info: { next_cursor: null, has_more: false },
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [
+        { scope: "workspace", target_id: "w_1" },
+        { scope: "artifact", target_id: "art_2" },
+      ],
+      page_info: { next_cursor: null, has_more: false },
+    });
+  });
+
+  it("paginates effective lockdowns and excludes lifted ones via the repository", async () => {
+    const lockdowns = [
+      lockdownDetail({ scope: "workspace", target_id: "w_3", set_at: "2026-01-03T00:00:00.000Z" }),
+      lockdownDetail({ scope: "workspace", target_id: "w_2", set_at: "2026-01-02T00:00:00.000Z" }),
+    ];
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns(_actor, pagination) {
+          expect(pagination).toEqual({ limit: 1 });
+          return { items: [lockdowns[0]], page_info: { next_cursor: "cursor-2", has_more: true } };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns?limit=1", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      items: [lockdowns[0]],
+      page_info: { next_cursor: "cursor-2", has_more: true },
+    });
+  });
+
+  it("returns invalid_cursor when listing lockdowns with a bad cursor", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("invalid_cursor");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns?cursor=not-base64", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_cursor" } });
+  });
+
+  it("returns 404 listing lockdowns for a WorkOS session whose email is not an operator", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "ops@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("listLockdowns must not run for non-operators");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 listing lockdowns for an API-key bearer", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "ap_pk_live_example" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
+        },
+        async verifyWebToken() {
+          return null;
+        },
+      },
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("listLockdowns must not run for api keys");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        headers: { authorization: "Bearer ap_pk_live_example" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 listing lockdowns when no authentication is provided", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("listLockdowns must not run without auth");
+        },
+      }),
+    };
+
+    const response = await handleRequest(new Request("https://api.test/v1/web/admin/lockdowns"), env);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns 404 listing lockdowns for an invalid Cloudflare Access JWT", async () => {
+    const env: Env = {
+      OPERATOR_EMAILS: "user@example.com",
+      CF_ACCESS_TEAM_DOMAIN: "ops.cloudflareaccess.com",
+      CF_ACCESS_AUD: "aud-tag",
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return null;
+        },
+      },
+      DB: operatorDbForTests({
+        async listLockdowns() {
+          throw new Error("listLockdowns must not run for an invalid Access JWT");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/lockdowns", {
+        headers: { "Cf-Access-Jwt-Assertion": "not-a-valid-jwt" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
 });
 
 function webAuthForTests(): Env["AUTH"] {

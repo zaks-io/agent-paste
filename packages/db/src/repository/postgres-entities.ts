@@ -111,6 +111,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
     },
     platformLockdowns: {
       findEffective: (scope, targetId) => platformLockdownQueries.findEffective(drizzle, scope, targetId),
+      listEffectivePage: (input) => platformLockdownQueries.listEffectivePage(drizzle, input),
       insert: (lockdown) => platformLockdownQueries.insert(drizzle, lockdown),
       markLifted: (id, input) => platformLockdownQueries.markLifted(drizzle, id, input),
     },

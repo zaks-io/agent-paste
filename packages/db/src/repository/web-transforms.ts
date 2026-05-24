@@ -1,4 +1,4 @@
-import type { Artifact, OperationEvent } from "../types.js";
+import type { Artifact, OperationEvent, PlatformLockdown } from "../types.js";
 
 // Unified cursor shape for both backends. The wire format is unchanged:
 // btoa(JSON.stringify({ created_at, id })). Postgres compares the Date directly;
@@ -10,6 +10,11 @@ export type WebArtifactCursor = {
 
 export type WebAuditCursor = {
   occurredAt: Date;
+  id: string;
+};
+
+export type LockdownCursor = {
+  setAt: Date;
   id: string;
 };
 
@@ -122,6 +127,41 @@ export function decodeWebAuditCursor(cursor: string): WebAuditCursor {
 }
 
 export function normalizeWebAuditLimit(limit: number | undefined): number {
+  const resolved = limit ?? 50;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("invalid_pagination_limit");
+  }
+  return resolved;
+}
+
+export function encodeLockdownCursor(lockdown: PlatformLockdown): string {
+  return btoa(JSON.stringify({ set_at: lockdown.set_at, id: lockdown.id }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+export function decodeLockdownCursor(cursor: string): LockdownCursor {
+  try {
+    const padded = cursor
+      .replaceAll("-", "+")
+      .replaceAll("_", "/")
+      .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
+    const raw = JSON.parse(atob(padded)) as { set_at?: unknown; id?: unknown };
+    if (typeof raw.set_at !== "string" || typeof raw.id !== "string") {
+      throw new Error("invalid_cursor");
+    }
+    const setAt = new Date(raw.set_at);
+    if (Number.isNaN(setAt.getTime())) {
+      throw new Error("invalid_cursor");
+    }
+    return { setAt, id: raw.id };
+  } catch {
+    throw new Error("invalid_cursor");
+  }
+}
+
+export function normalizeLockdownLimit(limit: number | undefined): number {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw new Error("invalid_pagination_limit");

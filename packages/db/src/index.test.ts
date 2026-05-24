@@ -469,6 +469,54 @@ describe("LocalRepository", () => {
     ).rejects.toThrow("not_found");
   });
 
+  it("lists effective lockdowns newest-first, excludes lifted, and paginates by cursor", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+    const targets = [
+      { id: "11111111-1111-1111-1111-111111111111", at: "2026-01-01T00:00:00.000Z" },
+      { id: "22222222-2222-2222-2222-222222222222", at: "2026-01-02T00:00:00.000Z" },
+      { id: "33333333-3333-3333-3333-333333333333", at: "2026-01-03T00:00:00.000Z" },
+    ];
+    for (const [index, target] of targets.entries()) {
+      await repo.setLockdown({
+        actor: operator,
+        idempotencyKey: `idem-set-${index}`,
+        scope: "workspace",
+        targetId: target.id,
+        reasonCode: "abuse",
+        now: new Date(target.at),
+      });
+    }
+    // Lift the middle one so it must be excluded from the effective list.
+    await repo.liftLockdown({
+      actor: operator,
+      idempotencyKey: "idem-lift-mid",
+      scope: "workspace",
+      targetId: targets[1].id,
+      now: new Date("2026-01-04T00:00:00.000Z"),
+    });
+
+    const firstPage = await repo.listLockdowns(operator, { limit: 1 });
+    expect(firstPage.items.map((item) => item.target_id)).toEqual([targets[2].id]);
+    expect(firstPage.page_info.has_more).toBe(true);
+    expect(firstPage.page_info.next_cursor).not.toBeNull();
+
+    const secondPage = await repo.listLockdowns(operator, {
+      limit: 1,
+      cursor: firstPage.page_info.next_cursor ?? "",
+    });
+    expect(secondPage.items.map((item) => item.target_id)).toEqual([targets[0].id]);
+    expect(secondPage.page_info.has_more).toBe(false);
+    expect(secondPage.page_info.next_cursor).toBeNull();
+  });
+
+  it("throws invalid_cursor when listing lockdowns with a malformed cursor", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await expect(
+      repo.listLockdowns({ type: "platform", id: "operator@example.com" }, { cursor: "not-base64" }),
+    ).rejects.toThrow("invalid_cursor");
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

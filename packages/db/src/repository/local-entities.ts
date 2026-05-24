@@ -13,6 +13,11 @@ function compareOperationEventsForWeb(left: OperationEvent, right: OperationEven
   return occurred === 0 ? right.id.localeCompare(left.id) : occurred;
 }
 
+function compareLockdownsForWeb(left: PlatformLockdown, right: PlatformLockdown) {
+  const setAt = right.set_at.localeCompare(left.set_at);
+  return setAt === 0 ? right.id.localeCompare(left.id) : setAt;
+}
+
 // Build the grouped Entities accessor over the in-memory Maps. The local backend has
 // no transactions, so reads and writes apply directly; cursor comparison canonicalizes
 // the cursor Date back to an ISO string to match stored created_at values exactly.
@@ -226,6 +231,21 @@ export function localEntities(state: LocalState): Entities {
             (lockdown) => lockdown.scope === scope && lockdown.target_id === targetId && lockdown.lifted_at === null,
           ) ?? null
         );
+      },
+      async listEffectivePage(input) {
+        const cursorSetAt = input.cursor ? input.cursor.setAt.toISOString() : null;
+        const cursorId = input.cursor?.id ?? null;
+        return [...state.platformLockdowns.values()]
+          .filter((lockdown) => lockdown.lifted_at === null)
+          .filter(
+            (lockdown) =>
+              cursorSetAt === null ||
+              cursorId === null ||
+              lockdown.set_at < cursorSetAt ||
+              (lockdown.set_at === cursorSetAt && lockdown.id < cursorId),
+          )
+          .sort(compareLockdownsForWeb)
+          .slice(0, input.limit);
       },
       async insert(lockdown: PlatformLockdown): Promise<boolean> {
         const effective = [...state.platformLockdowns.values()].some(

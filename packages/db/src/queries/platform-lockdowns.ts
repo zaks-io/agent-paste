@@ -1,5 +1,6 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, type SQL } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import type { LockdownCursor } from "../repository/web-transforms.js";
 import { platformLockdowns } from "../schema.js";
 import type { PlatformLockdown } from "../types.js";
 
@@ -22,6 +23,27 @@ export const platformLockdownQueries = {
       .limit(1);
     const row = rows[0];
     return row ? mapLockdown(row) : null;
+  },
+
+  async listEffectivePage(
+    db: DrizzleDb,
+    input: { limit: number; cursor?: LockdownCursor },
+  ): Promise<PlatformLockdown[]> {
+    const conditions: SQL[] = [isNull(platformLockdowns.liftedAt)];
+    if (input.cursor) {
+      const cursorPredicate = or(
+        lt(platformLockdowns.setAt, input.cursor.setAt),
+        and(eq(platformLockdowns.setAt, input.cursor.setAt), lt(platformLockdowns.id, input.cursor.id)),
+      ) as SQL;
+      conditions.push(cursorPredicate);
+    }
+    const rows = await db
+      .select()
+      .from(platformLockdowns)
+      .where(and(...conditions))
+      .orderBy(desc(platformLockdowns.setAt), desc(platformLockdowns.id))
+      .limit(input.limit);
+    return rows.map(mapLockdown);
   },
 
   async insert(db: DrizzleDb, row: PlatformLockdown): Promise<boolean> {
