@@ -87,7 +87,8 @@ export const createKeyFn = createServerFn({ method: "POST" })
 export const revokeKeyFn = createServerFn({ method: "POST" })
   .inputValidator((input: { apiKeyId: string }) => input)
   .handler(({ data }) => {
-    const input = parseInput(ApiKeyId, data.apiKeyId);
+    const raw = (data as { apiKeyId?: unknown } | null | undefined)?.apiKeyId;
+    const input = parseInput(ApiKeyId, raw);
     if (input.error) return Promise.resolve({ data: null, error: input.error });
     return runMutation<RevokeApiKeyResponse>((accessToken) =>
       apiFetch<RevokeApiKeyResponse>(`/v1/web/keys/${encodeURIComponent(input.value)}/revoke`, {

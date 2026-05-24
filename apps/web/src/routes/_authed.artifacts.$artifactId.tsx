@@ -54,7 +54,7 @@ function ArtifactDetailPage() {
   return (
     <>
       <PageHeader
-        title={artifact.title}
+        title={artifact.title || "Untitled"}
         description={<Identifier value={artifact.id} />}
         actions={
           <div className="flex items-center gap-2">

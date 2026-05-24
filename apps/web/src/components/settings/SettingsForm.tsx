@@ -31,6 +31,10 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
         push(errorToast("Couldn't save settings", result.error));
         return;
       }
+      // Sync local state to the persisted, canonical values (server trims the
+      // name and clamps the day count) so the form stops showing stale input.
+      setName(result.data.workspace_name);
+      setDays(String(result.data.auto_deletion_days));
       push({ tone: "success", title: "Settings saved", message: "Workspace settings updated." });
       await router.invalidate();
     } finally {

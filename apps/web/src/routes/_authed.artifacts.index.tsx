@@ -64,7 +64,7 @@ function ArtifactsListPage() {
                     params={{ artifactId: row.id }}
                     className="hover:text-[hsl(var(--accent))]"
                   >
-                    {row.title}
+                    {row.title || "Untitled"}
                   </Link>
                 </TD>
                 <TD>
