@@ -203,6 +203,13 @@ When you say "implement the next step," start with item 1 unless we have agreed 
 
 ## Recently Completed
 
+### Collapse the usage policy to a single source of truth
+
+- Status: Done on 2026-05-23.
+- Drives: ADR 0038 (Zod contracts as source of truth); fixes a `/v1/whoami` vs `/v1/usage-policy` divergence.
+- Files: `packages/db/src/policy.ts`, `packages/db/package.json`, `apps/api/src/index.ts`, `apps/api/src/local-mvp.test.ts`.
+- Done: `mvpUsagePolicy` in `@agent-paste/contracts` is now the only definition of the MVP usage policy. `packages/db/src/policy.ts` re-exports it as `USAGE_POLICY` and derives `DEFAULT_UPLOAD_SESSION_TTL_MS` and `MAX_ARTIFACT_BYTES` from its fields, so `RepositoryCore.getWhoami` and every other db consumer pick up the canonical values unchanged. `apps/api` deletes its local `usagePolicy` literal and reads `mvpUsagePolicy` for `/v1/usage-policy`, the denylist TTL, and the upload TTL default. This removes the stale `workspace_burst_cap_per_minute` of 600 that `/v1/whoami` was serving while `/v1/usage-policy` served the canonical 300. A regression test asserts both endpoints return the canonical policy and match each other. `@agent-paste/db` gains a `workspace:*` dependency on `@agent-paste/contracts` (no cycle: contracts is a leaf). `pnpm verify` green across 62 Turbo tasks.
+
 ### Unify repository adapters behind a backend-agnostic core
 
 - Status: Done on 2026-05-23.

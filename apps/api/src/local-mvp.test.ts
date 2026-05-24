@@ -1,3 +1,5 @@
+import { mvpUsagePolicy } from "@agent-paste/contracts";
+import { createLocalServices } from "@agent-paste/db";
 import { describe, expect, it } from "vitest";
 import contentWorker from "../../content/src/index.js";
 import uploadWorker from "../../upload/src/index.js";
@@ -306,5 +308,43 @@ describe("local MVP vertical slice", () => {
     });
     expect(contentResponse.status).toBe(200);
     await expect(contentResponse.text()).resolves.toBe("hello world!");
+  });
+});
+
+describe("usage policy single source of truth", () => {
+  it("serves the canonical policy identically on /v1/whoami and /v1/usage-policy", async () => {
+    const { repo, auth, apiDb } = createLocalServices({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: { type: "admin", id: "operator" },
+      idempotencyKey: "ws-policy",
+      email: "user@example.com",
+      name: "User",
+    });
+    const key = await repo.createApiKey({
+      actor: { type: "admin", id: "operator" },
+      idempotencyKey: "key-policy",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const env = { AUTH: auth, DB: apiDb };
+    const authHeader = { authorization: `Bearer ${key.secret}` };
+
+    const whoamiResponse = await apiWorker.fetch(
+      new Request("http://api.local/v1/whoami", { headers: authHeader }),
+      env,
+    );
+    const usagePolicyResponse = await apiWorker.fetch(
+      new Request("http://api.local/v1/usage-policy", { headers: authHeader }),
+      env,
+    );
+
+    expect(whoamiResponse.status).toBe(200);
+    expect(usagePolicyResponse.status).toBe(200);
+    const whoami = (await whoamiResponse.json()) as { usage_policy: unknown };
+    const usagePolicy = await usagePolicyResponse.json();
+
+    expect(whoami.usage_policy).toEqual(mvpUsagePolicy);
+    expect(usagePolicy).toEqual(mvpUsagePolicy);
+    expect(whoami.usage_policy).toEqual(usagePolicy);
   });
 });
