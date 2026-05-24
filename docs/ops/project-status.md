@@ -1,6 +1,8 @@
 # Project Status
 
-Last updated: 2026-05-24 (ADR 0072 contract-driven route registrar / `packages/worker-runtime` is implemented per [`worker-runtime-todo.md`](./worker-runtime-todo.md); ADR 0071 signed-token codec / `packages/tokens` is implemented per [`signed-tokens-todo.md`](./signed-tokens-todo.md). Prior: artifact-level content read throttling; dashboard API key lifecycle and cursor-paginated audit reads; repository adapters unified behind a backend-agnostic `RepositoryCore` per ADR 0070; Logpush and production deploy-gate work parked for later).
+Last updated: 2026-05-24. ADR 0072 contract-driven route registrar / `packages/worker-runtime` is implemented per [`worker-runtime-todo.md`](./worker-runtime-todo.md).
+ADR 0071 signed-token codec / `packages/tokens` is implemented per [`signed-tokens-todo.md`](./signed-tokens-todo.md).
+Prior work: artifact-level content read throttling; dashboard API key lifecycle and cursor-paginated audit reads; repository adapters unified behind a backend-agnostic `RepositoryCore` per ADR 0070. Logpush and production deploy-gate work remain parked.
 
 First doc a fresh agent reads after `AGENTS.md`, `CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`. Answers: what is built, what is scaffolded, where the code diverges from the ADRs/specs, what the next concrete step is.
 
