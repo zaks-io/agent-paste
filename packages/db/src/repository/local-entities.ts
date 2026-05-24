@@ -227,15 +227,27 @@ export function localEntities(state: LocalState): Entities {
           ) ?? null
         );
       },
-      async insert(lockdown: PlatformLockdown) {
-        state.platformLockdowns.set(lockdown.id, lockdown);
-      },
-      async markLifted(id, input) {
-        const lockdown = state.platformLockdowns.get(id);
-        if (lockdown) {
-          lockdown.lifted_at = input.liftedAt;
-          lockdown.lifted_by = input.liftedBy;
+      async insert(lockdown: PlatformLockdown): Promise<boolean> {
+        const effective = [...state.platformLockdowns.values()].some(
+          (existing) =>
+            existing.scope === lockdown.scope &&
+            existing.target_id === lockdown.target_id &&
+            existing.lifted_at === null,
+        );
+        if (effective) {
+          return false;
         }
+        state.platformLockdowns.set(lockdown.id, lockdown);
+        return true;
+      },
+      async markLifted(id, input): Promise<boolean> {
+        const lockdown = state.platformLockdowns.get(id);
+        if (!lockdown || lockdown.lifted_at !== null) {
+          return false;
+        }
+        lockdown.lifted_at = input.liftedAt;
+        lockdown.lifted_by = input.liftedBy;
+        return true;
       },
     },
     operationEvents: {

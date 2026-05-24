@@ -580,7 +580,15 @@ export class RepositoryCore implements Repository {
           lifted_at: null,
           lifted_by: null,
         };
-        await entities.platformLockdowns.insert(lockdown);
+        // A concurrent setter can win the partial-unique index between the
+        // findEffective check and this insert; treat the loss as a replay.
+        const inserted = await entities.platformLockdowns.insert(lockdown);
+        if (!inserted) {
+          const winner = await entities.platformLockdowns.findEffective(input.scope, input.targetId);
+          if (winner) {
+            return toLockdownDetail(winner);
+          }
+        }
         await entities.operationEvents.insert({
           actorType: "platform",
           actorId: input.actor.id,
@@ -617,7 +625,15 @@ export class RepositoryCore implements Repository {
         if (!existing) {
           throw new Error("not_found");
         }
-        await entities.platformLockdowns.markLifted(existing.id, { liftedAt: now, liftedBy: input.actor.id });
+        // Lost a concurrent lift race: the row is already lifted, so emit no
+        // duplicate audit event and report it as already gone.
+        const lifted = await entities.platformLockdowns.markLifted(existing.id, {
+          liftedAt: now,
+          liftedBy: input.actor.id,
+        });
+        if (!lifted) {
+          throw new Error("not_found");
+        }
         await entities.operationEvents.insert({
           actorType: "platform",
           actorId: input.actor.id,

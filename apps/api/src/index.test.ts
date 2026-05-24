@@ -1424,7 +1424,12 @@ describe("api worker", () => {
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async liftLockdown(input) {
-          expect(input).toMatchObject({ scope: "artifact", targetId: "art_9", idempotencyKey: "lift-1" });
+          expect(input).toMatchObject({
+            scope: "artifact",
+            targetId: "art_9",
+            idempotencyKey: "lift-1",
+            actor: { type: "platform", id: "user@example.com" },
+          });
           return lockdownDetail({
             scope: "artifact",
             target_id: "art_9",

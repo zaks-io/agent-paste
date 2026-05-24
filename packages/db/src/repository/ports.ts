@@ -86,8 +86,8 @@ export type Entities = {
   };
   platformLockdowns: {
     findEffective(scope: PlatformLockdown["scope"], targetId: string): Promise<PlatformLockdown | null>;
-    insert(lockdown: PlatformLockdown): Promise<void>;
-    markLifted(id: string, input: { liftedAt: string; liftedBy: string }): Promise<void>;
+    insert(lockdown: PlatformLockdown): Promise<boolean>;
+    markLifted(id: string, input: { liftedAt: string; liftedBy: string }): Promise<boolean>;
   };
   operationEvents: {
     insert(input: {

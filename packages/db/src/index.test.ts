@@ -442,6 +442,7 @@ describe("LocalRepository", () => {
     expect(setEvents).toHaveLength(1);
     expect(setEvents[0]).toMatchObject({ actor_type: "platform", actor_id: "operator@example.com" });
     expect(liftEvents).toHaveLength(1);
+    expect(liftEvents[0]).toMatchObject({ actor_type: "platform", actor_id: "operator@example.com" });
 
     // After lifting, the same target may be locked down again under a fresh row.
     const relock = await repo.setLockdown({

@@ -57,7 +57,7 @@ export type R2Bucket = {
 export type KVNamespace = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   get?(key: string): Promise<string | null>;
-  delete?(key: string): Promise<void>;
+  delete(key: string): Promise<void>;
 };
 
 export type RateLimitBinding = {
@@ -680,7 +680,7 @@ async function writeDenylistEntry(env: Env, scope: LockdownScope, targetId: stri
 }
 
 async function deleteDenylistEntry(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
-  if (!env.DENYLIST?.delete) {
+  if (!env.DENYLIST) {
     return;
   }
   try {

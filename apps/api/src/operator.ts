@@ -46,7 +46,11 @@ export async function verifyCfAccessServiceToken(
       return null;
     }
     const commonName = payload.common_name;
-    return typeof commonName === "string" && commonName.length > 0 ? commonName : null;
+    if (typeof commonName !== "string") {
+      return null;
+    }
+    const normalized = commonName.trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
   } catch {
     return null;
   }
