@@ -13,7 +13,7 @@ import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
-import { LockdownDetail, SetLockdownRequest } from "../lockdown.js";
+import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
@@ -68,6 +68,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("UpdateWebSettingsRequest", UpdateWebSettingsRequest);
   registry.register("SetLockdownRequest", SetLockdownRequest);
   registry.register("LockdownDetail", LockdownDetail);
+  registry.register("LockdownListResponse", LockdownListResponse);
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {

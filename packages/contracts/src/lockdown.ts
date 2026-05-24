@@ -1,3 +1,4 @@
+import { PageInfo } from "./common.js";
 import { IsoDateTime } from "./primitives.js";
 import { z } from "./zod.js";
 
@@ -21,3 +22,9 @@ export const LockdownDetail = z.object({
   lifted_by: z.string().min(1).nullable(),
 });
 export type LockdownDetail = z.infer<typeof LockdownDetail>;
+
+export const LockdownListResponse = z.object({
+  items: z.array(LockdownDetail),
+  page_info: PageInfo,
+});
+export type LockdownListResponse = z.infer<typeof LockdownListResponse>;

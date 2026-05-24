@@ -58,6 +58,10 @@ const operatorMutationErrors = [
   "idempotency_in_flight",
   "database_unavailable",
 ] as const;
+// Operator read routes drop the idempotency errors and add the pagination
+// errors, but keep the same not_found collapse so the surface stays
+// non-enumerable (ADR 0046).
+const operatorReadErrors = ["not_found", "invalid_cursor", "invalid_request", "database_unavailable"] as const;
 
 export const routeContracts = [
   {
@@ -255,6 +259,18 @@ export const routeContracts = [
     requestSchema: "SetLockdownRequest",
     responseSchema: "LockdownDetail",
     errors: operatorMutationErrors,
+  },
+  {
+    id: "web.admin.lockdown.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/admin/lockdowns",
+    auth: "operator",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "LockdownListResponse",
+    errors: operatorReadErrors,
   },
   {
     id: "web.admin.lockdown.lift",

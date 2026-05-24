@@ -469,6 +469,102 @@ describe("LocalRepository", () => {
     ).rejects.toThrow("not_found");
   });
 
+  it("lists effective lockdowns newest-first, excludes lifted, and paginates by cursor", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+    const targets = [
+      { id: "11111111-1111-1111-1111-111111111111", at: "2026-01-01T00:00:00.000Z" },
+      { id: "22222222-2222-2222-2222-222222222222", at: "2026-01-02T00:00:00.000Z" },
+      { id: "33333333-3333-3333-3333-333333333333", at: "2026-01-03T00:00:00.000Z" },
+    ];
+    for (const [index, target] of targets.entries()) {
+      await repo.setLockdown({
+        actor: operator,
+        idempotencyKey: `idem-set-${index}`,
+        scope: "workspace",
+        targetId: target.id,
+        reasonCode: "abuse",
+        now: new Date(target.at),
+      });
+    }
+    // Lift the middle one so it must be excluded from the effective list.
+    await repo.liftLockdown({
+      actor: operator,
+      idempotencyKey: "idem-lift-mid",
+      scope: "workspace",
+      targetId: targets[1].id,
+      now: new Date("2026-01-04T00:00:00.000Z"),
+    });
+
+    const firstPage = await repo.listLockdowns(operator, { limit: 1 });
+    expect(firstPage.items.map((item) => item.target_id)).toEqual([targets[2].id]);
+    expect(firstPage.page_info.has_more).toBe(true);
+    expect(firstPage.page_info.next_cursor).not.toBeNull();
+
+    const secondPage = await repo.listLockdowns(operator, {
+      limit: 1,
+      cursor: firstPage.page_info.next_cursor ?? "",
+    });
+    expect(secondPage.items.map((item) => item.target_id)).toEqual([targets[0].id]);
+    expect(secondPage.page_info.has_more).toBe(false);
+    expect(secondPage.page_info.next_cursor).toBeNull();
+  });
+
+  it("paginates stably across rows sharing a set_at via the id DESC tiebreak", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+    // Two rows share an identical set_at so the keyset must fall back to id DESC;
+    // a third row at an earlier set_at anchors the cross-timestamp boundary.
+    const tie = "2026-02-02T00:00:00.000Z";
+    const targets = [
+      { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", at: tie },
+      { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", at: tie },
+      { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", at: "2026-02-01T00:00:00.000Z" },
+    ];
+    for (const [index, target] of targets.entries()) {
+      await repo.setLockdown({
+        actor: operator,
+        idempotencyKey: `idem-tie-${index}`,
+        scope: "workspace",
+        targetId: target.id,
+        reasonCode: "abuse",
+        now: new Date(target.at),
+      });
+    }
+
+    // Generated ids decide the tie order, so derive the expected sequence from a
+    // single full-page read rather than hard-coding it.
+    const full = await repo.listLockdowns(operator, { limit: 100 });
+    const expectedOrder = full.items.map((item) => item.target_id);
+    expect(expectedOrder).toHaveLength(3);
+    expect(expectedOrder[2]).toBe(targets[2].id);
+    expect(new Set(expectedOrder).size).toBe(3);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 5; guard += 1) {
+      const page = await repo.listLockdowns(operator, cursor ? { limit: 1, cursor } : { limit: 1 });
+      expect(page.items).toHaveLength(1);
+      seen.push(page.items[0].target_id);
+      if (!page.page_info.has_more) {
+        expect(page.page_info.next_cursor).toBeNull();
+        break;
+      }
+      expect(page.page_info.next_cursor).not.toBeNull();
+      cursor = page.page_info.next_cursor ?? undefined;
+    }
+
+    expect(seen).toEqual(expectedOrder);
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("throws invalid_cursor when listing lockdowns with a malformed cursor", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await expect(
+      repo.listLockdowns({ type: "platform", id: "operator@example.com" }, { cursor: "not-base64" }),
+    ).rejects.toThrow("invalid_cursor");
+  });
+
   it("rejects API-key actors on member-only web workspace reads", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

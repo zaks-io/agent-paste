@@ -33,10 +33,13 @@ import type { Repository } from "./interface.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
 import {
+  decodeLockdownCursor,
   decodeWebArtifactCursor,
   decodeWebAuditCursor,
+  encodeLockdownCursor,
   encodeWebArtifactCursor,
   encodeWebAuditCursor,
+  normalizeLockdownLimit,
   normalizeWebArtifactLimit,
   normalizeWebAuditLimit,
   toWebArtifactRow,
@@ -545,6 +548,25 @@ export class RepositoryCore implements Repository {
         return toWebSettings(workspace);
       },
     );
+  }
+
+  async listLockdowns(_actor: PlatformActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeLockdownLimit(pagination.limit);
+    return this.uow.read(PLATFORM_SCOPE, async (entities) => {
+      const rows = await entities.platformLockdowns.listEffectivePage({
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeLockdownCursor(pagination.cursor) } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toLockdownDetail),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeLockdownCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
+    });
   }
 
   async setLockdown(input: {

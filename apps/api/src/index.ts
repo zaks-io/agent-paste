@@ -254,6 +254,9 @@ apiDbRegistrar.mount(contractById("web.settings.get"), async (context, principal
 apiDbRegistrar.mount(contractById("web.settings.update"), async (context, principal, db, guard) =>
   webUpdateSettings(context as AppContext, principal, db, guard),
 );
+apiDbRegistrar.mount(contractById("web.admin.lockdown.list"), async (context, principal, db) =>
+  webAdminListLockdowns(context as AppContext, principal, db),
+);
 apiDbRegistrar.mount(contractById("web.admin.lockdown.set"), async (context, principal, db, guard) =>
   webAdminSetLockdown(context as AppContext, principal, db, guard),
 );
@@ -573,6 +576,29 @@ async function webUpdateSettings(
       autoDeletionDays: parsed.data.auto_deletion_days,
     }),
   );
+}
+
+async function webAdminListLockdowns(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = platformActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_found", 404);
+  }
+  if (!db.listLockdowns) {
+    return errorResponse(context, "database_unavailable", 503);
+  }
+  const pagination = parsePagination(context.req.raw);
+  if (!pagination.ok) {
+    return errorResponse(context, pagination.code, 400);
+  }
+  const listLockdowns = db.listLockdowns.bind(db);
+  try {
+    return jsonResponse(context, await listLockdowns(actor, pagination.value));
+  } catch (error) {
+    if (error instanceof Error && error.message === "invalid_cursor") {
+      return errorResponse(context, "invalid_cursor", 400);
+    }
+    throw error;
+  }
 }
 
 async function webAdminSetLockdown(

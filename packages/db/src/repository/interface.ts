@@ -161,6 +161,10 @@ export type Repository = {
     autoDeletionDays: number;
     now?: Date;
   }): Promise<WebSettings>;
+  listLockdowns(
+    actor: PlatformActor,
+    pagination?: { cursor?: string; limit?: number },
+  ): Promise<{ items: LockdownDetail[]; page_info: PageInfo }>;
   setLockdown(input: {
     actor: PlatformActor;
     idempotencyKey: string;

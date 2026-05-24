@@ -8,7 +8,7 @@ import type {
   Workspace,
   WorkspaceMember,
 } from "../types.js";
-import type { WebArtifactCursor, WebAuditCursor } from "./web-transforms.js";
+import type { LockdownCursor, WebArtifactCursor, WebAuditCursor } from "./web-transforms.js";
 
 // Scope a unit of work to a single workspace or to the whole platform. Adapters
 // translate this into RLS config (Postgres) or simple Map filtering (local).
@@ -86,6 +86,7 @@ export type Entities = {
   };
   platformLockdowns: {
     findEffective(scope: PlatformLockdown["scope"], targetId: string): Promise<PlatformLockdown | null>;
+    listEffectivePage(input: { limit: number; cursor?: LockdownCursor }): Promise<PlatformLockdown[]>;
     insert(lockdown: PlatformLockdown): Promise<boolean>;
     markLifted(id: string, input: { liftedAt: string; liftedBy: string }): Promise<boolean>;
   };
