@@ -102,8 +102,9 @@ Assertions:
 - Agent View JSON returns the published artifact and file list
 - browser Agent View HTML returns `text/html` and renders the artifact/file list
 - content HTML returns the published fixture
+- preview/PR content Artifact Rate Limit returns `rate_limited_artifact`
 - deleting the artifact makes the old content URL return `404`
 
 ### PR Preview Helpers
 
-`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. Each same-repo PR gets a Neon branch named `preview/pr-<number>`, PR-scoped Workers named `agent-paste-{api,upload,content}-pr-<number>`, and `workers.dev` URLs for smoke testing.
+`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. Each same-repo PR gets a Neon branch named `preview/pr-<number>`, PR-scoped Workers named `agent-paste-{api,upload,content}-pr-<number>`, PR-scoped rate-limit bindings including `ARTIFACT_RATE_LIMIT`, and `workers.dev` URLs for smoke testing.
