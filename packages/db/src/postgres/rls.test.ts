@@ -201,6 +201,26 @@ describe("postgres RLS runtime enforcement", () => {
     expect(records.rows).toEqual([{ actor_type: "member", actor_id: "mem-ws1" }]);
   });
 
+  it("rejects invalid actor types in operation events and idempotency records", async () => {
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    await expect(
+      ws1.query(
+        `insert into operation_events
+           (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, occurred_at)
+         values ('evt-invalid-actor', $1, 'invalid_actor', 'mem-ws1', 'api_key.created', 'api_key', 'key-invalid', '{}'::jsonb, now())`,
+        [ws1Id],
+      ),
+    ).rejects.toThrow();
+    await expect(
+      ws1.query(
+        `insert into idempotency_records
+           (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
+         values ($1, 'invalid_actor', 'mem-ws1', 'web.api_key.create', 'idem-invalid-actor', 'completed', '{}'::jsonb, now(), now())`,
+        [ws1Id],
+      ),
+    ).rejects.toThrow();
+  });
+
   // The deploy-production migration runner has no journal table; it re-applies
   // every .sql file every run. Bare `create policy` failed here in 2026-05-22's
   // prod deploys. Re-applying the migrations must be a no-op.
