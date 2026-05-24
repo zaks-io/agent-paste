@@ -26,9 +26,7 @@ describe("api keys", () => {
     expect(parseApiKey(generated.secret)).toMatchObject({ publicId: generated.publicId });
   });
 
-  it("parses legacy live bearer format during migration", () => {
-    expect(parseApiKey("ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF")).toMatchObject({
-      publicId: "0123456789ABCDEF",
-    });
+  it("rejects the retired `live` env segment", () => {
+    expect(parseApiKey("ap_pk_live_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF")).toBeNull();
   });
 });

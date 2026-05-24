@@ -7,7 +7,7 @@ export type GeneratedApiKey = {
   secretHmac: string;
 };
 
-export async function generateApiKey(env: "preview" | "production" | "live", pepper: string): Promise<GeneratedApiKey> {
+export async function generateApiKey(env: "preview" | "production", pepper: string): Promise<GeneratedApiKey> {
   const publicId = randomCrockford(16);
   const secretSegment = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
   return {
@@ -18,7 +18,7 @@ export async function generateApiKey(env: "preview" | "production" | "live", pep
 }
 
 export function parseApiKey(value: string) {
-  const match = value.match(/^ap_pk_(preview|production|live)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
+  const match = value.match(/^ap_pk_(preview|production)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
   if (!match?.[2] || !match[3]) {
     return null;
   }

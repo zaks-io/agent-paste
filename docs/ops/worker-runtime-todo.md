@@ -52,7 +52,7 @@ the ADR.
   - Done: api Worker tests green; whoami / usage-policy / public agent-view / web routes behave
     identically.
 
-## Done (overall)
+## Exit criteria (not started)
 
 - Every route in the three Workers mounts through the registrar; no inlined guard chain or
   `withWebMember` remains (grep clean). A route without a contract does not compile.

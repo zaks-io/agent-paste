@@ -1,3 +1,4 @@
+import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
 import { type ApiDatabase, type Env, handleRequest } from "./index.js";
 
@@ -1127,7 +1128,7 @@ describe("api worker", () => {
 
   it("renders public Agent View as HTML for browsers", async () => {
     const env: Env = {
-      ALLOW_LEGACY_AGENT_VIEW_TOKENS: "true",
+      AGENT_VIEW_SIGNING_SECRET: "test-secret",
       DB: {
         async getWhoami() {
           return {};
@@ -1157,8 +1158,12 @@ describe("api worker", () => {
       },
     };
 
+    const token = await mintAgentViewToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 3600 },
+      "test-secret",
+    );
     const response = await handleRequest(
-      new Request("https://api.test/v1/public/agent-view/art_1.rev_1", { headers: { accept: "text/html" } }),
+      new Request(`https://api.test/v1/public/agent-view/${token}`, { headers: { accept: "text/html" } }),
       env,
     );
 
@@ -1167,8 +1172,9 @@ describe("api worker", () => {
     await expect(response.text()).resolves.toContain("Browser Proof");
   });
 
-  it("rejects legacy public Agent View tokens unless explicitly enabled", async () => {
+  it("rejects unsigned public Agent View tokens", async () => {
     const env: Env = {
+      AGENT_VIEW_SIGNING_SECRET: "test-secret",
       DB: {
         async getWhoami() {
           return {};
@@ -1177,7 +1183,7 @@ describe("api worker", () => {
           return null;
         },
         async getPublicAgentView() {
-          throw new Error("legacy token should be rejected before db lookup");
+          throw new Error("unsigned token should be rejected before db lookup");
         },
         async runCleanup() {
           return {};

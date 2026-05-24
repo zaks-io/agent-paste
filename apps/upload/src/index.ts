@@ -70,7 +70,7 @@ export type Env = {
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   API_KEY_PEPPER_V1?: string;
-  API_KEY_ENV?: "preview" | "production" | "live";
+  API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;

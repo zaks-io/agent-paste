@@ -359,7 +359,7 @@ _Avoid_: router, route factory, mount helper
 
 <a id="request-guard"></a>
 **Request Guard**:
-The uniform pre-handler chain the **Route Registrar** runs for every route, derived from the **Route Contract**: resolve the principal for the auth requirement, check **Scope**s, apply the rate-limit class, shape the `Idempotency-Key` header outcome, and render failures into the fixed error envelope. The only per-Worker seam is the auth resolver set; everything else is a pure function. The durable idempotency claim stays inside `runCommand`, not the guard.
+The uniform pre-handler chain the **Route Registrar** runs for every route, derived from the **Route Contract**: resolve the principal for the auth requirement, apply the rate-limit class, check **Scope**s, shape the `Idempotency-Key` header outcome, and render failures into the fixed error envelope. The only per-Worker seam is the auth resolver set; everything else is a pure function. The durable idempotency claim stays inside `runCommand`, not the guard.
 _Avoid_: middleware, interceptor, auth filter
 
 ## Relationships

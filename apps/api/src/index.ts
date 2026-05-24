@@ -59,7 +59,7 @@ export type Env = {
   ADMIN_TOKEN?: string;
   ADMIN_TOKEN_HASH?: string;
   API_KEY_PEPPER_V1?: string;
-  API_KEY_ENV?: "preview" | "production" | "live";
+  API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
@@ -68,7 +68,6 @@ export type Env = {
   DENYLIST?: KVNamespace;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
-  ALLOW_LEGACY_AGENT_VIEW_TOKENS?: string;
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;
@@ -982,7 +981,7 @@ function apiBaseUrl(env: Env): string {
 async function publicAgentViewDatabaseToken(token: string, env: Env): Promise<string | null> {
   const secret = agentViewSigningSecret(env);
   if (!secret) {
-    return allowLegacyAgentViewTokens(env) ? legacyAgentViewToken(token) : null;
+    return null;
   }
 
   const payload = await verifyAgentViewToken(token, secret);
@@ -995,15 +994,6 @@ async function publicAgentViewDatabaseToken(token: string, env: Env): Promise<st
 
 function agentViewSigningSecret(env: Env): string | undefined {
   return env.AGENT_VIEW_SIGNING_SECRET ?? env.CONTENT_SIGNING_SECRET;
-}
-
-function legacyAgentViewToken(token: string): string | null {
-  const [artifactId, revisionId] = token.split(".");
-  return artifactId?.startsWith("art_") && revisionId?.startsWith("rev_") ? token : null;
-}
-
-function allowLegacyAgentViewTokens(env: Env): boolean {
-  return env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "true" || env.ALLOW_LEGACY_AGENT_VIEW_TOKENS === "1";
 }
 
 async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknown> {

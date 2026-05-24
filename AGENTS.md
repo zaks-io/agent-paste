@@ -6,6 +6,10 @@ Read `docs/ops/project-status.md` first. It is the source of truth for what is i
 
 Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
 
+## Project stage
+
+Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in the wild. Do not add legacy, deprecated, or back-compat code paths or migration shims. There is nothing to stay compatible with. When behavior needs to change, change it outright.
+
 ## Agent skills
 
 ### Issue tracker

@@ -16,7 +16,7 @@ Status: Accepted. Superseded in part by [ADR 0047](./0047-access-link-signed-url
 
 - **Format**: `ap_pk_{env}_{publicId}_{secret}`
   - `pk` is the credential-class marker for **API Key**. Future credential classes that ride this shape must use a distinct two-letter marker and update the parser; the `al` marker is reserved as deprecated and is not reused.
-  - `env`: `production` or `preview` matching ADR 0012 (preview and production environments only). `live` is accepted only as a legacy parser alias during the deploy-target rename.
+  - `env`: `production` or `preview` matching ADR 0012 (preview and production environments only). The pre-rename `live` segment is rejected; the project is pre-launch, so no `ap_pk_live_*` credentials were ever minted.
   - `publicId`: 16-character Crockford base32 (~80 bits), stored plaintext, indexed for O(1) lookup.
   - `secret`: 43-character base64url (256 bits of random entropy).
   - Example: `ap_pk_production_AB3CDEFGHJKLMN56_x9pQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrSt`.

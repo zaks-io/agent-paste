@@ -23,7 +23,8 @@ export function isValidUploadPayload(value: unknown): value is SignedUploadPaylo
     typeof payload.key === "string" &&
     payload.key.length > 0 &&
     typeof payload.size === "number" &&
-    Number.isFinite(payload.size) &&
+    Number.isSafeInteger(payload.size) &&
+    payload.size >= 0 &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );
