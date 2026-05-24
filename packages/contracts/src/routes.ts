@@ -23,6 +23,7 @@ export type RouteContract = {
   scopes: readonly Scope[];
   idempotency: IdempotencyRequirement;
   rateLimit: RateLimitRequirement;
+  allowUnprovisioned?: boolean;
   requestSchema?: string;
   responseSchema: string;
   errors: readonly ErrorCode[];
@@ -117,6 +118,7 @@ export const routeContracts = [
     scopes: [],
     idempotency: "none",
     rateLimit: "none",
+    allowUnprovisioned: true,
     responseSchema: "WebAuthCallbackResponse",
     errors: webCallbackErrors,
   },

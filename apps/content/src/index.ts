@@ -7,7 +7,7 @@ import {
 } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
 import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
-import { createRegistrar } from "@agent-paste/worker-runtime";
+import { createRegistrar, type SignedContentTokenPrincipal } from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 
 export type { ContentTokenPayload };
@@ -113,22 +113,18 @@ const contentRegistrar = createRegistrar({
   },
 });
 contentRegistrar.mount(contractById("content.get"), async (context, principal) =>
-  principal.kind === "signed_content_token"
-    ? serveSignedObject(
-        context as AppContext,
-        principal.payload as ContentTokenPayload,
-        contentPath(context as AppContext),
-      )
-    : errorResponse(context as AppContext, "not_found", 404),
+  serveSignedObject(
+    context as AppContext,
+    (principal as SignedContentTokenPrincipal<ContentTokenPayload>).payload,
+    contentPath(context as AppContext),
+  ),
 );
 contentRegistrar.mount(contractById("content.head"), async (context, principal) =>
-  principal.kind === "signed_content_token"
-    ? serveSignedObject(
-        context as AppContext,
-        principal.payload as ContentTokenPayload,
-        contentPath(context as AppContext),
-      )
-    : errorResponse(context as AppContext, "not_found", 404),
+  serveSignedObject(
+    context as AppContext,
+    (principal as SignedContentTokenPrincipal<ContentTokenPayload>).payload,
+    contentPath(context as AppContext),
+  ),
 );
 app.notFound((context) => errorResponse(context, "not_found", 404));
 app.onError((error, context) => {

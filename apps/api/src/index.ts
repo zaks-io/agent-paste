@@ -148,7 +148,7 @@ const apiAuthResolvers = {
     if (!identity) {
       return { ok: false, code: "not_authenticated" } as const;
     }
-    if (contract.id === "web.auth.callback") {
+    if (contract.allowUnprovisioned) {
       return { ok: true, principal: { kind: "workos_access_token", identity } } as const;
     }
     const db = apiDatabase(context.env as Env);

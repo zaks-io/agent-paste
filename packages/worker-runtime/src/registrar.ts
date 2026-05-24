@@ -190,6 +190,7 @@ function scopedActorForPrincipal(principal: Principal): ScopedActor | null {
 
 function honoPath(path: string): string {
   if (path === "/v/{token}/{path}") {
+    // Hono needs a trailing wildcard for content tokens whose signed path spans the rest of the URL.
     return "/v/:token/*";
   }
   return path.replaceAll(/\{([^}]+)\}/gu, ":$1");
