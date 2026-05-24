@@ -48,7 +48,7 @@ Order matters — each later item depends on the earlier ones.
 - [x] `GET /v1/web/audit` (cursor paginated).
   - Done in `agents/next-three-status-items`: accepts `limit` and opaque `cursor`, orders by `occurred_at desc, id desc`, and returns only Audit Events visible under the member Workspace RLS scope.
 - [ ] `GET /v1/web/settings`, `PATCH /v1/web/settings` (name, auto-deletion days).
-- [ ] `POST /v1/web/admin/lockdown/...` + `DELETE /v1/web/admin/lockdown/...` (operator-only; reject API-key auth before scope checks per ADR 0046).
+- [ ] `POST /v1/web/admin/lockdown/...` + `DELETE /v1/web/admin/lockdown/...` (operator-only; in production gated by Cloudflare Access then `requireOperator()`, which accepts a WorkOS operator session or the rotation agent's Access service token and rejects API-key auth outright, per ADR 0046).
 
 All mutations through `runCommand` (ADR 0022/0035); all reads under the request's Workspace Member RLS scope (ADR 0044). New routes register Zod schemas in `packages/contracts` and the `openapi:check` golden regenerates.
 
@@ -60,12 +60,11 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 
 ## Access Link viewer
 
-- [ ] Confirm `POST /v1/access-links/resolve` shape lives in `packages/contracts` and is the canonical route `/al/*` calls. If the route doesn't exist yet, add it to `apps/api` per ADR 0047 + ADR 0052.
-- [ ] End-to-end smoke a real Access Link against `app.preview.agent-paste.sh`.
+Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0047/0052) depend on the `access_links` table, the kid signing-key family + rotation (ADR 0045), and multi-revision artifacts, none of which exist yet. The `/al/*` route, `POST /v1/access-links/resolve`, and the viewer land with Phase 4, not here.
 
 ## Smoke / CI
 
-- [ ] Add `pnpm smoke:web` covering `/healthz`, `/login` 302 to the WorkOS hosted flow, `/al/{public_id}#blob` resolving through `api`. Wire into `pnpm smoke:preview`.
+- [ ] Add `pnpm smoke:web` covering `/healthz` and `/login` 302 to the WorkOS hosted flow. Wire into `pnpm smoke:preview`.
 - [ ] Extend the PR preview workflow to deploy `web` alongside `api`/`upload`/`content` with the right service binding (`agent-paste-api-pr-{N}`).
 - [ ] Lighthouse a11y check on `/dashboard` (empty state). Fail the preview job below 95.
 
