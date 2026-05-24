@@ -8,6 +8,7 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
+import { artifactStatusTone } from "../lib/artifact-status";
 import { formatRelativeTime } from "../lib/format";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -70,7 +71,7 @@ function ArtifactsListPage() {
                   <Identifier value={row.id} />
                 </TD>
                 <TD>
-                  <Badge tone={row.status === "Published" ? "success" : "neutral"}>{row.status}</Badge>
+                  <Badge tone={artifactStatusTone(row.status)}>{row.status}</Badge>
                 </TD>
                 <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
                   {row.last_published_at ? (

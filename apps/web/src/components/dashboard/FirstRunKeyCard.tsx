@@ -29,7 +29,8 @@ export function FirstRunKeyCard({ secret }: Props) {
         </div>
       ) : (
         <p className="text-[13px] text-[hsl(var(--muted))]">
-          The one-time secret was shown right after sign-in. If you missed it, create a new key from the API Keys page.
+          The one-time secret was shown when your workspace was created. If you missed it, create a new key from the API
+          Keys page.
         </p>
       )}
     </Card>

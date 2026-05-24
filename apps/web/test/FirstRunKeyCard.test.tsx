@@ -14,6 +14,6 @@ describe("FirstRunKeyCard", () => {
   it("explains where to find the secret when it is not available", () => {
     render(<FirstRunKeyCard secret={null} />);
     expect(screen.queryByRole("button", { name: "Reveal secret" })).not.toBeInTheDocument();
-    expect(screen.getByText(/shown right after sign-in/i)).toBeInTheDocument();
+    expect(screen.getByText(/shown when your workspace was created/i)).toBeInTheDocument();
   });
 });

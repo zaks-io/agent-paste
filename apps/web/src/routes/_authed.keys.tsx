@@ -2,7 +2,7 @@ import type { WebApiKeyListResponse } from "@agent-paste/contracts";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { KeyCreateForm } from "../components/keys/KeyCreateForm";
 import { KeysTable } from "../components/keys/KeysTable";
 import { NewKeySecretCard } from "../components/keys/NewKeySecretCard";
@@ -30,7 +30,7 @@ function KeysPage() {
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const rows: WebApiKeyListResponse["items"] = result.data?.items ?? [];
 
-  const refresh = () => router.invalidate();
+  const refresh = useCallback(() => router.invalidate(), [router]);
 
   return (
     <>

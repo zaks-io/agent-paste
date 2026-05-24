@@ -1,5 +1,6 @@
 import type { WebArtifactRow } from "@agent-paste/contracts";
 import { Link } from "@tanstack/react-router";
+import { artifactStatusTone } from "../../lib/artifact-status";
 import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
 import { Badge } from "../ui/Badge";
@@ -46,7 +47,7 @@ export function RecentArtifacts({ rows, error }: Props) {
                   </div>
                 </TD>
                 <TD>
-                  <Badge tone={row.status === "Published" ? "success" : "neutral"}>{row.status}</Badge>
+                  <Badge tone={artifactStatusTone(row.status)}>{row.status}</Badge>
                 </TD>
                 <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
                   {row.last_published_at ? formatRelativeTime(row.last_published_at) : "—"}
