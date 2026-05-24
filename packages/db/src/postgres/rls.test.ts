@@ -210,7 +210,7 @@ describe("postgres RLS runtime enforcement", () => {
          values ('evt-invalid-actor', $1, 'invalid_actor', 'mem-ws1', 'api_key.created', 'api_key', 'key-invalid', '{}'::jsonb, now())`,
         [ws1Id],
       ),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "23514" });
     await expect(
       ws1.query(
         `insert into idempotency_records
@@ -218,7 +218,7 @@ describe("postgres RLS runtime enforcement", () => {
          values ($1, 'invalid_actor', 'mem-ws1', 'web.api_key.create', 'idem-invalid-actor', 'completed', '{}'::jsonb, now(), now())`,
         [ws1Id],
       ),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "23514" });
   });
 
   // The deploy-production migration runner has no journal table; it re-applies
