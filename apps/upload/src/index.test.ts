@@ -46,6 +46,9 @@ describe("upload worker", () => {
         async finalizeUploadSession() {
           return {};
         },
+        async peekIdempotentReplay() {
+          return null;
+        },
       },
     };
 
@@ -80,6 +83,9 @@ describe("upload worker", () => {
         },
         async finalizeUploadSession() {
           return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
         },
       },
       ACTOR_RATE_LIMIT: {
@@ -196,6 +202,9 @@ describe("upload worker", () => {
         },
         async finalizeUploadSession() {
           return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
         },
       },
       WORKSPACE_BURST_CAP: {
