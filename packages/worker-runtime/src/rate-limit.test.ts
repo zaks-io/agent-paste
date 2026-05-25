@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Principal } from "./principal.js";
 import { applyRateLimit } from "./rate-limit.js";
 
 const actorContract = { rateLimit: "actor" } as Parameters<typeof applyRateLimit>[0];
 const artifactContract = { rateLimit: "artifact" } as Parameters<typeof applyRateLimit>[0];
 const noneContract = { rateLimit: "none" } as Parameters<typeof applyRateLimit>[0];
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("applyRateLimit", () => {
   it("allows routes without rate limits", async () => {

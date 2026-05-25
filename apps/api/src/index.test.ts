@@ -1932,9 +1932,12 @@ describe("api worker", () => {
 
     expect(latest.status).toBe(200);
     expect(revision.status).toBe(200);
-    await expect(latest.json()).resolves.toMatchObject({
-      view_url: expect.stringContaining("https://content.test/v/"),
-    });
+    const latestBody = (await latest.json()) as { view_url: string; files?: Array<{ url?: string }> };
+    expect(latestBody.view_url).toContain("https://content.test/v/");
+    expect(latestBody.view_url).toContain("/index.html");
+    expect(latestBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    expect(latestBody.files?.[0]?.url).toContain("https://content.test/v/");
+    expect(latestBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
     expect(seen).toEqual([
       expect.objectContaining({ artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }),
       expect.objectContaining({
