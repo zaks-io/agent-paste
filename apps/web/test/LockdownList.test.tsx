@@ -107,4 +107,16 @@ describe("LockdownList", () => {
     expect(screen.getByText("Already lifted.")).toBeInTheDocument();
     expect(onLift).not.toHaveBeenCalled();
   });
+
+  it("shows an error toast when the lift mutation throws", async () => {
+    liftLockdownFn.mockRejectedValue(new Error("Connection reset."));
+    const onLift = vi.fn();
+    renderList([artifactLockdown()], onLift);
+
+    fireEvent.click(screen.getByRole("button", { name: "Lift" }));
+
+    await waitFor(() => expect(screen.getByText("Couldn't lift lockdown")).toBeInTheDocument());
+    expect(screen.getByText("Connection reset.")).toBeInTheDocument();
+    expect(onLift).not.toHaveBeenCalled();
+  });
 });

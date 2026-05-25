@@ -96,4 +96,18 @@ describe("LockdownForm", () => {
     expect(screen.getByLabelText("Target ID")).toHaveValue("artifact-1");
     expect(screen.getByLabelText("Reason code")).toHaveValue("abuse");
   });
+
+  it("shows an error toast when the mutation throws", async () => {
+    setLockdownFn.mockRejectedValue(new Error("Connection reset."));
+    const onSuccess = vi.fn();
+    renderForm(onSuccess);
+
+    fireEvent.change(screen.getByLabelText("Target ID"), { target: { value: "artifact-1" } });
+    fireEvent.change(screen.getByLabelText("Reason code"), { target: { value: "abuse" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set lockdown" }));
+
+    await waitFor(() => expect(screen.getByText("Couldn't set lockdown")).toBeInTheDocument());
+    expect(screen.getByText("Connection reset.")).toBeInTheDocument();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
 });

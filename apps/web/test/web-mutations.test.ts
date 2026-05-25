@@ -156,7 +156,17 @@ describe("web server mutations", () => {
       data: null,
       error: { status: 400, code: "validation_error" },
     });
+    await expect(
+      setLockdownFn({ data: { scope: "workspace", target_id: "   ", reason_code: "abuse" } }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
     await expect(liftLockdownFn({ data: { scope: "invalid", target_id: "" } })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(liftLockdownFn({ data: { scope: "workspace", target_id: "   " } })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });

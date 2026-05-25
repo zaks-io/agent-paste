@@ -32,6 +32,12 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
       }
       push({ tone: "success", title: "Lockdown lifted", message: "Platform lockdown removed." });
       onLift();
+    } catch (error) {
+      push({
+        tone: "error",
+        title: "Couldn't lift lockdown",
+        message: error instanceof Error ? error.message : "Request failed.",
+      });
     } finally {
       setPendingIds((current) => {
         const next = new Set(current);

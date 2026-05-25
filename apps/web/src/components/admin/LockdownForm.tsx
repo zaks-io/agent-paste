@@ -52,6 +52,12 @@ export function LockdownForm({ onSuccess }: Props) {
       setScope("artifact");
       push({ tone: "success", title: "Lockdown set", message: `Platform lockdown activated.` });
       onSuccess();
+    } catch (error) {
+      push({
+        tone: "error",
+        title: "Couldn't set lockdown",
+        message: error instanceof Error ? error.message : "Request failed.",
+      });
     } finally {
       setPending(false);
     }

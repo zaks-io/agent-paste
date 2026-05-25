@@ -7,20 +7,20 @@ export type LockdownScope = z.infer<typeof LockdownScope>;
 
 export const SetLockdownRequest = z.object({
   scope: LockdownScope,
-  target_id: z.string().min(1),
+  target_id: z.string().trim().min(1),
   reason_code: z.string().min(1).max(120),
 });
 export type SetLockdownRequest = z.infer<typeof SetLockdownRequest>;
 
 export const LiftLockdownRequest = z.object({
   scope: LockdownScope,
-  target_id: z.string().min(1),
+  target_id: z.string().trim().min(1),
 });
 export type LiftLockdownRequest = z.infer<typeof LiftLockdownRequest>;
 
 export const LockdownDetail = z.object({
   scope: LockdownScope,
-  target_id: z.string().min(1),
+  target_id: z.string().trim().min(1),
   reason_code: z.string().min(1).max(120),
   set_at: IsoDateTime,
   set_by: z.string().min(1),

@@ -2,7 +2,6 @@ import type { LockdownListResponse } from "@agent-paste/contracts";
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
-import { useState } from "react";
 import { LockdownForm } from "../components/admin/LockdownForm";
 import { LockdownList } from "../components/admin/LockdownList";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -34,12 +33,9 @@ export const Route = createFileRoute("/_authed/admin")({
 
 function AdminPage() {
   const router = useRouter();
-  const { lockdowns: initialLockdowns } = Route.useLoaderData();
-  const [lockdowns, setLockdowns] = useState(initialLockdowns);
+  const { lockdowns } = Route.useLoaderData();
 
   async function handleSuccess() {
-    const updated = await loadLockdownsFn();
-    setLockdowns(updated);
     await router.invalidate();
   }
 
