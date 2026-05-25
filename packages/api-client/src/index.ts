@@ -47,7 +47,7 @@ type RequestOptions = {
   method?: string;
   body?: unknown;
   idempotencyKey?: string;
-  auth?: "api_key" | "admin_token" | "none";
+  auth?: "api_key" | "admin_token" | "bearer" | "none";
   headers?: Record<string, string>;
 };
 
@@ -114,6 +114,21 @@ export class ApiClient {
           idempotencyKey,
         },
       ),
+  };
+
+  web = {
+    keys: {
+      // Mints a scoped API key from a WorkOS member/CLI access token. The login
+      // flow constructs an ApiClient with bearer auth for this single call, then
+      // discards the access token (ADR 0060).
+      create: (body: CreateApiKeyRequest, idempotencyKey: string) =>
+        this.request(CreateApiKeyResponse, this.apiBaseUrl, "/v1/web/keys", {
+          method: "POST",
+          body,
+          idempotencyKey,
+          auth: "bearer",
+        }),
+    },
   };
 
   admin = {
@@ -235,7 +250,7 @@ export class ApiClient {
     return schema.parse(data);
   }
 
-  private async authorizationHeader(auth: "api_key" | "admin_token" | "none") {
+  private async authorizationHeader(auth: "api_key" | "admin_token" | "bearer" | "none") {
     if (auth === "none") {
       return undefined;
     }
@@ -248,6 +263,16 @@ export class ApiClient {
         });
       }
       return `Bearer ${this.adminToken}`;
+    }
+    if (auth === "bearer") {
+      if (this.auth?.type !== "bearer") {
+        throw new AgentPasteError({
+          code: "not_authenticated",
+          message: "This request requires a bearer access-token provider.",
+          status: 401,
+        });
+      }
+      return `Bearer ${await this.auth.getAccessToken()}`;
     }
     if (!this.auth) {
       throw new AgentPasteError({

@@ -890,6 +890,62 @@ describe("api worker", () => {
     });
   });
 
+  it("provisions a brand-new member on the key-mint route when none exists yet", async () => {
+    let ensureCalls = 0;
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: {
+        ...baseDbForTests(),
+        async getWebMemberByWorkOsUserId() {
+          return null;
+        },
+        async ensureWebMember(input: { workosUserId: string; email: string }) {
+          ensureCalls += 1;
+          expect(input).toMatchObject({ workosUserId: "user_1", email: "user@example.com" });
+          return {
+            type: "member",
+            id: "mem_provisioned",
+            workspace_id: "ws_provisioned",
+            email: "user@example.com",
+            scopes: ["publish", "read", "admin"],
+          };
+        },
+        async createWebApiKey(input) {
+          expect(input.actor).toMatchObject({ type: "member", id: "mem_provisioned", workspace_id: "ws_provisioned" });
+          return {
+            api_key: {
+              id: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: input.actor.workspace_id,
+              name: input.name,
+              public_id: "01HZY7Q8X9Y2S3T4",
+              scopes: ["publish", "read"],
+              revoked_at: null,
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_used_at: null,
+            },
+            secret: "ap_pk_preview_01HZY7Q8X9Y2S3T4_secretsecretsecretsecretsecret",
+          };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-jit",
+        },
+        body: JSON.stringify({ name: "agent-paste CLI" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(201);
+    expect(ensureCalls).toBe(1);
+  });
+
   it("revokes a web API key from the member workspace", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
@@ -1873,6 +1929,15 @@ function webMemberDbForTests(scopes: string[], overrides: Partial<ApiDatabase> =
         type: "member",
         id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
         workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+        scopes,
+      };
+    },
+    async ensureWebMember() {
+      return {
+        type: "member",
+        id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+        workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+        email: "user@example.com",
         scopes,
       };
     },

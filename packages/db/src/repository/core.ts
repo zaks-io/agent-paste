@@ -340,6 +340,31 @@ export class RepositoryCore implements Repository {
     });
   }
 
+  // The CLI is the only flow where a WorkOS identity can arrive without a prior
+  // dashboard callback, so it provisions the same Personal Workspace + member on
+  // first contact, then exposes the member as an actor. resolveWebMember
+  // serializes concurrent first-logins per WorkOS user.
+  async ensureWebMember(input: { workosUserId: string; email: string; now?: string }) {
+    const existing = await this.getWebMemberByWorkOsUserId({ workosUserId: input.workosUserId });
+    if (existing) {
+      return existing;
+    }
+    const provisioned = await this.resolveWebMember({
+      workosUserId: input.workosUserId,
+      email: input.email,
+      idempotencyKey: `cli-auth:${input.workosUserId}`,
+      ...(input.now ? { now: input.now } : {}),
+    });
+    const member = provisioned.workspace_member;
+    return {
+      type: "member" as const,
+      id: member.id,
+      workspace_id: member.workspace_id,
+      email: member.email,
+      scopes: member.scopes,
+    };
+  }
+
   async getWebWorkspace(actor: ApiActor) {
     if (actor.type !== "member") {
       throw new Error(`unexpected_actor_type:${actor.type}`);

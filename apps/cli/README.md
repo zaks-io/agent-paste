@@ -18,13 +18,22 @@ npm install -g agent-paste
 
 ## Authenticate
 
-Set `AGENT_PASTE_API_KEY` in the environment. The MVP CLI is API-key-only.
+For interactive use, sign in with WorkOS. `login` runs a loopback PKCE flow in your browser, mints a scoped **API Key**, and stores it (macOS Keychain, or `~/.config/agent-paste/credentials.json` at mode `0600` elsewhere). The WorkOS token is discarded after the key is minted.
+
+```sh
+agent-paste login
+agent-paste logout
+```
+
+The minted key is capped at `publish` and `read`. CLI sign-in never grants `admin`.
+
+For CI and headless agents, set `AGENT_PASTE_API_KEY` in the environment:
 
 ```sh
 export AGENT_PASTE_API_KEY=ap_pk_production_...
 ```
 
-The CLI does not accept secrets as flags. API Keys encode their **Workspace**.
+`AGENT_PASTE_API_KEY` takes precedence over a stored login credential; when both are present the CLI prints a one-line note to stderr naming which it used. The CLI does not accept secrets as flags. API Keys encode their **Workspace**.
 
 ## Publish
 

@@ -18,6 +18,7 @@
     "CLEANUP_BATCH_SIZE": "100",
     "DOCS_BASE_URL": "",
     "WORKOS_CLIENT_ID": "",
+    "WORKOS_CLI_AUDIENCE": "",
     "CF_ACCESS_TEAM_DOMAIN": "",
     "CF_ACCESS_AUD": ""
   },
@@ -70,6 +71,14 @@
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        // `agent-paste login` (WorkOS Public OAuth / Connect app) tokens verify
+        // against the authkit.app JWKS and issuer, not the api.workos.com dashboard
+        // path. WORKOS_CLI_AUDIENCE is the environment OIDC client stamped into the
+        // token `aud` (WorkOS exposes no claim for the OAuth app id itself). All
+        // public identifiers; safe in vars.
+        "WORKOS_CLI_AUDIENCE": "client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
+        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
@@ -127,6 +136,18 @@
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        // Intentional shared WorkOS tenant: preview and production are backed by
+        // one WorkOS environment (note WORKOS_CLIENT_ID matches the preview block),
+        // so the CLI audience/JWKS/issuer below are the same `...-staging.authkit.app`
+        // values as preview by design, not a misconfiguration. Split these when a
+        // dedicated production WorkOS environment is provisioned (see web-app-todo.md).
+        // WORKOS_CLI_AUDIENCE is the environment OIDC client stamped into the token
+        // `aud` (WorkOS exposes no claim for the OAuth app id itself). Tokens verify
+        // against the authkit.app JWKS/issuer, not the api.workos.com dashboard path.
+        // All public identifiers; safe in vars.
+        "WORKOS_CLI_AUDIENCE": "client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
+        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
