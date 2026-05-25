@@ -7,13 +7,14 @@ if (process.env.CI === "true" || process.env.SKIP_LEFTHOOK === "1") {
 
 const hooksPath = spawnSync("git", ["config", "--get", "core.hooksPath"], { encoding: "utf8" });
 const installArgs = hooksPath.status === 0 && hooksPath.stdout.trim() !== "" ? ["install", "--force"] : ["install"];
-const result = spawnSync("lefthook", installArgs, { stdio: "inherit", shell: true });
+const result = spawnSync("lefthook", installArgs, { stdio: "inherit" });
 
 if (result.status !== 0) {
-  const forcedResult = spawnSync("lefthook", ["install", "--force"], { stdio: "inherit", shell: true });
+  const forcedResult = spawnSync("lefthook", ["install", "--force"], { stdio: "inherit" });
 
   if (forcedResult.status !== 0) {
-    console.warn("[prepare] lefthook install failed; skipping (hooks will be uninstalled).");
+    console.warn("[prepare] lefthook install failed; hooks were not installed.");
+    process.exit(1);
   }
 }
 
