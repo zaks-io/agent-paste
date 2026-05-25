@@ -10,7 +10,9 @@ const installArgs = hooksPath.status === 0 && hooksPath.stdout.trim() !== "" ? [
 const result = spawnSync("lefthook", installArgs, { stdio: "inherit" });
 
 if (result.status !== 0) {
-  const forcedResult = spawnSync("lefthook", ["install", "--force"], { stdio: "inherit" });
+  const forcedResult = installArgs.includes("--force")
+    ? result
+    : spawnSync("lefthook", ["install", "--force"], { stdio: "inherit" });
 
   if (forcedResult.status !== 0) {
     console.warn("[prepare] lefthook install failed; hooks were not installed.");
