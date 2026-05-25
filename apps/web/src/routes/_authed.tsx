@@ -30,7 +30,11 @@ export const Route = createFileRoute("/_authed")({
     if ("redirectTo" in result) {
       const returnPath = location.pathname + location.search;
       const params = new URLSearchParams({ returnPathname: returnPath });
-      throw redirect({ href: `${result.redirectTo}?${params.toString()}` });
+      // sign-in is a server route handler, not a client route. The router only
+      // infers reloadDocument for absolute hrefs, so this path-relative href
+      // would otherwise be treated as an internal navigation and 500 under SSR.
+      // Force a full-document load so SSR emits a real 307 to the handler.
+      throw redirect({ href: `${result.redirectTo}?${params.toString()}`, reloadDocument: true });
     }
     return result;
   },
