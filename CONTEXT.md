@@ -178,7 +178,7 @@ _Avoid_: Owner, author
 
 <a id="scope"></a>
 **Scope**:
-A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** when authenticated for direct workspace control (the dashboard); when authenticated through a delegated agent surface such as the CLI or MCP, the access token carries an explicit **Scope** subset and the implicit grant does not apply. An **API Key** holds a named subset.
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** (including **Member-Only Scopes** such as `admin`) only when authenticated for direct workspace control (the dashboard). The CLI does not carry **Scopes** in a token: `agent-paste login` mints an **API Key**, and minted keys are capped at `publish` and `read` (never `admin`), so the CLI surface is structurally below the dashboard ceiling. An **API Key** holds a named subset.
 _Avoid_: Role, capability
 
 <a id="member-only-scope"></a>
@@ -327,7 +327,7 @@ _Avoid_: sse worker, push worker, realtime gateway
 
 <a id="cli"></a>
 **cli**:
-The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with a WorkOS loopback PKCE flow for humans (ADR 0060) or with `AGENT_PASTE_API_KEY` for CI and headless agents.
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow (against a dedicated Public OAuth Connect app) that mints and stores a scoped **API Key**, then discards the WorkOS token (ADR 0060); `AGENT_PASTE_API_KEY` remains the path for CI and headless agents and takes precedence over the stored key.
 _Avoid_: client, sdk, ap tool
 
 <a id="mcp"></a>
@@ -531,7 +531,8 @@ _Avoid_: middleware, interceptor, auth filter
 - An **API Key** belongs to exactly one **Workspace**
 - An **API Key** has one or more **Scopes**
 - A **Workspace Member** holds every **Scope** implicitly when authenticated for direct workspace control (the dashboard)
-- A **Workspace Member** authenticated through a delegated agent surface (CLI, MCP) carries an explicit **Scope** subset and does not receive the implicit grant
+- The CLI does not receive the implicit grant: `agent-paste login` mints an **API Key** capped at `publish` and `read`, so the CLI acts with that key's **Scope** subset, never **Member-Only Scopes** (ADR 0060)
+- A future delegated agent surface (MCP) that carries scopes in its own token likewise gets an explicit subset, never **Member-Only Scopes**
 - A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold and that no delegated agent surface can carry
 - **API Key** lifecycle management requires a **Member-Only Scope**
 - **Audit Event** reads require a **Member-Only Scope**
@@ -807,7 +808,7 @@ _Avoid_: middleware, interceptor, auth filter
 > **Dev:** "Does **API Key Revocation** remove what the key created?"
 > **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
 > **Dev:** "Do **Scopes** limit **Workspace Members**?"
-> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through delegated agent surfaces like the CLI or MCP, the same person carries an explicit **Scope** subset that never includes **Member-Only Scopes**."
+> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through the CLI the same person acts with a minted **API Key** capped at `publish` and `read`; a future MCP surface would carry an explicit token **Scope** subset. Neither path ever includes **Member-Only Scopes**."
 > **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
 > **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
 > **Dev:** "Can a publishing **API Key** read private **Artifacts**?"

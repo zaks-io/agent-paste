@@ -157,6 +157,30 @@ describe("LocalRepository", () => {
     expect(repo.workspaceMembers.get(session.workspace_member.id)?.last_seen_at).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("provisions a workspace on first ensureWebMember and is idempotent thereafter", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const first = await repo.ensureWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "cli@example.com",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(first).toMatchObject({ type: "member", email: "cli@example.com" });
+    expect(first.scopes).toContain("admin");
+    expect(repo.workspaces.size).toBe(1);
+    expect(repo.workspaceMembers.size).toBe(1);
+
+    const second = await repo.ensureWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "cli@example.com",
+      now: "2026-02-02T00:00:00.000Z",
+    });
+
+    expect(second).toEqual(first);
+    expect(repo.workspaces.size).toBe(1);
+    expect(repo.workspaceMembers.size).toBe(1);
+  });
+
   it("creates member-owned API keys idempotently and writes a member audit event", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({

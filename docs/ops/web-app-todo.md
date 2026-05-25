@@ -1,21 +1,22 @@
 # Web app — remaining work
 
-Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-23.
+Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-25.
 
 Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). Phase 1/2 work continues to be tracked in `docs/ops/project-status.md`.
 
-## Operator click-ops (preview login verified; production + admin gate remain)
+## Operator click-ops (blocks first real login)
 
-- [x] Provision the WorkOS project. One WorkOS project (single `client_id` `client_01KSAJTF1EX1YZCCXJS9B0GJ46`) backs preview + production; AuthKit is the provider.
-  - Redirect URIs configured: `https://app.preview.agent-paste.sh/api/auth/callback`, `https://app.agent-paste.sh/api/auth/callback` (Default), `http://localhost:5173/api/auth/callback`.
-  - WorkOS is per-environment, not per-app: one `client_id` + one `WORKOS_API_KEY` per WorkOS environment, not an Auth0-style OAuth client per service. `WORKOS_CLIENT_ID` is a public identifier kept in `wrangler.jsonc` vars; the API key and cookie password are Worker secrets.
-  - Still pending for the CLI (backlog #5, not web): add the `http://127.0.0.1:<port>/callback` loopback redirect.
+- [x] Provision the WorkOS environments. **Two WorkOS environments, one per deploy target** (not one project backing both): preview → staging env (dashboard AuthKit `client_01KSAJTF1EX1YZCCXJS9B0GJ46`, domain `courageous-milestone-75-staging.authkit.app`); production → production env (dashboard AuthKit `client_01KSED0F1X2MZ0WCKNNQR6FY2X`, domain `soulful-path-50.authkit.app`). AuthKit is the provider for both.
+  - Preview env redirect URIs: `https://app.preview.agent-paste.sh/api/auth/callback`, `http://localhost:5173/api/auth/callback`.
+  - Production env redirect URIs: `https://app.agent-paste.sh/api/auth/callback` (dashboard) and `http://127.0.0.1:8975/callback` (CLI Connect app).
+  - WorkOS is per-environment, not per-app: one dashboard `client_id` + one `WORKOS_API_KEY` per WorkOS environment, not an Auth0-style OAuth client per service. `WORKOS_CLIENT_ID` is a public identifier kept in `wrangler.jsonc` vars; the API key and cookie password are Worker secrets.
+  - [x] CLI (backlog #5, not web): dedicated WorkOS **Public OAuth (Connect)** app for `agent-paste login` exists with the exact loopback redirect `http://127.0.0.1:8975/callback` registered as the default (WorkOS allows a wildcard loopback redirect but the default must be exact; the CLI binds the fixed default port 8975, overridable via `AGENT_PASTE_LOGIN_PORT` to another registered redirect URI); its public `client_id` is the CLI default in `apps/cli/src/config.ts`. The CLI verifies Connect tokens at the app's AuthKit-domain JWKS (`/oauth2/jwks`), not the dashboard `/sso/jwks/{client_id}`. Connect tokens carry no `client_id`/`azp` claim, so `api` pins the token to issuer + JWKS + the environment OIDC audience via `WORKOS_CLI_AUDIENCE` (set in `apps/api/wrangler.jsonc` for preview/production), not a per-OAuth-app id. Verified e2e against preview 2026-05-24.
 - Custom domains (created automatically by `custom_domain: true` routes on deploy):
   - [x] `app.preview.agent-paste.sh` → `agent-paste-web-preview` (deployed 2026-05-24).
-  - [ ] `app.agent-paste.sh` → `agent-paste-web-production` (lands with the first production web deploy; needs explicit approval).
+  - [x] `app.agent-paste.sh` → `agent-paste-web-production` (auto-created on the first production web deploy 2026-05-24, now that `web` is in `scripts/deploy-preview.mjs`; `/healthz` 200, `/api/auth/sign-in` 307 to the production WorkOS client).
 - Cookie password (`WORKOS_COOKIE_PASSWORD`, 32+ char, one per environment):
   - [x] preview: set as a Worker secret on `agent-paste-web-preview`.
-  - [ ] production: set on `agent-paste-web-production` at first production deploy.
+  - [x] production: set on `agent-paste-web-production` (operator confirmed 2026-05-24).
 
 ## Bootstrap script (small follow-up PR)
 
@@ -54,18 +55,28 @@ Order matters — each later item depends on the earlier ones.
   - Done in `agents/web-settings-patch` (#44): retention persists per-workspace via new `workspaces.auto_deletion_days` column (migration 0007, DB CHECK 1–90); `PATCH` runs through WorkOS member auth, requires `admin` scope + `Idempotency-Key`, bounds `auto_deletion_days` by the ADR 0048 caps (shared `MIN/MAX_AUTO_DELETION_DAYS`), and `RepositoryCore.updateWebSettings` fails closed against those bounds before persisting (local adapter has no DB constraint). Audit event `workspace.settings.updated`.
 - [x] `POST /v1/web/admin/lockdowns` + `DELETE /v1/web/admin/lockdowns/{scope}/{target_id}` (operator-only; in production gated by Cloudflare Access then `requireOperator()`, which accepts a WorkOS operator session or the rotation agent's Access service token and rejects API-key auth outright, per ADR 0046).
   - Done in `agents/web-admin-lockdown`: new `operator` auth requirement + `apps/api/src/operator.ts` (OPERATOR_EMAILS allow-list + Cloudflare Access service-token JWT verification requiring `common_name`). All operator-route auth failures (missing/invalid WorkOS token, non-operator email, API-key bearer, missing/invalid Access JWT) collapse to a generic `not_found` (404) so the surface stays non-enumerable. New `platform` actor type, `platform_lockdowns` table (migration 0008, partial unique index on effective rows, forced RLS via `app.platform`), idempotent `setLockdown`/`liftLockdown` through `runCommand`, KV denylist `wsd:`/`ad:` writes on set and deletes on lift (after the Postgres commit). Operator routes rate-limit by `platform:{operator-id}` with no workspace dimension.
-  - [x] `GET /v1/web/admin/lockdowns` list endpoint — Done (#48): operator-only, cursor-paginated (`set_at desc, id desc`) with canonical-cursor validation. Same `requireOperator()` posture (WorkOS operator session or rotation-agent Access service token; API keys rejected; all auth failures collapse to `not_found`). The operator dashboard UI that enumerates them is not yet wired.
+  - Shipped (#48): operator-only, cursor-paginated `GET /v1/web/admin/lockdowns` list endpoint. The operator UI that consumes it remains deferred to a later Phase 3 slice.
 
 All mutations through `runCommand` (ADR 0022/0035); all reads under the request's Workspace Member RLS scope (ADR 0044). New routes register Zod schemas in `packages/contracts` and the `openapi:check` golden regenerates.
 
 ## `web` follow-up wiring (lands after each `api` endpoint)
 
 - [x] Replace each route's `apiFetchOrEmpty(404|501) → EmptyState` fallback with the real loader call.
-  - Done in `agents/web-loader-wiring`: dashboard now loads `GET /v1/web/workspace` + recent artifacts + recent audit in parallel; artifact detail surfaces entrypoint/file count/size; artifacts index and audit rows link through. Keys create/revoke and settings save are wired through `createServerFn` -> `apiFetch` with a generated `Idempotency-Key`. Access Links stay `EmptyState` (Phase 4, not built). The operator lockdown list endpoint now exists (`GET /v1/web/admin/lockdowns`, #48), but the dashboard's operator lockdown list UI is not yet wired to it — it stays `EmptyState` pending the operator dashboard surface.
+  - Done in `agents/web-loader-wiring`: dashboard now loads `GET /v1/web/workspace` + recent artifacts + recent audit in parallel; artifact detail surfaces entrypoint/file count/size; artifacts index and audit rows link through. Keys create/revoke and settings save are wired through `createServerFn` -> `apiFetch` with a generated `Idempotency-Key`. Access Links and the operator lockdown list stay `EmptyState` (endpoints deferred, Phase 4 / not built).
 - [x] First-run key card: render when `GET /v1/web/workspace` returns `default_key_first_run = true`; secret stays in component state only.
   - Done: the dashboard renders `FirstRunKeyCard` gated on `default_key_first_run`; the one-time secret is the `default_api_key.secret` from the `_authed` callback loader (the only place it is returned) and is held in component state, revealed on click. The provisioning callback secret is no longer surfaced in the `_authed` layout banner.
 - [x] Toasts surface `api` error envelopes: code + message + a link to `/audit?request_id=…`.
   - Done: `ToastProvider`/`useToast` (mounted in `_authed`) plus an `errorToast(title, ApiErrorInfo)` helper; mutation failures push a toast carrying the error `code`, `message`, and a link to `/audit?request_id=<requestId>`. The audit route reads the `request_id` search param and highlights the matching row.
+
+## Auth bugs
+
+- [x] **Dashboard `not_authenticated` for logged-in users (Issue A).** The web app forwards the AuthKit User Management session access token to `api`, but `dashboardVerifyOptions` set `requireClientIdClaim: true`. AuthKit session tokens carry no `client_id`/`azp`/`aud` claim, so verification always returned null → every `/v1/web/*` call 401'd. The `requireClientIdClaim: false` change was necessary but **not sufficient**: the real remaining cause was `WORKOS_ISSUER` pointing at the `authkit.app` domain. User Management session tokens are issued by `https://api.workos.com/user_management/{env default client}` (the env default client == `WORKOS_CLI_AUDIENCE`, **not** `WORKOS_CLIENT_ID`). Confirmed via the `workos_auth_reject` structured log (shipped in #57) showing `issuer_mismatch` against that exact issuer in production. Fixed in #58 by repointing prod/preview `WORKOS_ISSUER` at the User Management path; verified live (dashboard loads, all `/v1/web/*` return 200, zero reject events).
+- [x] **Unauthenticated `/dashboard` returns HTTP 500 instead of redirecting to sign-in (Issue B).** `_authed.tsx` loader threw `redirect({ href: "/api/auth/sign-in?returnPathname=…" })`. The **query string** on a thrown redirect href trips a coercion bug in the router's SSR post-throw handling (`Cannot convert object to primitive value`), surfacing as a bare 500 — independent of `reloadDocument` or absolute-vs-relative href (all four combinations reproduce locally; only a query-string-free href works). Root-caused by reproducing locally under `wrangler dev` and reading the serialized `$tsr` match error; the index route already redirects with `redirect({ href: "/api/auth/sign-in" })` (no query) and works. Fixed in #59 by dropping the query string. Verified locally: all `_authed` routes (`/dashboard`, `/settings`, `/keys`, `/audit`, `/artifacts`) now 307 to `/api/auth/sign-in`.
+
+## Auth follow-ups
+
+- [ ] **Transient 403 `forbidden` on the very first authenticated dashboard load.** The JIT callback (`POST /v1/auth/web/callback`) provisions the workspace/member/default key (200), but the parallel `/v1/web/*` reads in the same load fire before that commit is visible, so `getWebMemberByWorkOsUserId` finds no member → `forbidden` until the user reloads. Not blocking (self-heals on reload). Options: await provisioning before child loaders run, retry the reads on a fresh-member miss, or JIT-provision on the read path. Needs a decision before implementing.
+- [ ] **Restore `returnPathname` on the `_authed` → sign-in redirect.** Dropped in #59 because a query string on a thrown redirect href trips the router SSR coercion bug (see Issue B). Unauthenticated deep links (e.g. `/settings`) now land on the default post-login page instead of the originally-requested route. Revisit after a `@tanstack/react-router` upgrade (retest the query-string redirect), or thread `returnPathname` through a non-href channel (cookie set before redirect, or a query-string-free path segment the sign-in handler decodes). Low priority; consistent with the index route, which never preserved it.
 
 ## Access Link viewer
 
@@ -73,9 +84,11 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 
 ## Smoke / CI
 
-- [ ] Add `pnpm smoke:web` covering `/healthz` and `/api/auth/sign-in` 307 to the WorkOS hosted flow. Wire into `pnpm smoke:preview`. (Web preview deploy now works via `pnpm --filter @agent-paste/web deploy:preview` — CLOUDFLARE_ENV mechanism, #49 — and `agent-paste-web-preview` is live at `app.preview.agent-paste.sh`.)
-- [ ] Extend the PR preview workflow to deploy `web` alongside `api`/`upload`/`content` with the right service binding (`agent-paste-api-pr-{N}`). (Manual preview deploy is now wired via `deploy:preview`; this item is the per-PR workflow integration.)
+- [x] Deploy `web` to the stable preview and production environments. `scripts/deploy-preview.mjs` now deploys `web` last (after `apex`), so `pnpm deploy:preview` brings up `app.preview.agent-paste.sh` and a `main` merge brings up `app.agent-paste.sh` via `deploy-production.yml`.
+- [x] Add a hosted `/healthz` + `/api/auth/sign-in` 307 (to the WorkOS flow) assertion against the deployed `web` Worker. `smoke-hosted.mjs` now runs `smokeWebAuth(config)` for preview/production: asserts `/healthz` 200 (text/html) and `/api/auth/sign-in` 307 with a `Location` under `https://api.workos.com/user_management/authorize`. Web base URL defaults to `app.{preview.}agent-paste.sh` (override via `AGENT_PASTE_{PREVIEW,PRODUCTION}_WEB_URL`); skips for the `pr` target unless `AGENT_PASTE_PR_WEB_URL` is set, since the `web` Worker is not deployed per-PR (see below). `pnpm smoke:web` still also exercises the local mock-WorkOS server-fn flow.
+- [ ] Extend the **PR preview** workflow (`scripts/deploy-pr-preview.mjs`) to deploy `web` per-PR alongside `api`/`upload`/`content` with the `agent-paste-api-pr-{N}` service binding. Blocked on a per-PR WorkOS redirect URI (wildcard registration or click-ops).
 - [ ] Lighthouse a11y check on `/dashboard` (empty state). Fail the preview job below 95.
+- [ ] **Harden the per-PR preview readiness gate against workers.dev route-propagation flakiness.** Freshly-deployed per-PR worker hostnames (`agent-paste-{svc}-pr-N.workers.dev`) propagate across Cloudflare's edge asynchronously, so a few requests can hit error 1042 ("no Workers script for this host") even after `wrangler deploy` returns. The "Wait for Workers DNS propagation" step (`pr-preview.yml:116`) is too weak: `curl` without `--fail` treats the 1042 error page as "reachable," and a single success declares global readiness. Observed on PR #60: `whoami`/`workspace create` passed, `key create` 404'd; a rerun went green. Fix: `curl --fail` against `/healthz`, require N consecutive successes, and/or retry the admin CLI on 1042/404 the way `runAdminCliJson` already retries on `not_authenticated`. Preview/production are unaffected (stable warm hostnames). Also add `paths-ignore` (or `paths`) to `pr-preview.yml` so docs-only PRs skip the per-PR deploy entirely — today it has no path filter and runs on every PR, wasting a full deploy and exposing doc changes to this same propagation flake.
 
 ## Documentation
 

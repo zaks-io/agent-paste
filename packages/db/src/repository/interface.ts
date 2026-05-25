@@ -130,6 +130,7 @@ export type Repository = {
     now?: string;
   }): Promise<WebAuthResponse>;
   getWebMemberByWorkOsUserId(input: { workosUserId: string }): Promise<WebMemberActor | null>;
+  ensureWebMember(input: { workosUserId: string; email: string; now?: string }): Promise<WebMemberActor>;
   getWebWorkspace(actor: ApiActor): Promise<WebWorkspaceView>;
   listWebArtifacts(
     actor: ApiActor,

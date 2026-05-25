@@ -31,6 +31,7 @@ describe("apex worker", () => {
     expect(body).toContain("/fonts/JetBrainsMono-Regular.woff2");
     expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
     expect(body).toContain('href="/agents.md"');
+    expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
     expect(body).not.toContain("github.com");
     expect(body).not.toContain("View on GitHub");
   });
@@ -91,9 +92,23 @@ describe("apex worker", () => {
   });
 
   it("preserves query strings on product redirects", async () => {
-    const response = await get("/login?return_to=%2Fartifacts%2Fart_1");
+    const response = await get("/artifacts?cursor=abc");
     expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe("https://app.agent-paste.sh/login?return_to=%2Fartifacts%2Fart_1");
+    expect(response.headers.get("location")).toBe("https://app.agent-paste.sh/artifacts?cursor=abc");
+  });
+
+  it("maps the /login and /logout vanity paths to the app auth routes", async () => {
+    const login = await get("/login?return_to=%2Fdashboard");
+    expect(login.status).toBe(308);
+    expect(login.headers.get("location")).toBe("https://app.agent-paste.sh/api/auth/sign-in?return_to=%2Fdashboard");
+
+    const logout = await get("/logout");
+    expect(logout.status).toBe(308);
+    expect(logout.headers.get("location")).toBe("https://app.agent-paste.sh/api/auth/sign-out");
+
+    const trailingSlash = await get("/login/");
+    expect(trailingSlash.status).toBe(308);
+    expect(trailingSlash.headers.get("location")).toBe("https://app.agent-paste.sh/api/auth/sign-in");
   });
 
   it("redirects nested product paths", async () => {
