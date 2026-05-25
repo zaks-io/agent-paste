@@ -43,6 +43,8 @@ describe("login config", () => {
   it("ignores an out-of-range or non-numeric login port and falls back to the default", () => {
     expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "70000" }).loginPort).toBe(8975);
     expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "not-a-port" }).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "" }).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "   " }).loginPort).toBe(8975);
   });
 
   it("flags empty and sentinel client ids as unconfigured, but not the real default", () => {

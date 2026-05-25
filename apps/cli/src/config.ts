@@ -37,8 +37,15 @@ function parsePort(value: string | undefined): number | null {
   if (value === undefined) {
     return null;
   }
-  const port = Number(value);
-  return Number.isInteger(port) && port >= 0 && port <= 65535 ? port : null;
+  // Number("") and Number("   ") are 0, which would silently bind the ephemeral
+  // port instead of the fixed default. Require digits only so blank/garbage env
+  // values fall back to DEFAULT_LOGIN_PORT.
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const port = Number.parseInt(normalized, 10);
+  return port <= 65535 ? port : null;
 }
 
 export function isPlaceholderClientId(clientId: string): boolean {
