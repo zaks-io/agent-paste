@@ -63,9 +63,12 @@ async function cliTokenFixture() {
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "cli-key";
   publicJwk.alg = "RS256";
-  const token = await new SignJWT({ client_id: cliClientId, sid: "sid_cli" })
+  // Mirror a real WorkOS Connect access token: the client lives in `aud`, with
+  // no `client_id`/`azp` claim (unlike AuthKit dashboard tokens).
+  const token = await new SignJWT({ sid: "sid_cli" })
     .setProtectedHeader({ alg: "RS256", kid: "cli-key" })
     .setIssuer(cliIssuer)
+    .setAudience(cliClientId)
     .setSubject(subject)
     .setIssuedAt()
     .setExpirationTime(Math.floor(Date.now() / 1000) + 300)

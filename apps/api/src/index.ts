@@ -1039,10 +1039,14 @@ function cliVerifyOptions(env: Env): WorkOsVerifyOptions | null {
   if (!env.WORKOS_API_KEY || !env.WORKOS_CLI_CLIENT_ID) {
     return null;
   }
+  // WorkOS Connect access tokens carry the originating client in `aud`, not the
+  // `client_id`/`azp` claim that AuthKit dashboard tokens use. requireClientIdClaim
+  // is therefore false so the match falls through to `aud`; the CLI issuer and the
+  // authkit.app JWKS below pin the token to this client regardless.
   const options: WorkOsVerifyOptions = {
     apiKey: env.WORKOS_API_KEY,
     clientId: env.WORKOS_CLI_CLIENT_ID,
-    requireClientIdClaim: true,
+    requireClientIdClaim: false,
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;

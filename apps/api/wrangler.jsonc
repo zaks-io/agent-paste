@@ -71,9 +71,12 @@
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
-        // Operator: replace with the public client_id of the dedicated WorkOS
-        // Public OAuth (Connect) app used by `agent-paste login`. Public id.
-        "WORKOS_CLI_CLIENT_ID": "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID",
+        // Dedicated WorkOS Public OAuth (Connect) app for `agent-paste login`.
+        // All public identifiers; CLI tokens verify against the authkit.app JWKS
+        // and issuer, not the api.workos.com dashboard path.
+        "WORKOS_CLI_CLIENT_ID": "client_01KSE8K12YEJ6TEDAM2X0R8VRA",
+        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
@@ -131,9 +134,12 @@
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
-        // Operator: replace with the public client_id of the dedicated WorkOS
-        // Public OAuth (Connect) app used by `agent-paste login`. Public id.
-        "WORKOS_CLI_CLIENT_ID": "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID",
+        // Dedicated WorkOS Public OAuth (Connect) app for `agent-paste login`.
+        // All public identifiers; CLI tokens verify against the authkit.app JWKS
+        // and issuer, not the api.workos.com dashboard path.
+        "WORKOS_CLI_CLIENT_ID": "client_01KSE8K12YEJ6TEDAM2X0R8VRA",
+        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },

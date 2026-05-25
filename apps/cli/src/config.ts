@@ -5,19 +5,17 @@ export type LoginConfig = {
   apiBaseUrl: string;
 };
 
-// Operator must publish the WorkOS Public OAuth (Connect) app's public client_id
-// here before `agent-paste login` works end to end. The placeholder is inert:
-// login aborts with a clear message rather than hitting WorkOS with it.
-const CLI_CLIENT_ID_PLACEHOLDER = "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID";
+// Public client_id of the dedicated WorkOS Public OAuth (Connect) app for the
+// CLI. Public identifier, safe to ship; override with AGENT_PASTE_WORKOS_CLIENT_ID.
+const DEFAULT_CLI_CLIENT_ID = "client_01KSE8K12YEJ6TEDAM2X0R8VRA";
 
 // Connect authorize/token live on the app's AuthKit domain
-// (https://<subdomain>.authkit.app/oauth2/*), not api.workos.com. We do not
-// hardcode a guessed subdomain; the operator supplies the base via env, and the
-// authorize/token paths are appended (ADR 0060).
-const DEFAULT_WORKOS_BASE_URL = "https://api.workos.com";
+// (https://<subdomain>.authkit.app/oauth2/*), not api.workos.com. This is the
+// current pre-launch WorkOS environment; override with AGENT_PASTE_WORKOS_BASE_URL.
+const DEFAULT_WORKOS_BASE_URL = "https://courageous-milestone-75-staging.authkit.app";
 
 export function loadLoginConfig(env: Record<string, string | undefined> = process.env): LoginConfig {
-  const clientId = env.AGENT_PASTE_WORKOS_CLIENT_ID ?? CLI_CLIENT_ID_PLACEHOLDER;
+  const clientId = env.AGENT_PASTE_WORKOS_CLIENT_ID ?? DEFAULT_CLI_CLIENT_ID;
   const base = trimSlash(env.AGENT_PASTE_WORKOS_BASE_URL ?? DEFAULT_WORKOS_BASE_URL);
   const authorizeUrl = env.AGENT_PASTE_WORKOS_AUTHORIZE_URL ?? `${base}/oauth2/authorize`;
   const tokenUrl = env.AGENT_PASTE_WORKOS_TOKEN_URL ?? `${base}/oauth2/token`;
@@ -26,7 +24,7 @@ export function loadLoginConfig(env: Record<string, string | undefined> = proces
 }
 
 export function isPlaceholderClientId(clientId: string): boolean {
-  return clientId === CLI_CLIENT_ID_PLACEHOLDER || clientId.length === 0;
+  return clientId.length === 0 || clientId === "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID";
 }
 
 function trimSlash(value: string): string {
