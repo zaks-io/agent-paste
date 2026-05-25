@@ -1938,6 +1938,12 @@ describe("api worker", () => {
     expect(latestBody.view_url).not.toBe("https://content.test/v/old/index.html");
     expect(latestBody.files?.[0]?.url).toContain("https://content.test/v/");
     expect(latestBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
+    const revisionBody = (await revision.json()) as { view_url: string; files?: Array<{ url?: string }> };
+    expect(revisionBody.view_url).toContain("https://content.test/v/");
+    expect(revisionBody.view_url).toContain("/index.html");
+    expect(revisionBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    expect(revisionBody.files?.[0]?.url).toContain("https://content.test/v/");
+    expect(revisionBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
     expect(seen).toEqual([
       expect.objectContaining({ artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }),
       expect.objectContaining({
