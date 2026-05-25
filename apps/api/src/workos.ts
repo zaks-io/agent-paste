@@ -9,6 +9,21 @@ export type WorkOsIdentity = {
 
 export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });
 
+// Distinct reason for each silent verification failure. Emitted via `onReject`
+// so the worker can log why a forwarded bearer was refused without ever
+// touching the token, `sub`, or email — the prod auth path is otherwise a
+// black box (every failure collapses to a generic 401).
+export type WorkOsRejectReason =
+  | "no_bearer"
+  | "verify_threw"
+  | "missing_sub"
+  | "bad_exp"
+  | "issuer_mismatch"
+  | "client_id_mismatch"
+  | "user_fetch_failed"
+  | "user_id_mismatch"
+  | "no_session_or_token_id";
+
 export type WorkOsVerificationOptions = {
   apiKey: string;
   clientId: string;
@@ -16,6 +31,7 @@ export type WorkOsVerificationOptions = {
   issuers?: string[];
   jwksUrl?: string;
   requireClientIdClaim?: boolean;
+  onReject?: (reason: WorkOsRejectReason, detail?: Record<string, unknown>) => void;
 };
 
 type WorkOsUser = {
@@ -34,6 +50,7 @@ export async function resolveWorkOsIdentity(
 ): Promise<WebCallbackIdentity | null> {
   const token = parseBearerToken(bearerValue);
   if (!token) {
+    options.onReject?.("no_bearer");
     return null;
   }
 
@@ -43,7 +60,7 @@ export async function resolveWorkOsIdentity(
   }
 
   const user = await fetchWorkOsUser(verified.sub, options);
-  if (!user || user.id !== verified.sub) {
+  if (!user) {
     return null;
   }
 
@@ -58,6 +75,7 @@ export async function resolveWorkOsIdentity(
   if (verified.sessionId) {
     return { workos_user_id: user.id, email: user.email, session_id: verified.sessionId };
   }
+  options.onReject?.("no_session_or_token_id");
   return null;
 }
 
@@ -68,10 +86,25 @@ export async function verifyWorkOsAccessToken(
   try {
     const jwks = remoteWorkOsJwks(options);
     const { payload } = await jwtVerify(token, jwks, { algorithms: ["RS256"] });
-    if (!payload.sub || typeof payload.exp !== "number" || !issuerMatches(payload.iss, options.issuers)) {
+    if (!payload.sub) {
+      options.onReject?.("missing_sub");
+      return null;
+    }
+    if (typeof payload.exp !== "number") {
+      options.onReject?.("bad_exp");
+      return null;
+    }
+    if (!issuerMatches(payload.iss, options.issuers)) {
+      options.onReject?.("issuer_mismatch", { iss: payload.iss ?? null });
       return null;
     }
     if (!clientIdMatches(payload, options.clientId, options.requireClientIdClaim === true)) {
+      options.onReject?.("client_id_mismatch", {
+        client_id: stringClaim(payload.client_id) ?? stringClaim(payload.azp) ?? null,
+        aud: payload.aud ?? null,
+        expected: options.clientId,
+        require_claim: options.requireClientIdClaim === true,
+      });
       return null;
     }
     const sessionId = stringClaim(payload.sid);
@@ -82,14 +115,26 @@ export async function verifyWorkOsAccessToken(
       ...(sessionId ? { sessionId } : {}),
       ...(tokenId ? { tokenId } : {}),
     };
-  } catch {
+  } catch (error) {
+    options.onReject?.("verify_threw", { error: errorLabel(error) });
     return null;
   }
 }
 
+// jose throws typed errors (JWTExpired, JWKSNoMatchingKey,
+// JWSSignatureVerificationFailed, …); surface name + message only so the reason
+// is legible in logs without leaking the token.
+function errorLabel(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? `${code}: ${error.message}` : `${error.name}: ${error.message}`;
+  }
+  return String(error);
+}
+
 export async function fetchWorkOsUser(
   workosUserId: string,
-  options: Pick<WorkOsVerificationOptions, "apiBaseUrl" | "apiKey">,
+  options: Pick<WorkOsVerificationOptions, "apiBaseUrl" | "apiKey" | "onReject">,
 ): Promise<WorkOsUser | null> {
   try {
     const response = await fetch(
@@ -99,12 +144,21 @@ export async function fetchWorkOsUser(
       },
     );
     if (!response.ok) {
+      options.onReject?.("user_fetch_failed", { status: response.status });
       return null;
     }
     const value = await response.json();
     const user = normalizeWorkOsUser(value);
-    return user?.id === workosUserId ? user : null;
-  } catch {
+    if (!user) {
+      return null;
+    }
+    if (user.id !== workosUserId) {
+      options.onReject?.("user_id_mismatch");
+      return null;
+    }
+    return user;
+  } catch (error) {
+    options.onReject?.("user_fetch_failed", { error: errorLabel(error) });
     return null;
   }
 }

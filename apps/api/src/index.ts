@@ -39,6 +39,7 @@ import {
   resolveWorkOsIdentity,
   type WebCallbackIdentity,
   type WorkOsIdentity,
+  type WorkOsRejectReason,
   type WorkOsVerificationOptions,
 } from "./workos.js";
 
@@ -1001,9 +1002,17 @@ export async function authenticateWebIdentity(
     return null;
   }
 
+  // Buffer per-attempt rejections and only log them if every attempt fails.
+  // A valid CLI token always fails the dashboard attempt first; emitting that
+  // reject eagerly would spam a misleading "dashboard" failure on success.
+  const rejections: WorkOsRejection[] = [];
+
   const dashboard = dashboardVerifyOptions(env);
   if (dashboard) {
-    const identity = await resolveWorkOsIdentity(`Bearer ${token}`, dashboard);
+    const identity = await resolveWorkOsIdentity(
+      `Bearer ${token}`,
+      collectRejections(dashboard, "dashboard", rejections),
+    );
     if (identity) {
       return identity;
     }
@@ -1012,10 +1021,14 @@ export async function authenticateWebIdentity(
   if (identityOptions.allowCliClient) {
     const cli = cliVerifyOptions(env);
     if (cli) {
-      return resolveWorkOsIdentity(`Bearer ${token}`, cli);
+      const identity = await resolveWorkOsIdentity(`Bearer ${token}`, collectRejections(cli, "cli", rejections));
+      if (identity) {
+        return identity;
+      }
     }
   }
 
+  logWorkOsRejections(rejections);
   return null;
 }
 
@@ -1040,6 +1053,37 @@ function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {
     options.jwksUrl = env.WORKOS_JWKS_URL;
   }
   return options;
+}
+
+type WorkOsRejection = {
+  path: "dashboard" | "cli";
+  reason: WorkOsRejectReason;
+  detail?: Record<string, unknown>;
+};
+
+// Tag each attempt's rejections with its path and push them into a shared sink
+// instead of logging eagerly, so a path that fails before another succeeds stays
+// silent. onReject only ever appends, so it cannot throw out of verification.
+function collectRejections(
+  options: WorkOsVerificationOptions,
+  path: WorkOsRejection["path"],
+  sink: WorkOsRejection[],
+): WorkOsVerificationOptions {
+  return {
+    ...options,
+    onReject: (reason, detail) => {
+      sink.push(detail ? { path, reason, detail } : { path, reason });
+    },
+  };
+}
+
+// Web auth fails closed to a generic 401, so the only way to tell a misconfigured
+// token apart from a real rejection is to log the structured reason. Detail never
+// includes the token, sub, or email — see WorkOsRejectReason.
+function logWorkOsRejections(rejections: WorkOsRejection[]): void {
+  for (const { path, reason, detail } of rejections) {
+    console.warn(JSON.stringify({ event: "workos_auth_reject", path, reason, ...(detail ?? {}) }));
+  }
 }
 
 function cliVerifyOptions(env: Env): WorkOsVerificationOptions | null {

@@ -1,6 +1,6 @@
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveWorkOsIdentity } from "./workos.js";
+import { resolveWorkOsIdentity, type WorkOsVerificationOptions } from "./workos.js";
 
 const clientId = "client_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 const apiKey = "sk_test_123";
@@ -107,9 +107,95 @@ describe("WorkOS access-token verification", () => {
 
     await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toBeNull();
   });
+
+  it("reports no_bearer for a malformed header", async () => {
+    const onReject = vi.fn();
+    await resolveWorkOsIdentity("not-a-bearer", options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith("no_bearer");
+  });
+
+  it("reports issuer_mismatch with the offending issuer", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, iss: "https://evil.example" });
+    stubWorkOsFetch(fixture.publicJwk);
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith("issuer_mismatch", { iss: "https://evil.example" });
+  });
+
+  it("reports client_id_mismatch with the claimed and expected ids", async () => {
+    const fixture = await tokenFixture({ client_id: "client_wrong" });
+    stubWorkOsFetch(fixture.publicJwk);
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith(
+      "client_id_mismatch",
+      expect.objectContaining({ client_id: "client_wrong", expected: clientId }),
+    );
+  });
+
+  it("reports verify_threw with the jose error label for an expired token", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, expiresAt: Math.floor(Date.now() / 1000) - 60 });
+    stubWorkOsFetch(fixture.publicJwk);
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith(
+      "verify_threw",
+      expect.objectContaining({ error: expect.stringMatching(/exp/i) }),
+    );
+  });
+
+  it("reports no_session_or_token_id when the token carries neither", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, sessionId: null, tokenId: null });
+    stubWorkOsFetch(fixture.publicJwk);
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith("no_session_or_token_id");
+  });
+
+  it("reports user_id_mismatch when WorkOS returns a different user id", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, {
+      userResponse: Response.json({ id: "user_someone_else", email: "user@example.com" }),
+    });
+    const onReject = vi.fn();
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }))).resolves.toBeNull();
+    expect(onReject).toHaveBeenCalledWith("user_id_mismatch");
+  });
+
+  it("reports user_fetch_failed with the upstream status", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, { userResponse: new Response("nope", { status: 404 }) });
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith("user_fetch_failed", { status: 404 });
+  });
+
+  it("reports user_fetch_failed with an error label when the user fetch throws", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request) => {
+        const href = url instanceof Request ? url.url : String(url);
+        if (href.endsWith(`/sso/jwks/${clientId}`)) {
+          return Response.json({ keys: [fixture.publicJwk] });
+        }
+        throw new TypeError("network down");
+      }),
+    );
+    const onReject = vi.fn();
+
+    await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
+    expect(onReject).toHaveBeenCalledWith("user_fetch_failed", { error: expect.stringContaining("network down") });
+  });
 });
 
-function options(overrides: Partial<ReturnType<typeof baseOptions>> = {}) {
+function options(overrides: Partial<WorkOsVerificationOptions> = {}) {
   return { ...baseOptions(), ...overrides };
 }
 
