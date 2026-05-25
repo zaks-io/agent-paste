@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runtime = vi.hoisted(() => ({
   requestId: "req_test",
@@ -20,7 +20,11 @@ describe("web api client", () => {
     runtime.requestId = "req_test";
     runtime.env.API_BASE_URL = "https://api.example.test/";
     runtime.env.API = undefined;
+  });
+
+  afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("sends JSON, request id, and bearer headers through the API service binding", async () => {
@@ -50,10 +54,11 @@ describe("web api client", () => {
 
   it("resolves paths without a leading slash and preserves explicit content type", async () => {
     const requests: Request[] = [];
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       requests.push(new Request(input, init));
       return Response.json({ ok: true });
     });
+    vi.stubGlobal("fetch", fetchSpy);
 
     await apiFetch("v1/web/keys", {
       method: "POST",
@@ -67,13 +72,13 @@ describe("web api client", () => {
   });
 
   it("returns undefined for 204 responses", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
 
     await expect(apiFetch("/v1/web/keys/key_1/revoke")).resolves.toBeUndefined();
   });
 
   it("throws invalid_response for non-JSON API responses", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("not json", { status: 502 }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not json", { status: 502 })));
 
     await expect(apiFetch("/v1/web/workspace")).rejects.toMatchObject({
       status: 502,
@@ -83,11 +88,16 @@ describe("web api client", () => {
   });
 
   it("throws ApiError values from API error envelopes", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json(
-        { error: { code: "invalid_request", message: "bad input", request_id: "req_upstream" } },
-        { status: 400 },
-      ),
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { error: { code: "invalid_request", message: "bad input", request_id: "req_upstream" } },
+            { status: 400 },
+          ),
+        ),
     );
 
     await expect(apiFetch("/v1/web/settings")).rejects.toMatchObject({
@@ -100,13 +110,14 @@ describe("web api client", () => {
 
   it("wraps successful, absent, API-error, and network outcomes for loaders", async () => {
     const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
+      .fn()
       .mockResolvedValueOnce(Response.json({ workspace: { name: "Demo" } }))
       .mockResolvedValueOnce(Response.json({ error: { code: "not_found", message: "missing" } }, { status: 404 }))
       .mockResolvedValueOnce(
         Response.json({ error: { code: "internal_error", message: "boom", request_id: "req_api" } }, { status: 500 }),
       )
       .mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", fetchSpy);
 
     await expect(apiFetchOrEmpty("/v1/web/workspace")).resolves.toEqual({
       data: { workspace: { name: "Demo" } },
@@ -132,8 +143,11 @@ describe("web api client", () => {
   });
 
   it("treats 501 responses as empty loader data", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({ error: { code: "not_implemented", message: "deferred" } }, { status: 501 }),
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(Response.json({ error: { code: "not_implemented", message: "deferred" } }, { status: 501 })),
     );
 
     await expect(apiFetchOrEmpty("/v1/access-links")).resolves.toEqual({ data: null, empty: true, error: null });

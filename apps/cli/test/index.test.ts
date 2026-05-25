@@ -107,63 +107,71 @@ describe("cli command dispatch", () => {
   it("publishes a local folder through create, PUT, and finalize", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
-    await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
-    const create = vi.fn().mockResolvedValue({
-      upload_session_id: uploadSessionId,
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      status: "pending",
-      expires_at: "2026-01-01T00:00:00.000Z",
-      files: [
-        {
-          path: "index.html",
-          put_url: "https://upload.test/index",
-          required_headers: {},
-          expires_at: "2026-01-01T00:00:00.000Z",
-        },
-      ],
-    });
-    const finalize = vi.fn().mockResolvedValue({
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      title: "Published",
-      view_url: "https://app.test/view",
-      agent_view_url: "https://api.test/agent-view",
-      expires_at: "2026-02-01T00:00:00.000Z",
-    });
-    const putFile = vi.fn().mockResolvedValue(undefined);
-    const client = fakeClient({
-      usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
-      uploadSessions: { create, finalize },
-      putFile,
-    });
-
-    await main(["publish", root, "--title", "Published"], client);
-
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
         title: "Published",
-        entrypoint: "index.html",
-        files: [{ path: "index.html", size_bytes: 14 }],
-      }),
-      expect.stringMatching(/^cli_publish_/),
-    );
-    const idempotencyKey = create.mock.calls[0]?.[1];
-    expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Buffer), {
-      "content-type": "text/html; charset=utf-8",
-    });
-    expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
-    expect(stdout).toHaveBeenCalledWith(
-      expect.stringContaining(`Published artifact ${artifactId} revision ${revisionId}`),
-    );
+        view_url: "https://app.test/view",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const putFile = vi.fn().mockResolvedValue(undefined);
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        putFile,
+      });
+
+      await main(["publish", root, "--title", "Published"], client);
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Published",
+          entrypoint: "index.html",
+          files: [{ path: "index.html", size_bytes: 14 }],
+        }),
+        expect.stringMatching(/^cli_publish_/),
+      );
+      const idempotencyKey = create.mock.calls[0]?.[1];
+      expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Buffer), {
+        "content-type": "text/html; charset=utf-8",
+      });
+      expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
+      expect(stdout).toHaveBeenCalledWith(
+        expect.stringContaining(`Published artifact ${artifactId} revision ${revisionId}`),
+      );
+    } finally {
+      await removePublishFixture(root);
+    }
   });
 
   it("rejects publish TTLs below the workspace minimum", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
-    await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
-    const client = fakeClient({ usagePolicy: vi.fn().mockResolvedValue(usagePolicy) });
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const client = fakeClient({ usagePolicy: vi.fn().mockResolvedValue(usagePolicy) });
 
-    await expect(main(["publish", root, "--ttl", "1h"], client)).rejects.toThrow("TTL is below workspace minimum");
+      await expect(main(["publish", root, "--ttl", "1h"], client)).rejects.toThrow("TTL is below workspace minimum");
+    } finally {
+      await removePublishFixture(root);
+    }
   });
 
   it("throws on unknown commands", async () => {
@@ -226,4 +234,9 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
       },
     },
   } as unknown as NonNullable<Parameters<typeof main>[1]>;
+}
+
+async function removePublishFixture(root: string) {
+  const rm = fs.rm as (target: string, options?: { recursive?: boolean; force?: boolean }) => Promise<void>;
+  await rm(root, { recursive: true, force: true });
 }

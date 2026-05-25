@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Entities } from "./ports.js";
 
 const calls: Array<{ name: string; args: unknown[] }> = [];
 
@@ -48,22 +49,123 @@ describe("postgresEntities", () => {
     const drizzle = { marker: "drizzle" };
     const { postgresEntities } = await import("./postgres-entities.js");
     const entities = postgresEntities({ sql, drizzle: drizzle as never });
+    const now = "2026-01-01T00:00:00.000Z";
+    const workspace: Parameters<Entities["workspaces"]["insert"]>[0] = {
+      id: "workspace",
+      name: "Demo",
+      contact_email: "user@example.com",
+      auto_deletion_days: 30,
+      created_at: now,
+      updated_at: now,
+    };
+    const apiKey: Parameters<Entities["apiKeys"]["insert"]>[0] = {
+      id: "key",
+      workspace_id: "workspace",
+      public_id: "public",
+      name: "Default",
+      secret_hmac: "hmac",
+      pepper_kid: 1,
+      scopes: ["publish", "read"],
+      revoked_at: null,
+      last_used_at: null,
+      created_at: now,
+    };
+    const member: Parameters<Entities["members"]["insert"]>[0] = {
+      id: "member",
+      workspace_id: "workspace",
+      workos_user_id: "user",
+      email: "user@example.com",
+      scopes: ["publish", "read", "admin"],
+      created_at: now,
+      last_seen_at: now,
+    };
+    const artifact: Parameters<Entities["artifacts"]["insert"]>[0] = {
+      id: "artifact",
+      workspace_id: "workspace",
+      revision_id: "revision",
+      status: "active",
+      title: "Demo",
+      entrypoint: "index.html",
+      file_count: 1,
+      size_bytes: 12,
+      expires_at: now,
+      created_by_api_key_id: "key",
+      deleted_at: null,
+      delete_reason: null,
+      created_at: now,
+      updated_at: now,
+    };
+    const file: Parameters<Entities["artifactFiles"]["insert"]>[2] = {
+      workspace_id: "workspace",
+      artifact_id: "artifact",
+      revision_id: "revision",
+      path: "index.html",
+      size_bytes: 12,
+      content_type: "text/html",
+      r2_key: "workspace/artifact/index.html",
+      uploaded_at: now,
+    };
+    const uploadSession: Parameters<Entities["uploadSessions"]["insert"]>[0] = {
+      id: "session",
+      workspace_id: "workspace",
+      artifact_id: "artifact",
+      revision_id: "revision",
+      status: "pending",
+      title: "Demo",
+      entrypoint: "index.html",
+      artifact_expires_at: now,
+      file_count: 1,
+      size_bytes: 12,
+      created_by_api_key_id: "key",
+      expires_at: now,
+      created_at: now,
+      finalized_at: null,
+    };
+    const uploadFile: Parameters<Entities["uploadSessionFiles"]["insert"]>[1] = {
+      workspace_id: "workspace",
+      upload_session_id: "session",
+      path: "index.html",
+      size_bytes: 12,
+      content_type: "text/html",
+      r2_key: "workspace/session/index.html",
+      uploaded_at: null,
+    };
+    const lockdown: Parameters<Entities["platformLockdowns"]["insert"]>[0] = {
+      id: "lockdown",
+      scope: "workspace",
+      target_id: "workspace",
+      reason_code: "abuse",
+      set_at: now,
+      set_by: "operator",
+      lifted_at: null,
+      lifted_by: null,
+    };
+    const operationEvent: Parameters<Entities["operationEvents"]["insert"]>[0] = {
+      actorType: "admin",
+      actorId: "operator",
+      action: "cleanup.run",
+      targetType: "workspace",
+      targetId: "workspace",
+      workspaceId: "workspace",
+      details: {},
+      occurredAt: now,
+    };
 
-    await entities.workspaces.insert({ id: "workspace" } as never);
+    await entities.workspaces.insert(workspace);
     await entities.workspaces.findById("workspace");
     await entities.workspaces.listAll();
     await entities.workspaces.update("workspace", { name: "Demo", autoDeletionDays: 30, updatedAt: "now" });
-    await entities.apiKeys.insert({ id: "key" } as never);
+    await entities.apiKeys.insert(apiKey);
     await entities.apiKeys.findById("key");
     await entities.apiKeys.findByPublicId("public");
     await entities.apiKeys.listForWorkspace("workspace");
     await entities.apiKeys.updateLastUsedAt("key", "now");
     await entities.apiKeys.updateRevokedAt("key", "now");
-    await entities.members.insert({ id: "member" } as never);
+    await entities.members.insert(member);
     await entities.members.findById("member");
     await entities.members.findByWorkOsUserId("user");
     await entities.members.updateSeen("member", { email: "user@example.com", lastSeenAt: "now" });
-    await entities.artifacts.insert({ id: "artifact" } as never);
+    await entities.artifacts.insert(artifact);
     await entities.artifacts.findById("artifact", "workspace");
     await entities.artifacts.listFiltered("workspace", "active");
     await entities.artifacts.listWebPage({ workspaceId: "workspace", limit: 2 });
@@ -71,21 +173,21 @@ describe("postgresEntities", () => {
     await entities.artifacts.markDeleted("artifact", "now");
     await entities.artifacts.listExpiring("now", 10);
     await entities.artifacts.expireBatch("now", ["artifact"]);
-    await entities.artifactFiles.insert("artifact", "revision", { path: "index.html" } as never, "now");
+    await entities.artifactFiles.insert("artifact", "revision", file, "now");
     await entities.artifactFiles.listForArtifact("artifact");
-    await entities.uploadSessions.insert({ id: "session" } as never);
+    await entities.uploadSessions.insert(uploadSession);
     await entities.uploadSessions.findById("session", "workspace");
     await entities.uploadSessions.markFinalized("session", "now");
     await entities.uploadSessions.listExpiring("now", 10);
     await entities.uploadSessions.expireBatch("now", ["session"]);
-    await entities.uploadSessionFiles.insert("session", { path: "index.html" } as never);
+    await entities.uploadSessionFiles.insert("session", uploadFile);
     await entities.uploadSessionFiles.listForSession("session");
     await entities.uploadSessionFiles.recordUpload({ sessionId: "session", path: "index.html", uploadedAt: "now" });
     await entities.platformLockdowns.findEffective("workspace", "workspace");
     await entities.platformLockdowns.listEffectivePage({ limit: 2 });
-    await entities.platformLockdowns.insert({ id: "lockdown" } as never);
+    await entities.platformLockdowns.insert(lockdown);
     await entities.platformLockdowns.markLifted("lockdown", { liftedAt: "now", liftedBy: "operator" });
-    await entities.operationEvents.insert({ action: "cleanup.run" } as never);
+    await entities.operationEvents.insert(operationEvent);
     await entities.operationEvents.listAll();
     await entities.operationEvents.listForWorkspace("workspace");
     await entities.operationEvents.listWebPage({ workspaceId: "workspace", limit: 2 });
@@ -96,10 +198,19 @@ describe("postgresEntities", () => {
     );
     expect(calls.every((call) => call.args[0] === drizzle)).toBe(true);
     expect(sqlCalls).toHaveLength(5);
-    expect(sqlCalls[0]?.query).toContain("set status = 'deleted'");
-    expect(sqlCalls[1]?.query).toContain("from artifacts");
-    expect(sqlCalls[2]?.params).toEqual(["now", ["artifact"]]);
-    expect(sqlCalls[3]?.query).toContain("from upload_sessions");
-    expect(sqlCalls[4]?.query).toContain("update upload_sessions");
+    expect(sqlCall(sqlCalls, 0).query).toContain("set status = 'deleted'");
+    expect(sqlCall(sqlCalls, 1).query).toContain("from artifacts");
+    expect(sqlCall(sqlCalls, 2).params).toEqual(["now", ["artifact"]]);
+    expect(sqlCall(sqlCalls, 3).query).toContain("from upload_sessions");
+    expect(sqlCall(sqlCalls, 4).query).toContain("update upload_sessions");
   });
 });
+
+function sqlCall(calls: Array<{ query: string; params: readonly unknown[] }>, index: number) {
+  const call = calls[index];
+  expect(call).toBeDefined();
+  if (!call) {
+    throw new Error(`expected SQL call ${index}`);
+  }
+  return call;
+}

@@ -38,6 +38,8 @@ vi.mock("../src/server/api-client", async () => {
 import { ApiError } from "../src/server/api-client";
 import { createKeyFn, revokeKeyFn, saveSettingsFn } from "../src/server/web-mutations";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe("web server mutations", () => {
   beforeEach(() => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "access-token" };
@@ -87,9 +89,17 @@ describe("web server mutations", () => {
         body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 14 }),
       }),
     );
+    const idempotencyKeys = new Set<string>();
     for (const [, options] of state.apiFetch.mock.calls) {
-      expect((options as { headers: HeadersInit }).headers).toHaveProperty("idempotency-key");
+      const headers = (options as { headers: Record<string, string> }).headers;
+      const idempotencyKey = headers["idempotency-key"];
+      expect(idempotencyKey).toMatch(uuidPattern);
+      if (!idempotencyKey) {
+        throw new Error("expected idempotency key");
+      }
+      idempotencyKeys.add(idempotencyKey);
     }
+    expect(idempotencyKeys.size).toBe(state.apiFetch.mock.calls.length);
   });
 
   it("returns validation errors before calling the API", async () => {

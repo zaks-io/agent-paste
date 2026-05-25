@@ -1022,23 +1022,8 @@ describe("LocalRepository", () => {
     expect(events.page_info).toEqual({ next_cursor: null, has_more: false });
   });
 
-  it("records uploads, expires eligible rows, and force-updates artifact expiry", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
-    const workspace = await repo.createWorkspace({
-      actor: adminActor,
-      idempotencyKey: "idem-ws",
-      email: "user@example.com",
-    });
-    const key = await repo.createApiKey({
-      actor: adminActor,
-      idempotencyKey: "idem-key",
-      workspaceId: workspace.id,
-      name: "default",
-    });
-    const actor = await repo.verifyApiKey(key.secret);
-    if (!actor) {
-      throw new Error("expected actor");
-    }
+  it("records uploads and finalizes observed files", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
     const session = await repo.createUploadSession({
       actor,
       idempotencyKey: "idem-upload",
@@ -1065,12 +1050,25 @@ describe("LocalRepository", () => {
       observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
       now: "2026-01-01T00:00:02.000Z",
     });
+    expect(repo.artifacts.get(published.artifact_id)?.status).toBe("active");
+  });
+
+  it("force-updates artifact expiry and returns null for missing artifacts", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "force-expiring", "2026-01-01T00:00:01.000Z");
+
     await expect(
       repo.forceExpireArtifact({ artifactId: published.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" }),
     ).resolves.toEqual({ artifact_id: published.artifact_id, expires_at: "2026-01-01T00:00:03.000Z" });
     await expect(
       repo.forceExpireArtifact({ artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", expiresAt: "2026-01-01T00:00:03.000Z" }),
     ).resolves.toBeNull();
+  });
+
+  it("expires eligible artifacts and upload sessions while respecting cleanup limits", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "expiring", "2026-01-01T00:00:00.000Z");
+    await repo.forceExpireArtifact({ artifactId: published.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" });
 
     const pending = await repo.createUploadSession({
       actor,
@@ -1246,6 +1244,26 @@ function firstFile(session: { files: Array<{ object_key: string }> }) {
     throw new Error("expected file");
   }
   return file;
+}
+
+async function localRepoWithApiActor() {
+  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+  const workspace = await repo.createWorkspace({
+    actor: adminActor,
+    idempotencyKey: "idem-ws",
+    email: "user@example.com",
+  });
+  const key = await repo.createApiKey({
+    actor: adminActor,
+    idempotencyKey: "idem-key",
+    workspaceId: workspace.id,
+    name: "default",
+  });
+  const actor = await repo.verifyApiKey(key.secret);
+  if (!actor) {
+    throw new Error("expected actor");
+  }
+  return { repo, actor };
 }
 
 async function publishLocalArtifact(
