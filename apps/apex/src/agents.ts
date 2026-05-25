@@ -24,7 +24,7 @@ agent-paste has three objects an agent needs to know:
 
 ## CLI quickstart
 
-Sign in once, then publish a folder. \`login\` runs a browser OAuth flow and
+Sign in once, then publish a folder. \`npx agent-paste login\` runs a browser OAuth flow and
 provisions its own scoped key, so there is no API key to copy or paste. Publish
 returns an Artifact ID synchronously.
 
