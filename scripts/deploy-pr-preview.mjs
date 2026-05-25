@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const prNumber = requiredEnv("PR_NUMBER");
 const hyperdriveId = requiredEnv("PR_HYPERDRIVE_ID");
@@ -13,12 +13,22 @@ const names = {
   upload: `agent-paste-upload-pr-${prNumber}`,
   content: `agent-paste-content-pr-${prNumber}`,
   apex: `agent-paste-apex-pr-${prNumber}`,
+  web: `agent-paste-web-pr-${prNumber}`,
 };
+// The web OAuth callback must live under our own domain: WorkOS rejects wildcard
+// redirect URIs on public-suffix hosts like *.workers.dev, and a one-time
+// *.preview.agent-paste.sh redirect URI is registered in the preview WorkOS env.
+const webHost = `pr-${prNumber}.preview.agent-paste.sh`;
 const urls = {
   api: `https://${names.api}.${workersSubdomain}.workers.dev`,
   upload: `https://${names.upload}.${workersSubdomain}.workers.dev`,
   content: `https://${names.content}.${workersSubdomain}.workers.dev`,
   apex: `https://${names.apex}.${workersSubdomain}.workers.dev`,
+  // Custom domain carries the real OAuth callback (cert issues async, minutes).
+  web: `https://${webHost}`,
+  // workers.dev host serves immediately; the smoke targets it to avoid the
+  // custom-domain cert-propagation race.
+  webWorkersDev: `https://${names.web}.${workersSubdomain}.workers.dev`,
 };
 const prSecrets = createPrSecrets();
 
@@ -49,11 +59,16 @@ await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
 await deploy("apex", files.apexConfig);
+const webDeployed = await deployWeb();
 
 emitOutput("api_url", urls.api);
 emitOutput("upload_url", urls.upload);
 emitOutput("content_url", urls.content);
 emitOutput("apex_url", urls.apex);
+if (webDeployed) {
+  emitOutput("web_url", urls.web);
+  emitOutput("web_smoke_url", urls.webWorkersDev);
+}
 emitOutput("admin_token", prSecrets.ADMIN_TOKEN);
 
 process.stdout.write(`PR preview deployed:
@@ -61,7 +76,7 @@ API:     ${urls.api}
 Upload:  ${urls.upload}
 Content: ${urls.content}
 Apex:    ${urls.apex}
-`);
+${webDeployed ? `Web:     ${urls.web} (smoke: ${urls.webWorkersDev})\n` : "Web:     skipped (WORKOS_PREVIEW_API_KEY unset)\n"}`);
 
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
@@ -69,6 +84,51 @@ async function deploy(app, configPath, secretsPath) {
   if (secretsPath) {
     await run("pnpm", ["exec", "wrangler", "secret", "bulk", secretsPath, "--name", names[app]]);
   }
+}
+
+// web is a TanStack Start build, not a bundle-from-src worker: building with
+// CLOUDFLARE_ENV=preview emits dist/server/wrangler.json (main: index.js, assets:
+// ../client) resolved from the preview env block. We patch only the per-PR fields
+// and deploy that generated config so main/asset resolution stays the plugin's job.
+// Fail-soft: a PR without WORKOS_PREVIEW_API_KEY skips web rather than wedging the
+// whole preview (the api/upload/content/apex secrets are all seed-derived).
+async function deployWeb() {
+  const workosApiKey = process.env.WORKOS_PREVIEW_API_KEY;
+  if (!workosApiKey) {
+    process.stdout.write("WORKOS_PREVIEW_API_KEY unset; skipping per-PR web deploy.\n");
+    return false;
+  }
+  if (process.env.GITHUB_ACTIONS) {
+    process.stdout.write(`::add-mask::${workosApiKey}\n`);
+  }
+  process.stdout.write(`Deploying ${names.web}...\n`);
+
+  process.env.CLOUDFLARE_ENV = "preview";
+  await run("pnpm", ["--filter", "@agent-paste/web", "build"]);
+
+  const generatedConfig = workspacePath("apps/web/dist/server/wrangler.json");
+  const config = JSON.parse(readFileSync(generatedConfig, "utf8"));
+  config.name = names.web;
+  config.workers_dev = true;
+  config.routes = [{ pattern: webHost, custom_domain: true }];
+  config.vars = {
+    ...config.vars,
+    API_BASE_URL: urls.api,
+    WEB_BASE_URL: urls.web,
+    WORKOS_REDIRECT_URI: `${urls.web}/api/auth/callback`,
+  };
+  config.services = [{ binding: "API", service: names.api }];
+  writeJson(generatedConfig, config);
+
+  await run("pnpm", ["exec", "wrangler", "deploy", "--config", generatedConfig]);
+
+  const webSecretsPath = new URL("web.secrets.json", outDir).pathname;
+  writeJson(webSecretsPath, {
+    WORKOS_API_KEY: workosApiKey,
+    WORKOS_COOKIE_PASSWORD: prSecrets.WORKOS_COOKIE_PASSWORD,
+  });
+  await run("pnpm", ["exec", "wrangler", "secret", "bulk", webSecretsPath, "--name", names.web]);
+  return true;
 }
 
 function apiConfig() {
@@ -214,6 +274,9 @@ function createPrSecrets() {
     ADMIN_TOKEN: adminToken,
     ADMIN_TOKEN_HASH: process.env.PREVIEW_ADMIN_TOKEN_HASH ?? hmacBase64Url(adminToken, apiKeyPepper),
     OPERATOR_EMAILS: process.env.OPERATOR_EMAILS ?? "isaac@zaks.io",
+    // AuthKit seals its session cookie with this; 32+ chars required. Derived so
+    // a PR's web worker can decrypt cookies it set on an earlier deploy.
+    WORKOS_COOKIE_PASSWORD: process.env.PREVIEW_WORKOS_COOKIE_PASSWORD ?? prPreviewSecret("workos-cookie-password", 32),
   };
   if (process.env.GITHUB_ACTIONS) {
     for (const value of Object.values(values)) {
