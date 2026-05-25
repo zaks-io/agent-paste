@@ -13,7 +13,7 @@ export type WorkOsVerificationOptions = {
   apiKey: string;
   clientId: string;
   apiBaseUrl?: string;
-  issuer?: string;
+  issuers?: string[];
   jwksUrl?: string;
   requireClientIdClaim?: boolean;
 };
@@ -24,7 +24,7 @@ type WorkOsUser = {
 };
 
 const DEFAULT_WORKOS_API_BASE_URL = "https://api.workos.com";
-const DEFAULT_WORKOS_ISSUER = "https://api.workos.com";
+export const DEFAULT_WORKOS_ISSUER = "https://api.workos.com";
 const WORKOS_JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -68,11 +68,7 @@ export async function verifyWorkOsAccessToken(
   try {
     const jwks = remoteWorkOsJwks(options);
     const { payload } = await jwtVerify(token, jwks, { algorithms: ["RS256"] });
-    if (
-      !payload.sub ||
-      typeof payload.exp !== "number" ||
-      !issuerMatches(payload.iss, options.issuer ?? DEFAULT_WORKOS_ISSUER)
-    ) {
+    if (!payload.sub || typeof payload.exp !== "number" || !issuerMatches(payload.iss, options.issuers)) {
       return null;
     }
     if (!clientIdMatches(payload, options.clientId, options.requireClientIdClaim === true)) {
@@ -140,11 +136,13 @@ function workOsBaseUrl(value: string | undefined): string {
   return (value ?? DEFAULT_WORKOS_API_BASE_URL).replace(/\/+$/, "");
 }
 
-function issuerMatches(actual: string | undefined, expected: string): boolean {
+function issuerMatches(actual: string | undefined, expected: readonly string[] | undefined): boolean {
   if (!actual) {
     return false;
   }
-  return trimTrailingSlash(actual) === trimTrailingSlash(expected);
+  const allowed = expected && expected.length > 0 ? expected : [DEFAULT_WORKOS_ISSUER];
+  const normalized = trimTrailingSlash(actual);
+  return allowed.some((issuer) => trimTrailingSlash(issuer) === normalized);
 }
 
 function trimTrailingSlash(value: string): string {

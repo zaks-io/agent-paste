@@ -68,6 +68,11 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 - [x] Toasts surface `api` error envelopes: code + message + a link to `/audit?request_id=…`.
   - Done: `ToastProvider`/`useToast` (mounted in `_authed`) plus an `errorToast(title, ApiErrorInfo)` helper; mutation failures push a toast carrying the error `code`, `message`, and a link to `/audit?request_id=<requestId>`. The audit route reads the `request_id` search param and highlights the matching row.
 
+## Auth bugs
+
+- [x] **Dashboard `not_authenticated` for logged-in users (Issue A).** The web app forwards the AuthKit User Management session access token to `api`, but `dashboardVerifyOptions` set `requireClientIdClaim: true`. AuthKit session tokens carry no `client_id`/`azp`/`aud` claim, so verification always returned null → every `/v1/web/*` call 401'd. Fixed: dashboard path now uses `requireClientIdClaim: false` and accepts both `api.workos.com` and the AuthKit-domain issuer (`WORKOS_ISSUER`), pinned by the env-scoped JWKS. `pnpm smoke:web` now mints a claim-less `sid`-bearing token and passes e2e.
+- [ ] **Unauthenticated `/dashboard` returns HTTP 500 instead of redirecting to sign-in (Issue B).** `_authed.tsx` loader throws `redirect({ href: "/api/auth/sign-in?returnPathname=…" })` when `getAuth()` has no user, but SSR 500s with "Cannot convert object to primitive value" rather than emitting a 307. Needs the SSR error reproduced (run the deployed/preview web Worker unauthenticated) to pin the root cause — likely the `createServerFn` discriminated-union return + thrown `redirect` interaction, or the AuthKit redirect helper. Not yet fixed; tracked here.
+
 ## Access Link viewer
 
 Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0047/0052) depend on the `access_links` table, the kid signing-key family + rotation (ADR 0045), and multi-revision artifacts, none of which exist yet. The `/al/*` route, `POST /v1/access-links/resolve`, and the viewer land with Phase 4, not here.
