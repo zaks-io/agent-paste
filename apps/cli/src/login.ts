@@ -33,7 +33,7 @@ export async function login(deps: LoginDeps = {}): Promise<Credential> {
   }
 
   const pkce = createPkce();
-  const server = await startLoopbackServer(pkce.state);
+  const server = await startLoopbackServer(pkce.state, config.loginPort);
   try {
     const authorizeUrl = buildAuthorizeUrl(config, server.redirectUri, pkce.challenge, pkce.state);
     log(`Opening your browser to sign in. If it does not open, visit:\n${authorizeUrl}`);

@@ -34,6 +34,19 @@ describe("login config", () => {
     expect(config.apiBaseUrl).toBe("https://api.preview.agent-paste.sh");
   });
 
+  it("defaults the loopback port and honors AGENT_PASTE_LOGIN_PORT", () => {
+    expect(loadLoginConfig({}).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "9090" }).loginPort).toBe(9090);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "0" }).loginPort).toBe(0);
+  });
+
+  it("ignores an out-of-range or non-numeric login port and falls back to the default", () => {
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "70000" }).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "not-a-port" }).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "" }).loginPort).toBe(8975);
+    expect(loadLoginConfig({ AGENT_PASTE_LOGIN_PORT: "   " }).loginPort).toBe(8975);
+  });
+
   it("flags empty and sentinel client ids as unconfigured, but not the real default", () => {
     expect(isPlaceholderClientId("")).toBe(true);
     expect(isPlaceholderClientId("REPLACE_WITH_CLI_PUBLIC_CLIENT_ID")).toBe(true);
