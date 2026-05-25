@@ -15,7 +15,7 @@ if (result.status !== 0) {
     : spawnSync("lefthook", ["install", "--force"], { stdio: "inherit" });
 
   if (forcedResult.status !== 0) {
-    console.warn("[prepare] lefthook install failed; hooks were not installed.");
+    console.warn("[install-hooks] lefthook install failed; hooks were not installed.");
     process.exit(1);
   }
 }
