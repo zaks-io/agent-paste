@@ -19,11 +19,11 @@ type Props = {
 
 export function LockdownList({ lockdowns, error, onLift }: Props) {
   const { push } = useToast();
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
 
   async function handleLift(scope: string, targetId: string) {
     const key = `${scope}:${targetId}`;
-    setPendingId(key);
+    setPendingIds((current) => new Set(current).add(key));
     try {
       const result = await liftLockdownFn({ data: { scope, target_id: targetId } });
       if (result.error) {
@@ -33,7 +33,11 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
       push({ tone: "success", title: "Lockdown lifted", message: "Platform lockdown removed." });
       onLift();
     } finally {
-      setPendingId(null);
+      setPendingIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
@@ -80,8 +84,8 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
                     size="sm"
                     variant="ghost"
                     onClick={() => handleLift(ld.scope, ld.target_id)}
-                    disabled={pendingId === `${ld.scope}:${ld.target_id}`}
-                    loading={pendingId === `${ld.scope}:${ld.target_id}`}
+                    disabled={pendingIds.has(`${ld.scope}:${ld.target_id}`)}
+                    loading={pendingIds.has(`${ld.scope}:${ld.target_id}`)}
                   >
                     Lift
                   </Button>
