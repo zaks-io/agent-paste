@@ -971,7 +971,7 @@ async function authenticateAdmin(request: Request, env: Env): Promise<AdminActor
 // Only the key-mint route accepts a CLI-issued Connect token. Every other
 // workos_access_token route stays dashboard-only, confining the secret-less CLI
 // to the one path that produces a scoped API key (ADR 0060, Option B).
-const CLI_KEY_MINT_ROUTE_ID = "web.apiKeys.create";
+const CLI_KEY_MINT_ROUTE_ID: (typeof routeContracts)[number]["id"] = "web.apiKeys.create";
 
 type WebIdentityOptions = {
   allowCliClient?: boolean;

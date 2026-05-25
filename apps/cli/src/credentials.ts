@@ -57,6 +57,8 @@ export function fileStore(filePath = defaultCredentialPath()): CredentialStore {
     async save(credential) {
       await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
       await fs.writeFile(filePath, JSON.stringify(credential), { mode: 0o600 });
+      // writeFile's mode only applies when creating the file; an overwrite of a
+      // pre-existing, looser-permission file keeps its old mode, so re-assert it.
       await fs.chmod(filePath, 0o600);
     },
     async delete() {
@@ -109,7 +111,13 @@ export function defaultCredentialPath(): string {
 }
 
 function parseCredential(raw: string): Credential | null {
-  const value = JSON.parse(raw) as Partial<Credential>;
+  let value: Partial<Credential>;
+  try {
+    value = JSON.parse(raw) as Partial<Credential>;
+  } catch {
+    // A corrupt store is equivalent to no credential; the caller re-runs login.
+    return null;
+  }
   if (
     typeof value.api_key === "string" &&
     typeof value.public_id === "string" &&

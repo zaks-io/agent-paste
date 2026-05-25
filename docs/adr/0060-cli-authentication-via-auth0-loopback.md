@@ -17,6 +17,12 @@ This section supersedes the token-as-credential mechanism and the per-client sco
 - **Storage shape.** The stored credential is `{ api_key, public_id, workspace_id, member_email }` (the minted key, not WorkOS tokens). macOS uses the login Keychain via `security`; other platforms use `~/.config/agent-paste/credentials.json` at mode `0600` under a `0700` parent.
 - **Precedence unchanged.** `AGENT_PASTE_API_KEY` wins over the stored key; a one-line stderr note names the winner when both are present.
 
+---
+
+## Historical (superseded)
+
+Everything below this line is the original decision record, retained for context only. Where it conflicts with **Implementation (as built)** above, the as-built section wins. In particular: the WorkOS token is **not** stored as the CLI credential and there is **no** refresh machinery (Option B mints an API key instead); the scope ceiling is realized by the key model, **not** a per-client scope intersection in `api`; and a CLI token is **not** discriminated by `aud = cli_client_id` (Connect tokens carry no client claim and `aud` is the environment OIDC client, so `api` pins on issuer + JWKS + `WORKOS_CLI_AUDIENCE`). Implementers should follow the as-built section, not the text below.
+
 ## Considered Options
 
 - **Status quo (API Key only).** Forces every CLI user to mint and rotate a long-lived secret manually, then keep it in shell history, dotfiles, or env-var managers. The credential never expires unless someone remembers to set an **Expiration**. Rejected because the long-lived secret on a developer machine is exactly the artifact this ADR exists to eliminate.

@@ -531,7 +531,8 @@ _Avoid_: middleware, interceptor, auth filter
 - An **API Key** belongs to exactly one **Workspace**
 - An **API Key** has one or more **Scopes**
 - A **Workspace Member** holds every **Scope** implicitly when authenticated for direct workspace control (the dashboard)
-- A **Workspace Member** authenticated through a delegated agent surface (CLI, MCP) carries an explicit **Scope** subset and does not receive the implicit grant
+- The CLI does not receive the implicit grant: `agent-paste login` mints an **API Key** capped at `publish` and `read`, so the CLI acts with that key's **Scope** subset, never **Member-Only Scopes** (ADR 0060)
+- A future delegated agent surface (MCP) that carries scopes in its own token likewise gets an explicit subset, never **Member-Only Scopes**
 - A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold and that no delegated agent surface can carry
 - **API Key** lifecycle management requires a **Member-Only Scope**
 - **Audit Event** reads require a **Member-Only Scope**
@@ -807,7 +808,7 @@ _Avoid_: middleware, interceptor, auth filter
 > **Dev:** "Does **API Key Revocation** remove what the key created?"
 > **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
 > **Dev:** "Do **Scopes** limit **Workspace Members**?"
-> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through delegated agent surfaces like the CLI or MCP, the same person carries an explicit **Scope** subset that never includes **Member-Only Scopes**."
+> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through the CLI the same person acts with a minted **API Key** capped at `publish` and `read`; a future MCP surface would carry an explicit token **Scope** subset. Neither path ever includes **Member-Only Scopes**."
 > **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
 > **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
 > **Dev:** "Can a publishing **API Key** read private **Artifacts**?"

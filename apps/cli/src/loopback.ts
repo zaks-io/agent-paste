@@ -108,11 +108,17 @@ function successPage(): string {
 }
 
 function failurePage(reason: string): string {
-  return page("Sign-in failed", `Return to your terminal and try again. (${reason})`);
+  // `reason` can be an attacker-supplied `error` query param, so escape it before
+  // reflecting it into the localhost HTML response.
+  return page("Sign-in failed", `Return to your terminal and try again. (${escapeHtml(reason)})`);
 }
 
 function page(title: string, body: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body style="font-family:system-ui;max-width:32rem;margin:6rem auto;text-align:center"><h1>${title}</h1><p>${body}</p></body></html>`;
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function listen(server: Server): Promise<void> {

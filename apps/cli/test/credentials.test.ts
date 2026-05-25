@@ -49,4 +49,11 @@ describe("file credential store", () => {
     await fs.writeFile(filePath, JSON.stringify({ api_key: "x" }));
     expect(await fileStore(filePath).load()).toBeNull();
   });
+
+  it("returns null for a corrupt (non-JSON) credential file instead of throwing", async () => {
+    const filePath = await tempPath();
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, "}{ not json");
+    await expect(fileStore(filePath).load()).resolves.toBeNull();
+  });
 });
