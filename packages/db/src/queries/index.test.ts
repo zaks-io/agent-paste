@@ -116,18 +116,13 @@ describe("postgres query adapters", () => {
     await expect(uploadSessionFileQueries.listForSession(db, "session_1")).resolves.toMatchObject([
       { upload_session_id: "session_1", uploaded_at: null },
     ]);
-    await uploadSessionFileQueries.recordUpload(
-      {
-        ...db,
-      } as DrizzleDb,
-      {
-        sessionId: "session_1",
-        path: "index.html",
-        objectKey: "r2/index.html",
-        sizeBytes: 12,
-        uploadedAt: "2026-01-02T00:00:00.000Z",
-      },
-    );
+    await uploadSessionFileQueries.recordUpload(db as DrizzleDb, {
+      sessionId: "session_1",
+      path: "index.html",
+      objectKey: "r2/index.html",
+      sizeBytes: 12,
+      uploadedAt: "2026-01-02T00:00:00.000Z",
+    });
 
     await expect(platformLockdownQueries.findEffective(db, "workspace", "workspace_1")).resolves.toMatchObject({
       id: "lockdown_1",

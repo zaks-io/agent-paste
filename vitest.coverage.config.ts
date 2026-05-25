@@ -22,7 +22,6 @@ export default defineConfig({
         "apps/api/src/index.ts",
         "apps/upload/src/index.ts",
         "apps/content/src/index.ts",
-        "apps/cli/src/index.ts",
         "apps/cli/src/local.ts",
         "apps/cli/src/loopback.ts",
         "packages/auth/src/index.ts",

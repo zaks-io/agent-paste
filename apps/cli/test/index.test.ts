@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { main } from "../src/index.js";
+import { main, parseArgs } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -30,6 +30,7 @@ describe("cli command dispatch", () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 
     await main(["help"]);
+    await main(["--help"]);
 
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining("agent-paste publish <path>"));
   });
@@ -104,6 +105,34 @@ describe("cli command dispatch", () => {
     expect(list).toHaveBeenCalledOnce();
   });
 
+  it("requires confirmation for destructive admin commands and dispatches them with --yes", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const revoke = vi.fn().mockResolvedValue({ revoked_at: "2026-01-01T00:00:00.000Z" });
+    const deleteArtifact = vi.fn().mockResolvedValue({ deleted_at: "2026-01-01T00:00:00.000Z" });
+    const client = fakeClient({ admin: { apiKeys: { revoke }, artifacts: { delete: deleteArtifact } } });
+
+    await expect(main(["admin", "key", "revoke", "key_1"], client)).rejects.toThrow("without --yes");
+    await expect(main(["delete", artifactId], client)).rejects.toThrow("without --yes");
+    await main(["admin", "key", "revoke", "key_1", "--yes"], client);
+    await main(["admin", "artifact", "delete", artifactId, "--yes"], client);
+
+    expect(revoke).toHaveBeenCalledWith("key_1", expect.stringMatching(/^cli_admin_key_revoke_/));
+    expect(deleteArtifact).toHaveBeenCalledWith(artifactId, expect.stringMatching(/^cli_admin_artifact_delete_/));
+  });
+
+  it("runs admin cleanup in dry-run mode or with explicit confirmation", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const run = vi.fn().mockResolvedValue({ expired_artifacts: 0 });
+    const client = fakeClient({ admin: { cleanup: { run } } });
+
+    await main(["admin", "cleanup", "run", "--dry-run"], client);
+    await expect(main(["admin", "cleanup", "run"], client)).rejects.toThrow("without --yes");
+    await main(["admin", "cleanup", "run", "--yes"], client);
+
+    expect(run).toHaveBeenNthCalledWith(1, { dry_run: true }, expect.stringMatching(/^cli_admin_cleanup_run_/));
+    expect(run).toHaveBeenNthCalledWith(2, { dry_run: false }, expect.stringMatching(/^cli_admin_cleanup_run_/));
+  });
+
   it("publishes a local folder through create, PUT, and finalize", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
@@ -174,8 +203,38 @@ describe("cli command dispatch", () => {
     }
   });
 
+  it("rejects upload sessions that return unknown files", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: {
+          create: vi.fn().mockResolvedValue({
+            upload_session_id: uploadSessionId,
+            files: [{ path: "missing.html", put_url: "https://upload.test/missing" }],
+          }),
+          finalize: vi.fn(),
+        },
+      });
+
+      await expect(
+        main(["publish", root, "--entrypoint=index.html", "--render-mode", "html", "--ttl", "2d"], client),
+      ).rejects.toThrow("Upload session returned unknown file missing.html");
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
   it("throws on unknown commands", async () => {
     await expect(main(["unknown"], fakeClient())).rejects.toThrow("Unknown command: unknown");
+  });
+
+  it("parses empty args, negated flags, missing flag values, and empty flag names", () => {
+    expect(parseArgs([]).command).toEqual([]);
+    expect(parseArgs(["--no-json", "--", "whoami"]).global.json).toBe(false);
+    expect(parseArgs(["--=ignored", "help"]).command).toEqual(["help"]);
+    expect(() => parseArgs(["publish", "--title"])).toThrow("Missing value for --title");
   });
 
   it("suppresses human output with --quiet", async () => {
