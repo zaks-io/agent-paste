@@ -127,6 +127,7 @@ jobs:
           # and HTTP 530 (Cloudflare error 1042, worker not yet routed) are
           # expected-transient during propagation, so they just reset the counter
           # and we retry. Connection/timeout errors capture as "000".
+          CURL_TIMEOUT=5
           CONSECUTIVE_REQUIRED=3
           MAX_ATTEMPTS=45
           SLEEP_SECONDS=2
@@ -137,7 +138,7 @@ jobs:
             local consecutive=0
             while [ $i -lt $MAX_ATTEMPTS ]; do
               i=$((i+1))
-              status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null) || status="000"
+              status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time $CURL_TIMEOUT "$url" 2>/dev/null) || status="000"
               if [ "$status" = "200" ]; then
                 consecutive=$((consecutive+1))
                 echo "$url healthy ($consecutive/$CONSECUTIVE_REQUIRED) on attempt $i"
@@ -152,7 +153,7 @@ jobs:
               fi
               sleep $SLEEP_SECONDS
             done
-            echo "::error::$url never got $CONSECUTIVE_REQUIRED consecutive healthy /healthz responses within $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
+            echo "::error::$url never got $CONSECUTIVE_REQUIRED consecutive healthy /healthz responses within ~$((MAX_ATTEMPTS * (CURL_TIMEOUT + SLEEP_SECONDS)))s"
             return 1
           }
           wait_for_healthz "$API_URL"
