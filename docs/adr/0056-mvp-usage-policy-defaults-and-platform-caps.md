@@ -1,6 +1,6 @@
 # MVP Usage Policy Defaults and Platform Caps
 
-Status: Narrowed for the CLI-first MVP by [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md).
+Status: Narrowed for the CLI-first MVP by [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md). The caps below are the platform hard ceilings that bound every **Plan**; [ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md) layers `free` / `pro` Plan selection on top of them without raising them.
 
 Concrete numeric values for upload caps, rate limits, TTLs, and lifecycle limits referenced as platform-controlled by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md), [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md), [ADR 0041](./0041-upload-size-caps-under-usage-policy.md), [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), and [ADR 0048](./0048-transient-artifacts-by-default.md). Workspace-tunable settings cannot exceed the platform cap; platform-controlled values are exposed read-only through **Usage Policy** surfaces so agents can plan around them.
 
@@ -53,6 +53,6 @@ A **Workspace Member** can lower Auto Deletion below 30 days; they cannot raise 
 
 ## What is not in this ADR
 
-- Cost / billing tiers. Out of MVP scope.
+- Cost / billing tiers. Plan-tiered selection of these values is [ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md); these caps remain the hard ceiling it cannot exceed.
 - Per-render-mode caps. **Render Modes** share one set of caps.
 - Per-workspace overrides beyond Auto Deletion. Workspaces accept platform caps in the MVP.

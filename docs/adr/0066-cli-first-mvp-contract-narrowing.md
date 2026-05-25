@@ -6,7 +6,7 @@ The executable contracts in `packages/contracts` are narrowed to the CLI-first M
 
 ## Follow-Ups To Earlier ADRs
 
-- [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md) is narrowed for the CLI-first MVP: file size is `10 MB`, total artifact size is `25 MB`, file count is `100`, artifact TTL is `1d` to `90d` with `30d` default, upload-session TTL is `24h`, and the API-key actor rate-limit target is `60 req/min`. Larger caps and workspace-tunable policy are future work.
+- [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md) is narrowed for the CLI-first MVP: file size is `10 MB`, total artifact size is `25 MB`, file count is `100`, artifact TTL is `1d` to `90d` with `30d` default, upload-session TTL is `24h`, and the API-key actor rate-limit target is `60 req/min`. Larger caps and workspace-tunable policy are future work. Plan-tiered selection across these caps later arrives in [ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md), with this single MVP set becoming the billing-off default.
 - [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md) is deferred for the MVP. MVP bytes remain private in R2, are served only through the isolated content Worker, and never expose direct R2 URLs. App-layer encryption metadata and streaming transforms should not appear in MVP contracts.
 - [ADR 0038](./0038-zod-schemas-as-source-of-truth-for-contracts.md) remains true, but the source-of-truth package now reflects the smaller route list from `docs/specs/api.md`, not the broader platform route map.
 

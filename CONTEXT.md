@@ -91,6 +91,11 @@ _Avoid_: Before-and-after payload, raw diff
 The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
 _Avoid_: Quota settings, billing limits
 
+<a id="plan"></a>
+**Plan**:
+The tier (`free` or `pro`) a **Workspace** is on. A **Plan** selects both the platform-defined **Usage Policy** values that apply within the platform hard ceilings and the set of platform features available to the **Workspace**; some features (such as **Live Update**) are available only on a higher **Plan**.
+_Avoid_: Subscription, billing tier, account level, entitlement
+
 <a id="file-size-cap"></a>
 **File Size Cap**:
 The cap on bytes per single file uploaded into a **Revision**. Platform-controlled in the MVP and surfaced through **Usage Policy**.
@@ -464,6 +469,10 @@ _Avoid_: middleware, interceptor, auth filter
 - A **Publish Result** includes separate human-view links and agent-view links
 - A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
+- A **Workspace** has exactly one **Plan**
+- A **Plan** selects the platform-defined **Usage Policy** values that apply to a **Workspace**
+- Platform hard ceilings bound every **Plan**; a higher **Plan** raises a **Workspace**'s effective caps but cannot exceed the platform maximum
+- A **Plan** also determines which platform features a **Workspace** can use; a higher **Plan** may unlock features that are unavailable on a lower **Plan**
 - A **Usage Policy** controls **Retention**
 - A **Usage Policy** controls **Access Link** creation
 - A **Usage Policy** can prevent new **Access Links** across a **Workspace**

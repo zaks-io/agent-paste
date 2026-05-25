@@ -1,0 +1,46 @@
+# Stripe Billing as a Sync Layer over a Local Source of Truth
+
+Status: Accepted.
+
+We integrate Stripe fully (Checkout, webhooks, Customer Portal) but treat the local database as the source of truth for entitlement and treat Stripe webhooks as a sync layer, not a load-bearing dependency. `workspaces.plan` ([ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) is the only value the hot path reads, and it converges to the correct state through three independent writers even if webhooks are delayed, dropped, or disabled entirely.
+
+## Context
+
+A prior project of the author's broke because it relied on Stripe webhook timing to drive application state: when webhooks were late or missed, the system was wrong with no path back to correct. The requirement here is the inverse. Billing must degrade gracefully, the system must be demonstrably correct with webhooks off, and the Stripe coupling must sit behind a seam so the hot path never makes a network call to a payment processor to decide what a **Workspace** is allowed to do.
+
+## Decision
+
+- **Local DB is authoritative, split across two tables.** The entitlement flag is `workspaces.plan` ([ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)), denormalized onto the **Workspace** row so the hot-path auth lookup, which already loads and caches that row ([ADR 0062](./0062-two-layer-cache-for-hot-path-auth-lookups.md)), reads entitlement for free. The Stripe mirror (customer id, subscription id, status, current-period-end, price interval) lives in a dedicated 1:1 `workspace_billing` table, written only by the three writers below and read only by billing surfaces and the Portal redirect. The hot path reads `plan` only; Stripe is never called to authorize a request.
+- **`plan` is a denormalized projection of the billing row.** The three writers compute `plan` from subscription status and write both the `workspaces.plan` flag and the `workspace_billing` detail; keeping them in sync is exactly the reconciliation cron's job. When billing is off the `workspace_billing` table is simply empty and `plan` is ignored, which is cleaner than carrying five always-null Stripe columns on every tenant row in the self-host default-off case.
+- **Entitlement mapping.** A **Workspace** is `pro` iff the mirrored Stripe status is `active`, `trialing`, or `past_due`; every other status (`canceled`, `unpaid`, `incomplete`, `incomplete_expired`, `paused`) maps to `free`. `past_due` stays `pro` deliberately: it is Stripe's dunning window, so grace is whatever the Stripe retry configuration allows rather than a separate timer we maintain. `current_period_end` is display-only and never an entitlement input; cancel-at-period-end needs no special handling because Stripe holds `status = active` until the period ends and only then flips to `canceled`.
+- **Three writers converge on the local state, none of them load-bearing alone:**
+  1. **Synchronous activation.** On return from Checkout, the success handler fetches the session from Stripe once and writes `plan` immediately. A subscriber is entitled the moment they land back on the app, with no webhook in the loop.
+  2. **Idempotent, out-of-order-tolerant webhooks.** Subscription lifecycle events update the local record. Each handler is keyed on the Stripe event id and compares the event against stored state so replays, duplicates, and out-of-order delivery all settle on the same result. Webhooks are a faster sync path, not the only one.
+  3. **Periodic reconciliation.** A daily reconciliation cron on the `jobs` worker ([ADR 0032](./0032-jobs-worker-trigger-model-and-queue-topology.md)) lists active subscriptions from Stripe and repairs any local drift. It is a thin backstop, explicitly **not** the routine sync path: synchronous activation and webhooks do the day-to-day work, and reconciliation exists only to catch missed or dropped events. With webhooks fully disabled it still keeps entitlement correct on its own, bounded by the daily cadence — but the design intent is webhooks primary, cron last resort, not the inverse.
+- **`BillingProvider` seam.** All Stripe calls go through a `BillingProvider` interface in the ports-and-adapters style of [ADR 0070](./0070-repository-core-ports-and-adapters.md). The Stripe adapter is the real implementation; a no-op adapter is wired when the billing flag is off ([ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)). No business logic imports the Stripe SDK directly.
+- **Plan writes go through `runCommand`.** Writing `plan` / subscription state is durable business state, so per [ADR 0049](./0049-jobs-handler-patterns.md) it runs through `runCommand` under a per-kind system actor (`billing_reconcile` for the cron; the webhook path keys idempotency on the Stripe event id, the activation path on the Checkout session id). Audit events record plan transitions.
+- **Annual billing is interval-agnostic entitlement.** One Stripe Product with two Prices (monthly + annual, ~2 months free on annual). The price interval is stored for display and renewal math; it does not change what `pro` grants. Entitlement is "is this **Workspace** `pro`," never "which interval."
+- **Operator override.** An admin can set `plan` directly through the web admin surface ([ADR 0046](./0046-operator-identity-and-web-admin-surface.md)) for comps, support, and incident recovery, independent of Stripe state. Reconciliation must not clobber an explicit override.
+
+## Surfaces and Trust Boundaries
+
+Billing rides existing Workers; there is no separate `billing` Worker. The code is the severable `packages/billing` from [ADR 0073](./0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md), mounted into `api` only when the billing flag is on.
+
+- **`api`** hosts four billing routes through the [ADR 0072](./0072-contract-driven-route-registrar-and-guard.md) registrar: create Checkout session (`workos_access_token`, `admin` scope), Checkout return / synchronous activation (`workos_access_token`), Customer Portal redirect (`workos_access_token`, `admin` scope), and the webhook receiver under a new `stripe_webhook_signature` `AuthRequirement` that verifies the `Stripe-Signature` header with no scopes. Buying or managing a **Plan** is a dashboard action by a **Workspace** admin, not an agent action, so none of these expose an API-Key path.
+- **`apps/web`** hosts the upgrade button and billing settings, which call the `api` endpoints (consistent with [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md)). This is gated behind dashboard work; the `api` endpoints can land and be exercised by CLI / curl first.
+- **`jobs`** hosts the reconciliation cron described above.
+
+A separate billing Worker was considered and rejected. Writing `plan` / `workspace_billing` needs the same Hyperdrive + Repository + RLS + `runCommand` stack `api` already has, so a second Worker would duplicate `api`'s heaviest bindings and add a second writer of the **Workspace** row that [ADR 0070](./0070-repository-core-ports-and-adapters.md) keeps behind one core, in exchange for a modest webhook-isolation gain. `content` is kept DB-free because it serves untrusted content; billing is DB-heavy control-plane work and belongs with the control plane. The webhook's untrusted-caller concern is handled by the per-route guard and the signature resolver, not by a separate deployable. The physical open-core boundary is the `packages/billing` seam, not a Worker split.
+
+## Considered Options
+
+- **Webhooks as source of truth (the obvious path).** Let Stripe events drive state directly. Rejected: this is the exact failure mode from the prior project. A dropped or late event leaves the system wrong with no self-healing.
+- **Call Stripe in the authorization path.** Always ask Stripe whether a **Workspace** is entitled. Rejected: couples every request to Stripe latency and availability, and breaks the hot-path budget and the offline/self-host story.
+- **Synchronous activation only, no webhooks.** Simple and correct at purchase time, but misses out-of-band changes (cancellations, payment failures, Portal edits) until the next reconciliation. Kept synchronous activation for instant UX and added webhooks as the fast async sync, with reconciliation as the guarantee.
+
+## Consequences
+
+- The system is correct with webhooks delayed, dropped, or disabled; the only cost of losing webhooks is staleness bounded by the reconciliation cadence. This is directly testable: an entitlement-convergence test runs the reconciliation path with the webhook handler disabled and asserts `plan` still settles.
+- There are three code paths that can write `plan`, which is more moving parts than a single webhook handler. That redundancy is the point; each is idempotent and they are mutually reinforcing, not racing, because all writes go through `runCommand` keyed on stable identities.
+- Swapping or mocking the payment processor is a `BillingProvider` adapter swap. Tests run against the no-op or a fake adapter with no Stripe calls.
+- Stripe remains the system of record for money (invoices, payment methods, dunning); we do not reimplement billing. We only mirror the minimal entitlement signal locally.
