@@ -29,6 +29,7 @@ export default defineConfig({
         "packages/contracts/src/openapi/**",
         "packages/db/src/schema.ts",
         "packages/db/src/validation.ts",
+        "packages/repo-lint/src/monorepo-policy.mjs",
         "packages/worker-runtime/src/errors.ts",
         "packages/worker-runtime/src/registrar.ts",
       ],
