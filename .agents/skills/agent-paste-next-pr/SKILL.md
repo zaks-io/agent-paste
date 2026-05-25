@@ -10,9 +10,9 @@ change behavior outright instead of adding legacy compatibility.
 
 ## Quick Start
 
-From `/Users/isaacsuttell/src/agent-paste`, read `AGENTS.md`,
-`docs/ops/project-status.md`, `docs/ops/status/phase-backlog.md`,
-`CONTEXT.md`, `docs/specs/README.md`, and `docs/adr/README.md`.
+From the repository root, read `AGENTS.md`, `docs/ops/project-status.md`,
+`docs/ops/status/phase-backlog.md`, `CONTEXT.md`, `docs/specs/README.md`, and
+`docs/adr/README.md`.
 
 Pick the first unchecked item in the active phase unless the user names a
 different target. If the item is blocked, record the exact blocker and move on
@@ -25,8 +25,9 @@ iteration by fetching latest `main` and rereading status/backlog docs. Continue
 only after the prior PR is merged, or after the user explicitly says to stack
 another PR. Stop on blocked or ambiguous backlog items, failing checks that need
 external access, unresolved CodeRabbit disagreement, merge conflicts, or the
-user's loop budget. After merge, delete the worktree/branch if safe, fetch,
-rebase from latest base, and choose the new first unchecked active item.
+user's loop budget, such as max PRs or elapsed time set by the user. After
+merge, delete the worktree/branch if safe, fetch, rebase from latest base, and
+choose the new first unchecked active item.
 
 ## Workflow
 
