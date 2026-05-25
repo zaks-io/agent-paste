@@ -21,7 +21,12 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["CLOUDFLARE_ENV"],
       "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**", ".output/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
     },
     "check": {
       "dependsOn": ["^check"],
@@ -40,11 +45,15 @@
     },
     "openapi:check": {
       "dependsOn": ["build"],
-      "inputs": ["src/openapi/**", "src/*.ts", "openapi/**"],
+      "inputs": ["$TURBO_DEFAULT$", "src/openapi/**", "src/*.ts", "openapi/**"],
       "outputs": []
     },
     "db:check": {
-      "inputs": ["src/schema.ts", "snapshot/schema.sql", "scripts/introspect-check.mjs"],
+      "inputs": ["$TURBO_DEFAULT$", "src/schema.ts", "snapshot/schema.sql", "scripts/introspect-check.mjs"],
+      "outputs": []
+    },
+    "typegen": {
+      "cache": false,
       "outputs": []
     }
   }

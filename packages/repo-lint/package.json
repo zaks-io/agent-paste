@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "biome lint ../../.github ../../docs ../../scripts ../../*.json ../../*.yaml ../../*.yml ../../*.md"
+    "biome:lint": "biome lint ../../.github ../../docs ../../scripts ../../*.json ../../*.yaml ../../*.yml ../../*.md",
+    "check": "pnpm lint",
+    "lint": "pnpm biome:lint && node src/monorepo-policy.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:"

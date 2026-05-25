@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "pnpm lint",
     "lint": "biome lint ."
   }
 }
