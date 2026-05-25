@@ -115,7 +115,7 @@ Optional endpoint overrides:
 
 - Preview URLs default to the shared preview Workers and domains.
 - Production URLs default to `https://api.agent-paste.sh`, `https://upload.agent-paste.sh`, `https://usercontent.agent-paste.sh`, `https://agent-paste.sh`, and `https://app.agent-paste.sh`.
-- PR preview URLs are provided by `.github/workflows/pr-preview.yml`.
+- PR preview URLs are provided by GitHub Actions workflow `.github/workflows/pr-preview.yml`.
 - `AGENT_PASTE_SMOKE_PATH` defaults to `examples/local-harness/site`.
 
 Assertions:
