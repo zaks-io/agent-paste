@@ -237,6 +237,5 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
 }
 
 async function removePublishFixture(root: string) {
-  const rm = fs.rm as (target: string, options?: { recursive?: boolean; force?: boolean }) => Promise<void>;
-  await rm(root, { recursive: true, force: true });
+  await fs.rm(root, { recursive: true, force: true });
 }

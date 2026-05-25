@@ -28,13 +28,9 @@ export default defineConfig({
         "packages/auth/src/index.ts",
         "packages/auth/src/request-id.ts",
         "packages/contracts/src/openapi/**",
-        "packages/db/src/postgres/**",
-        "packages/db/src/queries/**",
-        "packages/db/src/repository/postgres-unit-of-work.ts",
         "packages/db/src/schema.ts",
         "packages/db/src/validation.ts",
         "packages/worker-runtime/src/errors.ts",
-        "packages/worker-runtime/src/rate-limit.ts",
         "packages/worker-runtime/src/registrar.ts",
       ],
       thresholds: {

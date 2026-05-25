@@ -36,7 +36,7 @@ declare module "node:fs" {
     readFile(path: string, encoding: "utf8"): Promise<string>;
     writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
-    rm(path: string): Promise<void>;
+    rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };
 }
 
