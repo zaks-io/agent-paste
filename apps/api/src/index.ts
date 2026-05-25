@@ -87,14 +87,16 @@ export type Env = {
   WORKOS_API_BASE_URL?: string;
   WORKOS_ISSUER?: string;
   WORKOS_JWKS_URL?: string;
-  // Public OAuth (Connect) app used by `agent-paste login`. Empty means the CLI
-  // login client is not configured, so CLI-issued tokens are rejected and the
-  // worker behaves dashboard-only. The id is a public identifier; safe in vars.
-  WORKOS_CLI_CLIENT_ID?: string;
+  // Expected `aud` of a CLI Connect access token: the WorkOS environment's OIDC
+  // client, NOT the `agent-paste login` OAuth app id. WorkOS stamps every token
+  // in the environment with this audience and exposes no verifiable claim for
+  // the originating OAuth app, so this is what pins a CLI token to our tenant.
+  // Empty means the CLI login path is disabled (worker behaves dashboard-only).
+  // Public identifier; safe in vars (ADR 0060).
+  WORKOS_CLI_AUDIENCE?: string;
   // Connect tokens are verified against the AuthKit domain JWKS, not
-  // /sso/jwks/{client_id}. Both default off WORKOS_CLI_CLIENT_ID's authkit
-  // domain when an operator supplies it; left configurable for non-default
-  // subdomains (see ADR 0060).
+  // /sso/jwks/{client_id}, and against the AuthKit issuer; both are configurable
+  // for non-default subdomains (see ADR 0060).
   WORKOS_CLI_JWKS_URL?: string;
   WORKOS_CLI_ISSUER?: string;
   OPERATOR_EMAILS?: string;
@@ -180,7 +182,13 @@ const apiAuthResolvers = {
     if (!db) {
       return { ok: false, code: "database_unavailable" } as const;
     }
-    const actor = await db.getWebMemberByWorkOsUserId({ workosUserId: identity.workos_user_id });
+    // The key-mint route is the CLI's only entry point, so it provisions a
+    // workspace on first contact (JIT) the way the dashboard callback does. Every
+    // other workos_access_token route requires an already-provisioned member.
+    const actor =
+      contract.id === CLI_KEY_MINT_ROUTE_ID
+        ? await db.ensureWebMember({ workosUserId: identity.workos_user_id, email: identity.email })
+        : await db.getWebMemberByWorkOsUserId({ workosUserId: identity.workos_user_id });
     if (!actor || actor.type !== "member" || !actor.workspace_id) {
       return { ok: false, code: "forbidden" } as const;
     }
@@ -1036,16 +1044,16 @@ function dashboardVerifyOptions(env: Env): WorkOsVerifyOptions | null {
 }
 
 function cliVerifyOptions(env: Env): WorkOsVerifyOptions | null {
-  if (!env.WORKOS_API_KEY || !env.WORKOS_CLI_CLIENT_ID) {
+  if (!env.WORKOS_API_KEY || !env.WORKOS_CLI_AUDIENCE) {
     return null;
   }
-  // WorkOS Connect access tokens carry the originating client in `aud`, not the
-  // `client_id`/`azp` claim that AuthKit dashboard tokens use. requireClientIdClaim
-  // is therefore false so the match falls through to `aud`; the CLI issuer and the
-  // authkit.app JWKS below pin the token to this client regardless.
+  // WorkOS Connect access tokens carry no `client_id`/`azp` claim, and their
+  // `aud` is the environment OIDC client (not the CLI OAuth app). So we match on
+  // `aud` (requireClientIdClaim false) against WORKOS_CLI_AUDIENCE; the AuthKit
+  // issuer and JWKS below pin the token to our tenant.
   const options: WorkOsVerifyOptions = {
     apiKey: env.WORKOS_API_KEY,
-    clientId: env.WORKOS_CLI_CLIENT_ID,
+    clientId: env.WORKOS_CLI_AUDIENCE,
     requireClientIdClaim: false,
   };
   if (env.WORKOS_API_BASE_URL) {

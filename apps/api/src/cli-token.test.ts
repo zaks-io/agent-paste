@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { authenticateWebIdentity, type Env } from "./index.js";
 
 const dashboardClientId = "client_dashboard";
-const cliClientId = "client_cli";
+// The environment OIDC client stamped into a Connect token's `aud`.
+const cliAudience = "client_env_audience";
 const subject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 const apiBaseUrl = "https://workos.test";
 const cliJwksUrl = "https://tenant.authkit.app/oauth2/jwks";
@@ -15,7 +16,7 @@ function baseEnv(overrides: Partial<Env> = {}): Env {
     WORKOS_API_KEY: "sk_test_123",
     WORKOS_CLIENT_ID: dashboardClientId,
     WORKOS_API_BASE_URL: apiBaseUrl,
-    WORKOS_CLI_CLIENT_ID: cliClientId,
+    WORKOS_CLI_AUDIENCE: cliAudience,
     WORKOS_CLI_JWKS_URL: cliJwksUrl,
     WORKOS_CLI_ISSUER: cliIssuer,
     ...overrides,
@@ -47,11 +48,11 @@ describe("CLI Connect token isolation on the key-mint path", () => {
     expect(identity).toBeNull();
   });
 
-  it("rejects a CLI-client token on key-mint when WORKOS_CLI_CLIENT_ID is unset", async () => {
+  it("rejects a CLI-client token on key-mint when WORKOS_CLI_AUDIENCE is unset", async () => {
     const fixture = await cliTokenFixture();
     stubFetch(fixture.publicJwk);
 
-    const env = baseEnv({ WORKOS_CLI_CLIENT_ID: undefined, WORKOS_CLI_JWKS_URL: undefined });
+    const env = baseEnv({ WORKOS_CLI_AUDIENCE: undefined, WORKOS_CLI_JWKS_URL: undefined });
     const identity = await authenticateWebIdentity(request(fixture.token), env, { allowCliClient: true });
     expect(identity).toBeNull();
   });
@@ -63,12 +64,12 @@ async function cliTokenFixture() {
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "cli-key";
   publicJwk.alg = "RS256";
-  // Mirror a real WorkOS Connect access token: the client lives in `aud`, with
-  // no `client_id`/`azp` claim (unlike AuthKit dashboard tokens).
+  // Mirror a real WorkOS Connect access token: `aud` is the environment OIDC
+  // client, with no `client_id`/`azp` claim (unlike AuthKit dashboard tokens).
   const token = await new SignJWT({ sid: "sid_cli" })
     .setProtectedHeader({ alg: "RS256", kid: "cli-key" })
     .setIssuer(cliIssuer)
-    .setAudience(cliClientId)
+    .setAudience(cliAudience)
     .setSubject(subject)
     .setIssuedAt()
     .setExpirationTime(Math.floor(Date.now() / 1000) + 300)
