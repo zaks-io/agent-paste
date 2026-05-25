@@ -10,10 +10,12 @@
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck",
     "lint": "biome lint .",
+    "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "dependencies": {
     "hono": "^4.12.21"

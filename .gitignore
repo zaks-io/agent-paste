@@ -12,3 +12,4 @@ coverage/
 .DS_Store
 .agent-out/
 .claude/worktrees/
+.claude/scheduled_tasks.lock

@@ -877,6 +877,300 @@ describe("LocalRepository", () => {
       files: [{ path: "index.html" }],
     });
   });
+
+  it("lists workspaces newest-first", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-old",
+      email: "old@example.com",
+      name: "Old",
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-new",
+      email: "new@example.com",
+      name: "New",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    await expect(repo.listWorkspaces()).resolves.toMatchObject({
+      data: [{ name: "New" }, { name: "Old" }],
+      page_info: { next_cursor: null, has_more: false },
+    });
+  });
+
+  it("revokes admin-created API keys idempotently and rejects revoked or wrong secrets", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+
+    expect(await repo.verifyApiKey("not-an-api-key")).toBeNull();
+    expect(await repo.verifyApiKey(key.secret.replace(/.$/, "x"))).toBeNull();
+    expect(await repo.verifyApiKey(key.secret)).toMatchObject({ id: key.api_key.id });
+
+    const revoked = await repo.revokeApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: key.api_key.id,
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const replay = await repo.revokeApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-revoke",
+      apiKeyId: key.api_key.id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    expect(replay).toEqual(revoked);
+    expect(await repo.verifyApiKey(key.secret)).toBeNull();
+    expect(repo.apiKeys.get(key.api_key.id)?.revoked_at).toBe("2026-01-02T00:00:00.000Z");
+    const events = [...repo.operationEvents.values()].filter((event) => event.action === "api_key.revoked");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actor_type: "admin", target_id: key.api_key.id });
+  });
+
+  it("returns web artifact details only inside the member workspace", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const keySecret = session.default_api_key?.secret;
+    const apiActor = keySecret ? await repo.verifyApiKey(keySecret) : null;
+    const webActor = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!apiActor || !webActor) {
+      throw new Error("expected actors");
+    }
+    const published = await publishLocalArtifact(repo, apiActor, "visible", "2026-01-01T00:00:01.000Z");
+
+    await expect(repo.getWebArtifact(webActor, published.artifact_id)).resolves.toMatchObject({
+      id: published.artifact_id,
+      title: "visible",
+      file_count: 1,
+      size_bytes: 12,
+    });
+    await expect(repo.getWebArtifact(webActor, "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9")).resolves.toBeNull();
+    await expect(
+      repo.getWebArtifact({ ...webActor, workspace_id: "22222222-2222-4222-8222-222222222222" }, published.artifact_id),
+    ).resolves.toBeNull();
+  });
+
+  it("lists web API keys with revoked flags", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+    const created = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-web-key",
+      name: "Dashboard Key",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    await repo.revokeWebApiKey({
+      actor,
+      idempotencyKey: "idem-revoke-web-key",
+      apiKeyId: created.api_key.id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    const keys = await repo.listWebApiKeys(actor);
+    expect(keys.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: created.api_key.id, revoked: true, expires_at: null }),
+        expect.objectContaining({ name: "Default", revoked: false, expires_at: null }),
+      ]),
+    );
+  });
+
+  it("lists operation events newest-first", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-old",
+      email: "old@example.com",
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-new",
+      email: "new@example.com",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    const events = await repo.listOperationEvents();
+    expect(events.data.map((event) => event.details.email)).toEqual(["new@example.com", "old@example.com"]);
+    expect(events.page_info).toEqual({ next_cursor: null, has_more: false });
+  });
+
+  it("records uploads and finalizes observed files", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload",
+      request: {
+        title: "expiring",
+        entrypoint: "index.html",
+        ttl_seconds: 86_400,
+        files: [{ path: "index.html", size_bytes: 12 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    await repo.recordUploadedFile({
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      uploadedAt: "2026-01-01T00:00:01.000Z",
+    });
+    expect(repo.uploadSessionFiles.get(`${session.upload_session_id}:index.html`)?.uploaded_at).toBe(
+      "2026-01-01T00:00:01.000Z",
+    );
+    const published = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    expect(repo.artifacts.get(published.artifact_id)?.status).toBe("active");
+  });
+
+  it("force-updates artifact expiry and returns null for missing artifacts", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "force-expiring", "2026-01-01T00:00:01.000Z");
+
+    await expect(
+      repo.forceExpireArtifact({ artifactId: published.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" }),
+    ).resolves.toEqual({ artifact_id: published.artifact_id, expires_at: "2026-01-01T00:00:03.000Z" });
+    await expect(
+      repo.forceExpireArtifact({ artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", expiresAt: "2026-01-01T00:00:03.000Z" }),
+    ).resolves.toBeNull();
+  });
+
+  it("expires eligible artifacts and upload sessions while respecting cleanup limits", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "expiring", "2026-01-01T00:00:00.000Z");
+    await repo.forceExpireArtifact({ artifactId: published.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" });
+
+    const pending = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-pending",
+      request: { title: "pending", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const dryRun = await repo.runCleanup({
+      actor: adminActor,
+      idempotencyKey: "idem-cleanup-dry",
+      dryRun: true,
+      batchSize: 1,
+      now: "2026-01-03T00:00:00.000Z",
+    });
+    expect(dryRun).toMatchObject({
+      dry_run: true,
+      expired_artifacts: 1,
+      expired_upload_sessions: 1,
+      expired_artifact_ids: [],
+    });
+    expect(repo.artifacts.get(published.artifact_id)?.status).toBe("active");
+    expect(repo.uploadSessions.get(pending.upload_session_id)?.status).toBe("pending");
+
+    const cleanup = await repo.runCleanup({
+      actor: adminActor,
+      idempotencyKey: "idem-cleanup",
+      dryRun: false,
+      batchSize: 1,
+      now: "2026-01-03T00:00:00.000Z",
+    });
+    expect(cleanup).toMatchObject({
+      dry_run: false,
+      expired_artifacts: 1,
+      expired_artifact_ids: [published.artifact_id],
+      expired_upload_sessions: 1,
+      deleted_r2_objects: 0,
+    });
+    expect(repo.artifacts.get(published.artifact_id)?.status).toBe("expired");
+    expect(repo.uploadSessions.get(pending.upload_session_id)?.status).toBe("expired");
+  });
+
+  it("rejects invalid upload finalization states", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws",
+      email: "user@example.com",
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key",
+      workspaceId: workspace.id,
+      name: "default",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload",
+      request: { title: "demo", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-finalize-missing",
+        sessionId: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        observedFiles: [],
+        now: "2026-01-01T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_session_not_found");
+    await expect(
+      repo.finalizeUploadSession({
+        actor: { ...actor, workspace_id: "22222222-2222-4222-8222-222222222222" },
+        idempotencyKey: "idem-finalize-cross",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+        now: "2026-01-01T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_session_not_found");
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-finalize-incomplete",
+        sessionId: session.upload_session_id,
+        observedFiles: [],
+        now: "2026-01-01T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_incomplete");
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-finalize-size",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 13 }],
+        now: "2026-01-01T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_incomplete");
+  });
 });
 
 describe("PostgresRepository", () => {
@@ -950,6 +1244,26 @@ function firstFile(session: { files: Array<{ object_key: string }> }) {
     throw new Error("expected file");
   }
   return file;
+}
+
+async function localRepoWithApiActor() {
+  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+  const workspace = await repo.createWorkspace({
+    actor: adminActor,
+    idempotencyKey: "idem-ws",
+    email: "user@example.com",
+  });
+  const key = await repo.createApiKey({
+    actor: adminActor,
+    idempotencyKey: "idem-key",
+    workspaceId: workspace.id,
+    name: "default",
+  });
+  const actor = await repo.verifyApiKey(key.secret);
+  if (!actor) {
+    throw new Error("expected actor");
+  }
+  return { repo, actor };
 }
 
 async function publishLocalArtifact(

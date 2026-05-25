@@ -1,7 +1,13 @@
 import { routeContracts } from "@agent-paste/contracts";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
-import { type ApiDatabase, type Env, handleRequest, mountedRouteIds, nonContractRoutePaths } from "./index.js";
+import apiWorker, {
+  type ApiDatabase,
+  type Env,
+  handleRequest,
+  mountedRouteIds,
+  nonContractRoutePaths,
+} from "./index.js";
 
 describe("api worker", () => {
   it("mounts every api and admin route contract", () => {
@@ -1871,6 +1877,287 @@ describe("api worker", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
+
+  it("serves usage policy for authenticated callers", async () => {
+    const response = await handleRequest(
+      new Request("https://api.test/v1/usage-policy", { headers: { authorization: "Bearer ok" } }),
+      {
+        AUTH: {
+          async verifyApiKey() {
+            return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+          },
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      file_count_cap: 100,
+      actor_rate_limit_per_minute: 60,
+      workspace_burst_cap_per_minute: 300,
+    });
+  });
+
+  it("returns authenticated latest and revision Agent View with signed content URLs", async () => {
+    const seen: unknown[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "content-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+      },
+      DB: operatorDbForTests({
+        async getAgentView(input) {
+          seen.push(input);
+          return agentViewFixture(input.artifactId, input.revisionId ?? "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
+        },
+      }),
+    };
+
+    const latest = await handleRequest(
+      new Request("https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/agent-view", {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+    const revision = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/agent-view",
+        { headers: { authorization: "Bearer ok" } },
+      ),
+      env,
+    );
+
+    expect(latest.status).toBe(200);
+    expect(revision.status).toBe(200);
+    const latestBody = (await latest.json()) as { view_url: string; files?: Array<{ url?: string }> };
+    expect(latestBody.view_url).toContain("https://content.test/v/");
+    expect(latestBody.view_url).toContain("/index.html");
+    expect(latestBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    expect(latestBody.files?.[0]?.url).toContain("https://content.test/v/");
+    expect(latestBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
+    const revisionBody = (await revision.json()) as { view_url: string; files?: Array<{ url?: string }> };
+    expect(revisionBody.view_url).toContain("https://content.test/v/");
+    expect(revisionBody.view_url).toContain("/index.html");
+    expect(revisionBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    expect(revisionBody.files?.[0]?.url).toContain("https://content.test/v/");
+    expect(revisionBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
+    expect(seen).toEqual([
+      expect.objectContaining({ artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }),
+      expect.objectContaining({
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }),
+    ]);
+  });
+
+  it("returns not_found for missing authenticated and public Agent Views", async () => {
+    const signed = await mintAgentViewToken(
+      {
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      },
+      "agent-view-secret",
+    );
+    const env: Env = {
+      AGENT_VIEW_SIGNING_SECRET: "agent-view-secret",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+      },
+      DB: operatorDbForTests({
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+      }),
+    };
+
+    const authenticated = await handleRequest(
+      new Request("https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/agent-view", {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+    const publicResponse = await handleRequest(new Request(`https://api.test/v1/public/agent-view/${signed}`), env);
+
+    expect(authenticated.status).toBe(404);
+    expect(publicResponse.status).toBe(404);
+  });
+
+  it("serves admin list, inspect, revoke, events, whoami, and scheduled cleanup routes", async () => {
+    const calls: string[] = [];
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyAdminToken(token) {
+          return token === "admin" ? { type: "admin", id: "operator" } : null;
+        },
+      },
+      DB: operatorDbForTests({
+        async listWorkspaces() {
+          calls.push("workspaces");
+          return { data: [], page_info: { next_cursor: null, has_more: false } };
+        },
+        async revokeApiKey(input) {
+          calls.push(`revoke:${input.apiKeyId}:${input.idempotencyKey}`);
+          return { api_key: { id: input.apiKeyId }, revoked_at: "2026-01-01T00:00:00.000Z" };
+        },
+        async listArtifacts(workspaceId, status) {
+          calls.push(`artifacts:${workspaceId}:${status}`);
+          return { data: [], page_info: { next_cursor: null, has_more: false } };
+        },
+        async getArtifactDetail(artifactId) {
+          calls.push(`artifact:${artifactId}`);
+          return { id: artifactId, files: [], operation_event_ids: [] };
+        },
+        async listOperationEvents() {
+          calls.push("events");
+          return { data: [], page_info: { next_cursor: null, has_more: false } };
+        },
+        async runCleanup(input) {
+          calls.push(`cleanup:${input.actor.id}:${input.batchSize}`);
+          return {
+            dry_run: false,
+            expired_artifacts: 0,
+            expired_artifact_ids: [],
+            expired_upload_sessions: 0,
+            deleted_r2_objects: 0,
+            occurred_at: input.now,
+          };
+        },
+      }),
+      CLEANUP_BATCH_SIZE: "7",
+    };
+    const adminHeaders = { authorization: "Bearer admin", "idempotency-key": "idem-admin" };
+
+    expect(
+      (await handleRequest(new Request("https://api.test/admin/whoami", { headers: adminHeaders }), env)).status,
+    ).toBe(200);
+    expect(
+      (await handleRequest(new Request("https://api.test/admin/workspaces", { headers: adminHeaders }), env)).status,
+    ).toBe(200);
+    expect(
+      (
+        await handleRequest(
+          new Request("https://api.test/admin/api-keys/key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", {
+            method: "DELETE",
+            headers: adminHeaders,
+          }),
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await handleRequest(
+          new Request("https://api.test/admin/artifacts?workspace=w_1&status=active", { headers: adminHeaders }),
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await handleRequest(
+          new Request("https://api.test/admin/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", { headers: adminHeaders }),
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await handleRequest(new Request("https://api.test/admin/operation-events", { headers: adminHeaders }), env))
+        .status,
+    ).toBe(200);
+    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env);
+
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        "workspaces",
+        "revoke:key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9:idem-admin",
+        "artifacts:w_1:active",
+        "artifact:art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        "events",
+        "cleanup:scheduled-cleanup:7",
+      ]),
+    );
+  });
+
+  it("serves non-production force-expire, R2 list, and denylist helpers", async () => {
+    const deleted: unknown[] = [];
+    const env: Env = {
+      AGENT_PASTE_ENV: "preview",
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyAdminToken() {
+          return { type: "admin", id: "operator" };
+        },
+      },
+      DB: operatorDbForTests({
+        async forceExpireArtifact(input) {
+          return input.artifactId === "art_ok" ? { artifact_id: input.artifactId, expires_at: input.expiresAt } : null;
+        },
+      }),
+      ARTIFACTS: {
+        async list(options) {
+          return options.cursor
+            ? { objects: [{ key: "artifacts/art_ok/two.txt" }], truncated: false }
+            : { objects: [{ key: "artifacts/art_ok/one.txt" }], truncated: true, cursor: "next" };
+        },
+        async delete(keys) {
+          deleted.push(keys);
+        },
+      },
+      DENYLIST: {
+        async put() {},
+        async delete() {},
+        async get(key) {
+          return key === "ad:art_ok" ? "locked" : null;
+        },
+      },
+    };
+    const headers = { authorization: "Bearer admin", "content-type": "application/json" };
+
+    const force = await handleRequest(
+      new Request("https://api.test/__test__/force-expire", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ artifact_id: "art_ok" }),
+      }),
+      env,
+    );
+    const r2 = await handleRequest(
+      new Request("https://api.test/__test__/r2-list?prefix=artifacts/art_ok/", { headers }),
+      env,
+    );
+    const deny = await handleRequest(new Request("https://api.test/__test__/denylist?key=ad:art_ok", { headers }), env);
+    const missing = await handleRequest(
+      new Request("https://api.test/__test__/force-expire", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ artifact_id: "art_missing" }),
+      }),
+      env,
+    );
+
+    expect(force.status).toBe(200);
+    await expect(r2.json()).resolves.toEqual({
+      keys: ["artifacts/art_ok/one.txt", "artifacts/art_ok/two.txt"],
+      r2_bound: true,
+    });
+    await expect(deny.json()).resolves.toEqual({ key: "ad:art_ok", value: "locked", kv_bound: true });
+    expect(missing.status).toBe(404);
+    expect(deleted).toEqual([]);
+  });
 });
 
 function webAuthForTests(): Env["AUTH"] {
@@ -1881,6 +2168,20 @@ function webAuthForTests(): Env["AUTH"] {
     async verifyWebToken(token) {
       return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" } : null;
     },
+  };
+}
+
+function agentViewFixture(artifactId: string, revisionId: string) {
+  return {
+    artifact_id: artifactId,
+    revision_id: revisionId,
+    title: "Agent View",
+    entrypoint: "index.html",
+    expires_at: "2026-12-01T00:00:00.000Z",
+    view_url: "https://content.test/v/old/index.html",
+    files: [
+      { path: "index.html", url: "https://content.test/v/old/index.html", content_type: "text/html", size_bytes: 12 },
+    ],
   };
 }
 
