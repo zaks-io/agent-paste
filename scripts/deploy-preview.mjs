@@ -7,11 +7,14 @@ if (target !== "preview" && target !== "production") {
   throw new Error("Target environment must be preview or production.");
 }
 
+// web deploys last: its API service binding targets agent-paste-api-<target>,
+// which must already exist from the api deploy above.
 const apps = [
   { name: "api", package: "@agent-paste/api" },
   { name: "upload", package: "@agent-paste/upload" },
   { name: "content", package: "@agent-paste/content" },
   { name: "apex", package: "@agent-paste/apex" },
+  { name: "web", package: "@agent-paste/web" },
 ];
 
 for (const app of apps) {
@@ -19,7 +22,7 @@ for (const app of apps) {
   await run("pnpm", ["--filter", app.package, `deploy:${target}`]);
 }
 
-process.stdout.write(`${target} deploy completed in order: api -> upload -> content -> apex\n`);
+process.stdout.write(`${target} deploy completed in order: api -> upload -> content -> apex -> web\n`);
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
