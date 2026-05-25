@@ -13,7 +13,7 @@ Scope clarification: this file tracks only the work that closes Phase 3 (`docs/s
   - [x] CLI (backlog #5, not web): dedicated WorkOS **Public OAuth (Connect)** app for `agent-paste login` exists with the exact loopback redirect `http://127.0.0.1:8975/callback` registered as the default (WorkOS allows a wildcard loopback redirect but the default must be exact; the CLI binds the fixed default port 8975, overridable via `AGENT_PASTE_LOGIN_PORT` to another registered redirect URI); its public `client_id` is the CLI default in `apps/cli/src/config.ts`. The CLI verifies Connect tokens at the app's AuthKit-domain JWKS (`/oauth2/jwks`), not the dashboard `/sso/jwks/{client_id}`. Connect tokens carry no `client_id`/`azp` claim, so `api` pins the token to issuer + JWKS + the environment OIDC audience via `WORKOS_CLI_AUDIENCE` (set in `apps/api/wrangler.jsonc` for preview/production), not a per-OAuth-app id. Verified e2e against preview 2026-05-24.
 - Custom domains (created automatically by `custom_domain: true` routes on deploy):
   - [x] `app.preview.agent-paste.sh` → `agent-paste-web-preview` (deployed 2026-05-24).
-  - [ ] `app.agent-paste.sh` → `agent-paste-web-production` (auto-created on the first production web deploy, now that `web` is wired into `scripts/deploy-preview.mjs`; lands with the next `main` merge, which needs explicit approval).
+  - [x] `app.agent-paste.sh` → `agent-paste-web-production` (auto-created on the first production web deploy 2026-05-24, now that `web` is in `scripts/deploy-preview.mjs`; `/healthz` 200, `/api/auth/sign-in` 307 to the production WorkOS client).
 - Cookie password (`WORKOS_COOKIE_PASSWORD`, 32+ char, one per environment):
   - [x] preview: set as a Worker secret on `agent-paste-web-preview`.
   - [x] production: set on `agent-paste-web-production` (operator confirmed 2026-05-24).
@@ -75,7 +75,7 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 ## Smoke / CI
 
 - [x] Deploy `web` to the stable preview and production environments. `scripts/deploy-preview.mjs` now deploys `web` last (after `apex`), so `pnpm deploy:preview` brings up `app.preview.agent-paste.sh` and a `main` merge brings up `app.agent-paste.sh` via `deploy-production.yml`.
-- [ ] Add a hosted `/healthz` + `/login` 302 (to the WorkOS flow) assertion against the deployed `web` Worker. `pnpm smoke:web` today only exercises the local mock-WorkOS server-fn flow; wire a hosted check into `smoke-hosted.mjs` (and `pnpm smoke:production`).
+- [ ] Add a hosted `/healthz` + `/api/auth/sign-in` 307 (to the WorkOS flow) assertion against the deployed `web` Worker. `pnpm smoke:web` today only exercises the local mock-WorkOS server-fn flow; wire a hosted check into `smoke-hosted.mjs` (and `pnpm smoke:production`).
 - [ ] Extend the **PR preview** workflow (`scripts/deploy-pr-preview.mjs`) to deploy `web` per-PR alongside `api`/`upload`/`content` with the `agent-paste-api-pr-{N}` service binding. Blocked on a per-PR WorkOS redirect URI (wildcard registration or click-ops).
 - [ ] Lighthouse a11y check on `/dashboard` (empty state). Fail the preview job below 95.
 
