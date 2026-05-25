@@ -154,7 +154,11 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const webLine = process.env.WEB_URL ? [`Web (login): ${process.env.WEB_URL}`] : [];
+            // The gate waits on the workers.dev smoke host, not this custom domain,
+            // so on a first deploy its TLS cert may still be propagating (minutes).
+            const webLine = process.env.WEB_URL
+              ? [`Web (login): ${process.env.WEB_URL} (first deploy: allow a few minutes for the TLS cert)`]
+              : [];
             const body = [
               "agent-paste PR preview is ready.",
               "",
