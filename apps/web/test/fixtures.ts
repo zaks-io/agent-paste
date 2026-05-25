@@ -1,4 +1,6 @@
-export function lockdownRow(reasonCode = "abuse") {
+import type { LockdownDetail } from "@agent-paste/contracts";
+
+export function lockdownRow(reasonCode = "abuse"): LockdownDetail {
   return {
     scope: "workspace",
     target_id: "00000000-0000-4000-8000-000000000000",
