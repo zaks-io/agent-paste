@@ -24,9 +24,12 @@ agent-paste has three objects an agent needs to know:
 
 ## CLI quickstart
 
-Publish a folder. Returns an Artifact ID synchronously.
+Sign in once, then publish a folder. \`npx agent-paste login\` runs a browser OAuth flow and
+provisions its own scoped key, so there is no API key to copy or paste. Publish
+returns an Artifact ID synchronously.
 
 \`\`\`
+npx agent-paste login
 npx agent-paste publish ./report
 # => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
 \`\`\`
@@ -48,8 +51,14 @@ Base: \`${API_BASE_URL}\`
   by an Access Link token.
 - \`GET /v1/usage-policy\` — current quotas and TTL bounds.
 
-Authenticate with \`Authorization: Bearer <api-key>\`. Create keys in the
-dashboard at [${APP_BASE_URL}/keys](${APP_BASE_URL}/keys).
+## Authentication
+
+- **CLI:** \`npx agent-paste login\` completes a browser OAuth flow and stores a
+  scoped key for you. Nothing to copy or paste.
+- **REST and MCP:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI
+  or headless use on the dashboard API Keys page
+  ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`
+  in the environment.
 
 ## MCP server
 

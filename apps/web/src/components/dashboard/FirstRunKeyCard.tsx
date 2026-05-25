@@ -13,7 +13,13 @@ export function FirstRunKeyCard({ secret }: Props) {
     <Card>
       <CardHeader
         title="Your default API key"
-        subtitle="Created with your workspace. Copy it now — the secret is shown once and never again."
+        subtitle={
+          <>
+            Created with your workspace for CI and headless use. The CLI provisions its own key when you run{" "}
+            <code className="font-mono text-[12px]">npx agent-paste login</code>. Copy it now, since the secret is shown
+            only once.
+          </>
+        }
       />
       {secret ? (
         <div className="grid gap-3">

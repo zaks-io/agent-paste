@@ -13,8 +13,9 @@ another platform — without translation tables.
 
 ## What you can do here
 
-- Publish files from a workflow: \`npx agent-paste publish ./path\` returns an
-  Artifact ID synchronously, idempotent on retry.
+- Sign in once with \`npx agent-paste login\` (browser OAuth, no API key to
+  copy), then publish: \`npx agent-paste publish ./path\` returns an Artifact ID
+  synchronously, idempotent on retry.
 - Address an artifact from any surface: \`${API_BASE_URL}/v1/artifacts/{id}\`,
   \`${MCP_BASE_URL}\` (MCP tool \`agent_paste.get\`), or the dashboard at
   \`${APP_BASE_URL}/artifacts/{id}\`.
@@ -27,6 +28,10 @@ another platform — without translation tables.
 - REST API: ${API_BASE_URL}
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
+
+Auth: \`npx agent-paste login\` signs the CLI in over OAuth and stores its own key.
+REST and MCP take \`Authorization: Bearer <api-key>\` (a dashboard key or
+\`AGENT_PASTE_API_KEY\`).
 
 ## Mental model
 

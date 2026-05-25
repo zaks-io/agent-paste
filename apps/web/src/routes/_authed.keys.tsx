@@ -34,14 +34,31 @@ function KeysPage() {
 
   return (
     <>
-      <PageHeader title="API Keys" description="Manage workspace API keys. Secrets are shown once on creation." />
+      <PageHeader
+        title="API Keys"
+        description={
+          <>
+            Keys for CI and headless use. The CLI provisions its own when you run{" "}
+            <code className="font-mono text-[12px]">npx agent-paste login</code>; secrets are shown once on creation.
+          </>
+        }
+      />
       <div className="grid gap-6">
         {newSecret ? <NewKeySecretCard secret={newSecret} onDismiss={() => setNewSecret(null)} /> : null}
         <KeyCreateForm onCreated={refresh} onSecret={setNewSecret} />
         {result.error ? (
           <ErrorBanner title="Couldn't load keys" message={result.error.message} requestId={result.error.requestId} />
         ) : rows.length === 0 ? (
-          <EmptyState title="No API keys yet." body="You'll need a key to publish from the CLI." />
+          <EmptyState
+            title="No API keys yet."
+            body={
+              <>
+                The CLI provisions its own key when you run{" "}
+                <code className="font-mono text-[12px]">npx agent-paste login</code>. Create one here for CI or headless
+                use.
+              </>
+            }
+          />
         ) : (
           <KeysTable rows={rows} onRevoked={refresh} />
         )}
