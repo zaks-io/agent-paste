@@ -72,9 +72,11 @@
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         // AuthKit User Management session tokens (forwarded by the web app) are
-        // issued by api.workos.com/user_management/{env default client}, NOT the
-        // authkit.app domain (that is the CLI/Connect issuer below). The env default
-        // client equals WORKOS_CLI_AUDIENCE.
+        // issued by api.workos.com/user_management/{env default client}. That client
+        // is the environment's default client (== WORKOS_CLI_AUDIENCE), deliberately
+        // NOT WORKOS_CLIENT_ID: the latter is a separate AuthKit client used only to
+        // build the JWKS URL, and signing keys are shared environment-wide. Not the
+        // authkit.app domain either (that is the CLI/Connect issuer below).
         "WORKOS_ISSUER": "https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
         // `agent-paste login` (WorkOS Public OAuth / Connect app) tokens verify
         // against the authkit.app JWKS and issuer, not the api.workos.com dashboard
@@ -142,9 +144,12 @@
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
         // AuthKit User Management session tokens (forwarded by the web app) are
-        // issued by api.workos.com/user_management/{env default client}, NOT the
-        // authkit.app domain (that is the CLI/Connect issuer below). The env default
-        // client equals WORKOS_CLI_AUDIENCE. Confirmed against the prod worker tail.
+        // issued by api.workos.com/user_management/{env default client}. That client
+        // is the environment's default client (== WORKOS_CLI_AUDIENCE), deliberately
+        // NOT WORKOS_CLIENT_ID: the latter is a separate AuthKit client used only to
+        // build the JWKS URL, and signing keys are shared environment-wide. Not the
+        // authkit.app domain either (that is the CLI/Connect issuer below). Confirmed
+        // against the prod worker tail.
         "WORKOS_ISSUER": "https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ",
         // Production WorkOS environment (soulful-path-50), distinct from preview's
         // staging environment. WORKOS_CLI_AUDIENCE is the environment OIDC client
