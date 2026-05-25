@@ -74,6 +74,7 @@ describe("login flow", () => {
         authorizeUrl: "https://tenant.authkit.app/oauth2/authorize",
         tokenUrl: "https://tenant.authkit.app/oauth2/token",
         apiBaseUrl: "https://api.test",
+        loginPort: 0,
       },
     });
 
@@ -101,6 +102,7 @@ describe("login flow", () => {
           authorizeUrl: "https://x/authorize",
           tokenUrl: "https://x/token",
           apiBaseUrl: "https://api.test",
+          loginPort: 0,
         },
         log: () => {},
       }),

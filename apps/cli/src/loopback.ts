@@ -14,10 +14,11 @@ export type LoopbackServer = {
   close(): Promise<void>;
 };
 
-// Binds a one-shot listener on an ephemeral loopback port. WorkOS accepts the
-// wildcard redirect http://127.0.0.1:*/callback, so the port is chosen by the
-// OS and echoed into the redirect_uri.
-export async function startLoopbackServer(expectedState: string): Promise<LoopbackServer> {
+// Binds a one-shot listener on the given loopback port. WorkOS's default redirect
+// URI must be exact (not a wildcard), so the CLI binds a fixed default port and
+// registers http://127.0.0.1:<port>/callback as that exact default. Pass 0 for an
+// OS-assigned port (tests).
+export async function startLoopbackServer(expectedState: string, port: number): Promise<LoopbackServer> {
   let resolveCallback: (result: CallbackResult) => void;
   let rejectCallback: (error: Error) => void;
   const callback = new Promise<CallbackResult>((resolve, reject) => {
@@ -32,12 +33,12 @@ export async function startLoopbackServer(expectedState: string): Promise<Loopba
     });
   });
 
-  await listen(server);
-  const port = (server.address() as AddressInfo).port;
+  await listen(server, port);
+  const boundPort = (server.address() as AddressInfo).port;
 
   return {
-    port,
-    redirectUri: `http://127.0.0.1:${port}/callback`,
+    port: boundPort,
+    redirectUri: `http://127.0.0.1:${boundPort}/callback`,
     waitForCallback: () => callback,
     close: () => close(server),
   };
@@ -121,11 +122,22 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function listen(server: Server): Promise<void> {
+function listen(server: Server, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      server.removeListener("error", reject);
+    const onError = (error: unknown) => {
+      if ((error as { code?: string }).code === "EADDRINUSE") {
+        reject(
+          new Error(
+            `Loopback port ${port} is already in use. Set AGENT_PASTE_LOGIN_PORT to a free port that is also a registered redirect URI.`,
+          ),
+        );
+        return;
+      }
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+    server.once("error", onError);
+    server.listen(port, "127.0.0.1", () => {
+      server.removeListener("error", onError);
       resolve();
     });
   });
