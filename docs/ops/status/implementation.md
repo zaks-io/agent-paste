@@ -13,26 +13,26 @@ Last updated: 2026-05-25.
 
 ## Components
 
-| Component                 | Status                      | Notes                                                                                                                         |
-| ------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                   |
-| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs.   |
-| `apps/upload`             | Implemented                 | Session create, signed upload-worker PUTs, R2 writes, finalize, signed view/Agent View URL minting.                           |
-| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling. |
-| `apps/cli`                | Implemented                 | `publish`, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                 |
-| `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, deployed preview/production. Admin UI and Access Links remain.      |
-| `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.           |
-| `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.            |
-| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces. Future MCP/Access Link/bundle schemas absent.         |
-| `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                  |
-| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters. Phase 4/billing tables are absent.                                  |
-| `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL token modules.                                                  |
-| `packages/auth`           | Implemented                 | Admin token HMAC, auth cache, scope registry, request IDs.                                                                    |
-| `packages/api-client`     | Implemented                 | CLI/web-facing client helpers, retry/idempotency/cursor handling, CLI key mint path.                                          |
-| `packages/commands`       | Implemented                 | `runCommand`, operation events, idempotency helpers.                                                                          |
-| `packages/storage`        | Implemented                 | MIME map and security header helpers.                                                                                         |
-| `packages/config`         | Scaffolded                  | Constants/helpers only; no per-app env schema.                                                                                |
-| `packages/repo-lint`      | Implemented                 | Repo policy checks and docs/scripts lint wiring.                                                                              |
+| Component                 | Status                      | Notes                                                                                                                             |
+| ------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                       |
+| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs.       |
+| `apps/upload`             | Implemented                 | Session create, signed upload-worker PUTs, R2 writes, finalize, signed view/Agent View URL minting.                               |
+| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.     |
+| `apps/cli`                | Implemented                 | `publish`, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                     |
+| `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, deployed preview/production. Access Links remain. |
+| `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.               |
+| `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                |
+| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces. Future MCP/Access Link/bundle schemas absent.             |
+| `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                      |
+| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters. Phase 4/billing tables are absent.                                      |
+| `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL token modules.                                                      |
+| `packages/auth`           | Implemented                 | Admin token HMAC, auth cache, scope registry, request IDs.                                                                        |
+| `packages/api-client`     | Implemented                 | CLI/web-facing client helpers, retry/idempotency/cursor handling, CLI key mint path.                                              |
+| `packages/commands`       | Implemented                 | `runCommand`, operation events, idempotency helpers.                                                                              |
+| `packages/storage`        | Implemented                 | MIME map and security header helpers.                                                                                             |
+| `packages/config`         | Scaffolded                  | Constants/helpers only; no per-app env schema.                                                                                    |
+| `packages/repo-lint`      | Implemented                 | Repo policy checks and docs/scripts lint wiring.                                                                                  |
 
 ## Planned But Absent
 
@@ -51,8 +51,8 @@ Last updated: 2026-05-25.
   is no business logic in `runScheduledJobs`.
 - `apps/mcp/src/index.ts` advertises protected-resource metadata but does not
   implement MCP JSON-RPC or authenticate tool calls.
-- `apps/web/src/routes/_authed.admin.tsx` is still a placeholder despite the
-  operator lockdown APIs existing.
+- `apps/web/src/routes/_authed.admin.tsx` now exposes the Phase 3 operator
+  lockdown UI over the existing set/lift/list API.
 - `apps/web/src/routes/al.$publicId.tsx` is a client placeholder and posts to
   `/al-resolve`; no matching route or Access Link resolve API exists.
 - `packages/db` has current workspace/member/key/artifact/audit/lockdown state,

@@ -1,8 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import type { LockdownListResponse } from "@agent-paste/contracts";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
-import { EmptyState } from "../components/ui/EmptyState";
+import { useState } from "react";
+import { LockdownForm } from "../components/admin/LockdownForm";
+import { LockdownList } from "../components/admin/LockdownList";
 import { PageHeader } from "../components/ui/PageHeader";
+import { apiFetchOrEmpty } from "../server/api-client";
 import { isOperator } from "../server/env";
 import { getWebEnv } from "../server/runtime";
 
@@ -11,22 +15,41 @@ const checkOperatorFn = createServerFn({ method: "GET" }).handler(async () => {
   return Boolean(auth.user && isOperator(getWebEnv(), auth.user.email));
 });
 
+const loadLockdownsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const auth = await getAuth();
+  if (!auth.user || !auth.accessToken) {
+    return { data: null, empty: true, error: null };
+  }
+  return apiFetchOrEmpty<LockdownListResponse>("/v1/web/admin/lockdowns", { accessToken: auth.accessToken });
+});
+
 export const Route = createFileRoute("/_authed/admin")({
   loader: async () => {
     const ok = await checkOperatorFn();
     if (!ok) throw redirect({ to: "/dashboard" });
+    return { lockdowns: await loadLockdownsFn() };
   },
   component: AdminPage,
 });
 
 function AdminPage() {
+  const router = useRouter();
+  const { lockdowns: initialLockdowns } = Route.useLoaderData();
+  const [lockdowns, setLockdowns] = useState(initialLockdowns);
+
+  async function handleSuccess() {
+    const updated = await loadLockdownsFn();
+    setLockdowns(updated);
+    await router.invalidate();
+  }
+
   return (
     <>
       <PageHeader title="Operator" description="Platform-level lockdown and recent operator actions." />
-      <EmptyState
-        title="No operator actions recorded."
-        body="Lockdown controls will appear here once the admin API endpoints land."
-      />
+      <div className="grid gap-6">
+        <LockdownForm onSuccess={handleSuccess} />
+        <LockdownList lockdowns={lockdowns.data?.items ?? []} error={lockdowns.error} onLift={handleSuccess} />
+      </div>
     </>
   );
 }

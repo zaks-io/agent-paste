@@ -50,11 +50,10 @@ smoke are implemented.
 Remaining Phase 3 work:
 
 1. Fix the transient first authenticated dashboard load race.
-2. Build the operator lockdown UI over the existing operator APIs.
-3. Harden PR-preview readiness and skip docs-only PR preview deploys.
-4. Add the Lighthouse a11y gate.
-5. Write the WorkOS runbook.
-6. Restore deep-link return paths after the router redirect bug is resolved or
+2. Harden PR-preview readiness and skip docs-only PR preview deploys.
+3. Add the Lighthouse a11y gate.
+4. Write the WorkOS runbook.
+5. Restore deep-link return paths after the router redirect bug is resolved or
    worked around.
 
 The detailed ordered list lives in
@@ -82,7 +81,7 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
   `contracts`, `worker-runtime`, `db`, `tokens`, `auth`, `api-client`,
   `commands`, `storage`, and repo guardrail packages.
 - Scaffolded only: `jobs` and `mcp`.
-- Placeholder UI: `web` Access Links and operator admin page.
+- Placeholder UI: `web` Access Links.
 - Absent: `stream`, `billing`, Access Link tables/routes, jobs queues, bundle
   state, safety-warning storage, app-layer encryption.
 

@@ -24,8 +24,9 @@ admin basics.
        `/v1/web/*` loaders can run before the commit is visible and return
        `forbidden` until reload. Fixed by moving `_authed` provisioning into
        `beforeLoad`, so the callback commits before child loaders run.
-2. [ ] Build the operator lockdown UI. The `api` set/lift/list endpoints exist;
-       the web `/admin` route still renders an empty placeholder.
+2. [x] Build the operator lockdown UI. The web `/admin` route now lists active
+       lockdowns and lets operators set or lift workspace/artifact lockdowns
+       through the existing operator API.
 3. [ ] Harden PR-preview readiness. Require `curl --fail` against `/healthz`,
        require consecutive successes, retry known 1042/404 propagation flakes,
        and add a docs-only path filter so documentation PRs skip per-PR deploy.

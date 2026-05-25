@@ -2,7 +2,10 @@ import {
   ApiKeyId,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
+  type LockdownDetail,
+  LockdownScope,
   type RevokeApiKeyResponse,
+  SetLockdownRequest,
   UpdateWebSettingsRequest,
   type WebSettingsResponse,
 } from "@agent-paste/contracts";
@@ -111,5 +114,49 @@ export const saveSettingsFn = createServerFn({ method: "POST" })
         headers: { "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify(input.value),
       }),
+    );
+  });
+
+export const setLockdownFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { scope: string; target_id: string; reason_code: string }) => input)
+  .handler(({ data }) => {
+    const input = parseInput(SetLockdownRequest, data);
+    if (input.error) return Promise.resolve({ data: null, error: input.error });
+    return runMutation<LockdownDetail>((accessToken) =>
+      apiFetch<LockdownDetail>("/v1/web/admin/lockdowns", {
+        method: "POST",
+        accessToken,
+        headers: { "idempotency-key": crypto.randomUUID() },
+        body: JSON.stringify(input.value),
+      }),
+    );
+  });
+
+export const liftLockdownFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { scope: string; target_id: string }) => input)
+  .handler(({ data }) => {
+    const scope = parseInput(LockdownScope, data.scope);
+    if (scope.error) return Promise.resolve({ data: null, error: scope.error });
+    const targetId = data.target_id.trim();
+    if (!targetId) {
+      return Promise.resolve({
+        data: null,
+        error: {
+          status: 400,
+          code: "validation_error",
+          message: "target_id is required.",
+          requestId: undefined,
+        },
+      });
+    }
+    return runMutation<LockdownDetail>((accessToken) =>
+      apiFetch<LockdownDetail>(
+        `/v1/web/admin/lockdowns/${encodeURIComponent(scope.value)}/${encodeURIComponent(targetId)}`,
+        {
+          method: "DELETE",
+          accessToken,
+          headers: { "idempotency-key": crypto.randomUUID() },
+        },
+      ),
     );
   });
