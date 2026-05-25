@@ -1,5 +1,7 @@
 export const APP_BASE_URL = "https://app.agent-paste.sh";
-export const SIGN_IN_URL = `${APP_BASE_URL}/login`;
+// The app has no /login route; sign-in is initiated at /api/auth/sign-in
+// (root "/" also redirects there for unauthenticated visitors).
+export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
 export const API_BASE_URL = "https://api.agent-paste.sh";
 export const MCP_BASE_URL = "https://mcp.agent-paste.sh";
 
