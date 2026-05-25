@@ -156,6 +156,17 @@ describe("WorkOS access-token verification", () => {
     expect(onReject).toHaveBeenCalledWith("no_session_or_token_id");
   });
 
+  it("reports user_id_mismatch when WorkOS returns a different user id", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, {
+      userResponse: Response.json({ id: "user_someone_else", email: "user@example.com" }),
+    });
+    const onReject = vi.fn();
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }))).resolves.toBeNull();
+    expect(onReject).toHaveBeenCalledWith("user_id_mismatch");
+  });
+
   it("reports user_fetch_failed with the upstream status", async () => {
     const fixture = await tokenFixture({ client_id: clientId });
     stubWorkOsFetch(fixture.publicJwk, { userResponse: new Response("nope", { status: 404 }) });

@@ -63,10 +63,6 @@ export async function resolveWorkOsIdentity(
   if (!user) {
     return null;
   }
-  if (user.id !== verified.sub) {
-    options.onReject?.("user_id_mismatch");
-    return null;
-  }
 
   const identity = {
     workos_user_id: user.id,
@@ -153,7 +149,14 @@ export async function fetchWorkOsUser(
     }
     const value = await response.json();
     const user = normalizeWorkOsUser(value);
-    return user?.id === workosUserId ? user : null;
+    if (!user) {
+      return null;
+    }
+    if (user.id !== workosUserId) {
+      options.onReject?.("user_id_mismatch");
+      return null;
+    }
+    return user;
   } catch (error) {
     options.onReject?.("user_fetch_failed", { error: errorLabel(error) });
     return null;
