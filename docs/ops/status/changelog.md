@@ -20,6 +20,13 @@ use `git log` for commit-level detail.
   `b7927d5 docs: competitor analysis and open-core billing ADRs (#67)`.
 - `pnpm verify` passes on 2026-05-25 with 72 Turbo tasks.
 
+### Operator lockdown UI
+
+- Added the web `/admin` operator screen over the existing lockdown set, lift,
+  and list API endpoints.
+- Operator lockdown mutations run through server functions with WorkOS bearer
+  forwarding, contract validation, idempotency keys, and dashboard toasts.
+
 ## 2026-05-24
 
 ### Web deploy, dashboard auth, and preview hardening
@@ -48,7 +55,7 @@ use `git log` for commit-level detail.
 - Key create/revoke and settings save run through server functions with
   idempotency keys.
 - First-run key card and error toasts are implemented.
-- Access Links and operator UI remain placeholders.
+- Access Links remain a placeholder.
 
 ### Operator lockdown APIs
 

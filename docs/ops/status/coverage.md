@@ -13,23 +13,23 @@ Status legend:
 
 ## Spec Coverage
 
-| Spec                              | Status   | Notes                                                                                                                      |
-| --------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `docs/specs/README.md`            | Done     | Reading-order index.                                                                                                       |
-| `docs/specs/mvp.md`               | Done     | CLI-first MVP is implemented; Phase 3 additions intentionally extend beyond this MVP spec.                                 |
-| `docs/specs/phases.md`            | Partial  | Phase 1 complete, Phase 3 active close-out, Phases 4-6/post-launch mostly unimplemented.                                   |
-| `docs/specs/features.md`          | Drift    | Still marks some now-built Phase 3 work as future/Phase 6. Use `phase-backlog.md` for current ordering.                    |
-| `docs/specs/api.md`               | Done     | MVP REST routes implemented; later dashboard routes live in contracts/API but the spec still reads MVP-first.              |
-| `docs/specs/data-model.md`        | Partial  | Current schema/RLS implemented; Phase 4 Access Link/revision/bundle/scanner and billing tables absent.                     |
-| `docs/specs/content-rendering.md` | Done     | Signed content tokens, MIME, CSP, denylist, cache, and artifact read throttling are implemented.                           |
-| `docs/specs/admin.md`             | Partial  | Repo-local admin CLI works; web operator UI is not implemented.                                                            |
-| `docs/specs/acceptance.md`        | Done     | MVP acceptance covered by local/hosted smoke and worker tests; later phases are explicit non-goals there.                  |
-| `docs/specs/contracts.md`         | Done     | Current REST contracts are canonical; future MCP/Access Link/bundle schemas remain out of current contracts.               |
-| `docs/specs/local-dev.md`         | Done     | `pnpm dev:all`, local harness, and local smoke are present for the MVP surface.                                            |
-| `docs/specs/product-judgment.md`  | Done     | Philosophy doc.                                                                                                            |
-| `docs/specs/style-guide.md`       | Partial  | Web applies tokens/components; full polish, titles, command palette, and Lighthouse gate remain.                           |
-| `docs/specs/jobs.md`              | Deferred | Phase 4 jobs worker design. `apps/jobs` is scaffold-only; MVP cleanup still lives in `api` scheduled/manual cleanup.       |
-| `docs/specs/web.md`               | Partial  | Dashboard auth/read/mutation basics are live; Access Link viewer and operator UI are placeholders; Auth0 wording is stale. |
+| Spec                              | Status   | Notes                                                                                                                               |
+| --------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/specs/README.md`            | Done     | Reading-order index.                                                                                                                |
+| `docs/specs/mvp.md`               | Done     | CLI-first MVP is implemented; Phase 3 additions intentionally extend beyond this MVP spec.                                          |
+| `docs/specs/phases.md`            | Partial  | Phase 1 complete, Phase 3 active close-out, Phases 4-6/post-launch mostly unimplemented.                                            |
+| `docs/specs/features.md`          | Drift    | Still marks some now-built Phase 3 work as future/Phase 6. Use `phase-backlog.md` for current ordering.                             |
+| `docs/specs/api.md`               | Done     | MVP REST routes implemented; later dashboard routes live in contracts/API but the spec still reads MVP-first.                       |
+| `docs/specs/data-model.md`        | Partial  | Current schema/RLS implemented; Phase 4 Access Link/revision/bundle/scanner and billing tables absent.                              |
+| `docs/specs/content-rendering.md` | Done     | Signed content tokens, MIME, CSP, denylist, cache, and artifact read throttling are implemented.                                    |
+| `docs/specs/admin.md`             | Partial  | Repo-local admin CLI and the web operator lockdown UI work; richer operator browsing remains future.                                |
+| `docs/specs/acceptance.md`        | Done     | MVP acceptance covered by local/hosted smoke and worker tests; later phases are explicit non-goals there.                           |
+| `docs/specs/contracts.md`         | Done     | Current REST contracts are canonical; future MCP/Access Link/bundle schemas remain out of current contracts.                        |
+| `docs/specs/local-dev.md`         | Done     | `pnpm dev:all`, local harness, and local smoke are present for the MVP surface.                                                     |
+| `docs/specs/product-judgment.md`  | Done     | Philosophy doc.                                                                                                                     |
+| `docs/specs/style-guide.md`       | Partial  | Web applies tokens/components; full polish, titles, command palette, and Lighthouse gate remain.                                    |
+| `docs/specs/jobs.md`              | Deferred | Phase 4 jobs worker design. `apps/jobs` is scaffold-only; MVP cleanup still lives in `api` scheduled/manual cleanup.                |
+| `docs/specs/web.md`               | Partial  | Dashboard auth/read/mutation basics and operator lockdown UI are live; Access Link viewer is a placeholder; Auth0 wording is stale. |
 
 ## ADR Coverage
 
@@ -67,20 +67,20 @@ Status legend:
 | 0030 MVP CSP                          | Partial              | Content CSP implemented; Access Link viewer CSP finalization waits on Phase 4.             |
 | 0031 kid content URL rotation         | Superseded           | Folded into ADR 0028/0071 for current content tokens.                                      |
 | 0032 jobs topology                    | Deferred             | Phase 4.                                                                                   |
-| 0033 TanStack Start web               | Partial              | Web app exists and is deployed; Access Link viewer/operator UI gaps remain.                |
+| 0033 TanStack Start web               | Partial              | Web app exists and is deployed; Access Link viewer and polish gaps remain.                 |
 | 0034 unified scopes                   | Partial              | Current API key/member scopes implemented; MCP delegated-surface rule waits on Phase 5.    |
 | 0035 runCommand sequencing            | Done                 | Transactional command/event/idempotency pattern implemented.                               |
 | 0036 error envelope                   | Done                 | Current Workers return envelope with request IDs.                                          |
 | 0037 api-client powers CLI            | Done                 | CLI uses `packages/api-client`.                                                            |
 | 0038 Zod source of truth              | Partial              | Current schemas/routes are Zod-backed; future surfaces absent.                             |
 | 0039 authenticated rate limits        | Done                 | Native rate-limit bindings applied for current `api`/`upload` traffic.                     |
-| 0040 platform lockdown                | Partial              | API set/lift/list implemented; operator web UI remains.                                    |
+| 0040 platform lockdown                | Done for current app | API set/lift/list and the operator web UI are implemented for the Phase 3 surface.         |
 | 0041 upload size caps                 | Done                 | Current upload caps enforced.                                                              |
 | 0042 extension content type           | Done                 | Served MIME derives from extension allowlist.                                              |
 | 0043 bearer credential format         | Done                 | API key format implemented; Access Link half superseded by ADR 0047.                       |
 | 0044 workspace RLS                    | Done                 | RLS forced and runtime-scoped.                                                             |
 | 0045 secret rotation                  | Partial              | Manual runbook exists; tested automated multi-key/multi-pepper rotation absent.            |
-| 0046 operator identity/admin surface  | Partial              | WorkOS/Access/operator API paths exist; web operator UI and rotation automation remain.    |
+| 0046 operator identity/admin surface  | Partial              | WorkOS/Access/operator API paths and lockdown UI exist; rotation automation remains.       |
 | 0047 Access Link signed URL           | Deferred             | Phase 4.                                                                                   |
 | 0048 transient artifacts              | Partial              | TTL/deletion/read throttling implemented; pinning/revision retention remain.               |
 | 0049 jobs handlers                    | Deferred             | Phase 4.                                                                                   |

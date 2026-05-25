@@ -2,7 +2,10 @@ import {
   ApiKeyId,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
+  LiftLockdownRequest,
+  type LockdownDetail,
   type RevokeApiKeyResponse,
+  SetLockdownRequest,
   UpdateWebSettingsRequest,
   type WebSettingsResponse,
 } from "@agent-paste/contracts";
@@ -111,5 +114,61 @@ export const saveSettingsFn = createServerFn({ method: "POST" })
         headers: { "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify(input.value),
       }),
+    );
+  });
+
+export const setLockdownFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { scope: string; target_id: string; reason_code: string }) => input)
+  .handler(({ data }) => {
+    const input = parseInput(SetLockdownRequest, data);
+    if (input.error) return Promise.resolve({ data: null, error: input.error });
+    const targetId = input.value.target_id.trim();
+    if (targetId.length === 0) {
+      return Promise.resolve({
+        data: null,
+        error: {
+          status: 400,
+          code: "validation_error",
+          message: "Target ID is required.",
+          requestId: undefined,
+        },
+      });
+    }
+    return runMutation<LockdownDetail>((accessToken) =>
+      apiFetch<LockdownDetail>("/v1/web/admin/lockdowns", {
+        method: "POST",
+        accessToken,
+        headers: { "idempotency-key": crypto.randomUUID() },
+        body: JSON.stringify({ ...input.value, target_id: targetId }),
+      }),
+    );
+  });
+
+export const liftLockdownFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { scope: string; target_id?: string }) => input)
+  .handler(({ data }) => {
+    const input = parseInput(LiftLockdownRequest, data);
+    if (input.error) return Promise.resolve({ data: null, error: input.error });
+    const targetId = input.value.target_id.trim();
+    if (targetId.length === 0) {
+      return Promise.resolve({
+        data: null,
+        error: {
+          status: 400,
+          code: "validation_error",
+          message: "Target ID is required.",
+          requestId: undefined,
+        },
+      });
+    }
+    return runMutation<LockdownDetail>((accessToken) =>
+      apiFetch<LockdownDetail>(
+        `/v1/web/admin/lockdowns/${encodeURIComponent(input.value.scope)}/${encodeURIComponent(targetId)}`,
+        {
+          method: "DELETE",
+          accessToken,
+          headers: { "idempotency-key": crypto.randomUUID() },
+        },
+      ),
     );
   });

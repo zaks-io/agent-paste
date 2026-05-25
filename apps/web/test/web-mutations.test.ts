@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   auth: { user: { email: "user@example.com" }, accessToken: "access-token" } as {
@@ -36,7 +37,7 @@ vi.mock("../src/server/api-client", async () => {
 });
 
 import { ApiError } from "../src/server/api-client";
-import { createKeyFn, revokeKeyFn, saveSettingsFn } from "../src/server/web-mutations";
+import { createKeyFn, liftLockdownFn, revokeKeyFn, saveSettingsFn, setLockdownFn } from "../src/server/web-mutations";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,11 +48,13 @@ describe("web server mutations", () => {
     state.apiFetch.mockReset();
   });
 
-  it("creates keys, revokes keys, and saves settings with bearer access and idempotency", async () => {
+  it("creates keys, revokes keys, saves settings, and mutates lockdowns with bearer access and idempotency", async () => {
     state.apiFetch
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, secret: "secret" })
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, revoked_at: "2026-01-01T00:00:00.000Z" })
-      .mockResolvedValueOnce({ workspace_name: "Demo", auto_deletion_days: 14 });
+      .mockResolvedValueOnce({ workspace_name: "Demo", auto_deletion_days: 14 })
+      .mockResolvedValueOnce(lockdownRow())
+      .mockResolvedValueOnce({ ...lockdownRow(), lifted_at: "2026-01-01T00:00:00.000Z" });
 
     await expect(createKeyFn({ data: { name: "Dashboard Key" } })).resolves.toMatchObject({
       data: { secret: "secret" },
@@ -63,6 +66,20 @@ describe("web server mutations", () => {
     });
     await expect(saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 14 } })).resolves.toMatchObject({
       data: { workspace_name: "Demo" },
+      error: null,
+    });
+    await expect(
+      setLockdownFn({
+        data: { scope: "workspace", target_id: "00000000-0000-4000-8000-000000000000", reason_code: "abuse" },
+      }),
+    ).resolves.toMatchObject({
+      data: { scope: "workspace" },
+      error: null,
+    });
+    await expect(
+      liftLockdownFn({ data: { scope: "workspace", target_id: "00000000-0000-4000-8000-000000000000" } }),
+    ).resolves.toMatchObject({
+      data: { lifted_at: "2026-01-01T00:00:00.000Z" },
       error: null,
     });
 
@@ -89,6 +106,24 @@ describe("web server mutations", () => {
         body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 14 }),
       }),
     );
+    expect(state.apiFetch).toHaveBeenNthCalledWith(
+      4,
+      "/v1/web/admin/lockdowns",
+      expect.objectContaining({
+        method: "POST",
+        accessToken: "access-token",
+        body: JSON.stringify({
+          scope: "workspace",
+          target_id: "00000000-0000-4000-8000-000000000000",
+          reason_code: "abuse",
+        }),
+      }),
+    );
+    expect(state.apiFetch).toHaveBeenNthCalledWith(
+      5,
+      "/v1/web/admin/lockdowns/workspace/00000000-0000-4000-8000-000000000000",
+      expect.objectContaining({ method: "DELETE", accessToken: "access-token" }),
+    );
     const idempotencyKeys = new Set<string>();
     for (const [, options] of state.apiFetch.mock.calls) {
       const headers = (options as { headers: Record<string, string> }).headers;
@@ -112,6 +147,30 @@ describe("web server mutations", () => {
       error: { status: 400, code: "validation_error" },
     });
     await expect(saveSettingsFn({ data: { workspace_name: "", auto_deletion_days: 0 } })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(
+      setLockdownFn({ data: { scope: "workspace", target_id: "", reason_code: "" } }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(
+      setLockdownFn({ data: { scope: "workspace", target_id: "   ", reason_code: "abuse" } }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(liftLockdownFn({ data: { scope: "invalid", target_id: "" } })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(liftLockdownFn({ data: { scope: "workspace", target_id: "   " } })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(liftLockdownFn({ data: { scope: "workspace" } })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });

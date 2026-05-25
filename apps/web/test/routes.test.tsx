@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   loaderData: undefined as unknown,
@@ -13,6 +14,8 @@ const state = vi.hoisted(() => ({
     accessToken: string;
   },
   apiFetchOrEmpty: vi.fn(),
+  liftLockdownFn: vi.fn(),
+  setLockdownFn: vi.fn(),
   invalidate: vi.fn(),
   signInUrl: "https://workos.example.test/sign-in",
   signOut: vi.fn(),
@@ -57,6 +60,11 @@ vi.mock("../src/server/api-client", () => ({
   apiFetchOrEmpty: (...args: unknown[]) => state.apiFetchOrEmpty(...args),
 }));
 
+vi.mock("../src/server/web-mutations", () => ({
+  liftLockdownFn: (...args: unknown[]) => state.liftLockdownFn(...args),
+  setLockdownFn: (...args: unknown[]) => state.setLockdownFn(...args),
+}));
+
 vi.mock("../src/server/runtime", () => ({
   getWebEnv: () => ({ OPERATOR_EMAILS: "user@example.com" }),
 }));
@@ -69,6 +77,8 @@ describe("web routes", () => {
     state.search = {};
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
     state.apiFetchOrEmpty.mockReset();
+    state.liftLockdownFn.mockReset();
+    state.setLockdownFn.mockReset();
     state.invalidate.mockReset();
     state.signOut.mockReset();
   });
@@ -259,9 +269,31 @@ describe("web routes", () => {
     expect(screen.getByText("Access Links")).toBeInTheDocument();
     view.unmount();
 
-    await expect((admin.Route.loader as () => Promise<unknown>)()).resolves.toBeUndefined();
-    view = render(<admin.Route.component />);
+    state.apiFetchOrEmpty.mockResolvedValueOnce({
+      data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
+      empty: false,
+      error: null,
+    });
+    await expect((admin.Route.loader as () => Promise<unknown>)()).resolves.toMatchObject({
+      lockdowns: { data: { items: [{ reason_code: "phishing_report" }] } },
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenLastCalledWith("/v1/web/admin/lockdowns", {
+      accessToken: "workos-token",
+    });
+    state.loaderData = {
+      lockdowns: {
+        data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      },
+    };
+    view = render(
+      <ToastProvider>
+        <admin.Route.component />
+      </ToastProvider>,
+    );
     expect(screen.getByText("Operator")).toBeInTheDocument();
+    expect(screen.getByText("phishing_report")).toBeInTheDocument();
     view.unmount();
 
     await expect((health.Route.loader as () => Promise<unknown>)()).resolves.toEqual({ ok: true, app: "web" });
