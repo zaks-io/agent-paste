@@ -93,7 +93,7 @@ Status legend:
 | 0056 MVP usage policy                 | Done                 | Current caps align with MVP defaults.                                                      |
 | 0057 KV denylist keys                 | Done for current app | Artifact/workspace/platform denylist keys implemented for current surfaces.                |
 | 0058 first-deploy bootstrap           | Partial              | Current secrets bootstrapped; future Access Link/encryption/billing secrets absent.        |
-| 0059 web session/auth forwarding      | Partial              | WorkOS AuthKit/session forwarding works; deep-link return path and first-load race remain. |
+| 0059 web session/auth forwarding      | Partial              | Auth forwarding and first-load behavior work; deep-link return path remains.               |
 | 0060 CLI auth via WorkOS loopback     | Done                 | `login`/`logout` implemented and preview-verified.                                         |
 | 0061 MCP OAuth-only                   | Deferred             | Phase 5; provider likely needs re-decision away from Auth0 wording.                        |
 | 0062 auth cache                       | Done                 | `cachedLookup` wired into current auth paths.                                              |
