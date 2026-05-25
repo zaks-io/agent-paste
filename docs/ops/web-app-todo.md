@@ -1,8 +1,8 @@
 # Web app — remaining work
 
-Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-25.
+Source of truth for Phase 3 web close-out after the TanStack Start app and WorkOS wiring landed. Owner: Isaac. Snapshot date: 2026-05-25.
 
-Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). Phase 1/2 work continues to be tracked in `docs/ops/project-status.md`.
+Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). The ordered cross-phase backlog lives in [`status/phase-backlog.md`](./status/phase-backlog.md).
 
 ## Operator click-ops (blocks first real login)
 
@@ -75,7 +75,7 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 
 ## Auth follow-ups
 
-- [ ] **Transient 403 `forbidden` on the very first authenticated dashboard load.** The JIT callback (`POST /v1/auth/web/callback`) provisions the workspace/member/default key (200), but the parallel `/v1/web/*` reads in the same load fire before that commit is visible, so `getWebMemberByWorkOsUserId` finds no member → `forbidden` until the user reloads. Not blocking (self-heals on reload). Options: await provisioning before child loaders run, retry the reads on a fresh-member miss, or JIT-provision on the read path. Needs a decision before implementing.
+- [x] **Transient 403 `forbidden` on the very first authenticated dashboard load.** Fixed by moving `_authed` provisioning from the route loader to `_authed.beforeLoad`, so `POST /v1/auth/web/callback` finishes before child `/v1/web/*` loaders run. Read-path JIT provisioning was intentionally avoided because a child loader could otherwise create the default API key first and discard the one-time secret before the dashboard can render it.
 - [ ] **Restore `returnPathname` on the `_authed` → sign-in redirect.** Dropped in #59 because a query string on a thrown redirect href trips the router SSR coercion bug (see Issue B). Unauthenticated deep links (e.g. `/settings`) now land on the default post-login page instead of the originally-requested route. Revisit after a `@tanstack/react-router` upgrade (retest the query-string redirect), or thread `returnPathname` through a non-href channel (cookie set before redirect, or a query-string-free path segment the sign-in handler decodes). Low priority; consistent with the index route, which never preserved it.
 
 ## Access Link viewer
@@ -93,7 +93,7 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 ## Documentation
 
 - [ ] `docs/ops/runbook-workos.md` — project config, rotation procedure, common failure modes (callback URL drift, expired API key, cookie password rotation).
-- [ ] When the above lands, move the `apps/web` row in `docs/ops/project-status.md` from `Implemented (scaffold)` to `Implemented`; promote ADR 0033 and 0059 from `Partial` to `Done`; bump Phase 3 % beyond ~15.
+- [ ] When the above lands, update [`status/implementation.md`](./status/implementation.md) and [`status/coverage.md`](./status/coverage.md) so `apps/web`, ADR 0033, ADR 0059, and ADR 0068 reflect the final Phase 3 state.
 
 ## Polish / nice-to-have (not blocking)
 

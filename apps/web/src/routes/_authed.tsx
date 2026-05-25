@@ -25,7 +25,7 @@ const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export const Route = createFileRoute("/_authed")({
-  loader: async () => {
+  beforeLoad: async () => {
     const result = await loadAuthedSessionFn();
     if ("redirectTo" in result) {
       // href must stay query-string-free: a thrown redirect whose href carries
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
-  const { user, isOperator, apiSession } = Route.useLoaderData();
+  const { user, isOperator, apiSession } = Route.useRouteContext();
   return (
     <ToastProvider>
       <div className="min-h-screen flex flex-col">

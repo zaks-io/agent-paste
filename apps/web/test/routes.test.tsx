@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   loaderData: undefined as unknown,
-  parentLoaderData: { apiSession: { data: null, error: null } } as unknown,
+  parentRouteContext: { apiSession: { data: null, error: null } } as unknown,
   params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" },
   search: {} as Record<string, unknown>,
   auth: { user: { email: "user@example.com" }, accessToken: "workos-token" } as {
@@ -24,13 +24,14 @@ vi.mock("@tanstack/react-router", () => ({
     <TConfig extends Record<string, unknown>>(config: TConfig) => ({
       ...config,
       useLoaderData: () => state.loaderData,
+      useRouteContext: () => state.parentRouteContext,
       useParams: () => state.params,
       useSearch: () => state.search,
     }),
   Link: ({ children }: { children: ReactNode }) => <a href="/mock-link">{children}</a>,
   Outlet: () => <div data-testid="outlet" />,
   redirect: (input: unknown) => ({ redirected: true, ...((input as Record<string, unknown>) ?? {}) }),
-  useLoaderData: () => state.parentLoaderData,
+  useRouteContext: () => state.parentRouteContext,
   useRouter: () => ({ invalidate: state.invalidate }),
 }));
 
@@ -63,13 +64,50 @@ vi.mock("../src/server/runtime", () => ({
 describe("web routes", () => {
   beforeEach(() => {
     state.loaderData = undefined;
-    state.parentLoaderData = { apiSession: { data: null, error: null } };
+    state.parentRouteContext = { apiSession: { data: null, error: null } };
     state.params = { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" };
     state.search = {};
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
     state.apiFetchOrEmpty.mockReset();
     state.invalidate.mockReset();
     state.signOut.mockReset();
+  });
+
+  it("provisions the authenticated layout before child loaders run", async () => {
+    const authed = await import("../src/routes/_authed");
+
+    state.auth = { user: null, accessToken: "" };
+    await expect((authed.Route.beforeLoad as () => Promise<unknown>)()).rejects.toMatchObject({
+      redirected: true,
+      href: "/api/auth/sign-in",
+    });
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
+
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
+    state.apiFetchOrEmpty.mockResolvedValueOnce({
+      data: {
+        workspace: workspace().workspace,
+        workspace_member: workspace().workspace_member,
+        scopes: ["admin"],
+        default_api_key: { api_key: apiKeyRow(), secret: "ap_pk_preview_first_secret" },
+      },
+      empty: false,
+      error: null,
+    });
+
+    await expect((authed.Route.beforeLoad as () => Promise<unknown>)()).resolves.toMatchObject({
+      user: { email: "user@example.com" },
+      isOperator: true,
+      apiSession: {
+        data: {
+          default_api_key: { secret: "ap_pk_preview_first_secret" },
+        },
+      },
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/auth/web/callback", {
+      method: "POST",
+      accessToken: "workos-token",
+    });
   });
 
   it("loads dashboard data and renders populated dashboard state", async () => {
@@ -91,9 +129,13 @@ describe("web routes", () => {
       workspace: { data: { workspace: { name: "Demo" } } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/workspace", { accessToken: "workos-token" });
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalledWith(
+      "/v1/auth/web/callback",
+      expect.objectContaining({ method: "POST" }),
+    );
 
     state.loaderData = {
-      workspace: { data: workspace(), empty: false, error: null },
+      workspace: { data: { ...workspace(), default_key_first_run: true }, empty: false, error: null },
       artifacts: {
         data: { items: [artifactRow()], page_info: { next_cursor: null, has_more: false } },
         empty: false,
@@ -105,8 +147,18 @@ describe("web routes", () => {
         error: null,
       },
     };
+    state.parentRouteContext = {
+      apiSession: {
+        data: {
+          default_api_key: { secret: "ap_pk_preview_first_secret" },
+        },
+        error: null,
+      },
+    };
     render(<Route.component />);
     expect(screen.getByText("Demo")).toBeInTheDocument();
+    expect(screen.getByText("Your default API key")).toBeInTheDocument();
+    expect(screen.getByText("Reveal secret")).toBeInTheDocument();
     expect(screen.getByText("artifact.published")).toBeInTheDocument();
   });
 

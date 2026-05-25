@@ -1,5 +1,5 @@
 import type { WebArtifactListResponse, WebAuditListResponse, WebWorkspaceResponse } from "@agent-paste/contracts";
-import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { FirstRunKeyCard } from "../components/dashboard/FirstRunKeyCard";
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authed/dashboard")({
 
 function DashboardPage() {
   const { workspace, artifacts, audit } = Route.useLoaderData();
-  const session = useLoaderData({ from: "/_authed" });
+  const session = useRouteContext({ from: "/_authed" });
   const defaultKeySecret = session.apiSession.data?.default_api_key?.secret ?? null;
 
   if (workspace?.error) {

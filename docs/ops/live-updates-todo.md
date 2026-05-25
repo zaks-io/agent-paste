@@ -2,7 +2,7 @@
 
 Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-live-updates-via-stream-worker-and-per-artifact-durable-object.md). Owner: Isaac. Snapshot date: 2026-05-23.
 
-Scope: this is a post-MVP feature. Nothing here is built. It is parked until its dependencies land and is not on the active backlog in `docs/ops/project-status.md`.
+Scope: this is a post-MVP feature. Nothing here is built. It is parked until its dependencies land and is not on the active Phase 3 backlog in [`status/phase-backlog.md`](./status/phase-backlog.md).
 
 ## Dependencies (this cannot start until these exist)
 
@@ -46,5 +46,5 @@ Scope: this is a post-MVP feature. Nothing here is built. It is parked until its
 
 ## Docs wiring
 
-- [x] Add an ADR 0069 row to the ADR Coverage table in `docs/ops/project-status.md` (Deferred) and reference this file from the Phase 4 row.
-- [ ] Add the `stream` Worker to the Implementation Map once `apps/stream` exists.
+- [x] Add an ADR 0069 row to the ADR Coverage table in [`status/coverage.md`](./status/coverage.md) (Deferred) and reference this file from the Phase 4 backlog.
+- [ ] Add the `stream` Worker to [`status/implementation.md`](./status/implementation.md) once `apps/stream` exists.
