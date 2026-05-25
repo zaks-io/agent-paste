@@ -17,8 +17,10 @@ pre-commit:
         pnpm exec turbo run typecheck --filter="...[$BASE]"
 
 pre-push:
-  commands:
-    test:
+  jobs:
+    - name: test
+      files: git ls-files -- package.json
       run: |
+        : {files}
         BASE="$(git rev-parse --verify origin/main 2>/dev/null || git rev-parse --verify HEAD)"
         pnpm exec turbo run test --filter="...[$BASE]"
