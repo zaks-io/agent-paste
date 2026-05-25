@@ -29,7 +29,7 @@ another platform — without translation tables.
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
 
-Auth: \`agent-paste login\` signs the CLI in over OAuth and stores its own key.
+Auth: \`npx agent-paste login\` signs the CLI in over OAuth and stores its own key.
 REST and MCP take \`Authorization: Bearer <api-key>\` (a dashboard key or
 \`AGENT_PASTE_API_KEY\`).
 

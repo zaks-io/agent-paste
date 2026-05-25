@@ -53,7 +53,7 @@ Base: \`${API_BASE_URL}\`
 
 ## Authentication
 
-- **CLI:** \`agent-paste login\` completes a browser OAuth flow and stores a
+- **CLI:** \`npx agent-paste login\` completes a browser OAuth flow and stores a
   scoped key for you. Nothing to copy or paste.
 - **REST and MCP:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI
   or headless use on the dashboard API Keys page

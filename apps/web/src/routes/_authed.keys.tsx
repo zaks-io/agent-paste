@@ -39,7 +39,7 @@ function KeysPage() {
         description={
           <>
             Keys for CI and headless use. The CLI provisions its own when you run{" "}
-            <code className="font-mono text-[12px]">agent-paste login</code>; secrets are shown once on creation.
+            <code className="font-mono text-[12px]">npx agent-paste login</code>; secrets are shown once on creation.
           </>
         }
       />
@@ -54,7 +54,7 @@ function KeysPage() {
             body={
               <>
                 The CLI provisions its own key when you run{" "}
-                <code className="font-mono text-[12px]">agent-paste login</code>. Create one here for CI or headless
+                <code className="font-mono text-[12px]">npx agent-paste login</code>. Create one here for CI or headless
                 use.
               </>
             }
