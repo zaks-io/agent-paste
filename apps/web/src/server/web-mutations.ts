@@ -2,8 +2,8 @@ import {
   ApiKeyId,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
+  LiftLockdownRequest,
   type LockdownDetail,
-  LockdownScope,
   type RevokeApiKeyResponse,
   SetLockdownRequest,
   UpdateWebSettingsRequest,
@@ -133,25 +133,13 @@ export const setLockdownFn = createServerFn({ method: "POST" })
   });
 
 export const liftLockdownFn = createServerFn({ method: "POST" })
-  .inputValidator((input: { scope: string; target_id: string }) => input)
+  .inputValidator((input: { scope: string; target_id?: string }) => input)
   .handler(({ data }) => {
-    const scope = parseInput(LockdownScope, data.scope);
-    if (scope.error) return Promise.resolve({ data: null, error: scope.error });
-    const targetId = data.target_id.trim();
-    if (!targetId) {
-      return Promise.resolve({
-        data: null,
-        error: {
-          status: 400,
-          code: "validation_error",
-          message: "target_id is required.",
-          requestId: undefined,
-        },
-      });
-    }
+    const input = parseInput(LiftLockdownRequest, data);
+    if (input.error) return Promise.resolve({ data: null, error: input.error });
     return runMutation<LockdownDetail>((accessToken) =>
       apiFetch<LockdownDetail>(
-        `/v1/web/admin/lockdowns/${encodeURIComponent(scope.value)}/${encodeURIComponent(targetId)}`,
+        `/v1/web/admin/lockdowns/${encodeURIComponent(input.value.scope)}/${encodeURIComponent(input.value.target_id)}`,
         {
           method: "DELETE",
           accessToken,

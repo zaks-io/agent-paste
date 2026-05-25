@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   auth: { user: { email: "user@example.com" }, accessToken: "access-token" } as {
@@ -159,6 +160,10 @@ describe("web server mutations", () => {
       data: null,
       error: { status: 400, code: "validation_error" },
     });
+    await expect(liftLockdownFn({ data: { scope: "workspace" } })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
     expect(state.apiFetch).not.toHaveBeenCalled();
   });
 
@@ -191,15 +196,3 @@ describe("web server mutations", () => {
     });
   });
 });
-
-function lockdownRow() {
-  return {
-    scope: "workspace",
-    target_id: "00000000-0000-4000-8000-000000000000",
-    reason_code: "abuse",
-    set_at: "2026-01-01T00:00:00.000Z",
-    set_by: "operator@example.com",
-    lifted_at: null,
-    lifted_by: null,
-  };
-}

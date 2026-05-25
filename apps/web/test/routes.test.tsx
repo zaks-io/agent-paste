@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   loaderData: undefined as unknown,
@@ -269,7 +270,7 @@ describe("web routes", () => {
     view.unmount();
 
     state.apiFetchOrEmpty.mockResolvedValueOnce({
-      data: { items: [lockdownRow()], page_info: { next_cursor: null, has_more: false } },
+      data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
       empty: false,
       error: null,
     });
@@ -281,7 +282,7 @@ describe("web routes", () => {
     });
     state.loaderData = {
       lockdowns: {
-        data: { items: [lockdownRow()], page_info: { next_cursor: null, has_more: false } },
+        data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
         empty: false,
         error: null,
       },
@@ -408,17 +409,5 @@ function settingsRow() {
     workspace_name: "Demo",
     auto_deletion_days: 30,
     usage_policy: { artifacts_per_day: 100, bytes_per_day: 1000 },
-  };
-}
-
-function lockdownRow() {
-  return {
-    scope: "workspace",
-    target_id: "00000000-0000-4000-8000-000000000000",
-    reason_code: "phishing_report",
-    set_at: "2026-01-01T00:00:00.000Z",
-    set_by: "operator@example.com",
-    lifted_at: null,
-    lifted_by: null,
   };
 }

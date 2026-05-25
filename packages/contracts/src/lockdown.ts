@@ -12,6 +12,12 @@ export const SetLockdownRequest = z.object({
 });
 export type SetLockdownRequest = z.infer<typeof SetLockdownRequest>;
 
+export const LiftLockdownRequest = z.object({
+  scope: LockdownScope,
+  target_id: z.string().min(1),
+});
+export type LiftLockdownRequest = z.infer<typeof LiftLockdownRequest>;
+
 export const LockdownDetail = z.object({
   scope: LockdownScope,
   target_id: z.string().min(1),
