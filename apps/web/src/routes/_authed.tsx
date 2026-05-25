@@ -25,16 +25,14 @@ const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export const Route = createFileRoute("/_authed")({
-  loader: async ({ location }) => {
+  loader: async () => {
     const result = await loadAuthedSessionFn();
     if ("redirectTo" in result) {
-      const returnPath = location.pathname + location.search;
-      const params = new URLSearchParams({ returnPathname: returnPath });
-      // sign-in is a server route handler, not a client route. The router only
-      // infers reloadDocument for absolute hrefs, so this path-relative href
-      // would otherwise be treated as an internal navigation and 500 under SSR.
-      // Force a full-document load so SSR emits a real 307 to the handler.
-      throw redirect({ href: `${result.redirectTo}?${params.toString()}`, reloadDocument: true });
+      // href must stay query-string-free: a thrown redirect whose href carries
+      // a query string trips a router coercion bug under SSR (500 instead of a
+      // 307). returnPathname is dropped here as a result; the sign-in handler
+      // falls back to its default post-login destination. See web-app-todo.md.
+      throw redirect({ href: result.redirectTo });
     }
     return result;
   },
