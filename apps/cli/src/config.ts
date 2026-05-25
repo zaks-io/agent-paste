@@ -16,12 +16,13 @@ const DEFAULT_LOGIN_PORT = 8975;
 
 // Public client_id of the dedicated WorkOS Public OAuth (Connect) app for the
 // CLI. Public identifier, safe to ship; override with AGENT_PASTE_WORKOS_CLIENT_ID.
-const DEFAULT_CLI_CLIENT_ID = "client_01KSE8K12YEJ6TEDAM2X0R8VRA";
+// Defaults target the production WorkOS environment; preview/staging via overrides.
+const DEFAULT_CLI_CLIENT_ID = "client_01KSED1S5WMWBYCFWQZX2FHNED";
 
 // Connect authorize/token live on the app's AuthKit domain
-// (https://<subdomain>.authkit.app/oauth2/*), not api.workos.com. This is the
-// current pre-launch WorkOS environment; override with AGENT_PASTE_WORKOS_BASE_URL.
-const DEFAULT_WORKOS_BASE_URL = "https://courageous-milestone-75-staging.authkit.app";
+// (https://<subdomain>.authkit.app/oauth2/*), not api.workos.com. Production
+// environment domain; override with AGENT_PASTE_WORKOS_BASE_URL.
+const DEFAULT_WORKOS_BASE_URL = "https://soulful-path-50.authkit.app";
 
 export function loadLoginConfig(env: Record<string, string | undefined> = process.env): LoginConfig {
   const clientId = env.AGENT_PASTE_WORKOS_CLIENT_ID ?? DEFAULT_CLI_CLIENT_ID;

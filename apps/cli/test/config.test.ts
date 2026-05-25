@@ -5,12 +5,12 @@ describe("login config", () => {
   it("defaults the authorize and token paths off the baked authkit base url", () => {
     const config = loadLoginConfig({ AGENT_PASTE_WORKOS_CLIENT_ID: "client_abc" });
     expect(config.clientId).toBe("client_abc");
-    expect(config.authorizeUrl).toBe("https://courageous-milestone-75-staging.authkit.app/oauth2/authorize");
-    expect(config.tokenUrl).toBe("https://courageous-milestone-75-staging.authkit.app/oauth2/token");
+    expect(config.authorizeUrl).toBe("https://soulful-path-50.authkit.app/oauth2/authorize");
+    expect(config.tokenUrl).toBe("https://soulful-path-50.authkit.app/oauth2/token");
   });
 
   it("ships a real default client id (no env required)", () => {
-    expect(loadLoginConfig({}).clientId).toBe("client_01KSE8K12YEJ6TEDAM2X0R8VRA");
+    expect(loadLoginConfig({}).clientId).toBe("client_01KSED1S5WMWBYCFWQZX2FHNED");
   });
 
   it("derives endpoints from a custom authkit base url", () => {

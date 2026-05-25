@@ -61,7 +61,7 @@
       "vars": {
         "AGENT_PASTE_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
-        "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
         "WORKOS_REDIRECT_URI": "https://app.agent-paste.sh/api/auth/callback",
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
