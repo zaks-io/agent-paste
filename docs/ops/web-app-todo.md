@@ -85,7 +85,7 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 ## Smoke / CI
 
 - [x] Deploy `web` to the stable preview and production environments. `scripts/deploy-preview.mjs` now deploys `web` last (after `apex`), so `pnpm deploy:preview` brings up `app.preview.agent-paste.sh` and a `main` merge brings up `app.agent-paste.sh` via `deploy-production.yml`.
-- [ ] Add a hosted `/healthz` + `/api/auth/sign-in` 307 (to the WorkOS flow) assertion against the deployed `web` Worker. `pnpm smoke:web` today only exercises the local mock-WorkOS server-fn flow; wire a hosted check into `smoke-hosted.mjs` (and `pnpm smoke:production`).
+- [x] Add a hosted `/healthz` + `/api/auth/sign-in` 307 (to the WorkOS flow) assertion against the deployed `web` Worker. `smoke-hosted.mjs` now runs `smokeWebAuth(config)` for preview/production: asserts `/healthz` 200 (text/html) and `/api/auth/sign-in` 307 with a `Location` under `https://api.workos.com/user_management/authorize`. Web base URL defaults to `app.{preview.}agent-paste.sh` (override via `AGENT_PASTE_{PREVIEW,PRODUCTION}_WEB_URL`); skips for the `pr` target unless `AGENT_PASTE_PR_WEB_URL` is set, since the `web` Worker is not deployed per-PR (see below). `pnpm smoke:web` still also exercises the local mock-WorkOS server-fn flow.
 - [ ] Extend the **PR preview** workflow (`scripts/deploy-pr-preview.mjs`) to deploy `web` per-PR alongside `api`/`upload`/`content` with the `agent-paste-api-pr-{N}` service binding. Blocked on a per-PR WorkOS redirect URI (wildcard registration or click-ops).
 - [ ] Lighthouse a11y check on `/dashboard` (empty state). Fail the preview job below 95.
 

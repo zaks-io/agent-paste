@@ -73,6 +73,7 @@ if (target !== "production") {
 }
 
 await smokeApex(config);
+await smokeWebAuth(config);
 
 process.stdout.write(`${config.label} smoke passed.
 
@@ -81,7 +82,7 @@ Artifact:       ${published.artifact_id}
 Agent View URL: ${published.agent_view_url}
 Content URL:    ${published.view_url}
 Apex:           ${config.apexBaseUrl}
-`);
+${config.webBaseUrl ? `Web:            ${config.webBaseUrl}\n` : ""}`);
 
 async function smokeApex(c) {
   const home = await fetch(`${c.apexBaseUrl}/`, { redirect: "manual" });
@@ -114,6 +115,23 @@ async function smokeApex(c) {
   assert(
     redirectWithQuery.headers.get("location") === "https://app.agent-paste.sh/dashboard?from=smoke",
     `apex /dashboard?from=smoke location ${redirectWithQuery.headers.get("location")}`,
+  );
+}
+
+async function smokeWebAuth(c) {
+  if (!c.webBaseUrl) return;
+
+  const health = await fetch(`${c.webBaseUrl}/healthz`, { redirect: "manual" });
+  assert(health.status === 200, `web /healthz returned ${health.status}`);
+  assert(health.headers.get("content-type")?.includes("text/html"), "web /healthz is HTML");
+  assert(!health.headers.get("set-cookie"), "web /healthz does not set cookies");
+
+  const signIn = await fetch(`${c.webBaseUrl}/api/auth/sign-in`, { redirect: "manual" });
+  assert(signIn.status === 307, `web /api/auth/sign-in returned ${signIn.status} (expected 307)`);
+  const location = signIn.headers.get("location") ?? "";
+  assert(
+    location.startsWith("https://api.workos.com/user_management/authorize"),
+    `web /api/auth/sign-in location ${location}`,
   );
 }
 
@@ -252,6 +270,7 @@ function smokeConfig(target) {
         "https://agent-paste-content-preview.isaac-a46.workers.dev",
       ),
       apexBaseUrl: env("AGENT_PASTE_PREVIEW_APEX_URL", "https://preview.agent-paste.sh"),
+      webBaseUrl: env("AGENT_PASTE_PREVIEW_WEB_URL", "https://app.preview.agent-paste.sh"),
       adminToken: requiredEnv(["AGENT_PASTE_PREVIEW_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };
@@ -266,6 +285,7 @@ function smokeConfig(target) {
       uploadBaseUrl: env("AGENT_PASTE_PRODUCTION_UPLOAD_URL", "https://upload.agent-paste.sh"),
       contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.sh"),
       apexBaseUrl: env("AGENT_PASTE_PRODUCTION_APEX_URL", "https://agent-paste.sh"),
+      webBaseUrl: env("AGENT_PASTE_PRODUCTION_WEB_URL", "https://app.agent-paste.sh"),
       adminToken: requiredEnv(["AGENT_PASTE_PRODUCTION_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_production_",
     };
@@ -281,6 +301,9 @@ function smokeConfig(target) {
       uploadBaseUrl: requiredEnv(["AGENT_PASTE_PR_UPLOAD_URL"]),
       contentBaseUrl: requiredEnv(["AGENT_PASTE_PR_CONTENT_URL"]),
       apexBaseUrl: requiredEnv(["AGENT_PASTE_PR_APEX_URL"]),
+      // The web Worker is not deployed per-PR (blocked on a per-PR WorkOS redirect URI),
+      // so this stays unset and smokeWebAuth skips unless a URL is supplied.
+      webBaseUrl: process.env.AGENT_PASTE_PR_WEB_URL,
       adminToken: requiredEnv(["AGENT_PASTE_PR_ADMIN_TOKEN", "AGENT_PASTE_PREVIEW_ADMIN_TOKEN"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };
