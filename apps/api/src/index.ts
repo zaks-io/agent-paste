@@ -39,6 +39,7 @@ import {
   resolveWorkOsIdentity,
   type WebCallbackIdentity,
   type WorkOsIdentity,
+  type WorkOsRejectReason,
   type WorkOsVerificationOptions,
 } from "./workos.js";
 
@@ -1032,6 +1033,7 @@ function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {
     clientId: env.WORKOS_CLIENT_ID,
     requireClientIdClaim: false,
     issuers: env.WORKOS_ISSUER ? [DEFAULT_WORKOS_ISSUER, env.WORKOS_ISSUER] : [DEFAULT_WORKOS_ISSUER],
+    onReject: workOsRejectLogger("dashboard"),
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
@@ -1040,6 +1042,17 @@ function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {
     options.jwksUrl = env.WORKOS_JWKS_URL;
   }
   return options;
+}
+
+// Web auth fails closed to a generic 401, so the only way to tell a misconfigured
+// token apart from a real rejection is to log the structured reason. Detail never
+// includes the token, sub, or email — see WorkOsRejectReason.
+function workOsRejectLogger(
+  path: "dashboard" | "cli",
+): (reason: WorkOsRejectReason, detail?: Record<string, unknown>) => void {
+  return (reason, detail) => {
+    console.warn(JSON.stringify({ event: "workos_auth_reject", path, reason, ...(detail ?? {}) }));
+  };
 }
 
 function cliVerifyOptions(env: Env): WorkOsVerificationOptions | null {
@@ -1054,6 +1067,7 @@ function cliVerifyOptions(env: Env): WorkOsVerificationOptions | null {
     apiKey: env.WORKOS_API_KEY,
     clientId: env.WORKOS_CLI_AUDIENCE,
     requireClientIdClaim: false,
+    onReject: workOsRejectLogger("cli"),
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
