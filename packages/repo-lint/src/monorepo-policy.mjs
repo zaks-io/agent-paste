@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import process from "node:process";
 
@@ -198,7 +198,7 @@ function readCatalogNames() {
       break;
     }
     if (!inCatalog) continue;
-    const match = line.match(/^  ['"]?([^'":]+)['"]?:/u);
+    const match = line.match(/^ {2}['"]?([^'":]+)['"]?:/u);
     if (match) {
       names.add(match[1]);
     }
