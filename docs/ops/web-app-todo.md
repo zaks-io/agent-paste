@@ -1,6 +1,6 @@
 # Web app — remaining work
 
-Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-23.
+Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-25.
 
 Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). Phase 1/2 work continues to be tracked in `docs/ops/project-status.md`.
 
@@ -70,8 +70,12 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 
 ## Auth bugs
 
-- [x] **Dashboard `not_authenticated` for logged-in users (Issue A).** The web app forwards the AuthKit User Management session access token to `api`, but `dashboardVerifyOptions` set `requireClientIdClaim: true`. AuthKit session tokens carry no `client_id`/`azp`/`aud` claim, so verification always returned null → every `/v1/web/*` call 401'd. Fixed: dashboard path now uses `requireClientIdClaim: false` and accepts both `api.workos.com` and the AuthKit-domain issuer (`WORKOS_ISSUER`), pinned by the env-scoped JWKS. `pnpm smoke:web` now mints a claim-less `sid`-bearing token and passes e2e.
-- [ ] **Unauthenticated `/dashboard` returns HTTP 500 instead of redirecting to sign-in (Issue B).** `_authed.tsx` loader throws `redirect({ href: "/api/auth/sign-in?returnPathname=…" })` when `getAuth()` has no user, but SSR 500s with "Cannot convert object to primitive value" rather than emitting a 307. Needs the SSR error reproduced (run the deployed/preview web Worker unauthenticated) to pin the root cause — likely the `createServerFn` discriminated-union return + thrown `redirect` interaction, or the AuthKit redirect helper. Not yet fixed; tracked here.
+- [x] **Dashboard `not_authenticated` for logged-in users (Issue A).** The web app forwards the AuthKit User Management session access token to `api`, but `dashboardVerifyOptions` set `requireClientIdClaim: true`. AuthKit session tokens carry no `client_id`/`azp`/`aud` claim, so verification always returned null → every `/v1/web/*` call 401'd. The `requireClientIdClaim: false` change was necessary but **not sufficient**: the real remaining cause was `WORKOS_ISSUER` pointing at the `authkit.app` domain. User Management session tokens are issued by `https://api.workos.com/user_management/{env default client}` (the env default client == `WORKOS_CLI_AUDIENCE`, **not** `WORKOS_CLIENT_ID`). Confirmed via the `workos_auth_reject` structured log (shipped in #57) showing `issuer_mismatch` against that exact issuer in production. Fixed in #58 by repointing prod/preview `WORKOS_ISSUER` at the User Management path; verified live (dashboard loads, all `/v1/web/*` return 200, zero reject events).
+- [x] **Unauthenticated `/dashboard` returns HTTP 500 instead of redirecting to sign-in (Issue B).** `_authed.tsx` loader threw `redirect({ href: "/api/auth/sign-in?returnPathname=…" })` without `reloadDocument: true`. TanStack Router only infers `reloadDocument` for _absolute_ hrefs; the path-relative href was treated as an internal client navigation and crashed under SSR (error boundary swallowed it → bare 500). Fixed in #59 by passing `reloadDocument: true` so SSR emits a real 307 to the sign-in server-route handler (mirrors the AuthKit SDK's own `signOut`).
+
+## First-login provisioning race (follow-up)
+
+- [ ] **Transient 403 `forbidden` on the very first authenticated dashboard load.** The JIT callback (`POST /v1/auth/web/callback`) provisions the workspace/member/default key (200), but the parallel `/v1/web/*` reads in the same load fire before that commit is visible, so `getWebMemberByWorkOsUserId` finds no member → `forbidden` until the user reloads. Not blocking (self-heals on reload). Options: await provisioning before child loaders run, retry the reads on a fresh-member miss, or JIT-provision on the read path. Needs a decision before implementing.
 
 ## Access Link viewer
 
