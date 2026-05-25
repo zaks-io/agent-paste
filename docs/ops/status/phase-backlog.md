@@ -19,12 +19,11 @@ multi-revision artifacts and the Access Link signing-key family.
 Goal: self-serve browser signup/login, dashboard use, CLI login, and operator
 admin basics.
 
-1. [ ] Fix the transient first authenticated dashboard load race.
+1. [x] Fix the transient first authenticated dashboard load race.
        `POST /v1/auth/web/callback` provisions the member, but parallel
        `/v1/web/*` loaders can run before the commit is visible and return
-       `forbidden` until reload. Decide between awaiting provisioning before
-       child loaders, retrying reads on a fresh-member miss, or JIT-provisioning
-       on read.
+       `forbidden` until reload. Fixed by moving `_authed` provisioning into
+       `beforeLoad`, so the callback commits before child loaders run.
 2. [ ] Build the operator lockdown UI. The `api` set/lift/list endpoints exist;
        the web `/admin` route still renders an empty placeholder.
 3. [ ] Harden PR-preview readiness. Require `curl --fail` against `/healthz`,

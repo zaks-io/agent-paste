@@ -75,7 +75,7 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 
 ## Auth follow-ups
 
-- [ ] **Transient 403 `forbidden` on the very first authenticated dashboard load.** The JIT callback (`POST /v1/auth/web/callback`) provisions the workspace/member/default key (200), but the parallel `/v1/web/*` reads in the same load fire before that commit is visible, so `getWebMemberByWorkOsUserId` finds no member → `forbidden` until the user reloads. Not blocking (self-heals on reload). Options: await provisioning before child loaders run, retry the reads on a fresh-member miss, or JIT-provision on the read path. Needs a decision before implementing.
+- [x] **Transient 403 `forbidden` on the very first authenticated dashboard load.** Fixed by moving `_authed` provisioning from the route loader to `_authed.beforeLoad`, so `POST /v1/auth/web/callback` finishes before child `/v1/web/*` loaders run. Read-path JIT provisioning was intentionally avoided because a child loader could otherwise create the default API key first and discard the one-time secret before the dashboard can render it.
 - [ ] **Restore `returnPathname` on the `_authed` → sign-in redirect.** Dropped in #59 because a query string on a thrown redirect href trips the router SSR coercion bug (see Issue B). Unauthenticated deep links (e.g. `/settings`) now land on the default post-login page instead of the originally-requested route. Revisit after a `@tanstack/react-router` upgrade (retest the query-string redirect), or thread `returnPathname` through a non-href channel (cookie set before redirect, or a query-string-free path segment the sign-in handler decodes). Low priority; consistent with the index route, which never preserved it.
 
 ## Access Link viewer
