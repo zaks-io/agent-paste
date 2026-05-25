@@ -103,8 +103,11 @@ async function deployWeb() {
   }
   process.stdout.write(`Deploying ${names.web}...\n`);
 
-  process.env.CLOUDFLARE_ENV = "preview";
-  await run("pnpm", ["--filter", "@agent-paste/web", "build"]);
+  // CLOUDFLARE_ENV picks the preview env block the vite plugin resolves into
+  // dist/server/wrangler.json. Scope it to the build only: if it leaked into the
+  // deploy/secret commands below, wrangler would append "-preview" to the worker
+  // name and deploy/seed the wrong worker.
+  await run("pnpm", ["--filter", "@agent-paste/web", "build"], { env: { CLOUDFLARE_ENV: "preview" } });
 
   const generatedConfig = workspacePath("apps/web/dist/server/wrangler.json");
   const config = JSON.parse(readFileSync(generatedConfig, "utf8"));
@@ -235,9 +238,10 @@ function emitOutput(name, value) {
   }
 }
 
-function run(command, args) {
+function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "inherit" });
+    const env = options.env ? { ...process.env, ...options.env } : process.env;
+    const child = spawn(command, args, { stdio: "inherit", env });
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) {
