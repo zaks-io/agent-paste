@@ -1,4 +1,16 @@
-import { HERO, META_DESCRIPTION, TITLE, TRANSCRIPT, type TranscriptLine, WORDMARK } from "./copy.js";
+import {
+  FEATURES,
+  type Feature,
+  FOOTER,
+  type FooterColumn,
+  HERO,
+  META_DESCRIPTION,
+  SIGN_IN_URL,
+  TITLE,
+  TRANSCRIPT,
+  type TranscriptLine,
+  WORDMARK,
+} from "./copy.js";
 import { STYLES } from "./styles.js";
 
 export function renderHomePage(): string {
@@ -26,27 +38,42 @@ export function renderHomePage(): string {
     <style>${STYLES}</style>
   </head>
   <body>
-    <main class="page">
+    <div class="page">
       <header class="page-head">
-        <a class="wordmark" href="/" aria-label="agent-paste.sh">
-          <span class="wordmark-base">${esc(WORDMARK.base)}</span><span class="wordmark-tld">${esc(WORDMARK.tld)}</span>
-        </a>
+        ${renderWordmark()}
+        <nav class="head-nav">
+          <a class="head-link" href="${esc(HERO.secondary.href)}">agents.md</a>
+          <a class="button button-ghost button-sm" href="${esc(SIGN_IN_URL)}">Sign in</a>
+        </nav>
       </header>
 
-      <section class="hero">
-        <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-headline-stop">.</span></h1>
-        <p class="hero-lead">${esc(HERO.lead)}</p>
+      <main class="content">
+        <section class="hero">
+          <p class="eyebrow mono">${esc(HERO.eyebrow)}</p>
+          <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-stop">.</span></h1>
+          <p class="hero-lead">${esc(HERO.lead)}</p>
+          <div class="hero-actions">
+            <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
+            <a class="button button-ghost button-lg" href="${esc(HERO.secondary.href)}">${esc(HERO.secondary.label)}</a>
+          </div>
+          <pre class="transcript mono" aria-label="Example agent-paste session">${renderTranscript(TRANSCRIPT)}</pre>
+        </section>
 
-        <pre class="transcript" aria-label="Example agent-paste session">${renderTranscript(TRANSCRIPT)}</pre>
+        <section class="features" aria-label="What agent-paste gives you">
+          ${FEATURES.map(renderFeature).join("\n          ")}
+        </section>
+      </main>
 
-        <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
-      </section>
-
-      <footer class="page-foot mono">
-        <a class="foot-link" href="/agents.md">/agents.md</a>
-        <span>© ${new Date().getFullYear().toString()}</span>
+      <footer class="page-foot">
+        <div class="foot-cols">
+          ${FOOTER.map(renderFooterColumn).join("\n          ")}
+        </div>
+        <div class="foot-base">
+          ${renderWordmark("wordmark-sm")}
+          <span class="foot-copy mono">© ${new Date().getFullYear().toString()}</span>
+        </div>
       </footer>
-    </main>
+    </div>
 
     <script>
 ${INLINE_SCRIPT}
@@ -56,25 +83,51 @@ ${INLINE_SCRIPT}
 `;
 }
 
+function renderWordmark(extraClass = ""): string {
+  const cls = extraClass ? `wordmark ${extraClass}` : "wordmark";
+  return `<a class="${cls}" href="/" aria-label="${esc(WORDMARK.base)}${esc(WORDMARK.tld)}">agent<span class="wordmark-hyphen" aria-hidden="true">-</span>paste<span class="wordmark-tld">${esc(WORDMARK.tld)}</span></a>`;
+}
+
+function renderFeature(feature: Feature): string {
+  return `<article class="feature"><h2 class="feature-title">${esc(feature.title)}</h2><p class="feature-body">${esc(feature.body)}</p></article>`;
+}
+
+function renderFooterColumn(column: FooterColumn): string {
+  const links = column.links
+    .map((link) => `<li><a class="foot-link" href="${esc(link.href)}">${esc(link.label)}</a></li>`)
+    .join("");
+  return `<div class="foot-col"><p class="foot-heading mono">${esc(column.heading)}</p><ul class="foot-list">${links}</ul></div>`;
+}
+
 function renderTranscript(lines: TranscriptLine[]): string {
   return lines
     .map((line) => {
       if (line.kind === "prompt") {
-        return `<span class="t-line"><span class="t-prompt" aria-hidden="true">$</span> <span class="t-cmd">${esc(line.text)}</span></span>`;
+        return `<span class="t-line"><span class="t-prompt" aria-hidden="true">$</span> <span
+        class="t-cmd t-copy"
+        role="button"
+        tabindex="0"
+        data-clipboard="${esc(line.text)}"
+        title="Copy command"
+        aria-label="${esc(line.text)}, click to copy"
+      >${esc(line.text)}</span></span>`;
       }
       if (line.kind === "comment") {
         return `<span class="t-line t-comment"># ${esc(line.text)}</span>`;
       }
+      if (line.kind === "success") {
+        return `<span class="t-line t-success"><span class="t-check" aria-hidden="true">✓</span> ${esc(line.text)}</span>`;
+      }
       if (line.kind === "output") {
-        return `<span class="t-line t-output">  ${esc(line.text)}</span>`;
+        return `<span class="t-line t-output">${esc(line.text)}</span>`;
       }
       const url = `${line.origin}${line.id}`;
-      return `<span class="t-line t-result">  <span
-        class="id is-inline"
+      return `<span class="t-line t-result"><span class="t-arrow" aria-hidden="true">→</span> <span
+        class="id t-copy is-inline"
         role="button"
         tabindex="0"
         data-clipboard="${esc(url)}"
-        title="${esc(url)} — click to copy"
+        title="Copy artifact URL"
         aria-label="${esc(url)}, click to copy"
       ><span class="t-origin">${esc(line.origin)}</span><span class="t-id">${esc(line.id)}</span></span></span>`;
     })

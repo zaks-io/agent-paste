@@ -36,6 +36,18 @@ describe("apex worker", () => {
     expect(body).not.toContain("View on GitHub");
   });
 
+  it("leads with the OAuth login flow, not manual API keys", async () => {
+    const response = await get("/");
+    const body = await response.text();
+    // The CLI signs in over OAuth and provisions its own key; the marketing
+    // surface must not tell people to fetch one by hand.
+    expect(body).toContain("npx agent-paste login");
+    expect(body).toContain('data-clipboard="npx agent-paste login"');
+    expect(body).not.toContain("Get an API key");
+    expect(body).toContain("Open the dashboard");
+    expect(body).toContain("One ID, every surface");
+  });
+
   it("does not include style-guide §11 banned tokens", async () => {
     const response = await get("/");
     const body = (await response.text()).toLowerCase();
@@ -55,6 +67,7 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("# agent-paste");
     expect(body).toContain("npx agent-paste publish");
+    expect(body).toContain("agent-paste login");
   });
 
   it("serves /agents.md as text/markdown", async () => {
@@ -64,6 +77,8 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("# agent-paste for agents");
     expect(body).toContain("Mental model");
+    expect(body).toContain("npx agent-paste login");
+    expect(body).toContain("AGENT_PASTE_API_KEY");
   });
 
   it("serves /robots.txt with sitemap pointer", async () => {

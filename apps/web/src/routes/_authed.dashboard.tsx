@@ -68,8 +68,8 @@ function DashboardPage() {
       {!data && artifactRows.length === 0 && auditRows.length === 0 ? (
         <EmptyState
           title="Nothing here yet."
-          body="When you publish your first artifact from the CLI, it will appear here."
-          code="npx agent-paste publish ./report"
+          body="Sign in from the CLI, then publish your first artifact. It will show up here."
+          code={"npx agent-paste login\nnpx agent-paste publish ./report"}
         />
       ) : (
         <div className="grid gap-6">
