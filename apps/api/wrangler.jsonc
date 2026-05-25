@@ -71,6 +71,10 @@
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        // AuthKit User Management session tokens (forwarded by the web app) are
+        // issued by our AuthKit domain. The dashboard verify path also accepts the
+        // api.workos.com default, so this covers both tenant configurations.
+        "WORKOS_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         // `agent-paste login` (WorkOS Public OAuth / Connect app) tokens verify
         // against the authkit.app JWKS and issuer, not the api.workos.com dashboard
         // path. WORKOS_CLI_AUDIENCE is the environment OIDC client stamped into the
@@ -136,6 +140,10 @@
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
+        // AuthKit User Management session tokens (forwarded by the web app) are
+        // issued by our AuthKit domain. The dashboard verify path also accepts the
+        // api.workos.com default, so this covers both tenant configurations.
+        "WORKOS_ISSUER": "https://soulful-path-50.authkit.app",
         // Production WorkOS environment (soulful-path-50), distinct from preview's
         // staging environment. WORKOS_CLI_AUDIENCE is the environment OIDC client
         // stamped into the Connect token `aud` (WorkOS exposes no claim for the OAuth

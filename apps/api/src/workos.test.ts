@@ -27,6 +27,33 @@ describe("WorkOS access-token verification", () => {
     });
   });
 
+  it("accepts a claim-less session token when client-id claims are not required", async () => {
+    const fixture = await tokenFixture({});
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(
+      resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ requireClientIdClaim: false })),
+    ).resolves.toEqual({
+      workos_user_id: subject,
+      email: "user@example.com",
+      session_id: sessionId,
+      token_id: tokenId,
+    });
+  });
+
+  it("accepts a token whose issuer is one of several allowed issuers", async () => {
+    const authkitIssuer = "https://soulful-path-50.authkit.app";
+    const fixture = await tokenFixture({ iss: authkitIssuer });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(
+      resolveWorkOsIdentity(
+        `Bearer ${fixture.token}`,
+        options({ requireClientIdClaim: false, issuers: [issuer, authkitIssuer] }),
+      ),
+    ).resolves.toMatchObject({ workos_user_id: subject, email: "user@example.com" });
+  });
+
   it("rejects a JWT with the wrong client_id claim", async () => {
     const fixture = await tokenFixture({ client_id: "client_wrong" });
     stubWorkOsFetch(fixture.publicJwk);
@@ -82,12 +109,16 @@ describe("WorkOS access-token verification", () => {
   });
 });
 
-function options() {
+function options(overrides: Partial<ReturnType<typeof baseOptions>> = {}) {
+  return { ...baseOptions(), ...overrides };
+}
+
+function baseOptions() {
   return {
     apiKey,
     clientId,
     apiBaseUrl: "https://workos.test",
-    issuer,
+    issuers: [issuer],
     requireClientIdClaim: true,
   };
 }

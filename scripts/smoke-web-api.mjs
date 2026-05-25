@@ -76,9 +76,10 @@ try {
     "first callback returned default key secret",
   );
 
+  const returningToken = signWorkOsToken("user_web_smoke_primary", "user_web_smoke_primary_return");
   const secondCallback = await fetchJson("/v1/auth/web/callback", {
     method: "POST",
-    headers: primaryAuth,
+    headers: { authorization: `Bearer ${returningToken}` },
   });
   assert(secondCallback.workspace.id === firstCallback.workspace.id, "second callback resolved the same workspace");
   assert(secondCallback.default_api_key === null, "second callback did not return a plaintext default key");
@@ -188,12 +189,17 @@ function createWorkOsServer() {
   });
 }
 
-function signWorkOsToken(subject) {
+function signWorkOsToken(subject, session = subject) {
   const header = { alg: "RS256", kid: keyId, typ: "JWT" };
+  // Mirror a real AuthKit User Management session token: a `sid` but no
+  // `client_id`/`azp`/`aud` claim. The dashboard verify path is pinned by the
+  // env-scoped JWKS plus issuer, not by a client-id claim. `sid` is stable for a
+  // session, so the callback is idempotent per session; a new session (distinct
+  // `sid`) for the same user hits the returning-member path.
   const payload = {
     sub: subject,
     iss: workosBaseUrl,
-    client_id: workosClientId,
+    sid: `session_${session}`,
     exp: Math.floor(Date.now() / 1000) + 300,
   };
   const encoded = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;

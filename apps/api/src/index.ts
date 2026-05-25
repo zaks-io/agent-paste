@@ -34,7 +34,13 @@ import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import { type AuthResolvers, createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
-import { resolveWorkOsIdentity, type WebCallbackIdentity, type WorkOsIdentity } from "./workos.js";
+import {
+  DEFAULT_WORKOS_ISSUER,
+  resolveWorkOsIdentity,
+  type WebCallbackIdentity,
+  type WorkOsIdentity,
+  type WorkOsVerificationOptions,
+} from "./workos.js";
 
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;
@@ -977,15 +983,6 @@ type WebIdentityOptions = {
   allowCliClient?: boolean;
 };
 
-type WorkOsVerifyOptions = {
-  apiKey: string;
-  clientId: string;
-  apiBaseUrl?: string;
-  issuer?: string;
-  jwksUrl?: string;
-  requireClientIdClaim?: boolean;
-};
-
 export async function authenticateWebIdentity(
   request: Request,
   env: Env,
@@ -1022,20 +1019,22 @@ export async function authenticateWebIdentity(
   return null;
 }
 
-function dashboardVerifyOptions(env: Env): WorkOsVerifyOptions | null {
+function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {
   if (!env.WORKOS_API_KEY || !env.WORKOS_CLIENT_ID) {
     return null;
   }
-  const options: WorkOsVerifyOptions = {
+  // AuthKit User Management session tokens (what the web app forwards) carry no
+  // `client_id`/`azp`/`aud` claim, so we cannot require one. The env-scoped JWKS
+  // plus issuer pin the token to our tenant. `iss` is either api.workos.com or
+  // our AuthKit domain (WORKOS_ISSUER) depending on tenant config, so accept both.
+  const options: WorkOsVerificationOptions = {
     apiKey: env.WORKOS_API_KEY,
     clientId: env.WORKOS_CLIENT_ID,
-    requireClientIdClaim: true,
+    requireClientIdClaim: false,
+    issuers: env.WORKOS_ISSUER ? [DEFAULT_WORKOS_ISSUER, env.WORKOS_ISSUER] : [DEFAULT_WORKOS_ISSUER],
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
-  }
-  if (env.WORKOS_ISSUER) {
-    options.issuer = env.WORKOS_ISSUER;
   }
   if (env.WORKOS_JWKS_URL) {
     options.jwksUrl = env.WORKOS_JWKS_URL;
@@ -1043,7 +1042,7 @@ function dashboardVerifyOptions(env: Env): WorkOsVerifyOptions | null {
   return options;
 }
 
-function cliVerifyOptions(env: Env): WorkOsVerifyOptions | null {
+function cliVerifyOptions(env: Env): WorkOsVerificationOptions | null {
   if (!env.WORKOS_API_KEY || !env.WORKOS_CLI_AUDIENCE) {
     return null;
   }
@@ -1051,7 +1050,7 @@ function cliVerifyOptions(env: Env): WorkOsVerifyOptions | null {
   // `aud` is the environment OIDC client (not the CLI OAuth app). So we match on
   // `aud` (requireClientIdClaim false) against WORKOS_CLI_AUDIENCE; the AuthKit
   // issuer and JWKS below pin the token to our tenant.
-  const options: WorkOsVerifyOptions = {
+  const options: WorkOsVerificationOptions = {
     apiKey: env.WORKOS_API_KEY,
     clientId: env.WORKOS_CLI_AUDIENCE,
     requireClientIdClaim: false,
@@ -1060,7 +1059,7 @@ function cliVerifyOptions(env: Env): WorkOsVerifyOptions | null {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
   }
   if (env.WORKOS_CLI_ISSUER) {
-    options.issuer = env.WORKOS_CLI_ISSUER;
+    options.issuers = [env.WORKOS_CLI_ISSUER];
   }
   if (env.WORKOS_CLI_JWKS_URL) {
     options.jwksUrl = env.WORKOS_CLI_JWKS_URL;
