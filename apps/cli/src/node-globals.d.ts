@@ -63,6 +63,9 @@ declare module "node:path" {
 }
 
 declare module "node:util" {
+  // Intentionally minimal: this CLI does not depend on @types/node. The single
+  // call site (credentials.ts) supplies Result explicitly, so the full Node
+  // overload set is unnecessary here.
   export function promisify<Result>(fn: (...args: never[]) => unknown): (...args: unknown[]) => Promise<Result>;
 }
 

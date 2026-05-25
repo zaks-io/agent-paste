@@ -57,8 +57,11 @@ describe("login flow", () => {
       const parsed = new URL(url);
       const redirect = new URL(parsed.searchParams.get("redirect_uri") ?? "");
       const state = parsed.searchParams.get("state") ?? "";
-      // Simulate WorkOS redirecting back to the loopback listener.
-      void fetch(`${redirect.origin}/callback?code=auth_code&state=${encodeURIComponent(state)}`);
+      // Simulate WorkOS redirecting back to the loopback listener. Surface
+      // callback failures instead of hanging waitForCallback() until timeout.
+      fetch(`${redirect.origin}/callback?code=auth_code&state=${encodeURIComponent(state)}`).catch((err) => {
+        console.error("loopback callback failed:", err);
+      });
     };
 
     const credential = await login({
