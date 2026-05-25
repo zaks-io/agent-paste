@@ -9,7 +9,7 @@ Scope clarification: this file tracks only the work that closes Phase 3 (`docs/s
 - [x] Provision the WorkOS project. One WorkOS project (single `client_id` `client_01KSAJTF1EX1YZCCXJS9B0GJ46`) backs preview + production; AuthKit is the provider.
   - Redirect URIs configured: `https://app.preview.agent-paste.sh/api/auth/callback`, `https://app.agent-paste.sh/api/auth/callback` (Default), `http://localhost:5173/api/auth/callback`.
   - WorkOS is per-environment, not per-app: one `client_id` + one `WORKOS_API_KEY` per WorkOS environment, not an Auth0-style OAuth client per service. `WORKOS_CLIENT_ID` is a public identifier kept in `wrangler.jsonc` vars; the API key and cookie password are Worker secrets.
-  - Still pending for the CLI (backlog #5, not web): add the `http://127.0.0.1:<port>/callback` loopback redirect.
+  - Still pending for the CLI (backlog #5, not web): create a dedicated WorkOS **Public OAuth (Connect)** app for `agent-paste login`, register the wildcard loopback redirect `http://127.0.0.1:*/callback`, and put its public `client_id` into `WORKOS_CLI_CLIENT_ID` (currently the `REPLACE_WITH_CLI_PUBLIC_CLIENT_ID` placeholder in `apps/api/wrangler.jsonc` for preview/production). The CLI verifies Connect tokens at the app's AuthKit-domain JWKS (`/oauth2/jwks`), not the dashboard `/sso/jwks/{client_id}`.
 - Custom domains (created automatically by `custom_domain: true` routes on deploy):
   - [x] `app.preview.agent-paste.sh` → `agent-paste-web-preview` (deployed 2026-05-24).
   - [ ] `app.agent-paste.sh` → `agent-paste-web-production` (lands with the first production web deploy; needs explicit approval).

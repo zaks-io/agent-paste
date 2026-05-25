@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
-import { AgentPasteError, ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
+import { type AgentPasteAuth, AgentPasteError, ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
 import { CreateUploadSessionRequest, WorkspaceId } from "@agent-paste/contracts";
+import { deleteCredential, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
   expiresAtFromTtl,
@@ -10,6 +11,7 @@ import {
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "./local.js";
+import { login } from "./login.js";
 
 type GlobalFlags = {
   json: boolean;
@@ -23,14 +25,28 @@ type Parsed = {
   global: GlobalFlags;
 };
 
-export async function main(argv = process.argv.slice(2), client = new ApiClient()) {
+export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   const parsed = parseArgs(argv);
-  switch (parsed.command.join(" ")) {
+  const command = parsed.command.join(" ");
+  switch (command) {
     case "":
     case "help":
     case "--help":
       printHelp();
       return;
+    case "login":
+      await login();
+      return;
+    case "logout":
+      return logout(parsed.global);
+  }
+
+  const apiClient = client ?? (await resolveClient());
+  return dispatch(command, parsed, apiClient);
+}
+
+async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
+  switch (command) {
     case "whoami":
       return output(await client.whoami(), parsed.global);
     case "publish":
@@ -95,8 +111,40 @@ export async function main(argv = process.argv.slice(2), client = new ApiClient(
     case "admin events list":
       return output(await client.admin.operationEvents.list(), parsed.global);
     default:
-      throw new Error(`Unknown command: ${parsed.command.join(" ")}`);
+      throw new Error(`Unknown command: ${command}`);
   }
+}
+
+// AGENT_PASTE_API_KEY wins for CI/headless use; otherwise the key stored by
+// `agent-paste login` is used. When both are present we note which one wins so
+// surprising precedence is visible (ADR 0060).
+async function resolveClient(): Promise<ApiClient> {
+  const envKey = process.env.AGENT_PASTE_API_KEY;
+  const stored = await loadCredential();
+  if (envKey && stored) {
+    process.stderr.write("agent-paste: using AGENT_PASTE_API_KEY (overrides the stored login credential).\n");
+  }
+  if (envKey) {
+    return new ApiClient();
+  }
+  if (stored) {
+    const auth: AgentPasteAuth = { type: "api_key", apiKey: stored.api_key };
+    return new ApiClient({ auth });
+  }
+  return new ApiClient();
+}
+
+async function logout(global: GlobalFlags) {
+  const stored = await loadCredential();
+  if (!stored) {
+    return output({ status: "no_credential" }, global, "Not signed in. Nothing to remove.");
+  }
+  await deleteCredential();
+  return output(
+    { status: "logged_out", public_id: stored.public_id },
+    global,
+    `Removed stored API key ${stored.public_id}.`,
+  );
 }
 
 async function publish(parsed: Parsed, client: ApiClient) {
@@ -250,6 +298,8 @@ function printHelp() {
   process.stdout.write(`agent-paste
 
 Usage:
+  agent-paste login
+  agent-paste logout
   agent-paste whoami [--json]
   agent-paste publish <path> [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
   agent-paste admin workspace create <email> [--name <text>]

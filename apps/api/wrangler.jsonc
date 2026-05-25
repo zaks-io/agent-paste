@@ -18,6 +18,7 @@
     "CLEANUP_BATCH_SIZE": "100",
     "DOCS_BASE_URL": "",
     "WORKOS_CLIENT_ID": "",
+    "WORKOS_CLI_CLIENT_ID": "",
     "CF_ACCESS_TEAM_DOMAIN": "",
     "CF_ACCESS_AUD": ""
   },
@@ -70,6 +71,9 @@
         "AGENT_PASTE_ENV": "preview",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        // Operator: replace with the public client_id of the dedicated WorkOS
+        // Public OAuth (Connect) app used by `agent-paste login`. Public id.
+        "WORKOS_CLI_CLIENT_ID": "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },
@@ -127,6 +131,9 @@
         "AGENT_PASTE_ENV": "production",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
+        // Operator: replace with the public client_id of the dedicated WorkOS
+        // Public OAuth (Connect) app used by `agent-paste login`. Public id.
+        "WORKOS_CLI_CLIENT_ID": "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID",
         "CF_ACCESS_TEAM_DOMAIN": "",
         "CF_ACCESS_AUD": ""
       },

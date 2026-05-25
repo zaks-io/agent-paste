@@ -178,7 +178,7 @@ _Avoid_: Owner, author
 
 <a id="scope"></a>
 **Scope**:
-A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** when authenticated for direct workspace control (the dashboard); when authenticated through a delegated agent surface such as the CLI or MCP, the access token carries an explicit **Scope** subset and the implicit grant does not apply. An **API Key** holds a named subset.
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** (including **Member-Only Scopes** such as `admin`) only when authenticated for direct workspace control (the dashboard). The CLI does not carry **Scopes** in a token: `agent-paste login` mints an **API Key**, and minted keys are capped at `publish` and `read` (never `admin`), so the CLI surface is structurally below the dashboard ceiling. An **API Key** holds a named subset.
 _Avoid_: Role, capability
 
 <a id="member-only-scope"></a>
@@ -327,7 +327,7 @@ _Avoid_: sse worker, push worker, realtime gateway
 
 <a id="cli"></a>
 **cli**:
-The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. Authenticates either with a WorkOS loopback PKCE flow for humans (ADR 0060) or with `AGENT_PASTE_API_KEY` for CI and headless agents.
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow (against a dedicated Public OAuth Connect app) that mints and stores a scoped **API Key**, then discards the WorkOS token (ADR 0060); `AGENT_PASTE_API_KEY` remains the path for CI and headless agents and takes precedence over the stored key.
 _Avoid_: client, sdk, ap tool
 
 <a id="mcp"></a>
