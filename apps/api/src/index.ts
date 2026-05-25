@@ -138,6 +138,7 @@ const AUTH_CACHE_TTL_SECONDS = 60;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = [
+  "/healthz",
   "/openapi.json",
   "/admin/whoami",
   "/__test__/force-expire",
@@ -146,6 +147,7 @@ export const nonContractRoutePaths = [
 ] as const;
 
 app.use("*", requestIdMiddleware());
+app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(
     buildApiOpenApiDocument({ serverUrl: context.env.API_BASE_URL, docsBaseUrl: context.env.DOCS_BASE_URL }),

@@ -10,7 +10,14 @@ describe("upload worker", () => {
         .map((route) => route.id)
         .sort(),
     );
-    expect([...nonContractRoutePaths]).toEqual(["/openapi.json"]);
+    expect([...nonContractRoutePaths]).toEqual(["/healthz", "/openapi.json"]);
+  });
+
+  it("GET /healthz returns 200 with no cookies", async () => {
+    const response = await handleRequest(new Request("https://upload.test/healthz"), {});
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("serves a generated OpenAPI document", async () => {

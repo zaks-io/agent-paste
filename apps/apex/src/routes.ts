@@ -74,6 +74,13 @@ export function routeApex(request: Request): Response | null {
     return xmlResponse(sitemapXml(url.origin), request.method);
   }
 
+  if (url.pathname === "/healthz") {
+    return new Response("ok", {
+      status: 200,
+      headers: { "content-type": TEXT_PLAIN },
+    });
+  }
+
   return null;
 }
 

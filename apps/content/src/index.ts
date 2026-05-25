@@ -79,9 +79,10 @@ const securityHeaders = {
 };
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
-export const nonContractRoutePaths = ["/openapi.json"] as const;
+export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
 app.use("*", requestIdMiddleware());
+app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(
     buildContentOpenApiDocument({ serverUrl: context.env.CONTENT_BASE_URL ?? new URL(context.req.raw.url).origin }),

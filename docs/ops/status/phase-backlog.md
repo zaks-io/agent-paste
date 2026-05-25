@@ -27,9 +27,10 @@ admin basics.
 2. [x] Build the operator lockdown UI. The web `/admin` route now lists active
        lockdowns and lets operators set or lift workspace/artifact lockdowns
        through the existing operator API.
-3. [ ] Harden PR-preview readiness. Require `curl --fail` against `/healthz`,
-       require consecutive successes, retry known 1042/404 propagation flakes,
-       and add a docs-only path filter so documentation PRs skip per-PR deploy.
+3. [x] Harden PR-preview readiness. The preview gate now polls `/healthz` on
+       every deployed worker (api/upload/content/apex/web each serve an
+       unauthenticated 200), requires 3 consecutive 200s, treats 404/530 (CF 1042) as transient propagation flakes and retries, and the workflow
+       skips docs-only PRs via `paths-ignore`.
 4. [ ] Add the Lighthouse a11y gate on `/dashboard` empty state and fail the
        preview job below 95.
 5. [ ] Write `docs/ops/runbook-workos.md`: WorkOS project config, redirect URI

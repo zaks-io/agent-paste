@@ -37,7 +37,27 @@ describe("content worker", () => {
         .map((route) => route.id)
         .sort(),
     );
-    expect([...nonContractRoutePaths]).toEqual(["/openapi.json"]);
+    expect([...nonContractRoutePaths]).toEqual(["/healthz", "/openapi.json"]);
+  });
+
+  it("GET /healthz returns 200 with no cookies", async () => {
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get() {
+          return null;
+        },
+      },
+    };
+    const response = await handleRequest(new Request("https://content.test/healthz"), env);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("serves a generated OpenAPI document", async () => {

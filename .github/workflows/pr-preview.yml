@@ -6,6 +6,10 @@ on:
       - opened
       - synchronize
       - reopened
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
 
 permissions:
   contents: read
@@ -110,7 +114,7 @@ jobs:
           WORKOS_PREVIEW_API_KEY: ${{ secrets.WORKOS_PREVIEW_API_KEY }}
         run: node scripts/deploy-pr-preview.mjs
 
-      - name: Wait for Workers DNS propagation
+      - name: Wait for Workers /healthz readiness
         env:
           API_URL: ${{ steps.deploy.outputs.api_url }}
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
@@ -118,25 +122,45 @@ jobs:
           APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           WEB_SMOKE_URL: ${{ steps.deploy.outputs.web_smoke_url }}
         run: |
-          wait_for() {
-            local url="$1"
+          # Require CONSECUTIVE_REQUIRED consecutive 200s before declaring a URL ready.
+          # Only an exact 200 counts as healthy. HTTP 404 (route not yet propagated)
+          # and HTTP 530 (Cloudflare error 1042, worker not yet routed) are
+          # expected-transient during propagation, so they just reset the counter
+          # and we retry. Connection/timeout errors capture as "000".
+          CURL_TIMEOUT=5
+          CONSECUTIVE_REQUIRED=3
+          MAX_ATTEMPTS=45
+          SLEEP_SECONDS=2
+
+          wait_for_healthz() {
+            local url="$1/healthz"
             local i=0
-            while [ $i -lt 30 ]; do
+            local consecutive=0
+            while [ $i -lt $MAX_ATTEMPTS ]; do
               i=$((i+1))
-              if curl -sS -o /dev/null --max-time 5 "$url"; then
-                echo "$url reachable after $i attempt(s)"
-                return 0
+              status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time $CURL_TIMEOUT "$url" 2>/dev/null) || status="000"
+              if [ "$status" = "200" ]; then
+                consecutive=$((consecutive+1))
+                echo "$url healthy ($consecutive/$CONSECUTIVE_REQUIRED) on attempt $i"
+                if [ $consecutive -ge $CONSECUTIVE_REQUIRED ]; then
+                  echo "$url ready after $i attempt(s)"
+                  return 0
+                fi
+              else
+                # 404 = route not yet propagated; 530 = CF error 1042 (worker not routed yet)
+                consecutive=0
+                echo "$url not ready (status=$status) on attempt $i, retrying..."
               fi
-              sleep 2
+              sleep $SLEEP_SECONDS
             done
-            echo "::error::$url did not become reachable within 60s"
+            echo "::error::$url never got $CONSECUTIVE_REQUIRED consecutive healthy /healthz responses within ~$((MAX_ATTEMPTS * (CURL_TIMEOUT + SLEEP_SECONDS)))s"
             return 1
           }
-          wait_for "$API_URL"
-          wait_for "$UPLOAD_URL"
-          wait_for "$CONTENT_URL"
-          wait_for "$APEX_URL"
-          if [ -n "$WEB_SMOKE_URL" ]; then wait_for "$WEB_SMOKE_URL/healthz"; fi
+          wait_for_healthz "$API_URL"
+          wait_for_healthz "$UPLOAD_URL"
+          wait_for_healthz "$CONTENT_URL"
+          wait_for_healthz "$APEX_URL"
+          if [ -n "$WEB_SMOKE_URL" ]; then wait_for_healthz "$WEB_SMOKE_URL"; fi
 
       - name: Smoke PR preview
         env:
