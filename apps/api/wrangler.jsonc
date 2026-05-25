@@ -72,9 +72,10 @@
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         // AuthKit User Management session tokens (forwarded by the web app) are
-        // issued by our AuthKit domain. The dashboard verify path also accepts the
-        // api.workos.com default, so this covers both tenant configurations.
-        "WORKOS_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
+        // issued by api.workos.com/user_management/{env default client}, NOT the
+        // authkit.app domain (that is the CLI/Connect issuer below). The env default
+        // client equals WORKOS_CLI_AUDIENCE.
+        "WORKOS_ISSUER": "https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
         // `agent-paste login` (WorkOS Public OAuth / Connect app) tokens verify
         // against the authkit.app JWKS and issuer, not the api.workos.com dashboard
         // path. WORKOS_CLI_AUDIENCE is the environment OIDC client stamped into the
@@ -141,9 +142,10 @@
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
         // AuthKit User Management session tokens (forwarded by the web app) are
-        // issued by our AuthKit domain. The dashboard verify path also accepts the
-        // api.workos.com default, so this covers both tenant configurations.
-        "WORKOS_ISSUER": "https://soulful-path-50.authkit.app",
+        // issued by api.workos.com/user_management/{env default client}, NOT the
+        // authkit.app domain (that is the CLI/Connect issuer below). The env default
+        // client equals WORKOS_CLI_AUDIENCE. Confirmed against the prod worker tail.
+        "WORKOS_ISSUER": "https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ",
         // Production WorkOS environment (soulful-path-50), distinct from preview's
         // staging environment. WORKOS_CLI_AUDIENCE is the environment OIDC client
         // stamped into the Connect token `aud` (WorkOS exposes no claim for the OAuth
