@@ -39,6 +39,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
 
 export type Feature = {
   title: string;
+  // Body prose; `backtick` spans render as inline <code> (see renderFeature).
   body: string;
 };
 
@@ -49,7 +50,7 @@ export const FEATURES: Feature[] = [
   },
   {
     title: "Sign in once, no keys to wrangle",
-    body: "agent-paste login runs a browser OAuth flow and provisions its own scoped key, stored on your machine. For CI, set AGENT_PASTE_API_KEY from a dashboard key. That is the only time you handle one.",
+    body: "`agent-paste login` runs a browser OAuth flow and provisions its own scoped key, stored on your machine. For CI, set `AGENT_PASTE_API_KEY` from a dashboard key. That is the only time you handle one.",
   },
   {
     title: "Transient by default",

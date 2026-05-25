@@ -89,7 +89,13 @@ function renderWordmark(extraClass = ""): string {
 }
 
 function renderFeature(feature: Feature): string {
-  return `<article class="feature"><h2 class="feature-title">${esc(feature.title)}</h2><p class="feature-body">${esc(feature.body)}</p></article>`;
+  return `<article class="feature"><h2 class="feature-title">${esc(feature.title)}</h2><p class="feature-body">${renderProse(feature.body)}</p></article>`;
+}
+
+// Escapes first, then turns `backtick` spans into inline <code>. Because the
+// span contents are already escaped, the wrapped markup is injection-safe.
+function renderProse(text: string): string {
+  return esc(text).replace(/`([^`]+)`/g, '<code class="code">$1</code>');
 }
 
 function renderFooterColumn(column: FooterColumn): string {

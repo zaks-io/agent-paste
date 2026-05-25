@@ -415,6 +415,13 @@ ul {
   color: hsl(var(--muted));
 }
 
+.feature-body .code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  letter-spacing: 0;
+  color: hsl(var(--foreground));
+}
+
 /* ---- Footer ---- */
 
 .page-foot {
