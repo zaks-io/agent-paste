@@ -94,9 +94,10 @@ const DEFAULT_API_BASE_URL = "https://api.agent-paste.sh";
 const UPLOAD_FILE_PATH_MARKER = "/files/";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
-export const nonContractRoutePaths = ["/openapi.json"] as const;
+export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
 app.use("*", requestIdMiddleware());
+app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),
 );

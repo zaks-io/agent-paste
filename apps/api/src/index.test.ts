@@ -18,12 +18,20 @@ describe("api worker", () => {
         .sort(),
     );
     expect([...nonContractRoutePaths]).toEqual([
+      "/healthz",
       "/openapi.json",
       "/admin/whoami",
       "/__test__/force-expire",
       "/__test__/r2-list",
       "/__test__/denylist",
     ]);
+  });
+
+  it("GET /healthz returns 200 with no cookies", async () => {
+    const response = await handleRequest(new Request("https://api.test/healthz"), {});
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("serves a generated OpenAPI document", async () => {

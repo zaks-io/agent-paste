@@ -140,6 +140,14 @@ describe("apex worker", () => {
     expect(response.headers.get("location")).toBe("https://app.agent-paste.sh/r/token-abc");
   });
 
+  it("GET /healthz returns 200 ok with no cookies", async () => {
+    const response = await get("/healthz");
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
   it("returns 404 for unknown paths when no asset binding is present", async () => {
     const response = await get("/no-such-page");
     expect(response.status).toBe(404);
@@ -172,7 +180,7 @@ describe("apex worker", () => {
   });
 
   it("never sets cookies on any apex response", async () => {
-    const paths = ["/", "/llms.txt", "/agents.md", "/robots.txt", "/sitemap.xml", "/dashboard"];
+    const paths = ["/", "/llms.txt", "/agents.md", "/robots.txt", "/sitemap.xml", "/dashboard", "/healthz"];
     for (const path of paths) {
       const response = await get(path);
       expect(response.headers.get("set-cookie"), `cookie on ${path}`).toBeNull();
