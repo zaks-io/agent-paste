@@ -123,7 +123,7 @@ function renderTranscript(lines: TranscriptLine[]): string {
       }
       const url = `${line.origin}${line.id}`;
       return `<span class="t-line t-result"><span class="t-arrow" aria-hidden="true">→</span> <span
-        class="id t-copy is-inline"
+        class="id t-copy"
         role="button"
         tabindex="0"
         data-clipboard="${esc(url)}"
