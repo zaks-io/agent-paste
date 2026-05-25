@@ -105,6 +105,9 @@ jobs:
           CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           PR_PREVIEW_SECRET_SEED: ${{ secrets.PR_PREVIEW_SECRET_SEED }}
           OPERATOR_EMAILS: isaac@zaks.io
+          # Preview WorkOS environment API key; when unset, deploy-pr-preview.mjs
+          # skips the web worker (the other workers need no WorkOS credential).
+          WORKOS_PREVIEW_API_KEY: ${{ secrets.WORKOS_PREVIEW_API_KEY }}
         run: node scripts/deploy-pr-preview.mjs
 
       - name: Wait for Workers DNS propagation
@@ -113,6 +116,7 @@ jobs:
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
           APEX_URL: ${{ steps.deploy.outputs.apex_url }}
+          WEB_SMOKE_URL: ${{ steps.deploy.outputs.web_smoke_url }}
         run: |
           wait_for() {
             local url="$1"
@@ -132,6 +136,7 @@ jobs:
           wait_for "$UPLOAD_URL"
           wait_for "$CONTENT_URL"
           wait_for "$APEX_URL"
+          if [ -n "$WEB_SMOKE_URL" ]; then wait_for "$WEB_SMOKE_URL/healthz"; fi
 
       - name: Smoke PR preview
         env:
@@ -141,12 +146,19 @@ jobs:
           AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
           AGENT_PASTE_PR_APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           AGENT_PASTE_PR_ADMIN_TOKEN: ${{ steps.deploy.outputs.admin_token }}
+          # Empty when web was skipped (no WorkOS key); smokeWebAuth no-ops then.
+          AGENT_PASTE_PR_WEB_URL: ${{ steps.deploy.outputs.web_smoke_url }}
         run: pnpm smoke:pr
 
       - name: Comment PR preview links
         uses: actions/github-script@v8
         with:
           script: |
+            // The gate waits on the workers.dev smoke host, not this custom domain,
+            // so on a first deploy its TLS cert may still be propagating (minutes).
+            const webLine = process.env.WEB_URL
+              ? [`Web (login): ${process.env.WEB_URL} (first deploy: allow a few minutes for the TLS cert)`]
+              : [];
             const body = [
               "agent-paste PR preview is ready.",
               "",
@@ -154,6 +166,7 @@ jobs:
               `Upload: ${process.env.UPLOAD_URL}`,
               `Content: ${process.env.CONTENT_URL}`,
               `Apex: ${process.env.APEX_URL}`,
+              ...webLine,
               `Neon branch: https://console.neon.tech/app/projects/${process.env.NEON_PROJECT_ID}/branches/${process.env.NEON_BRANCH_ID}`,
             ].join("\n");
             await github.rest.issues.createComment({
@@ -167,6 +180,7 @@ jobs:
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
           APEX_URL: ${{ steps.deploy.outputs.apex_url }}
+          WEB_URL: ${{ steps.deploy.outputs.web_url }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
 
