@@ -1,12 +1,11 @@
 # config
 
-Planned typed environment parsing package.
+Shared constants and path/expiry helpers.
 
 Responsibilities:
 
-- Per-app environment schemas.
-- Secret presence validation.
-- Host/origin configuration.
-- Environment name parsing for `preview` and `production`.
+- Local data directory and MVP size/TTL constants.
+- Storage path normalization with traversal and length checks.
+- Expiration helper shared by local and test flows.
 
 This package should not hide global runtime state.

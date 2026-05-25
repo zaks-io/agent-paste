@@ -1,12 +1,11 @@
 # storage
 
-Planned storage helper package.
+Content response helper package.
 
 Responsibilities:
 
-- R2 key construction from ids and normalized paths.
-- Content-gateway token packing, signing, and verification helpers.
-- Access Link Signed URL payload packing helpers shared by `api` tests.
-- Served content type mapping.
+- Served content type mapping from a fixed extension allowlist.
+- Default `application/octet-stream` fallback for unknown extensions.
+- Shared response security headers for untrusted content serving.
 
-Runtime signing keys remain Worker secrets; this package should not embed secret values.
+Runtime signing and URL helpers live in `@agent-paste/tokens`; this package has no secret material.

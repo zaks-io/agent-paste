@@ -15,7 +15,7 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 
 ## Routes
 
-Every spec route from `docs/specs/web.md` resolves. Loaders for `/v1/web/*` endpoints render `EmptyState` until the corresponding `apps/api` route lands — see [`docs/ops/web-app-todo.md`](../../docs/ops/web-app-todo.md).
+Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, audit, and settings flows. Deferred surfaces such as Access Links still render `EmptyState`; see [`docs/ops/web-app-todo.md`](../../docs/ops/web-app-todo.md).
 
 ```
 /                          → redirect by session
@@ -60,7 +60,8 @@ Without a WorkOS project provisioned, `/api/auth/sign-in` still redirects to the
 - `pnpm --filter @agent-paste/web build` — produces `dist/client` + worker entry.
 - `pnpm --filter @agent-paste/web typecheck` — `tsc --noEmit`.
 - `pnpm --filter @agent-paste/web lint` — Biome lint (includes the Access Link import guard).
-- `pnpm --filter @agent-paste/web test` — Vitest (`format`, `Identifier`).
+- `pnpm --filter @agent-paste/web test` — Vitest component, loader, formatting, and mutation tests.
+- `pnpm --filter @agent-paste/web typegen` — regenerate Cloudflare binding types.
 - `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` — `wrangler deploy --env ...`.
 
 ## Lint rules
@@ -74,6 +75,6 @@ Per `wrangler.jsonc`:
 - `preview` env: route `app.preview.agent-paste.sh`, service binding to `agent-paste-api-preview`.
 - `production` env: route `app.agent-paste.sh`, service binding to `agent-paste-api-production`.
 
-Before the first preview deploy, the work in [`docs/ops/web-app-todo.md`](../../docs/ops/web-app-todo.md) must be completed (WorkOS project + secrets bootstrap + DNS).
+Preview and production deploys run with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific worker config.
 
 Production is never deployed without explicit operator approval (ADR 0067, project-level convention).

@@ -6,7 +6,6 @@
   "scripts": {
     "build": "vite build",
     "check": "pnpm typecheck",
-    "cf-typegen": "wrangler types --config wrangler.jsonc --env preview",
     "deploy:live": "pnpm deploy:production",
     "deploy:preview": "CLOUDFLARE_ENV=preview pnpm build && CLOUDFLARE_ENV=preview wrangler deploy",
     "deploy:production": "CLOUDFLARE_ENV=production pnpm build && CLOUDFLARE_ENV=production wrangler deploy",
@@ -14,7 +13,8 @@
     "lint": "biome lint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "typegen": "wrangler types --config wrangler.jsonc --env preview"
   },
   "dependencies": {
     "@agent-paste/contracts": "workspace:*",

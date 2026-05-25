@@ -104,13 +104,11 @@ Default human-readable output:
 ```
 Published artifact art_01H... revision rev_01H...
 
-  Revision:   https://app.agent-paste.sh/al/AB3CDEFGHJKLMN56#AQEAAAGJk2YA...
-  Private:    https://app.agent-paste.sh/artifacts/art_01H...
+  Title:      report
+  View:       https://usercontent.agent-paste.sh/v/...
   Agent View: https://api.agent-paste.sh/v1/artifacts/art_01H.../agent-view
-  Bundle:     pending
+  Expires:    2026-06-20T00:00:00.000Z
 ```
-
-With `--share`, the output also lists the **Share Link**. If the publish attached **Safety Warnings**, they appear at the bottom under a `Safety:` header. Asynchronous Safety Warnings created after publish are not visible here; fetch the **Agent View** to see them.
 
 With `--json`, stdout is exactly the Publish Result:
 
@@ -179,4 +177,4 @@ The `code` field is the stable identifier; `message` is human-readable.
 
 The CLI assumes `npx` is available. For non-Node environments (Python or Go agents, server-to-server callers, sandboxes without npm access), use the public REST API directly at `https://api.agent-paste.sh/v1`. Lower-level **Upload Session** endpoints are public and documented in the OpenAPI spec.
 
-Hosted agent products that support MCP can use the OAuth-only MCP server at `https://mcp.agent-paste.sh`. MCP is intentionally text-only for publish/update operations; binary and multi-file **Artifacts** remain CLI/REST territory.
+Hosted agent products that support MCP will eventually use the OAuth-only MCP server at `https://mcp.agent-paste.sh`. MCP is intentionally deferred; binary and multi-file **Artifacts** are CLI/REST territory today.

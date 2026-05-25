@@ -46,6 +46,22 @@ agent creates HTML thing -> runs CLI -> gets URL -> shares it -> another agent c
 
 Everything else earns its way in.
 
+## Agent Adoption Risks
+
+The tool is only useful to agents if publishing becomes the obvious low-friction move after producing an inspectable work product. The real alternative is not another polished platform; it is the agent doing whatever is fastest in the moment: pasting too much into chat, asking the human to run a local server, committing temporary files, attaching a zip, creating a gist, or deploying to an existing preview host.
+
+Keep these risks visible while polishing:
+
+- If auth or first-run setup feels heavy, agents will avoid the tool.
+- If `publish` is slower or less reliable than a local server plus screenshot, it will not become a habit.
+- If common generated artifacts exceed size, file-count, or content-type limits, agents will fall back to ad hoc sharing.
+- If URLs or Agent View responses are flaky, another agent cannot depend on the handoff.
+- If the human-facing view is less useful than a screenshot or local preview, the URL is not enough.
+- If the product drifts toward permanent hosting, it will compete with stronger deployment tools instead of owning transient handoff.
+- If the machine-readable Agent View is underdeveloped, the product collapses back toward generic pastebin behavior.
+
+The wedge should be judged by whether an agent naturally thinks: "I made a thing; publish it; share the URL." Anything that interrupts that reflex weakens the product.
+
 ## Product Rules
 
 - Prefer a working hosted publish loop over completeness.

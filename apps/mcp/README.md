@@ -6,7 +6,7 @@ Responsibilities:
 
 - Streamable HTTP MCP transport.
 - OAuth protected resource metadata.
-- Auth0 bearer verification.
+- OAuth bearer verification. The provider is expected to be re-decided when MCP work is promoted.
 - Forwarding to `api` over service binding.
 - Text-only MCP tool surface.
 
