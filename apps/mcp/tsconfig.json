@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "WebWorker"],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*.ts"]
 }
