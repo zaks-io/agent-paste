@@ -2,29 +2,13 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const dependencySections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
 const requiredCodeScripts = ["build", "lint", "test", "typecheck", "check"];
 const requiredWorkerScripts = ["dev", "deploy:preview", "deploy:production", "deploy:live", "typegen"];
 const requiredMetadataScripts = ["lint", "check"];
-const implementedReadmes = new Set([
-  "apps/apex/README.md",
-  "apps/api/README.md",
-  "apps/cli/README.md",
-  "apps/content/README.md",
-  "apps/upload/README.md",
-  "apps/web/README.md",
-  "packages/api-client/README.md",
-  "packages/auth/README.md",
-  "packages/commands/README.md",
-  "packages/config/README.md",
-  "packages/contracts/README.md",
-  "packages/db/README.md",
-  "packages/storage/README.md",
-  "packages/tokens/README.md",
-  "packages/worker-runtime/README.md",
-]);
 
 const errors = [];
 
@@ -43,8 +27,9 @@ function main() {
   validateWorkspacePackages(workspacePackages);
   validateDependencies(workspacePackages, rootPackage);
   validateRootGuardrails();
-  validateRootReadme(rootPackage, workspacePackages);
-  validateStaleReadmePhrases(workspacePackages);
+  const rootReadme = readText("README.md");
+  validateRootReadme(rootReadme, rootPackage, workspacePackages);
+  validateStaleReadmePhrases(rootReadme, workspacePackages);
 
   if (errors.length > 0) {
     for (const error of errors) {
@@ -130,6 +115,8 @@ function validateDependencies(workspacePackages, rootPackage) {
 }
 
 function validateRootGuardrails() {
+  // These guardrails intentionally use exact-string checks against stable repo config.
+  // If formatting churn becomes common, replace the YAML/text checks with real parsers.
   const npmrc = readText(".npmrc");
   if (!/^engine-strict=true$/m.test(npmrc)) {
     errors.push(".npmrc: expected engine-strict=true");
@@ -154,8 +141,7 @@ function validateRootGuardrails() {
   }
 }
 
-function validateRootReadme(rootPackage, workspacePackages) {
-  const readme = readText("README.md");
+function validateRootReadme(readme, rootPackage, workspacePackages) {
   for (const pkg of workspacePackages) {
     if (!readme.includes(pkg.dir)) {
       errors.push(`README.md: missing workspace path ${pkg.dir}`);
@@ -168,14 +154,14 @@ function validateRootReadme(rootPackage, workspacePackages) {
   }
 }
 
-function validateStaleReadmePhrases(workspacePackages) {
-  const rootReadme = readText("README.md");
+function validateStaleReadmePhrases(rootReadme, workspacePackages) {
   for (const phrase of ["No runtime application code", "prepared for implementation"]) {
     if (rootReadme.includes(phrase)) {
       errors.push(`README.md: stale phrase ${JSON.stringify(phrase)}`);
     }
   }
 
+  const implementedReadmes = implementedReadmesFromRootReadme(rootReadme, workspacePackages);
   for (const pkg of workspacePackages) {
     if (!implementedReadmes.has(pkg.readmePath)) continue;
     const text = readText(pkg.readmePath);
@@ -185,6 +171,20 @@ function validateStaleReadmePhrases(workspacePackages) {
   }
 }
 
+function implementedReadmesFromRootReadme(rootReadme, workspacePackages) {
+  const implemented = new Set();
+  for (const pkg of workspacePackages) {
+    const row = rootReadme.split(/\r?\n/u).find((line) => line.includes(`[\`${pkg.dir}\`]`));
+    if (row?.includes("Implemented")) {
+      implemented.add(pkg.readmePath);
+    }
+  }
+  return implemented;
+}
+
+// Lightweight, dependency-free extraction for the current pnpm-workspace.yaml shape.
+// Assumes a top-level "catalog:" section, exactly two-space-indented entries, and
+// stops at the next top-level key. Use a YAML parser if this file gets more complex.
 function readCatalogNames() {
   const names = new Set();
   const lines = readText("pnpm-workspace.yaml").split(/\r?\n/u);
