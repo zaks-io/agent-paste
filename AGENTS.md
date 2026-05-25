@@ -2,7 +2,7 @@
 
 ## Start here
 
-Read `docs/ops/project-status.md` first. It is the source of truth for what is implemented, what is partial, what is deferred, and the ordered backlog. When asked to "implement the next step," start at the top of the backlog in that file.
+Read `docs/ops/project-status.md` first. It is the status entrypoint and links to the detailed ledgers. When asked to "implement the next step," follow its link to `docs/ops/status/phase-backlog.md` and start at the top of the active phase.
 
 Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
 

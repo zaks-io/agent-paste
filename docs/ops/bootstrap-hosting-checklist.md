@@ -1,6 +1,6 @@
 # Bootstrap Hosting Checklist
 
-Click-ops checklist for the items still open under backlog item #3 (Complete bootstrap hosting checklist) in [`project-status.md`](./project-status.md). Drives [ADR 0058](../adr/0058-first-deploy-schema-and-secret-bootstrap.md) and [ADR 0014](../adr/0014-single-domain-with-hardened-content-subdomain.md).
+Click-ops checklist for the parked hosted-ops items now summarized in [`status/hosted-ops.md`](./status/hosted-ops.md). Drives [ADR 0058](../adr/0058-first-deploy-schema-and-secret-bootstrap.md) and [ADR 0014](../adr/0014-single-domain-with-hardened-content-subdomain.md).
 
 Audience: Isaac + Codex. Total wall time once values are pre-staged: ~30 minutes.
 
@@ -37,7 +37,7 @@ Out of scope:
 - Worker code, migrations, or CI workflow changes.
 - Auth0 tenant config (Phase 3+; see [ADR 0066](../adr/0066-cli-first-mvp-contract-narrowing.md)).
 - Logpush -> Axiom wiring (covered by item #2 / `runbook-logpush.md`).
-- Stable preview custom domains. PR preview lifecycle is tracked separately in `project-status.md`.
+- Stable preview custom domains. PR preview lifecycle is tracked separately in [`status/hosted-ops.md`](./status/hosted-ops.md).
 - Secret rotation cadence (covered by [ADR 0045](../adr/0045-secret-rotation-cadence-and-on-demand-tooling.md)).
 
 ## 1. DNS on `agent-paste.sh`
@@ -92,7 +92,7 @@ curl -fsS -o /dev/null -w "content /openapi.json %{http_code} cert=%{ssl_verify_
 
 ## 2. Bitwarden vault entries
 
-Every secret in the table below must exist in the Bitwarden `agent-paste / production` collection before this checklist is considered Done. Cross-checked against `apps/*/wrangler.jsonc` (Worker bindings), `scripts/bootstrap-secrets.mjs` (auto-minted Worker secrets), `.github/workflows/deploy-production.yml` (GitHub-side secrets), and `docs/ops/project-status.md` § GitHub.
+Every secret in the table below must exist in the Bitwarden `agent-paste / production` collection before this checklist is considered Done. Cross-checked against `apps/*/wrangler.jsonc` (Worker bindings), `scripts/bootstrap-secrets.mjs` (auto-minted Worker secrets), `.github/workflows/deploy-production.yml` (GitHub-side secrets), and [`status/hosted-ops.md`](./status/hosted-ops.md).
 
 ### Worker secrets (minted by `scripts/bootstrap-secrets.mjs`)
 
@@ -269,7 +269,7 @@ gh run watch --repo zaks-io/agent-paste
 
 ## Done criteria
 
-Item #3 in `project-status.md` is Done when:
+This checklist is Done when:
 
 - All checkboxes in sections 1-3 are checked.
 - `pnpm smoke:production` exits 0 from a clean local checkout.
@@ -277,4 +277,4 @@ Item #3 in `project-status.md` is Done when:
 - `gh secret list --repo zaks-io/agent-paste --env Production` lists `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`.
 - Bitwarden holds the six Worker secrets under `agent-paste / production` plus the three production infra secrets under `agent-paste / infra`.
 
-When closing: move item #3 to the Recently Completed section in `project-status.md` and link back to this checklist. **Codex can handle** the final doc update after the mixed-owner checks are complete.
+When closing: update [`status/hosted-ops.md`](./status/hosted-ops.md), [`status/phase-backlog.md`](./status/phase-backlog.md), and [`status/changelog.md`](./status/changelog.md) with a link back to this checklist. **Codex can handle** the final doc update after the mixed-owner checks are complete.

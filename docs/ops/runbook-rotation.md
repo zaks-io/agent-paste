@@ -151,7 +151,7 @@ Procedure:
 
 ## Rotate WorkOS Web Secrets
 
-Current status: WorkOS AuthKit is the current web auth stack, but the dashboard remains a scaffold until the WorkOS project click-ops and API member resolution are finished.
+Current status: WorkOS AuthKit is the current web auth stack. Preview and production WorkOS login work; the remaining Phase 3 web items are tracked in [`status/phase-backlog.md`](./status/phase-backlog.md#active-phase-3-close-out) and [`web-app-todo.md`](./web-app-todo.md).
 
 ### `WORKOS_API_KEY`
 
@@ -164,7 +164,7 @@ Current status: WorkOS AuthKit is the current web auth stack, but the dashboard 
    wrangler secret put WORKOS_API_KEY --cwd apps/web --env preview
    ```
 
-4. Verify both services after the writes. Run the focused web smoke when available; until then, run `pnpm --filter @agent-paste/web typecheck` plus the hosted MVP smoke.
+4. Verify both services after the writes. Run `pnpm smoke:web` plus the hosted environment smoke for the target environment.
 
 ### `WORKOS_CLIENT_ID`
 

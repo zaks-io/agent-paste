@@ -1,6 +1,6 @@
 # Logpush to Axiom Runbook
 
-Click-ops runbook for wiring Cloudflare Workers Logpush into Axiom for `api`, `upload`, and `content`. Drives ADR 0011 and backlog item #6 in [`project-status.md`](./project-status.md).
+Click-ops runbook for wiring Cloudflare Workers Logpush into Axiom for `api`, `upload`, and `content`. Drives ADR 0011 and the parked Phase 2 ops item in [`status/phase-backlog.md`](./status/phase-backlog.md#parked-ops--phase-2).
 
 Scope:
 
@@ -11,7 +11,8 @@ Scope:
 
 Out of scope:
 
-- `jobs`, `web`, `mcp` Workers (scaffolds only, no business logic per `project-status.md`).
+- `jobs` and `mcp` Workers (scaffold-only today).
+- `web` and `apex` Workers (valuable later, but this runbook intentionally starts with the three MVP runtime Workers).
 - Marketing `apex` Worker (low-value logs, defer).
 - Tail Workers, R2 access logs, audit-event ingestion (separate runbooks).
 
@@ -20,7 +21,7 @@ Out of scope:
 ### Cloudflare
 
 - [ ] Logged into the `zaks-io` Cloudflare account (`a461d640900eb3905d7b6619c8c0da91`). `wrangler whoami` confirms.
-- [ ] Workers Paid plan active (Logpush requires it; already confirmed in `project-status.md` § Cloudflare).
+- [ ] Workers Paid plan active (Logpush requires it; already confirmed in [`status/hosted-ops.md`](./status/hosted-ops.md)).
 - [ ] All six Worker names exist and are deployed:
   - `agent-paste-api-preview`, `agent-paste-api-production`
   - `agent-paste-upload-preview`, `agent-paste-upload-production`
@@ -107,7 +108,7 @@ Drop or never-log (Worker code is already responsible; this is the operator's de
 - HTTP headers: `Authorization`, `Cookie`, `X-API-Key`, `X-Admin-Token`, `Idempotency-Key`.
 - Query params on signed URLs: `token`, `kid`, `expires` (these appear in `Event.Request.URL` and **will** show up in Axiom; treat URL field as low-trust and redact in dashboard queries).
 - Request bodies: never logged. Worker logs include the route + status, not the payload.
-- Secrets that must never appear in any log line (from `project-status.md` § Worker secrets):
+- Secrets that must never appear in any log line (from [`status/hosted-ops.md`](./status/hosted-ops.md#secrets)):
   - `CONTENT_SIGNING_SECRET`
   - `UPLOAD_SIGNING_SECRET`
   - `API_KEY_PEPPER_V1`
@@ -225,11 +226,11 @@ Use a real artifact `view-token` from a production smoke run (`AGENT_PASTE_PRODU
 
 ## Done criteria
 
-Item #6 in `project-status.md` is Done when:
+The parked Phase 2 Logpush item is Done when:
 
 - All six Logpush jobs are listed and `enabled: true`.
 - All six Axiom datasets receive events with `_time > ago(15m)` after a traffic burst.
 - Both dashboards render non-empty panels.
 - Field-banlist APL queries (above) return `0` rows.
 
-When closing: update `project-status.md` § ADR 0011 row to `Done` and move item #6 to the Recently Completed section with a link back to this runbook.
+When closing: update [`status/coverage.md`](./status/coverage.md) ADR 0011 to `Done`, update [`status/phase-backlog.md`](./status/phase-backlog.md), and add a completion note to [`status/changelog.md`](./status/changelog.md) with a link back to this runbook.

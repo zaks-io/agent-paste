@@ -1,8 +1,8 @@
 # Web app — remaining work
 
-Source of truth for what's left after the TanStack Start scaffold landed in `apps/web`. Owner: Isaac. Snapshot date: 2026-05-25.
+Source of truth for Phase 3 web close-out after the TanStack Start app and WorkOS wiring landed. Owner: Isaac. Snapshot date: 2026-05-25.
 
-Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). Phase 1/2 work continues to be tracked in `docs/ops/project-status.md`.
+Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). The ordered cross-phase backlog lives in [`status/phase-backlog.md`](./status/phase-backlog.md).
 
 ## Operator click-ops (blocks first real login)
 
@@ -93,7 +93,7 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 ## Documentation
 
 - [ ] `docs/ops/runbook-workos.md` — project config, rotation procedure, common failure modes (callback URL drift, expired API key, cookie password rotation).
-- [ ] When the above lands, move the `apps/web` row in `docs/ops/project-status.md` from `Implemented (scaffold)` to `Implemented`; promote ADR 0033 and 0059 from `Partial` to `Done`; bump Phase 3 % beyond ~15.
+- [ ] When the above lands, update [`status/implementation.md`](./status/implementation.md) and [`status/coverage.md`](./status/coverage.md) so `apps/web`, ADR 0033, ADR 0059, and ADR 0068 reflect the final Phase 3 state.
 
 ## Polish / nice-to-have (not blocking)
 

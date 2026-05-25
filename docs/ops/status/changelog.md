@@ -1,0 +1,114 @@
+# Changelog
+
+Newest first. This is an operator-facing changelog for implemented project work;
+use `git log` for commit-level detail.
+
+## 2026-05-25
+
+### Open-core billing decisions
+
+- Added ADR 0073 for `free`/`pro` Plan tiers behind a billing flag that is off by
+  default.
+- Added ADR 0074 for Stripe as a sync layer over local entitlement state.
+- No billing code is implemented yet; `packages/billing`, `workspaces.plan`,
+  `workspace_billing`, Stripe routes, webhooks, Portal, and jobs reconciliation
+  remain future work.
+
+### Repo/docs guardrails and coverage
+
+- Recent `main` includes docs and monorepo guardrail work through
+  `b7927d5 docs: competitor analysis and open-core billing ADRs (#67)`.
+- `pnpm verify` passes on 2026-05-25 with 72 Turbo tasks.
+
+## 2026-05-24
+
+### Web deploy, dashboard auth, and preview hardening
+
+- Stable preview and production web Workers are deployed.
+- Hosted web smoke asserts `/healthz` and `/api/auth/sign-in` redirect behavior.
+- Per-PR web deploy is wired into preview workflow, fail-soft unless the WorkOS
+  preview API key secret is present.
+- Fixed live dashboard auth issuer mismatch after structured WorkOS rejection
+  logging identified the real issuer.
+- Fixed unauthenticated `_authed` routes returning 500 by dropping the query
+  string from thrown redirects.
+
+### CLI login
+
+- Implemented `agent-paste login` and `agent-paste logout` with WorkOS loopback
+  PKCE.
+- Login mints a scoped API key via `/v1/web/keys`, stores it locally, discards
+  the WorkOS token, and respects precedence `AGENT_PASTE_API_KEY` over stored
+  credentials.
+- Verified end-to-end against preview: login -> whoami -> logout.
+
+### Dashboard wiring
+
+- Dashboard loaders call live `/v1/web/*` endpoints.
+- Key create/revoke and settings save run through server functions with
+  idempotency keys.
+- First-run key card and error toasts are implemented.
+- Access Links and operator UI remain placeholders.
+
+### Operator lockdown APIs
+
+- Added operator-only set/lift/list lockdown endpoints.
+- Operator auth accepts WorkOS operator sessions or the rotation-agent Access
+  service-token identity and rejects API keys.
+- Lockdowns persist in `platform_lockdowns` and write/clear KV denylist keys.
+
+### Settings and retention
+
+- Added `GET`/`PATCH /v1/web/settings` for workspace name and
+  `auto_deletion_days`.
+- Added `workspaces.auto_deletion_days` with bounds 1-90 and audit events for
+  settings updates.
+
+### Route contracts and token codec
+
+- Implemented `packages/worker-runtime` and mounted `api`, `upload`, and
+  `content` route contracts through the registrar/request guard.
+- Implemented `packages/tokens` as the shared signed-token codec for content,
+  Agent View, and upload URLs.
+
+### Hosted content read throttling
+
+- Hosted PR-preview smoke asserts artifact-level unauthenticated read throttling
+  returns 429 with the expected envelope and `Retry-After`.
+
+## 2026-05-23
+
+- Implemented dashboard read API tranche: workspace, artifact list/detail,
+  API-key list.
+- Added dashboard API-key create/revoke and cursor-paginated audit reads.
+- Added `workspace_members` foundation and WorkOS web callback provisioning.
+- Extended secret bootstrap for WorkOS web secrets.
+- Added MVP rotation runbook.
+- Swapped `apps/web` from the original Auth0 scaffold to WorkOS AuthKit.
+- Unified repository adapters behind a backend-agnostic `RepositoryCore`.
+- Reconciled ADR 0057 denylist key drift.
+- Added artifact-level read throttling in `content`.
+
+## 2026-05-22
+
+- Scaffolded `apps/web` as a full TanStack Start app.
+- Exercised PR preview lifecycle on PR #21: Neon branch, per-PR Workers,
+  hosted smoke, PR comment, and cleanup.
+- Fixed production admin workspace create / scheduled cleanup failures caused by
+  Drizzle/postgres-js transaction and jsonb serializer behavior.
+- Made RLS migration 0003 idempotent.
+- Applied Postgres RLS at runtime with tenant/platform scopes.
+- Moved MVP runtime queries to Drizzle query objects and added `db:check`.
+- Generated OpenAPI from Zod contracts and golden-checked it in `pnpm verify`.
+- Completed the cross-Worker error envelope with request IDs.
+- Fixed PR preview cleanup workflow registration.
+
+## 2026-05-21
+
+- Verified bytes-after-delete and bytes-after-expiry cleanup in hosted smoke.
+- Audited CSP allowlist behavior with snapshots.
+- Enforced native rate-limit bindings for authenticated routes.
+- Consolidated content signing secret names.
+- Wired `runCommand` and operation events into mutation routes.
+- Added `--yes` guards to destructive admin CLI commands.
+- Closed obsolete `t3code/*` branch references.
