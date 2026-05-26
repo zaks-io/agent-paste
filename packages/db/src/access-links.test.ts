@@ -88,6 +88,20 @@ describe("createAccessLinkRow", () => {
       }),
     ).toThrow("access_link_revision_requires_revision_id");
   });
+
+  it("rejects invalid scopes bitmasks and unparsable expires_at values", () => {
+    const base = {
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "share" as const,
+      createdByType: "api_key" as const,
+      createdById: "key_test",
+      now: "2026-01-01T00:00:00.000Z",
+    };
+    expect(() => createAccessLinkRow({ ...base, scopesBitmask: -1 })).toThrow("access_link_invalid_scopes_bitmask");
+    expect(() => createAccessLinkRow({ ...base, scopesBitmask: 65536 })).toThrow("access_link_invalid_scopes_bitmask");
+    expect(() => createAccessLinkRow({ ...base, expiresAt: "not-a-date" })).toThrow("access_link_invalid_expires_at");
+  });
 });
 
 describe("access link row lifecycle", () => {
@@ -218,4 +232,3 @@ describe("access link row lifecycle", () => {
     ).not.toBeNull();
   });
 });
-

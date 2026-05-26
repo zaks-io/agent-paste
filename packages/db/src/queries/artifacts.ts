@@ -137,7 +137,10 @@ export const artifactQueries = {
   async setAccessLinkLockdown(db: DrizzleDb, artifactId: string, lockdownAt: string | null): Promise<boolean> {
     const rows = await db
       .update(artifacts)
-      .set({ accessLinkLockdownAt: lockdownAt ? new Date(lockdownAt) : null })
+      .set({
+        accessLinkLockdownAt: lockdownAt ? new Date(lockdownAt) : null,
+        updatedAt: new Date(),
+      })
       .where(eq(artifacts.id, artifactId))
       .returning({ id: artifacts.id });
     return rows.length > 0;

@@ -1,14 +1,18 @@
 begin;
 
+-- Composite FK targets: tenant-safe (workspace_id, id) references.
+create unique index if not exists artifacts_workspace_id_unique on artifacts(workspace_id, id);
+create unique index if not exists revisions_workspace_id_unique on revisions(workspace_id, id);
+
 -- Access Links (ADR 0047): durable rows with no stored secret; URLs are minted on demand.
 create table if not exists access_links (
   id text primary key,
   workspace_id uuid not null references workspaces(id) on delete restrict,
-  artifact_id text not null references artifacts(id) on delete cascade,
-  revision_id text references revisions(id) on delete cascade,
+  artifact_id text not null,
+  revision_id text,
   public_id text not null,
   type text not null check (type in ('share', 'revision')),
-  scopes_bitmask smallint not null check (scopes_bitmask between 0 and 65535),
+  scopes_bitmask integer not null check (scopes_bitmask between 0 and 65535),
   expires_at timestamptz,
   created_by_type text not null check (created_by_type in ('api_key', 'member')),
   created_by_id text not null,
@@ -18,7 +22,13 @@ create table if not exists access_links (
   constraint access_links_type_revision_check check (
     (type = 'share' and revision_id is null)
     or (type = 'revision' and revision_id is not null)
-  )
+  ),
+  constraint access_links_artifact_fk
+    foreign key (workspace_id, artifact_id)
+    references artifacts(workspace_id, id) on delete cascade,
+  constraint access_links_revision_fk
+    foreign key (workspace_id, revision_id)
+    references revisions(workspace_id, id) on delete cascade
 );
 
 create unique index if not exists access_links_public_id_unique on access_links(public_id);

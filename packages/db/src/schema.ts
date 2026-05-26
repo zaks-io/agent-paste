@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -138,6 +139,7 @@ export const revisions = pgTable(
   (table) => [
     index("revisions_artifact_created_idx").on(table.artifactId, table.createdAt),
     index("revisions_workspace_idx").on(table.workspaceId),
+    uniqueIndex("revisions_workspace_id_unique").on(table.workspaceId, table.id),
     uniqueIndex("revisions_artifact_number_unique")
       .on(table.artifactId, table.revisionNumber)
       .where(sql`${table.revisionNumber} is not null`),
@@ -177,6 +179,7 @@ export const artifacts = pgTable(
   (table) => [
     index("artifacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
     index("artifacts_active_expiry_idx").on(table.workspaceId, table.expiresAt),
+    uniqueIndex("artifacts_workspace_id_unique").on(table.workspaceId, table.id),
   ],
 );
 
@@ -256,13 +259,11 @@ export const accessLinks = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
-    artifactId: text("artifact_id")
-      .notNull()
-      .references(() => artifacts.id, { onDelete: "cascade" }),
-    revisionId: text("revision_id").references(() => revisions.id, { onDelete: "cascade" }),
+    artifactId: text("artifact_id").notNull(),
+    revisionId: text("revision_id"),
     publicId: text("public_id").notNull(),
     type: text("type").notNull(),
-    scopesBitmask: smallint("scopes_bitmask").notNull(),
+    scopesBitmask: integer("scopes_bitmask").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdByType: text("created_by_type").notNull(),
     createdById: text("created_by_id").notNull(),
@@ -281,6 +282,16 @@ export const accessLinks = pgTable(
     check("access_links_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
     check("access_links_scopes_bitmask_check", sql`${table.scopesBitmask} between 0 and 65535`),
     check("access_links_public_id_format", sql`${table.publicId} ~ '^[0-9A-HJKMNP-TV-Z]{16}$'`),
+    foreignKey({
+      name: "access_links_artifact_fk",
+      columns: [table.workspaceId, table.artifactId],
+      foreignColumns: [artifacts.workspaceId, artifacts.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "access_links_revision_fk",
+      columns: [table.workspaceId, table.revisionId],
+      foreignColumns: [revisions.workspaceId, revisions.id],
+    }).onDelete("cascade"),
   ],
 );
 

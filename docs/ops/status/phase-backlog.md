@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-05-26 (through AP-16). Source of truth for the ordered
+Last updated: 2026-05-26 (through AP-19). Source of truth for the ordered
 remaining work. When asked to "implement the next step", start at the first
 unchecked item in the active phase below unless the user says otherwise.
 

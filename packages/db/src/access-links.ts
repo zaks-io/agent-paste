@@ -58,6 +58,25 @@ export function computeAccessLinkUrlExpMs(link: AccessLink, nowMs: number): numb
   return Math.min(new Date(link.expires_at).getTime(), defaultCap);
 }
 
+function assertValidAccessLinkScopesBitmask(scopesBitmask: number | undefined): number {
+  const value = scopesBitmask ?? defaultAccessLinkScopesBitmask();
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff) {
+    throw new Error("access_link_invalid_scopes_bitmask");
+  }
+  return value;
+}
+
+function parseAccessLinkExpiresAt(expiresAt: string | null | undefined): string | null {
+  if (expiresAt === undefined || expiresAt === null) {
+    return null;
+  }
+  const parsed = Date.parse(expiresAt);
+  if (!Number.isFinite(parsed)) {
+    throw new Error("access_link_invalid_expires_at");
+  }
+  return expiresAt;
+}
+
 export function createAccessLinkRow(input: {
   workspaceId: string;
   artifactId: string;
@@ -83,8 +102,8 @@ export function createAccessLinkRow(input: {
     revision_id: input.type === "revision" ? (input.revisionId ?? null) : null,
     public_id: randomCrockford(16),
     type: input.type,
-    scopes_bitmask: input.scopesBitmask ?? defaultAccessLinkScopesBitmask(),
-    expires_at: input.expiresAt ?? null,
+    scopes_bitmask: assertValidAccessLinkScopesBitmask(input.scopesBitmask),
+    expires_at: parseAccessLinkExpiresAt(input.expiresAt),
     created_by_type: input.createdByType,
     created_by_id: input.createdById,
     created_at: input.now,

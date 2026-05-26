@@ -190,6 +190,7 @@ export function localEntities(state: LocalState): Entities {
           return false;
         }
         artifact.access_link_lockdown_at = lockdownAt;
+        artifact.updated_at = new Date().toISOString();
         return true;
       },
     },
