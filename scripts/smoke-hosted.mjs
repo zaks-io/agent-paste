@@ -62,7 +62,7 @@ if (target !== "production") {
   await assertArtifactRateLimitFires(published.view_url);
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(userEnv);
-  await assertActorRateLimitFires(key.secret);
+  await assertActorRateLimitFires(provisioned.apiKeySecret);
 }
 
 await smokeApex(config);
@@ -128,7 +128,7 @@ async function smokeWebAuth(c) {
   );
 }
 
-async function runCliJson(args, commandEnv = adminEnv) {
+async function runCliJson(args, commandEnv = process.env) {
   const output = await run(process.execPath, [cliEntry, ...args], commandEnv);
   try {
     return JSON.parse(output);
