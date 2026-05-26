@@ -1,3 +1,4 @@
+import { PepperRing } from "@agent-paste/rotation";
 import { generateApiKey } from "../api-keys.js";
 import { createId } from "../id.js";
 import { type toApiKeySummary, toWorkspaceSummary } from "../transforms.js";
@@ -33,14 +34,15 @@ export async function buildApiKey(
   options: RepositoryOptions,
   input: { id?: string; workspaceId: string; name: string; now: string },
 ): Promise<{ apiKey: ApiKey; secret: string }> {
-  const generated = await generateApiKey(options.apiKeyEnv ?? "preview", options.apiKeyPepper);
+  const pepperRing = options.pepperRing ?? PepperRing.single(options.apiKeyPepper, 1);
+  const generated = await generateApiKey(options.apiKeyEnv ?? "preview", pepperRing.currentPepper());
   const apiKey: ApiKey = {
     id: input.id ?? createId("key"),
     workspace_id: input.workspaceId,
     public_id: generated.publicId,
     name: input.name,
     secret_hmac: generated.secretHmac,
-    pepper_kid: 1,
+    pepper_kid: pepperRing.currentKid,
     scopes: ["publish", "read"],
     revoked_at: null,
     last_used_at: null,

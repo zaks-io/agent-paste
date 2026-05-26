@@ -82,7 +82,7 @@ Goal: operational depth without changing the product surface.
 6. [x] Add rate limiting to legacy admin-token routes and public bearer read
        surfaces that currently lack explicit limits, especially `/admin/*` and
        public Agent View.
-7. [ ] Tested multi-key and multi-pepper rotation automation for ADR 0045.
+7. [x] Tested multi-key and multi-pepper rotation automation for ADR 0045.
 8. [ ] Richer event/audit browsing for operators.
 9. [ ] GitHub Production environment reviewer/wait-timer/admin-bypass posture.
 10. [ ] Neon hardening: separate Hyperdrive runtime role from migration role,

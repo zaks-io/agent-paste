@@ -163,8 +163,12 @@ export type OperationEvent = {
   occurred_at: string;
 };
 
+import type { PepperRing } from "@agent-paste/rotation";
+
 export type RepositoryOptions = {
   apiKeyPepper: string;
+  /** When set, verification and minting use multi-pepper overlap from ADR 0045. */
+  pepperRing?: PepperRing;
   apiKeyEnv?: "preview" | "production";
   apiBaseUrl?: string;
   contentBaseUrl?: string;

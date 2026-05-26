@@ -27,6 +27,7 @@
   "dependencies": {
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/config": "workspace:*",
+    "@agent-paste/rotation": "workspace:*",
     "@agent-paste/storage": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "drizzle-orm": "^0.45.2",
