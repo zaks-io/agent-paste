@@ -5,7 +5,7 @@ Last updated: 2026-05-25.
 ## Snapshot
 
 - Local `main` and `origin/main` are aligned at
-  `b7927d5 docs: competitor analysis and open-core billing ADRs (#67)`.
+  `4532fb2 docs: add WorkOS auth operator runbook (#73)`.
 - Working tree was clean before this status-doc split.
 - `pnpm verify` passed on 2026-05-25: 72 Turbo tasks successful.
 - Last recorded hosted MVP smokes remain green from the 2026-05-22 production
@@ -13,26 +13,26 @@ Last updated: 2026-05-25.
 
 ## Components
 
-| Component                 | Status                      | Notes                                                                                                                             |
-| ------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                       |
-| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs.       |
-| `apps/upload`             | Implemented                 | Session create, signed upload-worker PUTs, R2 writes, finalize, signed view/Agent View URL minting.                               |
-| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.     |
-| `apps/cli`                | Implemented                 | `publish`, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                     |
-| `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, deployed preview/production. Access Links remain. |
-| `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.               |
-| `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                |
-| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces. Future MCP/Access Link/bundle schemas absent.             |
-| `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                      |
-| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters. Phase 4/billing tables are absent.                                      |
-| `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL token modules.                                                      |
-| `packages/auth`           | Implemented                 | Admin token HMAC, auth cache, scope registry, request IDs.                                                                        |
-| `packages/api-client`     | Implemented                 | CLI/web-facing client helpers, retry/idempotency/cursor handling, CLI key mint path.                                              |
-| `packages/commands`       | Implemented                 | `runCommand`, operation events, idempotency helpers.                                                                              |
-| `packages/storage`        | Implemented                 | MIME map and security header helpers.                                                                                             |
-| `packages/config`         | Scaffolded                  | Constants/helpers only; no per-app env schema.                                                                                    |
-| `packages/repo-lint`      | Implemented                 | Repo policy checks and docs/scripts lint wiring.                                                                                  |
+| Component                 | Status                      | Notes                                                                                                                                                                                                             |
+| ------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                                                                                                       |
+| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs.                                                                                       |
+| `apps/upload`             | Implemented                 | Session create, signed upload-worker PUTs, R2 writes, finalize, signed view/Agent View URL minting.                                                                                                               |
+| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.                                                                                     |
+| `apps/cli`                | Implemented                 | `publish`, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                                                                                                     |
+| `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Links and deep-link return paths remain. |
+| `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.                                                                                               |
+| `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                                                                                                |
+| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces. Future MCP/Access Link/bundle schemas absent.                                                                                             |
+| `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                                                                                                      |
+| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters. Phase 4/billing tables are absent.                                                                                                                      |
+| `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL token modules.                                                                                                                                      |
+| `packages/auth`           | Implemented                 | Admin token HMAC, auth cache, scope registry, request IDs.                                                                                                                                                        |
+| `packages/api-client`     | Implemented                 | CLI/web-facing client helpers, retry/idempotency/cursor handling, CLI key mint path.                                                                                                                              |
+| `packages/commands`       | Implemented                 | `runCommand`, operation events, idempotency helpers.                                                                                                                                                              |
+| `packages/storage`        | Implemented                 | MIME map and security header helpers.                                                                                                                                                                             |
+| `packages/config`         | Scaffolded                  | Constants/helpers only; no per-app env schema.                                                                                                                                                                    |
+| `packages/repo-lint`      | Implemented                 | Repo policy checks and docs/scripts lint wiring.                                                                                                                                                                  |
 
 ## Planned But Absent
 
@@ -60,10 +60,10 @@ Last updated: 2026-05-25.
 
 ## Verification
 
-| Check                   | Latest known result | Date       | Notes                                                                                          |
-| ----------------------- | ------------------- | ---------- | ---------------------------------------------------------------------------------------------- |
-| `pnpm verify`           | Pass                | 2026-05-25 | 72 Turbo tasks on `b7927d5`.                                                                   |
-| `pnpm smoke:local`      | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                |
-| `pnpm smoke:preview`    | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                |
-| `pnpm smoke:production` | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441. |
-| PR preview lifecycle    | Pass with caveat    | 2026-05-24 | End-to-end works; readiness gate still needs hardening for workers.dev propagation flakes.     |
+| Check                   | Latest known result | Date       | Notes                                                                                                                           |
+| ----------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm verify`           | Pass                | 2026-05-25 | 72 Turbo tasks on `4532fb2`.                                                                                                    |
+| `pnpm smoke:local`      | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
+| `pnpm smoke:preview`    | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
+| `pnpm smoke:production` | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |
+| PR preview lifecycle    | Pass                | 2026-05-25 | Readiness gate polls `/healthz` with consecutive 200s and retries 404/530 flakes; docs-only PRs skip deploy via `paths-ignore`. |

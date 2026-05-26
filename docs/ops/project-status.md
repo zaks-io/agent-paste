@@ -9,11 +9,11 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `b7927d5 docs: competitor analysis and open-core billing ADRs (#67)`.
+  `4532fb2 docs: add WorkOS auth operator runbook (#73)`.
 - `pnpm verify` passed on 2026-05-25 with 72 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
-- Phase 3, public OAuth + web dashboard + CLI login, is mostly implemented and
-  in close-out.
+- Phase 3, public OAuth + web dashboard + CLI login, is in close-out; only
+  deep-link return paths remain.
 - `apps/jobs` and `apps/mcp` remain scaffolds, as expected for Phase 4/5.
 - `apps/stream`, `packages/billing`, Access Link persistence, bundle state, and
   scanner persistence do not exist yet.
@@ -51,11 +51,7 @@ smoke are implemented.
 
 Remaining Phase 3 work:
 
-1. Fix the transient first authenticated dashboard load race.
-2. Harden PR-preview readiness and skip docs-only PR preview deploys.
-3. Add the Lighthouse a11y gate.
-4. Write the WorkOS runbook.
-5. Restore deep-link return paths after the router redirect bug is resolved or
+1. Restore deep-link return paths after the router redirect bug is resolved or
    worked around.
 
 The detailed ordered list lives in
