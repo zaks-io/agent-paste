@@ -1,8 +1,15 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import type { AuthRequirement, ErrorCode, RouteContract, Scope } from "@agent-paste/contracts";
+import {
+  type AuthRequirement,
+  type ErrorCode,
+  type RequestBodyFor,
+  type RouteContract,
+  requestSchemaFor,
+  type Scope,
+} from "@agent-paste/contracts";
 import type { Context } from "hono";
 import { errorResponse, jsonResponse, unknownErrorToCode } from "./errors.js";
-import type { AuthResult, Principal, ScopedActor } from "./principal.js";
+import type { AuthResult, Principal, PrincipalFor, ScopedActor } from "./principal.js";
 import { applyRateLimit, type RateLimitBindings } from "./rate-limit.js";
 
 export type RouteContext = {
@@ -16,8 +23,13 @@ export type AuthResolver<P extends Principal = Principal> = (
 ) => Promise<AuthResult<P>>;
 export type AuthResolvers = Partial<Record<AuthRequirement, AuthResolver>>;
 
-export type GuardState = {
+export type HeaderGuardState = {
   idempotencyKey?: string;
+};
+
+export type GuardState<Contract extends RouteContract = RouteContract> = HeaderGuardState & {
+  body: RequestBodyFor<Contract>;
+  params: Record<string, string>;
 };
 
 export type ReplayHook<Db> = (input: {
@@ -25,16 +37,21 @@ export type ReplayHook<Db> = (input: {
   contract: RouteContract;
   principal: Principal;
   db: Db;
-  guard: GuardState;
+  guard: HeaderGuardState;
 }) => Promise<Response | null>;
 
 export type MountableHono = {
   on(method: string, path: string, handler: (context: Context) => Response | Promise<Response>): unknown;
 };
 
-export type Handler<Db> = Db extends void
-  ? (context: Context, principal: Principal, guard: GuardState) => Promise<Response>
-  : (context: Context, principal: Principal, db: Db, guard: GuardState) => Promise<Response>;
+export type Handler<Db, Contract extends RouteContract = RouteContract> = Db extends void
+  ? (context: Context, principal: PrincipalFor<Contract["auth"]>, guard: GuardState<Contract>) => Promise<Response>
+  : (
+      context: Context,
+      principal: PrincipalFor<Contract["auth"]>,
+      db: Db,
+      guard: GuardState<Contract>,
+    ) => Promise<Response>;
 
 export type RegistrarDeps<Db> = {
   app: MountableHono;
@@ -48,7 +65,7 @@ export type RegistrarDeps<Db> = {
 };
 
 export type Registrar<Db> = {
-  mount(contract: RouteContract, handler: Handler<Db>): void;
+  mount<Contract extends RouteContract>(contract: Contract, handler: Handler<Db, Contract>): void;
 };
 
 export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<Db> {
@@ -114,17 +131,38 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
           });
         }
 
+        const body = await parseRequestBody(context, contract);
+        if (!body.ok) {
+          return errorResponse(context, "invalid_request", {
+            docsBaseUrl: deps.docsBaseUrl?.(context),
+            defaultHeaders: deps.defaultErrorHeaders?.(context),
+          });
+        }
+
+        const finalGuard = {
+          ...guard.state,
+          body: body.value,
+          params: context.req.param(),
+        } as GuardState<typeof contract>;
+
         try {
           if (deps.db) {
             return await (
-              handler as (context: Context, principal: Principal, db: Db, guard: GuardState) => Promise<Response>
-            )(context, auth.principal, db as Db, guard.state);
+              handler as (
+                context: Context,
+                principal: PrincipalFor<typeof contract.auth>,
+                db: Db,
+                guard: GuardState<typeof contract>,
+              ) => Promise<Response>
+            )(context, auth.principal as PrincipalFor<typeof contract.auth>, db as Db, finalGuard);
           }
-          return await (handler as (context: Context, principal: Principal, guard: GuardState) => Promise<Response>)(
-            context,
-            auth.principal,
-            guard.state,
-          );
+          return await (
+            handler as (
+              context: Context,
+              principal: PrincipalFor<typeof contract.auth>,
+              guard: GuardState<typeof contract>,
+            ) => Promise<Response>
+          )(context, auth.principal as PrincipalFor<typeof contract.auth>, finalGuard);
         } catch (error) {
           if (error instanceof IdempotencyInFlightError) {
             return errorResponse(context, "idempotency_in_flight", {
@@ -152,7 +190,7 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
 function idempotencyGuard(
   context: Context,
   contract: RouteContract,
-): { ok: true; state: GuardState } | { ok: false; code: ErrorCode } {
+): { ok: true; state: HeaderGuardState } | { ok: false; code: ErrorCode } {
   if (contract.idempotency === "none") {
     return { ok: true, state: {} };
   }
@@ -162,6 +200,27 @@ function idempotencyGuard(
     return { ok: false, code: "invalid_idempotency_key" };
   }
   return { ok: true, state: { idempotencyKey: normalized } };
+}
+
+async function parseRequestBody<Contract extends RouteContract>(
+  context: Context,
+  contract: Contract,
+): Promise<{ ok: true; value: RequestBodyFor<Contract> } | { ok: false }> {
+  const schema = requestSchemaFor(contract);
+  if (!schema) {
+    return { ok: true, value: undefined as RequestBodyFor<Contract> };
+  }
+  let raw: unknown;
+  try {
+    raw = await context.req.raw.json();
+  } catch {
+    return { ok: false };
+  }
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false };
+  }
+  return { ok: true, value: parsed.data as unknown as RequestBodyFor<Contract> };
 }
 
 function hasScopes(principal: Principal, requiredScopes: readonly Scope[]): boolean {

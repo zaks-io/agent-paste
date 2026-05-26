@@ -25,6 +25,7 @@
   "dependencies": {
     "@agent-paste/auth": "workspace:*",
     "@agent-paste/commands": "workspace:*",
+    "@agent-paste/config": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",

@@ -57,8 +57,9 @@ describe("local publish helpers", () => {
 
   it("maps upload content types", () => {
     expect(contentTypeForLocalPath("index.html")).toBe("text/html; charset=utf-8");
-    expect(contentTypeForLocalPath("assets/app.js")).toBe("text/javascript; charset=utf-8");
+    expect(contentTypeForLocalPath("assets/app.js")).toBe("application/javascript; charset=utf-8");
     expect(contentTypeForLocalPath("image.png")).toBe("image/png");
+    expect(contentTypeForLocalPath("paper.pdf")).toBe("application/pdf");
   });
 
   it("validates usage-policy caps before upload", () => {

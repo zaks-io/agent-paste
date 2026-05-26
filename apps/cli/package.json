@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@agent-paste/api-client": "workspace:*",
-    "@agent-paste/contracts": "workspace:*"
+    "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/storage": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

@@ -34,6 +34,13 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   storage_unavailable: 503,
 };
 
+export const APP_ERROR_STATUS = {
+  ...ERROR_STATUS,
+  internal_error: 500,
+  not_supported: 501,
+} as const;
+export type AppErrorCode = keyof typeof APP_ERROR_STATUS;
+
 export type ErrorResponseOptions = {
   message?: string | undefined;
   headers?: Record<string, string> | undefined;
@@ -58,7 +65,7 @@ export function jsonResponse(
   });
 }
 
-export function errorResponse(context: Context, code: ErrorCodeValue, options: ErrorResponseOptions = {}): Response {
+export function errorResponse(context: Context, code: AppErrorCode, options: ErrorResponseOptions = {}): Response {
   const requestId = getRequestId(context);
   const body = buildErrorBody({
     code,
@@ -67,7 +74,7 @@ export function errorResponse(context: Context, code: ErrorCodeValue, options: E
     docsBaseUrl: options.docsBaseUrl,
   });
   return new Response(JSON.stringify(body), {
-    status: ERROR_STATUS[code],
+    status: APP_ERROR_STATUS[code],
     headers: {
       "cache-control": "no-store",
       "content-type": "application/json; charset=utf-8",

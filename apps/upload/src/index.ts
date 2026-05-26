@@ -1,5 +1,4 @@
 import {
-  buildErrorBody,
   cachedLookup,
   cacheKeyForSecret,
   getRequestId,
@@ -10,6 +9,7 @@ import {
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import {
   buildUploadOpenApiDocument,
+  type CreateUploadSessionRequest,
   FinalizeUploadSessionResponse,
   type RouteContract,
   routeContracts,
@@ -25,7 +25,17 @@ import {
   type SignedUploadPayload,
   verifyUploadToken as verifyUploadTokenSignature,
 } from "@agent-paste/tokens/upload-url";
-import { createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
+import {
+  type ApiKeyPrincipal,
+  type AppErrorCode,
+  createRegistrar,
+  type GuardState,
+  type HeaderGuardState,
+  type Principal,
+  errorResponse as runtimeErrorResponse,
+  jsonResponse as runtimeJsonResponse,
+  type SignedUploadUrlPrincipal,
+} from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 
 export type UploadActor = {
@@ -88,12 +98,11 @@ export type Env = {
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
+type RouteId = (typeof routeContracts)[number]["id"];
+type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
+type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
-const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
-const MIN_TTL_SECONDS = 24 * 60 * 60;
-const MAX_TTL_SECONDS = 90 * 24 * 60 * 60;
 const AUTH_CACHE_TTL_SECONDS = 60;
-const DEFAULT_API_BASE_URL = "https://api.agent-paste.sh";
 const UPLOAD_FILE_PATH_MARKER = "/files/";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
@@ -145,18 +154,18 @@ const uploadNoDbRegistrar = createRegistrar({
   },
 });
 uploadDbRegistrar.mount(contractById("uploadSessions.create"), async (context, principal, db, guard) =>
-  createUploadSession(context as AppContext, principal, db, guard),
+  createUploadSession(context as AppContext, principal as ApiKeyPrincipal<UploadActor>, db, guard),
 );
 uploadNoDbRegistrar.mount(contractById("uploadSessions.putFile"), async (context, principal) =>
-  putUploadFile(context as AppContext, principal),
+  putUploadFile(context as AppContext, principal as SignedUploadUrlPrincipal<SignedUploadPayload>),
 );
 uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context, principal, db, guard) =>
-  finalizeUploadSession(context as AppContext, principal, db, guard),
+  finalizeUploadSession(context as AppContext, principal as ApiKeyPrincipal<UploadActor>, db, guard),
 );
-app.notFound((context) => errorResponse(context, "not_found", 404));
+app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
   console.error("Unhandled upload error:", error);
-  return errorResponse(context, "internal_error", 500);
+  return errorResponse(context, "internal_error");
 });
 
 function uploadFilePath(context: AppContext): string {
@@ -177,48 +186,22 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
 async function createUploadSession(
   context: AppContext,
-  principal: Principal,
+  principal: ApiKeyPrincipal<UploadActor>,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"uploadSessions.create">,
 ): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  if (principal.kind !== "api_key") {
-    return errorResponse(context, "not_authenticated", 401);
-  }
-  const actor = principal.actor as UploadActor;
+  const actor = principal.actor;
   const idempotencyKey = guard.idempotencyKey ?? "";
-
-  const body = await readJsonObject(request);
-  const files = parseFiles(body.files);
-  if (files.length === 0) {
-    return errorResponse(context, "invalid_request", 400, "files must contain at least one file");
-  }
-
-  const createRequest: {
-    artifact_id?: string;
-    title?: string;
-    ttl_seconds?: number;
-    entrypoint?: string;
-    files: UploadFileInput[];
-  } = {
-    files,
+  const body: CreateUploadSessionRequest = guard.body;
+  const createRequest = {
+    title: body.title,
+    ttl_seconds: body.ttl_seconds,
+    entrypoint: body.entrypoint,
+    files: body.files,
+    ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
   };
-  if (typeof body.title === "string") {
-    createRequest.title = body.title;
-  }
-  if (body.ttl_seconds !== undefined && !isValidArtifactTtl(body.ttl_seconds)) {
-    return errorResponse(context, "invalid_request", 400, "ttl_seconds must be an integer from 86400 to 7776000");
-  }
-  if (typeof body.ttl_seconds === "number") {
-    createRequest.ttl_seconds = body.ttl_seconds;
-  }
-  if (typeof body.entrypoint === "string") {
-    createRequest.entrypoint = body.entrypoint;
-  }
-  if (typeof body.artifact_id === "string") {
-    createRequest.artifact_id = body.artifact_id;
-  }
 
   let session: UploadSessionRecord;
   try {
@@ -230,11 +213,11 @@ async function createUploadSession(
     });
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse(context, "idempotency_in_flight", 409);
+      return errorResponse(context, "idempotency_in_flight");
     }
     const mapped = mapRepositoryError(error);
     if (mapped) {
-      return errorResponse(context, mapped.code, mapped.status, mapped.message);
+      return errorResponse(context, mapped.code, mapped.message);
     }
     throw error;
   }
@@ -266,25 +249,24 @@ async function buildCreateSessionResponse(
   };
 }
 
-async function putUploadFile(context: AppContext, principal: Principal): Promise<Response> {
+async function putUploadFile(
+  context: AppContext,
+  principal: SignedUploadUrlPrincipal<SignedUploadPayload>,
+): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   if (!env.ARTIFACTS) {
-    return errorResponse(context, "storage_unavailable", 503);
+    return errorResponse(context, "storage_unavailable");
   }
-
-  if (principal.kind !== "signed_upload_url") {
-    return errorResponse(context, "not_authenticated", 401);
-  }
-  const payload = principal.payload as SignedUploadPayload;
+  const payload = principal.payload;
 
   if (!request.body) {
-    return errorResponse(context, "invalid_request", 400, "request body is required");
+    return errorResponse(context, "invalid_request", "request body is required");
   }
 
   const contentLength = Number.parseInt(request.headers.get("content-length") ?? "", 10);
   if (!Number.isFinite(contentLength) || contentLength !== payload.size) {
-    return errorResponse(context, "invalid_request", 400, "content-length does not match signed upload");
+    return errorResponse(context, "invalid_request", "content-length does not match signed upload");
   }
 
   await env.ARTIFACTS.put(payload.key, request.body, {
@@ -304,25 +286,22 @@ async function putUploadFile(context: AppContext, principal: Principal): Promise
 
 async function finalizeUploadSession(
   context: AppContext,
-  principal: Principal,
+  principal: ApiKeyPrincipal<UploadActor>,
   db: Repository,
   guard: GuardState,
 ): Promise<Response> {
   const env = context.env;
-  if (principal.kind !== "api_key") {
-    return errorResponse(context, "not_authenticated", 401);
-  }
-  const actor = principal.actor as UploadActor;
+  const actor = principal.actor;
   const idempotencyKey = guard.idempotencyKey ?? "";
   const sessionId = context.req.param("upload_session_id") ?? "";
 
   if (!env.ARTIFACTS) {
-    return errorResponse(context, "storage_unavailable", 503);
+    return errorResponse(context, "storage_unavailable");
   }
 
   const session = await db.getUploadSession({ actor, sessionId });
   if (!session) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
 
   const observedFiles = [];
@@ -330,7 +309,7 @@ async function finalizeUploadSession(
     const objectKey = objectKeyFor(session, file.path, file.object_key);
     const object = await env.ARTIFACTS.head(objectKey);
     if (!object || object.size !== file.size_bytes) {
-      return errorResponse(context, "upload_incomplete", 409, file.path);
+      return errorResponse(context, "upload_incomplete", file.path);
     }
 
     observedFiles.push({ path: file.path, objectKey, sizeBytes: object.size });
@@ -347,11 +326,11 @@ async function finalizeUploadSession(
     });
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse(context, "idempotency_in_flight", 409);
+      return errorResponse(context, "idempotency_in_flight");
     }
     const mapped = mapRepositoryError(error);
     if (mapped) {
-      return errorResponse(context, mapped.code, mapped.status, mapped.message);
+      return errorResponse(context, mapped.code, mapped.message);
     }
     throw error;
   }
@@ -404,7 +383,7 @@ async function uploadReplay(input: {
   contract: RouteContract;
   principal: Principal;
   db: Repository;
-  guard: GuardState;
+  guard: HeaderGuardState;
 }): Promise<Response | null> {
   if (input.principal.kind !== "api_key" || !input.guard.idempotencyKey) {
     return null;
@@ -498,73 +477,27 @@ function objectKeyFor(session: UploadSessionRecord, path: string, explicitKey?: 
   return explicitKey ?? `artifacts/${session.artifact_id}/revisions/${session.revision_id}/files/${path}`;
 }
 
-function parseFiles(value: unknown): UploadFileInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((file) => {
-    if (!file || typeof file !== "object") {
-      return [];
-    }
-
-    const candidate = file as Record<string, unknown>;
-    if (typeof candidate.path !== "string" || !isValidUploadPath(candidate.path)) {
-      return [];
-    }
-
-    if (
-      typeof candidate.size_bytes !== "number" ||
-      !Number.isInteger(candidate.size_bytes) ||
-      candidate.size_bytes < 0
-    ) {
-      return [];
-    }
-
-    const parsed: UploadFileInput = { path: candidate.path, size_bytes: candidate.size_bytes };
-    if (typeof candidate.sha256 === "string") {
-      parsed.sha256 = candidate.sha256;
-    }
-
-    return [parsed];
-  });
-}
-
-function isValidUploadPath(path: string): boolean {
-  const segments = path.split("/");
-  return path.length > 0 && !path.startsWith("/") && !segments.includes("..") && !segments.includes("");
-}
-
-function isValidArtifactTtl(value: unknown): boolean {
-  return typeof value === "number" && Number.isInteger(value) && value >= MIN_TTL_SECONDS && value <= MAX_TTL_SECONDS;
-}
-
 function bearerToken(request: Request): string | null {
   const value = request.headers.get("authorization");
   const match = value?.match(/^Bearer\s+(.+)$/i);
   return match?.[1] ?? null;
 }
 
-async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
-  const value = await request.json();
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function mapRepositoryError(error: unknown): { code: string; status: number; message?: string } | null {
+function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: string } | null {
   if (!(error instanceof Error)) {
     return null;
   }
   switch (error.message) {
     case "artifact_not_found":
-      return { code: "artifact_not_found", status: 404 };
+      return { code: "artifact_not_found" };
     case "draft_revision_conflict":
-      return { code: "draft_revision_conflict", status: 409 };
+      return { code: "draft_revision_conflict" };
     case "upload_session_not_found":
-      return { code: "upload_session_not_found", status: 404 };
+      return { code: "upload_session_not_found" };
     case "upload_incomplete":
-      return { code: "upload_incomplete", status: 409 };
+      return { code: "upload_incomplete" };
     case "entrypoint_not_in_revision":
-      return { code: "entrypoint_not_in_revision", status: 422 };
+      return { code: "entrypoint_not_in_revision" };
     default:
       return null;
   }
@@ -581,32 +514,26 @@ function jsonResponse(
   status = 200,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...jsonHeaders, [REQUEST_ID_HEADER]: getRequestId(context), ...extraHeaders },
-  });
+  return runtimeJsonResponse(context, body, status, extraHeaders);
 }
 
 function errorResponse(
   context: AppContext,
-  code: string,
-  status: number,
+  code: AppErrorCode,
   message?: string,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  const body = buildErrorBody({
-    code,
-    message: message ?? code,
-    requestId: getRequestId(context),
+  return runtimeErrorResponse(context, code, {
+    message,
+    headers: extraHeaders,
     docsBaseUrl: context.env.DOCS_BASE_URL,
   });
-  return jsonResponse(context, body, status, extraHeaders);
 }
 
-function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {
+function contractById<Id extends RouteId>(id: Id): ContractById<Id> {
   const contract = routeContracts.find((route) => route.id === id);
   if (!contract) {
     throw new Error(`Missing route contract ${id}`);
   }
-  return contract;
+  return contract as ContractById<Id>;
 }

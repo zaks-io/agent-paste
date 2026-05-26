@@ -26,6 +26,12 @@ function workspaceAuth(): NonNullable<Env["AUTH"]> {
   };
 }
 
+function createUploadRequestBody(
+  files: Array<{ path: string; size_bytes: number }> = [{ path: "index.html", size_bytes: 12 }],
+) {
+  return { title: "Demo", entrypoint: "index.html", files };
+}
+
 async function expectEnvelope(response: Response, code: string): Promise<EnvelopeBody> {
   const headerId = response.headers.get("x-request-id");
   expect(headerId).toMatch(REQUEST_ID_PATTERN);
@@ -86,7 +92,7 @@ describe("upload error envelope", () => {
           "idempotency-key": "k",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -123,7 +129,7 @@ describe("upload error envelope", () => {
           "idempotency-key": "k",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ files: [] }),
+        body: JSON.stringify(createUploadRequestBody([])),
       }),
       env,
     );
@@ -169,7 +175,7 @@ describe("upload error envelope", () => {
           "idempotency-key": "k",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -208,7 +214,7 @@ describe("upload error envelope", () => {
           "content-type": "application/json",
           "x-request-id": requestId,
         },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -259,7 +265,7 @@ describe("upload error envelope", () => {
           "content-type": "application/json",
           "x-request-id": requestId,
         },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );

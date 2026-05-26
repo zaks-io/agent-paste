@@ -25,6 +25,7 @@
   "dependencies": {
     "@agent-paste/auth": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/storage": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "hono": "^4.12.21"

@@ -1,13 +1,13 @@
-import {
-  buildErrorBody,
-  getRequestId,
-  REQUEST_ID_HEADER,
-  type RequestIdVariables,
-  requestIdMiddleware,
-} from "@agent-paste/auth";
+import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
+import { attachmentFilename, CONTENT_SECURITY_HEADERS, servedContentForPath } from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
-import { createRegistrar, type SignedContentTokenPrincipal } from "@agent-paste/worker-runtime";
+import {
+  type AppErrorCode,
+  createRegistrar,
+  errorResponse as runtimeErrorResponse,
+  type SignedContentTokenPrincipal,
+} from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 
 export type { ContentTokenPayload };
@@ -46,37 +46,7 @@ export type Env = {
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
-type ServedContent = {
-  contentType: string;
-  disposition: "inline" | "attachment";
-  csp: string;
-};
-
-const baseContentSecurityPolicy = [
-  "default-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh",
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
-  "frame-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'none'",
-].join("; ");
-
-const svgContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
-
-const securityHeaders = {
-  "cross-origin-opener-policy": "same-origin",
-  "cross-origin-resource-policy": "cross-origin",
-  "permissions-policy": "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()",
-  "referrer-policy": "no-referrer",
-  "x-content-type-options": "nosniff",
-  "content-security-policy": baseContentSecurityPolicy,
-};
+const securityHeaders = CONTENT_SECURITY_HEADERS;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
@@ -127,10 +97,10 @@ contentRegistrar.mount(contractById("content.head"), async (context, principal) 
     contentPath(context as AppContext),
   ),
 );
-app.notFound((context) => errorResponse(context, "not_found", 404));
+app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
   console.error("Unhandled content error:", error);
-  return errorResponse(context, "internal_error", 500);
+  return errorResponse(context, "internal_error");
 });
 
 export default {
@@ -161,7 +131,7 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
 
   const headers = responseHeadersForPath(path, object.size, payload.exp);
@@ -202,7 +172,7 @@ function objectKeyFor(payload: ContentTokenPayload, path: string): string {
 }
 
 function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {
-  const served = servedContentFor(path);
+  const served = servedContentForPath(path);
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
   headers.set("content-length", String(size));
@@ -212,56 +182,6 @@ function responseHeadersForPath(path: string, size: number, tokenExpiresAt: numb
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }
   return headers;
-}
-
-function servedContentFor(path: string): ServedContent {
-  const extension = path.toLowerCase().match(/\.[^./\\]+$/u)?.[0] ?? "";
-  switch (extension) {
-    case ".html":
-    case ".htm":
-      return inlineContent("text/html; charset=utf-8");
-    case ".css":
-      return inlineContent("text/css; charset=utf-8");
-    case ".js":
-    case ".mjs":
-      return inlineContent("application/javascript; charset=utf-8");
-    case ".json":
-      return inlineContent("application/json; charset=utf-8");
-    case ".txt":
-    case ".log":
-      return inlineContent("text/plain; charset=utf-8");
-    case ".md":
-    case ".markdown":
-      return inlineContent("text/markdown; charset=utf-8");
-    case ".svg":
-      return { contentType: "image/svg+xml", disposition: "inline", csp: svgContentSecurityPolicy };
-    case ".png":
-      return inlineContent("image/png");
-    case ".jpg":
-    case ".jpeg":
-      return inlineContent("image/jpeg");
-    case ".gif":
-      return inlineContent("image/gif");
-    case ".webp":
-      return inlineContent("image/webp");
-    case ".ico":
-      return inlineContent("image/x-icon");
-    case ".woff":
-      return inlineContent("font/woff");
-    case ".woff2":
-      return inlineContent("font/woff2");
-    default:
-      return { contentType: "application/octet-stream", disposition: "attachment", csp: baseContentSecurityPolicy };
-  }
-}
-
-function inlineContent(contentType: string): ServedContent {
-  return { contentType, disposition: "inline", csp: baseContentSecurityPolicy };
-}
-
-function attachmentFilename(path: string): string {
-  const basename = path.split("/").at(-1) || "download";
-  return basename.replaceAll(/["\\\r\n]/gu, "_");
 }
 
 function safeDecodeURIComponent(value: string): string | null {
@@ -282,25 +202,14 @@ function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeC
 
 function errorResponse(
   context: AppContext,
-  code: string,
-  status: number,
+  code: AppErrorCode,
   message?: string,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  const requestId = getRequestId(context);
-  const body = buildErrorBody({
-    code,
-    message: message ?? code,
-    requestId,
+  return runtimeErrorResponse(context, code, {
+    message,
+    headers: extraHeaders,
     docsBaseUrl: context.env.DOCS_BASE_URL,
-  });
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      ...securityHeaders,
-      ...extraHeaders,
-      [REQUEST_ID_HEADER]: requestId,
-    },
+    defaultHeaders: securityHeaders,
   });
 }
