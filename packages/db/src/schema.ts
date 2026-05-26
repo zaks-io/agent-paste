@@ -139,7 +139,7 @@ export const revisions = pgTable(
   (table) => [
     index("revisions_artifact_created_idx").on(table.artifactId, table.createdAt),
     index("revisions_workspace_idx").on(table.workspaceId),
-    uniqueIndex("revisions_workspace_id_unique").on(table.workspaceId, table.id),
+    uniqueIndex("revisions_workspace_artifact_id_unique").on(table.workspaceId, table.artifactId, table.id),
     uniqueIndex("revisions_artifact_number_unique")
       .on(table.artifactId, table.revisionNumber)
       .where(sql`${table.revisionNumber} is not null`),
@@ -289,8 +289,8 @@ export const accessLinks = pgTable(
     }).onDelete("cascade"),
     foreignKey({
       name: "access_links_revision_fk",
-      columns: [table.workspaceId, table.revisionId],
-      foreignColumns: [revisions.workspaceId, revisions.id],
+      columns: [table.workspaceId, table.artifactId, table.revisionId],
+      foreignColumns: [revisions.workspaceId, revisions.artifactId, revisions.id],
     }).onDelete("cascade"),
   ],
 );

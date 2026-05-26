@@ -101,6 +101,29 @@ describe("createAccessLinkRow", () => {
     expect(() => createAccessLinkRow({ ...base, scopesBitmask: -1 })).toThrow("access_link_invalid_scopes_bitmask");
     expect(() => createAccessLinkRow({ ...base, scopesBitmask: 65536 })).toThrow("access_link_invalid_scopes_bitmask");
     expect(() => createAccessLinkRow({ ...base, expiresAt: "not-a-date" })).toThrow("access_link_invalid_expires_at");
+    expect(() => createAccessLinkRow({ ...base, expiresAt: "2026-01-02T00:00:00" })).toThrow(
+      "access_link_invalid_expires_at",
+    );
+    expect(() => createAccessLinkRow({ ...base, expiresAt: "2026-01-02T00:00:00.000" })).toThrow(
+      "access_link_invalid_expires_at",
+    );
+  });
+
+  it("canonicalizes expires_at to UTC ISO strings with an explicit timezone", () => {
+    const base = {
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "share" as const,
+      createdByType: "api_key" as const,
+      createdById: "key_test",
+      now: "2026-01-01T00:00:00.000Z",
+    };
+    expect(createAccessLinkRow({ ...base, expiresAt: "2026-01-02T00:00:00.000Z" }).expires_at).toBe(
+      "2026-01-02T00:00:00.000Z",
+    );
+    expect(createAccessLinkRow({ ...base, expiresAt: "2026-01-02T05:30:00+05:30" }).expires_at).toBe(
+      "2026-01-02T00:00:00.000Z",
+    );
   });
 });
 

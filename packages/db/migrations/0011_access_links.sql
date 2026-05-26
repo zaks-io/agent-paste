@@ -1,8 +1,9 @@
 begin;
 
--- Composite FK targets: tenant-safe (workspace_id, id) references.
+-- Composite FK targets: tenant-safe references.
 create unique index if not exists artifacts_workspace_id_unique on artifacts(workspace_id, id);
-create unique index if not exists revisions_workspace_id_unique on revisions(workspace_id, id);
+create unique index if not exists revisions_workspace_artifact_id_unique
+  on revisions(workspace_id, artifact_id, id);
 
 -- Access Links (ADR 0047): durable rows with no stored secret; URLs are minted on demand.
 create table if not exists access_links (
@@ -27,8 +28,8 @@ create table if not exists access_links (
     foreign key (workspace_id, artifact_id)
     references artifacts(workspace_id, id) on delete cascade,
   constraint access_links_revision_fk
-    foreign key (workspace_id, revision_id)
-    references revisions(workspace_id, id) on delete cascade
+    foreign key (workspace_id, artifact_id, revision_id)
+    references revisions(workspace_id, artifact_id, id) on delete cascade
 );
 
 create unique index if not exists access_links_public_id_unique on access_links(public_id);

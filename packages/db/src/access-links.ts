@@ -66,15 +66,21 @@ function assertValidAccessLinkScopesBitmask(scopesBitmask: number | undefined): 
   return value;
 }
 
+const ACCESS_LINK_EXPIRES_AT_TIMEZONE = /(?:Z|[+-]\d{2}:\d{2})$/i;
+
 function parseAccessLinkExpiresAt(expiresAt: string | null | undefined): string | null {
   if (expiresAt === undefined || expiresAt === null) {
     return null;
   }
-  const parsed = Date.parse(expiresAt);
+  const trimmed = expiresAt.trim();
+  if (!ACCESS_LINK_EXPIRES_AT_TIMEZONE.test(trimmed)) {
+    throw new Error("access_link_invalid_expires_at");
+  }
+  const parsed = Date.parse(trimmed);
   if (!Number.isFinite(parsed)) {
     throw new Error("access_link_invalid_expires_at");
   }
-  return expiresAt;
+  return new Date(parsed).toISOString();
 }
 
 export function createAccessLinkRow(input: {
