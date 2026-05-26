@@ -8,7 +8,13 @@ import {
   requestIdMiddleware,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { buildUploadOpenApiDocument, type RouteContract, routeContracts } from "@agent-paste/contracts";
+import {
+  buildUploadOpenApiDocument,
+  CreateUploadSessionRequest,
+  FinalizeUploadSessionResponse,
+  type RouteContract,
+  routeContracts,
+} from "@agent-paste/contracts";
 import {
   createHyperdriveExecutor,
   createPostgresServices,
@@ -192,7 +198,13 @@ async function createUploadSession(
     return errorResponse(context, "invalid_request", 400, "files must contain at least one file");
   }
 
-  const createRequest: { title?: string; ttl_seconds?: number; entrypoint?: string; files: UploadFileInput[] } = {
+  const createRequest: {
+    artifact_id?: string;
+    title?: string;
+    ttl_seconds?: number;
+    entrypoint?: string;
+    files: UploadFileInput[];
+  } = {
     files,
   };
   if (typeof body.title === "string") {
@@ -207,6 +219,9 @@ async function createUploadSession(
   if (typeof body.entrypoint === "string") {
     createRequest.entrypoint = body.entrypoint;
   }
+  if (typeof body.artifact_id === "string") {
+    createRequest.artifact_id = body.artifact_id;
+  }
 
   let session: UploadSessionRecord;
   try {
@@ -219,6 +234,10 @@ async function createUploadSession(
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight", 409);
+    }
+    const mapped = mapRepositoryError(error);
+    if (mapped) {
+      return errorResponse(context, mapped.code, mapped.status, mapped.message);
     }
     throw error;
   }
@@ -333,10 +352,14 @@ async function finalizeUploadSession(
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight", 409);
     }
+    const mapped = mapRepositoryError(error);
+    if (mapped) {
+      return errorResponse(context, mapped.code, mapped.status, mapped.message);
+    }
     throw error;
   }
 
-  return jsonResponse(context, await signPublishContentUrl(result, env));
+  return jsonResponse(context, FinalizeUploadSessionResponse.parse(result));
 }
 
 async function authenticateApiKey(request: Request, env: Env): Promise<UploadActor | null> {
@@ -409,7 +432,7 @@ async function uploadReplay(input: {
       "upload.session.finalize",
       input.guard.idempotencyKey,
     );
-    return replay ? jsonResponse(context, await signPublishContentUrl(replay, context.env)) : null;
+    return replay ? jsonResponse(context, FinalizeUploadSessionResponse.parse(replay)) : null;
   }
   return null;
 }
@@ -528,6 +551,26 @@ function bearerToken(request: Request): string | null {
 async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
   const value = await request.json();
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function mapRepositoryError(error: unknown): { code: string; status: number; message?: string } | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+  switch (error.message) {
+    case "artifact_not_found":
+      return { code: "artifact_not_found", status: 404 };
+    case "draft_revision_conflict":
+      return { code: "draft_revision_conflict", status: 409 };
+    case "upload_session_not_found":
+      return { code: "upload_session_not_found", status: 404 };
+    case "upload_incomplete":
+      return { code: "upload_incomplete", status: 409 };
+    case "entrypoint_not_in_revision":
+      return { code: "entrypoint_not_in_revision", status: 422 };
+    default:
+      return null;
+  }
 }
 
 async function signPublishContentUrl(result: unknown, env: Env): Promise<unknown> {

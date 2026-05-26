@@ -68,7 +68,7 @@ background jobs, and generated bundles.
 
 Recommended order:
 
-1. [ ] Multi-revision artifact model and publish-update flow.
+1. [x] Multi-revision artifact model and publish-update flow.
        This unlocks revision-pinned links, latest-moving links, retention of old
        revisions, bundle generation, and Live Updates.
 2. [ ] Access Link data model and signed URL codec.

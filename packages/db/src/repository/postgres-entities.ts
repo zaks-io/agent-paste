@@ -5,6 +5,7 @@ import {
   artifactQueries,
   operationEventQueries,
   platformLockdownQueries,
+  revisionQueries,
   uploadSessionFileQueries,
   uploadSessionQueries,
   workspaceMemberQueries,
@@ -47,6 +48,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listFiltered: (workspaceId, status) => artifactQueries.listFiltered(drizzle, workspaceId, status),
       listWebPage: (input) => artifactQueries.listWebPage(drizzle, input),
       updateExpiry: (artifactId, expiresAt) => artifactQueries.updateExpiry(drizzle, artifactId, expiresAt),
+      updatePublished: (artifactId, input) => artifactQueries.updatePublished(drizzle, artifactId, input),
+      updateStaging: (artifactId, input) => artifactQueries.updateStaging(drizzle, artifactId, input),
       markDeleted: async (artifactId, deletedAt) => {
         await sql.query(
           `update artifacts
@@ -75,10 +78,18 @@ export function postgresEntities(ctx: PostgresContext): Entities {
         );
       },
     },
+    revisions: {
+      insert: (revision) => revisionQueries.insert(drizzle, revision),
+      findById: (revisionId, workspaceId) => revisionQueries.findById(drizzle, revisionId, workspaceId),
+      findDraftForArtifact: (artifactId) => revisionQueries.findDraftForArtifact(drizzle, artifactId),
+      listForArtifact: (artifactId) => revisionQueries.listForArtifact(drizzle, artifactId),
+      nextRevisionNumber: (artifactId) => revisionQueries.nextRevisionNumber(drizzle, artifactId),
+      publish: (input) => revisionQueries.publish(drizzle, input),
+    },
     artifactFiles: {
       insert: (artifactId, revisionId, file, fallbackUploadedAt) =>
         artifactFileQueries.insert(drizzle, artifactId, revisionId, file, fallbackUploadedAt),
-      listForArtifact: (artifactId) => artifactFileQueries.listForArtifact(drizzle, artifactId),
+      listForArtifact: (artifactId, revisionId) => artifactFileQueries.listForArtifact(drizzle, artifactId, revisionId),
     },
     uploadSessions: {
       insert: (session) => uploadSessionQueries.insert(drizzle, session),

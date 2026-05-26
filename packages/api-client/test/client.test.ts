@@ -132,7 +132,7 @@ describe("ApiClient", () => {
       uploadBaseUrl: "https://upload.example.test",
       fetch: async (input, init) => {
         calls.push(new Request(input, init));
-        return Response.json(publishResult());
+        return Response.json(finalizeResult());
       },
     });
 
@@ -358,6 +358,19 @@ function artifactSummary() {
     updated_at: "2026-01-01T00:00:00.000Z",
     deleted_at: null,
     delete_reason: null,
+  };
+}
+
+function finalizeResult() {
+  return {
+    upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    artifact_id: artifactId,
+    revision_id: revisionId,
+    status: "draft",
+    title: "Demo",
+    entrypoint: "index.html",
+    file_count: 1,
+    size_bytes: 12,
   };
 }
 

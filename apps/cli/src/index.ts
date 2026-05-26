@@ -166,6 +166,7 @@ async function publish(parsed: Parsed, client: ApiClient) {
 
   const idempotencyKey = createIdempotencyKey("cli_publish");
   const createSessionRequest = CreateUploadSessionRequest.parse({
+    ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
     title: inferred.title,
     ttl_seconds: ttlSecondsForPublish(parsed, policy),
     entrypoint: inferred.entrypoint,
@@ -183,7 +184,8 @@ async function publish(parsed: Parsed, client: ApiClient) {
     });
   }
 
-  const result = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
+  const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
+  const result = await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
   return output(result, parsed.global, formatPublishResult(result));
 }
 
@@ -241,7 +243,7 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set(["artifact", "title", "entrypoint", "render-mode", "ttl", "name"]).has(name);
+  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "ttl", "name"]).has(name);
 }
 
 function requiredArg(parsed: Parsed, index: number, label: string) {
@@ -301,7 +303,7 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
   agent-paste admin workspace create <email> [--name <text>]
   agent-paste admin key create <workspace-id> [--name <text>]
   agent-paste admin key revoke <api-key-id> --yes

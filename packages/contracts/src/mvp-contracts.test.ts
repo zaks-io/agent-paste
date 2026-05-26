@@ -4,6 +4,7 @@ import {
   buildContentOpenApiDocument,
   CreateUploadSessionRequest,
   ErrorCode,
+  FinalizeUploadSessionResponse,
   mvpUsagePolicy,
   PublishResult,
   routeContracts,
@@ -21,6 +22,8 @@ describe("MVP route registry", () => {
       "agentView.public",
       "agentView.getLatest",
       "agentView.getRevision",
+      "revisions.list",
+      "revisions.publish",
       "web.auth.callback",
       "web.workspace.get",
       "web.artifacts.list",
@@ -62,6 +65,8 @@ describe("MVP route registry", () => {
       [
         "agentView.getLatest",
         "agentView.getRevision",
+        "revisions.list",
+        "revisions.publish",
         "uploadSessions.create",
         "uploadSessions.finalize",
         "web.admin.lockdown.lift",
@@ -199,7 +204,22 @@ describe("MVP schemas", () => {
     ).toBe(false);
   });
 
-  it("keeps finalize wired to the small PublishResult shape", () => {
+  it("keeps finalize wired to the draft FinalizeUploadSessionResponse shape", () => {
+    expect(
+      FinalizeUploadSessionResponse.parse({
+        upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "demo",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 123,
+      }),
+    ).toMatchObject({ status: "draft" });
+  });
+
+  it("keeps publish wired to the PublishResult shape", () => {
     expect(
       PublishResult.parse({
         artifact_id: artifactId,

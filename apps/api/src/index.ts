@@ -28,7 +28,7 @@ import {
   type PlatformActor,
   type Repository,
 } from "@agent-paste/db";
-import { type AgentViewTokenPayload, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
+import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import { type AuthResolvers, createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
@@ -253,6 +253,15 @@ apiDbRegistrar.mount(contractById("agentView.getRevision"), async (context, prin
     revisionId: context.req.param("revision_id") ?? "",
   }),
 );
+apiDbRegistrar.mount(contractById("revisions.list"), async (context, principal, db) =>
+  listRevisions(context as AppContext, principal, db, { artifactId: context.req.param("artifact_id") ?? "" }),
+);
+apiDbRegistrar.mount(contractById("revisions.publish"), async (context, principal, db, guard) =>
+  publishRevision(context as AppContext, principal, db, guard, {
+    artifactId: context.req.param("artifact_id") ?? "",
+    revisionId: context.req.param("revision_id") ?? "",
+  }),
+);
 apiDbRegistrar.mount(contractById("web.auth.callback"), async (context, principal, db) =>
   webAuthCallback(context as AppContext, principal, db),
 );
@@ -381,9 +390,75 @@ async function authenticatedAgentView(
 
   const view = await db.getAgentView(input);
 
-  return view
-    ? jsonResponse(context, await signAgentViewContentUrls(view, env))
-    : errorResponse(context, "not_found", 404);
+  if (!view) {
+    if (params.revisionId) {
+      const revisions = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
+      const revision = revisions?.items.find((row) => row.revision_id === params.revisionId);
+      if (revision?.status === "retained") {
+        return errorResponse(context, "revision_retained", 410);
+      }
+    }
+    return errorResponse(context, "not_found", 404);
+  }
+
+  return jsonResponse(context, await signAgentViewContentUrls(view, env));
+}
+
+async function listRevisions(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  params: RouteParams,
+): Promise<Response> {
+  if (principal.kind !== "api_key") {
+    return errorResponse(context, "not_authenticated", 401);
+  }
+  const actor = principal.actor as ApiActor;
+  const result = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
+  return result ? jsonResponse(context, result) : errorResponse(context, "artifact_not_found", 404);
+}
+
+async function publishRevision(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+  params: RouteParams,
+): Promise<Response> {
+  if (principal.kind !== "api_key") {
+    return errorResponse(context, "not_authenticated", 401);
+  }
+  const actor = principal.actor as ApiActor;
+  const idempotencyKey = guard.idempotencyKey ?? "";
+  return runIdempotent(context, async () => {
+    try {
+      const result = await db.publishRevision({
+        actor,
+        idempotencyKey,
+        artifactId: params.artifactId ?? "",
+        revisionId: params.revisionId ?? "",
+        now: new Date().toISOString(),
+      });
+      return signPublishResult(result, context.env);
+    } catch (error) {
+      const mapped = mapRepositoryError(error);
+      if (mapped) {
+        throw new RepositoryRouteError(mapped.code, mapped.status, mapped.message);
+      }
+      throw error;
+    }
+  });
+}
+
+class RepositoryRouteError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status: number,
+    message?: string,
+  ) {
+    super(message ?? code);
+    this.name = "RepositoryRouteError";
+  }
 }
 
 async function publicAgentView(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -1502,8 +1577,72 @@ async function runIdempotent(context: AppContext, run: () => Promise<unknown>, s
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight", 409);
     }
+    if (error instanceof RepositoryRouteError) {
+      return errorResponse(context, error.code, error.status, error.message);
+    }
     throw error;
   }
+}
+
+function mapRepositoryError(error: unknown): { code: string; status: number; message?: string } | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+  switch (error.message) {
+    case "artifact_not_found":
+      return { code: "artifact_not_found", status: 404 };
+    case "revision_unpublished":
+      return { code: "revision_unpublished", status: 404 };
+    case "revision_retained":
+      return { code: "revision_retained", status: 410 };
+    case "entrypoint_not_in_revision":
+      return { code: "entrypoint_not_in_revision", status: 422 };
+    default:
+      return null;
+  }
+}
+
+async function signPublishResult(result: unknown, env: Env): Promise<unknown> {
+  if (!result || typeof result !== "object") {
+    return result;
+  }
+  const data = result as {
+    artifact_id?: unknown;
+    revision_id?: unknown;
+    view_url?: unknown;
+    agent_view_url?: unknown;
+    expires_at?: unknown;
+  };
+  if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
+    return result;
+  }
+  const entrypointPath =
+    typeof data.view_url === "string" ? (data.view_url.split("/").pop() ?? "index.html") : "index.html";
+  const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
+  const secret = agentViewSigningSecret(env);
+  return {
+    ...data,
+    view_url: await signedContentUrl(
+      env,
+      data.artifact_id,
+      data.revision_id,
+      decodeURIComponent(entrypointPath),
+      expiresAt,
+    ),
+    agent_view_url: secret
+      ? await mintAgentViewUrl({
+          baseUrl: apiBaseUrl(env),
+          secret,
+          payload: {
+            artifact_id: data.artifact_id,
+            revision_id: data.revision_id,
+            exp: contentTokenExpiration(expiresAt),
+          },
+        })
+      : typeof data.agent_view_url === "string"
+        ? data.agent_view_url
+        : `${apiBaseUrl(env)}/v1/public/agent-view/${data.artifact_id}.${data.revision_id}`,
+  };
 }
 
 function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {

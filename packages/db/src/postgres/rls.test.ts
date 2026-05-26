@@ -48,7 +48,7 @@ async function provisionRuntimeRole(client: PGlite) {
     create role agent_paste_runtime nosuperuser nobypassrls;
     grant select, insert, update, delete on
       workspaces, api_keys, upload_sessions, upload_session_files,
-      artifacts, artifact_files, operation_events, idempotency_records,
+      artifacts, artifact_files, revisions, operation_events, idempotency_records,
       workspace_members
     to agent_paste_runtime;
   `);

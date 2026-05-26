@@ -1,4 +1,4 @@
-import type { buildAgentView, buildPublishResult } from "../agent-view.js";
+import type { buildAgentView, buildFinalizeResult, buildPublishResult } from "../agent-view.js";
 import type {
   toApiKeySummary,
   toArtifactSummary,
@@ -11,6 +11,7 @@ import type { toWebArtifactRow, toWebAuditRow } from "./web-transforms.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
+type FinalizeResult = ReturnType<typeof buildFinalizeResult>;
 type WorkspaceSummary = ReturnType<typeof toWorkspaceSummary>;
 type ApiKeySummary = ReturnType<typeof toApiKeySummary>;
 type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
@@ -185,6 +186,7 @@ export type Repository = {
     actor: ApiActor;
     idempotencyKey: string;
     request: {
+      artifact_id?: string;
       title?: string;
       ttl_seconds?: number;
       entrypoint?: string;
@@ -206,7 +208,29 @@ export type Repository = {
     sessionId: string;
     observedFiles: UploadSessionFile[];
     now: string;
+  }): Promise<FinalizeResult>;
+  publishRevision(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    revisionId: string;
+    now: string;
   }): Promise<PublishResult>;
+  listRevisions(input: { actor: ApiActor; artifactId: string }): Promise<{
+    artifact_id: string;
+    items: Array<{
+      revision_id: string;
+      revision_number: number | null;
+      status: string;
+      entrypoint: string;
+      render_mode: string;
+      file_count: number;
+      size_bytes: number;
+      created_at: string;
+      published_at: string | null;
+    }>;
+    page_info: PageInfo;
+  } | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<AgentView | null>;
   getAgentView(input: {
     actor: ApiActor;

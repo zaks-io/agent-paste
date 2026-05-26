@@ -68,10 +68,34 @@ export type WorkspaceMember = {
   last_seen_at: string;
 };
 
+export type RevisionStatus = "draft" | "published" | "retained";
+
+export type RenderMode = "html" | "markdown" | "text" | "image" | "audio" | "video";
+
+export type BundleStatus = "pending" | "ready" | "failed" | "disabled";
+
+export type Revision = {
+  id: string;
+  workspace_id: string;
+  artifact_id: string;
+  revision_number: number | null;
+  status: RevisionStatus;
+  entrypoint: string;
+  render_mode: RenderMode;
+  file_count: number;
+  size_bytes: number;
+  bundle_status: BundleStatus;
+  bundle_status_updated_at: string | null;
+  bytes_purge_enqueued_at: string | null;
+  created_by_api_key_id: string;
+  created_at: string;
+  published_at: string | null;
+};
+
 export type Artifact = {
   id: string;
   workspace_id: string;
-  revision_id: string;
+  revision_id: string | null;
   status: "active" | "deleted" | "expired";
   title: string;
   entrypoint: string;

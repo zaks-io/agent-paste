@@ -133,6 +133,29 @@ export function localEntities(state: LocalState): Entities {
         artifact.updated_at = new Date().toISOString();
         return { artifact_id: artifact.id, expires_at: artifact.expires_at };
       },
+      async updatePublished(artifactId, input) {
+        const artifact = state.artifacts.get(artifactId);
+        if (artifact) {
+          artifact.revision_id = input.revisionId;
+          artifact.title = input.title;
+          artifact.entrypoint = input.entrypoint;
+          artifact.file_count = input.fileCount;
+          artifact.size_bytes = input.sizeBytes;
+          artifact.expires_at = input.expiresAt;
+          artifact.updated_at = input.updatedAt;
+        }
+      },
+      async updateStaging(artifactId, input) {
+        const artifact = state.artifacts.get(artifactId);
+        if (artifact) {
+          artifact.title = input.title;
+          artifact.entrypoint = input.entrypoint;
+          artifact.file_count = input.fileCount;
+          artifact.size_bytes = input.sizeBytes;
+          artifact.expires_at = input.expiresAt;
+          artifact.updated_at = input.updatedAt;
+        }
+      },
       async markDeleted(artifactId, deletedAt) {
         const artifact = state.artifacts.get(artifactId);
         if (artifact) {
@@ -162,17 +185,67 @@ export function localEntities(state: LocalState): Entities {
         }
       },
     },
+    revisions: {
+      async insert(revision) {
+        state.revisions.set(revision.id, revision);
+      },
+      async findById(revisionId, workspaceId) {
+        const revision = state.revisions.get(revisionId);
+        if (!revision || (workspaceId && revision.workspace_id !== workspaceId)) {
+          return null;
+        }
+        return revision;
+      },
+      async findDraftForArtifact(artifactId) {
+        return (
+          [...state.revisions.values()].find(
+            (revision) => revision.artifact_id === artifactId && revision.status === "draft",
+          ) ?? null
+        );
+      },
+      async listForArtifact(artifactId) {
+        return [...state.revisions.values()]
+          .filter((revision) => revision.artifact_id === artifactId)
+          .sort((left, right) => {
+            const leftNumber = left.revision_number ?? 0;
+            const rightNumber = right.revision_number ?? 0;
+            if (leftNumber !== rightNumber) {
+              return rightNumber - leftNumber;
+            }
+            return right.created_at.localeCompare(left.created_at);
+          });
+      },
+      async nextRevisionNumber(artifactId) {
+        const published = [...state.revisions.values()].filter(
+          (revision) => revision.artifact_id === artifactId && revision.status === "published",
+        );
+        const max = published.reduce((current, revision) => Math.max(current, revision.revision_number ?? 0), 0);
+        return max + 1;
+      },
+      async publish(input) {
+        const revision = state.revisions.get(input.revisionId);
+        if (!revision || revision.status !== "draft") {
+          return false;
+        }
+        revision.status = "published";
+        revision.revision_number = input.revisionNumber;
+        revision.published_at = input.publishedAt;
+        return true;
+      },
+    },
     artifactFiles: {
       async insert(artifactId, revisionId, file, fallbackUploadedAt) {
-        state.artifactFiles.set(`${artifactId}:${file.path}`, {
+        state.artifactFiles.set(`${artifactId}:${revisionId}:${file.path}`, {
           ...file,
           artifact_id: artifactId,
           revision_id: revisionId,
           uploaded_at: file.uploaded_at ?? fallbackUploadedAt,
         });
       },
-      async listForArtifact(artifactId) {
-        return [...state.artifactFiles.values()].filter((file) => file.artifact_id === artifactId);
+      async listForArtifact(artifactId, revisionId) {
+        return [...state.artifactFiles.values()].filter(
+          (file) => file.artifact_id === artifactId && (revisionId === undefined || file.revision_id === revisionId),
+        );
       },
     },
     uploadSessions: {

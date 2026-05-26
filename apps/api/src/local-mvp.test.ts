@@ -140,12 +140,34 @@ class MemoryDb {
   async finalizeUploadSession() {
     const session = this.mustSession();
     return {
+      upload_session_id: session.upload_session_id,
+      artifact_id: session.artifact_id,
+      revision_id: session.revision_id,
+      status: "draft",
+      title: session.title,
+      entrypoint: session.entrypoint,
+      file_count: session.files.length,
+      size_bytes: session.files.reduce((sum, file) => sum + file.size_bytes, 0),
+    };
+  }
+
+  async publishRevision() {
+    const session = this.mustSession();
+    return {
       artifact_id: session.artifact_id,
       revision_id: session.revision_id,
       title: session.title,
       view_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
       agent_view_url: `http://api.local/v1/public/agent-view/${session.artifact_id}.${session.revision_id}`,
       expires_at: "2030-01-02T00:00:00.000Z",
+    };
+  }
+
+  async listRevisions() {
+    return {
+      artifact_id: this.mustSession().artifact_id,
+      items: [],
+      page_info: { next_cursor: null, has_more: false },
     };
   }
 
@@ -292,7 +314,29 @@ describe("local MVP vertical slice", () => {
       },
     );
     expect(finalizeResponse.status).toBe(200);
-    const published = (await finalizeResponse.json()) as { view_url: string; agent_view_url: string };
+    const finalized = (await finalizeResponse.json()) as {
+      artifact_id: string;
+      revision_id: string;
+      status: string;
+    };
+    expect(finalized.status).toBe("draft");
+
+    const publishResponse = await apiWorker.fetch(
+      new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions/${finalized.revision_id}/publish`, {
+        method: "POST",
+        headers: apiHeaders,
+      }),
+      {
+        AUTH: auth,
+        DB: db,
+        ADMIN_TOKEN: "admin",
+        CONTENT_BASE_URL: "http://content.local",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+      },
+    );
+    expect(publishResponse.status).toBe(200);
+    const published = (await publishResponse.json()) as { view_url: string; agent_view_url: string };
     const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
       AUTH: auth,
       DB: db,

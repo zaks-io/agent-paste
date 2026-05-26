@@ -68,7 +68,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
       }),
       headers: [idempotencyKeyHeader, requestIdHeader],
     },
-    responses: standardJsonResponses(schemaRef("PublishResult")),
+    responses: standardJsonResponses(schemaRef("FinalizeUploadSessionResponse")),
   });
 
   const generator = new OpenApiGeneratorV31(registry.definitions);
