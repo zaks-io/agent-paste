@@ -4,7 +4,7 @@ import { sentryOptions } from "./sentry.js";
 describe("sentryOptions", () => {
   it("disables Sentry when no DSN is configured", () => {
     expect(sentryOptions({})).toMatchObject({
-      dsn: undefined,
+      dsn: "",
       environment: "dev",
       sendDefaultPii: false,
       enabled: false,
@@ -31,6 +31,15 @@ describe("sentryOptions", () => {
       environment: "production",
       sendDefaultPii: false,
       enabled: false,
+    });
+  });
+
+  it("trims the configured DSN before assigning and enabling", () => {
+    expect(sentryOptions({ SENTRY_DSN: "  https://examplePublicKey@example.ingest.sentry.io/1  " })).toMatchObject({
+      dsn: "https://examplePublicKey@example.ingest.sentry.io/1",
+      environment: "dev",
+      sendDefaultPii: false,
+      enabled: true,
     });
   });
 });

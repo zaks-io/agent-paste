@@ -6,10 +6,12 @@ export type SentryEnv = {
 };
 
 export function sentryOptions(env: SentryEnv): CloudflareOptions {
+  const normalizedDsn = env.SENTRY_DSN?.trim() ?? "";
+
   return {
-    dsn: env.SENTRY_DSN,
+    dsn: normalizedDsn,
     environment: env.AGENT_PASTE_ENV ?? "dev",
     sendDefaultPii: false,
-    enabled: (env.SENTRY_DSN?.trim().length ?? 0) > 0,
+    enabled: normalizedDsn.length > 0,
   };
 }
