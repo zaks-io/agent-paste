@@ -1190,6 +1190,78 @@ describe("api worker", () => {
     }
   });
 
+  it("returns 429 with Retry-After when legacy admin routes exceed the actor limit", async () => {
+    const env: Env = {
+      ADMIN_TOKEN: "admin",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async listWorkspaces() {
+          throw new Error("should not list workspaces when rate limited");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          return { success: false };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/admin/workspaces", { headers: { authorization: "Bearer admin" } }),
+      env,
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
+  });
+
+  it("returns 429 with Retry-After when public Agent View exceeds the artifact limit", async () => {
+    const env: Env = {
+      AGENT_VIEW_SIGNING_SECRET: "test-secret",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          throw new Error("should not load Agent View when rate limited");
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+      ARTIFACT_RATE_LIMIT: {
+        async limit() {
+          return { success: false };
+        },
+      },
+    };
+
+    const token = await mintAgentViewToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 3600 },
+      "test-secret",
+    );
+    const response = await handleRequest(new Request(`https://api.test/v1/public/agent-view/${token}`), env);
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
+  });
+
   it("runs admin cleanup with the configured admin token", async () => {
     const env: Env = {
       ADMIN_TOKEN: "admin",

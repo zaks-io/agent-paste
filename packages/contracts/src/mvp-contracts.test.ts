@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AgentView,
+  buildApiOpenApiDocument,
   buildContentOpenApiDocument,
   CreateUploadSessionRequest,
   ErrorCode,
@@ -63,6 +64,15 @@ describe("MVP route registry", () => {
         .sort(),
     ).toEqual(
       [
+        "admin.apiKeys.create",
+        "admin.apiKeys.revoke",
+        "admin.artifacts.delete",
+        "admin.artifacts.get",
+        "admin.artifacts.list",
+        "admin.cleanup.run",
+        "admin.operationEvents.list",
+        "admin.workspaces.create",
+        "admin.workspaces.list",
         "agentView.getLatest",
         "agentView.getRevision",
         "revisions.list",
@@ -89,7 +99,40 @@ describe("MVP route registry", () => {
         .filter((route) => route.rateLimit === "artifact")
         .map((route) => route.id)
         .sort(),
-    ).toEqual(["content.get", "content.head"]);
+    ).toEqual(["agentView.public", "content.get", "content.head"]);
+  });
+
+  it("documents artifact-level public Agent View throttling", () => {
+    const publicAgentView = routeContracts.find((route) => route.id === "agentView.public");
+    const apiOpenApi = buildApiOpenApiDocument() as {
+      paths?: Record<
+        string,
+        {
+          get?: {
+            responses?: Record<
+              string,
+              {
+                headers?: Record<string, unknown>;
+                content?: Record<string, { schema?: { $ref?: string } }>;
+              }
+            >;
+          };
+        }
+      >;
+      components?: { schemas?: Record<string, unknown> };
+    };
+    const rateLimitResponse = apiOpenApi.paths?.["/v1/public/agent-view/{token}"]?.get?.responses?.["429"];
+
+    expect(publicAgentView).toBeDefined();
+    expect(publicAgentView?.errors).toContain("rate_limited_artifact");
+    expect(rateLimitResponse).toBeDefined();
+    expect(rateLimitResponse?.headers).toHaveProperty("Retry-After");
+    expect(rateLimitResponse?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/ArtifactRateLimitErrorEnvelope",
+    );
+    expect(apiOpenApi.components?.schemas?.ArtifactRateLimitErrorEnvelope).toMatchObject({
+      properties: { error: { properties: { code: { enum: ["rate_limited_artifact"] } } } },
+    });
   });
 
   it("documents artifact-level content read throttling", () => {

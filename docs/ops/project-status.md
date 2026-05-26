@@ -19,9 +19,8 @@ and points to the smaller ledgers that own detail.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification still
-  needs an operator-path smoke, the repo-local `ADMIN_TOKEN` `/admin/*` path
-  still exists, and extra rate limiting is needed on legacy admin-token and
-  public bearer read routes.
+  needs an operator-path smoke and the repo-local `ADMIN_TOKEN` `/admin/*` path
+  still exists.
 
 ## Status Ledgers
 

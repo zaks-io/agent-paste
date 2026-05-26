@@ -38,6 +38,18 @@ async function applyActorRateLimit(principal: Principal, bindings: RateLimitBind
     return { ok: true } as const;
   }
 
+  if (principal.kind === "admin_token") {
+    const adminId = adminIdForPrincipal(principal);
+    if (!adminId) {
+      return { ok: true } as const;
+    }
+    const actorOutcome = await rateLimitOrFailOpen(bindings?.actor, "actor", `platform:admin:${adminId}`);
+    if (actorOutcome && !actorOutcome.success) {
+      return { ok: false, code: "rate_limited_actor", retryAfter: "60" } as const;
+    }
+    return { ok: true } as const;
+  }
+
   const actor = actorForPrincipal(principal);
   if (!actor?.workspace_id) {
     return { ok: false, code: "not_authenticated", retryAfter: "60" } as const;
@@ -81,15 +93,27 @@ function actorForPrincipal(principal: Principal): ScopedActor | null {
 }
 
 function artifactIdForPrincipal(principal: Principal): string | null {
-  if (principal.kind !== "signed_content_token") {
+  if (principal.kind === "signed_content_token" || principal.kind === "signed_agent_view_token") {
+    const payload = principal.payload;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return null;
+    }
+    const artifactId = (payload as { artifact_id?: unknown }).artifact_id;
+    return typeof artifactId === "string" ? artifactId : null;
+  }
+  return null;
+}
+
+function adminIdForPrincipal(principal: Principal): string | null {
+  if (principal.kind !== "admin_token") {
     return null;
   }
-  const payload = principal.payload;
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+  const actor = principal.actor;
+  if (!actor || typeof actor !== "object" || Array.isArray(actor)) {
     return null;
   }
-  const artifactId = (payload as { artifact_id?: unknown }).artifact_id;
-  return typeof artifactId === "string" ? artifactId : null;
+  const id = (actor as { id?: unknown }).id;
+  return typeof id === "string" ? id : null;
 }
 
 async function rateLimitOrFailOpen(

@@ -34,6 +34,7 @@ import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } fr
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
+  applyRateLimit,
   type AppErrorCode,
   type AuthResolvers,
   createRegistrar,
@@ -97,6 +98,7 @@ export type Env = {
   DENYLIST?: KVNamespace;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
+  ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;
@@ -215,10 +217,7 @@ const apiDbRegistrar = createRegistrar<Repository>({
   app,
   auth: apiAuthResolvers,
   db: (context) => apiDatabase(context.env as Env),
-  rateLimitBindings: (context) => ({
-    actor: (context.env as Env).ACTOR_RATE_LIMIT,
-    workspace: (context.env as Env).WORKSPACE_BURST_CAP,
-  }),
+  rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
   docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
@@ -227,10 +226,7 @@ const apiDbRegistrar = createRegistrar<Repository>({
 const apiNoDbRegistrar = createRegistrar({
   app,
   auth: apiAuthResolvers,
-  rateLimitBindings: (context) => ({
-    actor: (context.env as Env).ACTOR_RATE_LIMIT,
-    workspace: (context.env as Env).WORKSPACE_BURST_CAP,
-  }),
+  rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
   docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
@@ -798,7 +794,23 @@ async function adminWhoami(context: AppContext): Promise<Response> {
   if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
+  const rateLimit = await applyRateLimit(
+    { rateLimit: "actor" } as RouteContract,
+    { kind: "admin_token", actor },
+    apiRateLimitBindings(context.env),
+  );
+  if (!rateLimit.ok) {
+    return errorResponse(context, rateLimit.code, undefined, { "Retry-After": rateLimit.retryAfter });
+  }
   return jsonResponse(context, { actor });
+}
+
+function apiRateLimitBindings(env: Env) {
+  return {
+    actor: env.ACTOR_RATE_LIMIT,
+    workspace: env.WORKSPACE_BURST_CAP,
+    artifact: env.ARTIFACT_RATE_LIMIT,
+  };
 }
 
 async function cleanup(

@@ -42,6 +42,18 @@ describe("applyRateLimit", () => {
     ).resolves.toEqual({ ok: false, code: "rate_limited_workspace", retryAfter: "10" });
   });
 
+  it("rate-limits legacy admin-token principals by actor only", async () => {
+    const actor = vi.fn().mockResolvedValue({ success: false });
+    const principal: Principal = { kind: "admin_token", actor: { type: "admin", id: "operator" } };
+
+    await expect(applyRateLimit(actorContract, principal, { actor: { limit: actor } })).resolves.toEqual({
+      ok: false,
+      code: "rate_limited_actor",
+      retryAfter: "60",
+    });
+    expect(actor).toHaveBeenCalledWith({ key: "platform:admin:operator" });
+  });
+
   it("rate-limits platform operators by actor only", async () => {
     const actor = vi.fn().mockResolvedValue({ success: false });
     const principal: Principal = { kind: "operator", actor: { type: "platform", id: "operator@example.com" } };
@@ -73,6 +85,22 @@ describe("applyRateLimit", () => {
       ),
     ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
     expect(artifact).toHaveBeenCalledWith({ key: "artifact_1" });
+  });
+
+  it("checks artifact buckets for signed public Agent View tokens", async () => {
+    const artifact = vi.fn().mockResolvedValue({ success: false });
+
+    await expect(
+      applyRateLimit(
+        artifactContract,
+        {
+          kind: "signed_agent_view_token",
+          payload: { artifact_id: "art_1", revision_id: "rev_1", exp: 1 },
+        },
+        { artifact: { limit: artifact } },
+      ),
+    ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
+    expect(artifact).toHaveBeenCalledWith({ key: "art_1" });
   });
 
   it("fails open when bindings are missing or throw", async () => {
