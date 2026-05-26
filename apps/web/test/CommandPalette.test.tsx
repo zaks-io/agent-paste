@@ -54,6 +54,7 @@ describe("CommandPalette", () => {
   it("opens from the topbar search trigger", async () => {
     renderHarness();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open command palette" })).not.toHaveFocus();
 
     openPalette();
     expect(getDialog()).toBeInTheDocument();
@@ -141,15 +142,17 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("wraps selection with arrow up and down", () => {
+  it("wraps selection from the first item to the last", () => {
     renderHarness();
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(() => {});
     openPalette();
 
-    fireEvent.keyDown(window, { key: "ArrowDown" });
     fireEvent.keyDown(window, { key: "ArrowUp" });
     fireEvent.keyDown(window, { key: "Enter" });
 
-    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(navigate).not.toHaveBeenCalled();
+    expect(submitSpy).toHaveBeenCalled();
+    submitSpy.mockRestore();
   });
 
   it("navigates when an option is clicked", () => {
@@ -184,6 +187,7 @@ describe("CommandPalette", () => {
         'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ),
     );
+    expect(focusable.length).toBeGreaterThan(1);
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     expect(first).toBeTruthy();

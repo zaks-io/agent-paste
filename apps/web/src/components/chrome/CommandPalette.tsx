@@ -212,6 +212,7 @@ function CommandPaletteDialog({ open, onOpenChange, isOperator, triggerRef }: Co
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
@@ -304,8 +305,10 @@ function CommandPaletteDialog({ open, onOpenChange, isOperator, triggerRef }: Co
   }, [activeIndex, flatItems, onOpenChange, open]);
 
   useEffect(() => {
-    if (open) return;
-    triggerRef.current?.focus();
+    if (!open && wasOpenRef.current) {
+      triggerRef.current?.focus();
+    }
+    wasOpenRef.current = open;
   }, [open, triggerRef]);
 
   if (!open || typeof document === "undefined") return null;
