@@ -53,7 +53,10 @@ Deferred secrets not created for the current app:
   `zaks-io.cloudflareaccess.com`. The matching `CF_ACCESS_TEAM_DOMAIN` var is
   recorded in `apps/api/wrangler.jsonc`; set `CF_ACCESS_AUD` as a Wrangler
   secret because secret scanning treats the high-entropy identifier as
-  sensitive. Both bindings take effect on the next production API deploy.
+  sensitive.
+- `CF_ACCESS_AUD` is set as a Wrangler secret on `agent-paste-api-preview` and
+  `agent-paste-api-production`. Both hosted API Workers were deployed after
+  removing the old tracked plain-var binding.
 - No new CNAME is needed for the current path-based Access setup. A dedicated
   admin/operator hostname remains optional future work if the surface grows.
 - The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
@@ -89,9 +92,8 @@ Deferred secrets not created for the current app:
 
 ## Open Ops Items
 
-- Deploy the recorded `CF_ACCESS_TEAM_DOMAIN` production API var, set
-  `CF_ACCESS_AUD` as a Wrangler secret, and verify app-side Access
-  JWT/service-token handling when needed.
+- Verify app-side Access JWT/service-token handling against the production
+  operator paths when needed.
 - Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
   for the current path-based Access gate.
 - Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.

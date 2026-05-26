@@ -15,11 +15,11 @@ Access Links are not Phase 3. They start in Phase 4 because they depend on
 multi-revision artifacts and the Access Link signing-key family.
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
-production operator web/API paths, but the app-side Access vars still need a
-production API deploy, `CF_ACCESS_AUD` must be set as a Wrangler secret, the
-repo-local admin bearer token is still live, and extra rate limiting is needed
-on legacy/admin and public bearer read surfaces before the operator boundary
-should be considered hardened.
+production operator web/API paths, and the hosted API environments now carry the
+app-side `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification
+still needs an operator-path smoke, the repo-local admin bearer token is still
+live, and extra rate limiting is needed on legacy/admin and public bearer read
+surfaces before the operator boundary should be considered hardened.
 
 ## Active: Phase 3 Close-Out
 
@@ -65,9 +65,8 @@ Goal: operational depth without changing the product surface.
 2. [ ] Finish Cloudflare Access app-side follow-up for production operator
        paths. The Access app/policy exists and gates `/admin` on
        `app.agent-paste.sh` plus `/v1/web/admin/lockdowns` on
-       `api.agent-paste.sh`; deploy the recorded `CF_ACCESS_TEAM_DOMAIN` var,
-       set `CF_ACCESS_AUD` as a Wrangler secret, and verify service-token/JWT
-       handling when needed.
+       `api.agent-paste.sh`; `CF_ACCESS_AUD` is set as a Wrangler secret on the
+       hosted API Workers. Verify service-token/JWT handling when needed.
 3. [ ] Decide whether to add a dedicated admin/operator hostname.
        No new CNAME is needed for the current path-based Access gate; add and
        document one only if the operator surface grows enough to justify it.
