@@ -9,6 +9,7 @@ export type WebEnv = {
   WORKOS_COOKIE_NAME?: string;
   ASSETS: Fetcher;
   API?: Fetcher;
+  SENTRY_DSN?: string;
 };
 
 export const OPERATOR_ROLE_SLUG = "admin";

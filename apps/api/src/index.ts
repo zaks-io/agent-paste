@@ -43,7 +43,9 @@ import {
   type Principal,
   errorResponse as runtimeErrorResponse,
   jsonResponse as runtimeJsonResponse,
+  sentryOptions,
 } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import {
@@ -123,12 +125,12 @@ export type Env = {
   WORKOS_CLI_ISSUER?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
+  SENTRY_DSN?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
 type ScheduledEvent = {
-  type: "scheduled";
   scheduledTime: number;
   cron: string;
 };
@@ -310,7 +312,7 @@ app.onError((error, context) => {
   return errorResponse(context, "internal_error");
 });
 
-export default {
+const worker = {
   fetch(request: Request, env: Env): Promise<Response> {
     return handleRequest(request, env);
   },
@@ -318,6 +320,8 @@ export default {
     return runScheduledCleanup(env);
   },
 };
+
+export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);

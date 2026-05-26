@@ -22,3 +22,4 @@ export {
   type Handler,
   type HeaderGuardState,
 } from "./registrar.js";
+export { type SentryEnv, sentryOptions } from "./sentry.js";

@@ -102,10 +102,11 @@ Then, in another shell:
 ```sh
 export AGENT_PASTE_API_URL=http://127.0.0.1:8787
 export AGENT_PASTE_UPLOAD_URL=http://127.0.0.1:8788
+export AGENT_PASTE_SMOKE_HARNESS_SECRET=local-smoke-harness-secret
 
 # Provision a workspace + API key through the non-production smoke harness:
 curl -fsS -X POST http://127.0.0.1:8787/__test__/provision-smoke \
-  -H "Authorization: Bearer local-smoke-harness-secret" \
+  -H "Authorization: Bearer ${AGENT_PASTE_SMOKE_HARNESS_SECRET}" \
   -H "Content-Type: application/json" \
   -d '{"email":"local@example.com","workspace_name":"Local","key_name":"local"}'
 

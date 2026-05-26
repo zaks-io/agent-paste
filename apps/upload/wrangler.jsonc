@@ -8,7 +8,9 @@
   "observability": {
     "enabled": true
   },
+  "upload_source_maps": true,
   "vars": {
+    "AGENT_PASTE_ENV": "dev",
     "API_KEY_ENV": "preview",
     "API_BASE_URL": "http://127.0.0.1:8787",
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
@@ -52,6 +54,7 @@
         }
       ],
       "vars": {
+        "AGENT_PASTE_ENV": "preview",
         "API_KEY_ENV": "preview",
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
         "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
@@ -100,6 +103,7 @@
         }
       ],
       "vars": {
+        "AGENT_PASTE_ENV": "production",
         "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",

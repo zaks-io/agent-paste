@@ -2101,7 +2101,10 @@ describe("api worker", () => {
       CLEANUP_BATCH_SIZE: "7",
     };
 
-    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env);
+    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env, {
+      waitUntil() {},
+      passThroughOnException() {},
+    } as ExecutionContext);
 
     expect(calls).toEqual(["cleanup:scheduled-cleanup:7"]);
   });

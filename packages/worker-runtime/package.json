@@ -20,6 +20,7 @@
     "@agent-paste/auth": "workspace:*",
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
+    "@sentry/cloudflare": "^10.53.1",
     "hono": "^4.12.21"
   },
   "devDependencies": {

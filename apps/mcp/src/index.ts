@@ -1,8 +1,12 @@
+import { sentryOptions } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 
 export type Env = {
+  AGENT_PASTE_ENV?: string;
   MCP_RESOURCE?: string;
   MCP_AUTHORIZATION_SERVER?: string;
+  SENTRY_DSN?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -16,11 +20,13 @@ app.onError((error, context) => {
   return context.json({ error: { code: "internal_error", message: "internal_error" } }, 500);
 });
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     return await app.fetch(request, env);
   },
 };
+
+export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {
   const resource = env.MCP_RESOURCE ?? "https://mcp.agent-paste.sh";
