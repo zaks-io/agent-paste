@@ -54,7 +54,7 @@ Run an environment in this order:
 ```sh
 pnpm migrate:preview
 pnpm deploy:preview
-AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
+AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 
 pnpm migrate:production
 pnpm deploy:production
@@ -74,7 +74,7 @@ AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 Preview/PR smokes provision a workspace through the non-production harness secret; production smokes use a pre-provisioned API key secret:
 
 ```sh
-AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
+AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
 

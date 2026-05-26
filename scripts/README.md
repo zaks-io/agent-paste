@@ -110,6 +110,12 @@ AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
 
+Harness secrets (`scripts/smoke-hosted.mjs`):
+
+- Preview: `AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET`, then `AGENT_PASTE_SMOKE_HARNESS_SECRET`.
+- PR preview: `AGENT_PASTE_PR_SMOKE_HARNESS_SECRET`, then `AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET`.
+- Local harness: `AGENT_PASTE_SMOKE_HARNESS_SECRET`, then `SMOKE_HARNESS_SECRET` (see `scripts/smoke-harness.mjs`).
+
 Optional endpoint overrides:
 
 - Preview URLs default to the shared preview Workers and domains.
@@ -119,7 +125,7 @@ Optional endpoint overrides:
 
 Assertions:
 
-- admin workspace/key bootstrap works
+- smoke harness provisions a workspace and API key (preview/PR) or uses a pre-provisioned production key
 - CLI publish returns content `view_url` and API `agent_view_url`
 - Agent View JSON returns the published artifact and file list
 - browser Agent View HTML returns `text/html` and renders the artifact/file list

@@ -240,7 +240,7 @@ Exercises `POST /v1/auth/web/callback`, dashboard loaders, and WorkOS token veri
 ### Hosted preview
 
 ```sh
-AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
+AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 ```
 
 Includes `smokeWebAuth`: `/healthz` 200 and `/api/auth/sign-in` 307 with `Location` under `https://api.workos.com/user_management/authorize` on `app.preview.agent-paste.sh` (override with `AGENT_PASTE_PREVIEW_WEB_URL`).

@@ -43,7 +43,8 @@ Do not create or rotate these names for the CLI-first MVP:
 - After writing, run the environment smoke test:
 
   ```sh
-  AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview   # preview/PR (harness provision)
+  AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview   # shared preview Workers
+  AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:pr             # PR Workers; falls back to preview secret
   AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
   ```
 

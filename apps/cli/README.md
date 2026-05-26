@@ -60,14 +60,14 @@ npx @zaks-io/agent-paste publish ./report --ttl 7d
 
 ## Management
 
-| Command                      | Purpose                                                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `agent-paste login`          | Mint a publish/read API key through WorkOS (see [ADR 0068](../docs/adr/0068-workos-authkit-for-web-and-cli.md)). |
-| `agent-paste logout`         | Remove the stored login credential.                                                                              |
-| `agent-paste whoami`         | Show the resolved **Workspace**, actor, and granted **Scopes**.                                                  |
-| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result.                 |
+| Command                      | Purpose                                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `agent-paste login`          | Mint a publish/read API key through WorkOS (see [ADR 0068](../../docs/adr/0068-workos-authkit-for-web-app-auth.md)). |
+| `agent-paste logout`         | Remove the stored login credential.                                                                                  |
+| `agent-paste whoami`         | Show the resolved **Workspace**, actor, and granted **Scopes**.                                                      |
+| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result.                     |
 
-Operator and bootstrap work uses the web dashboard and `/v1/web/admin/*` routes, not CLI admin verbs. See [admin operations spec](../docs/specs/admin.md).
+Operator and bootstrap work uses the web dashboard and `/v1/web/admin/*` routes, not CLI admin verbs. See [admin operations spec](../../docs/specs/admin.md).
 
 ## Flags
 

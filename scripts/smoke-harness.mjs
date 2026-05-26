@@ -16,6 +16,11 @@ export function smokeHarnessHeaders(secret = smokeHarnessSecretFromEnv()) {
   return { authorization: `Bearer ${secret}` };
 }
 
+async function smokeHarnessError(response, label) {
+  const body = await response.text().catch(() => "");
+  return new Error(`${label} returned ${response.status}: ${body.slice(0, 300)}`);
+}
+
 export async function waitForHealthz(baseUrl, { timeoutMs = 60_000, sleepMs = 2000 } = {}) {
   const url = `${baseUrl.replace(/\/$/, "")}/healthz`;
   const deadline = Date.now() + timeoutMs;
@@ -50,8 +55,7 @@ export async function provisionSmokeWorkspace(apiBaseUrl, { email, name, secret 
     body: JSON.stringify({ email, name }),
   });
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`provision-smoke returned ${response.status}: ${body.slice(0, 300)}`);
+    throw await smokeHarnessError(response, "provision-smoke");
   }
   return response.json();
 }
@@ -66,7 +70,7 @@ export async function forceExpireArtifact(apiBaseUrl, artifactId, secret = smoke
     body: JSON.stringify({ artifact_id: artifactId }),
   });
   if (!response.ok) {
-    throw new Error(`force-expire returned ${response.status}`);
+    throw await smokeHarnessError(response, "force-expire");
   }
   return response.json();
 }
@@ -77,7 +81,7 @@ export async function runSmokeCleanup(apiBaseUrl, secret = smokeHarnessSecretFro
     headers: smokeHarnessHeaders(secret),
   });
   if (!response.ok) {
-    throw new Error(`run-cleanup returned ${response.status}`);
+    throw await smokeHarnessError(response, "run-cleanup");
   }
   return response.json();
 }
@@ -92,7 +96,7 @@ export async function deleteSmokeArtifact(apiBaseUrl, artifactId, secret = smoke
     body: JSON.stringify({ artifact_id: artifactId }),
   });
   if (!response.ok) {
-    throw new Error(`delete-artifact returned ${response.status}`);
+    throw await smokeHarnessError(response, "delete-artifact");
   }
   return response.json();
 }
@@ -102,7 +106,7 @@ export async function listR2Keys(apiBaseUrl, prefix, secret = smokeHarnessSecret
     headers: smokeHarnessHeaders(secret),
   });
   if (!response.ok) {
-    throw new Error(`r2-list returned ${response.status}`);
+    throw await smokeHarnessError(response, "r2-list");
   }
   const data = await response.json();
   return data.keys;
@@ -113,7 +117,7 @@ export async function fetchDenylistKey(apiBaseUrl, key, secret = smokeHarnessSec
     headers: smokeHarnessHeaders(secret),
   });
   if (!response.ok) {
-    throw new Error(`denylist returned ${response.status}`);
+    throw await smokeHarnessError(response, "denylist");
   }
   return response.json();
 }
