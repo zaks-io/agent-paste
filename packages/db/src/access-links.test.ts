@@ -107,6 +107,9 @@ describe("createAccessLinkRow", () => {
     expect(() => createAccessLinkRow({ ...base, expiresAt: "2026-01-02T00:00:00.000" })).toThrow(
       "access_link_invalid_expires_at",
     );
+    expect(() => createAccessLinkRow({ ...base, expiresAt: "2026-01-02T00:00:00+99:99" })).toThrow(
+      "access_link_invalid_expires_at",
+    );
   });
 
   it("canonicalizes expires_at to UTC ISO strings with an explicit timezone", () => {

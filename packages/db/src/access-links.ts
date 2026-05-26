@@ -66,7 +66,7 @@ function assertValidAccessLinkScopesBitmask(scopesBitmask: number | undefined): 
   return value;
 }
 
-const ACCESS_LINK_EXPIRES_AT_TIMEZONE = /(?:Z|[+-]\d{2}:\d{2})$/i;
+const ACCESS_LINK_EXPIRES_AT_TIMEZONE = /(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
 
 function parseAccessLinkExpiresAt(expiresAt: string | null | undefined): string | null {
   if (expiresAt === undefined || expiresAt === null) {
