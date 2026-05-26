@@ -1,20 +1,13 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import type { WorkOsIdentity } from "./workos.js";
 
-export function getOperatorEmails(operatorEmails: string | undefined): readonly string[] {
-  if (!operatorEmails) {
-    return [];
-  }
-  return operatorEmails
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry.length > 0);
-}
+export const OPERATOR_ROLE_SLUG = "admin";
 
-export function isOperator(operatorEmails: string | undefined, email: string | null | undefined): boolean {
-  if (!email) {
+export function isOperator(identity: WorkOsIdentity | null | undefined): boolean {
+  if (!identity) {
     return false;
   }
-  return getOperatorEmails(operatorEmails).includes(email.toLowerCase());
+  return identity.role === OPERATOR_ROLE_SLUG || identity.roles?.includes(OPERATOR_ROLE_SLUG) === true;
 }
 
 export type CfAccessOptions = {

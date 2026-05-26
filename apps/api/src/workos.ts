@@ -5,6 +5,8 @@ export type WorkOsIdentity = {
   email: string;
   session_id?: string;
   token_id?: string;
+  role?: string;
+  roles?: readonly string[];
 };
 
 export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });
@@ -67,13 +69,14 @@ export async function resolveWorkOsIdentity(
   const identity = {
     workos_user_id: user.id,
     email: user.email,
+    ...workOsRoleClaims(verified.payload),
     ...(verified.sessionId ? { session_id: verified.sessionId } : {}),
   };
   if (verified.tokenId) {
     return { ...identity, token_id: verified.tokenId };
   }
   if (verified.sessionId) {
-    return { workos_user_id: user.id, email: user.email, session_id: verified.sessionId };
+    return { ...identity, session_id: verified.sessionId };
   }
   options.onReject?.("no_session_or_token_id");
   return null;
@@ -223,6 +226,19 @@ function clientIdMatches(payload: JWTPayload, clientId: string, requireClaim: bo
 
 function stringClaim(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function stringArrayClaim(value: unknown): readonly string[] | null {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string") ? value : null;
+}
+
+function workOsRoleClaims(payload: JWTPayload): Pick<WorkOsIdentity, "role" | "roles"> {
+  const role = stringClaim(payload.role);
+  const roles = stringArrayClaim(payload.roles);
+  return {
+    ...(role ? { role } : {}),
+    ...(roles ? { roles } : {}),
+  };
 }
 
 function normalizeWorkOsUser(value: unknown): WorkOsUser | null {

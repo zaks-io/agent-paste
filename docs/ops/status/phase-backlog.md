@@ -16,10 +16,9 @@ multi-revision artifacts and the Access Link signing-key family.
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
-app-side `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification
-still needs an operator-path smoke, the repo-local admin bearer token is still
-live, and extra rate limiting is needed on legacy/admin and public bearer read
-surfaces before the operator boundary should be considered hardened.
+app-side `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke and
+the human browser `/admin` check both passed on 2026-05-26. The repo-local admin
+bearer token is still live until AP-12/AP-13 retire it.
 
 ## Active: Phase 3 Close-Out
 
@@ -62,22 +61,24 @@ Nice-to-have but not a Phase 3 gate:
 Goal: operational depth without changing the product surface.
 
 1. [ ] Logpush -> Axiom wiring per `docs/ops/runbook-logpush.md`.
-2. [ ] Finish Cloudflare Access app-side follow-up for production operator
+2. [x] Finish Cloudflare Access app-side follow-up for production operator
        paths. The Access app/policy exists and gates `/admin` on
        `app.agent-paste.sh` plus `/v1/web/admin/lockdowns` on
        `api.agent-paste.sh`; `CF_ACCESS_AUD` is set as a Wrangler secret on the
-       hosted API Workers. Verify service-token/JWT handling when needed.
+       hosted API Workers. Production service-token/JWT smoke passed for the API
+       lockdown list on 2026-05-26, and the approved human browser `/admin`
+       check passed after assigning the WorkOS `admin` role.
 3. [ ] Decide whether to add a dedicated admin/operator hostname.
        No new CNAME is needed for the current path-based Access gate; add and
        document one only if the operator surface grows enough to justify it.
 4. [ ] Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Cloudflare
        Access + WorkOS operator routes cover the remaining operational needs.
        Until then treat `ADMIN_TOKEN` as a bootstrap/legacy operating risk.
-5. [ ] Write and execute the legacy admin migration plan.
-       Inventory every `/admin/*` operation, map it to a WorkOS member route,
-       WorkOS operator route, `apps/jobs` responsibility, or explicit removal,
-       then remove the old admin CLI/API once smoke/runbooks no longer depend
-       on `ADMIN_TOKEN`.
+5. [ ] Execute the legacy admin migration plan.
+       `docs/ops/ap-12-migration-plan.md` inventories every `/admin/*`
+       operation and maps it to a WorkOS member route, WorkOS operator route,
+       `apps/jobs` responsibility, or explicit removal. Remove the old admin
+       CLI/API once smoke/runbooks no longer depend on `ADMIN_TOKEN`.
 6. [x] Add rate limiting to legacy admin-token routes and public bearer read
        surfaces that currently lack explicit limits, especially `/admin/*` and
        public Agent View.

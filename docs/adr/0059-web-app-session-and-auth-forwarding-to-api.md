@@ -52,7 +52,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's WorkOS Au
 
 - The `ap_pk_` API Key path through `api`'s auth middleware ([ADR 0043](./0043-bearer-credential-format-and-storage.md)) is untouched.
 - The unauthenticated Access Link resolve path from [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) remains POST-with-fragment, no Authorization header, no cookie.
-- The operator surface gating from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) runs _after_ this middleware resolves the **Workspace Member**; it checks whether the resolved email is in `OPERATOR_EMAILS`.
+- The operator surface gating from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md) runs _after_ this middleware resolves the **Workspace Member**; it checks whether the active WorkOS session carries the `admin` role slug.
 
 ### Why not put any of this in CONTEXT.md
 

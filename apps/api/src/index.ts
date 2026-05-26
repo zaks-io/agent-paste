@@ -34,9 +34,9 @@ import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } fr
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
-  applyRateLimit,
   type AppErrorCode,
   type AuthResolvers,
+  applyRateLimit,
   createRegistrar,
   type GuardState,
   type Principal,
@@ -118,7 +118,6 @@ export type Env = {
   // for non-default subdomains (see ADR 0060).
   WORKOS_CLI_JWKS_URL?: string;
   WORKOS_CLI_ISSUER?: string;
-  OPERATOR_EMAILS?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
 };
@@ -1164,11 +1163,11 @@ function cliVerifyOptions(env: Env): WorkOsVerificationOptions | null {
 
 // Operator routes accept exactly two identities and collapse every failure to
 // null so the registrar returns a generic not_found (ADR 0046): (1) a WorkOS
-// session whose verified email is in OPERATOR_EMAILS, or (2) a Cloudflare Access
-// service-token JWT carrying a common_name. API keys never reach this path.
+// session carrying the operator role, or (2) a Cloudflare Access service-token
+// JWT carrying a common_name. API keys never reach this path.
 async function authenticateOperator(request: Request, env: Env): Promise<string | null> {
   const identity = await authenticateWebIdentity(request, env);
-  if (identity && isOperator(env.OPERATOR_EMAILS, identity.email)) {
+  if (identity && isOperator(identity)) {
     return identity.email.toLowerCase();
   }
 

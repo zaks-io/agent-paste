@@ -48,10 +48,7 @@ writeJson(files.apiConfig, apiConfig());
 writeJson(files.uploadConfig, uploadConfig());
 writeJson(files.contentConfig, contentConfig());
 writeJson(files.apexConfig, apexConfig());
-writeJson(
-  files.apiSecrets,
-  pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH", "OPERATOR_EMAILS"]),
-);
+writeJson(files.apiSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH"]));
 writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
 writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
 
@@ -277,7 +274,6 @@ function createPrSecrets() {
     API_KEY_PEPPER_V1: apiKeyPepper,
     ADMIN_TOKEN: adminToken,
     ADMIN_TOKEN_HASH: process.env.PREVIEW_ADMIN_TOKEN_HASH ?? hmacBase64Url(adminToken, apiKeyPepper),
-    OPERATOR_EMAILS: process.env.OPERATOR_EMAILS ?? "isaac@zaks.io",
     // AuthKit seals its session cookie with this; 32+ chars required. Derived so
     // a PR's web worker can decrypt cookies it set on an earlier deploy.
     WORKOS_COOKIE_PASSWORD: process.env.PREVIEW_WORKOS_COOKIE_PASSWORD ?? prPreviewSecret("workos-cookie-password", 32),

@@ -16,7 +16,8 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 | `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present.              |
 | `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                               |
 
-`OPERATOR_EMAILS` is an operator allowlist value, not a cryptographic secret, but it is written through Worker secret bindings today and should be checked during rotation. Cloudflare does not reveal secret values after write; compare the password-manager record to the expected operator list, confirm the binding name exists, and rewrite the binding if the list changed.
+Human operator access is controlled by the WorkOS `admin` role slug on the
+active session.
 
 ## Explicit Exclusions
 
@@ -49,26 +50,15 @@ Do not create or rotate these names for the CLI-first MVP:
 
 - If smoke fails, roll back the changed secret bindings from the previous password-manager values, not from `wrangler secret list` output. Check formatting and encoding for the secret named by the failure, confirm cross-Worker shared secrets match when required, rerun the relevant smoke test, then collect Worker logs and escalate if the rollback smoke still fails.
 
-## Verify Operator Allowlist
+## Verify Operator Role
 
-Do this once during each rotation window, even when `OPERATOR_EMAILS` is not the secret being rotated.
+Do this once during each rotation window.
 
-1. Confirm `OPERATOR_EMAILS` exists in the relevant Worker secret bindings:
-
-   ```sh
-   wrangler secret list --cwd apps/api --env preview --json
-   wrangler secret list --cwd apps/web --env preview --json
-   ```
-
-2. Compare the password-manager value with the expected operator allowlist.
-3. If unchanged, record `OPERATOR_EMAILS verified unchanged` in the completion record.
-4. If changed, update the Worker secret binding, deploy the affected Worker, and run smoke:
-
-   ```sh
-   wrangler secret put OPERATOR_EMAILS --cwd apps/api --env preview
-   wrangler secret put OPERATOR_EMAILS --cwd apps/web --env preview
-   AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
-   ```
+1. Confirm the expected human operators have the WorkOS `admin` role slug in the
+   target WorkOS environment.
+2. Ask affected operators to refresh/sign in again so the session access token
+   carries the current role claim.
+3. Run the operator smoke for `/admin` and `/v1/web/admin/lockdowns`.
 
 ## Rotate Content Signing
 
@@ -196,5 +186,5 @@ For each rotation, record in the ops log:
 - operator
 - timestamp
 - verification command and result
-- `OPERATOR_EMAILS` verified unchanged or rotated
+- WorkOS `admin` role verified for human operators
 - known invalidation: content URLs, upload URLs, API Keys, admin token, or web sessions

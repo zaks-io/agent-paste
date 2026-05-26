@@ -34,20 +34,19 @@ First-deploy secret bootstrap for one environment.
 Preview CLI-first bootstrap:
 
 ```sh
-OPERATOR_EMAILS=you@example.com pnpm bootstrap:preview
+pnpm bootstrap:preview
 ```
 
 Production CLI-first bootstrap:
 
 ```sh
-OPERATOR_EMAILS=you@example.com pnpm bootstrap:production
+pnpm bootstrap:production
 ```
 
 Web/AuthKit bootstrap includes WorkOS values:
 
 ```sh
 node scripts/bootstrap-secrets.mjs preview \
-  --operator-emails you@example.com \
   --with-web \
   --workos-api-key sk_... \
   --workos-client-id client_... \
@@ -60,7 +59,6 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
 - `ADMIN_TOKEN_HASH`
-- `OPERATOR_EMAILS`
 
 With `--with-web`, it also writes:
 
@@ -69,6 +67,7 @@ With `--with-web`, it also writes:
 - `WORKOS_COOKIE_PASSWORD`
 
 It prints generated values once for password-manager capture, including the one-time `ADMIN_TOKEN`; only the HMAC is written to Cloudflare as `ADMIN_TOKEN_HASH`. It checks existing Worker secrets first and refuses to overwrite unless `--force` is passed and the operator types `overwrite <env> secrets`.
+Human operator access is controlled in WorkOS by granting the `admin` role slug to the user.
 
 Use `--print-only` to verify generation shape without calling Wrangler. Use `--skip-web` to force CLI-first bootstrap even if WorkOS values are present.
 

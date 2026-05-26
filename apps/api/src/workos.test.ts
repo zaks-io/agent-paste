@@ -54,6 +54,37 @@ describe("WorkOS access-token verification", () => {
     ).resolves.toMatchObject({ workos_user_id: subject, email: "user@example.com" });
   });
 
+  it("preserves WorkOS role claims from the access token", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, role: "admin", roles: ["member", "admin"] });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toMatchObject({
+      workos_user_id: subject,
+      email: "user@example.com",
+      role: "admin",
+      roles: ["member", "admin"],
+    });
+  });
+
+  it("preserves WorkOS role claims for sid-only access tokens", async () => {
+    const fixture = await tokenFixture({
+      client_id: clientId,
+      role: "admin",
+      roles: ["member", "admin"],
+      sessionId,
+      tokenId: null,
+    });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toMatchObject({
+      workos_user_id: subject,
+      email: "user@example.com",
+      session_id: sessionId,
+      role: "admin",
+      roles: ["member", "admin"],
+    });
+  });
+
   it("rejects a JWT with the wrong client_id claim", async () => {
     const fixture = await tokenFixture({ client_id: "client_wrong" });
     stubWorkOsFetch(fixture.publicJwk);
@@ -214,6 +245,8 @@ async function tokenFixture(input: {
   iss?: string;
   expiresAt?: number;
   aud?: string;
+  role?: string;
+  roles?: string[];
   sessionId?: string | null;
   tokenId?: string | null;
 }) {
@@ -225,6 +258,8 @@ async function tokenFixture(input: {
   const expiresAt = input.expiresAt ?? Math.floor(Date.now() / 1000) + 300;
   const jwt = new SignJWT({
     ...(input.client_id ? { client_id: input.client_id } : {}),
+    ...(input.role ? { role: input.role } : {}),
+    ...(input.roles ? { roles: input.roles } : {}),
     ...(input.sessionId !== null ? { sid: input.sessionId ?? sessionId } : {}),
   })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })

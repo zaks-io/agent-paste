@@ -7,18 +7,17 @@ export type WebEnv = {
   WORKOS_REDIRECT_URI: string;
   WORKOS_COOKIE_PASSWORD: string;
   WORKOS_COOKIE_NAME?: string;
-  OPERATOR_EMAILS: string;
   ASSETS: Fetcher;
   API?: Fetcher;
 };
 
-export function getOperatorEmails(env: WebEnv): readonly string[] {
-  return env.OPERATOR_EMAILS.split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry.length > 0);
-}
+export const OPERATOR_ROLE_SLUG = "admin";
 
-export function isOperator(env: WebEnv, email: string | null | undefined): boolean {
-  if (!email) return false;
-  return getOperatorEmails(env).includes(email.toLowerCase());
+export type WorkOsRoleClaims = {
+  role?: string;
+  roles?: readonly string[];
+};
+
+export function hasOperatorRole(claims: WorkOsRoleClaims): boolean {
+  return claims.role === OPERATOR_ROLE_SLUG || claims.roles?.includes(OPERATOR_ROLE_SLUG) === true;
 }

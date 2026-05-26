@@ -35,7 +35,6 @@ Last updated: 2026-05-26.
 | `API_KEY_PEPPER_V1`      | api, upload          | Active API-key/admin-token HMAC pepper.                                                        |
 | `ADMIN_TOKEN`            | operator only        | Printed once; store in password manager.                                                       |
 | `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                                                                         |
-| `OPERATOR_EMAILS`        | api, web             | Operator allowlist, written as a Worker secret today.                                          |
 | `WORKOS_API_KEY`         | api, web             | WorkOS server-side API credential.                                                             |
 | `WORKOS_CLIENT_ID`       | api, web             | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                     |
 | `WORKOS_COOKIE_PASSWORD` | web                  | WorkOS AuthKit sealed-session password.                                                        |
@@ -58,13 +57,21 @@ Deferred secrets not created for the current app:
 - `CF_ACCESS_AUD` is set on `agent-paste-api-preview` and
   `agent-paste-api-production`. Both hosted API Workers were deployed after
   removing the old tracked plain-var binding.
+- Production service-token smoke for `/v1/web/admin/lockdowns` passed on
+  2026-05-26 after confirming the Access app policy used `Service Auth` and
+  uploading the current app audience as the production `CF_ACCESS_AUD` secret.
+- Human browser access to `/admin` passed on 2026-05-26 after assigning the
+  WorkOS `admin` role slug and redeploying the role-based operator check.
+- Human operator authorization now uses the WorkOS `admin` role slug in the
+  session access token.
 - No new CNAME is needed for the current path-based Access setup. A dedicated
   admin/operator hostname remains optional future work if the surface grows.
 - The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
   `/admin/*`. Retire it once Cloudflare Access + WorkOS operator routes cover
-  the remaining admin operations. A route-by-route migration plan is still
-  needed for workspace/API-key bootstrap, artifact inspection/deletion, cleanup,
-  and operation-event browsing.
+  the remaining admin operations. The AP-12 route-by-route migration plan exists
+  at [`docs/ops/ap-12-migration-plan.md`](../ap-12-migration-plan.md); execution
+  is still needed for workspace/API-key bootstrap, artifact inspection/deletion,
+  cleanup, and operation-event browsing.
 - Legacy admin-token routes and public Agent View now use contract-declared
   rate limits (`actor` for `/admin/*`, `artifact` for public Agent View) via the
   shared `ARTIFACT_RATE_LIMIT` / `ACTOR_RATE_LIMIT` bindings on `api`.
@@ -94,12 +101,10 @@ Deferred secrets not created for the current app:
 
 ## Open Ops Items
 
-- Verify app-side Access JWT/service-token handling against the production
-  operator paths when needed.
 - Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
   for the current path-based Access gate.
 - Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
-- Write the route-by-route migration plan for legacy `/admin/*` functionality.
+- Execute the route-by-route migration plan for legacy `/admin/*` functionality.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.

@@ -83,14 +83,20 @@ function envFilesIn(source) {
   if (!existsSync(source)) {
     return [];
   }
-  const output = spawnSync("git", ["-C", source, "status", "--ignored", "--short", "--untracked-files=all"], {
-    encoding: "utf8",
-  });
-  if (output.status !== 0) {
-    return [];
+  const files = new Set();
+  for (const file of rootEnvFilesIn(source)) {
+    files.add(file);
   }
 
-  const files = new Set();
+  const output = spawnSync("git", ["-C", source, "status", "--ignored", "--short", "--untracked-files=all"], {
+    encoding: "utf8",
+    // 16x Node's default buffer for repos with many ignored or untracked files.
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (output.status !== 0) {
+    return [...files].sort();
+  }
+
   for (const line of output.stdout.split(/\r?\n/)) {
     const path = line.slice(3).trim();
     if (!path || path.endsWith("/")) {
@@ -103,6 +109,12 @@ function envFilesIn(source) {
   return [...files].sort();
 }
 
+function rootEnvFilesIn(source) {
+  return readdirSync(source)
+    .filter(isEnvFile)
+    .filter((file) => isRegularFile(join(source, file)));
+}
+
 function isEnvFile(path) {
   const name = path.split("/").at(-1) ?? "";
   if (name === ".env.example" || name.endsWith(".example")) {
@@ -112,6 +124,13 @@ function isEnvFile(path) {
 }
 
 function defaultSourceWorktree() {
+  if (process.env.HOME) {
+    const canonicalSource = join(process.env.HOME, "src", "agent-paste");
+    if (realPathish(canonicalSource) !== realPathish(root) && isDirectory(canonicalSource)) {
+      return canonicalSource;
+    }
+  }
+
   const output = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: root, encoding: "utf8" });
   if (output.status !== 0) {
     return undefined;
@@ -308,6 +327,14 @@ Options:
 function isRegularFile(path) {
   try {
     return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(path) {
+  try {
+    return statSync(path).isDirectory();
   } catch {
     return false;
   }

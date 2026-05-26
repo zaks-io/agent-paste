@@ -1,28 +1,24 @@
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getOperatorEmails, isOperator, verifyCfAccessServiceToken } from "./operator.js";
+import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 
 const teamDomain = "zaks.cloudflareaccess.com";
 const aud = "cf-access-aud-id";
 let keyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
 
-describe("operator email allow-list", () => {
-  it("parses, trims, and case-folds OPERATOR_EMAILS", () => {
-    expect(getOperatorEmails(" Ops@Example.com , second@example.com ,, ")).toEqual([
-      "ops@example.com",
-      "second@example.com",
-    ]);
+describe("WorkOS operator role", () => {
+  it("matches the single admin role claim", () => {
+    expect(isOperator({ workos_user_id: "user_1", email: "user@example.com", role: "admin" })).toBe(true);
   });
 
-  it("treats missing OPERATOR_EMAILS as an empty list", () => {
-    expect(getOperatorEmails(undefined)).toEqual([]);
-    expect(isOperator(undefined, "ops@example.com")).toBe(false);
+  it("matches the multi-role admin claim", () => {
+    expect(isOperator({ workos_user_id: "user_1", email: "user@example.com", roles: ["member", "admin"] })).toBe(true);
   });
 
-  it("matches operator emails case-insensitively", () => {
-    expect(isOperator("ops@example.com", "OPS@EXAMPLE.COM")).toBe(true);
-    expect(isOperator("ops@example.com", "other@example.com")).toBe(false);
-    expect(isOperator("ops@example.com", null)).toBe(false);
+  it("rejects missing or non-admin roles", () => {
+    expect(isOperator({ workos_user_id: "user_1", email: "user@example.com" })).toBe(false);
+    expect(isOperator({ workos_user_id: "user_1", email: "user@example.com", role: "member" })).toBe(false);
+    expect(isOperator(null)).toBe(false);
   });
 });
 

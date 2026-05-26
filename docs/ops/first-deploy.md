@@ -33,7 +33,7 @@ This runbook is the operator checklist for the first deploy of an agent-paste en
 Run `scripts/bootstrap-secrets.mjs` for the target environment. The script contract is tracked in [`scripts/README.md`](../../scripts/README.md). For preview:
 
 ```sh
-OPERATOR_EMAILS=you@example.com pnpm bootstrap:preview
+pnpm bootstrap:preview
 ```
 
 It generates and writes:
@@ -42,11 +42,10 @@ It generates and writes:
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
 - `ADMIN_TOKEN_HASH`
-- `OPERATOR_EMAILS`
 
 The script prints the one-time `ADMIN_TOKEN` for operator use, but only writes `ADMIN_TOKEN_HASH` to Cloudflare. It must refuse to overwrite existing secrets unless `--force` and a typed confirmation are provided. Record generated values in the password manager before closing the terminal. Routine rotation uses the ADR 0045 rotation tooling, not this bootstrap script.
 
-Set external provider secrets manually: WorkOS values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate.
+Set external provider secrets manually: WorkOS values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate. Human operator access is assigned in WorkOS by granting the `admin` role slug to the user.
 
 ## Hosted MVP Deploy Order
 

@@ -114,7 +114,7 @@ Drop or never-log (Worker code is already responsible; this is the operator's de
   - `API_KEY_PEPPER_V1`
   - `ADMIN_TOKEN`, `ADMIN_TOKEN_HASH`
 - API key material: full `ap_pk_*` strings. The structured logger already truncates to a `prefix` only; verify the truncation by spot-checking the Axiom dataset after first ingest.
-- Operator email addresses from `OPERATOR_EMAILS`: never log on the request path.
+- WorkOS operator identity details and role assignments: never log on the request path.
 
 If any of the above appear in Axiom after first ingest, treat it as a P1 and rotate the leaked secret per ADR 0045.
 

@@ -72,7 +72,7 @@ These practices are part of the current architecture, not optional implementatio
 
 ### Operator and Admin Access
 
-- Operator actions are outside the public agent API. They use `/admin/...` on `api`, production Cloudflare Access, WorkOS session resolution (ADR 0068), `OPERATOR_EMAILS`, and `requireOperator()` per [ADR 0046](./0046-operator-identity-and-web-admin-surface.md).
+- Operator actions are outside the public agent API. They use `/admin/...` on `api`, production Cloudflare Access, WorkOS session resolution with the `admin` role slug (ADR 0068), and `requireOperator()` per [ADR 0046](./0046-operator-identity-and-web-admin-surface.md).
 - API Keys can never assume operator authority. Admin routes reject API Key authentication before any scope checks.
 - Automated rotation authenticates with a Cloudflare Access service token only (no Auth0/WorkOS M2M), mapped to the reserved `rotation-agent@platform` operator identity, with no bypass endpoint. Cloudflare Access service tokens are the documented machine-to-machine path for Access-protected applications: <https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/>.
 - Every operator mutation writes an Audit Event visible to affected Workspace Members.

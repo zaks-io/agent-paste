@@ -164,8 +164,6 @@ function webWranglerVars() {
     "--var",
     "AGENT_PASTE_ENV:dev",
     "--var",
-    "OPERATOR_EMAILS:isaac@example.test",
-    "--var",
     `WORKOS_API_KEY:${workosApiKey}`,
     "--var",
     `WORKOS_COOKIE_PASSWORD:${cookiePassword}`,
@@ -290,7 +288,7 @@ function spawnChild(command, args, env = {}, options = {}) {
   child.stderr.on("data", appendLog);
   child.once("error", (error) => {
     spawnError = error;
-    appendLog(`\n[spawn error] ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+    appendLog(`\n[spawn error] ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
   });
   child.__log = () => log;
   child.__spawnError = () => spawnError;

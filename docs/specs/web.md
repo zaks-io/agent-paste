@@ -147,7 +147,8 @@ The `/al/{publicId}` page:
 
 ## Operator UI
 
-Operator routes are visible only when the authenticated email is in `OPERATOR_EMAILS`.
+Operator routes are visible only when the active WorkOS session carries the
+`admin` role slug.
 
 MVP operator actions:
 

@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `4532fb2 docs: add WorkOS auth operator runbook (#73)`.
+  `fc472ab feat(api): rate-limit legacy admin and public Agent View routes (AP-14) (#85)`.
 - `pnpm verify` passed on 2026-05-25 with 72 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
@@ -18,9 +18,10 @@ and points to the smaller ledgers that own detail.
   scanner persistence do not exist yet.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
-  `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification still
-  needs an operator-path smoke and the repo-local `ADMIN_TOKEN` `/admin/*` path
-  still exists.
+  `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
+  `/v1/web/admin/lockdowns` on 2026-05-26, and the approved human browser
+  `/admin` check passed after the WorkOS `admin` role assignment. The repo-local
+  `ADMIN_TOKEN` `/admin/*` path still exists until AP-12/AP-13 retire it.
 
 ## Status Ledgers
 
@@ -39,6 +40,10 @@ Feature-specific ledgers:
 - [Live Updates todo](./live-updates-todo.md) - ADR 0069, parked until Phase 4
   dependencies exist.
 - [Repository todo](./repository-todo.md) - repository-core follow-ups.
+- [Operator Access smoke plan (AP-10)](./ap-10-access-smoke-plan.md) -
+  production Cloudflare Access + app-side operator auth smoke plan.
+- [Admin route migration plan (AP-12)](./ap-12-migration-plan.md) - retire
+  `/admin/*` `ADMIN_TOKEN` in favor of WorkOS/operator routes and jobs.
 - [Rotation runbook](./runbook-rotation.md) - current manual rotation and future
   automation gaps.
 - [WorkOS runbook](./runbook-workos.md) - WorkOS project config, redirect URI
@@ -63,8 +68,8 @@ Highest-signal gaps:
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
   operations, and tested rotation automation.
-- Parked ops/security hardening: app-side Access JWT verification smoke,
-  optional dedicated admin hostname decision, and `ADMIN_TOKEN` retirement.
+- Parked ops/security hardening: optional dedicated admin hostname decision and
+  `ADMIN_TOKEN` retirement.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.
 
