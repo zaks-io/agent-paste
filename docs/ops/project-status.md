@@ -64,8 +64,7 @@ Highest-signal gaps:
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
   operations, and tested rotation automation.
 - Parked ops/security hardening: app-side Access JWT verification smoke,
-  optional dedicated admin hostname decision, `ADMIN_TOKEN` retirement, and rate
-  limits for legacy admin-token/public bearer read routes.
+  optional dedicated admin hostname decision, and `ADMIN_TOKEN` retirement.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.
 

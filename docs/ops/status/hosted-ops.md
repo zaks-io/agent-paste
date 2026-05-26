@@ -100,7 +100,6 @@ Deferred secrets not created for the current app:
   for the current path-based Access gate.
 - Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
 - Write the route-by-route migration plan for legacy `/admin/*` functionality.
-- Add rate limiting for legacy admin-token routes and public bearer read routes.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.

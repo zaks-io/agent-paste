@@ -41,7 +41,7 @@ async function applyActorRateLimit(principal: Principal, bindings: RateLimitBind
   if (principal.kind === "admin_token") {
     const adminId = adminIdForPrincipal(principal);
     if (!adminId) {
-      return { ok: true } as const;
+      return { ok: false, code: "not_authenticated", retryAfter: "60" } as const;
     }
     const actorOutcome = await rateLimitOrFailOpen(bindings?.actor, "actor", `platform:admin:${adminId}`);
     if (actorOutcome && !actorOutcome.success) {
