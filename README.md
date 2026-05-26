@@ -155,4 +155,4 @@ pnpm hooks:install
 
 ## Git Hooks
 
-Lefthook is configured at the repo root. `pre-commit` runs Biome on staged files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and Turbo typecheck for packages affected since `origin/main` with a local `HEAD` fallback. `pre-push` runs affected tests with the same fallback.
+Lefthook is configured at the repo root. `pre-commit` runs Biome on staged files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and Turbo typecheck for packages affected since `origin/main` with a local `HEAD` fallback. `pre-push` runs `pnpm test:coverage` so global coverage thresholds match CI.
