@@ -33,6 +33,10 @@ Background Agent implementation after it becomes `ready-for-agent`.
 - **Comment on an issue**: `save_comment` with the issue's id and the body markdown.
 - **Apply / remove labels**: `save_issue` with the updated `labelIds` array (Linear replaces the full set). Resolve label ids with `list_issue_labels` once per session and cache.
 - **Close**: `save_issue` setting the issue's state to a canceled or done workflow state.
+- **Handoff after agent PR**: when a remote agent opens a ready-for-review PR for
+  the issue, move the issue to **In Review** with `save_issue`. Rely on the
+  GitHub integration for the PR link; do not comment on the issue only to paste
+  the URL.
 
 When sending markdown content (title or description), pass real newlines, not literal `\n` escape sequences.
 

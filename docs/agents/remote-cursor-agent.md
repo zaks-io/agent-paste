@@ -166,13 +166,10 @@ The final PR or handoff comment must include:
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.
 - Docs/status ledgers updated when the change affects project status.
-- **Linear issue status updated** for the ticket you implemented: leave a comment
-  with the ready-for-review PR URL and handoff summary, then move the issue to
-  the workflow state your team uses for “in review” / awaiting merge (or `Done`
-  only when the issue is fully complete per team convention). Use the Linear MCP
-  tools described in `docs/agents/issue-tracker.md` (`save_comment`,
-  `save_issue`). Do not leave the issue sitting in an in-progress state after
-  handoff.
+- **Linear issue moved to In Review** for the ticket you implemented once the PR
+  is ready for review. Use `save_issue` per `docs/agents/issue-tracker.md`. Do
+  not leave the issue in an in-progress state after handoff. Use Linear comments
+  only for blockers or handoff gaps—not to duplicate the PR link.
 
 Keep the change scoped to the issue. Do not bundle unrelated cleanup into a
 remote-agent branch.
