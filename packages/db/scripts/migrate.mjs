@@ -2,6 +2,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import postgres from "postgres";
+import { APP_RUNTIME_ROLE } from "./credentials.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -11,12 +12,10 @@ if (!databaseUrl) {
 const migrationsDir = resolve("migrations");
 const files = (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort();
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
-const runtimeRole = process.env.DATABASE_RUNTIME_ROLE ?? "";
+const runtimeRole = process.env.DATABASE_RUNTIME_ROLE ?? APP_RUNTIME_ROLE;
 
 try {
-  if (runtimeRole) {
-    await sql.unsafe("select set_config('app.runtime_role', $1, false)", [runtimeRole]);
-  }
+  await sql.unsafe("select set_config('app.runtime_role', $1, false)", [runtimeRole]);
   for (const file of files) {
     const path = resolve(migrationsDir, file);
     const sqlText = await readFile(path, "utf8");

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Hyperdrive must use the app_role connection string (DATABASE_URL_RUNTIME_* /
+// PR runtime Neon URL). Never pass migration URLs (platform_admin) here.
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 

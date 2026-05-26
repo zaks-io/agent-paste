@@ -64,6 +64,7 @@ jobs:
 
       - name: Migrate production database
         env:
+          DATABASE_URL_MIGRATIONS_PRODUCTION: ${{ secrets.DATABASE_URL_MIGRATIONS_PRODUCTION }}
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: pnpm migrate:production
 

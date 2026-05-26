@@ -45,12 +45,17 @@ async function applyMigrations(client: PGlite) {
 
 async function provisionRuntimeRole(client: PGlite) {
   await client.exec(`
-    create role agent_paste_runtime nosuperuser nobypassrls;
+    do $$
+    begin
+      if not exists (select 1 from pg_roles where rolname = 'app_role') then
+        create role app_role nosuperuser nobypassrls;
+      end if;
+    end $$;
     grant select, insert, update, delete on
       workspaces, api_keys, upload_sessions, upload_session_files,
       artifacts, artifact_files, revisions, operation_events, idempotency_records,
-      workspace_members
-    to agent_paste_runtime;
+      workspace_members, platform_lockdowns
+    to app_role;
   `);
 }
 
@@ -109,7 +114,7 @@ describe("postgres RLS runtime enforcement", () => {
     client = new PGlite();
     await applyMigrations(client);
     await provisionRuntimeRole(client);
-    executor = executorForPglite(client, "agent_paste_runtime");
+    executor = executorForPglite(client, "app_role");
     await seedWorkspaces(executor);
     await insertWorkspaceMember(executor, ws1Id, "mem-ws1", "user-ws1");
     await insertWorkspaceMember(executor, ws2Id, "mem-ws2", "user-ws2");

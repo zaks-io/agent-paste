@@ -5,6 +5,14 @@ use `git log` for commit-level detail.
 
 ## 2026-05-26
 
+### Neon database credential boundaries (AP-18)
+
+- Added migration `0010_db_roles.sql` creating `app_role` (`NOBYPASSRLS`) and
+  `platform_admin` (`BYPASSRLS`) with grants.
+- Migration workflows use `DATABASE_URL_MIGRATIONS_*`; PR previews resolve
+  separate Neon URLs for migrate (`platform_admin`) and Hyperdrive (`app_role`).
+- Documented operator cutover in `docs/ops/runbook-neon-database-roles.md`.
+
 ### Operator event and audit browsing (AP-16)
 
 - Added `GET /v1/web/admin/events` for WorkOS operators with pagination and
