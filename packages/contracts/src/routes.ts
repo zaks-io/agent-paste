@@ -1,5 +1,11 @@
+import { CleanupRunRequest, CreateWorkspaceRequest } from "./admin.js";
+import { CreateApiKeyRequest } from "./apiKeys.js";
 import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
+import { SetLockdownRequest } from "./lockdown.js";
+import { CreateUploadSessionRequest } from "./uploadSessions.js";
+import { UpdateWebSettingsRequest } from "./web.js";
+import type { z } from "./zod.js";
 
 export type AppSurface = "api" | "upload" | "content" | "admin";
 export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
@@ -15,6 +21,16 @@ export type AuthRequirement =
 export type IdempotencyRequirement = "none" | "required";
 export type RateLimitRequirement = "none" | "actor" | "artifact";
 
+export const requestSchemas = {
+  CleanupRunRequest,
+  CreateApiKeyRequest,
+  CreateUploadSessionRequest,
+  CreateWorkspaceRequest,
+  SetLockdownRequest,
+  UpdateWebSettingsRequest,
+} as const;
+export type RequestSchemaName = keyof typeof requestSchemas;
+
 export type RouteContract = {
   id: string;
   app: AppSurface;
@@ -25,10 +41,20 @@ export type RouteContract = {
   idempotency: IdempotencyRequirement;
   rateLimit: RateLimitRequirement;
   allowUnprovisioned?: boolean;
-  requestSchema?: string;
+  requestSchema?: RequestSchemaName;
   responseSchema: string;
   errors: readonly ErrorCode[];
 };
+
+export type RequestBodyFor<Contract extends RouteContract> = Contract extends { requestSchema: infer Name }
+  ? Name extends RequestSchemaName
+    ? z.infer<(typeof requestSchemas)[Name]>
+    : never
+  : undefined;
+
+export function requestSchemaFor(contract: Pick<RouteContract, "requestSchema">) {
+  return contract.requestSchema ? requestSchemas[contract.requestSchema] : undefined;
+}
 
 const apiKeyReadErrors = ["not_authenticated", "invalid_auth", "database_unavailable"] as const;
 const apiKeyMutationErrors = [

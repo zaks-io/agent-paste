@@ -12,8 +12,12 @@ describe("storage helpers", () => {
     expect(contentTypeForPath("logs/build.LOG")).toBe("text/plain; charset=utf-8");
     expect(contentTypeForPath("fonts/inter.woff")).toBe("font/woff");
     expect(contentTypeForPath("fonts/inter.woff2")).toBe("font/woff2");
+    expect(contentTypeForPath("paper.pdf")).toBe("application/pdf");
+    expect(contentTypeForPath("audio/clip.mp3")).toBe("audio/mpeg");
+    expect(contentTypeForPath("audio/clip.wav")).toBe("audio/wav");
+    expect(contentTypeForPath("video/demo.mp4")).toBe("video/mp4");
+    expect(contentTypeForPath("video/demo.webm")).toBe("video/webm");
     expect(contentTypeForPath("archive.bin")).toBe("application/octet-stream");
-    expect(contentTypeForPath("paper.pdf")).toBe("application/octet-stream");
   });
 
   it("adds defensive response headers", () => {
@@ -21,6 +25,10 @@ describe("storage helpers", () => {
       "Content-Type": "application/javascript; charset=utf-8",
       "X-Content-Type-Options": "nosniff",
       "Cross-Origin-Resource-Policy": "cross-origin",
+    });
+    expect(responseHeadersForPath("payload.bin")).toMatchObject({
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": 'attachment; filename="payload.bin"',
     });
   });
 });

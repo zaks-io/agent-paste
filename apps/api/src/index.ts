@@ -1,5 +1,4 @@
 import {
-  buildErrorBody,
   cachedLookup,
   cacheKeyForSecret,
   getRequestId,
@@ -9,14 +8,17 @@ import {
   verifyAdminToken,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
 import {
   buildApiOpenApiDocument,
-  CreateApiKeyRequest,
+  type CleanupRunRequest,
+  type CreateApiKeyRequest,
+  type CreateWorkspaceRequest,
   LockdownScope,
   type RouteContract,
   routeContracts,
-  SetLockdownRequest,
-  UpdateWebSettingsRequest,
+  type SetLockdownRequest,
+  type UpdateWebSettingsRequest,
 } from "@agent-paste/contracts";
 import {
   type AdminActor,
@@ -31,7 +33,15 @@ import {
 import { type AgentViewTokenPayload, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
-import { type AuthResolvers, createRegistrar, type GuardState, type Principal } from "@agent-paste/worker-runtime";
+import {
+  type AppErrorCode,
+  type AuthResolvers,
+  createRegistrar,
+  type GuardState,
+  type Principal,
+  errorResponse as runtimeErrorResponse,
+  jsonResponse as runtimeJsonResponse,
+} from "@agent-paste/worker-runtime";
 import { type Context, Hono } from "hono";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import {
@@ -120,19 +130,10 @@ type ScheduledEvent = {
 };
 
 type RouteParams = Record<string, string>;
+type RouteId = (typeof routeContracts)[number]["id"];
+type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
+type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
-const jsonHeaders = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" };
-const usagePolicy = {
-  file_size_cap_bytes: 10 * 1024 * 1024,
-  artifact_size_cap_bytes: 25 * 1024 * 1024,
-  file_count_cap: 100,
-  actor_rate_limit_per_minute: 60,
-  workspace_burst_cap_per_minute: 300,
-  upload_session_ttl_seconds: 24 * 60 * 60,
-  default_ttl_seconds: 30 * 24 * 60 * 60,
-  min_ttl_seconds: 24 * 60 * 60,
-  max_ttl_seconds: 90 * 24 * 60 * 60,
-};
 const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
 const AUTH_CACHE_TTL_SECONDS = 60;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
@@ -326,10 +327,10 @@ apiDbRegistrar.mount(contractById("admin.operationEvents.list"), async (context,
 app.post("/__test__/force-expire", (context) => forceExpire(context));
 app.get("/__test__/r2-list", (context) => listR2Prefix(context));
 app.get("/__test__/denylist", (context) => getDenylistKey(context));
-app.notFound((context) => errorResponse(context, "not_found", 404));
+app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
   console.error("Unhandled API error:", error);
-  return errorResponse(context, "internal_error", 500);
+  return errorResponse(context, "internal_error");
 });
 
 export default {
@@ -347,7 +348,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
 async function whoami(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "api_key") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as ApiKeyActor;
 
@@ -366,7 +367,7 @@ async function authenticatedAgentView(
 ): Promise<Response> {
   const env = context.env;
   if (principal.kind !== "api_key") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as ApiActor;
 
@@ -381,15 +382,13 @@ async function authenticatedAgentView(
 
   const view = await db.getAgentView(input);
 
-  return view
-    ? jsonResponse(context, await signAgentViewContentUrls(view, env))
-    : errorResponse(context, "not_found", 404);
+  return view ? jsonResponse(context, await signAgentViewContentUrls(view, env)) : errorResponse(context, "not_found");
 }
 
 async function publicAgentView(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const env = context.env;
   if (principal.kind !== "signed_agent_view_token") {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   const payload = principal.payload as AgentViewTokenPayload;
   const publicToken = `${payload.artifact_id}.${payload.revision_id}`;
@@ -400,7 +399,7 @@ async function publicAgentView(context: AppContext, principal: Principal, db: Re
   });
 
   if (!view) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
 
   const signedView = await signAgentViewContentUrls(view, env);
@@ -409,11 +408,11 @@ async function publicAgentView(context: AppContext, principal: Principal, db: Re
 
 async function webAuthCallback(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "workos_access_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const identity = principal.identity as WorkOsIdentity;
   if (!hasWebCallbackId(identity)) {
-    return errorResponse(context, "not_authenticated", 401, "missing WorkOS token_id or session_id");
+    return errorResponse(context, "not_authenticated", "missing WorkOS token_id or session_id");
   }
   const idempotencyKey = webCallbackIdempotencyKey(identity);
   return runIdempotent(context, () =>
@@ -428,23 +427,23 @@ async function webAuthCallback(context: AppContext, principal: Principal, db: Re
 
 async function webWorkspace(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.getWebWorkspace(actor)) : errorResponse(context, "forbidden", 403);
+  return actor ? jsonResponse(context, await db.getWebWorkspace(actor)) : errorResponse(context, "forbidden");
 }
 
 async function webArtifacts(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code, 400);
+    return errorResponse(context, pagination.code);
   }
   try {
     return jsonResponse(context, await db.listWebArtifacts(actor, pagination.value));
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor", 400);
+      return errorResponse(context, "invalid_cursor");
     }
     throw error;
   }
@@ -458,10 +457,10 @@ async function webArtifactDetail(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
-  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
+  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found");
 }
 
 function parsePagination(
@@ -482,35 +481,26 @@ function parsePagination(
 
 async function webApiKeys(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.listWebApiKeys(actor)) : errorResponse(context, "forbidden", 403);
+  return actor ? jsonResponse(context, await db.listWebApiKeys(actor)) : errorResponse(context, "forbidden");
 }
 
 async function webCreateApiKey(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"web.apiKeys.create">,
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const idempotencyKey = guard.idempotencyKey as string;
   if (!db.createWebApiKey) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const createWebApiKey = db.createWebApiKey.bind(db);
-  let body: Record<string, unknown>;
-  try {
-    body = await readJsonObject(context.req.raw);
-  } catch {
-    return errorResponse(context, "invalid_request", 400);
-  }
-  const parsed = CreateApiKeyRequest.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(context, "invalid_request", 400);
-  }
-  return runIdempotent(context, () => createWebApiKey({ actor, idempotencyKey, name: parsed.data.name }), 201);
+  const body: CreateApiKeyRequest = guard.body;
+  return runIdempotent(context, () => createWebApiKey({ actor, idempotencyKey, name: body.name }), 201);
 }
 
 async function webRevokeApiKey(
@@ -522,11 +512,11 @@ async function webRevokeApiKey(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const idempotencyKey = guard.idempotencyKey ?? "";
   if (!db.revokeWebApiKey) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const revokeWebApiKey = db.revokeWebApiKey.bind(db);
   try {
@@ -539,7 +529,7 @@ async function webRevokeApiKey(
     );
   } catch (error) {
     if (error instanceof Error && error.message === "api_key_not_found") {
-      return errorResponse(context, "not_found", 404);
+      return errorResponse(context, "not_found");
     }
     throw error;
   }
@@ -548,20 +538,20 @@ async function webRevokeApiKey(
 async function webAudit(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code, 400);
+    return errorResponse(context, pagination.code);
   }
   if (!db.listWebAuditEvents) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   try {
     return jsonResponse(context, await db.listWebAuditEvents(actor, pagination.value));
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor", 400);
+      return errorResponse(context, "invalid_cursor");
     }
     throw error;
   }
@@ -569,40 +559,31 @@ async function webAudit(context: AppContext, principal: Principal, db: Repositor
 
 async function webSettings(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.getWebSettings(actor)) : errorResponse(context, "forbidden", 403);
+  return actor ? jsonResponse(context, await db.getWebSettings(actor)) : errorResponse(context, "forbidden");
 }
 
 async function webUpdateSettings(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"web.settings.update">,
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden", 403);
+    return errorResponse(context, "forbidden");
   }
   const idempotencyKey = guard.idempotencyKey as string;
   if (!db.updateWebSettings) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const updateWebSettings = db.updateWebSettings.bind(db);
-  let body: Record<string, unknown>;
-  try {
-    body = await readJsonObject(context.req.raw);
-  } catch {
-    return errorResponse(context, "invalid_request", 400);
-  }
-  const parsed = UpdateWebSettingsRequest.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(context, "invalid_request", 400);
-  }
+  const body: UpdateWebSettingsRequest = guard.body;
   return runIdempotent(context, () =>
     updateWebSettings({
       actor,
       idempotencyKey,
-      workspaceName: parsed.data.workspace_name,
-      autoDeletionDays: parsed.data.auto_deletion_days,
+      workspaceName: body.workspace_name,
+      autoDeletionDays: body.auto_deletion_days,
     }),
   );
 }
@@ -610,21 +591,21 @@ async function webUpdateSettings(
 async function webAdminListLockdowns(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   if (!db.listLockdowns) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code, 400);
+    return errorResponse(context, pagination.code);
   }
   const listLockdowns = db.listLockdowns.bind(db);
   try {
     return jsonResponse(context, await listLockdowns(actor, pagination.value));
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor", 400);
+      return errorResponse(context, "invalid_cursor");
     }
     throw error;
   }
@@ -634,26 +615,17 @@ async function webAdminSetLockdown(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"web.admin.lockdown.set">,
 ): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   if (!db.setLockdown) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const setLockdown = db.setLockdown.bind(db);
-  let body: Record<string, unknown>;
-  try {
-    body = await readJsonObject(context.req.raw);
-  } catch {
-    return errorResponse(context, "invalid_request", 400);
-  }
-  const parsed = SetLockdownRequest.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(context, "invalid_request", 400);
-  }
+  const body: SetLockdownRequest = guard.body;
   const env = context.env;
   return runIdempotent(
     context,
@@ -661,11 +633,11 @@ async function webAdminSetLockdown(
       const detail = await setLockdown({
         actor,
         idempotencyKey: guard.idempotencyKey as string,
-        scope: parsed.data.scope,
-        targetId: parsed.data.target_id,
-        reasonCode: parsed.data.reason_code,
+        scope: body.scope,
+        targetId: body.target_id,
+        reasonCode: body.reason_code,
       });
-      await writeDenylistEntry(env, parsed.data.scope, parsed.data.target_id);
+      await writeDenylistEntry(env, body.scope, body.target_id);
       return detail;
     },
     201,
@@ -681,15 +653,15 @@ async function webAdminLiftLockdown(
 ): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   if (!db.liftLockdown) {
-    return errorResponse(context, "database_unavailable", 503);
+    return errorResponse(context, "database_unavailable");
   }
   const liftLockdown = db.liftLockdown.bind(db);
   const scopeResult = LockdownScope.safeParse(params.scope);
   if (!scopeResult.success) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   const scope = scopeResult.data;
   const env = context.env;
@@ -706,7 +678,7 @@ async function webAdminLiftLockdown(
     });
   } catch (error) {
     if (error instanceof Error && error.message === "not_found") {
-      return errorResponse(context, "not_found", 404);
+      return errorResponse(context, "not_found");
     }
     throw error;
   }
@@ -748,7 +720,7 @@ async function deleteDenylistEntry(env: Env, scope: LockdownScope, targetId: str
 async function adminWhoami(context: AppContext): Promise<Response> {
   const actor = await authenticateAdmin(context.req.raw, context.env);
   if (!actor) {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   return jsonResponse(context, { actor });
 }
@@ -757,18 +729,16 @@ async function cleanup(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"admin.cleanup.run">,
 ): Promise<Response> {
   const env = context.env;
-  const request = context.req.raw;
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as AdminActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
-
-  const body = await readJsonObject(request);
-  const dryRun = body.dry_run === true;
+  const body: CleanupRunRequest = guard.body;
+  const dryRun = body.dry_run;
   const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
 
   return runIdempotent(context, () => runCleanupAndDeny(env, db, actor, dryRun, batchSize, idempotencyKey));
@@ -778,25 +748,21 @@ async function createWorkspace(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"admin.workspaces.create">,
 ): Promise<Response> {
-  const request = context.req.raw;
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as AdminActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
-  const body = await readJsonObject(request);
-  if (typeof body.email !== "string") {
-    return errorResponse(context, "invalid_request", 400, "email is required");
-  }
+  const body: CreateWorkspaceRequest = guard.body;
   const input: {
     actor: AdminActor;
     idempotencyKey: string;
     email: string;
     name?: string;
-  } = { actor: actor, idempotencyKey, email: body.email };
-  if (typeof body.name === "string") {
+  } = { actor, idempotencyKey, email: body.email };
+  if (body.name) {
     input.name = body.name;
   }
   return runIdempotent(context, () => db.createWorkspace(input), 201);
@@ -804,7 +770,7 @@ async function createWorkspace(
 
 async function listWorkspaces(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   return jsonResponse(context, await db.listWorkspaces());
 }
@@ -813,28 +779,23 @@ async function createApiKey(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"admin.apiKeys.create">,
   params: RouteParams,
 ): Promise<Response> {
-  const request = context.req.raw;
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as AdminActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
-  const body = await readJsonObject(request);
-  const parsed = CreateApiKeyRequest.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(context, "invalid_request", 400);
-  }
+  const body: CreateApiKeyRequest = guard.body;
   return runIdempotent(
     context,
     () =>
       db.createApiKey({
-        actor: actor,
+        actor,
         idempotencyKey,
         workspaceId: params.workspaceId ?? "",
-        name: parsed.data.name,
+        name: body.name,
       }),
     201,
   );
@@ -848,7 +809,7 @@ async function revokeApiKey(
   params: RouteParams,
 ): Promise<Response> {
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as AdminActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
@@ -864,7 +825,7 @@ async function revokeApiKey(
 async function listArtifacts(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const request = context.req.raw;
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const url = new URL(request.url);
   return jsonResponse(
@@ -880,10 +841,10 @@ async function inspectArtifact(
   params: RouteParams,
 ): Promise<Response> {
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const detail = await db.getArtifactDetail(params.artifactId ?? "");
-  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found", 404);
+  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found");
 }
 
 async function deleteArtifact(
@@ -895,7 +856,7 @@ async function deleteArtifact(
 ): Promise<Response> {
   const env = context.env;
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const actor = principal.actor as AdminActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
@@ -914,7 +875,7 @@ async function deleteArtifact(
 
 async function listOperationEvents(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   return jsonResponse(context, await db.listOperationEvents());
 }
@@ -1277,35 +1238,35 @@ async function forceExpire(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   const db = apiDatabase(env);
   if (!db?.forceExpireArtifact) {
-    return errorResponse(context, "not_supported", 501);
+    return errorResponse(context, "not_supported");
   }
   const body = await readJsonObject(request);
   const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
   if (!artifactId) {
-    return errorResponse(context, "invalid_request", 400, "artifact_id is required");
+    return errorResponse(context, "invalid_request", "artifact_id is required");
   }
   const expiresAt = new Date(Date.now() - 1000).toISOString();
   const result = await db.forceExpireArtifact({ artifactId, expiresAt });
-  return result ? jsonResponse(context, result) : errorResponse(context, "not_found", 404);
+  return result ? jsonResponse(context, result) : errorResponse(context, "not_found");
 }
 
 async function listR2Prefix(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   if (!env.ARTIFACTS) {
     return jsonResponse(context, { keys: [], r2_bound: false });
@@ -1331,18 +1292,18 @@ async function getDenylistKey(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
   if (!isNonProductionEnv(env)) {
-    return errorResponse(context, "not_found", 404);
+    return errorResponse(context, "not_found");
   }
   const actor = await authenticateAdmin(request, env);
   if (!actor) {
-    return errorResponse(context, "not_authenticated", 401);
+    return errorResponse(context, "not_authenticated");
   }
   if (!env.DENYLIST?.get) {
     return jsonResponse(context, { key: null, value: null, kv_bound: false });
   }
   const key = new URL(request.url).searchParams.get("key") ?? "";
   if (!key) {
-    return errorResponse(context, "invalid_request", 400, "key is required");
+    return errorResponse(context, "invalid_request", "key is required");
   }
   const value = await env.DENYLIST.get(key);
   return jsonResponse(context, { key, value, kv_bound: true });
@@ -1473,26 +1434,20 @@ function jsonResponse(
   status = 200,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...jsonHeaders, [REQUEST_ID_HEADER]: getRequestId(context), ...extraHeaders },
-  });
+  return runtimeJsonResponse(context, body, status, extraHeaders);
 }
 
 function errorResponse(
   context: AppContext,
-  code: string,
-  status: number,
+  code: AppErrorCode,
   message?: string,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  const body = buildErrorBody({
-    code,
-    ...(message !== undefined ? { message } : {}),
-    requestId: getRequestId(context),
+  return runtimeErrorResponse(context, code, {
+    message,
+    headers: extraHeaders,
     docsBaseUrl: context.env.DOCS_BASE_URL,
   });
-  return jsonResponse(context, body, status, extraHeaders);
 }
 
 async function runIdempotent(context: AppContext, run: () => Promise<unknown>, successStatus = 200): Promise<Response> {
@@ -1500,18 +1455,18 @@ async function runIdempotent(context: AppContext, run: () => Promise<unknown>, s
     return jsonResponse(context, await run(), successStatus);
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse(context, "idempotency_in_flight", 409);
+      return errorResponse(context, "idempotency_in_flight");
     }
     throw error;
   }
 }
 
-function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {
+function contractById<Id extends RouteId>(id: Id): ContractById<Id> {
   const contract = routeContracts.find((route) => route.id === id);
   if (!contract) {
     throw new Error(`Missing route contract ${id}`);
   }
-  return contract;
+  return contract as ContractById<Id>;
 }
 
 function htmlAgentViewResponse(context: AppContext, view: unknown): Response {

@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@agent-paste/commands": "workspace:*",
+    "@agent-paste/config": "workspace:*",
+    "@agent-paste/storage": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9"

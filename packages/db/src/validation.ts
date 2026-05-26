@@ -1,3 +1,4 @@
+import { contentTypeForPath as servedContentTypeForPath } from "@agent-paste/storage";
 import { USAGE_POLICY } from "./policy.js";
 
 export function validateUpload(files: Array<{ path: string; size_bytes: number }>, entrypoint = "index.html") {
@@ -33,36 +34,5 @@ export function objectKeyFor(artifactId: string, revisionId: string, path: strin
 }
 
 export function contentTypeForPath(path: string) {
-  const extension = path.toLowerCase().split(".").pop();
-  switch (extension) {
-    case "html":
-    case "htm":
-      return "text/html; charset=utf-8";
-    case "css":
-      return "text/css; charset=utf-8";
-    case "js":
-    case "mjs":
-      return "application/javascript; charset=utf-8";
-    case "json":
-      return "application/json; charset=utf-8";
-    case "txt":
-    case "log":
-      return "text/plain; charset=utf-8";
-    case "md":
-    case "markdown":
-      return "text/markdown; charset=utf-8";
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "svg":
-      return "image/svg+xml";
-    default:
-      return "application/octet-stream";
-  }
+  return servedContentTypeForPath(path);
 }

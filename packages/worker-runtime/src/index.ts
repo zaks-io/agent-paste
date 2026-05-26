@@ -1,4 +1,4 @@
-export { ERROR_STATUS, errorResponse, jsonResponse } from "./errors.js";
+export { APP_ERROR_STATUS, type AppErrorCode, ERROR_STATUS, errorResponse, jsonResponse } from "./errors.js";
 export type {
   AdminTokenPrincipal,
   ApiKeyPrincipal,
@@ -15,4 +15,11 @@ export type {
   WorkOsAccessTokenPrincipal,
 } from "./principal.js";
 export type { RateLimitBinding, RateLimitBindings } from "./rate-limit.js";
-export { type AuthResolver, type AuthResolvers, createRegistrar, type GuardState, type Handler } from "./registrar.js";
+export {
+  type AuthResolver,
+  type AuthResolvers,
+  createRegistrar,
+  type GuardState,
+  type Handler,
+  type HeaderGuardState,
+} from "./registrar.js";

@@ -2,6 +2,12 @@ import { routeContracts } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, type UploadSessionRecord } from "./index.js";
 
+function createUploadRequestBody(
+  files: Array<{ path: string; size_bytes: number }> = [{ path: "index.html", size_bytes: 12 }],
+) {
+  return { title: "Demo", entrypoint: "index.html", files };
+}
+
 describe("upload worker", () => {
   it("mounts every upload route contract", () => {
     expect([...mountedRouteIds].sort()).toEqual(
@@ -74,7 +80,7 @@ describe("upload worker", () => {
       new Request("https://upload.test/v1/upload-sessions", {
         method: "POST",
         headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -122,7 +128,7 @@ describe("upload worker", () => {
       new Request("https://upload.test/v1/upload-sessions", {
         method: "POST",
         headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -136,7 +142,10 @@ describe("upload worker", () => {
     [
       "create",
       "https://upload.test/v1/upload-sessions",
-      { method: "POST", body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }) },
+      {
+        method: "POST",
+        body: JSON.stringify(createUploadRequestBody()),
+      },
     ],
     ["finalize", "https://upload.test/v1/upload-sessions/upl_1/finalize", { method: "POST" }],
   ])("requires publish scope for upload session %s", async (_label, url, init) => {
@@ -226,7 +235,7 @@ describe("upload worker", () => {
       new Request("https://upload.test/v1/upload-sessions", {
         method: "POST",
         headers: { authorization: "Bearer ok", "idempotency-key": "replay", "content-type": "application/json" },
-        body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+        body: JSON.stringify(createUploadRequestBody()),
       }),
       env,
     );
@@ -280,7 +289,7 @@ describe("upload worker", () => {
         new Request("https://upload.test/v1/upload-sessions", {
           method: "POST",
           headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
-          body: JSON.stringify({ files: [{ path: "index.html", size_bytes: 12 }] }),
+          body: JSON.stringify(createUploadRequestBody()),
         }),
         env,
       );

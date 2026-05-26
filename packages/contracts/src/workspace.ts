@@ -1,4 +1,4 @@
-import { Mebibytes, Seconds } from "./common.js";
+import { USAGE_POLICY } from "@agent-paste/config";
 import { ActorType, Scope } from "./enums.js";
 import { ApiKeyId, IsoDateTime, WorkspaceId } from "./primitives.js";
 import { z } from "./zod.js";
@@ -16,17 +16,7 @@ export const UsagePolicy = z.object({
 });
 export type UsagePolicy = z.infer<typeof UsagePolicy>;
 
-export const mvpUsagePolicy = {
-  file_size_cap_bytes: Mebibytes.ten,
-  artifact_size_cap_bytes: Mebibytes.twentyFive,
-  file_count_cap: 100,
-  actor_rate_limit_per_minute: 60,
-  workspace_burst_cap_per_minute: 300,
-  upload_session_ttl_seconds: Seconds.oneDay,
-  default_ttl_seconds: Seconds.thirtyDays,
-  min_ttl_seconds: Seconds.oneDay,
-  max_ttl_seconds: Seconds.ninetyDays,
-} as const satisfies UsagePolicy;
+export const mvpUsagePolicy = USAGE_POLICY satisfies UsagePolicy;
 
 export const WorkspaceSummary = z.object({
   id: WorkspaceId,

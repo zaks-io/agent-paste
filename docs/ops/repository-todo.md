@@ -48,6 +48,18 @@ orchestration in one place, which is the point of the unification. It is over th
       web-member provisioning, public agent view) into sibling modules that the core composes,
       without reintroducing a second copy of any orchestration. Do not split per backend.
 
+## Upload Session lifecycle is still split across repository and upload Worker
+
+The current upload path intentionally keeps the repository responsible for durable Upload Session
+state transitions while `apps/upload` observes R2 state, mints signed URLs, and shapes the Worker
+response. That is workable for the MVP, but the lifecycle language is now visible in two places:
+session creation/finalization in `RepositoryCore`, and signed upload URL / R2 observation behavior
+in the upload Worker.
+
+- [ ] When Phase 4 publish/update work begins, deepen this into an Upload Session lifecycle
+      module that owns the domain sequence and response shape while keeping R2 and signing as
+      ports. Do not move backend orchestration into adapters.
+
 ## `deleted_r2_objects` is not part of the idempotent delete result
 
 `deleteArtifact` in `apps/api/src/index.ts` wraps `db.deleteArtifact` (which claims the
@@ -67,3 +79,6 @@ semantics, deliberately out of scope for the behavior-preserving unification.
       the same number), or document that `deleted_r2_objects` is best-effort and not replay-stable.
 - [ ] If it becomes replay-stable, add a test that issues the same delete idempotency key twice
       and asserts identical `deleted_r2_objects` across both responses.
+- [ ] When the jobs worker takes over byte purge, deepen deletion/invalidation into an API-side
+      module that owns denylist writes, purge job enqueueing, and replay accounting as one
+      explicit side-effect boundary.

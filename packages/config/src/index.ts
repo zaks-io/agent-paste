@@ -4,9 +4,24 @@ export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 export const MAX_PATH_SEGMENTS = 64;
 export const MAX_PATH_LENGTH = 512;
 export const DEFAULT_ACCESS_LINK_TTL_MS = 15 * 60 * 1000;
-export const DEFAULT_UPLOAD_SESSION_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_API_KEY_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const CLEANUP_BATCH_SIZE = 100;
+
+export const SECONDS_PER_DAY = 24 * 60 * 60;
+
+export const USAGE_POLICY = {
+  file_size_cap_bytes: 10 * 1024 * 1024,
+  artifact_size_cap_bytes: MAX_ARTIFACT_BYTES,
+  file_count_cap: 100,
+  actor_rate_limit_per_minute: 60,
+  workspace_burst_cap_per_minute: 300,
+  upload_session_ttl_seconds: DEFAULT_UPLOAD_SESSION_TTL_MS / 1000,
+  default_ttl_seconds: 30 * SECONDS_PER_DAY,
+  min_ttl_seconds: SECONDS_PER_DAY,
+  max_ttl_seconds: 90 * SECONDS_PER_DAY,
+} as const;
+export type UsagePolicyConfig = typeof USAGE_POLICY;
 
 export type NormalizedPath = {
   path: string;
