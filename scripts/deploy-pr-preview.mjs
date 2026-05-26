@@ -163,6 +163,7 @@ function uploadConfig() {
       CONTENT_BASE_URL: urls.content,
       UPLOAD_BASE_URL: urls.upload,
       UPLOAD_URL_TTL_SECONDS: "900",
+      AGENT_PASTE_ENV: "preview",
     },
     hyperdrive: [{ binding: "DB", id: hyperdriveId }],
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
@@ -176,8 +177,10 @@ function uploadConfig() {
 function contentConfig() {
   return baseConfig("content", {
     main: workspacePath("apps/content/src/index.ts"),
+    compatibility_flags: ["nodejs_compat"],
     vars: {
       CONTENT_SIGNING_KID: "v1",
+      AGENT_PASTE_ENV: "preview",
     },
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
@@ -188,11 +191,15 @@ function contentConfig() {
 function apexConfig() {
   return baseConfig("apex", {
     main: workspacePath("apps/apex/src/index.ts"),
+    compatibility_flags: ["nodejs_compat"],
     assets: {
       binding: "ASSETS",
       directory: workspacePath("apps/apex/public"),
       not_found_handling: "none",
       run_worker_first: true,
+    },
+    vars: {
+      AGENT_PASTE_ENV: "preview",
     },
   });
 }
