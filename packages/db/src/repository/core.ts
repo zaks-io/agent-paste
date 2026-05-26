@@ -844,14 +844,6 @@ export class RepositoryCore implements Repository {
           if (existingDraft && existingDraft.id !== session.revision_id) {
             throw new Error("draft_revision_conflict");
           }
-          await entities.artifacts.updateStaging(existingArtifact.id, {
-            title: session.title,
-            entrypoint: session.entrypoint,
-            fileCount: session.file_count,
-            sizeBytes: session.size_bytes,
-            expiresAt: session.artifact_expires_at,
-            updatedAt: input.now,
-          });
         } else {
           const artifact: Artifact = {
             id: session.artifact_id,
@@ -977,9 +969,10 @@ export class RepositoryCore implements Repository {
         if (!published) {
           throw new Error("revision_unpublished");
         }
+        const sourceSession = await entities.uploadSessions.findByRevisionId(revision.id, input.actor.workspace_id);
         await entities.artifacts.updatePublished(artifact.id, {
           revisionId: revision.id,
-          title: artifact.title,
+          title: sourceSession?.title ?? artifact.title,
           entrypoint: revision.entrypoint,
           fileCount: revision.file_count,
           sizeBytes: revision.size_bytes,
@@ -1021,18 +1014,26 @@ export class RepositoryCore implements Repository {
   }
 
   async getPublicAgentView(input: { token: string; contentBaseUrl: string }) {
-    const artifactId = input.token.split(".")[0] ?? input.token;
+    const dotIndex = input.token.indexOf(".");
+    const artifactId = dotIndex === -1 ? input.token : input.token.slice(0, dotIndex);
+    const requestedRevisionId = dotIndex === -1 ? undefined : input.token.slice(dotIndex + 1);
     return this.uow.read(PLATFORM_SCOPE, async (entities) => {
       const artifact = await entities.artifacts.findById(artifactId);
-      if (
-        !artifact?.revision_id ||
-        artifact.status !== "active" ||
-        new Date(artifact.expires_at).getTime() <= Date.now()
-      ) {
+      if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
         return null;
       }
-      const files = await entities.artifactFiles.listForArtifact(artifact.id, artifact.revision_id);
-      return buildAgentView(artifact, artifact.revision_id, files, input.contentBaseUrl);
+      const revisionId = requestedRevisionId ?? artifact.revision_id;
+      if (!revisionId) {
+        return null;
+      }
+      const revision = await entities.revisions.findById(revisionId);
+      if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
+        return null;
+      }
+      const viewArtifact =
+        revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
+      const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
     });
   }
 
@@ -1048,7 +1049,7 @@ export class RepositoryCore implements Repository {
       }
       if (input.revisionId) {
         const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
-        if (!revision || revision.artifact_id !== artifact.id || revision.status === "retained") {
+        if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
           return null;
         }
       }

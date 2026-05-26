@@ -1604,6 +1604,11 @@ function mapRepositoryError(error: unknown): { code: string; status: number; mes
   }
 }
 
+function entrypointPathFromViewUrl(viewUrl: string) {
+  const match = viewUrl.match(/\/v\/[^/]+\/(.+)$/);
+  return decodeURIComponent(match?.[1] ?? "index.html");
+}
+
 async function signPublishResult(result: unknown, env: Env): Promise<unknown> {
   if (!result || typeof result !== "object") {
     return result;
@@ -1618,19 +1623,12 @@ async function signPublishResult(result: unknown, env: Env): Promise<unknown> {
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
     return result;
   }
-  const entrypointPath =
-    typeof data.view_url === "string" ? (data.view_url.split("/").pop() ?? "index.html") : "index.html";
+  const entrypointPath = typeof data.view_url === "string" ? entrypointPathFromViewUrl(data.view_url) : "index.html";
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const secret = agentViewSigningSecret(env);
   return {
     ...data,
-    view_url: await signedContentUrl(
-      env,
-      data.artifact_id,
-      data.revision_id,
-      decodeURIComponent(entrypointPath),
-      expiresAt,
-    ),
+    view_url: await signedContentUrl(env, data.artifact_id, data.revision_id, entrypointPath, expiresAt),
     agent_view_url: secret
       ? await mintAgentViewUrl({
           baseUrl: apiBaseUrl(env),

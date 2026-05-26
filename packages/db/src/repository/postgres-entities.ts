@@ -94,6 +94,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
     uploadSessions: {
       insert: (session) => uploadSessionQueries.insert(drizzle, session),
       findById: (sessionId, workspaceId) => uploadSessionQueries.findById(drizzle, sessionId, workspaceId),
+      findByRevisionId: (revisionId, workspaceId) =>
+        uploadSessionQueries.findByRevisionId(drizzle, revisionId, workspaceId),
       markFinalized: (sessionId, finalizedAt) => uploadSessionQueries.markFinalized(drizzle, sessionId, finalizedAt),
       listExpiring: async (now, limit) => {
         const result = await sql.query<{ id: string }>(

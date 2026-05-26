@@ -44,7 +44,7 @@ vi.mock("../queries/index.js", () => ({
     "nextRevisionNumber",
     "publish",
   ]),
-  uploadSessionQueries: queryObject(["insert", "findById", "markFinalized"]),
+  uploadSessionQueries: queryObject(["insert", "findById", "findByRevisionId", "markFinalized"]),
   uploadSessionFileQueries: queryObject(["insert", "listForSession", "recordUpload"]),
   platformLockdownQueries: queryObject(["findEffective", "listEffectivePage", "insert", "markLifted"]),
   operationEventQueries: queryObject(["insert", "listAll", "listForWorkspace", "listWebPage", "listIdsForTarget"]),
@@ -232,6 +232,7 @@ describe("postgresEntities", () => {
     await entities.revisions.publish({ revisionId: "revision", revisionNumber: 1, publishedAt: now });
     await entities.uploadSessions.insert(uploadSession);
     await entities.uploadSessions.findById("session", "workspace");
+    await entities.uploadSessions.findByRevisionId("revision", "workspace");
     await entities.uploadSessions.markFinalized("session", "now");
     await entities.uploadSessions.listExpiring("now", 10);
     await entities.uploadSessions.expireBatch("now", ["session"]);

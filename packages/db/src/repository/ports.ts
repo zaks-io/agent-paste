@@ -101,6 +101,7 @@ export type Entities = {
   uploadSessions: {
     insert(session: UploadSession): Promise<void>;
     findById(sessionId: string, workspaceId?: string): Promise<UploadSession | null>;
+    findByRevisionId(revisionId: string, workspaceId?: string): Promise<UploadSession | null>;
     markFinalized(sessionId: string, finalizedAt: string): Promise<void>;
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;

@@ -32,6 +32,15 @@ export const uploadSessionQueries = {
     return row ? mapUploadSession(row) : null;
   },
 
+  async findByRevisionId(db: DrizzleDb, revisionId: string, workspaceId?: string): Promise<UploadSession | null> {
+    const predicate = workspaceId
+      ? and(eq(uploadSessions.revisionId, revisionId), eq(uploadSessions.workspaceId, workspaceId))
+      : eq(uploadSessions.revisionId, revisionId);
+    const rows = await db.select().from(uploadSessions).where(predicate).limit(1);
+    const row = rows[0];
+    return row ? mapUploadSession(row) : null;
+  },
+
   async markFinalized(db: DrizzleDb, sessionId: string, finalizedAt: string) {
     await db
       .update(uploadSessions)

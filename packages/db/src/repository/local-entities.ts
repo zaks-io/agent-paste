@@ -207,9 +207,15 @@ export function localEntities(state: LocalState): Entities {
         return [...state.revisions.values()]
           .filter((revision) => revision.artifact_id === artifactId)
           .sort((left, right) => {
-            const leftNumber = left.revision_number ?? 0;
-            const rightNumber = right.revision_number ?? 0;
-            if (leftNumber !== rightNumber) {
+            const leftNumber = left.revision_number;
+            const rightNumber = right.revision_number;
+            if (leftNumber === null && rightNumber !== null) {
+              return 1;
+            }
+            if (rightNumber === null && leftNumber !== null) {
+              return -1;
+            }
+            if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) {
               return rightNumber - leftNumber;
             }
             return right.created_at.localeCompare(left.created_at);
@@ -258,6 +264,13 @@ export function localEntities(state: LocalState): Entities {
           return null;
         }
         return session;
+      },
+      async findByRevisionId(revisionId, workspaceId) {
+        const session = [...state.uploadSessions.values()].find(
+          (candidate) =>
+            candidate.revision_id === revisionId && (!workspaceId || candidate.workspace_id === workspaceId),
+        );
+        return session ?? null;
       },
       async markFinalized(sessionId, finalizedAt) {
         const session = state.uploadSessions.get(sessionId);
