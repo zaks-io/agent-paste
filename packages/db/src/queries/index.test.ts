@@ -46,6 +46,9 @@ describe("postgres query adapters", () => {
       ],
       [eventRow({ id: "evt_workspace" })],
       [eventRow({ id: "evt_page" })],
+      [eventRow({ id: "evt_operator_all_filters" })],
+      [],
+      [eventRow({ id: "evt_operator_no_filters" })],
     ]);
 
     await workspaceQueries.insert(db, workspaceEntity());
@@ -161,6 +164,21 @@ describe("postgres query adapters", () => {
         cursor: { occurredAt: now, id: "evt_cursor" },
       }),
     ).resolves.toMatchObject([{ id: "evt_page" }]);
+    await expect(
+      operationEventQueries.listOperatorPage(db, {
+        workspaceId: "workspace_1",
+        actorType: "member",
+        targetType: "api_key",
+        requestId: "req_1",
+        actions: ["api_key.created"],
+        limit: 1,
+        cursor: { occurredAt: now, id: "evt_cursor" },
+      }),
+    ).resolves.toMatchObject([{ id: "evt_operator_all_filters" }]);
+    await expect(operationEventQueries.listOperatorPage(db, { limit: 1, actions: [] })).resolves.toEqual([]);
+    await expect(operationEventQueries.listOperatorPage(db, { limit: 1 })).resolves.toMatchObject([
+      { id: "evt_operator_no_filters" },
+    ]);
 
     expect(db.writes.length).toBeGreaterThan(0);
   });

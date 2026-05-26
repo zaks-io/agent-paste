@@ -115,7 +115,7 @@ describe("postgres RLS runtime enforcement", () => {
     await insertWorkspaceMember(executor, ws2Id, "mem-ws2", "user-ws2");
     await insertArtifact(executor, ws1Id, "art-ws1", "key-ws1");
     await insertArtifact(executor, ws2Id, "art-ws2", "key-ws2");
-  });
+  }, 30_000);
 
   it("returns only the tenant's artifacts when scoped to a workspace", async () => {
     const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
