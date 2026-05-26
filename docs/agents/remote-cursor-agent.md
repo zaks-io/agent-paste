@@ -151,9 +151,10 @@ automation runs immediately.
 There is no separate Cursor or repo UI setting for this today; follow this
 handoff doc and any Linear issue that overrides it.
 
-When the PR is ready for review, update the linked Linear issue in the same
-pass: comment with the PR link, then advance workflow state (see PR Handoff
-Checklist).
+When the PR is ready for review, move the linked Linear issue to **In Review**
+in the same pass (see PR Handoff Checklist). The GitHub integration attaches the
+PR when the branch and PR are linked to the issue; do not add a Linear comment
+just to paste the PR URL.
 
 ## PR Handoff Checklist
 
