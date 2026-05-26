@@ -264,35 +264,8 @@ describe("local MVP vertical slice", () => {
           : null,
     };
     const artifacts = new MemoryR2();
-    const adminHeaders = {
-      authorization: "Bearer admin",
-      "content-type": "application/json",
-      "idempotency-key": "admin-1",
-    };
-
-    const workspaceResponse = await apiWorker.fetch(
-      new Request("http://api.local/admin/workspaces", {
-        method: "POST",
-        headers: adminHeaders,
-        body: JSON.stringify({ email: "user@example.com", name: "User" }),
-      }),
-      { AUTH: auth, DB: db, ADMIN_TOKEN: "admin", CONTENT_BASE_URL: "http://content.local" },
-    );
-    expect(workspaceResponse.status).toBe(201);
-    const workspace = (await workspaceResponse.json()) as { id: string };
-
-    const keyResponse = await apiWorker.fetch(
-      new Request(`http://api.local/admin/workspaces/${workspace.id}/api-keys`, {
-        method: "POST",
-        headers: { ...adminHeaders, "idempotency-key": "admin-2" },
-        body: JSON.stringify({ name: "default" }),
-      }),
-      { AUTH: auth, DB: db, ADMIN_TOKEN: "admin", CONTENT_BASE_URL: "http://content.local" },
-    );
-    expect(keyResponse.status).toBe(201);
-    const key = (await keyResponse.json()) as { secret: string };
     const apiHeaders = {
-      authorization: `Bearer ${key.secret}`,
+      authorization: "Bearer api-key",
       "content-type": "application/json",
       "idempotency-key": "publish-1",
     };
@@ -366,7 +339,6 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
-        ADMIN_TOKEN: "admin",
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
@@ -377,7 +349,6 @@ describe("local MVP vertical slice", () => {
     const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
       AUTH: auth,
       DB: db,
-      ADMIN_TOKEN: "admin",
       CONTENT_BASE_URL: "http://content.local",
       CONTENT_SIGNING_SECRET: "content-secret",
     });
@@ -394,12 +365,11 @@ describe("local MVP vertical slice", () => {
 
     const revisionsResponse = await apiWorker.fetch(
       new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {
-        headers: { authorization: `Bearer ${key.secret}` },
+        headers: { authorization: "Bearer api-key" },
       }),
       {
         AUTH: auth,
         DB: db,
-        ADMIN_TOKEN: "admin",
         CONTENT_BASE_URL: "http://content.local",
       },
     );
@@ -482,7 +452,6 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
-        ADMIN_TOKEN: "admin",
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
@@ -492,9 +461,9 @@ describe("local MVP vertical slice", () => {
 
     const updatedRevisionsResponse = await apiWorker.fetch(
       new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {
-        headers: { authorization: `Bearer ${key.secret}` },
+        headers: { authorization: "Bearer api-key" },
       }),
-      { AUTH: auth, DB: db, ADMIN_TOKEN: "admin", CONTENT_BASE_URL: "http://content.local" },
+      { AUTH: auth, DB: db, CONTENT_BASE_URL: "http://content.local" },
     );
     expect(updatedRevisionsResponse.status).toBe(200);
     await expect(updatedRevisionsResponse.json()).resolves.toMatchObject({

@@ -54,15 +54,13 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Artifact read cap  | Unauthenticated content reads are throttled per Artifact as an abuse ceiling.              | System        |
 | Operation events   | Lightweight event log for workspace, key, upload, artifact, cleanup, and admin actions.    | Operator      |
 
-### Admin
+### Operator (web)
 
-| Feature              | MVP behavior                                                                | Primary users   |
-| -------------------- | --------------------------------------------------------------------------- | --------------- |
-| Admin CLI            | Repo-local tool run through `pnpm admin ...`. Not a public product surface. | Operator, Codex |
-| Admin auth           | Uses `AGENT_PASTE_ADMIN_TOKEN`.                                             | Operator        |
-| Workspace management | Create/list workspaces.                                                     | Operator        |
-| API key management   | Create/revoke API keys. Secrets are shown once.                             | Operator        |
-| Artifact operations  | List, inspect, delete artifacts.                                            | Operator        |
+| Feature             | MVP behavior                                                                     | Primary users |
+| ------------------- | -------------------------------------------------------------------------------- | ------------- |
+| Operator auth       | WorkOS `admin` role + Cloudflare Access on web operator routes.                  | Operator      |
+| Platform lockdown   | Set/lift/list lockdowns via `/v1/web/admin/lockdowns`.                           | Operator      |
+| Member self-service | Workspace, keys, artifacts, and audit via `/v1/web/*` after `agent-paste login`. | Members       |
 
 ## Future Features
 

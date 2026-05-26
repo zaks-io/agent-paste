@@ -22,6 +22,14 @@ function workspaceDb(): NonNullable<Env["DB"]> {
     async runCleanup() {
       return {};
     },
+    async getWebMemberByWorkOsUserId() {
+      return {
+        type: "member",
+        id: "mem_1",
+        workspace_id: "w_1",
+        scopes: ["admin"],
+      };
+    },
   };
 }
 
@@ -29,6 +37,9 @@ function authStub(): NonNullable<Env["AUTH"]> {
   return {
     async verifyApiKey() {
       return { type: "api_key", id: "key_1", workspace_id: "w_1" };
+    },
+    async verifyWebToken() {
+      return { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1", role: "admin" };
     },
   };
 }
@@ -60,24 +71,24 @@ describe("api error envelope", () => {
   it("409 idempotency_in_flight includes docs URL when DOCS_BASE_URL is set", async () => {
     const env: Env = {
       DOCS_BASE_URL: "https://docs.agent-paste.sh",
-      ADMIN_TOKEN: "admin",
+      AUTH: authStub(),
       DB: {
         ...workspaceDb(),
-        async createWorkspace() {
-          throw new IdempotencyInFlightError("workspace.create", "k");
+        async updateWebSettings() {
+          throw new IdempotencyInFlightError("web.settings.update", "k");
         },
       },
     };
 
     const response = await handleRequest(
-      new Request("https://api.test/admin/workspaces", {
-        method: "POST",
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
         headers: {
-          authorization: "Bearer admin",
+          authorization: "Bearer workos",
           "content-type": "application/json",
           "idempotency-key": "k",
         },
-        body: JSON.stringify({ email: "owner@test.dev" }),
+        body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 30 }),
       }),
       env,
     );
@@ -89,23 +100,18 @@ describe("api error envelope", () => {
 
   it("400 invalid_request validates payload and emits envelope", async () => {
     const env: Env = {
-      ADMIN_TOKEN: "admin",
-      DB: {
-        ...workspaceDb(),
-        async createWorkspace() {
-          return {};
-        },
-      },
+      AUTH: authStub(),
+      DB: workspaceDb(),
     };
     const response = await handleRequest(
-      new Request("https://api.test/admin/workspaces", {
-        method: "POST",
+      new Request("https://api.test/v1/web/settings", {
+        method: "PATCH",
         headers: {
-          authorization: "Bearer admin",
+          authorization: "Bearer workos",
           "content-type": "application/json",
           "idempotency-key": "k",
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ workspace_name: "", auto_deletion_days: 30 }),
       }),
       env,
     );

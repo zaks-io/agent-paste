@@ -41,22 +41,20 @@ Do not commit real `.env` or `.dev.vars` files.
 
 ## Current Commands
 
-| Command                                                                                    | Purpose                                                                                                |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                         |
-| `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.      |
-| `pnpm smoke:local`                                                                         | Build, start the local harness, drive the CLI through publish/read/admin/delete, and stop the harness. |
-| `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                            |
-| `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                           |
-| `pnpm test`                                                                                | Run Vitest suites.                                                                                     |
-| `pnpm --filter @agent-paste/api test`                                                      | Run API tests, including the in-process local MVP vertical slice.                                      |
-| `pnpm --filter @agent-paste/api dev`                                                       | Run the API Worker through Wrangler once Wrangler config/bindings exist.                               |
-| `pnpm --filter @agent-paste/upload dev`                                                    | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                            |
-| `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                           |
-| `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                        |
-| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                                  |
-| `pnpm cli:dev admin workspace list --json`                                                 | Exercise admin CLI calls against `AGENT_PASTE_ADMIN_URL`.                                              |
-| `pnpm admin workspace list --json`                                                         | Repo-local shorthand for `pnpm cli:dev admin ...`.                                                     |
+| Command                                                                                    | Purpose                                                                                            |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                     |
+| `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.  |
+| `pnpm smoke:local`                                                                         | Build, start the local harness, drive publish/read/delete via smoke harness, and stop the harness. |
+| `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                        |
+| `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                       |
+| `pnpm test`                                                                                | Run Vitest suites.                                                                                 |
+| `pnpm --filter @agent-paste/api test`                                                      | Run API tests, including the in-process local MVP vertical slice.                                  |
+| `pnpm --filter @agent-paste/api dev`                                                       | Run the API Worker through Wrangler once Wrangler config/bindings exist.                           |
+| `pnpm --filter @agent-paste/upload dev`                                                    | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                        |
+| `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                       |
+| `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                    |
+| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                              |
 
 Future commands for `jobs`, `web`, and `mcp` should be added only when those phases begin.
 
@@ -102,18 +100,22 @@ pnpm dev:all
 Then, in another shell:
 
 ```sh
-export AGENT_PASTE_ADMIN_TOKEN=local-admin-token
-export AGENT_PASTE_ADMIN_URL=http://127.0.0.1:8787
 export AGENT_PASTE_API_URL=http://127.0.0.1:8787
 export AGENT_PASTE_UPLOAD_URL=http://127.0.0.1:8788
+export AGENT_PASTE_SMOKE_HARNESS_SECRET=local-smoke-harness-secret
 
-pnpm admin workspace create local@example.com --name Local --json
-pnpm admin key create <workspace-id> --name local --json
+# Provision a workspace + API key through the non-production smoke harness:
+curl -fsS -X POST http://127.0.0.1:8787/__test__/provision-smoke \
+  -H "Authorization: Bearer ${AGENT_PASTE_SMOKE_HARNESS_SECRET}" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"local@example.com","workspace_name":"Local","key_name":"local"}'
 
-export AGENT_PASTE_API_KEY=<secret-from-key-create>
+export AGENT_PASTE_API_KEY=<api_key_secret from response>
 pnpm cli:dev whoami --json
-pnpm cli:dev publish examples/local-harness/site --ttl 7d --json
+pnpm cli:dev publish "$(pwd)/examples/local-harness/site" --ttl 7d --json
 ```
+
+Or run `pnpm smoke:local`, which performs the full harness flow automatically.
 
 When Wrangler config lands, each `wrangler dev` invocation gets its own local persistence directory unless `--persist-to` is shared. For any publish/read/delete path, launch the Workers in one Wrangler invocation with shared persistence:
 
@@ -157,13 +159,11 @@ Shared CLI values:
 
 - `AGENT_PASTE_API_URL`
 - `AGENT_PASTE_UPLOAD_URL`
-- `AGENT_PASTE_ADMIN_URL`
 - `AGENT_PASTE_API_KEY`
-- `AGENT_PASTE_ADMIN_TOKEN`
 
 Worker values currently read by runtime code:
 
-- API: `ADMIN_TOKEN`, `CONTENT_BASE_URL`, `CLEANUP_BATCH_SIZE`
+- API: `SMOKE_HARNESS_SECRET` (non-production smoke only), `CONTENT_BASE_URL`, `CLEANUP_BATCH_SIZE`
 - Upload: `UPLOAD_BASE_URL`, `UPLOAD_SIGNING_SECRET`, `UPLOAD_URL_TTL_SECONDS`
 - Content: `CONTENT_SIGNING_SECRET`
 

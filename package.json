@@ -4,7 +4,6 @@
   "packageManager": "pnpm@10.19.0",
   "type": "module",
   "scripts": {
-    "admin": "pnpm cli:dev admin",
     "build": "turbo run build",
     "check": "turbo run check",
     "cli:dev": "pnpm --filter agent-paste dev --",

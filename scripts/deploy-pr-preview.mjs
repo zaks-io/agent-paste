@@ -48,7 +48,7 @@ writeJson(files.apiConfig, apiConfig());
 writeJson(files.uploadConfig, uploadConfig());
 writeJson(files.contentConfig, contentConfig());
 writeJson(files.apexConfig, apexConfig());
-writeJson(files.apiSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ADMIN_TOKEN_HASH"]));
+writeJson(files.apiSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "SMOKE_HARNESS_SECRET"]));
 writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
 writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
 
@@ -66,7 +66,7 @@ if (webDeployed) {
   emitOutput("web_url", urls.web);
   emitOutput("web_smoke_url", urls.webWorkersDev);
 }
-emitOutput("admin_token", prSecrets.ADMIN_TOKEN);
+emitOutput("smoke_harness_secret", prSecrets.SMOKE_HARNESS_SECRET);
 
 process.stdout.write(`PR preview deployed:
 API:     ${urls.api}
@@ -271,16 +271,15 @@ function workspacePath(path) {
 
 function createPrSecrets() {
   const apiKeyPepper = process.env.PREVIEW_API_KEY_PEPPER_V1 ?? prPreviewSecret("api-key-pepper");
-  const adminToken =
-    process.env.AGENT_PASTE_PR_ADMIN_TOKEN ??
-    process.env.AGENT_PASTE_PREVIEW_ADMIN_TOKEN ??
-    `ap_admin_${prPreviewSecret("admin-token", 32)}`;
+  const smokeHarnessSecret =
+    process.env.AGENT_PASTE_PR_SMOKE_HARNESS_SECRET ??
+    process.env.AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET ??
+    prPreviewSecret("smoke-harness", 32);
   const values = {
     CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? prPreviewSecret("content-signing"),
     UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? prPreviewSecret("upload-signing"),
     API_KEY_PEPPER_V1: apiKeyPepper,
-    ADMIN_TOKEN: adminToken,
-    ADMIN_TOKEN_HASH: process.env.PREVIEW_ADMIN_TOKEN_HASH ?? hmacBase64Url(adminToken, apiKeyPepper),
+    SMOKE_HARNESS_SECRET: smokeHarnessSecret,
     // AuthKit seals its session cookie with this; 32+ chars required. Derived so
     // a PR's web worker can decrypt cookies it set on an earlier deploy.
     WORKOS_COOKIE_PASSWORD: process.env.PREVIEW_WORKOS_COOKIE_PASSWORD ?? prPreviewSecret("workos-cookie-password", 32),
@@ -307,8 +306,4 @@ function prPreviewSecret(label, byteLength = 48) {
 
 function secretBytes(byteLength = 48) {
   return randomBytes(byteLength).toString("base64url");
-}
-
-function hmacBase64Url(value, secret) {
-  return createHmac("sha256", secret).update(value).digest("base64url");
 }

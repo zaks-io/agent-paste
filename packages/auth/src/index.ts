@@ -11,7 +11,7 @@ export {
   resolveRequestId,
 } from "./request-id.js";
 
-import { base64UrlEncode, constantTimeEqual, hmac } from "@agent-paste/tokens/crypto";
+import { base64UrlEncode } from "@agent-paste/tokens/crypto";
 
 export type CacheLookupOptions<T> = {
   namespace: string;
@@ -31,28 +31,6 @@ type EdgeCache = {
 };
 
 const memoryCache = new Map<string, CacheEntry>();
-
-export async function hashAdminToken(token: string, pepper: string): Promise<string> {
-  return hmac(token, pepper);
-}
-
-export async function verifyAdminToken(token: string, expectedHmac: string, pepper: string): Promise<boolean> {
-  return constantTimeEqual(await hashAdminToken(token, pepper), expectedHmac);
-}
-
-/** Tries each pepper during API-key-pepper overlap (ADR 0045); does not log secrets. */
-export async function verifyAdminTokenAgainstPeppers(
-  token: string,
-  expectedHmac: string,
-  peppers: readonly string[],
-): Promise<boolean> {
-  let verified = false;
-  for (const pepper of peppers) {
-    const matches = await verifyAdminToken(token, expectedHmac, pepper);
-    verified = matches || verified;
-  }
-  return verified;
-}
 
 export async function cacheKeyForSecret(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));

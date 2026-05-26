@@ -5,15 +5,12 @@ import {
   REQUEST_ID_HEADER,
   type RequestIdVariables,
   requestIdMiddleware,
-  verifyAdminTokenAgainstPeppers,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
 import {
   buildApiOpenApiDocument,
-  type CleanupRunRequest,
   type CreateApiKeyRequest,
-  type CreateWorkspaceRequest,
   LockdownScope,
   type RouteContract,
   routeContracts,
@@ -33,7 +30,6 @@ import {
 import {
   contentSigningRingFromEnv,
   pepperRingFromWorkerEnv,
-  pepperRingVerifySecrets,
   verifyAgentViewTokenWithKeyRing,
 } from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -42,7 +38,6 @@ import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
   type AppErrorCode,
   type AuthResolvers,
-  applyRateLimit,
   createRegistrar,
   type GuardState,
   type Principal,
@@ -64,7 +59,6 @@ import {
 
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;
-  verifyAdminToken?(token: string): Promise<AdminActor | null>;
   verifyWebToken?(token: string): Promise<WebCallbackIdentity | null>;
 };
 
@@ -94,8 +88,7 @@ export type Env = {
   AUTH?: AuthService;
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
-  ADMIN_TOKEN?: string;
-  ADMIN_TOKEN_HASH?: string;
+  SMOKE_HARNESS_SECRET?: string;
   API_KEY_PEPPER_V1?: string;
   API_KEY_PEPPER_V2?: string;
   API_KEY_PEPPER_CURRENT_KID?: string;
@@ -154,8 +147,10 @@ export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = [
   "/healthz",
   "/openapi.json",
-  "/admin/whoami",
+  "/__test__/provision-smoke",
   "/__test__/force-expire",
+  "/__test__/run-cleanup",
+  "/__test__/delete-artifact",
   "/__test__/r2-list",
   "/__test__/denylist",
 ] as const;
@@ -172,12 +167,6 @@ const apiAuthResolvers = {
     const actor = await authenticateApiKey(context.req.raw, context.env as Env);
     return actor
       ? ({ ok: true, principal: { kind: "api_key", actor } } as const)
-      : ({ ok: false, code: "not_authenticated" } as const);
-  },
-  async admin_token(context: Context) {
-    const actor = await authenticateAdmin(context.req.raw, context.env as Env);
-    return actor
-      ? ({ ok: true, principal: { kind: "admin_token", actor } } as const)
       : ({ ok: false, code: "not_authenticated" } as const);
   },
   async signed_agent_view_token(context: Context) {
@@ -311,35 +300,10 @@ apiDbRegistrar.mount(contractById("web.admin.lockdown.lift"), async (context, pr
     targetId: context.req.param("target_id") ?? "",
   }),
 );
-app.get("/admin/whoami", (context) => adminWhoami(context));
-apiDbRegistrar.mount(contractById("admin.workspaces.create"), async (context, principal, db, guard) =>
-  createWorkspace(context as AppContext, principal, db, guard),
-);
-apiDbRegistrar.mount(contractById("admin.workspaces.list"), async (context, principal, db) =>
-  listWorkspaces(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("admin.apiKeys.create"), async (context, principal, db, guard) =>
-  createApiKey(context as AppContext, principal, db, guard, { workspaceId: context.req.param("workspace_id") ?? "" }),
-);
-apiDbRegistrar.mount(contractById("admin.apiKeys.revoke"), async (context, principal, db, guard) =>
-  revokeApiKey(context as AppContext, principal, db, guard, { apiKeyId: context.req.param("api_key_id") ?? "" }),
-);
-apiDbRegistrar.mount(contractById("admin.artifacts.list"), async (context, principal, db) =>
-  listArtifacts(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("admin.artifacts.get"), async (context, principal, db) =>
-  inspectArtifact(context as AppContext, principal, db, { artifactId: context.req.param("artifact_id") ?? "" }),
-);
-apiDbRegistrar.mount(contractById("admin.artifacts.delete"), async (context, principal, db, guard) =>
-  deleteArtifact(context as AppContext, principal, db, guard, { artifactId: context.req.param("artifact_id") ?? "" }),
-);
-apiDbRegistrar.mount(contractById("admin.cleanup.run"), async (context, principal, db, guard) =>
-  cleanup(context as AppContext, principal, db, guard),
-);
-apiDbRegistrar.mount(contractById("admin.operationEvents.list"), async (context, principal, db) =>
-  listOperationEvents(context as AppContext, principal, db),
-);
+app.post("/__test__/provision-smoke", (context) => provisionSmoke(context));
 app.post("/__test__/force-expire", (context) => forceExpire(context));
+app.post("/__test__/run-cleanup", (context) => runSmokeCleanup(context));
+app.post("/__test__/delete-artifact", (context) => deleteSmokeArtifact(context));
 app.get("/__test__/r2-list", (context) => listR2Prefix(context));
 app.get("/__test__/denylist", (context) => getDenylistKey(context));
 app.notFound((context) => errorResponse(context, "not_found"));
@@ -801,183 +765,12 @@ async function deleteDenylistEntry(env: Env, scope: LockdownScope, targetId: str
   }
 }
 
-async function adminWhoami(context: AppContext): Promise<Response> {
-  const actor = await authenticateAdmin(context.req.raw, context.env);
-  if (!actor) {
-    return errorResponse(context, "not_authenticated");
-  }
-  const rateLimit = await applyRateLimit(
-    { rateLimit: "actor" } as RouteContract,
-    { kind: "admin_token", actor },
-    apiRateLimitBindings(context.env),
-  );
-  if (!rateLimit.ok) {
-    return errorResponse(context, rateLimit.code, undefined, { "Retry-After": rateLimit.retryAfter });
-  }
-  return jsonResponse(context, { actor });
-}
-
 function apiRateLimitBindings(env: Env) {
   return {
     actor: env.ACTOR_RATE_LIMIT,
     workspace: env.WORKSPACE_BURST_CAP,
     artifact: env.ARTIFACT_RATE_LIMIT,
   };
-}
-
-async function cleanup(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"admin.cleanup.run">,
-): Promise<Response> {
-  const env = context.env;
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const actor = principal.actor as AdminActor;
-  const idempotencyKey = guard.idempotencyKey ?? "";
-  const body: CleanupRunRequest = guard.body;
-  const dryRun = body.dry_run;
-  const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
-
-  return runIdempotent(context, () => runCleanupAndDeny(env, db, actor, dryRun, batchSize, idempotencyKey));
-}
-
-async function createWorkspace(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"admin.workspaces.create">,
-): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const actor = principal.actor as AdminActor;
-  const idempotencyKey = guard.idempotencyKey ?? "";
-  const body: CreateWorkspaceRequest = guard.body;
-  const input: {
-    actor: AdminActor;
-    idempotencyKey: string;
-    email: string;
-    name?: string;
-  } = { actor, idempotencyKey, email: body.email };
-  if (body.name) {
-    input.name = body.name;
-  }
-  return runIdempotent(context, () => db.createWorkspace(input), 201);
-}
-
-async function listWorkspaces(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  return jsonResponse(context, await db.listWorkspaces());
-}
-
-async function createApiKey(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"admin.apiKeys.create">,
-  params: RouteParams,
-): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const actor = principal.actor as AdminActor;
-  const idempotencyKey = guard.idempotencyKey ?? "";
-  const body: CreateApiKeyRequest = guard.body;
-  return runIdempotent(
-    context,
-    () =>
-      db.createApiKey({
-        actor,
-        idempotencyKey,
-        workspaceId: params.workspaceId ?? "",
-        name: body.name,
-      }),
-    201,
-  );
-}
-
-async function revokeApiKey(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardState,
-  params: RouteParams,
-): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const actor = principal.actor as AdminActor;
-  const idempotencyKey = guard.idempotencyKey ?? "";
-  return runIdempotent(context, () =>
-    db.revokeApiKey({
-      actor: actor,
-      idempotencyKey,
-      apiKeyId: params.apiKeyId ?? "",
-    }),
-  );
-}
-
-async function listArtifacts(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
-  const request = context.req.raw;
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const url = new URL(request.url);
-  return jsonResponse(
-    context,
-    await db.listArtifacts(url.searchParams.get("workspace") ?? undefined, url.searchParams.get("status") ?? undefined),
-  );
-}
-
-async function inspectArtifact(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  params: RouteParams,
-): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const detail = await db.getArtifactDetail(params.artifactId ?? "");
-  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found");
-}
-
-async function deleteArtifact(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardState,
-  params: RouteParams,
-): Promise<Response> {
-  const env = context.env;
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  const actor = principal.actor as AdminActor;
-  const idempotencyKey = guard.idempotencyKey ?? "";
-  const artifactId = params.artifactId ?? "";
-  return runIdempotent(context, async () => {
-    const result = await db.deleteArtifact({
-      actor: actor,
-      idempotencyKey,
-      artifactId,
-    });
-    await denyArtifact(env, artifactId);
-    const purged = await purgeArtifactBytes(env, artifactId);
-    return { ...result, deleted_r2_objects: purged };
-  });
-}
-
-async function listOperationEvents(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
-  if (principal.kind !== "admin_token") {
-    return errorResponse(context, "not_authenticated");
-  }
-  return jsonResponse(context, await db.listOperationEvents());
 }
 
 async function runScheduledCleanup(env: Env): Promise<void> {
@@ -1018,26 +811,12 @@ async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyAct
   });
 }
 
-async function authenticateAdmin(request: Request, env: Env): Promise<AdminActor | null> {
+const smokeHarnessActor: AdminActor = { type: "system", id: "smoke-harness" };
+
+function authenticateSmokeHarness(request: Request, env: Env): boolean {
+  const secret = env.SMOKE_HARNESS_SECRET;
   const token = bearerToken(request);
-  if (!token) {
-    return null;
-  }
-
-  const auth = authService(env);
-  if (auth?.verifyAdminToken) {
-    return auth.verifyAdminToken(token);
-  }
-
-  if (env.ADMIN_TOKEN_HASH && env.API_KEY_PEPPER_V1) {
-    const pepperRing = pepperRingFromWorkerEnv(env);
-    const peppers = pepperRing ? pepperRingVerifySecrets(pepperRing) : [env.API_KEY_PEPPER_V1];
-    return (await verifyAdminTokenAgainstPeppers(token, env.ADMIN_TOKEN_HASH, peppers))
-      ? { type: "admin", id: "operator" }
-      : null;
-  }
-
-  return env.ADMIN_TOKEN && constantTimeEqual(token, env.ADMIN_TOKEN) ? { type: "admin", id: "operator" } : null;
+  return Boolean(secret && token && constantTimeEqual(token, secret));
 }
 
 // Only the key-mint route accepts a CLI-issued Connect token. Every other
@@ -1227,13 +1006,6 @@ function platformActor(principal: Principal): PlatformActor | null {
   return { type: "platform", id: principal.actor.id };
 }
 
-function authService(env: Env): AuthService | undefined {
-  if (env.AUTH) {
-    return env.AUTH;
-  }
-  return postgresRuntime(env)?.auth;
-}
-
 function apiDatabase(env: Env): Repository | undefined {
   if (isApiDatabase(env.DB)) {
     return env.DB;
@@ -1336,17 +1108,88 @@ async function purgeArtifactBytes(env: Env, artifactId: string): Promise<number>
   return deleted;
 }
 
-// Test-only routes. Gated to non-production environments so the production
-// API never exposes them, even if an operator with the admin token tried.
+// Non-production smoke harness routes. Gated by AGENT_PASTE_ENV and SMOKE_HARNESS_SECRET
+// so production never exposes them.
+async function provisionSmoke(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
+    return errorResponse(context, "not_found");
+  }
+  const db = apiDatabase(env);
+  if (!db) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const body = await readJsonObject(request);
+  const email = typeof body.email === "string" ? body.email : "";
+  if (!email) {
+    return errorResponse(context, "invalid_request", "email is required");
+  }
+  const name = typeof body.name === "string" ? body.name : undefined;
+  const idempotencyKey = `smoke-provision:${email}`;
+  const workspaceInput: { actor: AdminActor; idempotencyKey: string; email: string; name?: string } = {
+    actor: smokeHarnessActor,
+    idempotencyKey,
+    email,
+  };
+  if (name) {
+    workspaceInput.name = name;
+  }
+  const workspace = await db.createWorkspace(workspaceInput);
+  const apiKey = await db.createApiKey({
+    actor: smokeHarnessActor,
+    idempotencyKey: `${idempotencyKey}:key`,
+    workspaceId: workspace.id,
+    name: "smoke",
+  });
+  return jsonResponse(context, { workspace, api_key: apiKey }, 201);
+}
+
+async function runSmokeCleanup(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
+    return errorResponse(context, "not_found");
+  }
+  const db = apiDatabase(env);
+  if (!db) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
+  const result = await runCleanupAndDeny(env, db, smokeHarnessActor, false, batchSize, `smoke-cleanup:${Date.now()}`);
+  return jsonResponse(context, result);
+}
+
+async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
+    return errorResponse(context, "not_found");
+  }
+  const db = apiDatabase(env);
+  if (!db) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const body = await readJsonObject(request);
+  const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
+  if (!artifactId) {
+    return errorResponse(context, "invalid_request", "artifact_id is required");
+  }
+  const result = await db.deleteArtifact({
+    actor: smokeHarnessActor,
+    idempotencyKey: `smoke-delete:${artifactId}`,
+    artifactId,
+  });
+  await denyArtifact(env, artifactId);
+  const purged = await purgeArtifactBytes(env, artifactId);
+  return jsonResponse(context, { ...result, deleted_r2_objects: purged });
+}
+
 async function forceExpire(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  if (!isNonProductionEnv(env)) {
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
     return errorResponse(context, "not_found");
-  }
-  const actor = await authenticateAdmin(request, env);
-  if (!actor) {
-    return errorResponse(context, "not_authenticated");
   }
   const db = apiDatabase(env);
   if (!db?.forceExpireArtifact) {
@@ -1365,12 +1208,8 @@ async function forceExpire(context: AppContext): Promise<Response> {
 async function listR2Prefix(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  if (!isNonProductionEnv(env)) {
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
     return errorResponse(context, "not_found");
-  }
-  const actor = await authenticateAdmin(request, env);
-  if (!actor) {
-    return errorResponse(context, "not_authenticated");
   }
   if (!env.ARTIFACTS) {
     return jsonResponse(context, { keys: [], r2_bound: false });
@@ -1395,12 +1234,8 @@ async function listR2Prefix(context: AppContext): Promise<Response> {
 async function getDenylistKey(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  if (!isNonProductionEnv(env)) {
+  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
     return errorResponse(context, "not_found");
-  }
-  const actor = await authenticateAdmin(request, env);
-  if (!actor) {
-    return errorResponse(context, "not_authenticated");
   }
   if (!env.DENYLIST?.get) {
     return jsonResponse(context, { key: null, value: null, kv_bound: false });

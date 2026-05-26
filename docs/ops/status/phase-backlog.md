@@ -17,8 +17,7 @@ multi-revision artifacts and the Access Link signing-key family.
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
 app-side `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke and
-the human browser `/admin` check both passed on 2026-05-26. The repo-local admin
-bearer token is still live until AP-12/AP-13 retire it.
+the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TOKEN` `/admin/*` path was retired in AP-13.
 
 ## Active: Phase 3 Close-Out
 
@@ -71,14 +70,12 @@ Goal: operational depth without changing the product surface.
 3. [ ] Decide whether to add a dedicated admin/operator hostname.
        No new CNAME is needed for the current path-based Access gate; add and
        document one only if the operator surface grows enough to justify it.
-4. [ ] Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Cloudflare
-       Access + WorkOS operator routes cover the remaining operational needs.
-       Until then treat `ADMIN_TOKEN` as a bootstrap/legacy operating risk.
-5. [ ] Execute the legacy admin migration plan.
-       `docs/ops/ap-12-migration-plan.md` inventories every `/admin/*`
-       operation and maps it to a WorkOS member route, WorkOS operator route,
-       `apps/jobs` responsibility, or explicit removal. Remove the old admin
-       CLI/API once smoke/runbooks no longer depend on `ADMIN_TOKEN`.
+4. [x] Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Cloudflare
+       Access + WorkOS operator routes cover the remaining operational needs
+       (AP-13).
+5. [x] Execute the legacy admin migration plan (AP-12/AP-13): removed `/admin/*`
+       contracts, API routes, CLI admin verbs, and `ADMIN_TOKEN` secrets;
+       smokes use WorkOS/CLI login or `SMOKE_HARNESS_SECRET` harness routes.
 6. [x] Add rate limiting to legacy admin-token routes and public bearer read
        surfaces that currently lack explicit limits, especially `/admin/*` and
        public Agent View.
