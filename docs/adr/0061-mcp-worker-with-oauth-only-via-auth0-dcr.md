@@ -1,13 +1,16 @@
-# MCP Worker with OAuth-Only Access via Auth0 DCR
+# MCP Worker with OAuth-Only Access via WorkOS AuthKit
 
-A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Protocol (Streamable HTTP transport) and forwards authenticated requests to `api` over a Cloudflare service binding, matching the `web → api` pattern from [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md). Authentication is OAuth 2.1 only — no **API Key** path is accepted at this surface. Auth0 Dynamic Client Registration (RFC 7591) is enabled with a redirect-URI allowlist so any agent host (ChatGPT, Claude.ai, Claude Desktop, Cursor, Neuron, future) can self-register without manual platform involvement. MCP tokens are minted under a new audience `https://mcp.agent-paste.sh` and carry explicit **Scopes** (`write read share`), never **Member-Only Scopes**. The MCP server exposes a fixed 12-tool surface limited to text-only artifact operations; binary and multi-file artifacts remain CLI/REST territory.
+Status: Accepted. Provider decided as **WorkOS** by AP-26, consistent with [ADR 0068](./0068-workos-authkit-for-web-app-auth.md). This replaces the Auth0 framing this ADR originally carried; the filename is historical.
+
+A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Protocol (Streamable HTTP transport) and forwards authenticated requests to `api` over a Cloudflare service binding, matching the `web -> api` pattern from [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md). Authentication is OAuth 2.1 only; no **API Key** path is accepted at this surface. WorkOS AuthKit/Connect is the authorization server for MCP, following WorkOS's MCP guidance: <https://workos.com/docs/authkit/mcp>. Client ID Metadata Document (CIMD) is the primary self-identification path for MCP clients; WorkOS Dynamic Client Registration (DCR, RFC 7591) is enabled as compatibility for clients that have not adopted CIMD yet. MCP tokens are minted for the resource indicator `https://mcp.agent-paste.sh` and carry explicit **Scopes** (`write read share`), never **Member-Only Scopes**. The MCP server exposes a fixed 12-tool surface limited to text-only artifact operations; binary and multi-file artifacts remain CLI/REST territory.
 
 ## Considered Options
 
 - **API Key in `Authorization` header.** Simplest path on the server because `api` already accepts API Keys end-to-end. Rejected because the central motivation for the MCP surface is _not_ having long-lived secrets sitting in third-party host configs (ChatGPT, Claude.ai), which is exactly where pasted API Keys would live.
 - **API Key + OAuth dual path.** Lets sophisticated agents pick. Rejected for the same reason: it reintroduces the long-lived-secret surface under the guise of fallback, and there is no MCP use case that genuinely needs an API Key when OAuth is available.
-- **OAuth-only with manual Auth0 client per host.** Three hosts on day one, but the platform becomes the bottleneck for the fourth. Rejected; doesn't scale.
-- **OAuth-only with Auth0 DCR (chosen).** Self-serve host onboarding gated by user consent and a redirect-URI allowlist. The user is the trust boundary at the consent screen; Auth0 shows the client name.
+- **OAuth-only with manual WorkOS client per host.** Three hosts on day one, but the platform becomes the bottleneck for the fourth. Rejected; doesn't scale.
+- **Stay on Auth0 DCR for MCP while web/CLI use WorkOS.** Keeps the old paper design, but creates two human-auth providers, two sets of operational runbooks, and two token verification paths. Rejected; the project is consolidating human auth on WorkOS.
+- **OAuth-only with WorkOS AuthKit/Connect, CIMD primary, DCR compatibility enabled (chosen).** Self-serve host onboarding stays zero-touch for compliant MCP clients, WorkOS owns consent/token issuance, and agent-paste operates one human-auth provider across web, CLI login, and MCP. CIMD is the forward path; DCR remains on because MCP clients will lag the newest auth spec.
 - **stdio MCP transport.** Would have let the MCP share the CLI's local credential store, but only works for hosts that can spawn local processes. Rejected because the stated use case includes web-based agent hosts (ChatGPT, Claude.ai) that cannot.
 
 ## Consequences
@@ -20,24 +23,27 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 
 ### Discovery and registration
 
-- **Protected Resource Metadata.** `GET /.well-known/oauth-protected-resource` returns the RFC 9728 document advertising the Auth0 tenant as the authorization server, the supported scopes (`write`, `read`, `share`), the supported bearer methods (`Authorization` header), and the resource identifier `https://mcp.agent-paste.sh`.
-- **Authorization Server Metadata.** Auth0's existing `.well-known/openid-configuration` is the discovery target. No new endpoint on `mcp`.
-- **DCR.** Hosts call Auth0's `/oidc/register` directly per RFC 7591 with `redirect_uris`, `client_name`, and `token_endpoint_auth_method=none` (public clients). Auth0 returns a `client_id`; no `client_secret`.
-- **Redirect-URI allowlist.** An Auth0 post-registration Action rejects registrations whose `redirect_uris` do not match a documented pattern set. The current allowlist:
+- **Protected Resource Metadata.** `GET /.well-known/oauth-protected-resource` returns the RFC 9728 document advertising the WorkOS AuthKit domain as the authorization server, the supported scopes (`write`, `read`, `share`), the supported bearer method (`Authorization` header), and `resource=https://mcp.agent-paste.sh`.
+- **Authorization Server Metadata.** The WorkOS AuthKit domain's `/.well-known/oauth-authorization-server` document is the source of truth. `mcp` may proxy `GET /.well-known/oauth-authorization-server` to that WorkOS metadata document for clients that do not yet support Protected Resource Metadata; it does not host its own authorization server metadata.
+- **Client ID Metadata Document (CIMD).** CIMD is enabled in the WorkOS Dashboard under Connect configuration and is the preferred client self-identification mechanism. Clients that support CIMD present an HTTPS metadata-document URL as `client_id`; WorkOS reads that document and shows the resulting client identity at consent.
+- **DCR compatibility.** DCR is also enabled in the WorkOS Dashboard for clients that have not adopted CIMD. Hosts call the WorkOS AuthKit registration endpoint advertised in authorization-server metadata (`https://<subdomain>.authkit.app/oauth2/register`) with `redirect_uris`, `client_name`, and `token_endpoint_auth_method=none` (public PKCE clients). WorkOS returns a `client_id`; no `client_secret`.
+- **Resource Indicator.** `https://mcp.agent-paste.sh` is configured as a valid WorkOS Resource Indicator. `mcp` rejects tokens whose `aud` does not match that resource.
+- **Redirect-URI allowlist.** DCR compatibility registrations are constrained to documented redirect patterns. The current allowlist:
   - `https://chatgpt.com/connector_platform_oauth_redirect`
   - `https://claude.ai/api/mcp/auth_callback`
   - `https://*.claude.ai/api/mcp/auth_callback`
   - `claude-desktop://oauth/callback`
   - `cursor://oauth/callback`
-    After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in Auth0 configuration. Updates to this allowlist are an Auth0 config change, not a code deploy.
-- **Throttling.** Auth0's built-in DCR rate limit handles abuse; no extra layer in v1.
+    After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in WorkOS configuration. Updates to this allowlist are a WorkOS config change, not a code deploy.
+- **Throttling.** WorkOS owns provider-side CIMD/DCR abuse controls. `mcp` does not expose a registration endpoint, so no app-layer registration limiter is added in v1.
 
 ### Token shape and authorization
 
-- **Audience.** `https://mcp.agent-paste.sh`. New Auth0 application named `agent-paste MCP`.
-- **Scopes.** The consent screen requests from `{write, read, share}`. The user picks; Auth0 enforces the granted subset in the issued token's `scope` claim. **Member-Only Scopes** are not in the consent vocabulary and are unreachable from any MCP-minted token.
+- **Audience.** `aud=https://mcp.agent-paste.sh`, derived from the WorkOS Resource Indicator.
+- **Issuer and JWKS.** `mcp` verifies access tokens against the WorkOS AuthKit issuer (`https://<subdomain>.authkit.app`) and JWKS (`https://<subdomain>.authkit.app/oauth2/jwks`). `api` verifies the forwarded bearer independently.
+- **Scopes.** The consent screen requests from `{write, read, share}`. The user picks; WorkOS enforces the granted subset in the issued token's `scope` claim. **Member-Only Scopes** are not in the consent vocabulary and are unreachable from any MCP-minted token.
 - **No implicit grant.** `api`'s middleware does NOT apply the **Workspace Member** implicit-grant rule for `aud=https://mcp.agent-paste.sh` JWTs. The `scope` claim is authoritative. This is the same carve-out [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) introduces for CLI tokens; [ADR 0034](./0034-unified-scope-model-across-actors.md) records the amended rule.
-- **Token TTL.** Access token 1 hour, refresh token 30 days with sliding renewal, matching `web` per [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md). Hosts handle refresh transparently to the agent.
+- **Token lifetime.** Access-token and refresh-token lifetimes are WorkOS AuthKit/Connect environment configuration. MCP code treats them opaquely and relies on standard OAuth refresh behavior in the host.
 
 ### Tool surface
 

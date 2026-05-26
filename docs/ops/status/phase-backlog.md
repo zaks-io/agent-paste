@@ -128,8 +128,9 @@ the CLI.
 
 Recommended order:
 
-1. [ ] Re-decide the OAuth provider before implementation. ADR 0061 still says
-       Auth0 DCR; current project direction expects WorkOS-compatible auth.
+1. [x] Re-decide the OAuth provider before implementation. ADR 0061 now records
+       WorkOS AuthKit/Connect for MCP OAuth, with CIMD primary and DCR enabled
+       for compatibility.
 2. [ ] Define MCP contracts in `packages/contracts` for tool schemas, auth
        requirements, error mapping, and forwarded API calls.
 3. [ ] Implement Streamable HTTP MCP transport on `apps/mcp`: JSON-RPC over

@@ -46,7 +46,7 @@ It generates and writes:
 
 The script prints the one-time `ADMIN_TOKEN` for operator use, but only writes `ADMIN_TOKEN_HASH` to Cloudflare. It must refuse to overwrite existing secrets unless `--force` and a typed confirmation are provided. Record generated values in the password manager before closing the terminal. Routine rotation uses the ADR 0045 rotation tooling, not this bootstrap script.
 
-Set external provider secrets manually: Auth0 client values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate.
+Set external provider secrets manually: WorkOS values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate.
 
 ## Hosted MVP Deploy Order
 

@@ -35,7 +35,7 @@ Scope:
 Out of scope:
 
 - Worker code, migrations, or CI workflow changes.
-- Auth0 tenant config (Phase 3+; see [ADR 0066](../adr/0066-cli-first-mvp-contract-narrowing.md)).
+- WorkOS project config (Phase 3+; see [ADR 0068](../adr/0068-workos-authkit-for-web-app-auth.md)).
 - Logpush -> Axiom wiring (covered by item #2 / `runbook-logpush.md`).
 - Stable preview custom domains. PR preview lifecycle is tracked separately in [`status/hosted-ops.md`](./status/hosted-ops.md).
 - Secret rotation cadence (covered by [ADR 0045](../adr/0045-secret-rotation-cadence-and-on-demand-tooling.md)).

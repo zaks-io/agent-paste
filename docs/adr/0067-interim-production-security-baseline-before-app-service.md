@@ -2,7 +2,7 @@
 
 Status: Accepted.
 
-The CLI-first MVP is live before the app service, Auth0-backed dashboard, and MCP surface exist. Until those surfaces are promoted, production's security boundary is intentionally narrow: `api`, `upload`, `content`, and the apex informational Worker are public; `web`, `mcp`, and `jobs` remain non-business-logic scaffolds. This ADR records the interim controls that must hold while that narrower production shape is live.
+The CLI-first MVP was live before the app service, WorkOS-backed dashboard, and MCP surface existed. Until those surfaces are promoted, production's security boundary is intentionally narrow: `api`, `upload`, `content`, and the apex informational Worker are public; `web`, `mcp`, and `jobs` remain non-business-logic scaffolds. This ADR records the interim controls that must hold while that narrower production shape is live.
 
 ## Context
 
@@ -11,7 +11,7 @@ The first production deployment exposes enough public surface to need abuse and 
 - `api` verifies API Keys, serves public Agent View, and exposes repo-local admin REST routes.
 - `upload` mints signed upload-worker PUT URLs and writes private R2 objects.
 - `content` serves Untrusted Content from private R2 through signed content tokens.
-- The app service is not yet available to provide Cloudflare Access/Auth0 operator identity, iframe sandboxing, or fragment-based Access Link resolution.
+- The app service is not yet available to provide Cloudflare Access/WorkOS operator identity, iframe sandboxing, or fragment-based Access Link resolution.
 
 This means some broader platform ADRs are intentionally not executable yet, especially [ADR 0046](./0046-operator-identity-and-web-admin-surface.md), [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md), [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md), and [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md). The interim baseline must be explicit so "not built yet" does not become silent security drift.
 
@@ -23,7 +23,7 @@ This means some broader platform ADRs are intentionally not executable yet, espe
 - Public Agent View accepts only signed Agent-View Tokens. There is no unsigned `{artifactId}.{revisionId}` fallback or escape hatch; the project is pre-launch, so no prior token generation needs back-compat.
 - Public API JSON and public Agent View HTML responses are `Cache-Control: no-store`, because they can include freshly minted signed content URLs.
 - Repo-local admin CLI commands that revoke credentials, delete artifacts, or run mutating cleanup require `--yes`.
-- The single hashed admin bearer token remains an interim production operator path only for the CLI-first MVP. It is not the Phase 3 operator model. Before the app/admin surface is rolled out, production admin must move to the Cloudflare Access/Auth0 operator model in ADR 0046 or a superseding ADR must explicitly replace it.
+- The single hashed admin bearer token remains an interim production operator path only for the CLI-first MVP. It is not the Phase 3 operator model. Before the app/admin surface is rolled out, production admin must move to the Cloudflare Access/WorkOS operator model in ADR 0046 or a superseding ADR must explicitly replace it.
 
 ## Consequences
 

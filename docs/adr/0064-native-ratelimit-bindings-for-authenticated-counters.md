@@ -38,7 +38,7 @@ Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both
 
 ### Limit keys
 
-- **Actor Rate Limit** key: `${workspaceId}:${actorId}` where `actorId` is the API Key `publicId` for bearer auth or the Auth0 `sub` for **Workspace Member** session auth. The `workspaceId` prefix guarantees a leaked or reused `publicId` cannot starve another tenant's identical-shaped key.
+- **Actor Rate Limit** key: `${workspaceId}:${actorId}` where `actorId` is the API Key `publicId` for bearer auth or the WorkOS user id for **Workspace Member** session auth. The `workspaceId` prefix guarantees a leaked or reused `publicId` cannot starve another tenant's identical-shaped key.
 - **Workspace Burst Cap** key: `${workspaceId}`. Summed across every actor the **Workspace** owns.
 - Keys are derived after the auth lookup that ADR 0062 caches, so the cache hit serves the limit key, not just the actor identity.
 

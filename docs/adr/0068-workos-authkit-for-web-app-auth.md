@@ -21,12 +21,12 @@ WorkOS AuthKit's free tier covers 1M MAU with no application count cap, is OIDC-
 
 ## Consequences
 
-- [ADR 0002](./0002-auth0-for-workspace-authentication.md) is superseded for `apps/web`. The CLI (ADR 0060) and MCP (ADR 0061) human-auth flows still reference Auth0 by name; their provider decision is deferred until those surfaces are implemented and is explicitly re-decidable.
+- [ADR 0002](./0002-auth0-for-workspace-authentication.md) is superseded for `apps/web`. [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) and [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) now complete the same provider decision for CLI login and MCP: WorkOS is the human-auth provider across all three surfaces.
 - [ADR 0033](./0033-tanstack-start-for-the-web-app.md) is unchanged in stack choice. The arctic-specific guidance becomes "use the AuthKit TanStack Start integration." The lint rule that blocks session imports from Access Link routes now blocks `@workos/authkit-tanstack-react-start` and `@workos/authkit-session` in addition to the existing `../server/auth*` and `@tanstack/react-start/server` entries.
 - [ADR 0055](./0055-signup-auto-provisions-personal-workspace-and-default-key.md) is unchanged in semantics. The callback flow moves into AuthKit's `handleCallbackRoute({...})`; first-login workspace provisioning still happens server-side on the first authenticated `apps/api` call.
 - [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md) cookie name (`__agp_session`), host-only scope, and forwarding model are preserved. The sealed payload shape is now AuthKit-owned (iron-session blob) instead of bespoke; refresh and revocation are delegated to AuthKit middleware. The `apps/api` verifier section of that ADR is replaced by the JWKS + `client_id` check above.
-- [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) and [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) remain open decisions. When CLI human auth and MCP DCR are implemented, the provider choice will be re-decided. WorkOS supports both loopback PKCE and DCR; nothing in this ADR forces that hand.
-- [ADR 0062](./0062-two-layer-cache-for-hot-path-auth-lookups.md) join-key column renames from `auth0_sub` to `workos_user_id` in the planned `workspace_members` migration. Cache semantics are identical.
+- [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) is now decided as WorkOS loopback PKCE. [ADR 0061](./0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) is now decided as WorkOS AuthKit/Connect for MCP OAuth, with CIMD primary and DCR enabled for compatibility. Together, web, CLI login, and MCP use WorkOS as the single human-auth provider.
+- [ADR 0062](./0062-two-layer-cache-for-hot-path-auth-lookups.md) caches the resolved member row after WorkOS verification; the immutable join key is `workspace_members.workos_user_id`. Cache semantics are unchanged.
 - [ADR 0064](./0064-native-ratelimit-bindings-for-authenticated-counters.md) keys on the `sub` claim. WorkOS issues the same shape (`user_…`); no code change required beyond the column rename.
 
 ## What this ADR does not change

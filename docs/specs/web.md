@@ -6,47 +6,45 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 
 ## Route Groups
 
-| Route                     | Auth             | Purpose                                                                                                              |
-| ------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `/`                       | optional         | Redirect to `/dashboard` when signed in, `/login` when not.                                                          |
-| `/login`                  | none             | Start Auth0 Authorization Code + PKCE login.                                                                         |
-| `/logout`                 | session          | Clear sealed cookie and redirect through Auth0 logout.                                                               |
-| `/auth/callback`          | none             | Complete Auth0 Authorization Code + PKCE flow, create sealed session, surface one-time default API Key when present. |
-| `/al/{publicId}`          | none             | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`.                                |
-| `/dashboard`              | dashboard member | Workspace overview.                                                                                                  |
-| `/artifacts`              | dashboard member | Artifact list.                                                                                                       |
-| `/artifacts/{artifactId}` | dashboard member | Artifact detail, revisions, links, warnings, bundle state.                                                           |
-| `/keys`                   | dashboard member | API Key list and creation flow.                                                                                      |
-| `/audit`                  | dashboard member | Audit Event list.                                                                                                    |
-| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                                            |
-| `/admin`                  | operator         | Operator-only dashboard.                                                                                             |
+| Route                     | Auth             | Purpose                                                                               |
+| ------------------------- | ---------------- | ------------------------------------------------------------------------------------- |
+| `/`                       | optional         | Redirect to `/dashboard` when signed in, `/api/auth/sign-in` when not.                |
+| `/api/auth/sign-in`       | none             | Start WorkOS AuthKit Authorization Code + PKCE login.                                 |
+| `/api/auth/sign-out`      | session          | Clear the AuthKit session through POST-only sign-out.                                 |
+| `/api/auth/callback`      | none             | Complete WorkOS AuthKit Authorization Code + PKCE flow and establish the session.     |
+| `/al/{publicId}`          | none             | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`. |
+| `/dashboard`              | dashboard member | Workspace overview.                                                                   |
+| `/artifacts`              | dashboard member | Artifact list.                                                                        |
+| `/artifacts/{artifactId}` | dashboard member | Artifact detail, revisions, links, warnings, bundle state.                            |
+| `/keys`                   | dashboard member | API Key list and creation flow.                                                       |
+| `/audit`                  | dashboard member | Audit Event list.                                                                     |
+| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                             |
+| `/admin`                  | operator         | Operator-only dashboard.                                                              |
 
-`/al/*` must not import Auth0/session modules. A lint rule should enforce this.
+`/al/*` must not import WorkOS/AuthKit session modules. A lint rule should enforce this.
 
 ## First-Run Key State
 
 ## Auth Callback Flow
 
-The browser-facing login flow follows Auth0 Authorization Code Flow with PKCE.
+The browser-facing login flow follows WorkOS AuthKit Authorization Code Flow with PKCE.
 
-`/login`:
+`/api/auth/sign-in`:
 
-- Generates `state`, `nonce`, and a high-entropy PKCE `code_verifier`.
-- Stores them in a short-lived encrypted transaction cookie that is host-only, `HttpOnly`, `Secure`, and `SameSite=Lax`.
-- Redirects to Auth0 with `response_type=code`, exact `redirect_uri`, `scope=openid profile email offline_access`, API audience, `state`, `nonce`, and `code_challenge_method=S256`.
+- Calls the AuthKit integration to create the WorkOS authorization URL.
+- Redirects to WorkOS with the configured `WORKOS_REDIRECT_URI`.
+- Lets AuthKit own state, PKCE, refresh, and transaction/session cookies.
 
-`/auth/callback`:
+`/api/auth/callback`:
 
 - Rejects OAuth error responses, missing code, missing transaction cookie, and mismatched `state`.
-- Exchanges the code server-side with Auth0 using the stored `code_verifier`.
-- Validates the token set, including issuer, audience, expiration, ID-token nonce, and `email_verified`.
-- Calls `POST /v1/auth/web/callback` on `api` over the `web -> api` Service Binding with the Auth0 access token as `Authorization` and `{ id_token, nonce }` as the body.
-- Clears the transaction cookie after success or failure.
-- Seals `{ access_token, refresh_token, expires_at, sub }` into the `__agp_session` cookie only after `api` confirms or provisions the **Workspace Member**.
+- Exchanges the code through AuthKit and validates the resulting session.
+- Calls `POST /v1/auth/web/callback` on `api` over the `web -> api` Service Binding with the WorkOS access token as `Authorization`.
+- Stores the AuthKit-owned sealed session in `__agp_session`.
 
-No token, authorization code, PKCE verifier, nonce, state, or one-time API Key secret may be logged.
+No token, authorization code, PKCE verifier, state, or one-time API Key secret may be logged.
 
-After first sign-in, `/auth/callback` receives the default API Key plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
+After first provisioning, `POST /v1/auth/web/callback` receives the default API Key plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 
 The first-run card includes:
 
@@ -112,7 +110,8 @@ List columns:
 Create form:
 
 - Name.
-- Scope checkboxes limited to `write`, `read`, `share`.
+- Scope selection is not exposed in the MVP. Dashboard-created keys use the API-key scope vocabulary and are minted with `publish` and `read`, matching first-run and CLI-minted keys.
+- The MCP OAuth consent vocabulary (`write`, `read`, `share`) is not shown on `/keys`; it applies only to MCP-issued tokens.
 - Optional expiration.
 - One-time secret result card.
 

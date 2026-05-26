@@ -25,9 +25,9 @@ The first time agent-paste is deployed to an environment, two things have to exi
   - `ACCESS_LINK_SIGNING_KEY_V1` (HMAC-SHA-256 secret for [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) signed URLs; bound on `api` for both mint and resolve).
   - `API_KEY_PEPPER_V1` (per [ADR 0043](./0043-bearer-credential-format-and-storage.md); bound on `api`).
   - `OPERATOR_EMAILS` (the comma-separated allowlist from [ADR 0046](./0046-operator-identity-and-web-admin-surface.md); bound on `api`).
-  - `WEB_SESSION_SEAL_KEY_V1` (AES-GCM key sealing the `__agp_session` cookie per [ADR 0059](./0059-web-app-session-and-auth-forwarding-to-api.md); bound on `web`).
+  - `WORKOS_COOKIE_PASSWORD` (the AuthKit cookie password for the `__agp_session` cookie per [ADR 0068](./0068-workos-authkit-for-web-app-auth.md); bound on `web`).
 - **Push path.** The script invokes `wrangler secret put` against the target environment for each value, then prints the raw values to stdout exactly once with a banner instructing the operator to record them in 1Password before closing the terminal. After the script exits the values exist only inside Cloudflare and inside the password manager.
-- **External secrets are set out-of-band, not by the bootstrap script.** Auth0 client ID and secret, Hyperdrive connection string, R2 access credentials, and KV namespace IDs are configured through the relevant provider consoles and committed to `wrangler.jsonc` (IDs) or set as Worker secrets manually. The script does not touch them because it does not have credentials for those providers.
+- **External secrets are set out-of-band, not by the bootstrap script.** WorkOS project/application identifiers and API keys, Hyperdrive connection string, R2 access credentials, and KV namespace IDs are configured through the relevant provider consoles and committed to `wrangler.jsonc` (IDs) or set as Worker secrets manually. The script does not touch them unless an operator explicitly runs the WorkOS-aware bootstrap path from the runbook.
 - **The `V1` suffix on signing-key names is the `kid` from ADR 0047.** Rotation per [ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) introduces `V2` alongside `V1` and drops `V1` after the overlap window. The bootstrap script never sees `V2`; rotation tooling owns that path. The ADR 0028 `kid` is carried by the `CONTENT_SIGNING_KID` Worker var rather than embedded in the secret name.
 
 ### Operator and environment scoping
@@ -39,4 +39,4 @@ The first time agent-paste is deployed to an environment, two things have to exi
 
 - Not a runbook. The exact command sequence lives in [`docs/ops/first-deploy.md`](../ops/first-deploy.md); the secret generator lives at `scripts/bootstrap-secrets.ts`.
 - Not the rotation path. ADR 0045 owns rotation; the bootstrap script is `kid=V1` only.
-- Not Auth0, Cloudflare account, or domain setup. Those happen before this script runs and are vendor-console work.
+- Not WorkOS project, Cloudflare account, or domain setup. Those happen before this script runs and are vendor-console work.
