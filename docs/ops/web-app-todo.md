@@ -98,6 +98,6 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 
 ## Polish / nice-to-have (not blocking)
 
-- [ ] Cmd-K command palette across routes (style guide §6.3 alludes to a global search trigger).
+- [x] Cmd-K command palette across routes (style guide §6.3 alludes to a global search trigger).
 - [ ] Per-route `<title>` and OG metadata.
 - [ ] Storybook or Ladle for component review — only if it earns its keep.
