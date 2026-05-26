@@ -14,7 +14,7 @@ export const RevisionSummary = z.object({
   status: RevisionStatus,
   entrypoint: FilePath,
   render_mode: RenderMode,
-  file_count: z.number().int().nonnegative(),
+  file_count: z.number().int().min(1),
   size_bytes: z.number().int().nonnegative(),
   created_at: IsoDateTime,
   published_at: IsoDateTime.nullable(),

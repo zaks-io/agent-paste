@@ -1047,20 +1047,17 @@ export class RepositoryCore implements Repository {
       if (!revisionId) {
         return null;
       }
+      let revisionEntrypoint: string | undefined;
       if (input.revisionId) {
         const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
         if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
           return null;
         }
+        revisionEntrypoint = revision.entrypoint;
       }
       const viewArtifact =
-        input.revisionId && input.revisionId !== artifact.revision_id
-          ? {
-              ...artifact,
-              entrypoint:
-                (await entities.revisions.findById(revisionId, input.actor.workspace_id))?.entrypoint ??
-                artifact.entrypoint,
-            }
+        revisionEntrypoint && input.revisionId !== artifact.revision_id
+          ? { ...artifact, entrypoint: revisionEntrypoint }
           : artifact;
       const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
       return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);

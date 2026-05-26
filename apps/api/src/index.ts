@@ -1605,7 +1605,7 @@ function mapRepositoryError(error: unknown): { code: string; status: number; mes
 }
 
 function entrypointPathFromViewUrl(viewUrl: string) {
-  const match = viewUrl.match(/\/v\/[^/]+\/(.+)$/);
+  const match = viewUrl.match(/\/v\/[^/]+\/([^?#]+)$/);
   return decodeURIComponent(match?.[1] ?? "index.html");
 }
 

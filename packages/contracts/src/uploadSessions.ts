@@ -61,7 +61,7 @@ export const FinalizeUploadSessionResponse = z.object({
   status: z.literal("draft"),
   title: PlainTextTitle,
   entrypoint: FilePath,
-  file_count: z.number().int().nonnegative(),
+  file_count: z.number().int().min(1),
   size_bytes: z.number().int().nonnegative(),
 });
 export type FinalizeUploadSessionResponse = z.infer<typeof FinalizeUploadSessionResponse>;
