@@ -118,13 +118,14 @@ pnpm hooks:install
 
 ### Smoke Tests
 
-| Command                 | Purpose                                                                           |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `pnpm smoke:local`      | Build and run the local publish/content/delete smoke path.                        |
-| `pnpm smoke:web`        | Build and run local web API auth/dashboard smoke assertions.                      |
-| `pnpm smoke:preview`    | Build and run hosted preview smoke assertions.                                    |
-| `pnpm smoke:production` | Build and run hosted production smoke assertions.                                 |
-| `pnpm smoke:pr`         | Build and run hosted PR-preview smoke assertions using PR workflow-provided URLs. |
+| Command                          | Purpose                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pnpm smoke:local`               | Build and run the local publish/content/delete smoke path.                                                            |
+| `pnpm smoke:web`                 | Build and run local web API auth/dashboard smoke assertions.                                                          |
+| `pnpm lighthouse:dashboard-a11y` | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first). |
+| `pnpm smoke:preview`             | Build and run hosted preview smoke assertions.                                                                        |
+| `pnpm smoke:production`          | Build and run hosted production smoke assertions.                                                                     |
+| `pnpm smoke:pr`                  | Build and run hosted PR-preview smoke assertions using PR workflow-provided URLs.                                     |
 
 ### Hooks
 

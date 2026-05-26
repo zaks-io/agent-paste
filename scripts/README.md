@@ -140,6 +140,19 @@ pnpm smoke:web
 
 The script starts the local MVP server on alternate ports, stubs WorkOS locally, provisions a member through the web callback route, and verifies dashboard read APIs, key minting, settings, audit, API-key rejection on member routes, and cross-workspace not-found behavior.
 
+### `lighthouse-dashboard-a11y.mjs`
+
+Local Lighthouse accessibility gate for the authenticated `/dashboard` empty surface:
+
+```sh
+pnpm build
+pnpm lighthouse:dashboard-a11y
+```
+
+The script builds on the same local harness pattern as `smoke-web-api.mjs`: mock WorkOS JWKS, the local MVP API/upload/content stack, and a built `@agent-paste/web` Worker via `wrangler dev`. It seals an AuthKit session cookie for a returning member with no published artifacts, asserts `/dashboard` renders authenticated chrome plus an empty overview, then runs Lighthouse with `onlyCategories: ['accessibility']`. The process exits non-zero when the score is below `95` (override with `AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE`).
+
+PR preview runs this step after hosted smoke. It does not depend on the per-PR web deploy and therefore still runs when `WORKOS_PREVIEW_API_KEY` is unset and web preview is skipped.
+
 ## PR Preview Helpers
 
 `create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. Each same-repo PR gets:

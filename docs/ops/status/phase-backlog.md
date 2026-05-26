@@ -31,8 +31,10 @@ admin basics.
        every deployed worker (api/upload/content/apex/web each serve an
        unauthenticated 200), requires 3 consecutive 200s, treats 404/530 (CF 1042) as transient propagation flakes and retries, and the workflow
        skips docs-only PRs via `paths-ignore`.
-4. [ ] Add the Lighthouse a11y gate on `/dashboard` empty state and fail the
-       preview job below 95.
+4. [x] Add the Lighthouse a11y gate on `/dashboard` empty state and fail the
+       preview job below 95. `scripts/lighthouse-dashboard-a11y.mjs` runs a
+       local mock-WorkOS harness, audits authenticated dashboard empty chrome
+       via Lighthouse accessibility-only, and `pr-preview.yml` fails below 95.
 5. [ ] Write `docs/ops/runbook-workos.md`: WorkOS project config, redirect URI
        drift, API-key/cookie rotation, and common auth failures.
 6. [ ] Promote status after the above lands: update ADR 0033/0059/0068
