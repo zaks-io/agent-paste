@@ -110,7 +110,8 @@ List columns:
 Create form:
 
 - Name.
-- Scope checkboxes limited to `write`, `read`, `share`.
+- Scope selection is not exposed in the MVP. Dashboard-created keys use the API-key scope vocabulary and are minted with `publish` and `read`, matching first-run and CLI-minted keys.
+- The MCP OAuth consent vocabulary (`write`, `read`, `share`) is not shown on `/keys`; it applies only to MCP-issued tokens.
 - Optional expiration.
 - One-time secret result card.
 
