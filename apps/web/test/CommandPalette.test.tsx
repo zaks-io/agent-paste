@@ -144,15 +144,22 @@ describe("CommandPalette", () => {
 
   it("wraps selection from the first item to the last", () => {
     renderHarness();
+    const appendChildSpy = vi.spyOn(document.body, "appendChild");
     const submitSpy = vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(() => {});
-    openPalette();
 
-    fireEvent.keyDown(window, { key: "ArrowUp" });
-    fireEvent.keyDown(window, { key: "Enter" });
+    try {
+      openPalette();
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      fireEvent.keyDown(window, { key: "Enter" });
 
-    expect(navigate).not.toHaveBeenCalled();
-    expect(submitSpy).toHaveBeenCalled();
-    submitSpy.mockRestore();
+      expect(navigate).not.toHaveBeenCalled();
+      expect(submitSpy).toHaveBeenCalled();
+    } finally {
+      const appendedForm = appendChildSpy.mock.calls.at(-1)?.[0];
+      if (appendedForm instanceof HTMLElement) appendedForm.remove();
+      appendChildSpy.mockRestore();
+      submitSpy.mockRestore();
+    }
   });
 
   it("navigates when an option is clicked", () => {
