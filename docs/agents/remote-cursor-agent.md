@@ -139,6 +139,18 @@ untouched and move or ask for the ticket to be moved to `ready-for-human`.
 Respect milestone dependencies. For example, do not implement the Access Link
 viewer before the Access Link model/codec ticket is complete.
 
+## Pull requests (ready for review, not draft)
+
+Create GitHub pull requests **ready for review** (`draft: false`). Do not open
+draft PRs unless the Linear issue explicitly asks for a draft.
+
+This repo uses CodeRabbit on published PRs; draft PRs delay or skip that review
+pass. After `git push`, open or update the PR as ready for review so review
+automation runs immediately.
+
+There is no separate Cursor or repo UI setting for this today; follow this
+handoff doc and any Linear issue that overrides it.
+
 ## PR Handoff Checklist
 
 The final PR or handoff comment must include:
