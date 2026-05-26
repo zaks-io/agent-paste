@@ -151,6 +151,10 @@ automation runs immediately.
 There is no separate Cursor or repo UI setting for this today; follow this
 handoff doc and any Linear issue that overrides it.
 
+When the PR is ready for review, update the linked Linear issue in the same
+pass: comment with the PR link, then advance workflow state (see PR Handoff
+Checklist).
+
 ## PR Handoff Checklist
 
 The final PR or handoff comment must include:
@@ -161,6 +165,13 @@ The final PR or handoff comment must include:
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.
 - Docs/status ledgers updated when the change affects project status.
+- **Linear issue status updated** for the ticket you implemented: leave a comment
+  with the ready-for-review PR URL and handoff summary, then move the issue to
+  the workflow state your team uses for “in review” / awaiting merge (or `Done`
+  only when the issue is fully complete per team convention). Use the Linear MCP
+  tools described in `docs/agents/issue-tracker.md` (`save_comment`,
+  `save_issue`). Do not leave the issue sitting in an in-progress state after
+  handoff.
 
 Keep the change scoped to the issue. Do not bundle unrelated cleanup into a
 remote-agent branch.
