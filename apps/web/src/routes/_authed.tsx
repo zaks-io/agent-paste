@@ -6,6 +6,7 @@ import { Sidebar } from "../components/chrome/Sidebar";
 import { Topbar } from "../components/chrome/Topbar";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { ToastProvider } from "../components/ui/ToastProvider";
+import { signInBridgeHref } from "../lib/auth-return-path";
 import { apiFetchOrEmpty } from "../server/api-client";
 import { isOperator } from "../server/env";
 import { getWebEnv } from "../server/runtime";
@@ -25,14 +26,14 @@ const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export const Route = createFileRoute("/_authed")({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const result = await loadAuthedSessionFn();
     if ("redirectTo" in result) {
-      // href must stay query-string-free: a thrown redirect whose href carries
-      // a query string trips a router coercion bug under SSR (500 instead of a
-      // 307). returnPathname is dropped here as a result; the sign-in handler
-      // falls back to its default post-login destination. See web-app-todo.md.
-      throw redirect({ href: result.redirectTo });
+      // Thrown redirect hrefs must stay query-string-free (TanStack Router SSR
+      // coercion bug). Thread returnPathname through the sign-in bridge route
+      // instead: /api/auth/sign-in/p/{base64url(pathname)}.
+      const returnPathname = location.searchStr ? `${location.pathname}${location.searchStr}` : location.pathname;
+      throw redirect({ href: signInBridgeHref(returnPathname) });
     }
     return result;
   },

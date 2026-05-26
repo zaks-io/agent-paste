@@ -39,9 +39,10 @@ admin basics.
        drift, API-key/cookie rotation, and common auth failures.
 6. [x] Promote status after the above lands: update ADR 0033/0059/0068
        coverage and the Phase 3 summary in `project-status.md`.
-7. [ ] Restore deep-link return paths for unauthenticated `_authed` redirects.
-       This was dropped because query strings in thrown redirects trigger a
-       TanStack Router SSR coercion bug.
+7. [x] Restore deep-link return paths for unauthenticated `_authed` redirects.
+       `_authed.beforeLoad` now redirects through
+       `/api/auth/sign-in/p/{base64url(pathname)}` so returnPathname survives
+       without a query string on the thrown redirect href.
 
 Nice-to-have but not a Phase 3 gate:
 

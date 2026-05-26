@@ -12,8 +12,7 @@ and points to the smaller ledgers that own detail.
   `4532fb2 docs: add WorkOS auth operator runbook (#73)`.
 - `pnpm verify` passed on 2026-05-25 with 72 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
-- Phase 3, public OAuth + web dashboard + CLI login, is in close-out; only
-  deep-link return paths remain.
+- Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` and `apps/mcp` remain scaffolds, as expected for Phase 4/5.
 - `apps/stream`, `packages/billing`, Access Link persistence, bundle state, and
   scanner persistence do not exist yet.
@@ -44,18 +43,10 @@ Feature-specific ledgers:
 
 ## Current Phase
 
-Phase 3 is active. The WorkOS project setup, web AuthKit integration, CLI
+Phase 3 is complete. WorkOS project setup, web AuthKit integration, CLI
 login, dashboard data loaders, key lifecycle, audit reads, settings mutation,
-operator lockdown APIs, preview/production web deploys, and hosted web auth
-smoke are implemented.
-
-Remaining Phase 3 work:
-
-1. Restore deep-link return paths after the router redirect bug is resolved or
-   worked around.
-
-The detailed ordered list lives in
-[phase-backlog.md](./status/phase-backlog.md#active-phase-3-close-out).
+operator lockdown APIs, preview/production web deploys, hosted web auth smoke,
+and deep-link return paths are implemented.
 
 ## Not Yet Implemented From The Docs
 

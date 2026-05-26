@@ -77,7 +77,7 @@ All mutations through `runCommand` (ADR 0022/0035); all reads under the request'
 ## Auth follow-ups
 
 - [x] **Transient 403 `forbidden` on the very first authenticated dashboard load.** Fixed by moving `_authed` provisioning from the route loader to `_authed.beforeLoad`, so `POST /v1/auth/web/callback` finishes before child `/v1/web/*` loaders run. Read-path JIT provisioning was intentionally avoided because a child loader could otherwise create the default API key first and discard the one-time secret before the dashboard can render it.
-- [ ] **Restore `returnPathname` on the `_authed` → sign-in redirect.** Dropped in #59 because a query string on a thrown redirect href trips the router SSR coercion bug (see Issue B). Unauthenticated deep links (e.g. `/settings`) now land on the default post-login page instead of the originally-requested route. Revisit after a `@tanstack/react-router` upgrade (retest the query-string redirect), or thread `returnPathname` through a non-href channel (cookie set before redirect, or a query-string-free path segment the sign-in handler decodes). Low priority; consistent with the index route, which never preserved it.
+- [x] **Restore `returnPathname` on the `_authed` → sign-in redirect.** `_authed.beforeLoad` redirects through `/api/auth/sign-in/p/{base64url(pathname)}` so the sign-in handler can pass `returnPathname` to WorkOS without putting a query string on the thrown redirect href (Issue B).
 
 ## Access Link viewer
 

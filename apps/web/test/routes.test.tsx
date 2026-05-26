@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { signInBridgeHref } from "../src/lib/auth-return-path";
 import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
@@ -87,9 +88,33 @@ describe("web routes", () => {
     const authed = await import("../src/routes/_authed");
 
     state.auth = { user: null, accessToken: "" };
-    await expect((authed.Route.beforeLoad as () => Promise<unknown>)()).rejects.toMatchObject({
+    await expect(
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: { pathname: "/settings", search: {}, searchStr: "" },
+      }),
+    ).rejects.toMatchObject({
       redirected: true,
-      href: "/api/auth/sign-in",
+      href: signInBridgeHref("/settings"),
+    });
+    await expect(
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: {
+          pathname: "/audit",
+          search: { request_id: "req_1" },
+          searchStr: "?request_id=req_1",
+        },
+      }),
+    ).rejects.toMatchObject({
+      redirected: true,
+      href: signInBridgeHref("/audit?request_id=req_1"),
     });
     expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
@@ -105,7 +130,15 @@ describe("web routes", () => {
       error: null,
     });
 
-    await expect((authed.Route.beforeLoad as () => Promise<unknown>)()).resolves.toMatchObject({
+    await expect(
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: { pathname: "/dashboard", search: {}, searchStr: "" },
+      }),
+    ).resolves.toMatchObject({
       user: { email: "user@example.com" },
       isOperator: true,
       apiSession: {
@@ -323,11 +356,20 @@ describe("web routes", () => {
     expect(screen.getByText("Sign in failed")).toBeInTheDocument();
     view.unmount();
 
+    const signInBridge = await import("../src/routes/api/auth/sign-in/p.$encoded");
+    const encoded = signInBridgeHref("/dashboard").slice("/api/auth/sign-in/p/".length);
+
     const response = await signIn.Route.server.handlers.GET({
       request: new Request("https://app.test/api/auth/sign-in?returnPathname=/dashboard"),
     });
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
+
+    const bridgeResponse = await signInBridge.Route.server.handlers.GET({
+      params: { encoded },
+    });
+    expect(bridgeResponse.status).toBe(307);
+    expect(bridgeResponse.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
     await signOut.Route.server.handlers.POST();
     expect(state.signOut).toHaveBeenCalledOnce();
     expect(callback.Route.server.handlers.GET()).toBeInstanceOf(Response);
