@@ -1,6 +1,5 @@
 export { APP_ERROR_STATUS, type AppErrorCode, ERROR_STATUS, errorResponse, jsonResponse } from "./errors.js";
 export type {
-  AdminTokenPrincipal,
   ApiKeyPrincipal,
   AuthFailure,
   AuthResult,
@@ -23,3 +22,4 @@ export {
   type Handler,
   type HeaderGuardState,
 } from "./registrar.js";
+export { type SentryEnv, sentryOptions } from "./sentry.js";

@@ -400,6 +400,9 @@ export function localEntities(state: LocalState): Entities {
       async listOperatorPage(input) {
         const cursorOccurredAt = input.cursor ? input.cursor.occurredAt.toISOString() : null;
         const cursorId = input.cursor?.id ?? null;
+        if (input.actions !== undefined && input.actions.length === 0) {
+          return [];
+        }
         const actionSet = input.actions ? new Set(input.actions) : null;
         return [...state.operationEvents.values()]
           .filter((event) => (input.workspaceId ? event.workspace_id === input.workspaceId : true))

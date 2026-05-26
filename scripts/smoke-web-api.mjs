@@ -5,6 +5,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, waitForHealthz } from "./smoke-harness.mjs";
 
 const root = new URL("..", import.meta.url);
 const apiPort = intEnv("AGENT_PASTE_WEB_SMOKE_API_PORT", 18887);
@@ -14,7 +15,7 @@ const workosPort = intEnv("AGENT_PASTE_WEB_SMOKE_WORKOS_PORT", 18890);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const workosBaseUrl = `http://127.0.0.1:${workosPort}`;
-const adminToken = process.env.AGENT_PASTE_ADMIN_TOKEN ?? "local-admin-token";
+const harnessSecret = process.env.SMOKE_HARNESS_SECRET ?? DEFAULT_LOCAL_SMOKE_HARNESS_SECRET;
 const workosApiKey = "sk_test_local_web_smoke";
 const workosClientId = "client_local_web_smoke";
 const cliEntry = fileURLToPath(new URL("../apps/cli/dist/src/index.js", import.meta.url));
@@ -31,7 +32,7 @@ const localServer = spawn(process.execPath, [serverEntry], {
     AGENT_PASTE_LOCAL_API_PORT: String(apiPort),
     AGENT_PASTE_LOCAL_UPLOAD_PORT: String(uploadPort),
     AGENT_PASTE_LOCAL_CONTENT_PORT: String(contentPort),
-    AGENT_PASTE_ADMIN_TOKEN: adminToken,
+    SMOKE_HARNESS_SECRET: harnessSecret,
     WORKOS_API_KEY: workosApiKey,
     WORKOS_CLIENT_ID: workosClientId,
     WORKOS_API_BASE_URL: workosBaseUrl,
@@ -50,9 +51,7 @@ localServer.stderr.on("data", (chunk) => {
 
 try {
   await listen(workosServer, workosPort);
-  await waitForHealthy(`${apiBaseUrl}/admin/whoami`, {
-    authorization: `Bearer ${adminToken}`,
-  });
+  await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
   const primaryToken = signWorkOsToken("user_web_smoke_primary");
   const primaryAuth = { authorization: `Bearer ${primaryToken}` };
@@ -222,25 +221,6 @@ async function publishArtifact(apiKey) {
   const published = JSON.parse(output);
   assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
   return published;
-}
-
-async function waitForHealthy(url, headers) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 10_000) {
-    if (localServer.exitCode !== null) {
-      throw new Error(`local server exited early\n${serverLog}`);
-    }
-    try {
-      const response = await fetch(url, { headers });
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Server is still starting.
-    }
-    await delay(100);
-  }
-  throw new Error(`local server did not become healthy at ${url}`);
 }
 
 async function fetchJson(path, init = {}) {

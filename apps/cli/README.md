@@ -60,19 +60,14 @@ npx @zaks-io/agent-paste publish ./report --ttl 7d
 
 ## Management
 
-The current MVP API exposes publish and repo-local admin verbs:
+| Command                      | Purpose                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-paste login`          | Mint a publish/read API key via WorkOS loopback login (see [ADR 0060](../../docs/adr/0060-cli-authentication-via-auth0-loopback.md)). |
+| `agent-paste logout`         | Remove the stored login credential.                                                                                                   |
+| `agent-paste whoami`         | Show the resolved **Workspace**, actor, and granted **Scopes**.                                                                       |
+| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result.                                      |
 
-| Command                                           | Purpose                                                                                          |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `agent-paste whoami`                              | Show the resolved **Workspace**, actor, and granted **Scopes**.                                  |
-| `agent-paste publish <path>`                      | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result. |
-| `agent-paste admin workspace create <email>`      | Create a local/dev Workspace.                                                                    |
-| `agent-paste admin workspace list`                | List local/dev Workspaces.                                                                       |
-| `agent-paste admin key create <workspace-id>`     | Create a local/dev API Key.                                                                      |
-| `agent-paste admin key revoke <api-key-id> --yes` | Revoke a local/dev API Key.                                                                      |
-| `agent-paste admin artifact list/get/delete`      | Inspect or delete local/dev Artifacts; delete requires `--yes`.                                  |
-| `agent-paste admin cleanup run`                   | Run cleanup in a local/dev harness; mutating cleanup requires `--yes`.                           |
-| `agent-paste admin events list`                   | List operation events in a local/dev harness.                                                    |
+Operator and bootstrap work uses the web dashboard and `/v1/web/admin/*` routes, not CLI admin verbs. See [admin operations spec](../../docs/specs/admin.md).
 
 ## Flags
 
@@ -84,21 +79,6 @@ The current MVP API exposes publish and repo-local admin verbs:
 | `--ttl <duration>`     | Set Artifact retention for `publish`. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.         |
 | `--json`               | Emit the **Publish Result** as JSON on stdout. Stdout becomes pure JSON.                                         |
 | `--quiet`              | Suppress human-readable stdout output.                                                                           |
-
-## Repo-local admin harness
-
-Local operators can point `AGENT_PASTE_ADMIN_URL` at a dev API/admin worker and use:
-
-```sh
-pnpm cli:dev admin workspace create agent@example.com --name "Local Agent Paste"
-pnpm cli:dev admin workspace list --json
-pnpm cli:dev admin key create <workspace-id> --name "local harness"
-pnpm cli:dev admin artifact list --json
-pnpm cli:dev admin cleanup run --dry-run --json
-pnpm cli:dev admin events list --json
-```
-
-Admin commands use the same bearer credential resolution as the rest of the CLI. Do not pass operator credentials as flags.
 
 ## Output
 

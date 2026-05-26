@@ -21,5 +21,9 @@
   "devDependencies": {
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@agent-paste/worker-runtime": "workspace:*",
+    "@sentry/cloudflare": "^10.53.1"
   }
 }

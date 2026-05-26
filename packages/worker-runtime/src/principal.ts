@@ -12,11 +12,6 @@ export type ApiKeyPrincipal<Actor extends ScopedActor = ScopedActor> = {
   actor: Actor;
 };
 
-export type AdminTokenPrincipal<Actor = unknown> = {
-  kind: "admin_token";
-  actor: Actor;
-};
-
 export type WorkOsAccessTokenPrincipal<Identity = unknown, Actor extends ScopedActor = ScopedActor> = {
   kind: "workos_access_token";
   identity: Identity;
@@ -45,7 +40,6 @@ export type SignedContentTokenPrincipal<Payload = unknown> = {
 
 export type Principal =
   | ApiKeyPrincipal
-  | AdminTokenPrincipal
   | WorkOsAccessTokenPrincipal
   | OperatorPrincipal
   | SignedAgentViewTokenPrincipal
@@ -54,19 +48,17 @@ export type Principal =
 
 export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
   ? ApiKeyPrincipal
-  : Auth extends "admin_token"
-    ? AdminTokenPrincipal
-    : Auth extends "workos_access_token"
-      ? WorkOsAccessTokenPrincipal
-      : Auth extends "operator"
-        ? OperatorPrincipal
-        : Auth extends "signed_agent_view_token"
-          ? SignedAgentViewTokenPrincipal
-          : Auth extends "signed_upload_url"
-            ? SignedUploadUrlPrincipal
-            : Auth extends "signed_content_token"
-              ? SignedContentTokenPrincipal
-              : Principal;
+  : Auth extends "workos_access_token"
+    ? WorkOsAccessTokenPrincipal
+    : Auth extends "operator"
+      ? OperatorPrincipal
+      : Auth extends "signed_agent_view_token"
+        ? SignedAgentViewTokenPrincipal
+        : Auth extends "signed_upload_url"
+          ? SignedUploadUrlPrincipal
+          : Auth extends "signed_content_token"
+            ? SignedContentTokenPrincipal
+            : Principal;
 
 export type AuthSuccess<P extends Principal = Principal> = { ok: true; principal: P };
 export type AuthFailure = { ok: false; code: ErrorCode; message?: string };

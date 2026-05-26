@@ -31,7 +31,7 @@ An agent, CI job, script, or developer using `AGENT_PASTE_API_KEY`. This is the 
 A human or agent with a signed URL returned by publish. This actor can view only the artifact/revision encoded in the signed URL and only until the artifact expires or is deleted.
 
 **Operator**:
-The repo owner or Codex-assisted maintainer using an internal admin CLI with `AGENT_PASTE_ADMIN_TOKEN`. Operators create workspaces and API keys, inspect artifacts, delete artifacts, and run cleanup.
+A human with the WorkOS `admin` role or automation using Cloudflare Access service tokens for platform lockdown and rotation endpoints. Hosted MVP verification provisions workspaces through the non-production smoke harness (or a pre-provisioned smoke API key). Member self-service via `agent-paste login` and `/v1/web/*` is Phase 3, not MVP acceptance.
 
 ## Surfaces
 
@@ -43,11 +43,8 @@ agent-paste publish <path> [--title "..."] [--ttl 30d]
 agent-paste whoami
 ```
 
-**Admin CLI**:
-A repo-local operations tool, not a public product. It wraps internal admin REST APIs so Codex can help manage the hosted system without an admin UI.
-
 **API Worker**:
-Owns API-key auth, artifact metadata, public Agent View, admin REST APIs, operation events, and scheduled cleanup.
+Owns API-key auth, artifact metadata, public Agent View, web/operator routes, operation events, and scheduled cleanup.
 
 **Upload Worker**:
 Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, and R2 writes.
@@ -138,17 +135,9 @@ Public CLI auth is API-key only:
 AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site
 ```
 
-OAuth login is deferred. The future public flow may add:
+`agent-paste login` (WorkOS loopback PKCE, [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md)) and member routes under `/v1/web/*` are Phase 3. They mint or manage credentials through the web API but are not required for MVP acceptance; the MVP public surface stays API-key-only via `AGENT_PASTE_API_KEY`.
 
-```sh
-agent-paste login
-```
-
-Admin auth uses a separate noninteractive operator token:
-
-```sh
-AGENT_PASTE_ADMIN_TOKEN=... pnpm admin artifacts list
-```
+Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web operator surface. See [admin operations](./admin.md).
 
 ## Retention
 
@@ -164,7 +153,7 @@ Retention is required in the MVP.
 - No forever retention in MVP.
 - No pinning in MVP.
 
-Cleanup runs in the API Worker scheduled handler and can also be triggered through the admin CLI.
+Cleanup runs in the API Worker scheduled handler; non-production smokes can trigger it through the smoke harness (`POST /__test__/run-cleanup`).
 
 ## Caps And Limits
 
@@ -209,6 +198,7 @@ Secrets, content tokens, signed URLs, and API-key secret material are never stor
 ## Out Of MVP
 
 - Dashboard and admin UI.
+- `agent-paste login` and member `/v1/web/*` dashboard APIs (Phase 3; see [phases](./phases.md)).
 - Public OAuth login.
 - Self-serve signup.
 - MCP server.
@@ -226,9 +216,9 @@ Secrets, content tokens, signed URLs, and API-key secret material are never stor
 
 ## MVP Acceptance Shape
 
-The MVP is buildable when:
+The MVP is buildable when the API-key publish loop works end to end. Phase 3 member login and `/v1/web/*` are tracked separately in [phases](./phases.md).
 
-- An operator can create a workspace and API key through the admin CLI.
+- The non-production smoke harness (or a pre-provisioned production smoke API key) can provision a workspace and one-time API key for hosted verification.
 - `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
@@ -236,4 +226,3 @@ The MVP is buildable when:
 - `view_url` opens the HTML from the content origin.
 - `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.
-- Admin CLI can list, inspect, delete artifacts, and run cleanup.

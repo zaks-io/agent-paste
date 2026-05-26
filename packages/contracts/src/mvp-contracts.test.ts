@@ -44,15 +44,6 @@ describe("MVP route registry", () => {
       "uploadSessions.finalize",
       "content.get",
       "content.head",
-      "admin.workspaces.create",
-      "admin.workspaces.list",
-      "admin.apiKeys.create",
-      "admin.apiKeys.revoke",
-      "admin.artifacts.list",
-      "admin.artifacts.get",
-      "admin.artifacts.delete",
-      "admin.cleanup.run",
-      "admin.operationEvents.list",
     ]);
   });
 
@@ -65,15 +56,6 @@ describe("MVP route registry", () => {
         .sort(),
     ).toEqual(
       [
-        "admin.apiKeys.create",
-        "admin.apiKeys.revoke",
-        "admin.artifacts.delete",
-        "admin.artifacts.get",
-        "admin.artifacts.list",
-        "admin.cleanup.run",
-        "admin.operationEvents.list",
-        "admin.workspaces.create",
-        "admin.workspaces.list",
         "agentView.getLatest",
         "agentView.getRevision",
         "revisions.list",

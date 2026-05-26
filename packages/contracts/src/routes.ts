@@ -1,4 +1,3 @@
-import { CleanupRunRequest, CreateWorkspaceRequest } from "./admin.js";
 import { CreateApiKeyRequest } from "./apiKeys.js";
 import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
@@ -7,12 +6,11 @@ import { CreateUploadSessionRequest } from "./uploadSessions.js";
 import { UpdateWebSettingsRequest } from "./web.js";
 import type { z } from "./zod.js";
 
-export type AppSurface = "api" | "upload" | "content" | "admin";
+export type AppSurface = "api" | "upload" | "content";
 export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
 export type AuthRequirement =
   | "none"
   | "api_key"
-  | "admin_token"
   | "workos_access_token"
   | "operator"
   | "signed_agent_view_token"
@@ -22,10 +20,8 @@ export type IdempotencyRequirement = "none" | "required";
 export type RateLimitRequirement = "none" | "actor" | "artifact";
 
 export const requestSchemas = {
-  CleanupRunRequest,
   CreateApiKeyRequest,
   CreateUploadSessionRequest,
-  CreateWorkspaceRequest,
   SetLockdownRequest,
   UpdateWebSettingsRequest,
 } as const;
@@ -62,18 +58,6 @@ const apiKeyMutationErrors = [
   "invalid_idempotency_key",
   "idempotency_in_flight",
   "usage_policy_exceeded",
-] as const;
-const adminReadErrors = [
-  "not_authenticated",
-  "forbidden",
-  "database_unavailable",
-  "rate_limited_actor",
-] as const;
-const adminMutationErrors = [
-  ...adminReadErrors,
-  "invalid_idempotency_key",
-  "idempotency_in_flight",
-  "invalid_request",
 ] as const;
 const webReadErrors = ["not_authenticated", "forbidden", "database_unavailable"] as const;
 const webMutationErrors = [...webReadErrors, "invalid_request"] as const;
@@ -440,116 +424,5 @@ export const routeContracts = [
     rateLimit: "artifact",
     responseSchema: "Response",
     errors: ["not_found", "rate_limited_artifact"],
-  },
-  {
-    id: "admin.workspaces.create",
-    app: "admin",
-    method: "POST",
-    path: "/admin/workspaces",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "required",
-    rateLimit: "actor",
-    requestSchema: "CreateWorkspaceRequest",
-    responseSchema: "WorkspaceDetail",
-    errors: adminMutationErrors,
-  },
-  {
-    id: "admin.workspaces.list",
-    app: "admin",
-    method: "GET",
-    path: "/admin/workspaces",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "WorkspaceListResponse",
-    errors: adminReadErrors,
-  },
-  {
-    id: "admin.apiKeys.create",
-    app: "admin",
-    method: "POST",
-    path: "/admin/workspaces/{workspace_id}/api-keys",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "required",
-    rateLimit: "actor",
-    requestSchema: "CreateApiKeyRequest",
-    responseSchema: "CreateApiKeyResponse",
-    errors: adminMutationErrors,
-  },
-  {
-    id: "admin.apiKeys.revoke",
-    app: "admin",
-    method: "DELETE",
-    path: "/admin/api-keys/{api_key_id}",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "required",
-    rateLimit: "actor",
-    responseSchema: "RevokeApiKeyResponse",
-    errors: [...adminMutationErrors, "api_key_not_found", "api_key_revoked"],
-  },
-  {
-    id: "admin.artifacts.list",
-    app: "admin",
-    method: "GET",
-    path: "/admin/artifacts",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "ArtifactListResponse",
-    errors: adminReadErrors,
-  },
-  {
-    id: "admin.artifacts.get",
-    app: "admin",
-    method: "GET",
-    path: "/admin/artifacts/{artifact_id}",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "ArtifactDetail",
-    errors: [...adminReadErrors, "artifact_not_found"],
-  },
-  {
-    id: "admin.artifacts.delete",
-    app: "admin",
-    method: "DELETE",
-    path: "/admin/artifacts/{artifact_id}",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "required",
-    rateLimit: "actor",
-    responseSchema: "DeleteArtifactResponse",
-    errors: [...adminMutationErrors, "artifact_not_found"],
-  },
-  {
-    id: "admin.cleanup.run",
-    app: "admin",
-    method: "POST",
-    path: "/admin/cleanup/run",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "required",
-    rateLimit: "actor",
-    requestSchema: "CleanupRunRequest",
-    responseSchema: "CleanupRunResponse",
-    errors: adminMutationErrors,
-  },
-  {
-    id: "admin.operationEvents.list",
-    app: "admin",
-    method: "GET",
-    path: "/admin/operation-events",
-    auth: "admin_token",
-    scopes: ["admin"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "OperationEventListResponse",
-    errors: adminReadErrors,
   },
 ] as const satisfies readonly RouteContract[];

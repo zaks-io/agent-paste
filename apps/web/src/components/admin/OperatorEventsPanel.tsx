@@ -1,5 +1,6 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { type FormEvent, useRef } from "react";
 import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
 import { Badge } from "../ui/Badge";
@@ -34,9 +35,10 @@ const ACTOR_TYPE_OPTIONS = ["", "platform", "member", "api_key", "admin", "syste
 
 export function OperatorEventsPanel({ events, error, search }: Props) {
   const navigate = useNavigate({ from: "/admin" });
+  const formRef = useRef<HTMLFormElement>(null);
   const rows = events?.items ?? [];
 
-  function applyFilters(formData: FormData) {
+  function searchFromFormData(formData: FormData): OperatorEventSearch {
     const next: OperatorEventSearch = {};
     const focus = formData.get("focus");
     if (typeof focus === "string" && focus.length > 0) {
@@ -48,7 +50,23 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
         next[key] = value.trim();
       }
     }
-    void navigate({ search: next });
+    return next;
+  }
+
+  function applyFilters(formData: FormData) {
+    void navigate({ search: searchFromFormData(formData) });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyFilters(new FormData(event.currentTarget));
+  }
+
+  function handleFilterChange() {
+    if (!formRef.current) {
+      return;
+    }
+    applyFilters(new FormData(formRef.current));
   }
 
   return (
@@ -57,18 +75,13 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
         title="Platform events"
         subtitle="Cross-workspace audit and operation events. Use filters to find security or lifecycle activity."
       />
-      <form
-        className="mb-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          applyFilters(new FormData(event.currentTarget));
-        }}
-      >
+      <form ref={formRef} className="mb-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3" onSubmit={handleSubmit}>
         <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
           Focus
           <select
             name="focus"
-            defaultValue={search.focus ?? ""}
+            value={search.focus ?? ""}
+            onChange={handleFilterChange}
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 text-[13px]"
           >
             {FOCUS_OPTIONS.map((option) => (
@@ -82,7 +95,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           Workspace ID
           <input
             name="workspace_id"
-            defaultValue={search.workspace_id ?? ""}
+            value={search.workspace_id ?? ""}
+            onChange={handleFilterChange}
             placeholder="Filter by workspace"
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
           />
@@ -91,7 +105,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           Actor type
           <select
             name="actor_type"
-            defaultValue={search.actor_type ?? ""}
+            value={search.actor_type ?? ""}
+            onChange={handleFilterChange}
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 text-[13px]"
           >
             {ACTOR_TYPE_OPTIONS.map((value) => (
@@ -105,7 +120,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           Action
           <input
             name="action"
-            defaultValue={search.action ?? ""}
+            value={search.action ?? ""}
+            onChange={handleFilterChange}
             placeholder="e.g. platform.lockdown.set"
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
           />
@@ -114,7 +130,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           Target type
           <input
             name="target_type"
-            defaultValue={search.target_type ?? ""}
+            value={search.target_type ?? ""}
+            onChange={handleFilterChange}
             placeholder="workspace, artifact, …"
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
           />
@@ -123,7 +140,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           Request ID
           <input
             name="request_id"
-            defaultValue={search.request_id ?? ""}
+            value={search.request_id ?? ""}
+            onChange={handleFilterChange}
             placeholder="req_…"
             className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
           />

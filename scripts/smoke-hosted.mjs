@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import {
+  deleteSmokeArtifact,
+  fetchDenylistKey as fetchHarnessDenylistKey,
+  forceExpireArtifact,
+  listR2Keys as listHarnessR2Keys,
+  provisionSmokeWorkspace,
+  runSmokeCleanup,
+  waitForHealthz,
+} from "./smoke-harness.mjs";
 
 loadDotenv();
 const root = new URL("..", import.meta.url);
@@ -9,34 +18,21 @@ const target = normalizeTarget(process.argv[2] ?? "preview");
 const config = smokeConfig(target);
 const smokePath = process.env.AGENT_PASTE_SMOKE_PATH ?? "examples/local-harness/site";
 
-const adminEnv = {
+await waitForHealthz(config.apiBaseUrl);
+
+const provisioned = await resolveSmokeCredentials(config);
+assert(provisioned.workspaceId, "smoke workspace id is set");
+assert(
+  typeof provisioned.apiKeySecret === "string" && provisioned.apiKeySecret.startsWith(config.expectedApiKeyPrefix),
+  `smoke API key has prefix ${config.expectedApiKeyPrefix}`,
+);
+
+const userEnv = {
   ...process.env,
-  AGENT_PASTE_ADMIN_TOKEN: config.adminToken,
-  AGENT_PASTE_ADMIN_URL: config.apiBaseUrl,
+  AGENT_PASTE_API_KEY: provisioned.apiKeySecret,
   AGENT_PASTE_API_URL: config.apiBaseUrl,
   AGENT_PASTE_UPLOAD_URL: config.uploadBaseUrl,
 };
-
-await waitForAdminAuth(config);
-
-const workspace = await runAdminCliJson([
-  "admin",
-  "workspace",
-  "create",
-  `${config.slug}-${Date.now()}@example.test`,
-  "--name",
-  config.workspaceName,
-  "--json",
-]);
-assert(workspace.id, "workspace create returned an id");
-
-const key = await runAdminCliJson(["admin", "key", "create", workspace.id, "--name", config.slug, "--json"]);
-assert(
-  typeof key.secret === "string" && key.secret.startsWith(config.expectedApiKeyPrefix),
-  `api key create returned a ${config.expectedApiKeyPrefix} secret`,
-);
-
-const userEnv = { ...adminEnv, AGENT_PASTE_API_KEY: key.secret };
 const published = await runCliJson(["publish", smokePath, "--ttl", "1d", "--title", config.title, "--json"], userEnv);
 assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
 assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
@@ -66,10 +62,7 @@ if (target !== "production") {
   await assertArtifactRateLimitFires(published.view_url);
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(userEnv);
-  await assertActorRateLimitFires(key.secret);
-} else {
-  await runAdminCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"]);
-  await waitForStatus(published.view_url, 404, "deleted content");
+  await assertActorRateLimitFires(provisioned.apiKeySecret);
 }
 
 await smokeApex(config);
@@ -77,7 +70,7 @@ await smokeWebAuth(config);
 
 process.stdout.write(`${config.label} smoke passed.
 
-Workspace:      ${workspace.id}
+Workspace:      ${provisioned.workspaceId}
 Artifact:       ${published.artifact_id}
 Agent View URL: ${published.agent_view_url}
 Content URL:    ${published.view_url}
@@ -135,39 +128,13 @@ async function smokeWebAuth(c) {
   );
 }
 
-async function runCliJson(args, commandEnv = adminEnv) {
+async function runCliJson(args, commandEnv) {
   const output = await run(process.execPath, [cliEntry, ...args], commandEnv);
   try {
     return JSON.parse(output);
   } catch {
     throw new Error(`CLI did not return JSON for ${args.join(" ")}:\n${output}`);
   }
-}
-
-async function runAdminCliJson(args) {
-  const deadline = Date.now() + 60_000;
-  let lastError;
-  while (Date.now() < deadline) {
-    try {
-      return await runCliJson(args, adminEnv);
-    } catch (error) {
-      if (!isNotAuthenticatedError(error)) {
-        throw error;
-      }
-      lastError = error;
-      await waitForAdminAuth(config);
-      await sleep(2000);
-    }
-  }
-  throw new Error(`admin CLI ${args.join(" ")} did not authenticate before deadline: ${errorMessage(lastError)}`);
-}
-
-function isNotAuthenticatedError(error) {
-  return errorMessage(error).includes("not_authenticated");
-}
-
-function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function run(command, args, commandEnv) {
@@ -199,45 +166,6 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function waitForAdminAuth(c) {
-  const url = `${c.apiBaseUrl}/admin/whoami`;
-  const deadline = Date.now() + 60_000;
-  let lastStatus = 0;
-  let lastBody = "";
-  while (Date.now() < deadline) {
-    let response;
-    try {
-      response = await fetch(url, {
-        cache: "no-store",
-        headers: { authorization: `Bearer ${c.adminToken}` },
-      });
-    } catch (error) {
-      lastStatus = -1;
-      lastBody = error instanceof Error ? error.message : String(error);
-      await sleep(2000);
-      continue;
-    }
-    lastStatus = response.status;
-    lastBody = await response.text().catch(() => "");
-    if (response.status === 200) {
-      return;
-    }
-    if (response.status === 401 || response.status === 403) {
-      throw new Error(
-        `admin token from c.adminToken was rejected by ${url} with ${response.status}: ${lastBody.slice(0, 200)}`,
-      );
-    }
-    await sleep(2000);
-  }
-  throw new Error(
-    `admin auth did not become ready at ${url}; last response ${formatAdminAuthStatus(lastStatus)}: ${lastBody.slice(0, 200)}`,
-  );
-}
-
-function formatAdminAuthStatus(status) {
-  return status === -1 ? "transport_error" : String(status);
-}
-
 async function waitForStatus(url, expectedStatus, label) {
   const deadline = Date.now() + 30_000;
   let lastStatus = 0;
@@ -256,6 +184,22 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function resolveSmokeCredentials(config) {
+  const preprovisionedKey = optionalEnv(["AGENT_PASTE_PRODUCTION_SMOKE_API_KEY", "AGENT_PASTE_SMOKE_API_KEY"]);
+  if (preprovisionedKey) {
+    return { workspaceId: "preprovisioned", apiKeySecret: preprovisionedKey };
+  }
+  if (!config.harnessSecret) {
+    throw new Error("Set AGENT_PASTE_SMOKE_API_KEY or a smoke harness secret for this environment.");
+  }
+  const provisioned = await provisionSmokeWorkspace(config.apiBaseUrl, {
+    email: `${config.slug}-${Date.now()}@example.test`,
+    name: config.workspaceName,
+    secret: config.harnessSecret,
+  });
+  return { workspaceId: provisioned.workspace.id, apiKeySecret: provisioned.api_key.secret };
+}
+
 function smokeConfig(target) {
   if (target === "preview") {
     return {
@@ -271,7 +215,7 @@ function smokeConfig(target) {
       ),
       apexBaseUrl: env("AGENT_PASTE_PREVIEW_APEX_URL", "https://preview.agent-paste.sh"),
       webBaseUrl: env("AGENT_PASTE_PREVIEW_WEB_URL", "https://app.preview.agent-paste.sh"),
-      adminToken: requiredEnv(["AGENT_PASTE_PREVIEW_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
+      harnessSecret: optionalEnv(["AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET", "AGENT_PASTE_SMOKE_HARNESS_SECRET"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };
   }
@@ -286,7 +230,7 @@ function smokeConfig(target) {
       contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.sh"),
       apexBaseUrl: env("AGENT_PASTE_PRODUCTION_APEX_URL", "https://agent-paste.sh"),
       webBaseUrl: env("AGENT_PASTE_PRODUCTION_WEB_URL", "https://app.agent-paste.sh"),
-      adminToken: requiredEnv(["AGENT_PASTE_PRODUCTION_ADMIN_TOKEN", "AGENT_PASTE_ADMIN_TOKEN"]),
+      harnessSecret: undefined,
       expectedApiKeyPrefix: "ap_pk_production_",
     };
   }
@@ -304,11 +248,20 @@ function smokeConfig(target) {
       // The web Worker is not deployed per-PR (blocked on a per-PR WorkOS redirect URI),
       // so this stays unset and smokeWebAuth skips unless a URL is supplied.
       webBaseUrl: process.env.AGENT_PASTE_PR_WEB_URL,
-      adminToken: requiredEnv(["AGENT_PASTE_PR_ADMIN_TOKEN", "AGENT_PASTE_PREVIEW_ADMIN_TOKEN"]),
+      harnessSecret: requiredEnv(["AGENT_PASTE_PR_SMOKE_HARNESS_SECRET", "AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET"]),
       expectedApiKeyPrefix: "ap_pk_preview_",
     };
   }
   throw new Error("Target environment must be preview, production, or pr.");
+}
+
+function optionalEnv(names) {
+  for (const name of names) {
+    if (process.env[name]) {
+      return process.env[name];
+    }
+  }
+  return undefined;
 }
 
 function normalizeTarget(value) {
@@ -440,7 +393,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   const before = await listR2Keys(prefix);
   assert(before.length > 0, "R2 prefix has keys before delete");
 
-  await runAdminCliJson(["admin", "artifact", "delete", publishedArtifact.artifact_id, "--yes", "--json"]);
+  await deleteSmokeArtifact(config.apiBaseUrl, publishedArtifact.artifact_id, config.harnessSecret);
   await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
 
   const after = await listR2Keys(prefix);
@@ -459,17 +412,9 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
   const before = await listR2Keys(prefix);
   assert(before.length > 0, "expiry harness: R2 prefix populated after publish");
 
-  const forceExpire = await fetch(`${config.apiBaseUrl}/__test__/force-expire`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.adminToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ artifact_id: expiryPublish.artifact_id }),
-  });
-  assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
+  await forceExpireArtifact(config.apiBaseUrl, expiryPublish.artifact_id, config.harnessSecret);
 
-  const cleanup = await runAdminCliJson(["admin", "cleanup", "run", "--yes", "--json"]);
+  const cleanup = await runSmokeCleanup(config.apiBaseUrl, config.harnessSecret);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
   assert(cleanup.deleted_r2_objects >= before.length, "cleanup deleted_r2_objects matches purged keys");
 
@@ -483,22 +428,9 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
 }
 
 async function fetchDenylistKey(key) {
-  const response = await fetch(`${config.apiBaseUrl}/__test__/denylist?key=${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${config.adminToken}` },
-  });
-  if (!response.ok) {
-    throw new Error(`denylist returned ${response.status}`);
-  }
-  return response.json();
+  return fetchHarnessDenylistKey(config.apiBaseUrl, key, config.harnessSecret);
 }
 
 async function listR2Keys(prefix) {
-  const response = await fetch(`${config.apiBaseUrl}/__test__/r2-list?prefix=${encodeURIComponent(prefix)}`, {
-    headers: { Authorization: `Bearer ${config.adminToken}` },
-  });
-  if (!response.ok) {
-    throw new Error(`r2-list returned ${response.status}`);
-  }
-  const data = await response.json();
-  return data.keys;
+  return listHarnessR2Keys(config.apiBaseUrl, prefix, config.harnessSecret);
 }

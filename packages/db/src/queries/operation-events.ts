@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm";
 import { createId } from "../id.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { operationEvents } from "../schema.js";
@@ -104,8 +104,8 @@ export const operationEventQueries = {
     if (input.requestId) {
       conditions.push(eq(operationEvents.requestId, input.requestId));
     }
-    if (input.actions && input.actions.length > 0) {
-      conditions.push(inArray(operationEvents.action, input.actions));
+    if (input.actions !== undefined) {
+      conditions.push(input.actions.length === 0 ? sql`false` : inArray(operationEvents.action, input.actions));
     }
     if (input.cursor) {
       const cursorPredicate = or(

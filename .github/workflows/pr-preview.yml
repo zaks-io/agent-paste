@@ -169,7 +169,7 @@ jobs:
           AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
           AGENT_PASTE_PR_APEX_URL: ${{ steps.deploy.outputs.apex_url }}
-          AGENT_PASTE_PR_ADMIN_TOKEN: ${{ steps.deploy.outputs.admin_token }}
+          AGENT_PASTE_PR_SMOKE_HARNESS_SECRET: ${{ steps.deploy.outputs.smoke_harness_secret }}
           # Empty when web was skipped (no WorkOS key); smokeWebAuth no-ops then.
           AGENT_PASTE_PR_WEB_URL: ${{ steps.deploy.outputs.web_smoke_url }}
         run: pnpm smoke:pr

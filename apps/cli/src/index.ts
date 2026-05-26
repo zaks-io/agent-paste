@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import { type AgentPasteAuth, AgentPasteError, ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
-import { CreateUploadSessionRequest, WorkspaceId } from "@agent-paste/contracts";
+import { CreateUploadSessionRequest } from "@agent-paste/contracts";
 import { deleteCredential, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
@@ -51,65 +51,6 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
       return output(await client.whoami(), parsed.global);
     case "publish":
       return publish(parsed, client);
-    case "admin workspace create":
-      return output(
-        await client.admin.workspaces.create(
-          withOptional({ email: requiredArg(parsed, 0, "email") }, "name", stringFlag(parsed, "name")),
-          createIdempotencyKey("cli_admin_workspace_create"),
-        ),
-        parsed.global,
-      );
-    case "admin workspace list":
-      return output(await client.admin.workspaces.list(), parsed.global);
-    case "admin key create": {
-      const workspaceId = WorkspaceId.parse(requiredArg(parsed, 0, "workspace id"));
-      return output(
-        await client.admin.apiKeys.create(
-          workspaceId,
-          { name: stringFlag(parsed, "name") ?? "agent-paste CLI" },
-          createIdempotencyKey("cli_admin_key_create"),
-        ),
-        parsed.global,
-      );
-    }
-    case "admin key revoke":
-      requireYes(parsed, `Refusing to revoke ${requiredArg(parsed, 0, "api key id")} without --yes.`);
-      return output(
-        await client.admin.apiKeys.revoke(
-          requiredArg(parsed, 0, "api key id"),
-          createIdempotencyKey("cli_admin_key_revoke"),
-        ),
-        parsed.global,
-      );
-    case "admin artifact list":
-    case "list":
-      return output(await client.admin.artifacts.list(), parsed.global);
-    case "admin artifact get":
-    case "get":
-      return output(await client.admin.artifacts.get(requiredArg(parsed, 0, "artifact id")), parsed.global);
-    case "admin artifact delete":
-    case "delete":
-      requireYes(parsed, `Refusing to delete ${requiredArg(parsed, 0, "artifact id")} without --yes.`);
-      return output(
-        await client.admin.artifacts.delete(
-          requiredArg(parsed, 0, "artifact id"),
-          createIdempotencyKey("cli_admin_artifact_delete"),
-        ),
-        parsed.global,
-      );
-    case "admin cleanup run":
-      if (!booleanFlag(parsed, "dry-run", false)) {
-        requireYes(parsed, "Refusing to run mutating cleanup without --yes.");
-      }
-      return output(
-        await client.admin.cleanup.run(
-          { dry_run: booleanFlag(parsed, "dry-run", false) },
-          createIdempotencyKey("cli_admin_cleanup_run"),
-        ),
-        parsed.global,
-      );
-    case "admin events list":
-      return output(await client.admin.operationEvents.list(), parsed.global);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -234,11 +175,6 @@ export function parseArgs(argv: string[]): Parsed {
 
 function commandParts(positionals: string[]) {
   const first = positionals[0] ?? "";
-  const second = positionals[1] ?? "";
-  const third = positionals[2] ?? "";
-  if (first === "admin" && ["workspace", "key", "artifact", "cleanup", "events"].includes(second)) {
-    return [first, second, third].filter(Boolean);
-  }
   return first ? [first] : [];
 }
 
@@ -262,12 +198,6 @@ function stringFlag(parsed: Parsed, name: string) {
 function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: boolean) {
   const value = parsed.flags.get(name);
   return typeof value === "boolean" ? value : fallback;
-}
-
-function requireYes(parsed: Parsed, message: string) {
-  if (!booleanFlag(parsed, "yes", false)) {
-    throw new Error(message);
-  }
 }
 
 function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
@@ -304,12 +234,6 @@ Usage:
   agent-paste logout
   agent-paste whoami [--json]
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
-  agent-paste admin workspace create <email> [--name <text>]
-  agent-paste admin key create <workspace-id> [--name <text>]
-  agent-paste admin key revoke <api-key-id> --yes
-  agent-paste admin artifact list|get ...
-  agent-paste admin artifact delete <artifact-id> --yes
-  agent-paste admin cleanup run [--dry-run|--yes]
 `);
 }
 
@@ -324,14 +248,6 @@ function ttlSecondsForPublish(parsed: Parsed, policy: Awaited<ReturnType<ApiClie
     throw new Error(`TTL is below workspace minimum of ${policy.min_ttl_seconds} seconds`);
   }
   return seconds;
-}
-
-function withOptional<T extends Record<string, unknown>, K extends string, V>(
-  object: T,
-  key: K,
-  value: V | undefined,
-): T & Partial<Record<K, V>> {
-  return (value === undefined ? object : { ...object, [key]: value }) as T & Partial<Record<K, V>>;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

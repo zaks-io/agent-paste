@@ -10,18 +10,20 @@ import apiWorker, {
 } from "./index.js";
 
 describe("api worker", () => {
-  it("mounts every api and admin route contract", () => {
+  it("mounts every api route contract", () => {
     expect([...mountedRouteIds].sort()).toEqual(
       routeContracts
-        .filter((route) => route.app === "api" || route.app === "admin")
+        .filter((route) => route.app === "api")
         .map((route) => route.id)
         .sort(),
     );
     expect([...nonContractRoutePaths]).toEqual([
       "/healthz",
       "/openapi.json",
-      "/admin/whoami",
+      "/__test__/provision-smoke",
       "/__test__/force-expire",
+      "/__test__/run-cleanup",
+      "/__test__/delete-artifact",
       "/__test__/r2-list",
       "/__test__/denylist",
     ]);
@@ -1190,43 +1192,6 @@ describe("api worker", () => {
     }
   });
 
-  it("returns 429 with Retry-After when legacy admin routes exceed the actor limit", async () => {
-    const env: Env = {
-      ADMIN_TOKEN: "admin",
-      DB: {
-        async getWhoami() {
-          return {};
-        },
-        async getAgentView() {
-          return null;
-        },
-        async getPublicAgentView() {
-          return null;
-        },
-        async listWorkspaces() {
-          throw new Error("should not list workspaces when rate limited");
-        },
-        async runCleanup() {
-          return {};
-        },
-      },
-      ACTOR_RATE_LIMIT: {
-        async limit() {
-          return { success: false };
-        },
-      },
-    };
-
-    const response = await handleRequest(
-      new Request("https://api.test/admin/workspaces", { headers: { authorization: "Bearer admin" } }),
-      env,
-    );
-
-    expect(response.status).toBe(429);
-    expect(response.headers.get("retry-after")).toBe("60");
-    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
-  });
-
   it("returns 429 with Retry-After when public Agent View exceeds the artifact limit", async () => {
     const env: Env = {
       AGENT_VIEW_SIGNING_SECRET: "test-secret",
@@ -1262,46 +1227,11 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
   });
 
-  it("runs admin cleanup with the configured admin token", async () => {
-    const env: Env = {
-      ADMIN_TOKEN: "admin",
-      DB: {
-        async getWhoami() {
-          return {};
-        },
-        async getAgentView() {
-          return null;
-        },
-        async getPublicAgentView() {
-          return null;
-        },
-        async runCleanup(input) {
-          return { dry_run: input.dryRun };
-        },
-      },
-    };
-
-    const response = await handleRequest(
-      new Request("https://api.test/admin/cleanup/run", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer admin",
-          "content-type": "application/json",
-          "idempotency-key": "cleanup-1",
-        },
-        body: JSON.stringify({ dry_run: true }),
-      }),
-      env,
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ dry_run: true });
-  });
-
-  it("writes the ADR 0057 artifact denylist key when an admin deletes an artifact", async () => {
+  it("writes the ADR 0057 artifact denylist key when the smoke harness deletes an artifact", async () => {
     const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
     const env: Env = {
-      ADMIN_TOKEN: "admin",
+      AGENT_PASTE_ENV: "preview",
+      SMOKE_HARNESS_SECRET: "harness",
       DB: {
         async getWhoami() {
           return {};
@@ -1331,9 +1261,10 @@ describe("api worker", () => {
     };
 
     const response = await handleRequest(
-      new Request("https://api.test/admin/artifacts/art_1", {
-        method: "DELETE",
-        headers: { authorization: "Bearer admin", "idempotency-key": "delete-1" },
+      new Request("https://api.test/__test__/delete-artifact", {
+        method: "POST",
+        headers: { authorization: "Bearer harness", "content-type": "application/json" },
+        body: JSON.stringify({ artifact_id: "art_1" }),
       }),
       env,
     );
@@ -1348,7 +1279,8 @@ describe("api worker", () => {
   it("writes ADR 0057 artifact denylist keys for expired cleanup artifacts", async () => {
     const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
     const env: Env = {
-      ADMIN_TOKEN: "admin",
+      AGENT_PASTE_ENV: "preview",
+      SMOKE_HARNESS_SECRET: "harness",
       DB: {
         async getWhoami() {
           return {};
@@ -1371,14 +1303,9 @@ describe("api worker", () => {
     };
 
     const response = await handleRequest(
-      new Request("https://api.test/admin/cleanup/run", {
+      new Request("https://api.test/__test__/run-cleanup", {
         method: "POST",
-        headers: {
-          authorization: "Bearer admin",
-          "content-type": "application/json",
-          "idempotency-key": "cleanup-2",
-        },
-        body: JSON.stringify({ dry_run: false }),
+        headers: { authorization: "Bearer harness" },
       }),
       env,
     );
@@ -1397,49 +1324,6 @@ describe("api worker", () => {
       { reason: "deletion", at: expect.any(String) },
       { reason: "deletion", at: expect.any(String) },
     ]);
-  });
-
-  it("does not write denylist keys during dry-run cleanup", async () => {
-    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
-    const env: Env = {
-      ADMIN_TOKEN: "admin",
-      DB: {
-        async getWhoami() {
-          return {};
-        },
-        async getAgentView() {
-          return null;
-        },
-        async getPublicAgentView() {
-          return null;
-        },
-        async runCleanup(input) {
-          return input.dryRun ? { expired_artifact_ids: [] } : { expired_artifact_ids: ["art_1", "art_2"] };
-        },
-      },
-      DENYLIST: {
-        async put(key, value, options) {
-          puts.push({ key, value, expirationTtl: options?.expirationTtl });
-        },
-      },
-    };
-
-    const response = await handleRequest(
-      new Request("https://api.test/admin/cleanup/run", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer admin",
-          "content-type": "application/json",
-          "idempotency-key": "cleanup-dry-run",
-        },
-        body: JSON.stringify({ dry_run: true }),
-      }),
-      env,
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ expired_artifact_ids: [] });
-    expect(puts).toHaveLength(0);
   });
 
   it("renders public Agent View as HTML for browsers", async () => {
@@ -1808,10 +1692,9 @@ describe("api worker", () => {
     };
 
     const response = await handleRequest(
-      new Request(
-        "https://api.test/v1/web/admin/events?limit=25&focus=security&actor_type=platform&request_id=req_1",
-        { headers: { authorization: "Bearer workos-ok" } },
-      ),
+      new Request("https://api.test/v1/web/admin/events?limit=25&focus=security&actor_type=platform&request_id=req_1", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
       env,
     );
 
@@ -2266,38 +2149,10 @@ describe("api worker", () => {
     expect(publicResponse.status).toBe(404);
   });
 
-  it("serves admin list, inspect, revoke, events, whoami, and scheduled cleanup routes", async () => {
+  it("runs scheduled cleanup with the system actor", async () => {
     const calls: string[] = [];
     const env: Env = {
-      AUTH: {
-        async verifyApiKey() {
-          return null;
-        },
-        async verifyAdminToken(token) {
-          return token === "admin" ? { type: "admin", id: "operator" } : null;
-        },
-      },
       DB: operatorDbForTests({
-        async listWorkspaces() {
-          calls.push("workspaces");
-          return { data: [], page_info: { next_cursor: null, has_more: false } };
-        },
-        async revokeApiKey(input) {
-          calls.push(`revoke:${input.apiKeyId}:${input.idempotencyKey}`);
-          return { api_key: { id: input.apiKeyId }, revoked_at: "2026-01-01T00:00:00.000Z" };
-        },
-        async listArtifacts(workspaceId, status) {
-          calls.push(`artifacts:${workspaceId}:${status}`);
-          return { data: [], page_info: { next_cursor: null, has_more: false } };
-        },
-        async getArtifactDetail(artifactId) {
-          calls.push(`artifact:${artifactId}`);
-          return { id: artifactId, files: [], operation_event_ids: [] };
-        },
-        async listOperationEvents() {
-          calls.push("events");
-          return { data: [], page_info: { next_cursor: null, has_more: false } };
-        },
         async runCleanup(input) {
           calls.push(`cleanup:${input.actor.id}:${input.batchSize}`);
           return {
@@ -2312,71 +2167,20 @@ describe("api worker", () => {
       }),
       CLEANUP_BATCH_SIZE: "7",
     };
-    const adminHeaders = { authorization: "Bearer admin", "idempotency-key": "idem-admin" };
 
-    expect(
-      (await handleRequest(new Request("https://api.test/admin/whoami", { headers: adminHeaders }), env)).status,
-    ).toBe(200);
-    expect(
-      (await handleRequest(new Request("https://api.test/admin/workspaces", { headers: adminHeaders }), env)).status,
-    ).toBe(200);
-    expect(
-      (
-        await handleRequest(
-          new Request("https://api.test/admin/api-keys/key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", {
-            method: "DELETE",
-            headers: adminHeaders,
-          }),
-          env,
-        )
-      ).status,
-    ).toBe(200);
-    expect(
-      (
-        await handleRequest(
-          new Request("https://api.test/admin/artifacts?workspace=w_1&status=active", { headers: adminHeaders }),
-          env,
-        )
-      ).status,
-    ).toBe(200);
-    expect(
-      (
-        await handleRequest(
-          new Request("https://api.test/admin/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", { headers: adminHeaders }),
-          env,
-        )
-      ).status,
-    ).toBe(200);
-    expect(
-      (await handleRequest(new Request("https://api.test/admin/operation-events", { headers: adminHeaders }), env))
-        .status,
-    ).toBe(200);
-    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env);
+    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env, {
+      waitUntil() {},
+      passThroughOnException() {},
+    } as ExecutionContext);
 
-    expect(calls).toEqual(
-      expect.arrayContaining([
-        "workspaces",
-        "revoke:key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9:idem-admin",
-        "artifacts:w_1:active",
-        "artifact:art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        "events",
-        "cleanup:scheduled-cleanup:7",
-      ]),
-    );
+    expect(calls).toEqual(["cleanup:scheduled-cleanup:7"]);
   });
 
   it("serves non-production force-expire, R2 list, and denylist helpers", async () => {
     const deleted: unknown[] = [];
     const env: Env = {
       AGENT_PASTE_ENV: "preview",
-      AUTH: {
-        async verifyApiKey() {
-          return null;
-        },
-        async verifyAdminToken() {
-          return { type: "admin", id: "operator" };
-        },
-      },
+      SMOKE_HARNESS_SECRET: "harness",
       DB: operatorDbForTests({
         async forceExpireArtifact(input) {
           return input.artifactId === "art_ok" ? { artifact_id: input.artifactId, expires_at: input.expiresAt } : null;
@@ -2400,7 +2204,7 @@ describe("api worker", () => {
         },
       },
     };
-    const headers = { authorization: "Bearer admin", "content-type": "application/json" };
+    const headers = { authorization: "Bearer harness", "content-type": "application/json" };
 
     const force = await handleRequest(
       new Request("https://api.test/__test__/force-expire", {

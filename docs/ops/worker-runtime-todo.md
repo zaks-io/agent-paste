@@ -19,7 +19,7 @@ the ADR.
 - [x] **Scaffold `packages/worker-runtime`.** `package.json`, `tsconfig.json`, `hono` dep.
   - Done: `pnpm --filter @agent-paste/worker-runtime typecheck` runs on an empty `src`.
 - [x] **`principal.ts`.** Discriminated `Principal` union keyed by auth kind
-      (`api_key`, `admin_token`, `workos_access_token`, `signed_agent_view_token`,
+      (`api_key`, `workos_access_token`, `signed_agent_view_token`,
       `signed_upload_url`, `signed_content_token`), each carrying its actor type, plus a
       `PrincipalFor<AuthRequirement>` map.
 - [x] **`errors.ts`.** `ERROR_STATUS: Record<ErrorCode, number>` and

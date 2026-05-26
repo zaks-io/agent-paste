@@ -8,7 +8,9 @@ import {
   createRegistrar,
   errorResponse as runtimeErrorResponse,
   type SignedContentTokenPrincipal,
+  sentryOptions,
 } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 
 export type { ContentTokenPayload };
@@ -45,6 +47,8 @@ export type Env = {
   CONTENT_SIGNING_KID?: string;
   CONTENT_BASE_URL?: string;
   DOCS_BASE_URL?: string;
+  AGENT_PASTE_ENV?: string;
+  SENTRY_DSN?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
@@ -108,11 +112,13 @@ app.onError((error, context) => {
   return errorResponse(context, "internal_error");
 });
 
-export default {
+const worker = {
   fetch(request: Request, env: Env): Promise<Response> {
     return handleRequest(request, env);
   },
 };
+
+export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);

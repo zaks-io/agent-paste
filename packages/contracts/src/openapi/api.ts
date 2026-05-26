@@ -1,5 +1,4 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
-import { CleanupRunRequest } from "../admin.js";
 import { ActorType, OperationEventAction, OperationEventTargetType } from "../enums.js";
 import { Cursor, WorkspaceId } from "../primitives.js";
 import { WebOperatorEventFocus } from "../web.js";
@@ -217,7 +216,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     path: "/v1/web/admin/lockdowns",
     operationId: "web.admin.lockdown.list",
     summary: "List effective platform lockdowns (operator only).",
-    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
     request: {
       query: z.object({
         cursor: queryCursorParam("cursor", "Opaque pagination cursor returned by the previous page."),
@@ -233,7 +232,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     path: "/v1/web/admin/lockdowns",
     operationId: "web.admin.lockdown.set",
     summary: "Set a platform lockdown on a workspace or artifact (operator only).",
-    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
     request: {
       headers: [idempotencyKeyHeader, requestIdHeader],
       body: { required: true, content: { "application/json": { schema: schemaRef("SetLockdownRequest") } } },
@@ -246,7 +245,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     path: "/v1/web/admin/lockdowns/{scope}/{target_id}",
     operationId: "web.admin.lockdown.lift",
     summary: "Lift a platform lockdown on a workspace or artifact (operator only).",
-    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
     request: {
       params: params({
         scope: pathEnumParam("scope", ["workspace", "artifact"], "Lockdown scope: workspace or artifact."),
@@ -262,7 +261,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     path: "/v1/web/admin/events",
     operationId: "web.admin.events.list",
     summary: "Browse cross-workspace audit and operation events (operator only).",
-    security: [{ WorkOsBearer: [] }, { CfAccessServiceToken: [] }],
+    security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
     request: {
       query: z.object({
         cursor: queryCursorParam("cursor", "Opaque pagination cursor returned by the previous page."),
@@ -299,14 +298,19 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
             description: "Filter by target type.",
           },
         }),
-        request_id: z.string().min(1).max(128).optional().openapi({
-          param: {
-            name: "request_id",
-            in: "query",
-            required: false,
-            description: "Filter by request id.",
-          },
-        }),
+        request_id: z
+          .string()
+          .min(1)
+          .max(128)
+          .optional()
+          .openapi({
+            param: {
+              name: "request_id",
+              in: "query",
+              required: false,
+              description: "Filter by request id.",
+            },
+          }),
         focus: WebOperatorEventFocus.optional().openapi({
           param: {
             name: "focus",
@@ -380,115 +384,6 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     responses: standardJsonResponses(schemaRef("PublishResult")),
   });
 
-  registry.registerPath({
-    method: "get",
-    path: "/admin/workspaces",
-    operationId: "admin.workspaces.list",
-    summary: "List workspaces.",
-    security: [{ AdminBearer: [] }],
-    request: { headers: [requestIdHeader] },
-    responses: standardJsonResponses(schemaRef("WorkspaceListResponse")),
-  });
-
-  registry.registerPath({
-    method: "post",
-    path: "/admin/workspaces",
-    operationId: "admin.workspaces.create",
-    summary: "Create a workspace.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: schemaRef("CreateWorkspaceRequest") } } },
-    },
-    responses: standardJsonResponses(schemaRef("WorkspaceDetail"), 201),
-  });
-
-  registry.registerPath({
-    method: "post",
-    path: "/admin/workspaces/{workspace_id}/api-keys",
-    operationId: "admin.apiKeys.create",
-    summary: "Create an API key for a workspace.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      params: params({ workspace_id: pathStringParam("workspace_id", "Workspace id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: schemaRef("CreateApiKeyRequest") } } },
-    },
-    responses: standardJsonResponses(schemaRef("CreateApiKeyResponse"), 201),
-  });
-
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/api-keys/{api_key_id}",
-    operationId: "admin.apiKeys.revoke",
-    summary: "Revoke an API key.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      params: params({ api_key_id: pathStringParam("api_key_id", "API key id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
-    },
-    responses: standardJsonResponses(schemaRef("RevokeApiKeyResponse")),
-  });
-
-  registry.registerPath({
-    method: "get",
-    path: "/admin/artifacts",
-    operationId: "admin.artifacts.list",
-    summary: "List artifacts across workspaces.",
-    security: [{ AdminBearer: [] }],
-    request: { headers: [requestIdHeader] },
-    responses: standardJsonResponses(schemaRef("ArtifactListResponse")),
-  });
-
-  registry.registerPath({
-    method: "get",
-    path: "/admin/artifacts/{artifact_id}",
-    operationId: "admin.artifacts.get",
-    summary: "Read an artifact detail.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
-      headers: [requestIdHeader],
-    },
-    responses: standardJsonResponses(schemaRef("ArtifactDetail")),
-  });
-
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/artifacts/{artifact_id}",
-    operationId: "admin.artifacts.delete",
-    summary: "Delete an artifact and purge its bytes.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
-    },
-    responses: standardJsonResponses(schemaRef("DeleteArtifactResponse")),
-  });
-
-  registry.registerPath({
-    method: "post",
-    path: "/admin/cleanup/run",
-    operationId: "admin.cleanup.run",
-    summary: "Run a cleanup pass over expired artifacts and sessions.",
-    security: [{ AdminBearer: [] }],
-    request: {
-      headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: CleanupRunRequest } } },
-    },
-    responses: standardJsonResponses(schemaRef("CleanupRunResponse")),
-  });
-
-  registry.registerPath({
-    method: "get",
-    path: "/admin/operation-events",
-    operationId: "admin.operationEvents.list",
-    summary: "List recent operation events.",
-    security: [{ AdminBearer: [] }],
-    request: { headers: [requestIdHeader] },
-    responses: standardJsonResponses(schemaRef("OperationEventListResponse")),
-  });
-
   const generator = new OpenApiGeneratorV31(registry.definitions);
   const document = generator.generateDocument({
     openapi: "3.1.0",
@@ -509,7 +404,7 @@ function applyWebCursorParameterBounds(document: Record<string, unknown>) {
   if (!isRecord(paths)) {
     return;
   }
-  for (const path of ["/v1/web/artifacts", "/v1/web/audit", "/v1/web/admin/lockdowns"]) {
+  for (const path of ["/v1/web/artifacts", "/v1/web/audit", "/v1/web/admin/lockdowns", "/v1/web/admin/events"]) {
     const webListPath = paths[path];
     if (!isRecord(webListPath)) {
       continue;

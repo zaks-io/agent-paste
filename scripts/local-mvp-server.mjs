@@ -4,11 +4,12 @@ import apiWorker from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
+import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);
 const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
-const adminToken = process.env.AGENT_PASTE_ADMIN_TOKEN ?? "local-admin-token";
+const smokeHarnessSecret = smokeHarnessSecretFromEnv();
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
 const contentSecret = process.env.AGENT_PASTE_CONTENT_SIGNING_SECRET ?? "local-content-secret";
@@ -237,7 +238,7 @@ const apiEnv = {
   DB: apiDb,
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
-  ADMIN_TOKEN: adminToken,
+  SMOKE_HARNESS_SECRET: smokeHarnessSecret,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
@@ -282,17 +283,11 @@ process.stdout.write(`agent-paste local MVP running
   Upload:  ${uploadBaseUrl}
   Content: ${contentBaseUrl}
 
-  export AGENT_PASTE_ADMIN_TOKEN=${adminToken}
-  export AGENT_PASTE_ADMIN_URL=${apiBaseUrl}
   export AGENT_PASTE_API_URL=${apiBaseUrl}
   export AGENT_PASTE_UPLOAD_URL=${uploadBaseUrl}
 
-Create a workspace/key:
-  pnpm cli:dev admin workspace create local@example.com --name Local
-  pnpm cli:dev admin key create <workspace-id> --name local
-
-Then:
-  export AGENT_PASTE_API_KEY=<secret-from-key-create>
+Sign in and publish:
+  pnpm cli:dev login
   pnpm cli:dev whoami
   pnpm cli:dev publish examples/local-harness/site
 
