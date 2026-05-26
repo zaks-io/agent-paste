@@ -31,7 +31,7 @@ An agent, CI job, script, or developer using `AGENT_PASTE_API_KEY`. This is the 
 A human or agent with a signed URL returned by publish. This actor can view only the artifact/revision encoded in the signed URL and only until the artifact expires or is deleted.
 
 **Operator**:
-A human with the WorkOS `admin` role (web dashboard and `/v1/web/admin/*`) or automation using Cloudflare Access service tokens. Operators manage platform lockdowns and rotation endpoints; workspace bootstrap uses WorkOS login or the non-production smoke harness.
+A human with the WorkOS `admin` role or automation using Cloudflare Access service tokens for platform lockdown and rotation endpoints. Hosted MVP verification provisions workspaces through the non-production smoke harness (or a pre-provisioned smoke API key). Member self-service via `agent-paste login` and `/v1/web/*` is Phase 3, not MVP acceptance.
 
 ## Surfaces
 
@@ -135,11 +135,7 @@ Public CLI auth is API-key only:
 AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site
 ```
 
-OAuth login is deferred. The future public flow may add:
-
-```sh
-agent-paste login
-```
+`agent-paste login` (WorkOS loopback PKCE, [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md)) and member routes under `/v1/web/*` are Phase 3. They mint or manage credentials through the web API but are not required for MVP acceptance; the MVP public surface stays API-key-only via `AGENT_PASTE_API_KEY`.
 
 Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web operator surface. See [admin operations](./admin.md).
 
@@ -202,6 +198,7 @@ Secrets, content tokens, signed URLs, and API-key secret material are never stor
 ## Out Of MVP
 
 - Dashboard and admin UI.
+- `agent-paste login` and member `/v1/web/*` dashboard APIs (Phase 3; see [phases](./phases.md)).
 - Public OAuth login.
 - Self-serve signup.
 - MCP server.
@@ -219,9 +216,9 @@ Secrets, content tokens, signed URLs, and API-key secret material are never stor
 
 ## MVP Acceptance Shape
 
-The MVP is buildable when:
+The MVP is buildable when the API-key publish loop works end to end. Phase 3 member login and `/v1/web/*` are tracked separately in [phases](./phases.md).
 
-- A member can provision a workspace and API key through `agent-paste login` or the non-production smoke harness.
+- The non-production smoke harness (or a pre-provisioned production smoke API key) can provision a workspace and one-time API key for hosted verification.
 - `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
@@ -229,4 +226,3 @@ The MVP is buildable when:
 - `view_url` opens the HTML from the content origin.
 - `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.
-- Members can list and inspect their artifacts via `/v1/web/*`; operators use platform lockdown for takedown.

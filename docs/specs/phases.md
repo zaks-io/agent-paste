@@ -53,7 +53,7 @@ Goal: make the hosted service easier to run without changing the product shape.
 
 Exit criteria:
 
-- Routine operations can be handled through the web dashboard, WorkOS operator routes, and `agent-paste login` with Codex assistance.
+- Routine hosted operations can be handled through the public CLI, smoke harness, and Codex-assisted runbooks without changing the API-key-only product shape.
 - Observability is good enough to debug failed publishes and cleanup.
 
 ## Phase 3: Public Product Basics + Web Dashboard
