@@ -175,12 +175,10 @@ jobs:
         run: pnpm smoke:pr
 
       - name: Lighthouse dashboard accessibility gate
-        run: |
-          if ! command -v google-chrome >/dev/null && ! command -v chromium >/dev/null && ! command -v chromium-browser >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
-          fi
-          pnpm lighthouse:dashboard-a11y
+        env:
+          # Override in workflow_dispatch or forked test runs if the style-guide threshold changes.
+          AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE: "95"
+        run: pnpm lighthouse:dashboard-a11y
 
       - name: Comment PR preview links
         uses: actions/github-script@v8

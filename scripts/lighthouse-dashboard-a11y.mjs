@@ -77,9 +77,8 @@ try {
       "127.0.0.1",
       ...webWranglerVars(),
     ],
-    {
-      cwd: webRoot,
-    },
+    {},
+    { cwd: webRoot },
   );
 
   await waitForHealthy(`${apiBaseUrl}/admin/whoami`, { authorization: `Bearer ${adminToken}` }, localServer);
@@ -276,9 +275,9 @@ async function assertDashboardReady(sessionCookie) {
   }
 }
 
-function spawnChild(command, args, env) {
+function spawnChild(command, args, env = {}, options = {}) {
   const child = spawn(command, args, {
-    cwd: root,
+    cwd: options.cwd ?? root,
     env: { ...process.env, ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -333,7 +332,19 @@ async function fetchJson(url, init = {}) {
 }
 
 function listen(server, port) {
-  return new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve();
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, "127.0.0.1");
+  });
 }
 
 function close(server) {
