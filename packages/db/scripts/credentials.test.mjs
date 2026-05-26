@@ -3,6 +3,7 @@ import {
   APP_RUNTIME_ROLE,
   connectionStringForRole,
   connectionUriHasPassword,
+  isNeonRolePasswordNotManaged,
   maskConnectionUri,
   MIGRATION_ROLE,
   migrationDatabaseUrlEnvName,
@@ -70,6 +71,18 @@ describe("database credentials", () => {
         DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://production@host/db",
       }),
     ).toThrow(/DATABASE_URL_MIGRATIONS_PREVIEW/);
+  });
+
+  it("treats only Neon password-not-managed 422s as reset_password misses", () => {
+    expect(
+      isNeonRolePasswordNotManaged(
+        422,
+        '{"code":"ROLE_PASSWORD_NOT_AVAILABLE","message":"cannot update password for role without password"}',
+      ),
+    ).toBe(true);
+    expect(isNeonRolePasswordNotManaged(422, "password not available for this role")).toBe(true);
+    expect(isNeonRolePasswordNotManaged(422, '{"code":"OTHER","message":"branch locked"}')).toBe(false);
+    expect(isNeonRolePasswordNotManaged(500, "ROLE_PASSWORD_NOT_AVAILABLE")).toBe(false);
   });
 
   it("detects passwordless Neon connection URIs", () => {

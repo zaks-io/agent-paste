@@ -5,6 +5,7 @@ import {
   connectionStringForRole,
   connectionUriHasPassword,
   DATABASE_RUNTIME_ROLE_PASSWORD_ENV,
+  isNeonRolePasswordNotManaged,
   maskConnectionUri,
 } from "../packages/db/scripts/credentials.mjs";
 
@@ -109,14 +110,17 @@ async function tryResetRolePassword(context) {
   if (response.status === 404) {
     return null;
   }
+  const body = await response.text();
   if (response.status === 422) {
-    return null;
+    if (isNeonRolePasswordNotManaged(response.status, body)) {
+      return null;
+    }
+    throw new Error(`Neon reset_password for ${context.roleName} failed: 422 ${body}`);
   }
   if (!response.ok) {
-    const body = await response.text();
     throw new Error(`Neon reset_password for ${context.roleName} failed: ${response.status} ${body}`);
   }
-  const payload = await response.json();
+  const payload = JSON.parse(body);
   return payload.role?.password ?? null;
 }
 

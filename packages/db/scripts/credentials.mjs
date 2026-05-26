@@ -118,6 +118,38 @@ export function connectionUriHasPassword(uri) {
 /**
  * @param {string} uri
  */
+/**
+ * True when Neon reset_password cannot manage a SQL-created role password.
+ *
+ * @param {number} status
+ * @param {string} bodyText
+ */
+export function isNeonRolePasswordNotManaged(status, bodyText) {
+  if (status !== 422) {
+    return false;
+  }
+  const normalized = bodyText.toLowerCase();
+  if (
+    normalized.includes("role_password_not_available") ||
+    normalized.includes("password not available") ||
+    normalized.includes("not managed")
+  ) {
+    return true;
+  }
+  try {
+    const payload = JSON.parse(bodyText);
+    const code = String(payload.code ?? "").toLowerCase();
+    const message = String(payload.message ?? "").toLowerCase();
+    return (
+      code === "role_password_not_available" ||
+      message.includes("password not available") ||
+      message.includes("not managed")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function maskConnectionUri(uri) {
   try {
     const parsed = new URL(uri);

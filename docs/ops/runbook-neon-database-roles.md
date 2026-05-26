@@ -12,7 +12,7 @@ Workers reach Postgres through Hyperdrive as `app_role` (`NOBYPASSRLS`). Schema 
 | `platform_admin` | `BYPASSRLS`                | GitHub migration steps, narrow platform GUCs |
 | `neondb_owner`   | Neon default owner         | One-time bootstrap only until roles exist    |
 
-Migration `packages/db/migrations/0010_db_roles.sql` creates `app_role` and `platform_admin` and grants `platform_admin` to `app_role` for future `SET LOCAL ROLE` paths.
+Migration `packages/db/migrations/0010_db_roles.sql` creates `app_role` and `platform_admin` as separate roles. Runtime `app_role` must not receive `platform_admin` or any other privilege that would let Workers bypass tenant RLS.
 
 ## Environment variables
 
