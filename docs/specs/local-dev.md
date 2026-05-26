@@ -9,7 +9,7 @@ This spec defines the local setup for the CLI-first MVP. The repo currently has 
 - Docker for local Postgres when working on the persistent path.
 - `wrangler` for Worker dev once per-app Wrangler config is added.
 
-Auth0 is not required for the MVP public CLI. OAuth is a future phase.
+WorkOS is not required for the MVP public CLI. OAuth is a later phase.
 
 ## Initial Setup
 
@@ -175,7 +175,7 @@ Worker bindings currently expected from runtime wiring:
 
 The examples also include planned local names for `DATABASE_URL`, `API_KEY_PEPPER`, R2 bucket, and KV denylist so future binding work has a stable convention.
 
-Future Auth0, web session, MCP, queue, and Access Link settings should not be required for the MVP local smoke test.
+Future WorkOS, web session, MCP, queue, and Access Link settings should not be required for the MVP local smoke test.
 
 ## Local Smoke Test Target
 

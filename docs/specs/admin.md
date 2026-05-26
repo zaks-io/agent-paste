@@ -97,4 +97,4 @@ Refusing to delete art_123 without --yes.
 
 ## Future Replacements
 
-Later phases may replace the single admin token with Auth0, Cloudflare Access, or operator identities. The CLI should isolate auth handling so this change does not rewrite every command.
+Later phases may replace the single admin token with WorkOS, Cloudflare Access, or operator identities. The CLI should isolate auth handling so this change does not rewrite every command.

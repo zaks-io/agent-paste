@@ -4,7 +4,7 @@ This document captures the product judgment behind the narrowed MVP. It is inten
 
 ## Why Not Build It
 
-The main reason not to build agent-paste is scope gravity. The larger platform plan includes API, upload, content, jobs, web, MCP, CLI, Auth0, R2, Postgres, audit, safety scanning, queues, signed links, bundles, retention, lockdown, and operator tooling. That is not a small MVP.
+The main reason not to build agent-paste is scope gravity. The larger platform plan includes API, upload, content, jobs, web, MCP, CLI, WorkOS, R2, Postgres, audit, safety scanning, queues, signed links, bundles, retention, lockdown, and operator tooling. That is not a small MVP.
 
 The category also has pressure from every side:
 

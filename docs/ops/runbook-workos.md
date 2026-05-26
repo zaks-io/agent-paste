@@ -11,13 +11,13 @@ Scope:
 
 Out of scope:
 
-- MCP OAuth (Phase 5; provider to be re-decided; current on-paper decision is Auth0 DCR per ADR 0061).
+- MCP OAuth (Phase 5; provider decided as WorkOS AuthKit/Connect in ADR 0061; CIMD primary with DCR enabled for compatibility).
 - Auth0 paths (retired before first login; see ADR 0068).
 
 Related docs:
 
 - [ADR 0068](../adr/0068-workos-authkit-for-web-app-auth.md) — AuthKit integration decisions.
-- [ADR 0059](../adr/0059-web-app-session-and-auth-forwarding-to-api.md) — session cookie and forwarding model (Auth0 wording superseded for WorkOS).
+- [ADR 0059](../adr/0059-web-app-session-and-auth-forwarding-to-api.md) — WorkOS session cookie and forwarding model.
 - [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md) — CLI loopback Connect app (WorkOS implementation).
 - [Web app todo](./web-app-todo.md) — Phase 3 web close-out history and env identifiers.
 - [Rotation runbook](./runbook-rotation.md) — step-by-step WorkOS secret rotation (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_COOKIE_PASSWORD`).

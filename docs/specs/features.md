@@ -69,7 +69,7 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Feature                          | Earliest phase | Notes                                                         |
 | -------------------------------- | -------------: | ------------------------------------------------------------- |
 | Public OAuth login               |        Phase 3 | Adds `agent-paste login` after API-key flow is proven.        |
-| Self-serve signup                |        Phase 3 | Likely Auth0-backed workspace creation.                       |
+| Self-serve signup                |        Phase 3 | WorkOS-backed workspace creation.                             |
 | Dashboard                        |        Phase 6 | Build only after repeated workflows justify UI.               |
 | Multi-revision artifacts         |        Phase 4 | Adds update, revision history, rollback/diff possibilities.   |
 | Latest-moving share links        |        Phase 4 | Distinct from revision-pinned links.                          |

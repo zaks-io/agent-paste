@@ -5,6 +5,12 @@ use `git log` for commit-level detail.
 
 ## 2026-05-26
 
+### MCP auth decision
+
+- Re-decided MCP OAuth on WorkOS AuthKit/Connect before implementation.
+- ADR 0061 now uses CIMD as the primary MCP client self-identification path and
+  keeps DCR enabled for compatibility with older MCP clients.
+
 ### npm package namespace
 
 - Created the npm org scope `@zaks-io` and reserved the public CLI package name

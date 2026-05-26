@@ -9,4 +9,4 @@ Local development will be Wrangler-first so developers exercise Cloudflare Worke
 - Local development should favor realistic Cloudflare bindings where practical so preview and production behavior are not surprising.
 - Local Postgres should run through Docker Compose with scripts for migrate, reset, and seed.
 - Local storage should use Wrangler/R2 development bindings where practical.
-- Local authentication should use a real development Auth0 configuration rather than a mock auth system.
+- Local authentication should use a real development WorkOS configuration or the repo's WorkOS-compatible local harness rather than a bespoke mock auth system.
