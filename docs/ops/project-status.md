@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -16,6 +16,12 @@ and points to the smaller ledgers that own detail.
 - `apps/jobs` and `apps/mcp` remain scaffolds, as expected for Phase 4/5.
 - `apps/stream`, `packages/billing`, Access Link persistence, bundle state, and
   scanner persistence do not exist yet.
+- Known security/ops debt: Cloudflare Access now gates the production operator
+  web/API paths, and the hosted API environments now carry the app-side
+  `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification still
+  needs an operator-path smoke, the repo-local `ADMIN_TOKEN` `/admin/*` path
+  still exists, and extra rate limiting is needed on legacy admin-token and
+  public bearer read routes.
 
 ## Status Ledgers
 
@@ -58,6 +64,9 @@ Highest-signal gaps:
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
   operations, and tested rotation automation.
+- Parked ops/security hardening: app-side Access JWT verification smoke,
+  optional dedicated admin hostname decision, `ADMIN_TOKEN` retirement, and rate
+  limits for legacy admin-token/public bearer read routes.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.
 

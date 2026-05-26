@@ -301,4 +301,35 @@ describe("upload worker", () => {
       warn.mockRestore();
     }
   });
+
+  it("maps draft revision conflicts to 409", async () => {
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
+        },
+      },
+      DB: {
+        async createUploadSession() {
+          throw new Error("draft_revision_conflict");
+        },
+        async peekIdempotentReplay() {
+          return null;
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: { authorization: "Bearer ok", "idempotency-key": "idem", "content-type": "application/json" },
+        body: JSON.stringify(createUploadRequestBody()),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "draft_revision_conflict" } });
+  });
 });

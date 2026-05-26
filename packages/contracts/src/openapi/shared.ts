@@ -14,7 +14,13 @@ import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../api
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
-import { CreateUploadSessionRequest, CreateUploadSessionResponse, PublishResult } from "../uploadSessions.js";
+import { RevisionListResponse, RevisionSummary } from "../revisions.js";
+import {
+  CreateUploadSessionRequest,
+  CreateUploadSessionResponse,
+  FinalizeUploadSessionResponse,
+  PublishResult,
+} from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
   WebApiKeyListResponse,
@@ -75,7 +81,10 @@ export function registerUploadSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
   registry.register("CreateUploadSessionRequest", CreateUploadSessionRequest);
   registry.register("CreateUploadSessionResponse", CreateUploadSessionResponse);
+  registry.register("FinalizeUploadSessionResponse", FinalizeUploadSessionResponse);
   registry.register("PublishResult", PublishResult);
+  registry.register("RevisionSummary", RevisionSummary);
+  registry.register("RevisionListResponse", RevisionListResponse);
   registry.register("EmptyObject", EmptyObject);
 }
 

@@ -335,6 +335,138 @@ describe("web routes", () => {
     expect(screen.getByText(/"app": "web"/)).toBeInTheDocument();
   });
 
+  it("exposes per-route document titles and descriptions", async () => {
+    const dashboard = await import("../src/routes/_authed.dashboard");
+    const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
+    const artifactsIndex = await import("../src/routes/_authed.artifacts.index");
+    const accessLinks = await import("../src/routes/_authed.access-links");
+    const keys = await import("../src/routes/_authed.keys");
+    const audit = await import("../src/routes/_authed.audit");
+    const settings = await import("../src/routes/_authed.settings");
+    const admin = await import("../src/routes/_authed.admin");
+    const index = await import("../src/routes/index");
+    const accessLink = await import("../src/routes/al.$publicId");
+    const rootMatches = [{ routeId: "__root__", loaderData: { webBaseUrl: "https://app.agent-paste.sh" } }];
+    const headCtx = { matches: rootMatches };
+
+    expect(
+      (dashboard.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
+        headCtx,
+      ),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Dashboard | agent-paste" },
+        { name: "description", content: "Overview of recent artifacts, audit events, and usage policy." },
+      ]),
+    });
+
+    expect(
+      (artifactsIndex.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
+        headCtx,
+      ),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Artifacts | agent-paste" },
+        { name: "description", content: "Everything published from this workspace." },
+      ]),
+    });
+
+    expect(
+      (accessLinks.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
+        headCtx,
+      ),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Access Links | agent-paste" },
+        { name: "description", content: "Short-lived URLs that reveal a single artifact to a recipient." },
+      ]),
+    });
+
+    expect(
+      (keys.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "API Keys | agent-paste" },
+        { name: "description", content: "Manage API keys for CI, headless use, and workspace automation." },
+      ]),
+    });
+
+    expect(
+      (audit.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Audit Log | agent-paste" },
+        { name: "description", content: "Every meaningful action in this workspace." },
+      ]),
+    });
+
+    expect(
+      (settings.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Workspace Settings | agent-paste" },
+        { name: "description", content: "Workspace name, retention, and usage caps." },
+      ]),
+    });
+
+    expect(
+      (admin.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Operator | agent-paste" },
+        { name: "description", content: "Platform-level lockdown and recent operator actions." },
+      ]),
+    });
+
+    expect(
+      (
+        artifactDetail.Route.head as (ctx: {
+          loaderData: { data?: { title?: string } };
+          params: { artifactId: string };
+          matches: Array<{ routeId: string; loaderData?: unknown }>;
+        }) => unknown
+      )({
+        loaderData: { data: { title: "Artifact One" } },
+        params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+        matches: rootMatches,
+      }),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Artifact One | agent-paste" },
+        { name: "description", content: "Artifact details for Artifact One." },
+      ]),
+    });
+
+    expect(
+      (index.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Sign in | agent-paste" },
+        { property: "og:url", content: "https://app.agent-paste.sh/" },
+        { name: "twitter:card", content: "summary" },
+      ]),
+    });
+
+    expect(
+      (
+        accessLink.Route.head as (ctx: {
+          params: { publicId: string };
+          matches: Array<{ routeId: string; loaderData?: unknown }>;
+        }) => unknown
+      )({
+        params: { publicId: "pub_1" },
+        matches: rootMatches,
+      }),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { name: "referrer", content: "no-referrer" },
+        { title: "Access Link | agent-paste" },
+        { property: "og:url", content: "https://app.agent-paste.sh/al/pub_1" },
+        { name: "robots", content: "noindex,nofollow" },
+      ]),
+    });
+  });
+
   it("handles root and auth route server handlers", async () => {
     const root = await import("../src/routes/index");
     const signIn = await import("../src/routes/api/auth/sign-in");

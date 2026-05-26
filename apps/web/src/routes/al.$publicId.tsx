@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
+import { publicPageMeta } from "../lib/page-meta";
 
 type ResolveResult =
   | { kind: "loading" }
@@ -20,11 +21,18 @@ function isResolveBody(value: unknown): value is ResolveBody {
 
 export const Route = createFileRoute("/al/$publicId")({
   component: AccessLinkViewer,
-  head: () => ({
+  head: ({ params, matches }) => ({
     meta: [
       { name: "referrer", content: "no-referrer" },
-      { name: "robots", content: "noindex,nofollow" },
-      { title: "Access Link" },
+      ...publicPageMeta({
+        title: "Access Link",
+        description: "View a shared artifact via an agent-paste access link.",
+        path: `/al/${params.publicId}`,
+        social: true,
+        noIndex: true,
+        ogType: "website",
+        matches,
+      }).meta,
     ],
   }),
 });

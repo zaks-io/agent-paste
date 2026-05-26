@@ -465,7 +465,7 @@ Empty states are typography moments. A short heading, one body sentence, and one
 ```
 [--text-h2]    No Artifacts yet.
 [--text-body]  Publish your first one from the CLI:
-[code]         npx agent-paste publish ./report
+[code]         npx @zaks-io/agent-paste publish ./report
 [primary btn]  Create an API Key
 ```
 
@@ -625,7 +625,7 @@ The product has four visually distinct surfaces. Each commits to the shared syst
 ### 8.1 Marketing (`agent-paste.sh/`)
 
 - Bleed-width hero: `--text-hero` title, one `--text-lead` paragraph below, one primary CTA, one secondary "View on GitHub" link.
-- Below the hero, a code block showing `npx agent-paste publish ./report` rendered with the standard `pre` style and a Copy affordance.
+- Below the hero, a code block showing `npx @zaks-io/agent-paste publish ./report` rendered with the standard `pre` style and a Copy affordance.
 - The rest of the page is a single column at `--container-prose` width: feature sections separated by `--space-20`, each leading with a `--text-h2` and a one-paragraph body.
 - Footer is a 4-column grid (Product / Docs / Company / Legal), collapsing to 2 on tablet and 1 on mobile.
 - **No carousels, no autoplaying video, no animated background gradients, no "Featured in" logo strips, no testimonial slider.**

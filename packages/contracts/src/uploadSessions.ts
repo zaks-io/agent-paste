@@ -18,6 +18,7 @@ export const UploadSessionFileInput = z.object({
 export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
 export const CreateUploadSessionRequest = z.object({
+  artifact_id: ArtifactId.optional(),
   title: PlainTextTitle,
   ttl_seconds: z.number().int().min(Seconds.oneDay).max(Seconds.ninetyDays).default(Seconds.thirtyDays),
   entrypoint: FilePath,
@@ -53,5 +54,14 @@ export const PublishResult = z.object({
 });
 export type PublishResult = z.infer<typeof PublishResult>;
 
-export const FinalizeUploadSessionResponse = PublishResult;
+export const FinalizeUploadSessionResponse = z.object({
+  upload_session_id: UploadSessionId,
+  artifact_id: ArtifactId,
+  revision_id: RevisionId,
+  status: z.literal("draft"),
+  title: PlainTextTitle,
+  entrypoint: FilePath,
+  file_count: z.number().int().min(1),
+  size_bytes: z.number().int().nonnegative(),
+});
 export type FinalizeUploadSessionResponse = z.infer<typeof FinalizeUploadSessionResponse>;

@@ -2,12 +2,21 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Wordmark } from "../components/chrome/Wordmark";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { publicPageMeta } from "../lib/page-meta";
 
 type Search = { auth_error?: string };
 
 export const Route = createFileRoute("/")({
   validateSearch: (input: Record<string, unknown>): Search =>
     typeof input.auth_error === "string" ? { auth_error: input.auth_error } : {},
+  head: ({ matches }) =>
+    publicPageMeta({
+      title: "Sign in",
+      description: "Sign in to agent-paste with WorkOS to manage your workspace and artifacts.",
+      path: "/",
+      social: true,
+      matches,
+    }),
   loader: async ({ location }) => {
     const search = location.search as Search;
     if (search.auth_error) return { auth_error: search.auth_error };
@@ -18,7 +27,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const data = Route.useLoaderData();
+  const data = Route.useLoaderData() as Search | undefined;
   return (
     <main className="min-h-screen grid place-items-center px-6">
       <div className="w-full max-w-[380px] grid gap-8">

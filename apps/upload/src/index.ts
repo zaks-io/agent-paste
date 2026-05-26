@@ -10,6 +10,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import {
   buildUploadOpenApiDocument,
   type CreateUploadSessionRequest,
+  FinalizeUploadSessionResponse,
   type RouteContract,
   routeContracts,
 } from "@agent-paste/contracts";
@@ -19,8 +20,6 @@ import {
   type HyperdriveBinding,
   type Repository,
 } from "@agent-paste/db";
-import { mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
-import { mintContentUrl } from "@agent-paste/tokens/content";
 import {
   mintUploadUrl,
   type SignedUploadPayload,
@@ -104,7 +103,6 @@ type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number],
 type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
 const AUTH_CACHE_TTL_SECONDS = 60;
-const DEFAULT_API_BASE_URL = "https://api.agent-paste.sh";
 const UPLOAD_FILE_PATH_MARKER = "/files/";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
@@ -196,7 +194,14 @@ async function createUploadSession(
   const request = context.req.raw;
   const actor = principal.actor;
   const idempotencyKey = guard.idempotencyKey ?? "";
-  const createRequest: CreateUploadSessionRequest = guard.body;
+  const body: CreateUploadSessionRequest = guard.body;
+  const createRequest = {
+    title: body.title,
+    ttl_seconds: body.ttl_seconds,
+    entrypoint: body.entrypoint,
+    files: body.files,
+    ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
+  };
 
   let session: UploadSessionRecord;
   try {
@@ -209,6 +214,10 @@ async function createUploadSession(
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight");
+    }
+    const mapped = mapRepositoryError(error);
+    if (mapped) {
+      return errorResponse(context, mapped.code, mapped.message);
     }
     throw error;
   }
@@ -319,10 +328,14 @@ async function finalizeUploadSession(
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight");
     }
+    const mapped = mapRepositoryError(error);
+    if (mapped) {
+      return errorResponse(context, mapped.code, mapped.message);
+    }
     throw error;
   }
 
-  return jsonResponse(context, await signPublishContentUrl(result, env));
+  return jsonResponse(context, FinalizeUploadSessionResponse.parse(result));
 }
 
 async function authenticateApiKey(request: Request, env: Env): Promise<UploadActor | null> {
@@ -395,7 +408,7 @@ async function uploadReplay(input: {
       "upload.session.finalize",
       input.guard.idempotencyKey,
     );
-    return replay ? jsonResponse(context, await signPublishContentUrl(replay, context.env)) : null;
+    return replay ? jsonResponse(context, FinalizeUploadSessionResponse.parse(replay)) : null;
   }
   return null;
 }
@@ -470,110 +483,24 @@ function bearerToken(request: Request): string | null {
   return match?.[1] ?? null;
 }
 
-async function signPublishContentUrl(result: unknown, env: Env): Promise<unknown> {
-  if (!result || typeof result !== "object") {
-    return result;
+function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: string } | null {
+  if (!(error instanceof Error)) {
+    return null;
   }
-  const data = result as {
-    artifact_id?: unknown;
-    revision_id?: unknown;
-    view_url?: unknown;
-    agent_view_url?: unknown;
-    expires_at?: unknown;
-  };
-  if (
-    typeof data.artifact_id !== "string" ||
-    typeof data.revision_id !== "string" ||
-    typeof data.view_url !== "string"
-  ) {
-    return result;
+  switch (error.message) {
+    case "artifact_not_found":
+      return { code: "artifact_not_found" };
+    case "draft_revision_conflict":
+      return { code: "draft_revision_conflict" };
+    case "upload_session_not_found":
+      return { code: "upload_session_not_found" };
+    case "upload_incomplete":
+      return { code: "upload_incomplete" };
+    case "entrypoint_not_in_revision":
+      return { code: "entrypoint_not_in_revision" };
+    default:
+      return null;
   }
-  const path = pathFromViewUrl(data.view_url, data.artifact_id, data.revision_id);
-  return {
-    ...data,
-    view_url: env.CONTENT_SIGNING_SECRET
-      ? await signedContentUrl(
-          env,
-          data.artifact_id,
-          data.revision_id,
-          path,
-          typeof data.expires_at === "string" ? data.expires_at : undefined,
-        )
-      : data.view_url,
-    agent_view_url: await signedAgentViewUrl(
-      env,
-      data.artifact_id,
-      data.revision_id,
-      typeof data.expires_at === "string" ? data.expires_at : undefined,
-      typeof data.agent_view_url === "string" ? data.agent_view_url : undefined,
-    ),
-  };
-}
-
-async function signedAgentViewUrl(
-  env: Env,
-  artifactId: string,
-  revisionId: string,
-  expiresAt?: string,
-  fallbackUrl?: string,
-): Promise<string> {
-  const baseUrl = env.API_BASE_URL ?? DEFAULT_API_BASE_URL;
-  const secret = env.AGENT_VIEW_SIGNING_SECRET ?? env.CONTENT_SIGNING_SECRET;
-  if (!secret) {
-    return fallbackUrl ?? `${baseUrl}/v1/public/agent-view/${artifactId}.${revisionId}`;
-  }
-
-  return mintAgentViewUrl({
-    baseUrl,
-    secret,
-    payload: {
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      exp: contentTokenExpiration(expiresAt),
-    },
-  });
-}
-
-async function signedContentUrl(
-  env: Env,
-  artifactId: string,
-  revisionId: string,
-  path: string,
-  expiresAt?: string,
-): Promise<string> {
-  const baseUrl = env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.sh";
-  if (!env.CONTENT_SIGNING_SECRET) {
-    return `${baseUrl}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
-  }
-  return mintContentUrl({
-    baseUrl,
-    secret: env.CONTENT_SIGNING_SECRET,
-    payload: {
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      paths: [path],
-      exp: contentTokenExpiration(expiresAt),
-    },
-    path,
-  });
-}
-
-function contentTokenExpiration(expiresAt: string | undefined): number {
-  const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
-}
-
-function pathFromViewUrl(viewUrl: string, artifactId: string, revisionId: string): string {
-  const marker = `/v/${artifactId}.${revisionId}/`;
-  const index = viewUrl.indexOf(marker);
-  if (index === -1) {
-    return "index.html";
-  }
-  return decodeURIComponent(viewUrl.slice(index + marker.length));
-}
-
-function encodePath(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 function ttlSeconds(env: Env): number {

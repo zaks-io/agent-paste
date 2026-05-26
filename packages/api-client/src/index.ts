@@ -17,6 +17,9 @@ import {
   type IdempotencyKey,
   OperationEventListResponse,
   type PaginationRequest,
+  PublishResult,
+  type RevisionId,
+  RevisionListResponse,
   RevokeApiKeyResponse,
   type UploadSessionId,
   UsagePolicy,
@@ -114,6 +117,21 @@ export class ApiClient {
           idempotencyKey,
         },
       ),
+  };
+
+  revisions = {
+    publish: (artifactId: ArtifactId | string, revisionId: RevisionId | string, idempotencyKey: string) =>
+      this.request(
+        PublishResult,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions/${encodeURIComponent(revisionId)}/publish`,
+        {
+          method: "POST",
+          idempotencyKey,
+        },
+      ),
+    list: (artifactId: ArtifactId | string) =>
+      this.request(RevisionListResponse, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions`),
   };
 
   web = {

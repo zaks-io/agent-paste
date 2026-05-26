@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthKitProvider, getAuthAction } from "@workos/authkit-tanstack-react-start/client";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "../components/theme-provider";
+import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
 import "../styles/globals.css";
 
 export const Route = createRootRoute({
@@ -10,11 +11,18 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "color-scheme", content: "light dark" },
-      { title: "agent-paste" },
+      ...buildPageMeta({ title: SITE_NAME }).meta,
     ],
     links: [{ rel: "icon", href: "/favicon.ico" }],
   }),
-  loader: async () => ({ auth: await getAuthAction() }),
+  loader: async () => {
+    let webBaseUrl: string | undefined;
+    if (import.meta.env.SSR) {
+      const { getWebEnv } = await import("../server/runtime");
+      webBaseUrl = getWebEnv().WEB_BASE_URL;
+    }
+    return { auth: await getAuthAction(), webBaseUrl };
+  },
   errorComponent: ({ error }) => <RootError error={error} />,
   notFoundComponent: NotFound,
   component: RootComponent,

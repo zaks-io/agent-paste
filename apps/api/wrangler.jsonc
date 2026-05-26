@@ -19,8 +19,7 @@
     "DOCS_BASE_URL": "",
     "WORKOS_CLIENT_ID": "",
     "WORKOS_CLI_AUDIENCE": "",
-    "CF_ACCESS_TEAM_DOMAIN": "",
-    "CF_ACCESS_AUD": ""
+    "CF_ACCESS_TEAM_DOMAIN": ""
   },
   "r2_buckets": [
     {
@@ -86,8 +85,7 @@
         "WORKOS_CLI_AUDIENCE": "client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
         "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
         "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
-        "CF_ACCESS_TEAM_DOMAIN": "",
-        "CF_ACCESS_AUD": ""
+        "CF_ACCESS_TEAM_DOMAIN": ""
       },
       "hyperdrive": [
         {
@@ -160,8 +158,12 @@
         "WORKOS_CLI_AUDIENCE": "client_01KSAGD5VSVFATV6ZY5CFGC6PJ",
         "WORKOS_CLI_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
         "WORKOS_CLI_ISSUER": "https://soulful-path-50.authkit.app",
-        "CF_ACCESS_TEAM_DOMAIN": "",
-        "CF_ACCESS_AUD": ""
+        // Cloudflare Access app protecting production operator web/API paths.
+        // The corresponding routes are path-gated at the edge, and api can use
+        // these to verify Cf-Access-Jwt-Assertion for service-token operator
+        // identities. Keep the Access AUD in a Wrangler secret because secret
+        // scanning treats the high-entropy identifier as sensitive.
+        "CF_ACCESS_TEAM_DOMAIN": "zaks-io.cloudflareaccess.com"
       },
       "hyperdrive": [
         {

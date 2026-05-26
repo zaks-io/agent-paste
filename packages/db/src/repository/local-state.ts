@@ -3,6 +3,7 @@ import type {
   Artifact,
   OperationEvent,
   PlatformLockdown,
+  Revision,
   StoredFile,
   UploadSession,
   Workspace,
@@ -16,6 +17,7 @@ export type LocalState = {
   workspaceMembers: Map<string, WorkspaceMember>;
   apiKeys: Map<string, ApiKey>;
   artifacts: Map<string, Artifact>;
+  revisions: Map<string, Revision>;
   artifactFiles: Map<string, StoredFile>;
   uploadSessions: Map<string, UploadSession>;
   uploadSessionFiles: Map<string, StoredFile>;
@@ -29,6 +31,7 @@ export function createLocalState(): LocalState {
     workspaceMembers: new Map(),
     apiKeys: new Map(),
     artifacts: new Map(),
+    revisions: new Map(),
     artifactFiles: new Map(),
     uploadSessions: new Map(),
     uploadSessionFiles: new Map(),

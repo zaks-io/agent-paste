@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
 
 ## Environment
 
@@ -8,6 +8,8 @@ Last updated: 2026-05-25.
 - Domain: `agent-paste.sh` on Cloudflare nameservers.
 - Neon project: `still-forest-91029005`.
 - GitHub org/repo: `zaks-io/agent-paste`.
+- npm org/package: `@zaks-io/agent-paste` is reserved as a public placeholder
+  package for CLI distribution; the installed command remains `agent-paste`.
 
 ## Deployed / Routed Workers
 
@@ -45,6 +47,28 @@ Deferred secrets not created for the current app:
 - Application encryption root keys - wait for Phase 6 app-layer encryption.
 - Stripe secrets/webhook secret - wait for post-launch billing.
 
+## Known Security / Ops Gaps
+
+- Cloudflare Access gates the production operator web surface: `/admin` on
+  `app.agent-paste.sh` and `/v1/web/admin/lockdowns` on `api.agent-paste.sh`.
+  Team domain: `zaks-io.cloudflareaccess.com`. `CF_ACCESS_TEAM_DOMAIN` is
+  recorded in `apps/api/wrangler.jsonc`; `CF_ACCESS_AUD` is stored as a Wrangler
+  secret (not a plain var) because secret scanning treats the high-entropy
+  identifier as sensitive.
+- `CF_ACCESS_AUD` is set on `agent-paste-api-preview` and
+  `agent-paste-api-production`. Both hosted API Workers were deployed after
+  removing the old tracked plain-var binding.
+- No new CNAME is needed for the current path-based Access setup. A dedicated
+  admin/operator hostname remains optional future work if the surface grows.
+- The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
+  `/admin/*`. Retire it once Cloudflare Access + WorkOS operator routes cover
+  the remaining admin operations. A route-by-route migration plan is still
+  needed for workspace/API-key bootstrap, artifact inspection/deletion, cleanup,
+  and operation-event browsing.
+- Add explicit rate limiting for legacy admin-token routes and public bearer
+  read routes that do not currently have one, especially `/admin/*` and public
+  Agent View.
+
 ## GitHub / CI
 
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
@@ -53,7 +77,8 @@ Deferred secrets not created for the current app:
   `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` are present or proven by successful
   workflows.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
-- `NPM_TOKEN` is needed only when public CLI package publishing is imminent.
+- `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
+  already reserved by `@zaks-io/agent-paste@0.0.0`.
 - GitHub Production required-reviewer/wait-timer/admin-bypass posture is parked.
 
 ## Deploy Order
@@ -69,9 +94,13 @@ Deferred secrets not created for the current app:
 
 ## Open Ops Items
 
-- Harden PR-preview readiness against workers.dev route propagation flakes.
-- Add docs-only path filtering to PR preview deploy.
-- Add Lighthouse a11y gate.
+- Verify app-side Access JWT/service-token handling against the production
+  operator paths when needed.
+- Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
+  for the current path-based Access gate.
+- Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
+- Write the route-by-route migration plan for legacy `/admin/*` functionality.
+- Add rate limiting for legacy admin-token routes and public bearer read routes.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.
