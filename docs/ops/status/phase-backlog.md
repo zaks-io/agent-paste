@@ -1,8 +1,8 @@
 # Phase Backlog
 
-Last updated: 2026-05-26. Source of truth for the ordered remaining work.
-When asked to "implement the next step", start at the first unchecked item in
-the active phase below unless the user says otherwise.
+Last updated: 2026-05-26 (through AP-16). Source of truth for the ordered
+remaining work. When asked to "implement the next step", start at the first
+unchecked item in the active phase below unless the user says otherwise.
 
 ## Current Position
 
@@ -18,6 +18,8 @@ Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
 app-side `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke and
 the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TOKEN` `/admin/*` path was retired in AP-13.
+Richer operator event/audit browsing shipped in AP-16, with the follow-up
+coverage gate restored in PR #92.
 
 ## Active: Phase 3 Close-Out
 
