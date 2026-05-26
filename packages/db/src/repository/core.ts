@@ -32,7 +32,7 @@ import type {
 } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Repository } from "./interface.js";
-import { resolveOperatorEventActions, type OperatorEventFilters } from "./operator-event-filters.js";
+import { type OperatorEventFilters, resolveOperatorEventActions } from "./operator-event-filters.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
 import {
@@ -897,6 +897,7 @@ export class RepositoryCore implements Repository {
             size_bytes: session.size_bytes,
             expires_at: session.artifact_expires_at,
             created_by_api_key_id: session.created_by_api_key_id,
+            access_link_lockdown_at: null,
             deleted_at: null,
             delete_reason: null,
             created_at: input.now,

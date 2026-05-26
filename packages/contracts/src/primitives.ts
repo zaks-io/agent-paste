@@ -23,6 +23,9 @@ export type UploadSessionId = z.infer<typeof UploadSessionId>;
 export const ApiKeyId = prefixedId<"ApiKeyId">("key");
 export type ApiKeyId = z.infer<typeof ApiKeyId>;
 
+export const AccessLinkId = prefixedId<"AccessLinkId">("al");
+export type AccessLinkId = z.infer<typeof AccessLinkId>;
+
 export const OperationEventId = prefixedId<"OperationEventId">("evt");
 export type OperationEventId = z.infer<typeof OperationEventId>;
 

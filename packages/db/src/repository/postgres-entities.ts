@@ -1,5 +1,6 @@
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import {
+  accessLinkQueries,
   apiKeyQueries,
   artifactFileQueries,
   artifactQueries,
@@ -77,6 +78,16 @@ export function postgresEntities(ctx: PostgresContext): Entities {
           [now, ids],
         );
       },
+      setAccessLinkLockdown: (artifactId, lockdownAt) =>
+        artifactQueries.setAccessLinkLockdown(drizzle, artifactId, lockdownAt),
+    },
+    accessLinks: {
+      insert: (link) => accessLinkQueries.insert(drizzle, link),
+      findById: (id, workspaceId) => accessLinkQueries.findById(drizzle, id, workspaceId),
+      findByPublicId: (publicId) => accessLinkQueries.findByPublicId(drizzle, publicId),
+      listForArtifact: (artifactId) => accessLinkQueries.listForArtifact(drizzle, artifactId),
+      revoke: (id, revokedAt) => accessLinkQueries.revoke(drizzle, id, revokedAt),
+      updateExpiresAt: (id, expiresAt) => accessLinkQueries.updateExpiresAt(drizzle, id, expiresAt),
     },
     revisions: {
       insert: (revision) => revisionQueries.insert(drizzle, revision),

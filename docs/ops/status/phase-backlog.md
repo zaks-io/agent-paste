@@ -99,7 +99,7 @@ Recommended order:
 1. [x] Multi-revision artifact model and publish-update flow.
        This unlocks revision-pinned links, latest-moving links, retention of old
        revisions, bundle generation, and Live Updates.
-2. [ ] Access Link data model and signed URL codec.
+2. [x] Access Link data model and signed URL codec.
        Add `access_links`, fragment payload signing with `kid`, mint/re-mint,
        revoke, row expiration, and Access Link Lockdown state.
 3. [ ] Access Link resolve API and viewer.

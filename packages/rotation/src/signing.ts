@@ -1,4 +1,5 @@
 import type { Clock } from "@agent-paste/tokens";
+import { type AccessLinkSignedPayload, verifyAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { verifyContentToken } from "@agent-paste/tokens/content";
 import { verifyUploadToken } from "@agent-paste/tokens/upload-url";
@@ -49,6 +50,25 @@ export async function verifyUploadTokenWithKeyRing(
 ): Promise<Awaited<ReturnType<typeof verifyUploadToken>>> {
   for (const entry of ring.verifyEntries()) {
     const payload = await verifyUploadToken(token, entry.secret, clock);
+    if (payload) {
+      return payload;
+    }
+  }
+  return null;
+}
+
+export async function verifyAccessLinkBlobWithKeyRing(
+  input: { publicId: string; blob: string },
+  ring: KeyRing,
+  clock?: Clock,
+): Promise<AccessLinkSignedPayload | null> {
+  for (const entry of ring.verifyEntries()) {
+    const payload = await verifyAccessLinkBlob({
+      publicId: input.publicId,
+      blob: input.blob,
+      signingSecret: entry.secret,
+      ...(clock ? { clock } : {}),
+    });
     if (payload) {
       return payload;
     }

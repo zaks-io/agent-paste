@@ -36,14 +36,14 @@ Last updated: 2026-05-26.
 
 ## Planned But Absent
 
-| Planned item       | Earliest phase | Current state                                                                                 |
-| ------------------ | -------------- | --------------------------------------------------------------------------------------------- |
-| `apps/stream`      | Phase 4        | Does not exist. Needed for ADR 0069 Live Updates.                                             |
-| `packages/billing` | Post-launch    | Does not exist. Needed for ADR 0073/0074 once hosted billing is enabled.                      |
-| Access Link tables | Phase 4        | `access_links` and related signing-key/link lifecycle storage are absent.                     |
-| Jobs queues        | Phase 4        | No Cloudflare Queue bindings/consumers for `byte-purge`, `safety-scan`, or `bundle-generate`. |
-| Bundle state       | Phase 4        | No bundle status columns, R2 bundle writer, or Agent View bundle output.                      |
-| Safety warnings    | Phase 4/6      | No scanner/warning tables yet; ADR 0051 is still future work.                                 |
+| Planned item       | Earliest phase | Current state                                                                                                                          |
+| ------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/stream`      | Phase 4        | Does not exist. Needed for ADR 0069 Live Updates.                                                                                      |
+| `packages/billing` | Post-launch    | Does not exist. Needed for ADR 0073/0074 once hosted billing is enabled.                                                               |
+| Access Link tables | Phase 4        | `access_links` migration, lockdown column, signed-url codec, and mint/revoke helpers landed (AP-19). Resolve API/viewer still pending. |
+| Jobs queues        | Phase 4        | No Cloudflare Queue bindings/consumers for `byte-purge`, `safety-scan`, or `bundle-generate`.                                          |
+| Bundle state       | Phase 4        | No bundle status columns, R2 bundle writer, or Agent View bundle output.                                                               |
+| Safety warnings    | Phase 4/6      | No scanner/warning tables yet; ADR 0051 is still future work.                                                                          |
 
 ## Known Implementation Gaps
 

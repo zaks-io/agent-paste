@@ -370,6 +370,7 @@ function artifactRow(overrides: Record<string, unknown> = {}) {
     sizeBytes: 12,
     expiresAt: now,
     createdByApiKeyId: "key_1",
+    accessLinkLockdownAt: null,
     deletedAt: null,
     deleteReason: null,
     createdAt: now,

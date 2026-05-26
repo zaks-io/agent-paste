@@ -103,10 +103,30 @@ export type Artifact = {
   size_bytes: number;
   expires_at: string;
   created_by_api_key_id: string;
+  access_link_lockdown_at: string | null;
   deleted_at: string | null;
   delete_reason: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type AccessLinkType = "share" | "revision";
+
+export type AccessLinkCreatedByType = "api_key" | "member";
+
+export type AccessLink = {
+  id: string;
+  workspace_id: string;
+  artifact_id: string;
+  revision_id: string | null;
+  public_id: string;
+  type: AccessLinkType;
+  scopes_bitmask: number;
+  expires_at: string | null;
+  created_by_type: AccessLinkCreatedByType;
+  created_by_id: string;
+  created_at: string;
+  revoked_at: string | null;
 };
 
 export type UploadSession = {

@@ -1,4 +1,5 @@
 import type {
+  AccessLink,
   ApiKey,
   Artifact,
   OperationEvent,
@@ -23,6 +24,7 @@ export type LocalState = {
   uploadSessionFiles: Map<string, StoredFile>;
   operationEvents: Map<string, OperationEvent>;
   platformLockdowns: Map<string, PlatformLockdown>;
+  accessLinks: Map<string, AccessLink>;
 };
 
 export function createLocalState(): LocalState {
@@ -37,5 +39,6 @@ export function createLocalState(): LocalState {
     uploadSessionFiles: new Map(),
     operationEvents: new Map(),
     platformLockdowns: new Map(),
+    accessLinks: new Map(),
   };
 }

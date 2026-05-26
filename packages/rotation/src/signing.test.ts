@@ -1,9 +1,11 @@
+import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { mintContentToken } from "@agent-paste/tokens/content";
 import { mintUploadToken } from "@agent-paste/tokens/upload-url";
 import { describe, expect, it } from "vitest";
 import { KeyRing } from "./key-ring.js";
 import {
+  verifyAccessLinkBlobWithKeyRing,
   verifyAgentViewTokenWithKeyRing,
   verifyContentTokenWithKeyRing,
   verifyUploadTokenWithKeyRing,
@@ -47,6 +49,33 @@ describe("signing key overlap verification", () => {
 
     ring.dropKid(1);
     expect(await verifyAgentViewTokenWithKeyRing(legacyToken, ring)).toBeNull();
+  });
+
+  it("verifies access link blobs across signing key overlap", async () => {
+    const ring = KeyRing.single("access-link-v1", 1);
+    const exp = Date.now() + 60_000;
+    const blob = await mintAccessLinkBlob({
+      publicId: "0123456789ABCDEF",
+      kid: 1,
+      exp,
+      scopes: 1,
+      signingSecret: "access-link-v1",
+    });
+
+    ring.stageVerifyKey(2, "access-link-v2");
+    ring.promoteSigningKid(2);
+    expect(
+      await verifyAccessLinkBlobWithKeyRing({ publicId: "0123456789ABCDEF", blob }, ring, {
+        now: () => exp - 1,
+      }),
+    ).not.toBeNull();
+
+    ring.dropKid(1);
+    expect(
+      await verifyAccessLinkBlobWithKeyRing({ publicId: "0123456789ABCDEF", blob }, ring, {
+        now: () => exp - 1,
+      }),
+    ).toBeNull();
   });
 
   it("verifies upload tokens across upload signing key overlap", async () => {

@@ -1,4 +1,5 @@
 import type {
+  AccessLink,
   ApiKey,
   Artifact,
   OperationEvent,
@@ -85,6 +86,15 @@ export type Entities = {
     markDeleted(artifactId: string, deletedAt: string): Promise<void>;
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
+    setAccessLinkLockdown(artifactId: string, lockdownAt: string | null): Promise<boolean>;
+  };
+  accessLinks: {
+    insert(link: AccessLink): Promise<void>;
+    findById(id: string, workspaceId?: string): Promise<AccessLink | null>;
+    findByPublicId(publicId: string): Promise<AccessLink | null>;
+    listForArtifact(artifactId: string): Promise<AccessLink[]>;
+    revoke(id: string, revokedAt: string): Promise<boolean>;
+    updateExpiresAt(id: string, expiresAt: string | null): Promise<boolean>;
   };
   revisions: {
     insert(revision: Revision): Promise<void>;
