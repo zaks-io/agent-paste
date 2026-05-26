@@ -3,6 +3,7 @@ import type {
   Artifact,
   OperationEvent,
   PlatformLockdown,
+  Revision,
   StoredFile,
   UploadSession,
   Workspace,
@@ -58,17 +59,49 @@ export type Entities = {
     listFiltered(workspaceId?: string, status?: string): Promise<Artifact[]>;
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;
+    updatePublished(
+      artifactId: string,
+      input: {
+        revisionId: string;
+        title: string;
+        entrypoint: string;
+        fileCount: number;
+        sizeBytes: number;
+        expiresAt: string;
+        updatedAt: string;
+      },
+    ): Promise<void>;
+    updateStaging(
+      artifactId: string,
+      input: {
+        title: string;
+        entrypoint: string;
+        fileCount: number;
+        sizeBytes: number;
+        expiresAt: string;
+        updatedAt: string;
+      },
+    ): Promise<void>;
     markDeleted(artifactId: string, deletedAt: string): Promise<void>;
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
   };
+  revisions: {
+    insert(revision: Revision): Promise<void>;
+    findById(revisionId: string, workspaceId?: string): Promise<Revision | null>;
+    findDraftForArtifact(artifactId: string): Promise<Revision | null>;
+    listForArtifact(artifactId: string): Promise<Revision[]>;
+    nextRevisionNumber(artifactId: string): Promise<number>;
+    publish(input: { revisionId: string; revisionNumber: number; publishedAt: string }): Promise<boolean>;
+  };
   artifactFiles: {
     insert(artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string): Promise<void>;
-    listForArtifact(artifactId: string): Promise<StoredFile[]>;
+    listForArtifact(artifactId: string, revisionId?: string): Promise<StoredFile[]>;
   };
   uploadSessions: {
     insert(session: UploadSession): Promise<void>;
     findById(sessionId: string, workspaceId?: string): Promise<UploadSession | null>;
+    findByRevisionId(revisionId: string, workspaceId?: string): Promise<UploadSession | null>;
     markFinalized(sessionId: string, finalizedAt: string): Promise<void>;
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;

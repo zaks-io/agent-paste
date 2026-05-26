@@ -154,6 +154,16 @@ describe("cli command dispatch", () => {
         ],
       });
       const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 14,
+      });
+      const publish = vi.fn().mockResolvedValue({
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
@@ -165,6 +175,7 @@ describe("cli command dispatch", () => {
       const client = fakeClient({
         usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
         uploadSessions: { create, finalize },
+        revisions: { publish },
         putFile,
       });
 
@@ -183,6 +194,7 @@ describe("cli command dispatch", () => {
         "content-type": "text/html; charset=utf-8",
       });
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
+      expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey);
       expect(stdout).toHaveBeenCalledWith(
         expect.stringContaining(`Published artifact ${artifactId} revision ${revisionId}`),
       );
@@ -264,6 +276,10 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
     uploadSessions: {
       create: vi.fn(),
       finalize: vi.fn(),
+    },
+    revisions: {
+      publish: vi.fn(),
+      list: vi.fn(),
     },
     ...topLevelOverrides,
     admin: {

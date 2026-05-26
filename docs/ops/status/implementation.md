@@ -16,16 +16,16 @@ Last updated: 2026-05-25.
 | Component                 | Status                      | Notes                                                                                                                                                                                            |
 | ------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                                                                                      |
-| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs.                                                                      |
-| `apps/upload`             | Implemented                 | Session create, signed upload-worker PUTs, R2 writes, finalize, signed view/Agent View URL minting.                                                                                              |
+| `apps/api`                | Implemented                 | Public Agent View, admin routes, scheduled MVP cleanup, dashboard APIs, WorkOS callback/member provisioning, operator APIs, revision publish/list.                                               |
+| `apps/upload`             | Implemented                 | Session create (including update sessions), signed upload-worker PUTs, R2 writes, finalize to draft revision.                                                                                    |
 | `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.                                                                    |
-| `apps/cli`                | Implemented                 | `publish`, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                                                                                    |
+| `apps/cli`                | Implemented                 | `publish` (finalize + publish), optional `--artifact-id` updates, `whoami`, admin commands, `login`, `logout`, local credential storage, destructive `--yes` guards.                             |
 | `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Links remain (Phase 4). |
 | `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.                                                                              |
 | `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                                                                               |
 | `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces. Future MCP/Access Link/bundle schemas absent.                                                                            |
 | `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                                                                                     |
-| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters. Phase 4/billing tables are absent.                                                                                                     |
+| `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters, `revisions` table and publish-update flow. Phase 4 Access Link/billing/bundle/scanner persistence still absent.                        |
 | `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL token modules.                                                                                                                     |
 | `packages/auth`           | Implemented                 | Admin token HMAC, auth cache, scope registry, request IDs.                                                                                                                                       |
 | `packages/api-client`     | Implemented                 | CLI/web-facing client helpers, retry/idempotency/cursor handling, CLI key mint path.                                                                                                             |
@@ -55,8 +55,8 @@ Last updated: 2026-05-25.
   lockdown UI over the existing set/lift/list API.
 - `apps/web/src/routes/al.$publicId.tsx` is a client placeholder and posts to
   `/al-resolve`; no matching route or Access Link resolve API exists.
-- `packages/db` has current workspace/member/key/artifact/audit/lockdown state,
-  but no multi-revision, Access Link, billing, bundle, or scanner persistence.
+- `packages/db` has workspace/member/key/artifact/revision/audit/lockdown state,
+  but no Access Link, billing, bundle, or scanner persistence.
 
 ## Verification
 

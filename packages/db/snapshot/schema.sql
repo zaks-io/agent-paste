@@ -21,13 +21,13 @@ CREATE TABLE "artifact_files" (
 	"served_content_type" text NOT NULL,
 	"r2_key" text NOT NULL,
 	"uploaded_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "artifact_files_artifact_id_path_pk" PRIMARY KEY("artifact_id","path")
+	CONSTRAINT "artifact_files_artifact_id_revision_id_path_pk" PRIMARY KEY("artifact_id","revision_id","path")
 );
 
 CREATE TABLE "artifacts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
-	"revision_id" text NOT NULL,
+	"revision_id" text,
 	"status" text NOT NULL,
 	"title" text NOT NULL,
 	"entrypoint" text NOT NULL,
@@ -38,8 +38,7 @@ CREATE TABLE "artifacts" (
 	"deleted_at" timestamp with time zone,
 	"delete_reason" text,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "artifacts_revision_id_unique" UNIQUE("revision_id")
+	"updated_at" timestamp with time zone NOT NULL
 );
 
 CREATE TABLE "idempotency_records" (
@@ -80,6 +79,27 @@ CREATE TABLE "platform_lockdowns" (
 	"lifted_at" timestamp with time zone,
 	"lifted_by" text,
 	CONSTRAINT "platform_lockdowns_scope_check" CHECK ("platform_lockdowns"."scope" in ('workspace', 'artifact'))
+);
+
+CREATE TABLE "revisions" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"artifact_id" text NOT NULL,
+	"revision_number" integer,
+	"status" text NOT NULL,
+	"entrypoint" text NOT NULL,
+	"render_mode" text DEFAULT 'html' NOT NULL,
+	"file_count" integer NOT NULL,
+	"size_bytes" bigint NOT NULL,
+	"bundle_status" text DEFAULT 'disabled' NOT NULL,
+	"bundle_status_updated_at" timestamp with time zone,
+	"bytes_purge_enqueued_at" timestamp with time zone,
+	"created_by_api_key_id" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"published_at" timestamp with time zone,
+	CONSTRAINT "revisions_status_check" CHECK ("revisions"."status" in ('draft', 'published', 'retained')),
+	CONSTRAINT "revisions_render_mode_check" CHECK ("revisions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video')),
+	CONSTRAINT "revisions_bundle_status_check" CHECK ("revisions"."bundle_status" in ('pending', 'ready', 'failed', 'disabled'))
 );
 
 CREATE TABLE "upload_session_files" (
@@ -134,9 +154,13 @@ CREATE TABLE "workspaces" (
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "revisions" ADD CONSTRAINT "revisions_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
@@ -148,6 +172,10 @@ CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspac
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;
+CREATE INDEX "revisions_artifact_created_idx" ON "revisions" USING btree ("artifact_id","created_at");
+CREATE INDEX "revisions_workspace_idx" ON "revisions" USING btree ("workspace_id");
+CREATE UNIQUE INDEX "revisions_artifact_number_unique" ON "revisions" USING btree ("artifact_id","revision_number") WHERE "revisions"."revision_number" is not null;
+CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btree ("artifact_id") WHERE "revisions"."status" = 'draft';
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "workspace_members_workos_user_unique" ON "workspace_members" USING btree ("workos_user_id");

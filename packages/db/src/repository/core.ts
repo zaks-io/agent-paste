@@ -1,4 +1,4 @@
-import { buildAgentView, buildPublishResult } from "../agent-view.js";
+import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
 import {
@@ -8,6 +8,7 @@ import {
   MIN_AUTO_DELETION_DAYS,
   USAGE_POLICY,
 } from "../policy.js";
+import { toRevisionSummary } from "../queries/revisions.js";
 import {
   toApiKeySummary,
   toArtifactSummary,
@@ -23,6 +24,7 @@ import type {
   PlatformActor,
   PlatformLockdown,
   RepositoryOptions,
+  Revision,
   StoredFile,
   UploadSession,
   Workspace,
@@ -703,6 +705,7 @@ export class RepositoryCore implements Repository {
     actor: ApiActor;
     idempotencyKey: string;
     request: {
+      artifact_id?: string;
       title?: string;
       ttl_seconds?: number;
       entrypoint?: string;
@@ -720,16 +723,34 @@ export class RepositoryCore implements Repository {
       },
       async (entities) => {
         const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
-        validateUpload(files, input.request.entrypoint);
+        const isUpdate = Boolean(input.request.artifact_id);
+        let baseArtifact: Artifact | null = null;
+        if (isUpdate) {
+          const artifactId = input.request.artifact_id;
+          if (!artifactId) {
+            throw new Error("artifact_not_found");
+          }
+          baseArtifact = await entities.artifacts.findById(artifactId, input.actor.workspace_id);
+          if (!baseArtifact || baseArtifact.status !== "active") {
+            throw new Error("artifact_not_found");
+          }
+          const existingDraft = await entities.revisions.findDraftForArtifact(baseArtifact.id);
+          if (existingDraft) {
+            throw new Error("draft_revision_conflict");
+          }
+        }
+        const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
+        validateUpload(files, entrypoint);
         const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
+        const updateArtifactId = input.request.artifact_id;
         const session: UploadSession = {
           id: createId("upl"),
           workspace_id: input.actor.workspace_id,
-          artifact_id: createId("art"),
+          artifact_id: isUpdate && updateArtifactId ? updateArtifactId : createId("art"),
           revision_id: createId("rev"),
           status: "pending",
-          title: input.request.title ?? "untitled",
-          entrypoint: input.request.entrypoint ?? "index.html",
+          title: input.request.title ?? baseArtifact?.title ?? "untitled",
+          entrypoint,
           artifact_expires_at: new Date(
             new Date(input.now).getTime() + (input.request.ttl_seconds ?? USAGE_POLICY.default_ttl_seconds) * 1000,
           ).toISOString(),
@@ -817,26 +838,150 @@ export class RepositoryCore implements Repository {
             throw new Error("upload_incomplete");
           }
         }
-        await entities.uploadSessions.markFinalized(session.id, input.now);
-        const artifact: Artifact = {
-          id: session.artifact_id,
+        const existingArtifact = await entities.artifacts.findById(session.artifact_id, input.actor.workspace_id);
+        if (existingArtifact) {
+          const existingDraft = await entities.revisions.findDraftForArtifact(existingArtifact.id);
+          if (existingDraft && existingDraft.id !== session.revision_id) {
+            throw new Error("draft_revision_conflict");
+          }
+        } else {
+          const artifact: Artifact = {
+            id: session.artifact_id,
+            workspace_id: session.workspace_id,
+            revision_id: null,
+            status: "active",
+            title: session.title,
+            entrypoint: session.entrypoint,
+            file_count: session.file_count,
+            size_bytes: session.size_bytes,
+            expires_at: session.artifact_expires_at,
+            created_by_api_key_id: session.created_by_api_key_id,
+            deleted_at: null,
+            delete_reason: null,
+            created_at: input.now,
+            updated_at: input.now,
+          };
+          await entities.artifacts.insert(artifact);
+          await entities.operationEvents.insert({
+            actorType: "api_key",
+            actorId: input.actor.id,
+            action: "artifact.created",
+            targetType: "artifact",
+            targetId: artifact.id,
+            workspaceId: artifact.workspace_id,
+            details: {},
+            occurredAt: input.now,
+          });
+        }
+        const revision: Revision = {
+          id: session.revision_id,
           workspace_id: session.workspace_id,
-          revision_id: session.revision_id,
-          status: "active",
-          title: session.title,
+          artifact_id: session.artifact_id,
+          revision_number: null,
+          status: "draft",
           entrypoint: session.entrypoint,
+          render_mode: inferRenderMode(session.entrypoint),
           file_count: session.file_count,
           size_bytes: session.size_bytes,
-          expires_at: session.artifact_expires_at,
+          bundle_status: "disabled",
+          bundle_status_updated_at: null,
+          bytes_purge_enqueued_at: null,
           created_by_api_key_id: session.created_by_api_key_id,
-          deleted_at: null,
-          delete_reason: null,
           created_at: input.now,
-          updated_at: input.now,
+          published_at: null,
         };
-        await entities.artifacts.insert(artifact);
+        await entities.revisions.insert(revision);
+        await entities.uploadSessions.markFinalized(session.id, input.now);
         for (const file of files) {
-          await entities.artifactFiles.insert(artifact.id, artifact.revision_id, file, input.now);
+          await entities.artifactFiles.insert(session.artifact_id, session.revision_id, file, input.now);
+        }
+        await entities.operationEvents.insert({
+          actorType: "api_key",
+          actorId: input.actor.id,
+          action: "revision.draft_created",
+          targetType: "artifact",
+          targetId: session.artifact_id,
+          workspaceId: session.workspace_id,
+          details: { revision_id: session.revision_id, file_count: session.file_count },
+          occurredAt: input.now,
+        });
+        return buildFinalizeResult({
+          uploadSessionId: session.id,
+          artifactId: session.artifact_id,
+          revisionId: session.revision_id,
+          title: session.title,
+          entrypoint: session.entrypoint,
+          fileCount: session.file_count,
+          sizeBytes: session.size_bytes,
+        });
+      },
+    );
+  }
+
+  async publishRevision(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    revisionId: string;
+    now: string;
+  }) {
+    return this.uow.command(
+      {
+        actor: apiCommandActor(input.actor),
+        operation: "artifact.revision.publish",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now: input.now,
+      },
+      async (entities) => {
+        const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+        if (!artifact || artifact.status !== "active") {
+          throw new Error("artifact_not_found");
+        }
+        const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
+        if (!revision || revision.artifact_id !== artifact.id) {
+          throw new Error("revision_unpublished");
+        }
+        if (revision.status === "retained") {
+          throw new Error("revision_retained");
+        }
+        if (revision.status === "published") {
+          return buildPublishResult(
+            { ...artifact, revision_id: revision.id, entrypoint: revision.entrypoint },
+            revision.id,
+            undefined,
+            this.options,
+          );
+        }
+        if (revision.status !== "draft") {
+          throw new Error("revision_unpublished");
+        }
+        const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
+        if (!revisionFiles.some((file) => file.path === revision.entrypoint)) {
+          throw new Error("entrypoint_not_in_revision");
+        }
+        const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
+        const published = await entities.revisions.publish({
+          revisionId: revision.id,
+          revisionNumber,
+          publishedAt: input.now,
+        });
+        if (!published) {
+          throw new Error("revision_unpublished");
+        }
+        const sourceSession = await entities.uploadSessions.findByRevisionId(revision.id, input.actor.workspace_id);
+        await entities.artifacts.updatePublished(artifact.id, {
+          revisionId: revision.id,
+          title: sourceSession?.title ?? artifact.title,
+          entrypoint: revision.entrypoint,
+          fileCount: revision.file_count,
+          sizeBytes: revision.size_bytes,
+          expiresAt: artifact.expires_at,
+          updatedAt: input.now,
+        });
+        const updatedArtifact = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
+        if (!updatedArtifact) {
+          throw new Error("artifact_not_found");
         }
         await entities.operationEvents.insert({
           actorType: "api_key",
@@ -845,39 +990,77 @@ export class RepositoryCore implements Repository {
           targetType: "artifact",
           targetId: artifact.id,
           workspaceId: artifact.workspace_id,
-          details: { revision_id: artifact.revision_id, file_count: artifact.file_count },
+          details: { revision_id: revision.id, revision_number: revisionNumber, file_count: revision.file_count },
           occurredAt: input.now,
         });
-        return buildPublishResult(artifact, session.id, this.options);
+        return buildPublishResult(updatedArtifact, revision.id, undefined, this.options);
       },
     );
   }
 
+  async listRevisions(input: { actor: ApiActor; artifactId: string }) {
+    return this.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
+      const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+      if (!artifact) {
+        return null;
+      }
+      const revisions = await entities.revisions.listForArtifact(artifact.id);
+      return {
+        artifact_id: artifact.id,
+        items: revisions.map(toRevisionSummary),
+        page_info: { next_cursor: null, has_more: false },
+      };
+    });
+  }
+
   async getPublicAgentView(input: { token: string; contentBaseUrl: string }) {
-    const artifactId = input.token.split(".")[0] ?? input.token;
+    const dotIndex = input.token.indexOf(".");
+    const artifactId = dotIndex === -1 ? input.token : input.token.slice(0, dotIndex);
+    const requestedRevisionId = dotIndex === -1 ? undefined : input.token.slice(dotIndex + 1);
     return this.uow.read(PLATFORM_SCOPE, async (entities) => {
       const artifact = await entities.artifacts.findById(artifactId);
       if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
         return null;
       }
-      const files = await entities.artifactFiles.listForArtifact(artifact.id);
-      return buildAgentView(artifact, files, input.contentBaseUrl);
+      const revisionId = requestedRevisionId ?? artifact.revision_id;
+      if (!revisionId) {
+        return null;
+      }
+      const revision = await entities.revisions.findById(revisionId);
+      if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
+        return null;
+      }
+      const viewArtifact =
+        revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
+      const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
     });
   }
 
   async getAgentView(input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string }) {
     return this.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-      if (
-        !artifact ||
-        artifact.status !== "active" ||
-        (input.revisionId && artifact.revision_id !== input.revisionId) ||
-        new Date(artifact.expires_at).getTime() <= Date.now()
-      ) {
+      if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
         return null;
       }
-      const files = await entities.artifactFiles.listForArtifact(artifact.id);
-      return buildAgentView(artifact, files, input.contentBaseUrl);
+      const revisionId = input.revisionId ?? artifact.revision_id;
+      if (!revisionId) {
+        return null;
+      }
+      let revisionEntrypoint: string | undefined;
+      if (input.revisionId) {
+        const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
+        if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
+          return null;
+        }
+        revisionEntrypoint = revision.entrypoint;
+      }
+      const viewArtifact =
+        revisionEntrypoint && input.revisionId !== artifact.revision_id
+          ? { ...artifact, entrypoint: revisionEntrypoint }
+          : artifact;
+      const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
     });
   }
 
@@ -950,7 +1133,8 @@ export class RepositoryCore implements Repository {
       if (!artifact) {
         return null;
       }
-      const files = await entities.artifactFiles.listForArtifact(artifact.id);
+      const revisionId = artifact.revision_id;
+      const files = revisionId ? await entities.artifactFiles.listForArtifact(artifact.id, revisionId) : [];
       const eventIds = await entities.operationEvents.listIdsForTarget(artifact.id);
       return {
         ...toArtifactSummary(artifact),

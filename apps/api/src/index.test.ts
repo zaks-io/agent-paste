@@ -1906,6 +1906,148 @@ describe("api worker", () => {
     });
   });
 
+  it("lists and publishes revisions for authenticated API keys", async () => {
+    const publishCalls: unknown[] = [];
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "content-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      API_BASE_URL: "https://api.test",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish", "read"] };
+        },
+      },
+      DB: operatorDbForTests({
+        async listRevisions() {
+          return {
+            artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            items: [
+              {
+                revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+                revision_number: 1,
+                status: "published",
+                entrypoint: "index.html",
+                render_mode: "html",
+                file_count: 1,
+                size_bytes: 12,
+                created_at: "2026-01-01T00:00:00.000Z",
+                published_at: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+            page_info: { next_cursor: null, has_more: false },
+          };
+        },
+        async publishRevision(input) {
+          publishCalls.push(input);
+          return {
+            artifact_id: input.artifactId,
+            revision_id: input.revisionId,
+            title: "Demo",
+            view_url: "https://content.test/v/art.rev/index.html",
+            agent_view_url: "https://api.test/v1/public/agent-view/art.rev",
+            expires_at: "2026-02-01T00:00:00.000Z",
+          };
+        },
+      }),
+    };
+
+    const listResponse = await handleRequest(
+      new Request("https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions", {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+    expect(listResponse.status).toBe(200);
+    await expect(listResponse.json()).resolves.toMatchObject({
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      items: [{ revision_number: 1 }],
+    });
+
+    const publishResponse = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/publish",
+        { method: "POST", headers: { authorization: "Bearer ok", "idempotency-key": "idem-rev" } },
+      ),
+      env,
+    );
+    expect(publishResponse.status).toBe(200);
+    await expect(publishResponse.json()).resolves.toMatchObject({
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    });
+    expect(publishCalls).toEqual([
+      expect.objectContaining({
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        idempotencyKey: "idem-rev",
+      }),
+    ]);
+
+    const missingResponse = await handleRequest(
+      new Request("https://api.test/v1/artifacts/art_missing/revisions", {
+        headers: { authorization: "Bearer ok" },
+      }),
+      {
+        ...env,
+        DB: operatorDbForTests({
+          async listRevisions() {
+            return null;
+          },
+        }),
+      },
+    );
+    expect(missingResponse.status).toBe(404);
+
+    const conflictResponse = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/publish",
+        { method: "POST", headers: { authorization: "Bearer ok", "idempotency-key": "idem-conflict" } },
+      ),
+      {
+        ...env,
+        DB: operatorDbForTests({
+          async publishRevision() {
+            throw new Error("draft_revision_conflict");
+          },
+        }),
+      },
+    );
+    expect(conflictResponse.status).toBe(409);
+    await expect(conflictResponse.json()).resolves.toMatchObject({ error: { code: "draft_revision_conflict" } });
+
+    const retainedResponse = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/publish",
+        { method: "POST", headers: { authorization: "Bearer ok", "idempotency-key": "idem-retained" } },
+      ),
+      {
+        ...env,
+        DB: operatorDbForTests({
+          async publishRevision() {
+            throw new Error("revision_retained");
+          },
+        }),
+      },
+    );
+    expect(retainedResponse.status).toBe(410);
+
+    const entrypointResponse = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/publish",
+        { method: "POST", headers: { authorization: "Bearer ok", "idempotency-key": "idem-entrypoint" } },
+      ),
+      {
+        ...env,
+        DB: operatorDbForTests({
+          async publishRevision() {
+            throw new Error("entrypoint_not_in_revision");
+          },
+        }),
+      },
+    );
+    expect(entrypointResponse.status).toBe(422);
+  });
+
   it("returns authenticated latest and revision Agent View with signed content URLs", async () => {
     const seen: unknown[] = [];
     const env: Env = {

@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "./agent-view.js";
+import type { Artifact, StoredFile } from "./types.js";
+
+const artifact: Artifact = {
+  id: "art_1",
+  workspace_id: "ws_1",
+  revision_id: "rev_1",
+  status: "active",
+  title: "Demo",
+  entrypoint: "docs/read me.md",
+  file_count: 1,
+  size_bytes: 12,
+  expires_at: "2026-02-01T00:00:00.000Z",
+  created_by_api_key_id: "key_1",
+  deleted_at: null,
+  delete_reason: null,
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+};
+
+const file: StoredFile = {
+  workspace_id: "ws_1",
+  artifact_id: "art_1",
+  revision_id: "rev_1",
+  path: "docs/read me.md",
+  size_bytes: 12,
+  content_type: "text/markdown",
+  r2_key: "r2/docs/read me.md",
+  uploaded_at: "2026-01-01T00:00:00.000Z",
+};
+
+describe("agent-view helpers", () => {
+  it("builds agent view and publish URLs with encoded paths", () => {
+    const view = buildAgentView(artifact, "rev_2", [file], "https://content.test/");
+    expect(view.revision_id).toBe("rev_2");
+    expect(view.view_url).toBe("https://content.test/v/art_1.rev_2/docs/read%20me.md");
+    expect(view.files[0]?.url).toContain("read%20me.md");
+
+    expect(
+      buildPublishResult(artifact, "rev_2", "upl_1", {
+        contentBaseUrl: "https://content.test",
+        apiBaseUrl: "https://api.test",
+      }),
+    ).toMatchObject({
+      upload_session_id: "upl_1",
+      view_url: "https://content.test/v/art_1.rev_2/docs/read%20me.md",
+      agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_2",
+    });
+    expect(
+      buildPublishResult(artifact, "rev_2", undefined, {
+        contentBaseUrl: "https://content.test",
+        apiBaseUrl: "https://api.test",
+      }),
+    ).not.toHaveProperty("upload_session_id");
+  });
+
+  it("builds finalize draft metadata", () => {
+    expect(
+      buildFinalizeResult({
+        uploadSessionId: "upl_1",
+        artifactId: "art_1",
+        revisionId: "rev_1",
+        title: "Demo",
+        entrypoint: "index.html",
+        fileCount: 1,
+        sizeBytes: 12,
+      }),
+    ).toEqual({
+      upload_session_id: "upl_1",
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      status: "draft",
+      title: "Demo",
+      entrypoint: "index.html",
+      file_count: 1,
+      size_bytes: 12,
+    });
+  });
+
+  it.each([
+    ["index.html", "html"],
+    ["README.md", "markdown"],
+    ["notes.markdown", "markdown"],
+    ["photo.png", "image"],
+    ["clip.mp4", "video"],
+    ["audio.mp3", "audio"],
+    ["plain.txt", "text"],
+  ] as const)("infers render mode %s -> %s", (entrypoint, renderMode) => {
+    expect(inferRenderMode(entrypoint)).toBe(renderMode);
+  });
+});
