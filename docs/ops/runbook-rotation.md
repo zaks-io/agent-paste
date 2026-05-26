@@ -68,7 +68,7 @@ Procedure (staged overlap — existing URLs keep working until you drop kid `1`)
 
 1. Pick a maintenance window. Plan for at least the longest content-token TTL (default 15 minutes) plus operator buffer before dropping kid `1`.
 2. Generate a new high-entropy base64url value (`secret-v2`) and store it in the password manager.
-3. **Stage verify-only:** add the new secret to the verifier without flipping signers:
+3. **Stage verify-only:** add the new secret to every worker that signs or verifies content tokens without flipping signers:
 
    ```sh
    wrangler secret put CONTENT_SIGNING_SECRET_V2 --cwd apps/content --env preview
@@ -80,7 +80,7 @@ Procedure (staged overlap — existing URLs keep working until you drop kid `1`)
 
 4. **Flip signers:** set `CONTENT_SIGNING_KID` to `v2` in Wrangler vars for `api`, `upload`, and `content`, then deploy those Workers so new URLs mint with kid `2`. Keep `CONTENT_SIGNING_SECRET` (kid `1`) bound on all three Workers during overlap.
 5. **Drain:** wait until no in-flight content token signed with kid `1` can still be valid (max TTL).
-6. **Drop old kid (promote, then unbind `_V2` only):** after kid `1` tokens have drained, do **not** remove or unbind the primary `CONTENT_SIGNING_SECRET` while `CONTENT_SIGNING_KID` still points at `v2`. Promote the v2 value into the primary secret name on `api`, `upload`, and `content`; reset `CONTENT_SIGNING_KID` to `v1`; deploy all three Workers; verify runtime consistency (hosted smoke, spot-check a freshly minted URL); only then delete `CONTENT_SIGNING_SECRET_V2` from each Worker.
+6. **Drop old kid (promote, then unbind `_V2` only):** after kid `1` tokens have drained, do **not** remove or unbind the primary `CONTENT_SIGNING_SECRET` while `CONTENT_SIGNING_KID` still points at `v2`. Promote the v2 value into `CONTENT_SIGNING_SECRET` on `api`, `upload`, and `content`; reset `CONTENT_SIGNING_KID` to `v1`; deploy all three Workers; verify runtime consistency (hosted smoke, spot-check a freshly minted URL); only then delete `CONTENT_SIGNING_SECRET_V2` from each Worker.
 7. Run hosted smoke. Confirm new publish output fetches through `content`.
 8. Tell active operators that URLs minted before the overlap window eventually expire at token `exp` or when kid `1` is dropped.
 
@@ -122,12 +122,12 @@ Procedure (non-disruptive overlap):
    Keep `API_KEY_PEPPER_CURRENT_KID` at `v1`.
 
 3. **Flip minting:** set `API_KEY_PEPPER_CURRENT_KID` to `v2` in Wrangler vars for `api` and `upload`, then deploy. New API Keys persist `pepper_kid = 2`. Do not set `API_KEY_PEPPER_CURRENT_KID` to `v2` until `API_KEY_PEPPER_V2` is bound on both Workers.
-4. **Admin token:** generate a new `ADMIN_TOKEN` and compute `ADMIN_TOKEN_HASH` with `pepper-v2` (HMAC-SHA-256 via `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs`). Write `ADMIN_TOKEN_HASH` to `api`. Until kid `1` is dropped, the old admin token still works if its hash was minted with `pepper-v1` and `API_KEY_PEPPER_V1` remains bound.
+4. **Admin token (optional timing):** either generate a new `ADMIN_TOKEN` now and compute `ADMIN_TOKEN_HASH` with `pepper-v2` (HMAC-SHA-256 via `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs`), or delay until after the flip to keep the existing admin token during overlap. Until kid `1` is dropped, `api` verifies `ADMIN_TOKEN_HASH` against every active pepper, so the old admin token keeps working while `API_KEY_PEPPER_V1` remains bound.
 5. **Drain:** wait for operational confidence that no API Keys under `pepper_kid = 1` are still needed (or reissue long-lived keys).
-6. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, promote the v2 pepper into `API_KEY_PEPPER_V1` on `api` and `upload`, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, deploy both Workers, verify runtime consistency, and only then delete `API_KEY_PEPPER_V2`. Do not remove or unbind `API_KEY_PEPPER_V1` before promotion and deploy complete.
+6. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, promote the v2 pepper into `API_KEY_PEPPER_V1` on `api` and `upload`, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, deploy both Workers, verify runtime consistency, and only then delete `API_KEY_PEPPER_V2`. Do not remove or unbind `API_KEY_PEPPER_V1` while `API_KEY_PEPPER_CURRENT_KID` still points at `v2`.
 7. Run hosted smoke with the new admin token when applicable.
 
-Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V1` on both Workers, rehash `ADMIN_TOKEN_HASH`, and reissue keys. Do not set `API_KEY_PEPPER_V2` in this path.
+Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V1` on both Workers, leave `API_KEY_PEPPER_V2` unset, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, rehash `ADMIN_TOKEN_HASH`, and reissue keys.
 
 ## Rotate Admin Token Only
 

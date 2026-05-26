@@ -46,12 +46,12 @@ export async function verifyAdminTokenAgainstPeppers(
   expectedHmac: string,
   peppers: readonly string[],
 ): Promise<boolean> {
+  let verified = false;
   for (const pepper of peppers) {
-    if (await verifyAdminToken(token, expectedHmac, pepper)) {
-      return true;
-    }
+    const matches = await verifyAdminToken(token, expectedHmac, pepper);
+    verified = matches || verified;
   }
-  return false;
+  return verified;
 }
 
 export async function cacheKeyForSecret(value: string): Promise<string> {

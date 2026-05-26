@@ -7,7 +7,11 @@ export {
   type RotationPlaybookState,
   type RotationStage,
 } from "./playbook.js";
-export { verifyContentTokenWithKeyRing, verifyUploadTokenWithKeyRing } from "./signing.js";
+export {
+  verifyAgentViewTokenWithKeyRing,
+  verifyContentTokenWithKeyRing,
+  verifyUploadTokenWithKeyRing,
+} from "./signing.js";
 export {
   contentSigningRingFromEnv,
   pepperRingFromWorkerEnv,

@@ -4,13 +4,15 @@ export function parseKidLabel(label: string | undefined, fallback: number): numb
     return fallback;
   }
   const trimmed = label.trim().toLowerCase();
-  const versionMatch = trimmed.match(/^v(\d+)$/);
+  const versionMatch = trimmed.match(/^v([1-9]\d*)$/);
   if (versionMatch?.[1]) {
-    return Number.parseInt(versionMatch[1], 10);
+    const parsed = Number.parseInt(versionMatch[1], 10);
+    return parsed > 0 ? parsed : fallback;
   }
-  const numeric = Number.parseInt(trimmed, 10);
-  if (Number.isInteger(numeric) && numeric > 0) {
-    return numeric;
+  const numericMatch = trimmed.match(/^\d+$/);
+  if (numericMatch) {
+    const parsed = Number.parseInt(numericMatch[0], 10);
+    return parsed > 0 ? parsed : fallback;
   }
   return fallback;
 }
