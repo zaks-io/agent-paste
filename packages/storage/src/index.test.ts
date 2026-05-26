@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { contentTypeForPath, responseHeadersForPath } from "./index";
+import {
+  BASE_CONTENT_SECURITY_POLICY,
+  CONTENT_SECURITY_HEADERS,
+  contentTypeForPath,
+  responseHeadersForPath,
+} from "./index";
 
 describe("storage helpers", () => {
   it("maps known extensions to MIME types", () => {
@@ -23,12 +28,22 @@ describe("storage helpers", () => {
   it("adds defensive response headers", () => {
     expect(responseHeadersForPath("app.js")).toMatchObject({
       "Content-Type": "application/javascript; charset=utf-8",
-      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
+      "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Resource-Policy": "cross-origin",
+      "Permissions-Policy": CONTENT_SECURITY_HEADERS["Permissions-Policy"],
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
     });
     expect(responseHeadersForPath("payload.bin")).toMatchObject({
       "Content-Type": "application/octet-stream",
+      "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
       "Content-Disposition": 'attachment; filename="payload.bin"',
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "Permissions-Policy": CONTENT_SECURITY_HEADERS["Permissions-Policy"],
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
     });
   });
 });

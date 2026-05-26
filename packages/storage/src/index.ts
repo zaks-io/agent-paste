@@ -53,12 +53,7 @@ export const CONTENT_SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
-export const SECURITY_HEADERS = {
-  "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
-  "Cross-Origin-Resource-Policy": "cross-origin",
-  "Referrer-Policy": "no-referrer",
-  "X-Content-Type-Options": "nosniff",
-} as const;
+export const SECURITY_HEADERS = CONTENT_SECURITY_HEADERS;
 
 export type MimeExtension = keyof typeof MIME_TYPES_BY_EXTENSION;
 export type ContentDisposition = "inline" | "attachment";
@@ -98,7 +93,7 @@ export function attachmentFilename(path: string): string {
 export function responseHeadersForPath(path: string, extra: Record<string, string> = {}): Record<string, string> {
   const served = servedContentForPath(path);
   return {
-    ...SECURITY_HEADERS,
+    ...CONTENT_SECURITY_HEADERS,
     "Content-Type": served.contentType,
     "Content-Security-Policy": served.csp,
     ...(served.disposition === "attachment"
