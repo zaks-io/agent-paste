@@ -64,7 +64,9 @@ describe("access link signed blob codec", () => {
       scopes: ACCESS_LINK_SCOPE.VIEW_ARTIFACT,
       signingSecret: SECRET_V1,
     });
-    const tampered = `${blob.slice(0, -1)}x`;
+    const tamperedBytes = base64UrlDecode(blob);
+    tamperedBytes[0] ^= 0xff;
+    const tampered = base64UrlEncode(tamperedBytes);
 
     expect(
       await verifyAccessLinkBlob({
@@ -211,27 +213,34 @@ describe("access link signed blob codec", () => {
       scopes: ACCESS_LINK_SCOPE.VIEW_ARTIFACT,
       signingSecret: SECRET_V1,
     });
-    const bytes = base64UrlDecode(blob);
-    bytes[1] = 0;
-    const kidZero = base64UrlEncode(bytes);
+
+    const kidZeroBytes = base64UrlDecode(blob);
+    kidZeroBytes[1] = 0;
     expect(
       await verifyAccessLinkBlob({
         publicId: PUBLIC_ID,
-        blob: kidZero,
+        blob: base64UrlEncode(kidZeroBytes),
         signingSecret: SECRET_V1,
         clock: { now: () => exp - 1 },
       }),
     ).toBeNull();
 
-    const short = base64UrlEncode(bytes.slice(0, 20));
-    expect(await verifyAccessLinkBlob({ publicId: PUBLIC_ID, blob: short, signingSecret: SECRET_V1 })).toBeNull();
-    expect(accessLinkBlobLooksValid("%%%")).toBe(false);
-
-    bytes.set(expectedSignatureCorrupt(bytes), 12);
+    const shortBytes = base64UrlDecode(blob);
     expect(
       await verifyAccessLinkBlob({
         publicId: PUBLIC_ID,
-        blob: base64UrlEncode(bytes),
+        blob: base64UrlEncode(shortBytes.slice(0, 20)),
+        signingSecret: SECRET_V1,
+      }),
+    ).toBeNull();
+    expect(accessLinkBlobLooksValid("%%%")).toBe(false);
+
+    const corruptBytes = base64UrlDecode(blob);
+    corruptBytes.set(expectedSignatureCorrupt(corruptBytes), 12);
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        blob: base64UrlEncode(corruptBytes),
         signingSecret: SECRET_V1,
         clock: { now: () => exp - 1 },
       }),
