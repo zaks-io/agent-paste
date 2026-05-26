@@ -4,6 +4,8 @@ Agent-paste is a platform for agents to publish durable, shareable work products
 
 This repository is pre-launch. It is not deployed for general users, but the core hosted Workers, CLI, WorkOS-backed web dashboard surface, shared contracts, database layer, and local/hosted smoke paths are implemented and actively changing.
 
+The public npm package namespace reserved for CLI distribution is `@zaks-io/agent-paste`. The installed command remains `agent-paste`.
+
 This README is the human entry point. Agents should start with [`AGENTS.md`](./AGENTS.md), then follow the reading order it names.
 
 ## Source of Truth
