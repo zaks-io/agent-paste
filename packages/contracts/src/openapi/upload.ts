@@ -60,7 +60,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
     method: "post",
     path: "/v1/upload-sessions/{upload_session_id}/finalize",
     operationId: "uploadSessions.finalize",
-    summary: "Finalize an upload session and publish the artifact.",
+    summary: "Finalize an upload session and create a draft revision.",
     security: [{ ApiKeyBearer: [] }],
     request: {
       params: params({

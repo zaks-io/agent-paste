@@ -1399,7 +1399,7 @@
     "/v1/upload-sessions/{upload_session_id}/finalize": {
       "post": {
         "operationId": "uploadSessions.finalize",
-        "summary": "Finalize an upload session and publish the artifact.",
+        "summary": "Finalize an upload session and create a draft revision.",
         "security": [
           {
             "ApiKeyBearer": []

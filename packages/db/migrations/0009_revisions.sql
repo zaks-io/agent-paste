@@ -62,6 +62,10 @@ alter table artifact_files add constraint artifact_files_pkey primary key (artif
 alter table artifacts drop constraint if exists artifacts_revision_id_key;
 alter table artifacts alter column revision_id drop not null;
 
+alter table artifact_files drop constraint if exists artifact_files_revision_id_revisions_id_fk;
+alter table artifact_files add constraint artifact_files_revision_id_revisions_id_fk
+  foreign key (revision_id) references revisions(id) on delete cascade;
+
 create index if not exists revisions_artifact_created_idx
   on revisions(artifact_id, created_at desc);
 create unique index if not exists revisions_artifact_number_unique

@@ -188,7 +188,9 @@ export const artifactFiles = pgTable(
     artifactId: text("artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "cascade" }),
-    revisionId: text("revision_id").notNull(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => revisions.id, { onDelete: "cascade" }),
     path: text("path").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     servedContentType: text("served_content_type").notNull(),

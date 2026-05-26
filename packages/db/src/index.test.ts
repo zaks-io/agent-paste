@@ -1202,6 +1202,24 @@ describe("LocalRepository", () => {
     ).rejects.toThrow("artifact_not_found");
   });
 
+  it("inherits artifact title and entrypoint on update sessions when omitted", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "kept-title", "2026-01-01T00:00:01.000Z");
+    const updateSession = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-inherit",
+      request: {
+        artifact_id: first.artifact_id,
+        files: [{ path: "index.html", size_bytes: 24 }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    expect(repo.uploadSessions.get(updateSession.upload_session_id)).toMatchObject({
+      title: "kept-title",
+      entrypoint: "index.html",
+    });
+  });
+
   it("reads agent view for a specific published revision", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const first = await publishLocalArtifact(repo, actor, "rev-a", "2030-01-01T00:00:01.000Z");

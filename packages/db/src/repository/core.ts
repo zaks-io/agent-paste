@@ -723,23 +723,25 @@ export class RepositoryCore implements Repository {
       },
       async (entities) => {
         const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
-        validateUpload(files, input.request.entrypoint);
-        const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
         const isUpdate = Boolean(input.request.artifact_id);
+        let baseArtifact: Artifact | null = null;
         if (isUpdate) {
           const artifactId = input.request.artifact_id;
           if (!artifactId) {
             throw new Error("artifact_not_found");
           }
-          const artifact = await entities.artifacts.findById(artifactId, input.actor.workspace_id);
-          if (!artifact || artifact.status !== "active") {
+          baseArtifact = await entities.artifacts.findById(artifactId, input.actor.workspace_id);
+          if (!baseArtifact || baseArtifact.status !== "active") {
             throw new Error("artifact_not_found");
           }
-          const existingDraft = await entities.revisions.findDraftForArtifact(artifact.id);
+          const existingDraft = await entities.revisions.findDraftForArtifact(baseArtifact.id);
           if (existingDraft) {
             throw new Error("draft_revision_conflict");
           }
         }
+        const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
+        validateUpload(files, entrypoint);
+        const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
         const updateArtifactId = input.request.artifact_id;
         const session: UploadSession = {
           id: createId("upl"),
@@ -747,8 +749,8 @@ export class RepositoryCore implements Repository {
           artifact_id: isUpdate && updateArtifactId ? updateArtifactId : createId("art"),
           revision_id: createId("rev"),
           status: "pending",
-          title: input.request.title ?? "untitled",
-          entrypoint: input.request.entrypoint ?? "index.html",
+          title: input.request.title ?? baseArtifact?.title ?? "untitled",
+          entrypoint,
           artifact_expires_at: new Date(
             new Date(input.now).getTime() + (input.request.ttl_seconds ?? USAGE_POLICY.default_ttl_seconds) * 1000,
           ).toISOString(),
