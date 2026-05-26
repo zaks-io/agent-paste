@@ -13,15 +13,15 @@ Last updated: 2026-05-26.
 
 ## Deployed / Routed Workers
 
-| Worker surface | Current status                                                                                |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                                |
-| `api`          | Preview/production deployed; owns control plane, web APIs, admin APIs, scheduled MVP cleanup. |
-| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                              |
-| `content`      | Preview/production deployed; owns `usercontent` content reads.                                |
-| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`.     |
-| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                                |
-| `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                                |
+| Worker surface | Current status                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                                   |
+| `api`          | Preview/production deployed; owns control plane, web APIs, operator APIs, scheduled MVP cleanup. |
+| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                                 |
+| `content`      | Preview/production deployed; owns `usercontent` content reads.                                   |
+| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`.        |
+| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                                   |
+| `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                                   |
 
 ## Secrets
 
@@ -32,9 +32,8 @@ Last updated: 2026-05-26.
 | ------------------------ | -------------------- | ---------------------------------------------------------------------------------------------- |
 | `CONTENT_SIGNING_SECRET` | api, upload, content | Active content-token and Agent View signing secret.                                            |
 | `UPLOAD_SIGNING_SECRET`  | upload               | Active upload PUT token signing secret.                                                        |
-| `API_KEY_PEPPER_V1`      | api, upload          | Active API-key/admin-token HMAC pepper.                                                        |
-| `ADMIN_TOKEN`            | operator only        | Printed once; store in password manager.                                                       |
-| `ADMIN_TOKEN_HASH`       | api                  | HMAC of `ADMIN_TOKEN`.                                                                         |
+| `API_KEY_PEPPER_V1`      | api, upload          | Active API-key HMAC pepper.                                                                    |
+| `SMOKE_HARNESS_SECRET`   | api (preview/PR)     | Non-production smoke harness only; never set on production.                                    |
 | `WORKOS_API_KEY`         | api, web             | WorkOS server-side API credential.                                                             |
 | `WORKOS_CLIENT_ID`       | api, web             | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                     |
 | `WORKOS_COOKIE_PASSWORD` | web                  | WorkOS AuthKit sealed-session password.                                                        |
@@ -66,23 +65,22 @@ Deferred secrets not created for the current app:
   session access token.
 - No new CNAME is needed for the current path-based Access setup. A dedicated
   admin/operator hostname remains optional future work if the surface grows.
-- The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
-  `/admin/*`. Retire it once Cloudflare Access + WorkOS operator routes cover
-  the remaining admin operations. The AP-12 route-by-route migration plan exists
-  at [`docs/ops/ap-12-migration-plan.md`](../ap-12-migration-plan.md); execution
-  is still needed for workspace/API-key bootstrap, artifact inspection/deletion,
-  cleanup, and operation-event browsing.
-- Legacy admin-token routes and public Agent View now use contract-declared
-  rate limits (`actor` for `/admin/*`, `artifact` for public Agent View) via the
-  shared `ARTIFACT_RATE_LIMIT` / `ACTOR_RATE_LIMIT` bindings on `api`.
+- Legacy `ADMIN_TOKEN` `/admin/*` routes and CLI admin verbs were removed in
+  AP-13. Operator work uses WorkOS + `/v1/web/admin/*`; hosted smokes use
+  `SMOKE_HARNESS_SECRET` (preview/PR) or `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`
+  (production).
+- Cross-workspace operator artifact/event browsing remains a future gap; see
+  [`docs/ops/ap-12-migration-plan.md`](../ap-12-migration-plan.md).
+- Public Agent View uses contract-declared artifact rate limits via
+  `ARTIFACT_RATE_LIMIT` on `api`.
 
 ## GitHub / CI
 
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `PRODUCTION_DATABASE_URL`,
   `NEON_API_KEY`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`, and
-  `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` are present or proven by successful
-  workflows.
+  `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, and preview/PR smoke harness secrets
+  are present or proven by successful workflows.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
 - `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
   already reserved by `@zaks-io/agent-paste@0.0.0`.
@@ -103,8 +101,6 @@ Deferred secrets not created for the current app:
 
 - Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
   for the current path-based Access gate.
-- Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
-- Execute the route-by-route migration plan for legacy `/admin/*` functionality.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.

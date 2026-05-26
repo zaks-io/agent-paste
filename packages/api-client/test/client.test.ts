@@ -161,82 +161,6 @@ describe("ApiClient", () => {
     expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_web_key");
   });
 
-  it("sends admin requests to the admin base URL with admin-token auth", async () => {
-    const calls: Request[] = [];
-    const responses = [
-      workspaceDetail(),
-      { data: [workspaceDetail()], page_info: pageInfo },
-      createApiKeyResponse(),
-      { data: [apiKeySummary()], page_info: pageInfo },
-      {
-        api_key: { ...apiKeySummary(), revoked_at: "2026-01-02T00:00:00.000Z" },
-        revoked_at: "2026-01-02T00:00:00.000Z",
-      },
-      { data: [artifactSummary()], page_info: pageInfo },
-      { ...artifactSummary(), files: [], operation_event_ids: [] },
-      { artifact_id: artifactId, deleted_at: "2026-01-03T00:00:00.000Z" },
-      {
-        dry_run: true,
-        expired_artifacts: 0,
-        expired_upload_sessions: 0,
-        deleted_r2_objects: 0,
-        occurred_at: "2026-01-04T00:00:00.000Z",
-      },
-      {
-        data: [
-          {
-            id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-            workspace_id: workspaceId,
-            actor_type: "admin",
-            actor_id: "operator",
-            action: "cleanup.run",
-            target_type: "cleanup",
-            target_id: "manual",
-            details: {},
-            request_id: null,
-            occurred_at: "2026-01-04T00:00:00.000Z",
-          },
-        ],
-        page_info: pageInfo,
-      },
-    ];
-    const client = new ApiClient({
-      adminToken: "admin-secret",
-      adminBaseUrl: "https://admin.example.test/",
-      fetch: async (input, init) => {
-        calls.push(new Request(input, init));
-        return Response.json(responses.shift());
-      },
-    });
-
-    await client.admin.workspaces.create({ email: "user@example.com", name: "User" }, "idem_ws");
-    await client.admin.workspaces.list({ limit: 10 });
-    await client.admin.apiKeys.create(workspaceId, { name: "Default" }, "idem_key");
-    await client.admin.apiKeys.list({ cursor: undefined, limit: 5 });
-    await client.admin.apiKeys.revoke(apiKeyId, "idem_revoke");
-    await client.admin.artifacts.list({ status: "active", workspace: undefined, ignored: null });
-    await client.admin.artifacts.get(artifactId);
-    await client.admin.artifacts.delete(artifactId, "idem_delete");
-    await client.admin.cleanup.run({ dry_run: true }, "idem_cleanup");
-    await client.admin.operationEvents.list({ limit: 1 });
-
-    expect(calls.map((call) => [call.method, call.url])).toEqual([
-      ["POST", "https://admin.example.test/admin/workspaces"],
-      ["GET", "https://admin.example.test/admin/workspaces?limit=10"],
-      ["POST", `https://admin.example.test/admin/workspaces/${workspaceId}/api-keys`],
-      ["GET", "https://admin.example.test/admin/api-keys?limit=5"],
-      ["DELETE", `https://admin.example.test/admin/api-keys/${apiKeyId}`],
-      ["GET", "https://admin.example.test/admin/artifacts?status=active"],
-      ["GET", `https://admin.example.test/admin/artifacts/${artifactId}`],
-      ["DELETE", `https://admin.example.test/admin/artifacts/${artifactId}`],
-      ["POST", "https://admin.example.test/admin/cleanup/run"],
-      ["GET", "https://admin.example.test/admin/operation-events?limit=1"],
-    ]);
-    expect(calls.every((call) => call.headers.get("authorization") === "Bearer admin-secret")).toBe(true);
-    expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_ws");
-    expect(calls[7]?.headers.get("idempotency-key")).toBe("idem_delete");
-  });
-
   it("lists and publishes revisions through the public API client", async () => {
     const calls: Request[] = [];
     const client = authedClient({
@@ -307,20 +231,13 @@ describe("ApiClient", () => {
     expect(calls[0]?.headers.get("authorization")).toBeNull();
   });
 
-  it("requires configured API-key, admin-token, and bearer auth for protected requests", async () => {
+  it("requires configured API-key and bearer auth for protected requests", async () => {
     vi.stubEnv("AGENT_PASTE_API_KEY", "");
-    vi.stubEnv("AGENT_PASTE_ADMIN_TOKEN", "");
 
     await expect(new ApiClient({ fetch: async () => Response.json({}) }).whoami()).rejects.toMatchObject({
       code: "not_authenticated",
       status: 401,
     });
-    await expect(new ApiClient({ fetch: async () => Response.json({}) }).admin.workspaces.list()).rejects.toMatchObject(
-      {
-        code: "not_authenticated",
-        status: 401,
-      },
-    );
     await expect(
       new ApiClient({
         auth: { type: "api_key", apiKey: apiKeySecret },
@@ -383,27 +300,6 @@ function apiKeySummary() {
 
 function createApiKeyResponse() {
   return { api_key: apiKeySummary(), secret: apiKeySecret };
-}
-
-function workspaceDetail() {
-  return { id: workspaceId, name: "Demo", contact_email: "user@example.com", created_at: "2026-01-01T00:00:00.000Z" };
-}
-
-function artifactSummary() {
-  return {
-    id: artifactId,
-    revision_id: revisionId,
-    status: "active",
-    title: "Demo",
-    entrypoint: "index.html",
-    file_count: 1,
-    size_bytes: 12,
-    expires_at: "2026-02-01T00:00:00.000Z",
-    created_at: "2026-01-01T00:00:00.000Z",
-    updated_at: "2026-01-01T00:00:00.000Z",
-    deleted_at: null,
-    delete_reason: null,
-  };
 }
 
 function finalizeResult() {

@@ -15,6 +15,7 @@ import {
 } from "@workos/authkit-session";
 import * as chromeLauncher from "chrome-launcher";
 import lighthouse from "lighthouse";
+import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, waitForHealthz } from "./smoke-harness.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
@@ -33,8 +34,7 @@ const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const workosBaseUrl = `http://127.0.0.1:${workosPort}`;
 const dashboardUrl = `${webBaseUrl}/dashboard`;
-
-const adminToken = process.env.AGENT_PASTE_ADMIN_TOKEN ?? "local-admin-token";
+const harnessSecret = process.env.SMOKE_HARNESS_SECRET ?? DEFAULT_LOCAL_SMOKE_HARNESS_SECRET;
 const workosApiKey = "sk_test_local_lighthouse_a11y";
 const workosClientId = "client_local_lighthouse_a11y";
 const cookiePassword = "local-lighthouse-cookie-password-32chars";
@@ -53,11 +53,11 @@ try {
   workosServer = createWorkOsServer();
   await listen(workosServer, workosPort);
 
-  const localServer = spawnChild(process.execPath, [localServerEntry], {
+  spawnChild(process.execPath, [localServerEntry], {
     AGENT_PASTE_LOCAL_API_PORT: String(apiPort),
     AGENT_PASTE_LOCAL_UPLOAD_PORT: String(uploadPort),
     AGENT_PASTE_LOCAL_CONTENT_PORT: String(contentPort),
-    AGENT_PASTE_ADMIN_TOKEN: adminToken,
+    SMOKE_HARNESS_SECRET: harnessSecret,
     WORKOS_API_KEY: workosApiKey,
     WORKOS_CLIENT_ID: workosClientId,
     WORKOS_API_BASE_URL: workosBaseUrl,
@@ -81,7 +81,7 @@ try {
     { cwd: webRoot },
   );
 
-  await waitForHealthy(`${apiBaseUrl}/admin/whoami`, { authorization: `Bearer ${adminToken}` }, localServer);
+  await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
   await waitForHealthy(`${webBaseUrl}/healthz`, {}, webServer);
 
   const primaryToken = signWorkOsToken(workosUserId);

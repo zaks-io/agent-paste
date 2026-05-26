@@ -16,7 +16,6 @@ const usagePolicy = {
   max_ttl_seconds: 7_776_000,
 };
 
-const workspaceId = "00000000-0000-4000-8000-000000000000";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -45,92 +44,6 @@ describe("cli command dispatch", () => {
 
     expect(client.whoami).toHaveBeenCalledOnce();
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"workspace"'));
-  });
-
-  it("creates and lists admin workspaces", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const create = vi.fn().mockResolvedValue({ id: workspaceId, name: "User" });
-    const list = vi.fn().mockResolvedValue({ data: [], page_info: { next_cursor: null, has_more: false } });
-    const client = fakeClient({ admin: { workspaces: { create, list } } });
-
-    await main(["admin", "workspace", "create", "user@example.com", "--name", "User", "--json"], client);
-    await main(["admin", "workspace", "list", "--json"], client);
-
-    expect(create).toHaveBeenCalledWith(
-      { email: "user@example.com", name: "User" },
-      expect.stringMatching(/^cli_admin_workspace_create_/),
-    );
-    expect(list).toHaveBeenCalledOnce();
-    expect(stdout).toHaveBeenCalled();
-  });
-
-  it("creates admin keys with the default CLI name", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const create = vi.fn().mockResolvedValue({ api_key: { id: "key_1" }, secret: "secret" });
-    const client = fakeClient({ admin: { apiKeys: { create } } });
-
-    await main(["admin", "key", "create", workspaceId, "--json"], client);
-
-    expect(create).toHaveBeenCalledWith(
-      workspaceId,
-      { name: "agent-paste CLI" },
-      expect.stringMatching(/^cli_admin_key_create_/),
-    );
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("secret"));
-  });
-
-  it("dispatches artifact admin aliases", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const list = vi.fn().mockResolvedValue({ data: [] });
-    const get = vi.fn().mockResolvedValue({ id: artifactId });
-    const client = fakeClient({ admin: { artifacts: { list, get } } });
-
-    await main(["admin", "artifact", "list"], client);
-    await main(["list"], client);
-    await main(["admin", "artifact", "get", artifactId], client);
-    await main(["get", artifactId], client);
-
-    expect(list).toHaveBeenCalledTimes(2);
-    expect(get).toHaveBeenCalledTimes(2);
-    expect(get).toHaveBeenCalledWith(artifactId);
-  });
-
-  it("lists admin operation events", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const list = vi.fn().mockResolvedValue({ data: [] });
-    const client = fakeClient({ admin: { operationEvents: { list } } });
-
-    await main(["admin", "events", "list"], client);
-
-    expect(list).toHaveBeenCalledOnce();
-  });
-
-  it("requires confirmation for destructive admin commands and dispatches them with --yes", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const revoke = vi.fn().mockResolvedValue({ revoked_at: "2026-01-01T00:00:00.000Z" });
-    const deleteArtifact = vi.fn().mockResolvedValue({ deleted_at: "2026-01-01T00:00:00.000Z" });
-    const client = fakeClient({ admin: { apiKeys: { revoke }, artifacts: { delete: deleteArtifact } } });
-
-    await expect(main(["admin", "key", "revoke", "key_1"], client)).rejects.toThrow("without --yes");
-    await expect(main(["delete", artifactId], client)).rejects.toThrow("without --yes");
-    await main(["admin", "key", "revoke", "key_1", "--yes"], client);
-    await main(["admin", "artifact", "delete", artifactId, "--yes"], client);
-
-    expect(revoke).toHaveBeenCalledWith("key_1", expect.stringMatching(/^cli_admin_key_revoke_/));
-    expect(deleteArtifact).toHaveBeenCalledWith(artifactId, expect.stringMatching(/^cli_admin_artifact_delete_/));
-  });
-
-  it("runs admin cleanup in dry-run mode or with explicit confirmation", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const run = vi.fn().mockResolvedValue({ expired_artifacts: 0 });
-    const client = fakeClient({ admin: { cleanup: { run } } });
-
-    await main(["admin", "cleanup", "run", "--dry-run"], client);
-    await expect(main(["admin", "cleanup", "run"], client)).rejects.toThrow("without --yes");
-    await main(["admin", "cleanup", "run", "--yes"], client);
-
-    expect(run).toHaveBeenNthCalledWith(1, { dry_run: true }, expect.stringMatching(/^cli_admin_cleanup_run_/));
-    expect(run).toHaveBeenNthCalledWith(2, { dry_run: false }, expect.stringMatching(/^cli_admin_cleanup_run_/));
   });
 
   it("publishes a local folder through create, PUT, and finalize", async () => {
@@ -260,15 +173,6 @@ describe("cli command dispatch", () => {
 });
 
 function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parameters<typeof main>[1]> {
-  const { admin: adminOverrides, ...topLevelOverrides } = overrides as Record<string, unknown> & {
-    admin?: {
-      workspaces?: Record<string, unknown>;
-      apiKeys?: Record<string, unknown>;
-      artifacts?: Record<string, unknown>;
-      cleanup?: Record<string, unknown>;
-      operationEvents?: Record<string, unknown>;
-    };
-  };
   return {
     whoami: vi.fn().mockResolvedValue({ ok: true }),
     usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
@@ -281,33 +185,7 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
       publish: vi.fn(),
       list: vi.fn(),
     },
-    ...topLevelOverrides,
-    admin: {
-      workspaces: {
-        create: vi.fn(),
-        list: vi.fn(),
-        ...(adminOverrides?.workspaces ?? {}),
-      },
-      apiKeys: {
-        create: vi.fn(),
-        revoke: vi.fn(),
-        ...(adminOverrides?.apiKeys ?? {}),
-      },
-      artifacts: {
-        list: vi.fn(),
-        get: vi.fn(),
-        delete: vi.fn(),
-        ...(adminOverrides?.artifacts ?? {}),
-      },
-      cleanup: {
-        run: vi.fn(),
-        ...(adminOverrides?.cleanup ?? {}),
-      },
-      operationEvents: {
-        list: vi.fn(),
-        ...(adminOverrides?.operationEvents ?? {}),
-      },
-    },
+    ...overrides,
   } as unknown as NonNullable<Parameters<typeof main>[1]>;
 }
 

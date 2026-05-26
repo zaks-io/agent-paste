@@ -1,32 +1,18 @@
 import {
-  type ApiKeyId,
-  ApiKeyListResponse,
-  ArtifactDetail,
   type ArtifactId,
-  ArtifactListResponse,
-  type CleanupRunRequest,
-  CleanupRunResponse,
   type CreateApiKeyRequest,
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
   CreateUploadSessionResponse,
-  type CreateWorkspaceRequest,
-  DeleteArtifactResponse,
   ErrorEnvelope,
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
-  OperationEventListResponse,
-  type PaginationRequest,
   PublishResult,
   type RevisionId,
   RevisionListResponse,
-  RevokeApiKeyResponse,
   type UploadSessionId,
   UsagePolicy,
   WhoamiResponse,
-  WorkspaceDetail,
-  type WorkspaceId,
-  WorkspaceListResponse,
 } from "@agent-paste/contracts";
 
 type Schema<Output> = {
@@ -41,8 +27,6 @@ export type ApiClientOptions = {
   auth?: AgentPasteAuth;
   apiBaseUrl?: string;
   uploadBaseUrl?: string;
-  adminBaseUrl?: string;
-  adminToken?: string;
   fetch?: typeof fetch;
 };
 
@@ -50,7 +34,7 @@ type RequestOptions = {
   method?: string;
   body?: unknown;
   idempotencyKey?: string;
-  auth?: "api_key" | "admin_token" | "bearer" | "none";
+  auth?: "api_key" | "bearer" | "none";
   headers?: Record<string, string>;
 };
 
@@ -73,22 +57,18 @@ export class AgentPasteError extends Error {
 export class ApiClient {
   readonly apiBaseUrl: string;
   readonly uploadBaseUrl: string;
-  readonly adminBaseUrl: string;
 
   private readonly auth: AgentPasteAuth | undefined;
-  private readonly adminToken: string | undefined;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: ApiClientOptions = {}) {
     this.auth = options.auth ?? authFromEnv();
-    this.adminToken = options.adminToken ?? process.env.AGENT_PASTE_ADMIN_TOKEN;
     this.apiBaseUrl = normalizeBaseUrl(
       options.apiBaseUrl ?? process.env.AGENT_PASTE_API_URL ?? "https://api.agent-paste.sh",
     );
     this.uploadBaseUrl = normalizeBaseUrl(
       options.uploadBaseUrl ?? process.env.AGENT_PASTE_UPLOAD_URL ?? "https://upload.agent-paste.sh",
     );
-    this.adminBaseUrl = normalizeBaseUrl(options.adminBaseUrl ?? process.env.AGENT_PASTE_ADMIN_URL ?? this.apiBaseUrl);
     this.fetchImpl = options.fetch ?? fetch;
   }
 
@@ -149,77 +129,6 @@ export class ApiClient {
     },
   };
 
-  admin = {
-    workspaces: {
-      create: (body: CreateWorkspaceRequest, idempotencyKey: string) =>
-        this.request(WorkspaceDetail, this.adminBaseUrl, "/admin/workspaces", {
-          method: "POST",
-          body,
-          idempotencyKey,
-          auth: "admin_token",
-        }),
-      list: (query: Partial<PaginationRequest> = {}) =>
-        this.request(WorkspaceListResponse, this.adminBaseUrl, `/admin/workspaces${queryString(query)}`, {
-          auth: "admin_token",
-        }),
-    },
-    apiKeys: {
-      create: (workspaceId: WorkspaceId | string, body: CreateApiKeyRequest, idempotencyKey: string) =>
-        this.request(
-          CreateApiKeyResponse,
-          this.adminBaseUrl,
-          `/admin/workspaces/${encodeURIComponent(workspaceId)}/api-keys`,
-          {
-            method: "POST",
-            body,
-            idempotencyKey,
-            auth: "admin_token",
-          },
-        ),
-      list: (query: Partial<PaginationRequest> = {}) =>
-        this.request(ApiKeyListResponse, this.adminBaseUrl, `/admin/api-keys${queryString(query)}`, {
-          auth: "admin_token",
-        }),
-      revoke: (apiKeyId: ApiKeyId | string, idempotencyKey: string) =>
-        this.request(RevokeApiKeyResponse, this.adminBaseUrl, `/admin/api-keys/${encodeURIComponent(apiKeyId)}`, {
-          method: "DELETE",
-          idempotencyKey,
-          auth: "admin_token",
-        }),
-    },
-    artifacts: {
-      list: (query: Record<string, unknown> = {}) =>
-        this.request(ArtifactListResponse, this.adminBaseUrl, `/admin/artifacts${queryString(query)}`, {
-          auth: "admin_token",
-        }),
-      get: (artifactId: ArtifactId | string) =>
-        this.request(ArtifactDetail, this.adminBaseUrl, `/admin/artifacts/${encodeURIComponent(artifactId)}`, {
-          auth: "admin_token",
-        }),
-      delete: (artifactId: ArtifactId | string, idempotencyKey: string) =>
-        this.request(DeleteArtifactResponse, this.adminBaseUrl, `/admin/artifacts/${encodeURIComponent(artifactId)}`, {
-          method: "DELETE",
-          idempotencyKey,
-          auth: "admin_token",
-        }),
-    },
-    cleanup: {
-      run: (body: CleanupRunRequest, idempotencyKey: string) =>
-        this.request(CleanupRunResponse, this.adminBaseUrl, "/admin/cleanup/run", {
-          method: "POST",
-          body,
-          idempotencyKey,
-          auth: "admin_token",
-        }),
-    },
-    operationEvents: {
-      list: (query: Record<string, unknown> = {}) =>
-        this.request(OperationEventListResponse, this.adminBaseUrl, `/admin/operation-events${queryString(query)}`, {
-          auth: "admin_token",
-        }),
-    },
-  };
-
   async putFile(url: string, bytes: BodyInit, headers: Record<string, string> = {}) {
     const response = await this.fetchImpl(url, {
       method: "PUT",
@@ -268,19 +177,9 @@ export class ApiClient {
     return schema.parse(data);
   }
 
-  private async authorizationHeader(auth: "api_key" | "admin_token" | "bearer" | "none") {
+  private async authorizationHeader(auth: "api_key" | "bearer" | "none") {
     if (auth === "none") {
       return undefined;
-    }
-    if (auth === "admin_token") {
-      if (!this.adminToken) {
-        throw new AgentPasteError({
-          code: "not_authenticated",
-          message: "Set AGENT_PASTE_ADMIN_TOKEN for admin commands.",
-          status: 401,
-        });
-      }
-      return `Bearer ${this.adminToken}`;
     }
     if (auth === "bearer") {
       if (this.auth?.type !== "bearer") {
@@ -312,17 +211,6 @@ function authFromEnv(): AgentPasteAuth | undefined {
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
-}
-
-function queryString(query: Record<string, unknown>) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null) {
-      params.set(key, String(value));
-    }
-  }
-  const text = params.toString();
-  return text ? `?${text}` : "";
 }
 
 async function throwResponseError(response: Response): Promise<never> {

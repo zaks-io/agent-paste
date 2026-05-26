@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-26 (AP-13 admin token retirement).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -8,8 +8,8 @@ and points to the smaller ledgers that own detail.
 
 ## Snapshot
 
-- `main` and `origin/main` are aligned at
-  `fc472ab feat(api): rate-limit legacy admin and public Agent View routes (AP-14) (#85)`.
+- `main` and `origin/main` are aligned at the pre-AP-13 tip; AP-13 removes the
+  legacy `ADMIN_TOKEN` `/admin/*` API and CLI admin verbs.
 - `pnpm verify` passed on 2026-05-25 with 72 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
@@ -21,7 +21,8 @@ and points to the smaller ledgers that own detail.
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
   `/v1/web/admin/lockdowns` on 2026-05-26, and the approved human browser
   `/admin` check passed after the WorkOS `admin` role assignment. The repo-local
-  `ADMIN_TOKEN` `/admin/*` path still exists until AP-12/AP-13 retire it.
+  `ADMIN_TOKEN` `/admin/*` path is retired (AP-13); operator work uses WorkOS +
+  `/v1/web/admin/*`, and non-production smokes use `SMOKE_HARNESS_SECRET`.
 
 ## Status Ledgers
 
@@ -69,8 +70,7 @@ Highest-signal gaps:
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
   operations; rotation overlap rings and tests ship in `@agent-paste/rotation`
   (hosted wrangler automation still manual).
-- Parked ops/security hardening: optional dedicated admin hostname decision and
-  `ADMIN_TOKEN` retirement.
+- Parked ops/security hardening: optional dedicated admin hostname decision.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.
 

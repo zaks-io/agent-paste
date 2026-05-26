@@ -1,9 +1,10 @@
 # Copy to apps/api/.dev.vars when running the API Worker with Wrangler.
 # Do not commit real .dev.vars files.
 
-ADMIN_TOKEN=local-admin-token
+SMOKE_HARNESS_SECRET=local-smoke-harness-secret
 CONTENT_BASE_URL=http://127.0.0.1:8789
 CLEANUP_BATCH_SIZE=100
+AGENT_PASTE_ENV=dev
 
 # Planned persistent local services. The current API Worker expects AUTH and DB
 # bindings from runtime wiring; these values document the local targets for that

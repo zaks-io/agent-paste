@@ -31,7 +31,7 @@ An agent, CI job, script, or developer using `AGENT_PASTE_API_KEY`. This is the 
 A human or agent with a signed URL returned by publish. This actor can view only the artifact/revision encoded in the signed URL and only until the artifact expires or is deleted.
 
 **Operator**:
-The repo owner or Codex-assisted maintainer using an internal admin CLI with `AGENT_PASTE_ADMIN_TOKEN`. Operators create workspaces and API keys, inspect artifacts, delete artifacts, and run cleanup.
+A human with the WorkOS `admin` role (web dashboard and `/v1/web/admin/*`) or automation using Cloudflare Access service tokens. Operators manage platform lockdowns and rotation endpoints; workspace bootstrap uses WorkOS login or the non-production smoke harness.
 
 ## Surfaces
 
@@ -43,11 +43,8 @@ agent-paste publish <path> [--title "..."] [--ttl 30d]
 agent-paste whoami
 ```
 
-**Admin CLI**:
-A repo-local operations tool, not a public product. It wraps internal admin REST APIs so Codex can help manage the hosted system without an admin UI.
-
 **API Worker**:
-Owns API-key auth, artifact metadata, public Agent View, admin REST APIs, operation events, and scheduled cleanup.
+Owns API-key auth, artifact metadata, public Agent View, web/operator routes, operation events, and scheduled cleanup.
 
 **Upload Worker**:
 Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, and R2 writes.
@@ -144,11 +141,7 @@ OAuth login is deferred. The future public flow may add:
 agent-paste login
 ```
 
-Admin auth uses a separate noninteractive operator token:
-
-```sh
-AGENT_PASTE_ADMIN_TOKEN=... pnpm admin artifacts list
-```
+Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web operator surface. See [admin operations](./admin.md).
 
 ## Retention
 

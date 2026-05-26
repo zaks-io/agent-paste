@@ -2,14 +2,13 @@
 
 The MVP is ready when these scenarios can be automated locally and in preview. Each scenario should become one or more integration tests.
 
-## Admin Bootstrap
+## Workspace Bootstrap
 
-| Scenario                          | Expected Result                                                                                                                    |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Missing `AGENT_PASTE_ADMIN_TOKEN` | Admin CLI refuses to run.                                                                                                          |
-| Create workspace                  | `pnpm admin workspace create --email user@example.com` creates a workspace and records an operation event.                         |
-| Create API key                    | `pnpm admin api-key create --workspace <id> --name default` returns plaintext secret once and stores only derived secret material. |
-| Revoke API key                    | Future public CLI calls using that key fail.                                                                                       |
+| Scenario           | Expected Result                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| CLI login          | `agent-paste login` provisions or resolves a member workspace and mints an API key through `/v1/web/keys`.          |
+| Smoke harness      | Non-production `POST /__test__/provision-smoke` returns workspace id and one-time API key secret for automated smokes. |
+| Revoke API key     | `DELETE /v1/web/keys/{api_key_id}` (or harness delete) causes future public CLI calls with that key to fail.         |
 
 ## Public CLI
 
@@ -51,17 +50,15 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 | Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                    |
 | Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.            |
 | Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.    |
-| Manual cleanup       | `pnpm admin cleanup run` performs the same cleanup work and reports counts.   |
+| Manual cleanup       | Non-production harness `POST /__test__/run-cleanup` or scheduled cleanup reports counts. |
 | No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`. |
 
-## Admin Operations
+## Operator Operations
 
-| Scenario             | Expected Result                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------- |
-| List artifacts       | Admin CLI can filter by workspace and status.                                                  |
-| Inspect artifact     | Admin CLI shows metadata, files, expiry, and operation-event references without signed tokens. |
-| Delete artifact      | Admin CLI requires explicit confirmation flag and makes future content reads fail.             |
-| Operation event list | Admin CLI can show recent operation events for workspace/key/upload/artifact/cleanup actions.  |
+| Scenario          | Expected Result                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Operator lockdown | WorkOS `admin` (or Access service token) can set/lift lockdowns; API keys cannot call operator routes. |
+| Member artifacts  | `/v1/web/artifacts` lists tenant-scoped artifacts without signed tokens in responses.                   |
 
 ## Security Boundaries
 
@@ -70,8 +67,7 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 | Content Worker DB binding   | Generated Worker binding types prove `content` has no Hyperdrive binding. |
 | Signed URL logging          | Tests fail if request logging records full signed content URLs or tokens. |
 | API key logging             | Tests fail if API-key secret material is logged.                          |
-| Admin token on public route | Rejected as an invalid public API key.                                    |
-| API key on admin route      | Rejected as an invalid admin token.                                       |
+| API key on operator route   | Rejected before operator auth runs.                                      |
 
 ## Explicit Non-Goals
 

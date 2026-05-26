@@ -227,9 +227,6 @@ function hasScopes(principal: Principal, requiredScopes: readonly Scope[]): bool
   if (requiredScopes.length === 0) {
     return true;
   }
-  if (principal.kind === "admin_token") {
-    return true;
-  }
   const actor = scopedActorForPrincipal(principal);
   if (!actor) {
     return false;

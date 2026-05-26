@@ -41,9 +41,9 @@ It generates and writes:
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
-- `ADMIN_TOKEN_HASH`
+- `SMOKE_HARNESS_SECRET` (preview/production non-prod smoke only; not an operator credential)
 
-The script prints the one-time `ADMIN_TOKEN` for operator use, but only writes `ADMIN_TOKEN_HASH` to Cloudflare. It must refuse to overwrite existing secrets unless `--force` and a typed confirmation are provided. Record generated values in the password manager before closing the terminal. Routine rotation uses the ADR 0045 rotation tooling, not this bootstrap script.
+The script prints one-time values for operator custody where applicable. It must refuse to overwrite existing secrets unless `--force` and a typed confirmation are provided. Record generated values in the password manager before closing the terminal. Routine rotation uses the ADR 0045 rotation tooling, not this bootstrap script.
 
 Set external provider secrets manually: WorkOS values, Hyperdrive connection strings, and any provider-issued credentials that the bootstrap script cannot safely generate. Human operator access is assigned in WorkOS by granting the `admin` role slug to the user.
 
@@ -54,11 +54,11 @@ Run an environment in this order:
 ```sh
 pnpm migrate:preview
 pnpm deploy:preview
-AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 
 pnpm migrate:production
 pnpm deploy:production
-AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
 
 `pnpm deploy:preview` and `pnpm deploy:production` deploy only the MVP surface and keep the order fixed:
@@ -71,14 +71,14 @@ AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
 
 ## Smoke Checks
 
-The hosted smoke is intentionally CLI/admin-token based for MVP:
+Preview/PR smokes provision a workspace through the non-production harness secret; production smokes use a pre-provisioned API key secret:
 
 ```sh
-AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
-AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
+AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
 
-It creates a workspace and API key, publishes `examples/local-harness/site`, verifies Agent View HTML for browsers, Agent View JSON for agents, content HTML through the content Worker, and finally deletes the artifact and asserts the old content URL returns `404`.
+Each smoke publishes `examples/local-harness/site`, verifies Agent View and content routes, and (non-production) deletes the artifact and asserts the old content URL returns `404`.
 
 ## Dynamic PR Previews
 
@@ -86,6 +86,6 @@ Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neo
 
 Required GitHub Actions values:
 
-- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`, `PRODUCTION_DATABASE_URL`, `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
+- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`, `PRODUCTION_DATABASE_URL`, `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
 - Variables: `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN=isaac-a46`, `TURBO_TEAM`.
 - Environment: `Production` on the production deploy job, with reviewer approval enabled in GitHub settings.

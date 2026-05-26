@@ -111,16 +111,14 @@ The script prints every value to stdout exactly once. Capture before closing the
 | `CONTENT_SIGNING_SECRET` | `agent-paste-api-production`, `agent-paste-upload-production`, `agent-paste-content-production` | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                            |
 | `UPLOAD_SIGNING_SECRET`  | `agent-paste-upload-production`                                                                 | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                            |
 | `API_KEY_PEPPER_V1`      | `agent-paste-api-production`, `agent-paste-upload-production`                                   | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                            |
-| `ADMIN_TOKEN`            | Operator only (not bound on any Worker)                                                         | `scripts/bootstrap-secrets.mjs` (`ap_admin_<base64url>`)                                |
-| `ADMIN_TOKEN_HASH`       | `agent-paste-api-production`                                                                    | `scripts/bootstrap-secrets.mjs` (HMAC-SHA256 of `ADMIN_TOKEN` with `API_KEY_PEPPER_V1`) |
+| `SMOKE_HARNESS_SECRET`   | `agent-paste-api-production` (smoke harness only; not an operator credential)                   | `scripts/bootstrap-secrets.mjs` (random base64url)                                      |
 
 Bitwarden entry checklist:
 
-- [ ] `agent-paste / production / ADMIN_TOKEN` -- the only post-bootstrap copy. Lose it and the only path back is `bootstrap:production --force`, which invalidates every issued credential. Treat as P1. **Isaac only**.
 - [ ] `agent-paste / production / CONTENT_SIGNING_SECRET`. **Isaac only**.
 - [ ] `agent-paste / production / UPLOAD_SIGNING_SECRET`. **Isaac only**.
 - [ ] `agent-paste / production / API_KEY_PEPPER_V1`. **Isaac only**.
-- [ ] `agent-paste / production / ADMIN_TOKEN_HASH` (recomputable from the two above, store anyway). **Isaac only**.
+- [ ] `agent-paste / production / SMOKE_HARNESS_SECRET` (CI/preview smoke; rotate with bootstrap if leaked). **Isaac only**.
 
 ### Infrastructure secrets (set manually, not by bootstrap script)
 
@@ -133,7 +131,7 @@ Ownership: Isaac creates or copies `CLOUDFLARE_API_TOKEN` and `PRODUCTION_DATABA
 | `CLOUDFLARE_ACCOUNT_ID`              | GitHub Actions (`deploy-production.yml`)                       | Fixed: `a461d640900eb3905d7b6619c8c0da91`. Org-inherited from `zaks-io`; confirm via `gh secret list --org zaks-io` (token may lack org-secret read; if so, trust the workflow run output).                                                                 |
 | `CLOUDFLARE_API_TOKEN`               | GitHub Actions (`deploy-production.yml`)                       | Cloudflare dashboard -> My Profile -> API Tokens -> Create. Scopes: `Workers Scripts: Edit`, `Workers Routes: Edit`, `Workers KV Storage: Edit`, `Workers R2 Storage: Edit`, `Hyperdrive: Edit`, `Account Settings: Read`, `Zone:Read` on `agent-paste.sh`. |
 | `PRODUCTION_DATABASE_URL`            | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `platform_admin`.                                                                                                                                                      |
-| `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` | GitHub `Production` env (`deploy-production.yml` smoke step)   | Same value as `ADMIN_TOKEN` above. Copy from Bitwarden into the GitHub environment secret.                                                                                                                                                                  |
+| `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` | GitHub `Production` env (`deploy-production.yml` smoke step) | Long-lived publish/read API key provisioned for production smoke only (not the harness). Store in Bitwarden and mirror to GitHub.                                                                                                                          |
 | `TURBO_TOKEN`                        | All workflows (remote cache)                                   | `zaks-io` org secret. Already present.                                                                                                                                                                                                                      |
 | `TURBO_TEAM`                         | All workflows (remote cache)                                   | `zaks-io` org var. Value: `zaks-io`.                                                                                                                                                                                                                        |
 | `TURBO_REMOTE_CACHE_SIGNATURE_KEY`   | All workflows (remote cache integrity)                         | Generate once: `openssl rand -hex 32`. Set as repo or org secret.                                                                                                                                                                                           |
@@ -160,7 +158,7 @@ gh secret set TURBO_REMOTE_CACHE_SIGNATURE_KEY --repo zaks-io/agent-paste --body
 
 # Production-environment-scoped (NOT repo-scoped):
 gh secret set PRODUCTION_DATABASE_URL --repo zaks-io/agent-paste --env Production --body "$PRODUCTION_DATABASE_URL"
-gh secret set AGENT_PASTE_PRODUCTION_ADMIN_TOKEN --repo zaks-io/agent-paste --env Production --body "$AGENT_PASTE_PRODUCTION_ADMIN_TOKEN"
+gh secret set AGENT_PASTE_PRODUCTION_SMOKE_API_KEY --repo zaks-io/agent-paste --env Production --body "$AGENT_PASTE_PRODUCTION_SMOKE_API_KEY"
 ```
 
 Verify:
@@ -179,7 +177,7 @@ In the GitHub UI: `zaks-io/agent-paste` -> Settings -> Environments -> `Producti
 - [ ] **Required reviewers**: add `isaac-zaks` (or the Isaac user account that owns the repo) as the sole reviewer. Toggle "Prevent self-review" OFF -- this is a solo-dev project and the reviewer is also the pusher. **Codex can handle** via `gh api` if the reviewer account is confirmed and API permissions allow it; Isaac uses the UI if GitHub rejects the toggle.
 - [ ] **Wait timer**: `5 minutes`. Gives a window to cancel an in-flight deploy if a regression slips through CI. **Codex can handle** via `gh api`.
 - [ ] **Deployment branches and tags**: select `Selected branches and tags`, add rule `main` (exact match). Reject all other refs. **Codex can handle** via `gh api`.
-- [ ] **Environment secrets**: confirm `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` are listed under "Environment secrets" (not "Repository secrets") for this environment. **Codex can handle** after `gh` auth is available outside the sandbox.
+- [ ] **Environment secrets**: confirm `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are listed under "Environment secrets" (not "Repository secrets") for this environment. **Codex can handle** after `gh` auth is available outside the sandbox.
 - [ ] **Environment variables**: none required. **Codex can verify**.
 - [ ] **Admin bypass**: disabled. Isaac is also the admin; the bypass would defeat the wait timer. **Codex can verify**; Isaac uses the UI if API access cannot set/confirm it.
 
@@ -202,43 +200,33 @@ Run end-to-end after steps 1-3 are checked off.
 
 ### 4a. Production smoke
 
-**Codex can handle** this after `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` is exported in the shell and network approval is granted.
+**Codex can handle** this after `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` is exported in the shell and network approval is granted.
 
 ```sh
-: "${AGENT_PASTE_PRODUCTION_ADMIN_TOKEN:?export the production admin token first}"
+: "${AGENT_PASTE_PRODUCTION_SMOKE_API_KEY:?export the production smoke API key first}"
 pnpm smoke:production
 ```
 
 Pass criteria (the script asserts each line; failure throws):
 
-- Workspace create returns an `id`.
-- API key create returns a secret prefixed `ap_pk_production_`.
+- `whoami` resolves the smoke workspace.
+- API key is prefixed `ap_pk_production_` (pre-provisioned secret).
 - `publish` returns `artifact_id` (`art_*`), `revision_id` (`rev_*`), a `view_url` rooted at `https://usercontent.agent-paste.sh`, and an `agent_view_url` rooted at `https://api.agent-paste.sh`.
 - Agent View JSON lists `index.html`.
 - Agent View HTML returns `200` with `Content-Type: text/html`.
 - Content URL returns `200` HTML matching the smoke fixture.
 - Apex `https://agent-paste.sh/` returns `200` HTML with no cookies, plus `/llms.txt` (`text/plain`) and `/agents.md` (`text/markdown`).
-- Final cleanup: `artifact delete` succeeds and the view URL returns `404`.
+- Production smoke skips destructive artifact delete (harness routes are disabled in production).
 
 ### 4b. Manual curl fallback (if `pnpm smoke:production` fails before exit)
 
-**Codex can handle** this fallback after `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` is exported in the shell and network approval is granted.
+**Codex can handle** this fallback when network approval is granted.
 
 ```sh
-: "${AGENT_PASTE_PRODUCTION_ADMIN_TOKEN:?export the production admin token first}"
-TOKEN="$AGENT_PASTE_PRODUCTION_ADMIN_TOKEN"
-
 # 1. API public route
 curl -fsS https://api.agent-paste.sh/openapi.json | jq .openapi
 
-# 2. Admin workspace create (idempotent on the same Idempotency-Key)
-curl -fsS -X POST https://api.agent-paste.sh/admin/workspaces \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Idempotency-Key: bootstrap-checklist-$(date +%s)" \
-  -H "Content-Type: application/json" \
-  -d '{"owner_email":"isaac@isaacsuttell.com","name":"Bootstrap Verify"}' | jq .
-
-# 3. Apex
+# 2. Apex
 curl -fsS -o /dev/null -w "apex / %{http_code}\n"             https://agent-paste.sh/
 curl -fsS -o /dev/null -w "apex /llms.txt %{http_code}\n"    https://agent-paste.sh/llms.txt
 curl -fsS -o /dev/null -w "apex /agents.md %{http_code}\n"   https://agent-paste.sh/agents.md
@@ -272,7 +260,7 @@ This checklist is Done when:
 - All checkboxes in sections 1-3 are checked.
 - `pnpm smoke:production` exits 0 from a clean local checkout.
 - `gh api repos/zaks-io/agent-paste/environments/Production` returns the expected protection rules.
-- `gh secret list --repo zaks-io/agent-paste --env Production` lists `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN`.
-- Bitwarden holds the six Worker secrets under `agent-paste / production` plus the three production infra secrets under `agent-paste / infra`.
+- `gh secret list --repo zaks-io/agent-paste --env Production` lists `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`.
+- Bitwarden holds the production Worker secrets under `agent-paste / production` plus the production infra secrets under `agent-paste / infra`.
 
 When closing: update [`status/hosted-ops.md`](./status/hosted-ops.md), [`status/phase-backlog.md`](./status/phase-backlog.md), and [`status/changelog.md`](./status/changelog.md) with a link back to this checklist. **Codex can handle** the final doc update after the mixed-owner checks are complete.

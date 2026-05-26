@@ -1,34 +1,11 @@
-# Local CLI Harness
+# Local Harness
 
-Use this folder as a smoke-test fixture for the `agent-paste` CLI.
+This folder is the default fixture for `pnpm smoke:local`.
 
-Run the full local MVP smoke test with:
+## Quick path
 
-```sh
-pnpm smoke:local
-```
+1. Start the harness: `pnpm dev:all`
+2. Sign in: `pnpm cli:dev login` (mock WorkOS in local smoke) or set `AGENT_PASTE_API_KEY` from the dashboard
+3. Publish: `pnpm cli:dev publish /absolute/path/to/examples/local-harness/site`
 
-For manual CLI testing, start the local API/Upload/Content harness:
-
-```sh
-pnpm dev:all
-```
-
-Then in another shell:
-
-```sh
-export AGENT_PASTE_ADMIN_TOKEN=local-admin-token
-export AGENT_PASTE_ADMIN_URL=http://127.0.0.1:8787
-export AGENT_PASTE_API_URL=http://127.0.0.1:8787
-export AGENT_PASTE_UPLOAD_URL=http://127.0.0.1:8788
-
-pnpm admin workspace create local@example.com --name Local --json
-pnpm admin key create <workspace-id> --name local --json
-
-export AGENT_PASTE_API_KEY=<secret-from-key-create>
-pnpm cli:dev whoami --json
-pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json
-pnpm cli:dev admin artifact list --json
-```
-
-The CLI reads credentials and base URLs from the environment; it never accepts credentials as flags.
+For scripted smokes, the harness exposes `SMOKE_HARNESS_SECRET` (see `.env.example`) on non-production `__test__/*` routes.

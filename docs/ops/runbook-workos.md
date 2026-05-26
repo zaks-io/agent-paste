@@ -240,7 +240,7 @@ Exercises `POST /v1/auth/web/callback`, dashboard loaders, and WorkOS token veri
 ### Hosted preview
 
 ```sh
-AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
+AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
 ```
 
 Includes `smokeWebAuth`: `/healthz` 200 and `/api/auth/sign-in` 307 with `Location` under `https://api.workos.com/user_management/authorize` on `app.preview.agent-paste.sh` (override with `AGENT_PASTE_PREVIEW_WEB_URL`).
@@ -248,7 +248,7 @@ Includes `smokeWebAuth`: `/healthz` 200 and `/api/auth/sign-in` 307 with `Locati
 ### Hosted production
 
 ```sh
-AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
 
 Same web auth checks against `app.agent-paste.sh`.

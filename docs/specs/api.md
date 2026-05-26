@@ -6,7 +6,7 @@ This document describes the CLI-first MVP route contract. The canonical code reg
 
 | Surface   | Host                                 | Owns                                                                                            |
 | --------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`         | API-key auth, public Agent View, artifact metadata, admin REST APIs, operation events, cleanup. |
+| `api`     | `https://api.agent-paste.sh`         | API-key auth, public Agent View, artifact metadata, web/operator routes, operation events, cleanup. |
 | `upload`  | `https://upload.agent-paste.sh`      | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation.                 |
 | `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2.                                                     |
 
@@ -23,8 +23,8 @@ Preview hosts use the same path contracts with preview-specific hostnames and se
 
 | Header                      | Direction        | Required                          | Notes                                                                                   |
 | --------------------------- | ---------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
-| `Authorization: Bearer ...` | request          | Public CLI and admin routes       | API key for `/v1/*`; admin token for `/admin/*`.                                        |
-| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and admin destructive commands where noted. |
+| `Authorization: Bearer ...` | request          | API-key and web routes            | API key for `/v1/*` (except public Agent View); WorkOS bearer for `/v1/web/*` and operator routes. |
+| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.            |
 | `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                      |
 | `Retry-After`               | response         | 429                               | Seconds.                                                                                |
 
@@ -35,7 +35,7 @@ Secrets are never accepted as query parameters or flags.
 | Label                     | Meaning                                                               |
 | ------------------------- | --------------------------------------------------------------------- |
 | `api_key`                 | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`.         |
-| `admin_token`             | `Authorization: Bearer ...` from `AGENT_PASTE_ADMIN_TOKEN`.           |
+| `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes. |
 | `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only. |
 | `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                      |
 | `signed_content_token`    | Public token in `/v/{token}/{path}`.                                  |
@@ -138,23 +138,9 @@ Content checks:
 
 The content Worker never reads Postgres and never exposes R2 URLs.
 
-## Admin Routes
+## Operator Routes
 
-Admin routes are served by `api` under `/admin/*`. They are internal operations APIs used by the repo-local admin CLI.
-
-| Method   | Path                                        | Auth          | Idempotency | Request                  | Response                     |
-| -------- | ------------------------------------------- | ------------- | ----------- | ------------------------ | ---------------------------- |
-| `POST`   | `/admin/workspaces`                         | `admin_token` | required    | `CreateWorkspaceRequest` | `WorkspaceDetail`            |
-| `GET`    | `/admin/workspaces`                         | `admin_token` | none        | `PaginationRequest`      | `WorkspaceListResponse`      |
-| `POST`   | `/admin/workspaces/{workspace_id}/api-keys` | `admin_token` | required    | `CreateApiKeyRequest`    | `CreateApiKeyResponse`       |
-| `DELETE` | `/admin/api-keys/{api_key_id}`              | `admin_token` | required    | -                        | `RevokeApiKeyResponse`       |
-| `GET`    | `/admin/artifacts`                          | `admin_token` | none        | filters                  | `AdminArtifactListResponse`  |
-| `GET`    | `/admin/artifacts/{artifact_id}`            | `admin_token` | none        | -                        | `AdminArtifactDetail`        |
-| `DELETE` | `/admin/artifacts/{artifact_id}`            | `admin_token` | required    | -                        | `DeleteArtifactResponse`     |
-| `POST`   | `/admin/cleanup/run`                        | `admin_token` | required    | `CleanupRunRequest`      | `CleanupRunResponse`         |
-| `GET`    | `/admin/operation-events`                   | `admin_token` | none        | filters                  | `OperationEventListResponse` |
-
-Admin destructive commands must record operation events and must never log signed URLs, content tokens, API-key secrets, or admin tokens.
+Human operators and rotation agents use WorkOS operator auth or Cloudflare Access service tokens on `/v1/web/admin/lockdowns` (see [admin operations](./admin.md) and [ADR 0046](../adr/0046-operator-identity-and-web-admin-surface.md)). The legacy repo-local `ADMIN_TOKEN` `/admin/*` contract was removed in AP-13.
 
 ## Publish Flow
 

@@ -22,7 +22,7 @@ Goal: prove the artifact handoff loop.
 
 - Public CLI: `publish`, `whoami`.
 - Public auth: API key only.
-- Admin auth: noninteractive `AGENT_PASTE_ADMIN_TOKEN`.
+- Operator auth: WorkOS `admin` role and Cloudflare Access (legacy `ADMIN_TOKEN` retired in AP-13).
 - Workers: `api`, `upload`, `content`.
 - Storage: private R2.
 - Metadata: Postgres through Cloudflare Hyperdrive using Drizzle.

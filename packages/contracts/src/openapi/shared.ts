@@ -1,14 +1,5 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import {
-  CleanupRunRequest,
-  CleanupRunResponse,
-  CreateWorkspaceRequest,
-  OperationEvent,
-  OperationEventListResponse,
-  RevokeApiKeyResponse,
-  WorkspaceDetail,
-  WorkspaceListResponse,
-} from "../admin.js";
+import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
@@ -46,9 +37,6 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   registry.register("AgentView", AgentView);
-  registry.register("WorkspaceDetail", WorkspaceDetail);
-  registry.register("WorkspaceListResponse", WorkspaceListResponse);
-  registry.register("CreateWorkspaceRequest", CreateWorkspaceRequest);
   registry.register("CreateApiKeyRequest", CreateApiKeyRequest);
   registry.register("CreateApiKeyResponse", CreateApiKeyResponse);
   registry.register("ApiKeySummary", ApiKeySummary);
@@ -57,10 +45,6 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("ArtifactDetail", ArtifactDetail);
   registry.register("ArtifactListResponse", ArtifactListResponse);
   registry.register("DeleteArtifactResponse", DeleteArtifactResponse);
-  registry.register("CleanupRunRequest", CleanupRunRequest);
-  registry.register("CleanupRunResponse", CleanupRunResponse);
-  registry.register("OperationEvent", OperationEvent);
-  registry.register("OperationEventListResponse", OperationEventListResponse);
   registry.register("WorkspaceMemberSummary", WorkspaceMemberSummary);
   registry.register("WebAuthCallbackResponse", WebAuthCallbackResponse);
   registry.register("WebWorkspaceResponse", WebWorkspaceResponse);
@@ -97,11 +81,6 @@ export const securitySchemes = {
     type: "http",
     scheme: "bearer",
     description: "Workspace API key (prefix ap_pk_).",
-  },
-  AdminBearer: {
-    type: "http",
-    scheme: "bearer",
-    description: "Operator admin token.",
   },
   WorkOsBearer: {
     type: "http",
