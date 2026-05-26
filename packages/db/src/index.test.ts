@@ -1150,6 +1150,77 @@ describe("LocalRepository", () => {
     expect(listed?.items[1]?.revision_number).toBe(1);
   });
 
+  it("replays publish for an already published revision and rejects missing targets", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "published-once", "2026-01-01T00:00:01.000Z");
+    const replay = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-replay",
+      artifactId: published.artifact_id,
+      revisionId: published.revision_id,
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    expect(replay.revision_id).toBe(published.revision_id);
+
+    await expect(
+      repo.publishRevision({
+        actor,
+        idempotencyKey: "idem-missing-artifact",
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revisionId: published.revision_id,
+        now: "2026-01-01T00:00:03.000Z",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+
+    await expect(
+      repo.publishRevision({
+        actor,
+        idempotencyKey: "idem-missing-revision",
+        artifactId: published.artifact_id,
+        revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        now: "2026-01-01T00:00:04.000Z",
+      }),
+    ).rejects.toThrow("revision_unpublished");
+
+    await expect(repo.listRevisions({ actor, artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" })).resolves.toBeNull();
+  });
+
+  it("rejects update sessions for missing artifacts", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    await expect(
+      repo.createUploadSession({
+        actor,
+        idempotencyKey: "idem-missing-target",
+        request: {
+          artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          title: "missing",
+          entrypoint: "index.html",
+          files: [{ path: "index.html", size_bytes: 12 }],
+        },
+        now: "2026-01-01T00:00:00.000Z",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+  });
+
+  it("reads agent view for a specific published revision", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "rev-a", "2030-01-01T00:00:01.000Z");
+    const second = await publishLocalArtifact(repo, actor, "rev-b", "2030-01-02T00:00:01.000Z", first.artifact_id);
+    const latest = await repo.getAgentView({
+      actor,
+      artifactId: first.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    const pinned = await repo.getAgentView({
+      actor,
+      artifactId: first.artifact_id,
+      revisionId: first.revision_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(latest?.revision_id).toBe(second.revision_id);
+    expect(pinned?.revision_id).toBe(first.revision_id);
+  });
+
   it("force-updates artifact expiry and returns null for missing artifacts", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const published = await publishLocalArtifact(repo, actor, "force-expiring", "2026-01-01T00:00:01.000Z");

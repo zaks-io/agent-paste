@@ -26,8 +26,24 @@ vi.mock("../queries/index.js", () => ({
     "updateRevokedAt",
   ]),
   workspaceMemberQueries: queryObject(["insert", "findById", "findByWorkOsUserId", "updateSeen"]),
-  artifactQueries: queryObject(["insert", "findById", "listFiltered", "listWebPage", "updateExpiry"]),
+  artifactQueries: queryObject([
+    "insert",
+    "findById",
+    "listFiltered",
+    "listWebPage",
+    "updateExpiry",
+    "updatePublished",
+    "updateStaging",
+  ]),
   artifactFileQueries: queryObject(["insert", "listForArtifact"]),
+  revisionQueries: queryObject([
+    "insert",
+    "findById",
+    "findDraftForArtifact",
+    "listForArtifact",
+    "nextRevisionNumber",
+    "publish",
+  ]),
   uploadSessionQueries: queryObject(["insert", "findById", "markFinalized"]),
   uploadSessionFileQueries: queryObject(["insert", "listForSession", "recordUpload"]),
   platformLockdownQueries: queryObject(["findEffective", "listEffectivePage", "insert", "markLifted"]),
@@ -170,11 +186,50 @@ describe("postgresEntities", () => {
     await entities.artifacts.listFiltered("workspace", "active");
     await entities.artifacts.listWebPage({ workspaceId: "workspace", limit: 2 });
     await entities.artifacts.updateExpiry("artifact", "now");
+    await entities.artifacts.updatePublished("artifact", {
+      revisionId: "revision",
+      title: "Demo",
+      entrypoint: "index.html",
+      fileCount: 1,
+      sizeBytes: 12,
+      expiresAt: now,
+      updatedAt: now,
+    });
+    await entities.artifacts.updateStaging("artifact", {
+      title: "Demo",
+      entrypoint: "index.html",
+      fileCount: 1,
+      sizeBytes: 12,
+      expiresAt: now,
+      updatedAt: now,
+    });
     await entities.artifacts.markDeleted("artifact", "now");
     await entities.artifacts.listExpiring("now", 10);
     await entities.artifacts.expireBatch("now", ["artifact"]);
     await entities.artifactFiles.insert("artifact", "revision", file, "now");
-    await entities.artifactFiles.listForArtifact("artifact");
+    await entities.artifactFiles.listForArtifact("artifact", "revision");
+    await entities.revisions.insert({
+      id: "revision",
+      workspace_id: "workspace",
+      artifact_id: "artifact",
+      revision_number: 1,
+      status: "published",
+      entrypoint: "index.html",
+      render_mode: "html",
+      file_count: 1,
+      size_bytes: 12,
+      bundle_status: "disabled",
+      bundle_status_updated_at: null,
+      bytes_purge_enqueued_at: null,
+      created_by_api_key_id: "key",
+      created_at: now,
+      published_at: now,
+    });
+    await entities.revisions.findById("revision", "workspace");
+    await entities.revisions.findDraftForArtifact("artifact");
+    await entities.revisions.listForArtifact("artifact");
+    await entities.revisions.nextRevisionNumber("artifact");
+    await entities.revisions.publish({ revisionId: "revision", revisionNumber: 1, publishedAt: now });
     await entities.uploadSessions.insert(uploadSession);
     await entities.uploadSessions.findById("session", "workspace");
     await entities.uploadSessions.markFinalized("session", "now");

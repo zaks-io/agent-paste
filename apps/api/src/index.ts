@@ -1597,6 +1597,8 @@ function mapRepositoryError(error: unknown): { code: string; status: number; mes
       return { code: "revision_retained", status: 410 };
     case "entrypoint_not_in_revision":
       return { code: "entrypoint_not_in_revision", status: 422 };
+    case "draft_revision_conflict":
+      return { code: "draft_revision_conflict", status: 409 };
     default:
       return null;
   }

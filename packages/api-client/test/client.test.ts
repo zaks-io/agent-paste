@@ -237,6 +237,51 @@ describe("ApiClient", () => {
     expect(calls[7]?.headers.get("idempotency-key")).toBe("idem_delete");
   });
 
+  it("lists and publishes revisions through the public API client", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        const url = calls.at(-1)?.url ?? "";
+        if (url.endsWith("/revisions")) {
+          return Response.json({
+            artifact_id: artifactId,
+            items: [
+              {
+                revision_id: revisionId,
+                revision_number: 1,
+                status: "published",
+                entrypoint: "index.html",
+                render_mode: "html",
+                file_count: 1,
+                size_bytes: 12,
+                created_at: "2026-01-01T00:00:00.000Z",
+                published_at: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+            page_info: pageInfo,
+          });
+        }
+        return Response.json(publishResult());
+      },
+    });
+
+    await expect(client.revisions.list(artifactId)).resolves.toMatchObject({
+      artifact_id: artifactId,
+      items: [{ revision_id: revisionId, revision_number: 1 }],
+    });
+    await expect(client.revisions.publish(artifactId, revisionId, "idem_publish")).resolves.toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
+    expect(calls.map((call) => [call.method, call.url])).toEqual([
+      ["GET", `https://api.example.test/v1/artifacts/${artifactId}/revisions`],
+      ["POST", `https://api.example.test/v1/artifacts/${artifactId}/revisions/${revisionId}/publish`],
+    ]);
+    expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
+  });
+
   it("puts files without API-client auth and wraps upload failures", async () => {
     const calls: Request[] = [];
     const client = authedClient({

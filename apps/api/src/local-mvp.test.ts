@@ -57,6 +57,14 @@ class MemoryKv {
 
 class MemoryDb {
   workspace = { id: "00000000-0000-4000-8000-000000000001", name: "User", created_at: "2026-01-01T00:00:00.000Z" };
+  revisions: Array<{
+    revision_id: string;
+    revision_number: number;
+    status: "draft" | "published";
+    entrypoint: string;
+    file_count: number;
+    size_bytes: number;
+  }> = [];
   session:
     | {
         upload_session_id: string;
@@ -109,18 +117,27 @@ class MemoryDb {
   }
 
   async createUploadSession(input: {
-    request: { title?: string; entrypoint?: string; files: Array<{ path: string; size_bytes: number }> };
+    request: {
+      artifact_id?: string;
+      title?: string;
+      entrypoint?: string;
+      files: Array<{ path: string; size_bytes: number }>;
+    };
   }) {
+    const artifactId = input.request.artifact_id ?? "art_00000000000000000000000000";
+    const revisionId = input.request.artifact_id ? "rev_00000000000000000000000001" : "rev_00000000000000000000000000";
     this.session = {
-      upload_session_id: "upl_00000000000000000000000000",
-      artifact_id: "art_00000000000000000000000000",
-      revision_id: "rev_00000000000000000000000000",
+      upload_session_id: input.request.artifact_id
+        ? "upl_00000000000000000000000001"
+        : "upl_00000000000000000000000000",
+      artifact_id: artifactId,
+      revision_id: revisionId,
       title: input.request.title ?? "demo",
       entrypoint: input.request.entrypoint ?? "index.html",
       expires_at: "2030-01-02T00:00:00.000Z",
       files: input.request.files.map((file) => ({
         ...file,
-        object_key: `artifacts/art_00000000000000000000000000/revisions/rev_00000000000000000000000000/files/${file.path}`,
+        object_key: `artifacts/${artifactId}/revisions/${revisionId}/files/${file.path}`,
         expires_at: "2030-01-02T00:00:00.000Z",
       })),
     };
@@ -153,6 +170,15 @@ class MemoryDb {
 
   async publishRevision() {
     const session = this.mustSession();
+    const revisionNumber = this.revisions.filter((row) => row.status === "published").length + 1;
+    this.revisions.push({
+      revision_id: session.revision_id,
+      revision_number: revisionNumber,
+      status: "published",
+      entrypoint: session.entrypoint,
+      file_count: session.files.length,
+      size_bytes: session.files.reduce((sum, file) => sum + file.size_bytes, 0),
+    });
     return {
       artifact_id: session.artifact_id,
       revision_id: session.revision_id,
@@ -164,9 +190,20 @@ class MemoryDb {
   }
 
   async listRevisions() {
+    const session = this.mustSession();
     return {
-      artifact_id: this.mustSession().artifact_id,
-      items: [],
+      artifact_id: session.artifact_id,
+      items: this.revisions.map((row) => ({
+        revision_id: row.revision_id,
+        revision_number: row.revision_number,
+        status: row.status,
+        entrypoint: row.entrypoint,
+        render_mode: "html",
+        file_count: row.file_count,
+        size_bytes: row.size_bytes,
+        created_at: "2026-01-01T00:00:00.000Z",
+        published_at: row.status === "published" ? "2026-01-01T00:00:00.000Z" : null,
+      })),
       page_info: { next_cursor: null, has_more: false },
     };
   }
@@ -354,5 +391,117 @@ describe("local MVP vertical slice", () => {
     });
     expect(contentResponse.status).toBe(200);
     await expect(contentResponse.text()).resolves.toBe("hello world!");
+
+    const revisionsResponse = await apiWorker.fetch(
+      new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {
+        headers: { authorization: `Bearer ${key.secret}` },
+      }),
+      {
+        AUTH: auth,
+        DB: db,
+        ADMIN_TOKEN: "admin",
+        CONTENT_BASE_URL: "http://content.local",
+      },
+    );
+    expect(revisionsResponse.status).toBe(200);
+    await expect(revisionsResponse.json()).resolves.toMatchObject({
+      artifact_id: finalized.artifact_id,
+      items: [{ revision_id: finalized.revision_id, revision_number: 1, status: "published" }],
+    });
+
+    const updateSessionResponse = await uploadWorker.fetch(
+      new Request("http://upload.local/v1/upload-sessions", {
+        method: "POST",
+        headers: { ...apiHeaders, "idempotency-key": "publish-2" },
+        body: JSON.stringify({
+          artifact_id: finalized.artifact_id,
+          title: "demo v2",
+          ttl_seconds: 86_400,
+          entrypoint: "index.html",
+          files: [{ path: "index.html", size_bytes: 13 }],
+        }),
+      }),
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+        CONTENT_BASE_URL: "http://content.local",
+      },
+    );
+    expect(updateSessionResponse.status).toBe(200);
+    const updateSession = (await updateSessionResponse.json()) as {
+      upload_session_id: string;
+      artifact_id: string;
+      files: Array<{ put_url: string }>;
+    };
+    expect(updateSession.artifact_id).toBe(finalized.artifact_id);
+
+    const updatePutUrl = updateSession.files[0]?.put_url;
+    if (!updatePutUrl) {
+      throw new Error("missing update upload target");
+    }
+    await uploadWorker.fetch(
+      new Request(updatePutUrl, {
+        method: "PUT",
+        headers: { "content-length": "13", "content-type": "text/html; charset=utf-8" },
+        body: "hello world!!",
+      }),
+      { AUTH: auth, DB: db, ARTIFACTS: artifacts, UPLOAD_SIGNING_SECRET: "upload-secret" },
+    );
+
+    const updateFinalizeResponse = await uploadWorker.fetch(
+      new Request(`http://upload.local/v1/upload-sessions/${updateSession.upload_session_id}/finalize`, {
+        method: "POST",
+        headers: { ...apiHeaders, "idempotency-key": "publish-2" },
+      }),
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+        CONTENT_BASE_URL: "http://content.local",
+      },
+    );
+    expect(updateFinalizeResponse.status).toBe(200);
+    const updateFinalized = (await updateFinalizeResponse.json()) as { revision_id: string; status: string };
+    expect(updateFinalized.status).toBe("draft");
+
+    const updatePublishResponse = await apiWorker.fetch(
+      new Request(
+        `http://api.local/v1/artifacts/${finalized.artifact_id}/revisions/${updateFinalized.revision_id}/publish`,
+        {
+          method: "POST",
+          headers: { ...apiHeaders, "idempotency-key": "publish-2" },
+        },
+      ),
+      {
+        AUTH: auth,
+        DB: db,
+        ADMIN_TOKEN: "admin",
+        CONTENT_BASE_URL: "http://content.local",
+        CONTENT_SIGNING_SECRET: "content-secret",
+        API_BASE_URL: "http://api.local",
+      },
+    );
+    expect(updatePublishResponse.status).toBe(200);
+
+    const updatedRevisionsResponse = await apiWorker.fetch(
+      new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {
+        headers: { authorization: `Bearer ${key.secret}` },
+      }),
+      { AUTH: auth, DB: db, ADMIN_TOKEN: "admin", CONTENT_BASE_URL: "http://content.local" },
+    );
+    expect(updatedRevisionsResponse.status).toBe(200);
+    await expect(updatedRevisionsResponse.json()).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ revision_number: 1, status: "published" }),
+        expect.objectContaining({ revision_id: updateFinalized.revision_id, revision_number: 2, status: "published" }),
+      ]),
+    });
   });
 });
