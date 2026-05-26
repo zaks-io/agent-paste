@@ -2,6 +2,7 @@ import { RepositoryCore } from "./repository/core.js";
 import { createLocalState, type LocalState } from "./repository/local-state.js";
 import { LocalUnitOfWork } from "./repository/local-unit-of-work.js";
 import type {
+  AccessLink,
   ApiKey,
   Artifact,
   OperationEvent,
@@ -26,6 +27,7 @@ export class LocalRepository extends RepositoryCore {
   readonly uploadSessionFiles: Map<string, StoredFile>;
   readonly operationEvents: Map<string, OperationEvent>;
   readonly platformLockdowns: Map<string, PlatformLockdown>;
+  readonly accessLinks: Map<string, AccessLink>;
 
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
@@ -39,6 +41,7 @@ export class LocalRepository extends RepositoryCore {
     this.uploadSessionFiles = state.uploadSessionFiles;
     this.operationEvents = state.operationEvents;
     this.platformLockdowns = state.platformLockdowns;
+    this.accessLinks = state.accessLinks;
   }
 }
 

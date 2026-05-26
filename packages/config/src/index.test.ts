@@ -16,7 +16,7 @@ describe("config helpers", () => {
 
   it("exports MVP caps and TTL helpers", () => {
     expect(MAX_ARTIFACT_BYTES).toBeGreaterThan(0);
-    expect(DEFAULT_ACCESS_LINK_TTL_MS).toBe(15 * 60 * 1000);
+    expect(DEFAULT_ACCESS_LINK_TTL_MS).toBe(24 * 60 * 60 * 1000);
     expect(isExpired("2026-01-01T00:00:00.000Z", new Date("2026-01-01T00:00:00.000Z"))).toBe(true);
   });
 });

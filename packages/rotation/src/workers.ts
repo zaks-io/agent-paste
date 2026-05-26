@@ -1,4 +1,5 @@
-import { createKeyRingFromVersionedEnv, type KeyRing } from "./key-ring.js";
+import { createKeyRingFromVersionedEnv, KeyRing, type KeyRingEntry } from "./key-ring.js";
+import { parseKidLabel } from "./kid.js";
 import { PepperRing } from "./pepper-ring.js";
 
 export function pepperRingFromWorkerEnv(env: {
@@ -46,4 +47,20 @@ export function uploadSigningRingFromEnv(env: {
     kidVarName: "UPLOAD_SIGNING_KID",
     env: env as Record<string, string | undefined>,
   });
+}
+
+export function accessLinkSigningRingFromEnv(env: {
+  ACCESS_LINK_SIGNING_KEY_V1?: string;
+  ACCESS_LINK_SIGNING_KEY_V2?: string;
+  ACCESS_LINK_SIGNING_KID?: string;
+}): KeyRing | undefined {
+  if (!env.ACCESS_LINK_SIGNING_KEY_V1) {
+    return undefined;
+  }
+  const signingKid = parseKidLabel(env.ACCESS_LINK_SIGNING_KID, 1);
+  const entries: KeyRingEntry[] = [{ kid: 1, secret: env.ACCESS_LINK_SIGNING_KEY_V1 }];
+  if (env.ACCESS_LINK_SIGNING_KEY_V2) {
+    entries.push({ kid: 2, secret: env.ACCESS_LINK_SIGNING_KEY_V2 });
+  }
+  return KeyRing.fromEntries(signingKid, entries);
 }

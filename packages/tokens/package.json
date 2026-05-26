@@ -23,6 +23,14 @@
     "./upload-url": {
       "types": "./src/upload-url.ts",
       "import": "./dist/upload-url.js"
+    },
+    "./access-link": {
+      "types": "./src/access-link.ts",
+      "import": "./dist/access-link.js"
+    },
+    "./crockford": {
+      "types": "./src/crockford.ts",
+      "import": "./dist/crockford.js"
     }
   },
   "scripts": {

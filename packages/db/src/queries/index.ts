@@ -1,3 +1,4 @@
+export { accessLinkQueries } from "./access-links.js";
 export { apiKeyQueries } from "./api-keys.js";
 export { artifactFileQueries, artifactQueries } from "./artifacts.js";
 export { operationEventQueries } from "./operation-events.js";

@@ -16,6 +16,7 @@ export const artifactQueries = {
       sizeBytes: row.size_bytes,
       expiresAt: new Date(row.expires_at),
       createdByApiKeyId: row.created_by_api_key_id,
+      accessLinkLockdownAt: row.access_link_lockdown_at ? new Date(row.access_link_lockdown_at) : null,
       deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
       deleteReason: row.delete_reason,
       createdAt: new Date(row.created_at),
@@ -132,6 +133,18 @@ export const artifactQueries = {
       })
       .where(eq(artifacts.id, artifactId));
   },
+
+  async setAccessLinkLockdown(db: DrizzleDb, artifactId: string, lockdownAt: string | null): Promise<boolean> {
+    const rows = await db
+      .update(artifacts)
+      .set({
+        accessLinkLockdownAt: lockdownAt ? new Date(lockdownAt) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(artifacts.id, artifactId))
+      .returning({ id: artifacts.id });
+    return rows.length > 0;
+  },
 };
 
 export type ArtifactCursor = {
@@ -174,6 +187,7 @@ function mapArtifact(row: typeof artifacts.$inferSelect): Artifact {
     size_bytes: Number(row.sizeBytes),
     expires_at: row.expiresAt.toISOString(),
     created_by_api_key_id: row.createdByApiKeyId,
+    access_link_lockdown_at: row.accessLinkLockdownAt ? row.accessLinkLockdownAt.toISOString() : null,
     deleted_at: row.deletedAt ? row.deletedAt.toISOString() : null,
     delete_reason: row.deleteReason,
     created_at: row.createdAt.toISOString(),

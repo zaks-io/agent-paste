@@ -13,6 +13,7 @@ const artifact: Artifact = {
   size_bytes: 12,
   expires_at: "2026-02-01T00:00:00.000Z",
   created_by_api_key_id: "key_1",
+  access_link_lockdown_at: null,
   deleted_at: null,
   delete_reason: null,
   created_at: "2026-01-01T00:00:00.000Z",

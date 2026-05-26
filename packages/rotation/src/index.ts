@@ -8,11 +8,13 @@ export {
   type RotationStage,
 } from "./playbook.js";
 export {
+  verifyAccessLinkBlobWithKeyRing,
   verifyAgentViewTokenWithKeyRing,
   verifyContentTokenWithKeyRing,
   verifyUploadTokenWithKeyRing,
 } from "./signing.js";
 export {
+  accessLinkSigningRingFromEnv,
   contentSigningRingFromEnv,
   pepperRingFromWorkerEnv,
   pepperRingVerifySecrets,

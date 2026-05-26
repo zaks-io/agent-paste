@@ -1,3 +1,23 @@
+CREATE TABLE "access_links" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"artifact_id" text NOT NULL,
+	"revision_id" text,
+	"public_id" text NOT NULL,
+	"type" text NOT NULL,
+	"scopes_bitmask" integer NOT NULL,
+	"expires_at" timestamp with time zone,
+	"created_by_type" text NOT NULL,
+	"created_by_id" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"revoked_at" timestamp with time zone,
+	CONSTRAINT "access_links_type_check" CHECK ("access_links"."type" in ('share', 'revision')),
+	CONSTRAINT "access_links_type_revision_check" CHECK (("access_links"."type" = 'share' and "access_links"."revision_id" is null) or ("access_links"."type" = 'revision' and "access_links"."revision_id" is not null)),
+	CONSTRAINT "access_links_created_by_type_check" CHECK ("access_links"."created_by_type" in ('api_key', 'member')),
+	CONSTRAINT "access_links_scopes_bitmask_check" CHECK ("access_links"."scopes_bitmask" between 0 and 65535),
+	CONSTRAINT "access_links_public_id_format" CHECK ("access_links"."public_id" ~ '^[0-9A-HJKMNP-TV-Z]{16}$')
+);
+
 CREATE TABLE "api_keys" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -35,6 +55,7 @@ CREATE TABLE "artifacts" (
 	"size_bytes" bigint NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_by_api_key_id" text NOT NULL,
+	"access_link_lockdown_at" timestamp with time zone,
 	"deleted_at" timestamp with time zone,
 	"delete_reason" text,
 	"created_at" timestamp with time zone NOT NULL,
@@ -151,6 +172,9 @@ CREATE TABLE "workspaces" (
 	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90)
 );
 
+ALTER TABLE "access_links" ADD CONSTRAINT "access_links_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "access_links" ADD CONSTRAINT "access_links_artifact_fk" FOREIGN KEY ("workspace_id","artifact_id") REFERENCES "public"."artifacts"("workspace_id","id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "access_links" ADD CONSTRAINT "access_links_revision_fk" FOREIGN KEY ("workspace_id","artifact_id","revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
@@ -166,14 +190,19 @@ ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_s
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+CREATE UNIQUE INDEX "access_links_public_id_unique" ON "access_links" USING btree ("public_id");
+CREATE INDEX "access_links_artifact_created_idx" ON "access_links" USING btree ("artifact_id","created_at");
+CREATE INDEX "access_links_workspace_idx" ON "access_links" USING btree ("workspace_id");
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
+CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree ("workspace_id","id");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;
 CREATE INDEX "revisions_artifact_created_idx" ON "revisions" USING btree ("artifact_id","created_at");
 CREATE INDEX "revisions_workspace_idx" ON "revisions" USING btree ("workspace_id");
+CREATE UNIQUE INDEX "revisions_workspace_artifact_id_unique" ON "revisions" USING btree ("workspace_id","artifact_id","id");
 CREATE UNIQUE INDEX "revisions_artifact_number_unique" ON "revisions" USING btree ("artifact_id","revision_number") WHERE "revisions"."revision_number" is not null;
 CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btree ("artifact_id") WHERE "revisions"."status" = 'draft';
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");

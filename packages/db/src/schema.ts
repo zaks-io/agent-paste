@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -138,6 +139,7 @@ export const revisions = pgTable(
   (table) => [
     index("revisions_artifact_created_idx").on(table.artifactId, table.createdAt),
     index("revisions_workspace_idx").on(table.workspaceId),
+    uniqueIndex("revisions_workspace_artifact_id_unique").on(table.workspaceId, table.artifactId, table.id),
     uniqueIndex("revisions_artifact_number_unique")
       .on(table.artifactId, table.revisionNumber)
       .where(sql`${table.revisionNumber} is not null`),
@@ -168,6 +170,7 @@ export const artifacts = pgTable(
     createdByApiKeyId: text("created_by_api_key_id")
       .notNull()
       .references(() => apiKeys.id, { onDelete: "restrict" }),
+    accessLinkLockdownAt: timestamp("access_link_lockdown_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deleteReason: text("delete_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
@@ -176,6 +179,7 @@ export const artifacts = pgTable(
   (table) => [
     index("artifacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
     index("artifacts_active_expiry_idx").on(table.workspaceId, table.expiresAt),
+    uniqueIndex("artifacts_workspace_id_unique").on(table.workspaceId, table.id),
   ],
 );
 
@@ -245,6 +249,49 @@ export const idempotencyRecords = pgTable(
       "idempotency_records_actor_type_check",
       sql`${table.actorType} in ('api_key', 'member', 'admin', 'system', 'platform')`,
     ),
+  ],
+);
+
+export const accessLinks = pgTable(
+  "access_links",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    artifactId: text("artifact_id").notNull(),
+    revisionId: text("revision_id"),
+    publicId: text("public_id").notNull(),
+    type: text("type").notNull(),
+    scopesBitmask: integer("scopes_bitmask").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdByType: text("created_by_type").notNull(),
+    createdById: text("created_by_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("access_links_public_id_unique").on(table.publicId),
+    index("access_links_artifact_created_idx").on(table.artifactId, table.createdAt),
+    index("access_links_workspace_idx").on(table.workspaceId),
+    check("access_links_type_check", sql`${table.type} in ('share', 'revision')`),
+    check(
+      "access_links_type_revision_check",
+      sql`(${table.type} = 'share' and ${table.revisionId} is null) or (${table.type} = 'revision' and ${table.revisionId} is not null)`,
+    ),
+    check("access_links_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
+    check("access_links_scopes_bitmask_check", sql`${table.scopesBitmask} between 0 and 65535`),
+    check("access_links_public_id_format", sql`${table.publicId} ~ '^[0-9A-HJKMNP-TV-Z]{16}$'`),
+    foreignKey({
+      name: "access_links_artifact_fk",
+      columns: [table.workspaceId, table.artifactId],
+      foreignColumns: [artifacts.workspaceId, artifacts.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "access_links_revision_fk",
+      columns: [table.workspaceId, table.artifactId, table.revisionId],
+      foreignColumns: [revisions.workspaceId, revisions.artifactId, revisions.id],
+    }).onDelete("cascade"),
   ],
 );
 

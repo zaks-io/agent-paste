@@ -34,6 +34,15 @@ vi.mock("../queries/index.js", () => ({
     "updateExpiry",
     "updatePublished",
     "updateStaging",
+    "setAccessLinkLockdown",
+  ]),
+  accessLinkQueries: queryObject([
+    "insert",
+    "findById",
+    "findByPublicId",
+    "listForArtifact",
+    "revoke",
+    "updateExpiresAt",
   ]),
   artifactFileQueries: queryObject(["insert", "listForArtifact"]),
   revisionQueries: queryObject([
@@ -113,6 +122,7 @@ describe("postgresEntities", () => {
       size_bytes: 12,
       expires_at: now,
       created_by_api_key_id: "key",
+      access_link_lockdown_at: null,
       deleted_at: null,
       delete_reason: null,
       created_at: now,
@@ -213,6 +223,26 @@ describe("postgresEntities", () => {
     await entities.artifacts.markDeleted("artifact", "now");
     await entities.artifacts.listExpiring("now", 10);
     await entities.artifacts.expireBatch("now", ["artifact"]);
+    await entities.artifacts.setAccessLinkLockdown("artifact", "now");
+    await entities.accessLinks.insert({
+      id: "al_test",
+      workspace_id: "workspace",
+      artifact_id: "artifact",
+      revision_id: null,
+      public_id: "0123456789ABCDEF",
+      type: "share",
+      scopes_bitmask: 1,
+      expires_at: null,
+      created_by_type: "api_key",
+      created_by_id: "key",
+      created_at: now,
+      revoked_at: null,
+    });
+    await entities.accessLinks.findById("al_test", "workspace");
+    await entities.accessLinks.findByPublicId("0123456789ABCDEF");
+    await entities.accessLinks.listForArtifact("artifact");
+    await entities.accessLinks.revoke("al_test", "now");
+    await entities.accessLinks.updateExpiresAt("al_test", now);
     await entities.artifactFiles.insert("artifact", "revision", file, "now");
     await entities.artifactFiles.listForArtifact("artifact", "revision");
     await entities.revisions.insert({
