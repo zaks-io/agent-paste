@@ -78,6 +78,18 @@ describe("signing key overlap verification", () => {
     ).toBeNull();
   });
 
+  it("returns null when no kid in the ring verifies the blob", async () => {
+    const blob = await mintAccessLinkBlob({
+      publicId: "0123456789ABCDEF",
+      kid: 1,
+      exp: Date.now() + 60_000,
+      scopes: 1,
+      signingSecret: "other-secret",
+    });
+    const ring = KeyRing.single("unused", 9);
+    expect(await verifyAccessLinkBlobWithKeyRing({ publicId: "0123456789ABCDEF", blob }, ring)).toBeNull();
+  });
+
   it("verifies upload tokens across upload signing key overlap", async () => {
     const ring = KeyRing.single("upload-v1", 1);
     const exp = Math.floor(Date.now() / 1000) + 3600;

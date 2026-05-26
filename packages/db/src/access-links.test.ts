@@ -1,4 +1,5 @@
 import { KeyRing } from "@agent-paste/rotation";
+import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { describe, expect, it } from "vitest";
 import {
   AccessLinkInactiveError,
@@ -6,7 +7,9 @@ import {
   assertAccessLinkMintable,
   computeAccessLinkUrlExpMs,
   createAccessLinkRow,
+  defaultAccessLinkScopesBitmask,
   isAccessLinkRowExpired,
+  isArtifactAccessLinkLocked,
   mintAccessLinkSignedUrl,
   remintAccessLinkSignedUrl,
   verifyAccessLinkSignedBlob,
@@ -103,13 +106,42 @@ describe("access link row lifecycle", () => {
   });
 
   it("detects revoked and expired rows", () => {
+    expect(isAccessLinkRowExpired(shareLink({ expires_at: null }))).toBe(false);
     expect(isAccessLinkRowExpired(shareLink({ expires_at: "2025-01-01T00:00:00.000Z" }))).toBe(true);
+    expect(isArtifactAccessLinkLocked(artifact)).toBe(false);
+    expect(isArtifactAccessLinkLocked({ access_link_lockdown_at: "2026-01-02T00:00:00.000Z" })).toBe(true);
+
     expect(() => assertAccessLinkMintable(shareLink({ revoked_at: "2026-01-02T00:00:00.000Z" }), artifact)).toThrow(
+      AccessLinkInactiveError,
+    );
+    expect(() => assertAccessLinkMintable(shareLink({ expires_at: "2025-01-01T00:00:00.000Z" }), artifact)).toThrow(
       AccessLinkInactiveError,
     );
     expect(() =>
       assertAccessLinkMintable(shareLink(), { ...artifact, access_link_lockdown_at: "2026-01-02T00:00:00.000Z" }),
     ).toThrow(AccessLinkLockdownError);
+  });
+
+  it("blocks mint when the row is inactive and uses default scopes when omitted", async () => {
+    const row = createAccessLinkRow({
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "share",
+      createdByType: "api_key",
+      createdById: "key_test",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    expect(row.scopes_bitmask).toBe(defaultAccessLinkScopesBitmask());
+
+    await expect(
+      mintAccessLinkSignedUrl({
+        link: shareLink({ revoked_at: "2026-01-02T00:00:00.000Z" }),
+        artifact,
+        appBaseUrl: "https://app.agent-paste.sh",
+        signingSecret: "secret",
+        signingKid: 1,
+      }),
+    ).rejects.toThrow(AccessLinkInactiveError);
   });
 
   it("mints and re-mints signed urls when the row is active", async () => {
@@ -160,6 +192,28 @@ describe("access link row lifecycle", () => {
         blob: minted.blob,
         ring,
         now,
+      }),
+    ).not.toBeNull();
+    const futureExp = Date.now() + 60_000;
+    const freshBlob = await mintAccessLinkBlob({
+      publicId: link.public_id,
+      kid: ring.signingKid,
+      exp: futureExp,
+      scopes: link.scopes_bitmask,
+      signingSecret: ring.signingSecret(),
+    });
+    expect(
+      await verifyAccessLinkSignedBlob({
+        publicId: link.public_id,
+        blob: freshBlob,
+        signingSecret: ring.signingSecret(),
+      }),
+    ).not.toBeNull();
+    expect(
+      await verifyAccessLinkSignedBlobWithRing({
+        publicId: link.public_id,
+        blob: freshBlob,
+        ring,
       }),
     ).not.toBeNull();
   });

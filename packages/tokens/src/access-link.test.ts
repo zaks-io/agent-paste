@@ -4,6 +4,7 @@ import {
   ACCESS_LINK_SCOPE,
   accessLinkBlobLooksValid,
   buildAccessLinkUrl,
+  defaultAccessLinkScopesBitmask,
   mintAccessLinkBlob,
   verifyAccessLinkBlob,
 } from "./access-link.js";
@@ -175,10 +176,85 @@ describe("access link signed blob codec", () => {
 
   it("builds viewer URLs without putting the blob in the path or query", () => {
     const url = buildAccessLinkUrl({
-      appBaseUrl: "https://app.agent-paste.sh",
+      appBaseUrl: "https://app.agent-paste.sh/",
       publicId: PUBLIC_ID,
       blob: "payload",
     });
     expect(url).toBe(`https://app.agent-paste.sh/al/${PUBLIC_ID}#payload`);
   });
+
+  it("rejects additional mint validation failures and invalid payload shapes", async () => {
+    await expect(
+      mintAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        kid: 256,
+        exp: Date.now() + 1000,
+        scopes: 1,
+        signingSecret: SECRET_V1,
+      }),
+    ).rejects.toThrow("access_link_invalid_kid");
+    await expect(
+      mintAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        kid: 1,
+        exp: Date.now() + 1000,
+        scopes: 70_000,
+        signingSecret: SECRET_V1,
+      }),
+    ).rejects.toThrow("access_link_invalid_scopes");
+
+    const exp = Date.now() + 60_000;
+    const blob = await mintAccessLinkBlob({
+      publicId: PUBLIC_ID,
+      kid: 1,
+      exp,
+      scopes: ACCESS_LINK_SCOPE.VIEW_ARTIFACT,
+      signingSecret: SECRET_V1,
+    });
+    const bytes = base64UrlDecode(blob);
+    bytes[1] = 0;
+    const kidZero = base64UrlEncode(bytes);
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        blob: kidZero,
+        signingSecret: SECRET_V1,
+        clock: { now: () => exp - 1 },
+      }),
+    ).toBeNull();
+
+    const short = base64UrlEncode(bytes.slice(0, 20));
+    expect(await verifyAccessLinkBlob({ publicId: PUBLIC_ID, blob: short, signingSecret: SECRET_V1 })).toBeNull();
+    expect(accessLinkBlobLooksValid("%%%")).toBe(false);
+
+    bytes.set(expectedSignatureCorrupt(bytes), 12);
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        blob: base64UrlEncode(bytes),
+        signingSecret: SECRET_V1,
+        clock: { now: () => exp - 1 },
+      }),
+    ).toBeNull();
+  });
+
+  it("verifies without an injected clock and exposes default scopes", async () => {
+    const exp = Date.now() + 60_000;
+    const blob = await mintAccessLinkBlob({
+      publicId: PUBLIC_ID,
+      kid: 1,
+      exp,
+      scopes: defaultAccessLinkScopesBitmask(),
+      signingSecret: SECRET_V1,
+    });
+    expect(await verifyAccessLinkBlob({ publicId: PUBLIC_ID, blob, signingSecret: SECRET_V1 })).toMatchObject({
+      scopes: defaultAccessLinkScopesBitmask(),
+    });
+  });
 });
+
+function expectedSignatureCorrupt(bytes: Uint8Array): Uint8Array {
+  const corrupt = new Uint8Array(bytes.slice(12));
+  corrupt[0] = (corrupt[0] ?? 0) ^ 0xff;
+  return corrupt;
+}
