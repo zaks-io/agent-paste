@@ -73,14 +73,14 @@ Use `--print-only` to verify generation shape without calling Wrangler. Use `--s
 
 ### `migrate.mjs`
 
-Migration runner command for preview/production:
+Migration runner command for preview/production (uses `platform_admin`, not Worker credentials):
 
 ```sh
-PREVIEW_DATABASE_URL=postgres://... pnpm migrate:preview
-PRODUCTION_DATABASE_URL=postgres://... pnpm migrate:production
+DATABASE_URL_MIGRATIONS_PREVIEW=postgres://... pnpm migrate:preview
+DATABASE_URL_MIGRATIONS_PRODUCTION=postgres://... pnpm migrate:production
 ```
 
-The script exports the selected migration URL as `DATABASE_URL` and runs the committed SQL migrations from `packages/db`.
+The script exports the selected migration URL as `DATABASE_URL`, sets `DATABASE_RUNTIME_ROLE=app_role` for migrations that harden the runtime role, and runs the committed SQL migrations from `packages/db`. Hyperdrive configs must use `DATABASE_URL_RUNTIME_*` (`app_role`). See [`docs/ops/runbook-neon-database-roles.md`](../docs/ops/runbook-neon-database-roles.md).
 
 ### `deploy-preview.mjs`
 
@@ -160,7 +160,7 @@ PR preview runs this step after hosted smoke. It does not depend on the per-PR w
 
 ## PR Preview Helpers
 
-`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. Each same-repo PR gets:
+`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. After PR migrations run, `resolve-neon-role-url.mjs` prefers a Neon API `app_role` direct URL when Neon returns one with a password; for SQL-provisioned roles it falls back to building the URL from the workflow-provided `DATABASE_RUNTIME_ROLE_PASSWORD` and the owner/bootstrap host. `create-hyperdrive.mjs` receives that runtime URL only (for example `PR_DATABASE_URL`) and creates or updates the PR-scoped Hyperdrive config so reruns stay aligned with the current `app_role` password. Each same-repo PR gets:
 
 - a Neon branch named `preview/pr-<number>`
 - PR-scoped Workers named `agent-paste-{api,upload,content,apex,web}-pr-<number>`

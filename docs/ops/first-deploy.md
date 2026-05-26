@@ -21,12 +21,14 @@ This runbook is the operator checklist for the first deploy of an agent-paste en
 - Run the first MVP migration with a database role allowed to create tables:
 
   ```sh
-  PREVIEW_DATABASE_URL=postgres://... pnpm migrate:preview
-  PRODUCTION_DATABASE_URL=postgres://... pnpm migrate:production
+  DATABASE_URL_MIGRATIONS_PREVIEW=postgres://... pnpm migrate:preview
+  DATABASE_URL_MIGRATIONS_PRODUCTION=postgres://... pnpm migrate:production
   ```
 
 - Confirm workspace isolation is enforced by the repository queries for this MVP.
-- Confirm the migration credential and Hyperdrive runtime credential are separate.
+- Confirm the migration credential (`platform_admin`, `DATABASE_URL_MIGRATIONS_*`)
+  and Hyperdrive runtime credential (`app_role`, `DATABASE_URL_RUNTIME_*`) are
+  separate. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).
 
 ## Secret Bootstrap
 
@@ -86,6 +88,8 @@ Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neo
 
 Required GitHub Actions values:
 
-- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`, `PRODUCTION_DATABASE_URL`, `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
+- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
+  `DATABASE_URL_MIGRATIONS_PRODUCTION`, `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`,
+  `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
 - Variables: `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN=isaac-a46`, `TURBO_TEAM`.
 - Environment: `Production` on the production deploy job, with reviewer approval enabled in GitHub settings.

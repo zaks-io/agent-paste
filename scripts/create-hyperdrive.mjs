@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+// Hyperdrive must use the app_role connection string (DATABASE_URL_RUNTIME_* /
+// PR runtime Neon URL). Never pass migration URLs (platform_admin) here.
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { maskConnectionUri } from "../packages/db/scripts/credentials.mjs";
 
 loadDotenv();
 const options = parseArgs(process.argv.slice(2));
@@ -10,7 +13,9 @@ if (!connectionString) {
 }
 
 const existing = await findHyperdriveByName(options.name);
-const id = existing?.id ?? (await createHyperdrive(options.name, connectionString));
+const id = existing
+  ? await refreshHyperdrive(existing.id, options.name, connectionString)
+  : await createHyperdrive(options.name, connectionString);
 emitOutput(options.githubOutput, id);
 process.stdout.write(`Hyperdrive ${options.name}: ${id}\n`);
 
@@ -36,7 +41,22 @@ async function createHyperdrive(name, connectionString) {
   if (!match) {
     throw new Error(`Could not parse Hyperdrive id from wrangler output:\n${result.stdout || result.stderr}`);
   }
+  process.stdout.write(`Created Hyperdrive ${name} (${match[1]}) for ${maskConnectionUri(connectionString)}\n`);
   return match[1];
+}
+
+async function refreshHyperdrive(id, name, connectionString) {
+  await run("pnpm", [
+    "exec",
+    "wrangler",
+    "hyperdrive",
+    "update",
+    id,
+    "--connection-string",
+    connectionString,
+  ]);
+  process.stdout.write(`Updated Hyperdrive ${name} (${id}) to ${maskConnectionUri(connectionString)}\n`);
+  return id;
 }
 
 function parseHyperdriveList(output) {

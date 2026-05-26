@@ -84,8 +84,10 @@ Goal: operational depth without changing the product surface.
 7. [x] Tested multi-key and multi-pepper rotation automation for ADR 0045.
 8. [x] Richer event/audit browsing for operators.
 9. [ ] GitHub Production environment reviewer/wait-timer/admin-bypass posture.
-10. [ ] Neon hardening: separate Hyperdrive runtime role from migration role,
-        and restrict migration URL secrets to migration workflows.
+10. [x] Neon hardening: separate Hyperdrive runtime role from migration role,
+        and restrict migration URL secrets to migration workflows (AP-18; operator
+        Hyperdrive + GitHub secret cutover tracked in
+        [`runbook-neon-database-roles.md`](../runbook-neon-database-roles.md)).
 
 ## Phase 4: Artifact Lifecycle, Access Links, Jobs, Bundles
 

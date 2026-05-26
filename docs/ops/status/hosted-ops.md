@@ -77,7 +77,8 @@ Deferred secrets not created for the current app:
 ## GitHub / CI
 
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
-  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `PRODUCTION_DATABASE_URL`,
+  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `DATABASE_URL_MIGRATIONS_PRODUCTION`
+  (or legacy `PRODUCTION_DATABASE_URL`),
   `NEON_API_KEY`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`, and
   `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, and preview/PR smoke harness secrets
   are present or proven by successful workflows.
@@ -97,11 +98,21 @@ Deferred secrets not created for the current app:
 7. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`
 
+## Database credential boundaries
+
+- Migrations use `platform_admin` via `DATABASE_URL_MIGRATIONS_*` in GitHub
+  Actions only. See [`runbook-neon-database-roles.md`](../runbook-neon-database-roles.md).
+- Hyperdrive configs for `api` and `upload` must use `app_role`
+  (`DATABASE_URL_RUNTIME_*`). PR previews resolve separate Neon URLs for migrate vs
+  Hyperdrive in `.github/workflows/pr-preview.yml`.
+- After merging role migrations, update production/preview Hyperdrive configs and
+  rotate GitHub secrets off legacy `PRODUCTION_DATABASE_URL` when ready.
+
 ## Open Ops Items
 
 - Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
   for the current path-based Access gate.
-- Separate Hyperdrive runtime and migration roles.
-- Restrict migration URL secrets to migration workflows.
+- Update hosted Hyperdrive configs to `app_role` URLs and store
+  `DATABASE_URL_MIGRATIONS_PRODUCTION` in GitHub Production (operator action).
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.
 - Revisit GitHub Production environment reviewer/wait-timer/admin-bypass posture.

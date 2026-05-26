@@ -78,15 +78,35 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare PR app_role password
+        id: pr_app_role
+        run: |
+          PASSWORD="$(openssl rand -base64 24)"
+          echo "::add-mask::$PASSWORD"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
+
       - name: Migrate PR database
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
-        run: pnpm --filter @agent-paste/db migrate
+          # Bootstrap migrations with the Neon owner URL until platform_admin exists on the project.
+          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon.outputs.db_url }}
+          DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
+        run: node scripts/migrate.mjs preview
+
+      - name: Resolve PR runtime database URL
+        id: neon_runtime
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BOOTSTRAP_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+          NEON_ROLE_NAME: app_role
+          DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
+        run: node scripts/resolve-neon-role-url.mjs --github-output db_url
 
       - name: Create or reuse PR Hyperdrive
         id: hyperdrive
         env:
-          PR_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+          PR_DATABASE_URL: ${{ steps.neon_runtime.outputs.db_url }}
         run: node scripts/create-hyperdrive.mjs --name agent-paste-db-pr-${{ github.event.pull_request.number }} --connection-string-env PR_DATABASE_URL --github-output hyperdrive_id
 
       - name: Build PR artifacts

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-26 (AP-16 operator browsing and coverage follow-up).
+Last updated: 2026-05-26 (AP-18 Neon database credential boundaries).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -48,6 +48,8 @@ Feature-specific ledgers:
   `/admin/*` `ADMIN_TOKEN` in favor of WorkOS/operator routes and jobs.
 - [Rotation runbook](./runbook-rotation.md) - current manual rotation and future
   automation gaps.
+- [Neon database roles runbook](./runbook-neon-database-roles.md) - migration vs
+  Hyperdrive credential boundaries (AP-18).
 - [WorkOS runbook](./runbook-workos.md) - WorkOS project config, redirect URI
   drift, auth failures, and verification.
 - [Logpush runbook](./runbook-logpush.md) - parked Cloudflare Logpush -> Axiom

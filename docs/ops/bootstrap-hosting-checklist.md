@@ -130,7 +130,8 @@ Ownership: Isaac creates or copies `CLOUDFLARE_API_TOKEN` and `PRODUCTION_DATABA
 | -------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CLOUDFLARE_ACCOUNT_ID`                | GitHub Actions (`deploy-production.yml`)                       | Fixed: `a461d640900eb3905d7b6619c8c0da91`. Org-inherited from `zaks-io`; confirm via `gh secret list --org zaks-io` (token may lack org-secret read; if so, trust the workflow run output).                                                                 |
 | `CLOUDFLARE_API_TOKEN`                 | GitHub Actions (`deploy-production.yml`)                       | Cloudflare dashboard -> My Profile -> API Tokens -> Create. Scopes: `Workers Scripts: Edit`, `Workers Routes: Edit`, `Workers KV Storage: Edit`, `Workers R2 Storage: Edit`, `Hyperdrive: Edit`, `Account Settings: Read`, `Zone:Read` on `agent-paste.sh`. |
-| `PRODUCTION_DATABASE_URL`              | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `platform_admin`.                                                                                                                                                      |
+| `DATABASE_URL_MIGRATIONS_PRODUCTION`   | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `platform_admin`. Legacy name `PRODUCTION_DATABASE_URL` still works until rotated.                                                                                     |
+| `DATABASE_URL_RUNTIME_PRODUCTION`      | Operator / Hyperdrive maintenance only                         | Neon console -> production branch -> Direct, role `app_role`. Used when updating Hyperdrive; not stored in deploy workflows. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).                                                      |
 | `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` | GitHub `Production` env (`deploy-production.yml` smoke step)   | Long-lived publish/read API key provisioned for production smoke only (not the harness). Store in Bitwarden and mirror to GitHub.                                                                                                                           |
 | `TURBO_TOKEN`                          | All workflows (remote cache)                                   | `zaks-io` org secret. Already present.                                                                                                                                                                                                                      |
 | `TURBO_TEAM`                           | All workflows (remote cache)                                   | `zaks-io` org var. Value: `zaks-io`.                                                                                                                                                                                                                        |
@@ -141,7 +142,8 @@ PR-preview-only values (`NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_PRODUCTION_BRAN
 Bitwarden entry checklist (one per row):
 
 - [ ] `agent-paste / infra / CLOUDFLARE_API_TOKEN`. **Isaac only** to create in Cloudflare and store in Bitwarden; **Codex can handle** GitHub storage after the value is available in the shell.
-- [ ] `agent-paste / infra / PRODUCTION_DATABASE_URL` (production-branch direct URL, NOT pooled). **Isaac only** to copy from Neon and store in Bitwarden unless a CLI/API credential is already available; **Codex can handle** GitHub storage after the value is available in the shell.
+- [ ] `agent-paste / infra / DATABASE_URL_MIGRATIONS_PRODUCTION` (production-branch direct URL, NOT pooled, role `platform_admin`). **Isaac only** to copy from Neon and store in Bitwarden unless a CLI/API credential is already available; **Codex can handle** GitHub storage after the value is available in the shell.
+- [ ] `agent-paste / infra / DATABASE_URL_RUNTIME_PRODUCTION` (`app_role`, for Hyperdrive only). **Isaac only** for Neon copy; update Hyperdrive configs after `0010_db_roles.sql` is applied.
 - [ ] `agent-paste / infra / TURBO_REMOTE_CACHE_SIGNATURE_KEY`. **Codex can handle** generation, GitHub storage, and verification; Isaac stores it in Bitwarden.
 
 `CLOUDFLARE_ACCOUNT_ID` and `TURBO_TEAM` are non-sensitive identifiers. They do not belong in Bitwarden, but production workflows still need them. Both are inherited from the `zaks-io` GitHub org; verify with `gh secret list --org zaks-io` and `gh variable list --org zaks-io` when the token has org Actions secret/variable permissions. A successful production deploy also proves they are available to the workflow.
@@ -157,7 +159,7 @@ gh secret set CLOUDFLARE_API_TOKEN --repo zaks-io/agent-paste --body "$CLOUDFLAR
 gh secret set TURBO_REMOTE_CACHE_SIGNATURE_KEY --repo zaks-io/agent-paste --body "$TURBO_REMOTE_CACHE_SIGNATURE_KEY"
 
 # Production-environment-scoped (NOT repo-scoped):
-gh secret set PRODUCTION_DATABASE_URL --repo zaks-io/agent-paste --env Production --body "$PRODUCTION_DATABASE_URL"
+gh secret set DATABASE_URL_MIGRATIONS_PRODUCTION --repo zaks-io/agent-paste --env Production --body "$DATABASE_URL_MIGRATIONS_PRODUCTION"
 gh secret set AGENT_PASTE_PRODUCTION_SMOKE_API_KEY --repo zaks-io/agent-paste --env Production --body "$AGENT_PASTE_PRODUCTION_SMOKE_API_KEY"
 ```
 
@@ -177,7 +179,7 @@ In the GitHub UI: `zaks-io/agent-paste` -> Settings -> Environments -> `Producti
 - [ ] **Required reviewers**: add `isaac-zaks` (or the Isaac user account that owns the repo) as the sole reviewer. Toggle "Prevent self-review" OFF -- this is a solo-dev project and the reviewer is also the pusher. **Codex can handle** via `gh api` if the reviewer account is confirmed and API permissions allow it; Isaac uses the UI if GitHub rejects the toggle.
 - [ ] **Wait timer**: `5 minutes`. Gives a window to cancel an in-flight deploy if a regression slips through CI. **Codex can handle** via `gh api`.
 - [ ] **Deployment branches and tags**: select `Selected branches and tags`, add rule `main` (exact match). Reject all other refs. **Codex can handle** via `gh api`.
-- [ ] **Environment secrets**: confirm `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are listed under "Environment secrets" (not "Repository secrets") for this environment. **Codex can handle** after `gh` auth is available outside the sandbox.
+- [ ] **Environment secrets**: confirm `DATABASE_URL_MIGRATIONS_PRODUCTION` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are listed under "Environment secrets" (not "Repository secrets") for this environment. **Codex can handle** after `gh` auth is available outside the sandbox.
 - [ ] **Environment variables**: none required. **Codex can verify**.
 - [ ] **Admin bypass**: disabled. Isaac is also the admin; the bypass would defeat the wait timer. **Codex can verify**; Isaac uses the UI if API access cannot set/confirm it.
 
@@ -260,7 +262,7 @@ This checklist is Done when:
 - All checkboxes in sections 1-3 are checked.
 - `pnpm smoke:production` exits 0 from a clean local checkout.
 - `gh api repos/zaks-io/agent-paste/environments/Production` returns the expected protection rules.
-- `gh secret list --repo zaks-io/agent-paste --env Production` lists `PRODUCTION_DATABASE_URL` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`.
+- `gh secret list --repo zaks-io/agent-paste --env Production` lists `DATABASE_URL_MIGRATIONS_PRODUCTION` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`.
 - Bitwarden holds the production Worker secrets under `agent-paste / production` plus the production infra secrets under `agent-paste / infra`.
 
 When closing: update [`status/hosted-ops.md`](./status/hosted-ops.md), [`status/phase-backlog.md`](./status/phase-backlog.md), and [`status/changelog.md`](./status/changelog.md) with a link back to this checklist. **Codex can handle** the final doc update after the mixed-owner checks are complete.

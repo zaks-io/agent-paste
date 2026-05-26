@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import {
+  MIGRATION_ROLE,
+  migrationDatabaseUrlEnvName,
+  usesLegacyMigrationEnv,
+} from "../packages/db/scripts/credentials.mjs";
 
 loadDotenv();
 
@@ -9,9 +14,15 @@ if (target !== "preview" && target !== "production") {
   usage();
 }
 
-const envName = databaseUrlEnvName(target);
+const envName = migrationDatabaseUrlEnvName(target);
 if (!process.env[envName]) {
   throw new Error(`Set ${envName} before running ${target} migrations.`);
+}
+
+if (usesLegacyMigrationEnv(target, envName)) {
+  process.stderr.write(
+    `warning: ${envName} is a legacy migration secret name. Prefer DATABASE_URL_MIGRATIONS_${target.toUpperCase()} (role ${MIGRATION_ROLE}).\n`,
+  );
 }
 
 await run("pnpm", ["--filter", "@agent-paste/db", "migrate"]);
@@ -37,25 +48,6 @@ function run(command, args) {
   });
 }
 
-function databaseUrlEnvName(target) {
-  if (target === "preview" && process.env.PREVIEW_DATABASE_URL) {
-    return "PREVIEW_DATABASE_URL";
-  }
-  if (target === "production" && process.env.PRODUCTION_DATABASE_URL) {
-    return "PRODUCTION_DATABASE_URL";
-  }
-  if (target === "production" && process.env.LIVE_DATABASE_URL) {
-    return "LIVE_DATABASE_URL";
-  }
-  if (target === "production" && process.env.DATABASE_URL_MIGRATIONS_LIVE) {
-    return "DATABASE_URL_MIGRATIONS_LIVE";
-  }
-  if (target === "production" && process.env.DATABASE_URL_MIGRATIONS_PREVIEW && process.env.PREVIEW_DATABASE_URL) {
-    return "DATABASE_URL_MIGRATIONS_PREVIEW";
-  }
-  return `DATABASE_URL_MIGRATIONS_${target.toUpperCase()}`;
-}
-
 function normalizeTarget(value) {
   return value === "live" ? "production" : value;
 }
@@ -64,6 +56,9 @@ function usage() {
   process.stderr.write(`Usage:
   node scripts/migrate.mjs preview
   node scripts/migrate.mjs production
+
+Migration URLs use DATABASE_URL_MIGRATIONS_PREVIEW or DATABASE_URL_MIGRATIONS_PRODUCTION
+(platform_admin direct connection). Hyperdrive Workers use DATABASE_URL_RUNTIME_* (app_role).
 `);
   process.exit(1);
 }
