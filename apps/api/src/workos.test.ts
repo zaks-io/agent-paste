@@ -66,6 +66,25 @@ describe("WorkOS access-token verification", () => {
     });
   });
 
+  it("preserves WorkOS role claims for sid-only access tokens", async () => {
+    const fixture = await tokenFixture({
+      client_id: clientId,
+      role: "admin",
+      roles: ["member", "admin"],
+      sessionId,
+      tokenId: null,
+    });
+    stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toMatchObject({
+      workos_user_id: subject,
+      email: "user@example.com",
+      session_id: sessionId,
+      role: "admin",
+      roles: ["member", "admin"],
+    });
+  });
+
   it("rejects a JWT with the wrong client_id claim", async () => {
     const fixture = await tokenFixture({ client_id: "client_wrong" });
     stubWorkOsFetch(fixture.publicJwk);

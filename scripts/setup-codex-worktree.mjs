@@ -90,6 +90,7 @@ function envFilesIn(source) {
 
   const output = spawnSync("git", ["-C", source, "status", "--ignored", "--short", "--untracked-files=all"], {
     encoding: "utf8",
+    // 16x Node's default buffer for repos with many ignored or untracked files.
     maxBuffer: 16 * 1024 * 1024,
   });
   if (output.status !== 0) {
@@ -123,9 +124,11 @@ function isEnvFile(path) {
 }
 
 function defaultSourceWorktree() {
-  const canonicalSource = join(process.env.HOME ?? "", "src", "agent-paste");
-  if (canonicalSource && realPathish(canonicalSource) !== realPathish(root) && existsSync(canonicalSource)) {
-    return canonicalSource;
+  if (process.env.HOME) {
+    const canonicalSource = join(process.env.HOME, "src", "agent-paste");
+    if (realPathish(canonicalSource) !== realPathish(root) && existsSync(canonicalSource)) {
+      return canonicalSource;
+    }
   }
 
   const output = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: root, encoding: "utf8" });

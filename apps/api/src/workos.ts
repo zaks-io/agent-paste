@@ -76,7 +76,7 @@ export async function resolveWorkOsIdentity(
     return { ...identity, token_id: verified.tokenId };
   }
   if (verified.sessionId) {
-    return { workos_user_id: user.id, email: user.email, session_id: verified.sessionId };
+    return { ...identity, session_id: verified.sessionId };
   }
   options.onReject?.("no_session_or_token_id");
   return null;

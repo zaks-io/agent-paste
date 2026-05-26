@@ -68,9 +68,10 @@ Deferred secrets not created for the current app:
   admin/operator hostname remains optional future work if the surface grows.
 - The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
   `/admin/*`. Retire it once Cloudflare Access + WorkOS operator routes cover
-  the remaining admin operations. A route-by-route migration plan is still
-  needed for workspace/API-key bootstrap, artifact inspection/deletion, cleanup,
-  and operation-event browsing.
+  the remaining admin operations. The AP-12 route-by-route migration plan exists
+  at [`docs/ops/ap-12-migration-plan.md`](../ap-12-migration-plan.md); execution
+  is still needed for workspace/API-key bootstrap, artifact inspection/deletion,
+  cleanup, and operation-event browsing.
 - Legacy admin-token routes and public Agent View now use contract-declared
   rate limits (`actor` for `/admin/*`, `artifact` for public Agent View) via the
   shared `ARTIFACT_RATE_LIMIT` / `ACTOR_RATE_LIMIT` bindings on `api`.

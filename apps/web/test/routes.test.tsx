@@ -349,6 +349,24 @@ describe("web routes", () => {
     expect(state.apiFetchOrEmpty).not.toHaveBeenCalledWith("/v1/web/admin/lockdowns", expect.anything());
   });
 
+  it("allows /admin when WorkOS roles includes admin", async () => {
+    const admin = await import("../src/routes/_authed.admin");
+
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", roles: ["member", "admin"] };
+    state.apiFetchOrEmpty.mockResolvedValueOnce({
+      data: { items: [], page_info: { next_cursor: null, has_more: false } },
+      empty: false,
+      error: null,
+    });
+
+    await expect((admin.Route.loader as () => Promise<unknown>)()).resolves.toMatchObject({
+      lockdowns: { data: { items: [] } },
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/lockdowns", {
+      accessToken: "workos-token",
+    });
+  });
+
   it("exposes per-route document titles and descriptions", async () => {
     const dashboard = await import("../src/routes/_authed.dashboard");
     const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
