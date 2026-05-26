@@ -282,11 +282,13 @@ function spawnChild(command, args, env = {}, options = {}) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
-  child.stdout.on("data", (chunk) => {
+  const appendLog = (chunk) => {
     log += chunk.toString();
-  });
-  child.stderr.on("data", (chunk) => {
-    log += chunk.toString();
+  };
+  child.stdout.on("data", appendLog);
+  child.stderr.on("data", appendLog);
+  child.on("error", (error) => {
+    appendLog(`\nspawn error: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
   });
   child.__log = () => log;
   children.push(child);
@@ -306,17 +308,22 @@ async function shutdownChildren() {
 
 async function waitForHealthy(url, headers, child, timeoutMs = 30_000) {
   const startedAt = Date.now();
+  const attemptTimeoutMs = Math.min(5_000, Math.max(500, Math.floor(timeoutMs / 10)));
   while (Date.now() - startedAt < timeoutMs) {
     if (child.exitCode !== null) {
       throw new Error(`process exited early\n${child.__log?.() ?? ""}`);
     }
+    const controller = new AbortController();
+    const attemptTimer = setTimeout(() => controller.abort(), attemptTimeoutMs);
     try {
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers, signal: controller.signal });
       if (response.ok) {
         return;
       }
     } catch {
-      // Server is still starting.
+      // Server is still starting or this probe timed out.
+    } finally {
+      clearTimeout(attemptTimer);
     }
     await delay(200);
   }
