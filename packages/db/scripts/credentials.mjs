@@ -99,3 +99,28 @@ export function connectionStringForRole(bootstrapUrl, roleName, password) {
   url.password = password;
   return url.toString();
 }
+
+/**
+ * @param {string} uri
+ */
+export function connectionUriHasPassword(uri) {
+  try {
+    const parsed = new URL(uri);
+    return parsed.password.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} uri
+ */
+export function maskConnectionUri(uri) {
+  try {
+    const parsed = new URL(uri);
+    const user = parsed.username ? `${parsed.username}:***@` : "";
+    return `${parsed.protocol}//${user}${parsed.host}${parsed.pathname}${parsed.search}`;
+  } catch {
+    return "<invalid-uri>";
+  }
+}

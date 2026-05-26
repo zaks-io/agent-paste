@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { appendFileSync } from "node:fs";
-import { APP_RUNTIME_ROLE, connectionStringForRole } from "../packages/db/scripts/credentials.mjs";
+import {
+  APP_RUNTIME_ROLE,
+  connectionStringForRole,
+  connectionUriHasPassword,
+  maskConnectionUri,
+} from "../packages/db/scripts/credentials.mjs";
 
 const options = parseArgs(process.argv.slice(2));
 const projectId = requiredEnv("NEON_PROJECT_ID");
@@ -31,24 +36,34 @@ emitOutput(options.githubOutput, connectionUri);
 
 async function resolveRoleConnectionUri(context) {
   const fromUri = await tryConnectionUri(context);
-  if (fromUri) {
+  if (fromUri && connectionUriHasPassword(fromUri)) {
     return fromUri;
   }
 
   const password = await tryResetRolePassword(context);
-  if (password) {
-    const afterReset = await tryConnectionUri(context);
-    if (afterReset) {
-      return afterReset;
+  if (!password) {
+    throw new Error(
+      `Could not resolve a password-backed connection URI for Neon role ${context.roleName} on branch ${context.branchId}. ` +
+        "Ensure migration 0010_db_roles.sql has run and the role exists on this branch.",
+    );
+  }
+
+  const afterReset = await tryConnectionUri(context);
+  if (afterReset && connectionUriHasPassword(afterReset)) {
+    return afterReset;
+  }
+
+  if (context.bootstrapUrl) {
+    const built = connectionStringForRole(context.bootstrapUrl, context.roleName, password);
+    if (!connectionUriHasPassword(built)) {
+      throw new Error(`Built ${context.roleName} connection URI is missing a password.`);
     }
-    if (context.bootstrapUrl) {
-      return connectionStringForRole(context.bootstrapUrl, context.roleName, password);
-    }
+    return built;
   }
 
   throw new Error(
     `Could not resolve a direct connection URI for Neon role ${context.roleName} on branch ${context.branchId}. ` +
-      "Ensure migration 0010_db_roles.sql has run and the role exists on this branch.",
+      "Set NEON_BOOTSTRAP_DATABASE_URL so the resolver can build a password-backed URI after reset_password.",
   );
 }
 
@@ -89,10 +104,10 @@ function emitOutput(name, value) {
   if (!name) {
     return;
   }
-  process.stdout.write(`${name}=${value}\n`);
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
   }
+  process.stdout.write(`${name}=${maskConnectionUri(value)}\n`);
 }
 
 function parseArgs(argv) {

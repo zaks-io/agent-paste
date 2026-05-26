@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   APP_RUNTIME_ROLE,
   connectionStringForRole,
+  connectionUriHasPassword,
+  maskConnectionUri,
   MIGRATION_ROLE,
   migrationDatabaseUrlEnvName,
   resolveMigrationDatabaseUrl,
@@ -68,6 +70,19 @@ describe("database credentials", () => {
         DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://production@host/db",
       }),
     ).toThrow(/DATABASE_URL_MIGRATIONS_PREVIEW/);
+  });
+
+  it("detects passwordless Neon connection URIs", () => {
+    expect(connectionUriHasPassword("postgres://app_role@ep-test.neon.tech/neondb?sslmode=require")).toBe(false);
+    expect(
+      connectionUriHasPassword("postgres://app_role:secret@ep-test.neon.tech/neondb?sslmode=require"),
+    ).toBe(true);
+  });
+
+  it("masks connection URIs for logs", () => {
+    expect(maskConnectionUri("postgres://app_role:secret@ep-test.neon.tech/neondb?sslmode=require")).toBe(
+      "postgres://app_role:***@ep-test.neon.tech/neondb?sslmode=require",
+    );
   });
 
   it("builds a runtime connection string from a bootstrap URL", () => {
