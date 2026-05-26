@@ -94,7 +94,7 @@ Deferred to Phase 4 (decision D4, Phase 2/3 reconciliation). Access Links (ADR 0
 ## Documentation
 
 - [x] `docs/ops/runbook-workos.md` — project config, rotation procedure, common failure modes (callback URL drift, expired API key, cookie password rotation).
-- [ ] When the above lands, update [`status/implementation.md`](./status/implementation.md) and [`status/coverage.md`](./status/coverage.md) so `apps/web`, ADR 0033, ADR 0059, and ADR 0068 reflect the final Phase 3 state.
+- [x] When the above lands, update [`status/implementation.md`](./status/implementation.md) and [`status/coverage.md`](./status/coverage.md) so `apps/web`, ADR 0033, ADR 0059, and ADR 0068 reflect the final Phase 3 state.
 
 ## Polish / nice-to-have (not blocking)
 

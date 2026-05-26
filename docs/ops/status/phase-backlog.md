@@ -37,7 +37,7 @@ admin basics.
        via Lighthouse accessibility-only, and `pr-preview.yml` fails below 95.
 5. [x] Write `docs/ops/runbook-workos.md`: WorkOS project config, redirect URI
        drift, API-key/cookie rotation, and common auth failures.
-6. [ ] Promote status after the above lands: update ADR 0033/0059/0068
+6. [x] Promote status after the above lands: update ADR 0033/0059/0068
        coverage and the Phase 3 summary in `project-status.md`.
 7. [ ] Restore deep-link return paths for unauthenticated `_authed` redirects.
        This was dropped because query strings in thrown redirects trigger a
