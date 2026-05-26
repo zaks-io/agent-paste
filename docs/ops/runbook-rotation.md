@@ -6,14 +6,14 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 
 ## Current Inventory
 
-| Secret                   | Bound on             | Rotation impact                                                                 |
-| ------------------------ | -------------------- | ------------------------------------------------------------------------------- |
-| `CONTENT_SIGNING_SECRET` | api, upload, content | Invalidates currently minted content and Agent View URLs.                       |
-| `UPLOAD_SIGNING_SECRET`  | upload               | Invalidates in-flight signed upload PUT URLs.                                   |
-| `API_KEY_PEPPER_V1`      | api, upload          | Invalidates existing API Keys in the current MVP implementation.                |
-| `WORKOS_API_KEY`         | api, web             | Swaps the WorkOS server-side API credential.                                    |
-| `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present.              |
-| `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                               |
+| Secret                   | Bound on             | Rotation impact                                                    |
+| ------------------------ | -------------------- | ------------------------------------------------------------------ |
+| `CONTENT_SIGNING_SECRET` | api, upload, content | Invalidates currently minted content and Agent View URLs.          |
+| `UPLOAD_SIGNING_SECRET`  | upload               | Invalidates in-flight signed upload PUT URLs.                      |
+| `API_KEY_PEPPER_V1`      | api, upload          | Invalidates existing API Keys in the current MVP implementation.   |
+| `WORKOS_API_KEY`         | api, web             | Swaps the WorkOS server-side API credential.                       |
+| `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present. |
+| `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                  |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.

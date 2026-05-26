@@ -56,11 +56,11 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 
 ### Operator (web)
 
-| Feature              | MVP behavior                                                                 | Primary users |
-| -------------------- | ---------------------------------------------------------------------------- | ------------- |
-| Operator auth        | WorkOS `admin` role + Cloudflare Access on web operator routes.              | Operator      |
-| Platform lockdown    | Set/lift/list lockdowns via `/v1/web/admin/lockdowns`.                         | Operator      |
-| Member self-service  | Workspace, keys, artifacts, and audit via `/v1/web/*` after `agent-paste login`. | Members    |
+| Feature             | MVP behavior                                                                     | Primary users |
+| ------------------- | -------------------------------------------------------------------------------- | ------------- |
+| Operator auth       | WorkOS `admin` role + Cloudflare Access on web operator routes.                  | Operator      |
+| Platform lockdown   | Set/lift/list lockdowns via `/v1/web/admin/lockdowns`.                           | Operator      |
+| Member self-service | Workspace, keys, artifacts, and audit via `/v1/web/*` after `agent-paste login`. | Members       |
 
 ## Future Features
 

@@ -4,11 +4,11 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Workspace Bootstrap
 
-| Scenario           | Expected Result                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| CLI login          | `agent-paste login` provisions or resolves a member workspace and mints an API key through `/v1/web/keys`.          |
-| Smoke harness      | Non-production `POST /__test__/provision-smoke` returns workspace id and one-time API key secret for automated smokes. |
-| Revoke API key     | `DELETE /v1/web/keys/{api_key_id}` (or harness delete) causes future public CLI calls with that key to fail.         |
+| Scenario       | Expected Result                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| CLI login      | `agent-paste login` provisions or resolves a member workspace and mints an API key through `/v1/web/keys`.             |
+| Smoke harness  | Non-production `POST /__test__/provision-smoke` returns workspace id and one-time API key secret for automated smokes. |
+| Revoke API key | `DELETE /v1/web/keys/{api_key_id}` (or harness delete) causes future public CLI calls with that key to fail.           |
 
 ## Public CLI
 
@@ -45,29 +45,29 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Retention
 
-| Scenario             | Expected Result                                                               |
-| -------------------- | ----------------------------------------------------------------------------- |
-| Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                    |
-| Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.            |
-| Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.    |
+| Scenario             | Expected Result                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                               |
+| Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.                       |
+| Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.               |
 | Manual cleanup       | Non-production harness `POST /__test__/run-cleanup` or scheduled cleanup reports counts. |
-| No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`. |
+| No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`.            |
 
 ## Operator Operations
 
-| Scenario          | Expected Result                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Scenario          | Expected Result                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
 | Operator lockdown | WorkOS `admin` (or Access service token) can set/lift lockdowns; API keys cannot call operator routes. |
-| Member artifacts  | `/v1/web/artifacts` lists tenant-scoped artifacts without signed tokens in responses.                   |
+| Member artifacts  | `/v1/web/artifacts` lists tenant-scoped artifacts without signed tokens in responses.                  |
 
 ## Security Boundaries
 
-| Scenario                    | Expected Result                                                           |
-| --------------------------- | ------------------------------------------------------------------------- |
-| Content Worker DB binding   | Generated Worker binding types prove `content` has no Hyperdrive binding. |
-| Signed URL logging          | Tests fail if request logging records full signed content URLs or tokens. |
-| API key logging             | Tests fail if API-key secret material is logged.                          |
-| API key on operator route   | Rejected before operator auth runs.                                      |
+| Scenario                  | Expected Result                                                           |
+| ------------------------- | ------------------------------------------------------------------------- |
+| Content Worker DB binding | Generated Worker binding types prove `content` has no Hyperdrive binding. |
+| Signed URL logging        | Tests fail if request logging records full signed content URLs or tokens. |
+| API key logging           | Tests fail if API-key secret material is logged.                          |
+| API key on operator route | Rejected before operator auth runs.                                       |
 
 ## Explicit Non-Goals
 

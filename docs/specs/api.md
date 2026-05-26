@@ -4,11 +4,11 @@ This document describes the CLI-first MVP route contract. The canonical code reg
 
 ## Hosts
 
-| Surface   | Host                                 | Owns                                                                                            |
-| --------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Surface   | Host                                 | Owns                                                                                                |
+| --------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | `api`     | `https://api.agent-paste.sh`         | API-key auth, public Agent View, artifact metadata, web/operator routes, operation events, cleanup. |
-| `upload`  | `https://upload.agent-paste.sh`      | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation.                 |
-| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2.                                                     |
+| `upload`  | `https://upload.agent-paste.sh`      | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation.                     |
+| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2.                                                         |
 
 Future hosts:
 
@@ -21,24 +21,24 @@ Preview hosts use the same path contracts with preview-specific hostnames and se
 
 ## Headers
 
-| Header                      | Direction        | Required                          | Notes                                                                                   |
-| --------------------------- | ---------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| Header                      | Direction        | Required                          | Notes                                                                                              |
+| --------------------------- | ---------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `Authorization: Bearer ...` | request          | API-key and web routes            | API key for `/v1/*` (except public Agent View); WorkOS bearer for `/v1/web/*` and operator routes. |
-| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.            |
-| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                      |
-| `Retry-After`               | response         | 429                               | Seconds.                                                                                |
+| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                       |
+| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                                 |
+| `Retry-After`               | response         | 429                               | Seconds.                                                                                           |
 
 Secrets are never accepted as query parameters or flags.
 
 ## Auth Labels
 
-| Label                     | Meaning                                                               |
-| ------------------------- | --------------------------------------------------------------------- |
-| `api_key`                 | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`.         |
+| Label                     | Meaning                                                                  |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `api_key`                 | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`.            |
 | `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes. |
-| `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only. |
-| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                      |
-| `signed_content_token`    | Public token in `/v/{token}/{path}`.                                  |
+| `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only.    |
+| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                         |
+| `signed_content_token`    | Public token in `/v/{token}/{path}`.                                     |
 
 ## Public API Routes
 
