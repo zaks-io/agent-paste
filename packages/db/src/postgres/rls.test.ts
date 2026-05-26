@@ -3,6 +3,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
+import {
+  APP_RUNTIME_ROLE,
+  RUNTIME_ROLE_GUC,
+  RUNTIME_ROLE_PASSWORD_GUC,
+} from "../../scripts/credentials.mjs";
 import type { SqlExecutor, SqlValue } from "../types.js";
 import { rlsExecutor } from "./rls.js";
 
@@ -39,14 +44,14 @@ async function applyMigrations(client: PGlite) {
   const files = (await readdir(dir)).filter((name) => name.endsWith(".sql")).sort();
   for (const file of files) {
     if (file === "0010_db_roles.sql") {
-      await client.exec("select set_config('app.runtime_role', 'app_role', false)");
-      await client.exec("select set_config('app.runtime_role_password', 'test-runtime-password', false)");
+      await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '${APP_RUNTIME_ROLE}', false)`);
+      await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', 'test-runtime-password', false)`);
       try {
         const text = await readFile(resolve(dir, file), "utf8");
         await client.exec(text);
       } finally {
-        await client.exec("select set_config('app.runtime_role', '', false)");
-        await client.exec("select set_config('app.runtime_role_password', '', false)");
+        await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '', false)`);
+        await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', '', false)`);
       }
       continue;
     }
@@ -109,7 +114,7 @@ describe("postgres RLS runtime enforcement", () => {
   beforeAll(async () => {
     client = new PGlite();
     await applyMigrations(client);
-    executor = executorForPglite(client, "app_role");
+    executor = executorForPglite(client, APP_RUNTIME_ROLE);
     await seedWorkspaces(executor);
     await insertWorkspaceMember(executor, ws1Id, "mem-ws1", "user-ws1");
     await insertWorkspaceMember(executor, ws2Id, "mem-ws2", "user-ws2");
