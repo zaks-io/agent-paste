@@ -49,14 +49,13 @@ Deferred secrets not created for the current app:
 
 ## Known Security / Ops Gaps
 
-- Cloudflare Access is configured for the production operator web surface:
-  `/admin` on `app.agent-paste.sh` and `/v1/web/admin/lockdowns` on
-  `api.agent-paste.sh`. Team domain:
-  `zaks-io.cloudflareaccess.com`. The matching `CF_ACCESS_TEAM_DOMAIN` var is
-  recorded in `apps/api/wrangler.jsonc`; set `CF_ACCESS_AUD` as a Wrangler
-  secret because secret scanning treats the high-entropy identifier as
-  sensitive.
-- `CF_ACCESS_AUD` is set as a Wrangler secret on `agent-paste-api-preview` and
+- Cloudflare Access gates the production operator web surface: `/admin` on
+  `app.agent-paste.sh` and `/v1/web/admin/lockdowns` on `api.agent-paste.sh`.
+  Team domain: `zaks-io.cloudflareaccess.com`. `CF_ACCESS_TEAM_DOMAIN` is
+  recorded in `apps/api/wrangler.jsonc`; `CF_ACCESS_AUD` is stored as a Wrangler
+  secret (not a plain var) because secret scanning treats the high-entropy
+  identifier as sensitive.
+- `CF_ACCESS_AUD` is set on `agent-paste-api-preview` and
   `agent-paste-api-production`. Both hosted API Workers were deployed after
   removing the old tracked plain-var binding.
 - No new CNAME is needed for the current path-based Access setup. A dedicated
