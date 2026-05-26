@@ -32,6 +32,7 @@ import type {
 } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Repository } from "./interface.js";
+import { resolveOperatorEventActions, type OperatorEventFilters } from "./operator-event-filters.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
 import {
@@ -46,6 +47,7 @@ import {
   normalizeWebAuditLimit,
   toWebArtifactRow,
   toWebAuditRow,
+  toWebOperatorEventRow,
 } from "./web-transforms.js";
 
 const PLATFORM_SCOPE: RunScope = { kind: "platform" };
@@ -601,6 +603,34 @@ export class RepositoryCore implements Repository {
         items: page.map(toLockdownDetail),
         page_info: {
           next_cursor: rows.length > limit && last ? encodeLockdownCursor(last) : null,
+          has_more: rows.length > limit,
+        },
+      };
+    });
+  }
+
+  async listOperatorEvents(
+    _actor: PlatformActor,
+    input: OperatorEventFilters & { cursor?: string; limit?: number } = {},
+  ) {
+    const limit = normalizeWebAuditLimit(input.limit);
+    const actions = resolveOperatorEventActions(input);
+    return this.uow.read(PLATFORM_SCOPE, async (entities) => {
+      const rows = await entities.operationEvents.listOperatorPage({
+        limit: limit + 1,
+        ...(input.cursor ? { cursor: decodeWebAuditCursor(input.cursor) } : {}),
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        ...(input.actorType ? { actorType: input.actorType } : {}),
+        ...(input.targetType ? { targetType: input.targetType } : {}),
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+        ...(actions ? { actions } : {}),
+      });
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(toWebOperatorEventRow),
+        page_info: {
+          next_cursor: rows.length > limit && last ? encodeWebAuditCursor(last) : null,
           has_more: rows.length > limit,
         },
       };

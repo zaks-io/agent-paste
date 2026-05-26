@@ -29,6 +29,8 @@ import {
   WebArtifactRow,
   WebAuditListResponse,
   WebAuditRow,
+  WebOperatorEventListResponse,
+  WebOperatorEventRow,
   WebAuthCallbackResponse,
   WebSettingsResponse,
   WebWorkspaceResponse,
@@ -70,6 +72,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebApiKeyListResponse", WebApiKeyListResponse);
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
+  registry.register("WebOperatorEventRow", WebOperatorEventRow);
+  registry.register("WebOperatorEventListResponse", WebOperatorEventListResponse);
   registry.register("WebSettingsResponse", WebSettingsResponse);
   registry.register("UpdateWebSettingsRequest", UpdateWebSettingsRequest);
   registry.register("SetLockdownRequest", SetLockdownRequest);

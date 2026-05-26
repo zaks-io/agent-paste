@@ -10,15 +10,20 @@ import {
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
 import {
+  ActorType,
   buildApiOpenApiDocument,
   type CleanupRunRequest,
   type CreateApiKeyRequest,
   type CreateWorkspaceRequest,
   LockdownScope,
+  OperationEventAction,
+  OperationEventTargetType,
   type RouteContract,
   routeContracts,
   type SetLockdownRequest,
   type UpdateWebSettingsRequest,
+  WebOperatorEventFocus,
+  WorkspaceId,
 } from "@agent-paste/contracts";
 import {
   type AdminActor,
@@ -309,6 +314,9 @@ apiDbRegistrar.mount(contractById("web.admin.lockdown.lift"), async (context, pr
     targetId: context.req.param("target_id") ?? "",
   }),
 );
+apiDbRegistrar.mount(contractById("web.admin.events.list"), async (context, principal, db) =>
+  webAdminListEvents(context as AppContext, principal, db),
+);
 app.get("/admin/whoami", (context) => adminWhoami(context));
 apiDbRegistrar.mount(contractById("admin.workspaces.create"), async (context, principal, db, guard) =>
   createWorkspace(context as AppContext, principal, db, guard),
@@ -559,6 +567,65 @@ function parsePagination(
   return { ok: true, value: cursor === undefined ? { limit } : { limit, cursor } };
 }
 
+type OperatorEventFilterInput = {
+  workspaceId?: string;
+  actorType?: string;
+  action?: string;
+  targetType?: string;
+  requestId?: string;
+  focus?: "all" | "security" | "lifecycle";
+};
+
+function parseOperatorEventFilters(
+  request: Request,
+): { ok: true; value: OperatorEventFilterInput } | { ok: false; code: "invalid_request" } {
+  const url = new URL(request.url);
+  const workspaceId = url.searchParams.get("workspace_id");
+  if (workspaceId !== null && !WorkspaceId.safeParse(workspaceId).success) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const actorType = url.searchParams.get("actor_type");
+  if (actorType !== null && !ActorType.safeParse(actorType).success) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const action = url.searchParams.get("action");
+  if (action !== null && !OperationEventAction.safeParse(action).success) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const targetType = url.searchParams.get("target_type");
+  if (targetType !== null && !OperationEventTargetType.safeParse(targetType).success) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const requestId = url.searchParams.get("request_id");
+  if (requestId !== null && (requestId.length < 1 || requestId.length > 128)) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const focusParam = url.searchParams.get("focus");
+  if (focusParam !== null && !WebOperatorEventFocus.safeParse(focusParam).success) {
+    return { ok: false, code: "invalid_request" };
+  }
+  const value: OperatorEventFilterInput = {};
+  if (workspaceId) {
+    value.workspaceId = workspaceId;
+  }
+  if (actorType) {
+    value.actorType = actorType;
+  }
+  if (action) {
+    value.action = action;
+  }
+  if (targetType) {
+    value.targetType = targetType;
+  }
+  if (requestId) {
+    value.requestId = requestId;
+  }
+  if (focusParam === "security" || focusParam === "lifecycle") {
+    value.focus = focusParam;
+  }
+  return { ok: true, value };
+}
+
 async function webApiKeys(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   return actor ? jsonResponse(context, await db.listWebApiKeys(actor)) : errorResponse(context, "forbidden");
@@ -683,6 +750,39 @@ async function webAdminListLockdowns(context: AppContext, principal: Principal, 
   const listLockdowns = db.listLockdowns.bind(db);
   try {
     return jsonResponse(context, await listLockdowns(actor, pagination.value));
+  } catch (error) {
+    if (error instanceof Error && error.message === "invalid_cursor") {
+      return errorResponse(context, "invalid_cursor");
+    }
+    throw error;
+  }
+}
+
+async function webAdminListEvents(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = platformActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_found");
+  }
+  if (!db.listOperatorEvents) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const pagination = parsePagination(context.req.raw);
+  if (!pagination.ok) {
+    return errorResponse(context, pagination.code);
+  }
+  const filters = parseOperatorEventFilters(context.req.raw);
+  if (!filters.ok) {
+    return errorResponse(context, filters.code);
+  }
+  const listOperatorEvents = db.listOperatorEvents.bind(db);
+  try {
+    return jsonResponse(
+      context,
+      await listOperatorEvents(actor, {
+        ...pagination.value,
+        ...filters.value,
+      }),
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_cursor") {
       return errorResponse(context, "invalid_cursor");

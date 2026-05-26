@@ -47,7 +47,14 @@ vi.mock("../queries/index.js", () => ({
   uploadSessionQueries: queryObject(["insert", "findById", "findByRevisionId", "markFinalized"]),
   uploadSessionFileQueries: queryObject(["insert", "listForSession", "recordUpload"]),
   platformLockdownQueries: queryObject(["findEffective", "listEffectivePage", "insert", "markLifted"]),
-  operationEventQueries: queryObject(["insert", "listAll", "listForWorkspace", "listWebPage", "listIdsForTarget"]),
+  operationEventQueries: queryObject([
+    "insert",
+    "listAll",
+    "listForWorkspace",
+    "listWebPage",
+    "listOperatorPage",
+    "listIdsForTarget",
+  ]),
 }));
 
 describe("postgresEntities", () => {
@@ -247,6 +254,7 @@ describe("postgresEntities", () => {
     await entities.operationEvents.listAll();
     await entities.operationEvents.listForWorkspace("workspace");
     await entities.operationEvents.listWebPage({ workspaceId: "workspace", limit: 2 });
+    await entities.operationEvents.listOperatorPage({ limit: 2, actions: ["platform.lockdown.set"] });
     await entities.operationEvents.listIdsForTarget("artifact");
 
     expect(calls.map((call) => call.name)).toEqual(
