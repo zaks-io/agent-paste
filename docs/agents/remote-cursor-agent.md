@@ -139,6 +139,23 @@ untouched and move or ask for the ticket to be moved to `ready-for-human`.
 Respect milestone dependencies. For example, do not implement the Access Link
 viewer before the Access Link model/codec ticket is complete.
 
+## Pull requests (ready for review, not draft)
+
+Create GitHub pull requests **ready for review** (`draft: false`). Do not open
+draft PRs unless the Linear issue explicitly asks for a draft.
+
+This repo uses CodeRabbit on published PRs; draft PRs delay or skip that review
+pass. After `git push`, open or update the PR as ready for review so review
+automation runs immediately.
+
+There is no separate Cursor or repo UI setting for this today; follow this
+handoff doc and any Linear issue that overrides it.
+
+When the PR is ready for review, move the linked Linear issue to **In Review**
+in the same pass (see PR Handoff Checklist). The GitHub integration attaches the
+PR when the branch and PR are linked to the issue; do not add a Linear comment
+just to paste the PR URL.
+
 ## PR Handoff Checklist
 
 The final PR or handoff comment must include:
@@ -149,6 +166,10 @@ The final PR or handoff comment must include:
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.
 - Docs/status ledgers updated when the change affects project status.
+- **Linear issue moved to In Review** for the ticket you implemented once the PR
+  is ready for review. Use `save_issue` per `docs/agents/issue-tracker.md`. Do
+  not leave the issue in an in-progress state after handoff. Use Linear comments
+  only for blockers or handoff gaps—not to duplicate the PR link.
 
 Keep the change scoped to the issue. Do not bundle unrelated cleanup into a
 remote-agent branch.

@@ -78,7 +78,7 @@ Goal: operational depth without changing the product surface.
        WorkOS operator route, `apps/jobs` responsibility, or explicit removal,
        then remove the old admin CLI/API once smoke/runbooks no longer depend
        on `ADMIN_TOKEN`.
-6. [ ] Add rate limiting to legacy admin-token routes and public bearer read
+6. [x] Add rate limiting to legacy admin-token routes and public bearer read
        surfaces that currently lack explicit limits, especially `/admin/*` and
        public Agent View.
 7. [ ] Tested multi-key and multi-pepper rotation automation for ADR 0045.

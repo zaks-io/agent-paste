@@ -19,9 +19,8 @@ and points to the smaller ledgers that own detail.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret, but app-side Access JWT verification still
-  needs an operator-path smoke, the repo-local `ADMIN_TOKEN` `/admin/*` path
-  still exists, and extra rate limiting is needed on legacy admin-token and
-  public bearer read routes.
+  needs an operator-path smoke and the repo-local `ADMIN_TOKEN` `/admin/*` path
+  still exists.
 
 ## Status Ledgers
 
@@ -65,8 +64,7 @@ Highest-signal gaps:
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
   operations, and tested rotation automation.
 - Parked ops/security hardening: app-side Access JWT verification smoke,
-  optional dedicated admin hostname decision, `ADMIN_TOKEN` retirement, and rate
-  limits for legacy admin-token/public bearer read routes.
+  optional dedicated admin hostname decision, and `ADMIN_TOKEN` retirement.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.
 

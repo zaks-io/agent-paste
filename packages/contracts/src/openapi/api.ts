@@ -2,7 +2,7 @@ import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-ope
 import { CleanupRunRequest } from "../admin.js";
 import { Cursor } from "../primitives.js";
 import { z } from "../zod.js";
-import { schemaRef, standardJsonResponses } from "./responses.js";
+import { artifactRateLimitResponse, errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerApiSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 
 const pathStringParam = (name: string, description: string) =>
@@ -75,7 +75,15 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       params: params({ token: pathStringParam("token", "Signed Agent View token.") }),
       headers: [requestIdHeader],
     },
-    responses: standardJsonResponses(schemaRef("AgentView"), 200, { authenticated: false }),
+    responses: {
+      "200": jsonOk(schemaRef("AgentView"), "Success (200)"),
+      "400": errorResponse,
+      "404": errorResponse,
+      "409": errorResponse,
+      "429": artifactRateLimitResponse,
+      "500": errorResponse,
+      "503": errorResponse,
+    },
   });
 
   registry.registerPath({

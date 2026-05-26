@@ -65,9 +65,9 @@ Deferred secrets not created for the current app:
   the remaining admin operations. A route-by-route migration plan is still
   needed for workspace/API-key bootstrap, artifact inspection/deletion, cleanup,
   and operation-event browsing.
-- Add explicit rate limiting for legacy admin-token routes and public bearer
-  read routes that do not currently have one, especially `/admin/*` and public
-  Agent View.
+- Legacy admin-token routes and public Agent View now use contract-declared
+  rate limits (`actor` for `/admin/*`, `artifact` for public Agent View) via the
+  shared `ARTIFACT_RATE_LIMIT` / `ACTOR_RATE_LIMIT` bindings on `api`.
 
 ## GitHub / CI
 
@@ -100,7 +100,6 @@ Deferred secrets not created for the current app:
   for the current path-based Access gate.
 - Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
 - Write the route-by-route migration plan for legacy `/admin/*` functionality.
-- Add rate limiting for legacy admin-token routes and public bearer read routes.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.

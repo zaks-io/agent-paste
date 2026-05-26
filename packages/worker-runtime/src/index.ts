@@ -14,7 +14,7 @@ export type {
   SignedUploadUrlPrincipal,
   WorkOsAccessTokenPrincipal,
 } from "./principal.js";
-export type { RateLimitBinding, RateLimitBindings } from "./rate-limit.js";
+export { applyRateLimit, type RateLimitBinding, type RateLimitBindings } from "./rate-limit.js";
 export {
   type AuthResolver,
   type AuthResolvers,

@@ -50,6 +50,14 @@
         "limit": 300,
         "period": 10
       }
+    },
+    {
+      "name": "ARTIFACT_RATE_LIMIT",
+      "namespace_id": "1000003",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
     }
   ],
   "env": {
@@ -120,6 +128,14 @@
           "simple": {
             "limit": 300,
             "period": 10
+          }
+        },
+        {
+          "name": "ARTIFACT_RATE_LIMIT",
+          "namespace_id": "2000003",
+          "simple": {
+            "limit": 60,
+            "period": 60
           }
         }
       ]
@@ -198,6 +214,14 @@
           "simple": {
             "limit": 300,
             "period": 10
+          }
+        },
+        {
+          "name": "ARTIFACT_RATE_LIMIT",
+          "namespace_id": "3000003",
+          "simple": {
+            "limit": 60,
+            "period": 60
           }
         }
       ]

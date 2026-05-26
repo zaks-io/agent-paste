@@ -7,6 +7,7 @@ interface __BaseEnv_Env {
 	DB: Hyperdrive;
 	ACTOR_RATE_LIMIT: RateLimit;
 	WORKSPACE_BURST_CAP: RateLimit;
+	ARTIFACT_RATE_LIMIT: RateLimit;
 	API_KEY_ENV: "preview";
 	API_BASE_URL: "https://agent-paste-api-preview.isaac-a46.workers.dev";
 	CONTENT_BASE_URL: "https://agent-paste-content-preview.isaac-a46.workers.dev";
