@@ -30,7 +30,7 @@ Goal: prove the artifact handoff loop.
 - Output: `artifact_id`, `revision_id`, direct signed `view_url`, public signed `agent_view_url`, `expires_at`.
 - Agent View: simple JSON with full per-file URLs.
 - Retention: default `30d`, max `90d`, scheduled cleanup.
-- Admin: internal REST APIs plus repo-local admin CLI.
+- Operator: WorkOS `/v1/web/admin/*` lockdown routes; non-production smokes use the harness secret.
 - Events: lightweight operation events, future-expandable into audit.
 
 Exit criteria:
@@ -43,7 +43,7 @@ Exit criteria:
 
 Goal: make the hosted service easier to run without changing the product shape.
 
-- Improve admin CLI ergonomics and output formats.
+- Improve operator and member CLI ergonomics and output formats.
 - Add repair/backfill commands when real operations reveal gaps.
 - Make operation events more queryable.
 - Harden request IDs, structured logs, and token redaction checks.
@@ -53,7 +53,7 @@ Goal: make the hosted service easier to run without changing the product shape.
 
 Exit criteria:
 
-- Routine operations can be handled through the admin CLI with Codex assistance.
+- Routine operations can be handled through the web dashboard, WorkOS operator routes, and `agent-paste login` with Codex assistance.
 - Observability is good enough to debug failed publishes and cleanup.
 
 ## Phase 3: Public Product Basics + Web Dashboard

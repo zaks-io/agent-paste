@@ -157,7 +157,7 @@ Retention is required in the MVP.
 - No forever retention in MVP.
 - No pinning in MVP.
 
-Cleanup runs in the API Worker scheduled handler and can also be triggered through the admin CLI.
+Cleanup runs in the API Worker scheduled handler; non-production smokes can trigger it through the smoke harness (`POST /__test__/run-cleanup`).
 
 ## Caps And Limits
 
@@ -221,7 +221,7 @@ Secrets, content tokens, signed URLs, and API-key secret material are never stor
 
 The MVP is buildable when:
 
-- An operator can create a workspace and API key through the admin CLI.
+- A member can provision a workspace and API key through `agent-paste login` or the non-production smoke harness.
 - `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
@@ -229,4 +229,4 @@ The MVP is buildable when:
 - `view_url` opens the HTML from the content origin.
 - `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.
-- Admin CLI can list, inspect, delete artifacts, and run cleanup.
+- Members can list and inspect their artifacts via `/v1/web/*`; operators use platform lockdown for takedown.

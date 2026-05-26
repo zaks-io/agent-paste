@@ -128,7 +128,7 @@ async function smokeWebAuth(c) {
   );
 }
 
-async function runCliJson(args, commandEnv = process.env) {
+async function runCliJson(args, commandEnv) {
   const output = await run(process.execPath, [cliEntry, ...args], commandEnv);
   try {
     return JSON.parse(output);

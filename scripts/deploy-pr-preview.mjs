@@ -300,7 +300,3 @@ function prPreviewSecret(label, byteLength = 48) {
 function secretBytes(byteLength = 48) {
   return randomBytes(byteLength).toString("base64url");
 }
-
-function hmacBase64Url(value, secret) {
-  return createHmac("sha256", secret).update(value).digest("base64url");
-}
