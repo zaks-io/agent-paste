@@ -19,6 +19,4 @@ pre-commit:
 pre-push:
   commands:
     test:
-      run: |
-        BASE="$(git rev-parse --verify origin/main 2>/dev/null || git rev-parse --verify HEAD)"
-        pnpm exec turbo run test --filter="...[$BASE]"
+      run: pnpm test:coverage

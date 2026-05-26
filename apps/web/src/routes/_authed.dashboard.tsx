@@ -9,6 +9,7 @@ import { UsagePolicyCard } from "../components/dashboard/UsagePolicyCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const RECENT_LIMIT = 5;
@@ -29,6 +30,13 @@ const loadDashboardFn = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createFileRoute("/_authed/dashboard")({
   loader: () => loadDashboardFn(),
+  head: ({ matches }) =>
+    dashboardPageMeta(
+      "Dashboard",
+      "Overview of recent artifacts, audit events, and usage policy.",
+      "/dashboard",
+      matches,
+    ),
   component: DashboardPage,
 });
 

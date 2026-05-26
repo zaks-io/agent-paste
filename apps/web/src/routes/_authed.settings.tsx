@@ -7,6 +7,7 @@ import { Card, CardHeader } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -19,6 +20,8 @@ const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createFileRoute("/_authed/settings")({
   loader: () => loadSettingsFn(),
+  head: ({ matches }) =>
+    dashboardPageMeta("Workspace Settings", "Workspace name, retention, and usage caps.", "/settings", matches),
   component: SettingsPage,
 });
 

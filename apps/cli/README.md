@@ -7,14 +7,17 @@ Command-line interface for publishing shareable **Artifacts** as an agent. The C
 No install required. The canonical invocation is:
 
 ```sh
-npx agent-paste publish <path>
+npx @zaks-io/agent-paste publish <path>
 ```
 
 For repeated use:
 
 ```sh
-npm install -g agent-paste
+npm install -g @zaks-io/agent-paste
 ```
+
+The npm package name is `@zaks-io/agent-paste`; the installed binary is
+`agent-paste`.
 
 ## Authenticate
 
@@ -40,19 +43,19 @@ export AGENT_PASTE_API_KEY=ap_pk_production_...
 A folder:
 
 ```sh
-npx agent-paste publish ./report
+npx @zaks-io/agent-paste publish ./report
 ```
 
 A single file (treated as a one-file **Artifact**):
 
 ```sh
-npx agent-paste publish ./report.html
+npx @zaks-io/agent-paste publish ./report.html
 ```
 
 With a custom retention TTL:
 
 ```sh
-npx agent-paste publish ./report --ttl 7d
+npx @zaks-io/agent-paste publish ./report --ttl 7d
 ```
 
 ## Management
@@ -156,7 +159,7 @@ agent-paste: not authenticated. Run `agent-paste login` or set AGENT_PASTE_API_K
 For interactive users, the equivalent fix is:
 
 ```sh
-npx agent-paste login
+npx @zaks-io/agent-paste login
 ```
 
 With `--json`, errors are structured on stderr:

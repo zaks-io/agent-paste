@@ -9,6 +9,7 @@ import { NewKeySecretCard } from "../components/keys/NewKeySecretCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const listKeysFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -21,6 +22,8 @@ const listKeysFn = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createFileRoute("/_authed/keys")({
   loader: () => listKeysFn(),
+  head: ({ matches }) =>
+    dashboardPageMeta("API Keys", "Manage API keys for CI, headless use, and workspace automation.", "/keys", matches),
   component: KeysPage,
 });
 
