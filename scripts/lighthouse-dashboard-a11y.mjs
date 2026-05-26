@@ -282,15 +282,18 @@ function spawnChild(command, args, env = {}, options = {}) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
+  let spawnError = null;
   const appendLog = (chunk) => {
     log += chunk.toString();
   };
   child.stdout.on("data", appendLog);
   child.stderr.on("data", appendLog);
-  child.on("error", (error) => {
-    appendLog(`\nspawn error: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  child.once("error", (error) => {
+    spawnError = error;
+    appendLog(`\n[spawn error] ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
   });
   child.__log = () => log;
+  child.__spawnError = () => spawnError;
   children.push(child);
   return child;
 }
@@ -310,6 +313,12 @@ async function waitForHealthy(url, headers, child, timeoutMs = 30_000) {
   const startedAt = Date.now();
   const attemptTimeoutMs = Math.min(5_000, Math.max(500, Math.floor(timeoutMs / 10)));
   while (Date.now() - startedAt < timeoutMs) {
+    const spawnError = child.__spawnError?.();
+    if (spawnError) {
+      throw new Error(
+        `process failed to start: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}\n${child.__log?.() ?? ""}`,
+      );
+    }
     if (child.exitCode !== null) {
       throw new Error(`process exited early\n${child.__log?.() ?? ""}`);
     }
