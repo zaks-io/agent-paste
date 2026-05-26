@@ -47,7 +47,7 @@ admin basics.
 Nice-to-have but not a Phase 3 gate:
 
 - [x] Cmd-K command palette.
-- [ ] Per-route document titles and OG metadata.
+- [x] Per-route document titles and OG metadata.
 - [ ] Storybook/Ladle only if component review starts paying for itself.
 
 ## Parked Ops / Phase 2

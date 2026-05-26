@@ -10,6 +10,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { formatRelativeTime } from "../lib/format";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const listArtifactsFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -22,6 +23,8 @@ const listArtifactsFn = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createFileRoute("/_authed/artifacts/")({
   loader: () => listArtifactsFn(),
+  head: ({ matches }) =>
+    dashboardPageMeta("Artifacts", "Everything published from this workspace.", "/artifacts", matches),
   component: ArtifactsListPage,
 });
 

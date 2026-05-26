@@ -5,6 +5,7 @@ import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { LockdownForm } from "../components/admin/LockdownForm";
 import { LockdownList } from "../components/admin/LockdownList";
 import { PageHeader } from "../components/ui/PageHeader";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 import { isOperator } from "../server/env";
 import { getWebEnv } from "../server/runtime";
@@ -28,6 +29,8 @@ export const Route = createFileRoute("/_authed/admin")({
     if (!ok) throw redirect({ to: "/dashboard" });
     return { lockdowns: await loadLockdownsFn() };
   },
+  head: ({ matches }) =>
+    dashboardPageMeta("Operator", "Platform-level lockdown and recent operator actions.", "/admin", matches),
   component: AdminPage,
 });
 
