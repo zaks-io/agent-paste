@@ -11,6 +11,8 @@ use `git log` for commit-level detail.
   filters (`focus`, workspace, actor type, action, target type, request id).
 - Extended the `/admin` dashboard with a cross-workspace platform events table.
 - Workspace member audit at `/v1/web/audit` remains tenant-scoped.
+- Restored the branch coverage gate after merge with focused operator panel and
+  query adapter tests; `pnpm test:coverage` reports 80.7% branch coverage.
 
 ### AP-13: retire legacy ADMIN_TOKEN admin path
 
