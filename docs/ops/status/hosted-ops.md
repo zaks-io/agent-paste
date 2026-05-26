@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
 
 ## Environment
 
@@ -45,6 +45,26 @@ Deferred secrets not created for the current app:
 - Application encryption root keys - wait for Phase 6 app-layer encryption.
 - Stripe secrets/webhook secret - wait for post-launch billing.
 
+## Known Security / Ops Gaps
+
+- Cloudflare Access is configured for the production operator web surface:
+  `/admin` on `app.agent-paste.sh` and `/v1/web/admin/lockdowns` on
+  `api.agent-paste.sh`. Team domain:
+  `zaks-io.cloudflareaccess.com`. The matching `CF_ACCESS_TEAM_DOMAIN` var is
+  recorded in `apps/api/wrangler.jsonc`; set `CF_ACCESS_AUD` as a Wrangler
+  secret because secret scanning treats the high-entropy identifier as
+  sensitive. Both bindings take effect on the next production API deploy.
+- No new CNAME is needed for the current path-based Access setup. A dedicated
+  admin/operator hostname remains optional future work if the surface grows.
+- The repo-local `ADMIN_TOKEN` and `ADMIN_TOKEN_HASH` path still exists for
+  `/admin/*`. Retire it once Cloudflare Access + WorkOS operator routes cover
+  the remaining admin operations. A route-by-route migration plan is still
+  needed for workspace/API-key bootstrap, artifact inspection/deletion, cleanup,
+  and operation-event browsing.
+- Add explicit rate limiting for legacy admin-token routes and public bearer
+  read routes that do not currently have one, especially `/admin/*` and public
+  Agent View.
+
 ## GitHub / CI
 
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
@@ -69,9 +89,14 @@ Deferred secrets not created for the current app:
 
 ## Open Ops Items
 
-- Harden PR-preview readiness against workers.dev route propagation flakes.
-- Add docs-only path filtering to PR preview deploy.
-- Add Lighthouse a11y gate.
+- Deploy the recorded `CF_ACCESS_TEAM_DOMAIN` production API var, set
+  `CF_ACCESS_AUD` as a Wrangler secret, and verify app-side Access
+  JWT/service-token handling when needed.
+- Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
+  for the current path-based Access gate.
+- Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Access is live.
+- Write the route-by-route migration plan for legacy `/admin/*` functionality.
+- Add rate limiting for legacy admin-token routes and public bearer read routes.
 - Separate Hyperdrive runtime and migration roles.
 - Restrict migration URL secrets to migration workflows.
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.

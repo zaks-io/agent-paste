@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-05-25. Source of truth for the ordered remaining work.
+Last updated: 2026-05-26. Source of truth for the ordered remaining work.
 When asked to "implement the next step", start at the first unchecked item in
 the active phase below unless the user says otherwise.
 
@@ -13,6 +13,13 @@ initial OAuth/dashboard bring-up.
 
 Access Links are not Phase 3. They start in Phase 4 because they depend on
 multi-revision artifacts and the Access Link signing-key family.
+
+Security/ops debt remains parked below: Cloudflare Access now gates the
+production operator web/API paths, but the app-side Access vars still need a
+production API deploy, `CF_ACCESS_AUD` must be set as a Wrangler secret, the
+repo-local admin bearer token is still live, and extra rate limiting is needed
+on legacy/admin and public bearer read surfaces before the operator boundary
+should be considered hardened.
 
 ## Active: Phase 3 Close-Out
 
@@ -55,11 +62,31 @@ Nice-to-have but not a Phase 3 gate:
 Goal: operational depth without changing the product surface.
 
 1. [ ] Logpush -> Axiom wiring per `docs/ops/runbook-logpush.md`.
-2. [ ] Tested multi-key and multi-pepper rotation automation for ADR 0045.
-3. [ ] Richer event/audit browsing for operators.
-4. [ ] GitHub Production environment reviewer/wait-timer/admin-bypass posture.
-5. [ ] Neon hardening: separate Hyperdrive runtime role from migration role,
-       and restrict migration URL secrets to migration workflows.
+2. [ ] Finish Cloudflare Access app-side follow-up for production operator
+       paths. The Access app/policy exists and gates `/admin` on
+       `app.agent-paste.sh` plus `/v1/web/admin/lockdowns` on
+       `api.agent-paste.sh`; deploy the recorded `CF_ACCESS_TEAM_DOMAIN` var,
+       set `CF_ACCESS_AUD` as a Wrangler secret, and verify service-token/JWT
+       handling when needed.
+3. [ ] Decide whether to add a dedicated admin/operator hostname.
+       No new CNAME is needed for the current path-based Access gate; add and
+       document one only if the operator surface grows enough to justify it.
+4. [ ] Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Cloudflare
+       Access + WorkOS operator routes cover the remaining operational needs.
+       Until then treat `ADMIN_TOKEN` as a bootstrap/legacy operating risk.
+5. [ ] Write and execute the legacy admin migration plan.
+       Inventory every `/admin/*` operation, map it to a WorkOS member route,
+       WorkOS operator route, `apps/jobs` responsibility, or explicit removal,
+       then remove the old admin CLI/API once smoke/runbooks no longer depend
+       on `ADMIN_TOKEN`.
+6. [ ] Add rate limiting to legacy admin-token routes and public bearer read
+       surfaces that currently lack explicit limits, especially `/admin/*` and
+       public Agent View.
+7. [ ] Tested multi-key and multi-pepper rotation automation for ADR 0045.
+8. [ ] Richer event/audit browsing for operators.
+9. [ ] GitHub Production environment reviewer/wait-timer/admin-bypass posture.
+10. [ ] Neon hardening: separate Hyperdrive runtime role from migration role,
+        and restrict migration URL secrets to migration workflows.
 
 ## Phase 4: Artifact Lifecycle, Access Links, Jobs, Bundles
 
