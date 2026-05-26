@@ -126,7 +126,7 @@ function isEnvFile(path) {
 function defaultSourceWorktree() {
   if (process.env.HOME) {
     const canonicalSource = join(process.env.HOME, "src", "agent-paste");
-    if (realPathish(canonicalSource) !== realPathish(root) && existsSync(canonicalSource)) {
+    if (realPathish(canonicalSource) !== realPathish(root) && isDirectory(canonicalSource)) {
       return canonicalSource;
     }
   }
@@ -327,6 +327,14 @@ Options:
 function isRegularFile(path) {
   try {
     return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(path) {
+  try {
+    return statSync(path).isDirectory();
   } catch {
     return false;
   }
