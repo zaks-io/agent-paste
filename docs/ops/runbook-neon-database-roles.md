@@ -38,12 +38,13 @@ Local development (`docker-compose`) may keep using the single `DATABASE_URL` su
 
 ## PR preview workflow
 
-`.github/workflows/pr-preview.yml` resolves two Neon URLs for the same branch:
+`.github/workflows/pr-preview.yml` bootstraps in order:
 
-- `platform_admin` → `node scripts/migrate.mjs preview`
-- `app_role` → `scripts/create-hyperdrive.mjs`
+1. Create the PR Neon branch with the default owner connection (`neondb_owner`).
+2. Run `node scripts/migrate.mjs preview` with that owner URL so `0010_db_roles.sql` can create `app_role` and `platform_admin` when they are missing on the project.
+3. Resolve an `app_role` direct URL via `scripts/resolve-neon-role-url.mjs` (Neon API) and pass it only to `scripts/create-hyperdrive.mjs`.
 
-Deploy steps never receive migration URLs.
+The owner/bootstrap URL is used only for migrations. Deploy steps never receive it. Once `platform_admin` exists on the shared preview/production branches, hosted migrate workflows should use `DATABASE_URL_MIGRATIONS_*` with that role instead of the owner URL.
 
 ## Verification
 

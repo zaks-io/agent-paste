@@ -67,26 +67,6 @@ jobs:
           parent_branch: main
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      - name: Resolve PR migration database URL
-        id: neon_migrate
-        uses: neondatabase/create-branch-action@v6
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.pull_request.number }}
-          parent_branch: main
-          api_key: ${{ secrets.NEON_API_KEY }}
-          role: platform_admin
-
-      - name: Resolve PR runtime database URL
-        id: neon_runtime
-        uses: neondatabase/create-branch-action@v6
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.pull_request.number }}
-          parent_branch: main
-          api_key: ${{ secrets.NEON_API_KEY }}
-          role: app_role
-
       - name: Verify Neon branch isolation
         env:
           NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
@@ -100,8 +80,19 @@ jobs:
 
       - name: Migrate PR database
         env:
-          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon_migrate.outputs.db_url }}
+          # Bootstrap migrations with the Neon owner URL until platform_admin exists on the project.
+          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon.outputs.db_url }}
         run: node scripts/migrate.mjs preview
+
+      - name: Resolve PR runtime database URL
+        id: neon_runtime
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ steps.neon.outputs.branch_id }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_BOOTSTRAP_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+          NEON_ROLE_NAME: app_role
+        run: node scripts/resolve-neon-role-url.mjs --github-output db_url
 
       - name: Create or reuse PR Hyperdrive
         id: hyperdrive

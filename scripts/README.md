@@ -160,7 +160,7 @@ PR preview runs this step after hosted smoke. It does not depend on the per-PR w
 
 ## PR Preview Helpers
 
-`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, and `cleanup-pr-preview.mjs` back the dynamic PR preview workflows. `create-hyperdrive.mjs` expects an `app_role` connection string (for example `PR_DATABASE_URL` from the PR workflow's runtime Neon URL step). Each same-repo PR gets:
+`create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. After PR migrations run, `resolve-neon-role-url.mjs` fetches an `app_role` direct URL from the Neon API for Hyperdrive. `create-hyperdrive.mjs` expects that runtime URL (for example `PR_DATABASE_URL`). Each same-repo PR gets:
 
 - a Neon branch named `preview/pr-<number>`
 - PR-scoped Workers named `agent-paste-{api,upload,content,apex,web}-pr-<number>`

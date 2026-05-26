@@ -88,3 +88,17 @@ export function resolveRuntimeDatabaseUrl(target, env = process.env) {
 export function usesLegacyMigrationEnv(target, selectedEnv) {
   return selectedEnv === LEGACY_MIGRATION_ENV[target] || selectedEnv === "LIVE_DATABASE_URL";
 }
+
+/**
+ * Build a direct Postgres URL for a Neon role using the host/database from a bootstrap URL.
+ *
+ * @param {string} bootstrapUrl
+ * @param {string} roleName
+ * @param {string} password
+ */
+export function connectionStringForRole(bootstrapUrl, roleName, password) {
+  const url = new URL(bootstrapUrl);
+  url.username = roleName;
+  url.password = password;
+  return url.toString();
+}

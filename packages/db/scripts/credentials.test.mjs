@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   APP_RUNTIME_ROLE,
+  connectionStringForRole,
   MIGRATION_ROLE,
   migrationDatabaseUrlEnvName,
   resolveMigrationDatabaseUrl,
@@ -39,6 +40,18 @@ describe("database credentials", () => {
   it("returns canonical names when unset", () => {
     expect(migrationDatabaseUrlEnvName("preview", {})).toBe("DATABASE_URL_MIGRATIONS_PREVIEW");
     expect(runtimeDatabaseUrlEnvName("production", {})).toBe("DATABASE_URL_RUNTIME_PRODUCTION");
+  });
+
+  it("builds a runtime connection string from a bootstrap URL", () => {
+    const url = connectionStringForRole(
+      "postgres://neondb_owner:owner-secret@ep-test.us-east-2.aws.neon.tech/neondb?sslmode=require",
+      APP_RUNTIME_ROLE,
+      "runtime-secret",
+    );
+    const parsed = new URL(url);
+    expect(parsed.username).toBe(APP_RUNTIME_ROLE);
+    expect(parsed.password).toBe("runtime-secret");
+    expect(parsed.hostname).toBe("ep-test.us-east-2.aws.neon.tech");
   });
 
   it("resolves migration URLs and flags legacy env names", () => {
