@@ -8,6 +8,7 @@ import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { formatRelativeTime } from "../lib/format";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const listAuditFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -24,6 +25,8 @@ export const Route = createFileRoute("/_authed/audit")({
     return typeof requestId === "string" && requestId.length > 0 ? { request_id: requestId } : {};
   },
   loader: () => listAuditFn(),
+  head: ({ matches }) =>
+    dashboardPageMeta("Audit Log", "Every meaningful action in this workspace.", "/audit", matches),
   component: AuditPage,
 });
 

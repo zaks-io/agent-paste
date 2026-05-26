@@ -10,6 +10,7 @@ import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { formatBytes, formatRelativeTime } from "../lib/format";
+import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
 const getArtifactFn = createServerFn({ method: "GET" })
@@ -24,6 +25,18 @@ const getArtifactFn = createServerFn({ method: "GET" })
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
   loader: ({ params }) => getArtifactFn({ data: { artifactId: params.artifactId } }),
+  head: ({ loaderData, params, matches }) => {
+    const artifact = loaderData?.data;
+    const title = artifact?.title?.trim() || "Artifact";
+    return dashboardPageMeta(
+      title,
+      artifact
+        ? `Artifact details for ${artifact.title?.trim() || "Untitled"}.`
+        : "View artifact details in your workspace.",
+      `/artifacts/${params.artifactId}`,
+      matches,
+    );
+  },
   component: ArtifactDetailPage,
 });
 
