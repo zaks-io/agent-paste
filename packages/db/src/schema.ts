@@ -110,6 +110,47 @@ export const uploadSessionFiles = pgTable(
   (table) => [primaryKey({ columns: [table.uploadSessionId, table.path] })],
 );
 
+export const revisions = pgTable(
+  "revisions",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    artifactId: text("artifact_id")
+      .notNull()
+      .references(() => artifacts.id, { onDelete: "cascade" }),
+    revisionNumber: integer("revision_number"),
+    status: text("status").notNull(),
+    entrypoint: text("entrypoint").notNull(),
+    renderMode: text("render_mode").notNull().default("html"),
+    fileCount: integer("file_count").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    bundleStatus: text("bundle_status").notNull().default("disabled"),
+    bundleStatusUpdatedAt: timestamp("bundle_status_updated_at", { withTimezone: true }),
+    bytesPurgeEnqueuedAt: timestamp("bytes_purge_enqueued_at", { withTimezone: true }),
+    createdByApiKeyId: text("created_by_api_key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("revisions_artifact_created_idx").on(table.artifactId, table.createdAt),
+    index("revisions_workspace_idx").on(table.workspaceId),
+    uniqueIndex("revisions_artifact_number_unique")
+      .on(table.artifactId, table.revisionNumber)
+      .where(sql`${table.revisionNumber} is not null`),
+    uniqueIndex("revisions_one_draft_per_artifact").on(table.artifactId).where(sql`${table.status} = 'draft'`),
+    check("revisions_status_check", sql`${table.status} in ('draft', 'published', 'retained')`),
+    check(
+      "revisions_render_mode_check",
+      sql`${table.renderMode} in ('html', 'markdown', 'text', 'image', 'audio', 'video')`,
+    ),
+    check("revisions_bundle_status_check", sql`${table.bundleStatus} in ('pending', 'ready', 'failed', 'disabled')`),
+  ],
+);
+
 export const artifacts = pgTable(
   "artifacts",
   {
@@ -117,7 +158,7 @@ export const artifacts = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
-    revisionId: text("revision_id").notNull().unique(),
+    revisionId: text("revision_id"),
     status: text("status").notNull(),
     title: text("title").notNull(),
     entrypoint: text("entrypoint").notNull(),
@@ -147,14 +188,16 @@ export const artifactFiles = pgTable(
     artifactId: text("artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "cascade" }),
-    revisionId: text("revision_id").notNull(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => revisions.id, { onDelete: "cascade" }),
     path: text("path").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     servedContentType: text("served_content_type").notNull(),
     r2Key: text("r2_key").notNull(),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.artifactId, table.path] })],
+  (table) => [primaryKey({ columns: [table.artifactId, table.revisionId, table.path] })],
 );
 
 export const operationEvents = pgTable(

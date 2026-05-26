@@ -7,6 +7,7 @@ export * from "./enums.js";
 export * from "./lockdown.js";
 export * from "./openapi/index.js";
 export * from "./primitives.js";
+export * from "./revisions.js";
 export * from "./routes.js";
 export * from "./uploadSessions.js";
 export * from "./web.js";

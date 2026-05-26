@@ -32,6 +32,7 @@
                   "api_key_revoked",
                   "artifact_not_found",
                   "database_unavailable",
+                  "draft_revision_conflict",
                   "entrypoint_not_in_revision",
                   "file_count_cap_exceeded",
                   "file_size_cap_exceeded",
@@ -47,7 +48,9 @@
                   "rate_limited_actor",
                   "rate_limited_artifact",
                   "rate_limited_workspace",
+                  "revision_retained",
                   "revision_size_cap_exceeded",
+                  "revision_unpublished",
                   "storage_unavailable",
                   "unexpected_upload_object",
                   "upload_incomplete",
@@ -81,6 +84,10 @@
       "CreateUploadSessionRequest": {
         "type": "object",
         "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
           "title": {
             "type": "string",
             "minLength": 1,
@@ -196,6 +203,57 @@
           "files"
         ]
       },
+      "FinalizeUploadSessionResponse": {
+        "type": "object",
+        "properties": {
+          "upload_session_id": {
+            "type": "string",
+            "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "entrypoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "upload_session_id",
+          "artifact_id",
+          "revision_id",
+          "status",
+          "title",
+          "entrypoint",
+          "file_count",
+          "size_bytes"
+        ]
+      },
       "PublishResult": {
         "type": "object",
         "properties": {
@@ -232,6 +290,183 @@
           "view_url",
           "agent_view_url",
           "expires_at"
+        ]
+      },
+      "RevisionSummary": {
+        "type": "object",
+        "properties": {
+          "revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "revision_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retained"
+            ]
+          },
+          "entrypoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "render_mode": {
+            "type": "string",
+            "enum": [
+              "html",
+              "markdown",
+              "text",
+              "image",
+              "audio",
+              "video"
+            ]
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revision_id",
+          "revision_number",
+          "status",
+          "entrypoint",
+          "render_mode",
+          "file_count",
+          "size_bytes",
+          "created_at",
+          "published_at"
+        ]
+      },
+      "RevisionListResponse": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "revision_id": {
+                  "type": "string",
+                  "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "revision_number": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "published",
+                    "retained"
+                  ]
+                },
+                "entrypoint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "render_mode": {
+                  "type": "string",
+                  "enum": [
+                    "html",
+                    "markdown",
+                    "text",
+                    "image",
+                    "audio",
+                    "video"
+                  ]
+                },
+                "file_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "published_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "revision_id",
+                "revision_number",
+                "status",
+                "entrypoint",
+                "render_mode",
+                "file_count",
+                "size_bytes",
+                "created_at",
+                "published_at"
+              ]
+            }
+          },
+          "page_info": {
+            "type": "object",
+            "properties": {
+              "next_cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "has_more": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "next_cursor",
+              "has_more"
+            ]
+          }
+        },
+        "required": [
+          "artifact_id",
+          "items",
+          "page_info"
         ]
       },
       "EmptyObject": {
@@ -320,6 +555,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "artifact_id": {
+                    "type": "string",
+                    "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+                  },
                   "title": {
                     "type": "string",
                     "minLength": 1,
@@ -398,6 +637,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -413,7 +653,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -464,6 +706,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -479,7 +722,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -530,6 +775,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -545,7 +791,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -596,6 +844,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -611,7 +860,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -682,6 +933,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -697,7 +949,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -748,6 +1002,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -763,7 +1018,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -857,6 +1114,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -872,7 +1130,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -923,6 +1183,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -938,7 +1199,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -989,6 +1252,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1004,7 +1268,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1055,6 +1321,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1070,7 +1337,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1130,7 +1399,7 @@
     "/v1/upload-sessions/{upload_session_id}/finalize": {
       "post": {
         "operationId": "uploadSessions.finalize",
-        "summary": "Finalize an upload session and publish the artifact.",
+        "summary": "Finalize an upload session and create a draft revision.",
         "security": [
           {
             "ApiKeyBearer": []
@@ -1177,7 +1446,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublishResult"
+                  "$ref": "#/components/schemas/FinalizeUploadSessionResponse"
                 }
               }
             }
@@ -1199,6 +1468,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1214,7 +1484,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1265,6 +1537,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1280,7 +1553,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1331,6 +1606,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1346,7 +1622,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1397,6 +1675,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1412,7 +1691,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1483,6 +1764,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1498,7 +1780,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",
@@ -1549,6 +1833,7 @@
                             "api_key_revoked",
                             "artifact_not_found",
                             "database_unavailable",
+                            "draft_revision_conflict",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1564,7 +1849,9 @@
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
+                            "revision_retained",
                             "revision_size_cap_exceeded",
+                            "revision_unpublished",
                             "storage_unavailable",
                             "unexpected_upload_object",
                             "upload_incomplete",

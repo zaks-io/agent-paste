@@ -80,6 +80,58 @@ export const artifactQueries = {
     const row = rows[0];
     return row ? { artifact_id: row.id, expires_at: row.expiresAt.toISOString() } : null;
   },
+
+  async updatePublished(
+    db: DrizzleDb,
+    artifactId: string,
+    input: {
+      revisionId: string;
+      title: string;
+      entrypoint: string;
+      fileCount: number;
+      sizeBytes: number;
+      expiresAt: string;
+      updatedAt: string;
+    },
+  ) {
+    await db
+      .update(artifacts)
+      .set({
+        revisionId: input.revisionId,
+        title: input.title,
+        entrypoint: input.entrypoint,
+        fileCount: input.fileCount,
+        sizeBytes: input.sizeBytes,
+        expiresAt: new Date(input.expiresAt),
+        updatedAt: new Date(input.updatedAt),
+      })
+      .where(eq(artifacts.id, artifactId));
+  },
+
+  async updateStaging(
+    db: DrizzleDb,
+    artifactId: string,
+    input: {
+      title: string;
+      entrypoint: string;
+      fileCount: number;
+      sizeBytes: number;
+      expiresAt: string;
+      updatedAt: string;
+    },
+  ) {
+    await db
+      .update(artifacts)
+      .set({
+        title: input.title,
+        entrypoint: input.entrypoint,
+        fileCount: input.fileCount,
+        sizeBytes: input.sizeBytes,
+        expiresAt: new Date(input.expiresAt),
+        updatedAt: new Date(input.updatedAt),
+      })
+      .where(eq(artifacts.id, artifactId));
+  },
 };
 
 export type ArtifactCursor = {
@@ -101,12 +153,11 @@ export const artifactFileQueries = {
     });
   },
 
-  async listForArtifact(db: DrizzleDb, artifactId: string): Promise<StoredFile[]> {
-    const rows = await db
-      .select()
-      .from(artifactFiles)
-      .where(eq(artifactFiles.artifactId, artifactId))
-      .orderBy(asc(artifactFiles.path));
+  async listForArtifact(db: DrizzleDb, artifactId: string, revisionId?: string): Promise<StoredFile[]> {
+    const predicate = revisionId
+      ? and(eq(artifactFiles.artifactId, artifactId), eq(artifactFiles.revisionId, revisionId))
+      : eq(artifactFiles.artifactId, artifactId);
+    const rows = await db.select().from(artifactFiles).where(predicate).orderBy(asc(artifactFiles.path));
     return rows.map(mapArtifactFile);
   },
 };
@@ -115,7 +166,7 @@ function mapArtifact(row: typeof artifacts.$inferSelect): Artifact {
   return {
     id: row.id,
     workspace_id: row.workspaceId,
-    revision_id: row.revisionId,
+    revision_id: row.revisionId ?? null,
     status: row.status as Artifact["status"],
     title: row.title,
     entrypoint: row.entrypoint,

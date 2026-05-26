@@ -132,7 +132,7 @@ describe("ApiClient", () => {
       uploadBaseUrl: "https://upload.example.test",
       fetch: async (input, init) => {
         calls.push(new Request(input, init));
-        return Response.json(publishResult());
+        return Response.json(finalizeResult());
       },
     });
 
@@ -235,6 +235,51 @@ describe("ApiClient", () => {
     expect(calls.every((call) => call.headers.get("authorization") === "Bearer admin-secret")).toBe(true);
     expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_ws");
     expect(calls[7]?.headers.get("idempotency-key")).toBe("idem_delete");
+  });
+
+  it("lists and publishes revisions through the public API client", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        const url = calls.at(-1)?.url ?? "";
+        if (url.endsWith("/revisions")) {
+          return Response.json({
+            artifact_id: artifactId,
+            items: [
+              {
+                revision_id: revisionId,
+                revision_number: 1,
+                status: "published",
+                entrypoint: "index.html",
+                render_mode: "html",
+                file_count: 1,
+                size_bytes: 12,
+                created_at: "2026-01-01T00:00:00.000Z",
+                published_at: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+            page_info: pageInfo,
+          });
+        }
+        return Response.json(publishResult());
+      },
+    });
+
+    await expect(client.revisions.list(artifactId)).resolves.toMatchObject({
+      artifact_id: artifactId,
+      items: [{ revision_id: revisionId, revision_number: 1 }],
+    });
+    await expect(client.revisions.publish(artifactId, revisionId, "idem_publish")).resolves.toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
+    expect(calls.map((call) => [call.method, call.url])).toEqual([
+      ["GET", `https://api.example.test/v1/artifacts/${artifactId}/revisions`],
+      ["POST", `https://api.example.test/v1/artifacts/${artifactId}/revisions/${revisionId}/publish`],
+    ]);
+    expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
   });
 
   it("puts files without API-client auth and wraps upload failures", async () => {
@@ -358,6 +403,19 @@ function artifactSummary() {
     updated_at: "2026-01-01T00:00:00.000Z",
     deleted_at: null,
     delete_reason: null,
+  };
+}
+
+function finalizeResult() {
+  return {
+    upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    artifact_id: artifactId,
+    revision_id: revisionId,
+    status: "draft",
+    title: "Demo",
+    entrypoint: "index.html",
+    file_count: 1,
+    size_bytes: 12,
   };
 }
 

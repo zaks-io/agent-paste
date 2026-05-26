@@ -817,6 +817,13 @@ describe("LocalRepository", () => {
       observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
       now: "2026-01-01T00:00:01.000Z",
     });
+    await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-publish",
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      now: "2026-01-01T00:00:02.000Z",
+    });
 
     const first = await repo.deleteArtifact({
       actor: adminActor,
@@ -863,7 +870,7 @@ describe("LocalRepository", () => {
       now: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = await repo.finalizeUploadSession({
+    const finalized = await repo.finalizeUploadSession({
       actor,
       idempotencyKey: "idem-finalize",
       sessionId: session.upload_session_id,
@@ -871,7 +878,15 @@ describe("LocalRepository", () => {
       now: "2026-01-01T00:00:01.000Z",
     });
 
-    expect(result).toMatchObject({ title: "demo", artifact_id: session.artifact_id });
+    expect(finalized).toMatchObject({ title: "demo", artifact_id: session.artifact_id, status: "draft" });
+    const published = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-publish",
+      artifactId: finalized.artifact_id,
+      revisionId: finalized.revision_id,
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    expect(published).toMatchObject({ title: "demo", artifact_id: session.artifact_id });
     expect(await repo.getArtifactDetail(session.artifact_id)).toMatchObject({
       title: "demo",
       files: [{ path: "index.html" }],
@@ -1043,14 +1058,259 @@ describe("LocalRepository", () => {
     expect(repo.uploadSessionFiles.get(`${session.upload_session_id}:index.html`)?.uploaded_at).toBe(
       "2026-01-01T00:00:01.000Z",
     );
-    const published = await repo.finalizeUploadSession({
+    const finalized = await repo.finalizeUploadSession({
       actor,
       idempotencyKey: "idem-finalize",
       sessionId: session.upload_session_id,
       observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
       now: "2026-01-01T00:00:02.000Z",
     });
-    expect(repo.artifacts.get(published.artifact_id)?.status).toBe("active");
+    expect(repo.artifacts.get(finalized.artifact_id)?.status).toBe("active");
+    await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-publish",
+      artifactId: finalized.artifact_id,
+      revisionId: finalized.revision_id,
+      now: "2026-01-01T00:00:03.000Z",
+    });
+    expect(repo.artifacts.get(finalized.artifact_id)?.revision_id).toBe(finalized.revision_id);
+  });
+
+  it("publishes a first revision and a second revision via update session", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "first", "2026-01-01T00:00:01.000Z");
+    const updateSession = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-update",
+      request: {
+        artifact_id: first.artifact_id,
+        title: "second",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 24 }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const secondDraft = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-update-finalize",
+      sessionId: updateSession.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(updateSession).object_key, sizeBytes: 24 }],
+      now: "2026-01-02T00:00:01.000Z",
+    });
+    const second = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-update-publish",
+      artifactId: secondDraft.artifact_id,
+      revisionId: secondDraft.revision_id,
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    expect(second.revision_id).not.toBe(first.revision_id);
+    const revisions = await repo.listRevisions({ actor, artifactId: first.artifact_id });
+    expect(revisions?.items).toHaveLength(2);
+    expect(revisions?.items.map((row) => row.status).sort()).toEqual(["published", "published"]);
+  });
+
+  it("rejects a second finalize while a draft revision exists", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-draft",
+      request: { title: "drafty", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-draft-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    await expect(
+      repo.createUploadSession({
+        actor,
+        idempotencyKey: "idem-conflict",
+        request: {
+          artifact_id: session.artifact_id,
+          title: "blocked",
+          entrypoint: "index.html",
+          files: [{ path: "index.html", size_bytes: 12 }],
+        },
+        now: "2026-01-01T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("draft_revision_conflict");
+  });
+
+  it("lists revisions newest published number first", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "rev-one", "2026-01-01T00:00:01.000Z");
+    await publishLocalArtifact(repo, actor, "rev-two", "2026-01-02T00:00:01.000Z", first.artifact_id);
+    const listed = await repo.listRevisions({ actor, artifactId: first.artifact_id });
+    expect(listed?.items).toHaveLength(2);
+    expect(listed?.items[0]?.revision_number).toBe(2);
+    expect(listed?.items[1]?.revision_number).toBe(1);
+  });
+
+  it("replays publish for an already published revision and rejects missing targets", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "published-once", "2026-01-01T00:00:01.000Z");
+    const replay = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-replay",
+      artifactId: published.artifact_id,
+      revisionId: published.revision_id,
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    expect(replay.revision_id).toBe(published.revision_id);
+
+    await expect(
+      repo.publishRevision({
+        actor,
+        idempotencyKey: "idem-missing-artifact",
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revisionId: published.revision_id,
+        now: "2026-01-01T00:00:03.000Z",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+
+    await expect(
+      repo.publishRevision({
+        actor,
+        idempotencyKey: "idem-missing-revision",
+        artifactId: published.artifact_id,
+        revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        now: "2026-01-01T00:00:04.000Z",
+      }),
+    ).rejects.toThrow("revision_unpublished");
+
+    await expect(repo.listRevisions({ actor, artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" })).resolves.toBeNull();
+  });
+
+  it("rejects update sessions for missing artifacts", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    await expect(
+      repo.createUploadSession({
+        actor,
+        idempotencyKey: "idem-missing-target",
+        request: {
+          artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          title: "missing",
+          entrypoint: "index.html",
+          files: [{ path: "index.html", size_bytes: 12 }],
+        },
+        now: "2026-01-01T00:00:00.000Z",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+  });
+
+  it("inherits artifact title and entrypoint on update sessions when omitted", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "kept-title", "2026-01-01T00:00:01.000Z");
+    const updateSession = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-inherit",
+      request: {
+        artifact_id: first.artifact_id,
+        files: [{ path: "index.html", size_bytes: 24 }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    expect(repo.uploadSessions.get(updateSession.upload_session_id)).toMatchObject({
+      title: "kept-title",
+      entrypoint: "index.html",
+    });
+  });
+
+  it("reads agent view for a specific published revision", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "rev-a", "2030-01-01T00:00:01.000Z");
+    const second = await publishLocalArtifact(repo, actor, "rev-b", "2030-01-02T00:00:01.000Z", first.artifact_id);
+    const latest = await repo.getAgentView({
+      actor,
+      artifactId: first.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    const pinned = await repo.getAgentView({
+      actor,
+      artifactId: first.artifact_id,
+      revisionId: first.revision_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(latest?.revision_id).toBe(second.revision_id);
+    expect(pinned?.revision_id).toBe(first.revision_id);
+  });
+
+  it("rejects draft revisions in explicit agent view lookups", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-draft-view",
+      request: { title: "draft-view", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const draft = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-draft-view-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    await expect(
+      repo.getAgentView({
+        actor,
+        artifactId: draft.artifact_id,
+        revisionId: draft.revision_id,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("pins public agent views to the requested published revision", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "public-a", "2030-01-01T00:00:01.000Z");
+    const second = await publishLocalArtifact(repo, actor, "public-b", "2030-01-02T00:00:01.000Z", first.artifact_id);
+    const latest = await repo.getPublicAgentView({
+      token: first.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    const pinned = await repo.getPublicAgentView({
+      token: `${first.artifact_id}.${first.revision_id}`,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(latest?.revision_id).toBe(second.revision_id);
+    expect(pinned?.revision_id).toBe(first.revision_id);
+  });
+
+  it("applies update session title when publishing a revision", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const first = await publishLocalArtifact(repo, actor, "original-title", "2026-01-01T00:00:01.000Z");
+    const updateSession = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-title-update",
+      request: {
+        artifact_id: first.artifact_id,
+        title: "renamed-title",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 12 }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const draft = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-title-update-finalize",
+      sessionId: updateSession.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(updateSession).object_key, sizeBytes: 12 }],
+      now: "2026-01-02T00:00:01.000Z",
+    });
+    expect(repo.artifacts.get(first.artifact_id)?.title).toBe("original-title");
+    const published = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-title-update-publish",
+      artifactId: draft.artifact_id,
+      revisionId: draft.revision_id,
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    expect(published.title).toBe("renamed-title");
+    expect(repo.artifacts.get(first.artifact_id)?.title).toBe("renamed-title");
   });
 
   it("force-updates artifact expiry and returns null for missing artifacts", async () => {
@@ -1271,22 +1531,31 @@ async function publishLocalArtifact(
   actor: NonNullable<Awaited<ReturnType<LocalRepository["verifyApiKey"]>>>,
   title: string,
   now: string,
+  artifactId?: string,
 ) {
   const upload = await repo.createUploadSession({
     actor,
     idempotencyKey: `idem-create-${title}`,
     request: {
+      ...(artifactId ? { artifact_id: artifactId } : {}),
       title,
       entrypoint: "index.html",
       files: [{ path: "index.html", size_bytes: 12 }],
     },
     now,
   });
-  return repo.finalizeUploadSession({
+  const finalized = await repo.finalizeUploadSession({
     actor,
     idempotencyKey: `idem-finalize-${title}`,
     sessionId: upload.upload_session_id,
     observedFiles: [{ path: "index.html", objectKey: firstFile(upload).object_key, sizeBytes: 12 }],
+    now,
+  });
+  return repo.publishRevision({
+    actor,
+    idempotencyKey: `idem-publish-${title}`,
+    artifactId: finalized.artifact_id,
+    revisionId: finalized.revision_id,
     now,
   });
 }
