@@ -6,6 +6,24 @@ Issues and PRDs for this repo live in Linear, in the team with identifier prefix
 
 - **Identifier prefix**: `AP-` (e.g. `AP-12`, `AP-47`)
 - Look up the team object with `list_teams` or `get_team` if you need a `teamId` for create operations.
+- **Roadmap project**: `agent-paste Roadmap`
+
+## Milestones
+
+Use execution-wave milestones for roadmap tracking:
+
+1. `Wave 0 - Agent Handoff Ready`
+2. `Wave 1 - Operator And Ops Hardening`
+3. `Wave 2 - Access Links And Artifact Lifecycle`
+4. `Wave 3 - Live Updates`
+5. `Wave 4 - MCP`
+6. `Wave 5 - Platform Hardening`
+7. `Wave 6 - Monetization`
+8. `Wave 7 - Cleanup And Deferred Polish`
+
+`ready-for-agent` means a ticket is detailed enough for an unattended remote
+agent. Apply `remote-cursor` only when the issue is intended for Cursor
+Background Agent implementation after it becomes `ready-for-agent`.
 
 ## Conventions
 

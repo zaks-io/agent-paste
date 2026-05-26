@@ -12,11 +12,20 @@ change behavior outright instead of adding legacy compatibility.
 
 From the repository root, read `AGENTS.md`, `docs/ops/project-status.md`,
 `docs/ops/status/phase-backlog.md`, `CONTEXT.md`, `docs/specs/README.md`, and
-`docs/adr/README.md`.
+`docs/adr/README.md`. Also read `docs/agents/issue-tracker.md` before choosing
+work; Linear is the issue tracker for this repo.
 
-Pick the first unchecked item in the active phase unless the user names a
-different target. If the item is blocked, record the exact blocker and move on
-only when backlog text or user instruction allows it.
+Pick the first ready Linear issue in the earliest active `agent-paste Roadmap`
+milestone unless the user names a different target. Prefer issues labeled
+`ready-for-agent`; when delegating to Cursor Background Agents, require both
+`ready-for-agent` and `remote-cursor`. If Linear is unavailable, fall back to the
+first unchecked item in the active phase backlog and say that Linear could not
+be checked.
+
+If the selected Linear issue is blocked, missing enough detail, or marked
+`ready-for-human` / `needs-info`, record the exact blocker in Linear and stop or
+move to the next issue only when milestone order, backlog text, or user
+instruction allows it.
 
 ## Loop Mode
 
@@ -32,7 +41,9 @@ choose the new first unchecked active item.
 ## Workflow
 
 1. Confirm target scope.
-   - Restate the selected backlog item and why it is next.
+   - Restate the selected Linear issue or backlog item and why it is next.
+   - If using Linear, fetch the issue, labels, milestone, dependency state, and
+     comments before implementation.
    - Read linked spec, ADR, and runbook context for that area only.
    - Check `git status --short`; preserve user changes.
 2. Create an isolated implementation worktree on the latest base.
@@ -47,8 +58,9 @@ choose the new first unchecked active item.
 3. Delegate implementation.
    - Use Codex subagents or Claude Code. For Claude Code, run it from the
      prepared worktree with the prompt below; do not use Claude's `--worktree`.
-   - Include the selected backlog item, relevant doc paths, worktree path,
-     branch, verification expectations, and "do not create another worktree."
+   - Include the selected Linear issue identifier, issue URL, relevant doc
+     paths, worktree path, branch, verification expectations, and "do not create
+     another worktree."
    - Require a final worker report with changed files, checks run, blockers,
      and dirty or clean state.
 4. Coordinator review.
@@ -65,8 +77,9 @@ choose the new first unchecked active item.
    - Use `create-pr` for PR conventions if helpful, but override its local
      CodeRabbit loop with this skill's one-run policy. Prefer `pnpm verify`
      over generic `bun` checks.
-   - Stage named files only, commit with Conventional Commits, push the branch,
-     and create the PR with Summary, Changes, Risk, and Test plan.
+   - Stage named files only, commit with Conventional Commits, include
+     `Linear: AP-<number>` when a Linear issue is selected, push the branch, and
+     create the PR with Summary, Changes, Risk, Test plan, and Linear link.
 6. Watch the PR process and resolve CodeRabbit.
    - Use `gh pr checks <pr> --watch --fail-fast --interval 15` for PR checks.
    - Use `gh pr view <pr> --json url,reviewDecision,latestReviews,comments,statusCheckRollup,mergeStateStatus`
@@ -76,6 +89,9 @@ choose the new first unchecked active item.
    - Use `gh-address-comments` for unresolved review threads when available.
    - Fix actionable items in the same worktree, rerun relevant checks, commit,
      push, and wait again.
+   - Add Linear comments for meaningful status changes, blockers, and the PR
+     URL. Move the Linear issue state forward only when the repo workflow
+     expects it; otherwise leave state changes to the human operator.
    - Stop only when CodeRabbit approves, has no actionable findings, or a
      concrete blocker needs the user.
 
@@ -86,16 +102,20 @@ Implement the next agent-paste backlog item in this existing worktree.
 
 Worktree: <WORKTREE_PATH>
 Branch: <BRANCH_NAME>
-Backlog item: <phase-backlog item text>
+Linear issue: <AP-123 issue URL and title>
+Backlog item: <phase-backlog item text, if no Linear issue was selected>
 
 Read AGENTS.md, project status, phase backlog, CONTEXT.md, specs index, and ADR
-index first, then only linked docs needed for this item. Implement directly in
-this worktree; do not create another worktree or revert unrelated edits. Run
-relevant checks and `pnpm verify` unless you explain a narrower gate. Final
-report: changed files, check results, blockers, and dirty/clean state.
+index first. If a Linear issue is selected, also read docs/agents/issue-tracker.md
+and the full issue description/comments, then only linked docs needed for this
+item. Implement directly in this worktree; do not create another worktree or
+revert unrelated edits. Run relevant checks and `pnpm verify` unless you explain
+a narrower gate. Final report: changed files, check results, blockers, Linear
+updates needed, and dirty/clean state.
 ```
 
 ## Completion
 
-Final response must include PR URL, branch, worktree path, selected backlog item,
-verification commands/results, CodeRabbit status, and loop status.
+Final response must include PR URL, branch, worktree path, selected Linear issue
+or backlog item, verification commands/results, CodeRabbit status, Linear status
+updates made or needed, and loop status.

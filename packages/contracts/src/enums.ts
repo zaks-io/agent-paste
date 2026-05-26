@@ -14,15 +14,20 @@ export type UploadSessionStatus = z.infer<typeof UploadSessionStatus>;
 
 export const OperationEventAction = z.enum([
   "workspace.created",
+  "workspace.settings.updated",
   "api_key.created",
   "api_key.revoked",
   "upload_session.created",
   "upload_session.finalized",
   "upload_session.expired",
   "upload_session.failed",
+  "artifact.created",
   "artifact.published",
   "artifact.deleted",
   "artifact.expired",
+  "revision.draft_created",
+  "platform.lockdown.set",
+  "platform.lockdown.lifted",
   "cleanup.run",
   "admin.destructive_operation",
 ]);

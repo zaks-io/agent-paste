@@ -189,6 +189,8 @@ function createApiDatabase(repo, denylistNamespace) {
     listWorkspaces: repo.listWorkspaces.bind(repo),
     createApiKey: repo.createApiKey.bind(repo),
     revokeApiKey: repo.revokeApiKey.bind(repo),
+    publishRevision: repo.publishRevision.bind(repo),
+    listRevisions: repo.listRevisions.bind(repo),
     listArtifacts: repo.listArtifacts.bind(repo),
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
     listOperationEvents: repo.listOperationEvents.bind(repo),
