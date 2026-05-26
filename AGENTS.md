@@ -31,3 +31,38 @@ delegated Linear issues in an isolated remote environment.
 
 Remote Cursor agents should read `docs/agents/remote-cursor-agent.md` after this
 file. Only delegate issues labeled both `ready-for-agent` and `remote-cursor`.
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- **Node.js 24** is required (`engines` field enforces `>=24 <25`). The VM update script installs it via nvm.
+- **pnpm 10.19.0** is managed by Corepack (`packageManager` field in root `package.json`).
+- After dependencies are installed, the `.env` file is copied from `.env.example` if it does not already exist.
+
+### Key commands
+
+All standard commands are documented in the root `README.md` tables. Highlights for cloud agents:
+
+| Task                                    | Command                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Full local verification (CI-equivalent) | `pnpm verify`                                                                                |
+| Lint                                    | `pnpm lint`                                                                                  |
+| Typecheck                               | `pnpm typecheck`                                                                             |
+| Unit/integration tests                  | `pnpm test`                                                                                  |
+| Build all packages                      | `pnpm build`                                                                                 |
+| Local E2E smoke test                    | `pnpm smoke:local`                                                                           |
+| Start local dev server                  | `pnpm dev:all` (builds first, then starts in-memory API/Upload/Content on :8787/:8788/:8789) |
+
+### Local dev server notes
+
+- `pnpm dev:all` runs the in-memory MVP harness (`scripts/local-mvp-server.mjs`) with mocked R2/KV. No Docker or Postgres is needed for the quick dev path.
+- The admin token is `local-admin-token` (from `.env.example`).
+- To interact with the local server: create a workspace (`pnpm cli:dev admin workspace create <email> --name <name>`), create a key (`pnpm cli:dev admin key create <workspace-id> --name <name>`), set `AGENT_PASTE_API_KEY` to the returned secret, then use `pnpm cli:dev whoami` or `pnpm cli:dev publish <absolute-path>`.
+- The CLI resolves paths relative to `apps/cli/`, so use absolute paths when calling `pnpm cli:dev publish`.
+
+### Gotchas
+
+- pnpm may report "Ignored build scripts" for esbuild/workerd/lefthook/sharp. This does not break builds because the native platform packages are listed as `optionalDependencies` which provide pre-built binaries.
+- Tests use `@electric-sql/pglite` for in-memory Postgres — no Docker or real Postgres is needed for `pnpm test`.
+- Turborepo caches aggressively. If you see stale results after modifying non-source files (e.g. env vars), pass `--force` to the turbo command.
