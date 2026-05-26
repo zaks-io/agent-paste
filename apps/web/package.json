@@ -18,8 +18,10 @@
   },
   "dependencies": {
     "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/worker-runtime": "workspace:*",
     "@fontsource-variable/hanken-grotesk": "^5.2.5",
     "@fontsource/jetbrains-mono": "^5.2.5",
+    "@sentry/cloudflare": "^10.53.1",
     "@tanstack/react-router": "^1.121.0",
     "@tanstack/react-start": "^1.121.0",
     "@workos/authkit-tanstack-react-start": "^0.8.3",

@@ -3,9 +3,14 @@
   "name": "agent-paste-apex",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "observability": {
     "enabled": true
+  },
+  "upload_source_maps": true,
+  "vars": {
+    "AGENT_PASTE_ENV": "dev"
   },
   "assets": {
     "binding": "ASSETS",
@@ -22,7 +27,10 @@
           "pattern": "preview.agent-paste.sh",
           "custom_domain": true
         }
-      ]
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "preview"
+      }
     },
     "production": {
       "name": "agent-paste-apex-production",
@@ -32,7 +40,10 @@
           "pattern": "agent-paste.sh",
           "custom_domain": true
         }
-      ]
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "production"
+      }
     }
   }
 }

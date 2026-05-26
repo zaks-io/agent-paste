@@ -112,6 +112,13 @@ importers:
         version: 2.1.8
 
   apps/apex:
+    dependencies:
+      '@agent-paste/worker-runtime':
+        specifier: workspace:*
+        version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -146,6 +153,9 @@ importers:
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -199,6 +209,9 @@ importers:
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -212,6 +225,12 @@ importers:
 
   apps/jobs:
     dependencies:
+      '@agent-paste/worker-runtime':
+        specifier: workspace:*
+        version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -225,6 +244,12 @@ importers:
 
   apps/mcp:
     dependencies:
+      '@agent-paste/worker-runtime':
+        specifier: workspace:*
+        version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -259,6 +284,9 @@ importers:
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -275,12 +303,18 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@agent-paste/worker-runtime':
+        specifier: workspace:*
+        version: link:../../packages/worker-runtime
       '@fontsource-variable/hanken-grotesk':
         specifier: ^5.2.5
         version: 5.2.8
       '@fontsource/jetbrains-mono':
         specifier: ^5.2.5
         version: 5.2.8
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       '@tanstack/react-router':
         specifier: ^1.121.0
         version: 1.170.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -474,6 +508,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@sentry/cloudflare':
+        specifier: ^10.53.1
+        version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -2111,6 +2148,19 @@ packages:
     resolution: {integrity: sha512-QVTUovf40zgTqlFVrKA1uXMVvU2QWEFWfAH8Wdc48IxLvrJMQVMBRjuQyUpzZCDkakImib9eVazbWlC6ksWtJw==}
     cpu: [x64]
     os: [win32]
+
+  '@sentry/cloudflare@10.53.1':
+    resolution: {integrity: sha512-iSohVibGRAKg7zLUflfA2ePG69Uw6bqm6iCQLM18hoG2gT4DGigaKcjJmZLTfAtW1DInMCb0DYc/mltCznxMrQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@cloudflare/workers-types': ^4.x
+    peerDependenciesMeta:
+      '@cloudflare/workers-types':
+        optional: true
+
+  '@sentry/core@10.53.1':
+    resolution: {integrity: sha512-XG4ezlkyuAPjBC5+9kXC94rXXuqYTw9NRhfaDHssbTFaGnqBR8vQX2UUgZfY7ucbeelRDGfBu1sywoU+mB04uA==}
+    engines: {node: '>=18'}
 
   '@sentry/core@9.47.1':
     resolution: {integrity: sha512-KX62+qIt4xgy8eHKHiikfhz2p5fOciXd0Cl+dNzhgPFq8klq4MGMNaf148GB3M/vBqP4nw/eFvRMAayFCgdRQw==}
@@ -5383,6 +5433,15 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.60.4':
     optional: true
+
+  '@sentry/cloudflare@10.53.1(@cloudflare/workers-types@4.20260521.1)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@sentry/core': 10.53.1
+    optionalDependencies:
+      '@cloudflare/workers-types': 4.20260521.1
+
+  '@sentry/core@10.53.1': {}
 
   '@sentry/core@9.47.1': {}
 

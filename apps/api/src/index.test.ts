@@ -2283,7 +2283,10 @@ describe("api worker", () => {
       (await handleRequest(new Request("https://api.test/admin/operation-events", { headers: adminHeaders }), env))
         .status,
     ).toBe(200);
-    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env);
+    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env, {
+      waitUntil() {},
+      passThroughOnException() {},
+    } as ExecutionContext);
 
     expect(calls).toEqual(
       expect.arrayContaining([

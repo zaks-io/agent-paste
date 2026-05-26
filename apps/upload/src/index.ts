@@ -36,7 +36,9 @@ import {
   errorResponse as runtimeErrorResponse,
   jsonResponse as runtimeJsonResponse,
   type SignedUploadUrlPrincipal,
+  sentryOptions,
 } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 
 export type UploadActor = {
@@ -100,6 +102,8 @@ export type Env = {
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   DOCS_BASE_URL?: string;
+  AGENT_PASTE_ENV?: string;
+  SENTRY_DSN?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
@@ -179,11 +183,13 @@ function uploadFilePath(context: AppContext): string {
   return markerIndex === -1 ? "" : decodeURIComponent(pathname.slice(markerIndex + UPLOAD_FILE_PATH_MARKER.length));
 }
 
-export default {
+const worker = {
   fetch(request: Request, env: Env): Promise<Response> {
     return handleRequest(request, env);
   },
 };
+
+export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);

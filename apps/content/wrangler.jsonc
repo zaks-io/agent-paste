@@ -3,11 +3,14 @@
   "name": "agent-paste-content",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "observability": {
     "enabled": true
   },
+  "upload_source_maps": true,
   "vars": {
+    "AGENT_PASTE_ENV": "dev",
     "CONTENT_SIGNING_KID": "v1"
   },
   "r2_buckets": [
@@ -45,6 +48,7 @@
         }
       ],
       "vars": {
+        "AGENT_PASTE_ENV": "preview",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },
@@ -81,6 +85,7 @@
         }
       ],
       "vars": {
+        "AGENT_PASTE_ENV": "production",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },

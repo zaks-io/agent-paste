@@ -1,11 +1,14 @@
+import { sentryOptions } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 
 export type Env = {
+  AGENT_PASTE_ENV?: string;
   JOBS_ENABLED?: string;
+  SENTRY_DSN?: string;
 };
 
 type ScheduledEvent = {
-  type: "scheduled";
   scheduledTime: number;
   cron: string;
 };
@@ -26,7 +29,7 @@ app.onError((error, context) => {
   return context.json({ error: { code: "internal_error", message: "internal_error" } }, 500);
 });
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     return await app.fetch(request, env);
   },
@@ -34,6 +37,8 @@ export default {
     await runScheduledJobs(event, env);
   },
 };
+
+export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function runScheduledJobs(_event: ScheduledEvent, env: Env): Promise<void> {
   if (env.JOBS_ENABLED === "false") {
