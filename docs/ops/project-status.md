@@ -67,7 +67,8 @@ Highest-signal gaps:
 - Phase 5: OAuth-only MCP transport, auth verification, API forwarding, and MCP
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
-  operations, and tested rotation automation.
+  operations; rotation overlap rings and tests ship in `@agent-paste/rotation`
+  (hosted wrangler automation still manual).
 - Parked ops/security hardening: optional dedicated admin hostname decision and
   `ADMIN_TOKEN` retirement.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
@@ -79,7 +80,7 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 ## Current Implementation Reality
 
 - Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`,
-  `contracts`, `worker-runtime`, `db`, `tokens`, `auth`, `api-client`,
+  `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`, `api-client`,
   `commands`, `storage`, and repo guardrail packages.
 - Scaffolded only: `jobs` and `mcp`.
 - Placeholder UI: `web` Access Links.

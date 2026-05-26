@@ -109,6 +109,13 @@ export class RepositoryCore implements Repository {
     private readonly options: RepositoryOptions,
   ) {}
 
+  private pepperForRecord(pepperKid: number): string | undefined {
+    if (this.options.pepperRing) {
+      return this.options.pepperRing.pepperForKid(pepperKid);
+    }
+    return pepperKid === 1 ? this.options.apiKeyPepper : undefined;
+  }
+
   async createWorkspace(input: {
     actor: AdminActor;
     idempotencyKey: string;
@@ -233,7 +240,11 @@ export class RepositoryCore implements Repository {
     if (!record || record.revoked_at) {
       return null;
     }
-    const ok = await verifyApiKeySecret(apiKeySecret, record.public_id, record.secret_hmac, this.options.apiKeyPepper);
+    const pepper = this.pepperForRecord(record.pepper_kid);
+    if (!pepper) {
+      return null;
+    }
+    const ok = await verifyApiKeySecret(apiKeySecret, record.public_id, record.secret_hmac, pepper);
     if (!ok) {
       return null;
     }

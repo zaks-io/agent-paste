@@ -20,6 +20,7 @@ import {
   type HyperdriveBinding,
   type Repository,
 } from "@agent-paste/db";
+import { pepperRingFromWorkerEnv, uploadSigningRingFromEnv, verifyUploadTokenWithKeyRing } from "@agent-paste/rotation";
 import {
   mintUploadUrl,
   type SignedUploadPayload,
@@ -84,12 +85,16 @@ export type Env = {
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   API_KEY_PEPPER_V1?: string;
+  API_KEY_PEPPER_V2?: string;
+  API_KEY_PEPPER_CURRENT_KID?: string;
   API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
   AGENT_VIEW_SIGNING_SECRET?: string;
   UPLOAD_SIGNING_SECRET?: string;
+  UPLOAD_SIGNING_SECRET_V2?: string;
+  UPLOAD_SIGNING_KID?: string;
   UPLOAD_BASE_URL?: string;
   UPLOAD_URL_TTL_SECONDS?: string;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
@@ -417,9 +422,11 @@ function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | unde
   if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
     return undefined;
   }
+  const pepperRing = pepperRingFromWorkerEnv(env);
   const options: Parameters<typeof createPostgresServices>[0] = {
     executor: createHyperdriveExecutor(env.DB),
     apiKeyPepper: env.API_KEY_PEPPER_V1,
+    ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
   };
   if (env.API_BASE_URL) {
@@ -452,9 +459,10 @@ async function signUploadUrl(
     throw new Error("UPLOAD_SIGNING_SECRET is required");
   }
 
+  const signingRing = uploadSigningRingFromEnv(env);
   return mintUploadUrl({
     baseUrl: env.UPLOAD_BASE_URL ?? new URL(request.url).origin,
-    secret: env.UPLOAD_SIGNING_SECRET,
+    secret: signingRing?.signingSecret() ?? env.UPLOAD_SIGNING_SECRET,
     payload: {
       sid: session.session_id,
       path: file.path,
@@ -470,6 +478,10 @@ async function verifyUploadToken(token: string | null, env: Env): Promise<Signed
     return null;
   }
 
+  const signingRing = uploadSigningRingFromEnv(env);
+  if (signingRing) {
+    return verifyUploadTokenWithKeyRing(token, signingRing);
+  }
   return verifyUploadTokenSignature(token, env.UPLOAD_SIGNING_SECRET);
 }
 

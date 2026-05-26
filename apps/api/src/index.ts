@@ -5,7 +5,7 @@ import {
   REQUEST_ID_HEADER,
   type RequestIdVariables,
   requestIdMiddleware,
-  verifyAdminToken,
+  verifyAdminTokenAgainstPeppers,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
@@ -30,6 +30,12 @@ import {
   type PlatformActor,
   type Repository,
 } from "@agent-paste/db";
+import {
+  contentSigningRingFromEnv,
+  pepperRingFromWorkerEnv,
+  pepperRingVerifySecrets,
+  verifyAgentViewTokenWithKeyRing,
+} from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
@@ -89,7 +95,11 @@ export type Env = {
   ADMIN_TOKEN?: string;
   ADMIN_TOKEN_HASH?: string;
   API_KEY_PEPPER_V1?: string;
+  API_KEY_PEPPER_V2?: string;
+  API_KEY_PEPPER_CURRENT_KID?: string;
   API_KEY_ENV?: "preview" | "production";
+  CONTENT_SIGNING_SECRET_V2?: string;
+  CONTENT_SIGNING_KID?: string;
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
@@ -173,8 +183,7 @@ const apiAuthResolvers = {
     if (!token) {
       return { ok: false, code: "not_found" } as const;
     }
-    const secret = agentViewSigningSecret(context.env as Env);
-    const payload = secret ? await verifyAgentViewToken(token, secret) : null;
+    const payload = await verifyAgentViewTokenForEnv(token, context.env as Env);
     return payload
       ? ({ ok: true, principal: { kind: "signed_agent_view_token", payload } } as const)
       : ({ ok: false, code: "not_found" } as const);
@@ -1017,7 +1026,9 @@ async function authenticateAdmin(request: Request, env: Env): Promise<AdminActor
   }
 
   if (env.ADMIN_TOKEN_HASH && env.API_KEY_PEPPER_V1) {
-    return (await verifyAdminToken(token, env.ADMIN_TOKEN_HASH, env.API_KEY_PEPPER_V1))
+    const pepperRing = pepperRingFromWorkerEnv(env);
+    const peppers = pepperRing ? pepperRingVerifySecrets(pepperRing) : [env.API_KEY_PEPPER_V1];
+    return (await verifyAdminTokenAgainstPeppers(token, env.ADMIN_TOKEN_HASH, peppers))
       ? { type: "admin", id: "operator" }
       : null;
   }
@@ -1230,9 +1241,11 @@ function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | unde
   if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
     return undefined;
   }
+  const pepperRing = pepperRingFromWorkerEnv(env);
   const services = createPostgresServices({
     executor: createHyperdriveExecutor(env.DB),
     apiKeyPepper: env.API_KEY_PEPPER_V1,
+    ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
     apiBaseUrl: apiBaseUrl(env),
     contentBaseUrl: contentBaseUrl(env),
@@ -1425,7 +1438,22 @@ function apiBaseUrl(env: Env): string {
 }
 
 function agentViewSigningSecret(env: Env): string | undefined {
-  return env.AGENT_VIEW_SIGNING_SECRET ?? env.CONTENT_SIGNING_SECRET;
+  if (env.AGENT_VIEW_SIGNING_SECRET) {
+    return env.AGENT_VIEW_SIGNING_SECRET;
+  }
+  const signingRing = contentSigningRingFromEnv(env);
+  return signingRing?.signingSecret() ?? env.CONTENT_SIGNING_SECRET;
+}
+
+async function verifyAgentViewTokenForEnv(token: string, env: Env) {
+  if (env.AGENT_VIEW_SIGNING_SECRET) {
+    return verifyAgentViewToken(token, env.AGENT_VIEW_SIGNING_SECRET);
+  }
+  const signingRing = contentSigningRingFromEnv(env);
+  if (signingRing) {
+    return verifyAgentViewTokenWithKeyRing(token, signingRing);
+  }
+  return env.CONTENT_SIGNING_SECRET ? verifyAgentViewToken(token, env.CONTENT_SIGNING_SECRET) : null;
 }
 
 async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknown> {
@@ -1488,9 +1516,10 @@ async function signedContentUrl(
   if (!env.CONTENT_SIGNING_SECRET) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
+  const signingRing = contentSigningRingFromEnv(env);
   return mintContentUrl({
     baseUrl: contentBaseUrl(env),
-    secret: env.CONTENT_SIGNING_SECRET,
+    secret: signingRing?.signingSecret() ?? env.CONTENT_SIGNING_SECRET,
     payload: {
       artifact_id: artifactId,
       revision_id: revisionId,

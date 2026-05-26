@@ -1,5 +1,6 @@
 import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
+import { contentSigningRingFromEnv, verifyContentTokenWithKeyRing } from "@agent-paste/rotation";
 import { attachmentFilename, CONTENT_SECURITY_HEADERS, servedContentForPath } from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
 import {
@@ -40,6 +41,8 @@ export type Env = {
   DENYLIST: KVNamespace;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
+  CONTENT_SIGNING_SECRET_V2?: string;
+  CONTENT_SIGNING_KID?: string;
   CONTENT_BASE_URL?: string;
   DOCS_BASE_URL?: string;
 };
@@ -63,10 +66,12 @@ const contentRegistrar = createRegistrar({
   auth: {
     async signed_content_token(context) {
       const path = contentPath(context as AppContext);
-      const payload = await verifyContentToken(
-        context.req.param("token") ?? "",
-        (context.env as Env).CONTENT_SIGNING_SECRET,
-      );
+      const env = context.env as Env;
+      const token = context.req.param("token") ?? "";
+      const signingRing = contentSigningRingFromEnv(env);
+      const payload = signingRing
+        ? await verifyContentTokenWithKeyRing(token, signingRing)
+        : await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
       if (!payload || !isAllowedPath(path, payload)) {
         return { ok: false, code: "not_found" };
       }

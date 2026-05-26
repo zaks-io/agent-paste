@@ -28,6 +28,7 @@
     "@agent-paste/config": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
+    "@agent-paste/rotation": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "hono": "^4.12.21",
