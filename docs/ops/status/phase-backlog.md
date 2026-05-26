@@ -35,7 +35,7 @@ admin basics.
        preview job below 95. `scripts/lighthouse-dashboard-a11y.mjs` runs a
        local mock-WorkOS harness, audits authenticated dashboard empty chrome
        via Lighthouse accessibility-only, and `pr-preview.yml` fails below 95.
-5. [ ] Write `docs/ops/runbook-workos.md`: WorkOS project config, redirect URI
+5. [x] Write `docs/ops/runbook-workos.md`: WorkOS project config, redirect URI
        drift, API-key/cookie rotation, and common auth failures.
 6. [ ] Promote status after the above lands: update ADR 0033/0059/0068
        coverage and the Phase 3 summary in `project-status.md`.

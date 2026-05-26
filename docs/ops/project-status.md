@@ -37,6 +37,8 @@ Feature-specific ledgers:
 - [Repository todo](./repository-todo.md) - repository-core follow-ups.
 - [Rotation runbook](./runbook-rotation.md) - current manual rotation and future
   automation gaps.
+- [WorkOS runbook](./runbook-workos.md) - WorkOS project config, redirect URI
+  drift, auth failures, and verification.
 - [Logpush runbook](./runbook-logpush.md) - parked Cloudflare Logpush -> Axiom
   work.
 
