@@ -10,9 +10,11 @@ const state = vi.hoisted(() => ({
   parentRouteContext: { apiSession: { data: null, error: null } } as unknown,
   params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" },
   search: {} as Record<string, unknown>,
-  auth: { user: { email: "user@example.com" }, accessToken: "workos-token" } as {
+  auth: { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" } as {
     user: { email: string } | null;
     accessToken: string;
+    role?: string;
+    roles?: string[];
   },
   apiFetchOrEmpty: vi.fn(),
   liftLockdownFn: vi.fn(),
@@ -67,7 +69,7 @@ vi.mock("../src/server/web-mutations", () => ({
 }));
 
 vi.mock("../src/server/runtime", () => ({
-  getWebEnv: () => ({ OPERATOR_EMAILS: "user@example.com" }),
+  getWebEnv: () => ({ WEB_BASE_URL: "https://app.agent-paste.sh", API_BASE_URL: "https://api.agent-paste.sh" }),
 }));
 
 describe("web routes", () => {
@@ -76,7 +78,7 @@ describe("web routes", () => {
     state.parentRouteContext = { apiSession: { data: null, error: null } };
     state.params = { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" };
     state.search = {};
-    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
     state.apiFetchOrEmpty.mockReset();
     state.liftLockdownFn.mockReset();
     state.setLockdownFn.mockReset();
@@ -118,7 +120,7 @@ describe("web routes", () => {
     });
     expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
-    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
     state.apiFetchOrEmpty.mockResolvedValueOnce({
       data: {
         workspace: workspace().workspace,
@@ -333,6 +335,18 @@ describe("web routes", () => {
     state.loaderData = { ok: true, app: "web" };
     render(<health.Route.component />);
     expect(screen.getByText(/"app": "web"/)).toBeInTheDocument();
+  });
+
+  it("redirects /admin for authenticated users without the WorkOS admin role", async () => {
+    const admin = await import("../src/routes/_authed.admin");
+
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "member" };
+
+    await expect((admin.Route.loader as () => Promise<unknown>)()).rejects.toMatchObject({
+      redirected: true,
+      to: "/dashboard",
+    });
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalledWith("/v1/web/admin/lockdowns", expect.anything());
   });
 
   it("exposes per-route document titles and descriptions", async () => {

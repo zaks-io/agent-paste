@@ -84,7 +84,9 @@ AuthKit reads `WORKOS_REDIRECT_URI` from Worker vars. A mismatch between this va
 | ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `WORKOS_API_KEY`         | `api`, `web` | Server-side WorkOS API credential. Must match the target WorkOS environment. Per-PR web uses `WORKOS_PREVIEW_API_KEY` from GitHub Actions, written at deploy time. |
 | `WORKOS_COOKIE_PASSWORD` | `web`        | 32+ characters. Seals AuthKit session cookie `__agp_session`. Per-PR preview derives a seed value in `deploy-pr-preview.mjs`.                                      |
-| `OPERATOR_EMAILS`        | `api`, `web` | CSV allowlist for operator routes and `is_operator` in the web app. Not cryptographic, but stored as a secret binding today.                                       |
+
+Human operator access is controlled by the WorkOS `admin` role slug on the
+active session.
 
 ### Vars (public deployment metadata in `wrangler.jsonc`)
 
@@ -151,8 +153,6 @@ Follow the WorkOS sections in [runbook-rotation.md](./runbook-rotation.md#rotate
 - **`WORKOS_CLIENT_ID`** — project/client swap only; update Wrangler vars and secrets, configure redirect URIs in the new project first, deploy before verification.
 - **`WORKOS_COOKIE_PASSWORD`** — write to `web` only; **invalidates all existing dashboard sessions** (users must sign in again).
 
-Also verify `OPERATOR_EMAILS` during any rotation window per the rotation runbook.
-
 ## Common auth failure modes
 
 Structured rejection reasons are logged as `workos_auth_reject` in `api` Worker logs (`apps/api/src/workos.ts`). Detail never includes tokens, `sub`, or email.
@@ -207,10 +207,10 @@ Historical note: production Issue A (2026-05) was `issuer_mismatch` because `WOR
 
 ### Operator and admin surfaces
 
-| Symptom                            | Likely cause                           | Fix                                                                           |
-| ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
-| `/admin` unavailable despite login | Email not in `OPERATOR_EMAILS`         | Update secret on `api` and `web`; redeploy.                                   |
-| Operator API 404                   | Intentional non-enumeration (ADR 0046) | Confirm operator session or Cloudflare Access service token; check allowlist. |
+| Symptom                            | Likely cause                           | Fix                                                                          |
+| ---------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
+| `/admin` unavailable despite login | Session lacks WorkOS `admin` role      | Assign the `admin` role, then refresh/sign in again so the token carries it. |
+| Operator API 404                   | Intentional non-enumeration (ADR 0046) | Confirm `admin` role session or Cloudflare Access service token.             |
 
 ### PR preview web skipped
 

@@ -7,12 +7,11 @@ import { LockdownList } from "../components/admin/LockdownList";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
-import { isOperator } from "../server/env";
-import { getWebEnv } from "../server/runtime";
+import { hasOperatorRole } from "../server/env";
 
 const checkOperatorFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
-  return Boolean(auth.user && isOperator(getWebEnv(), auth.user.email));
+  return Boolean(auth.user && hasOperatorRole(auth));
 });
 
 const loadLockdownsFn = createServerFn({ method: "GET" }).handler(async () => {

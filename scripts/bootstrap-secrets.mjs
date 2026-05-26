@@ -17,7 +17,6 @@ const workerSecrets = [
       "CONTENT_SIGNING_SECRET",
       "API_KEY_PEPPER_V1",
       "ADMIN_TOKEN_HASH",
-      "OPERATOR_EMAILS",
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
   },
@@ -27,7 +26,7 @@ const workerSecrets = [
     ? [
         {
           app: "web",
-          names: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD", "OPERATOR_EMAILS"],
+          names: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD"],
         },
       ]
     : []),
@@ -61,10 +60,6 @@ function parseOptions(argv) {
   const dryRun = argv.includes("--dry-run");
   const skipWeb = argv.includes("--skip-web");
   const withWeb = argv.includes("--with-web");
-  const operatorEmails = stringOption(argv, "--operator-emails") ?? process.env.OPERATOR_EMAILS;
-  if (!operatorEmails) {
-    usage("Set --operator-emails or OPERATOR_EMAILS.");
-  }
   const workosApiKey = stringOption(argv, "--workos-api-key") ?? process.env.WORKOS_API_KEY;
   const workosClientId = stringOption(argv, "--workos-client-id") ?? process.env.WORKOS_CLIENT_ID;
   const workosCookiePassword = stringOption(argv, "--workos-cookie-password") ?? process.env.WORKOS_COOKIE_PASSWORD;
@@ -93,7 +88,6 @@ function parseOptions(argv) {
     printOnly,
     dryRun,
     includeWeb,
-    operatorEmails,
     workosApiKey,
     workosClientId,
     workosCookiePassword,
@@ -171,7 +165,6 @@ function generatedSecrets() {
     API_KEY_PEPPER_V1: apiKeyPepper,
     ADMIN_TOKEN: adminToken,
     ADMIN_TOKEN_HASH: hmacBase64Url(adminToken, apiKeyPepper),
-    OPERATOR_EMAILS: options.operatorEmails,
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: options.workosApiKey,
@@ -189,7 +182,6 @@ function plannedSecrets() {
     API_KEY_PEPPER_V1: "<generated>",
     ADMIN_TOKEN: "<generated>",
     ADMIN_TOKEN_HASH: "<generated from ADMIN_TOKEN + API_KEY_PEPPER_V1>",
-    OPERATOR_EMAILS: "<provided>",
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: "<provided>",
@@ -252,7 +244,7 @@ function displaySecretValue(name, value) {
   if (options.dryRun) {
     return value;
   }
-  if (name === "OPERATOR_EMAILS" || webSecretNames.includes(name)) {
+  if (webSecretNames.includes(name)) {
     return "<provided; redacted>";
   }
   return value;
@@ -284,16 +276,13 @@ function usage(message) {
   process.stderr.write(`${message}
 
 Usage:
+  node scripts/bootstrap-secrets.mjs preview
   node scripts/bootstrap-secrets.mjs preview \\
-    --operator-emails you@example.com
-  node scripts/bootstrap-secrets.mjs preview \\
-    --operator-emails you@example.com \\
     --with-web \\
     --workos-api-key sk_... \\
     --workos-client-id client_... \\
     --workos-cookie-password ...
   node scripts/bootstrap-secrets.mjs production \\
-    --operator-emails you@example.com \\
     --with-web \\
     --workos-api-key sk_... \\
     --workos-client-id client_... \\

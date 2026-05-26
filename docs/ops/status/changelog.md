@@ -5,6 +5,14 @@ use `git log` for commit-level detail.
 
 ## 2026-05-26
 
+### Production operator access smoke
+
+- Verified Cloudflare Access service-token auth against production
+  `/v1/web/admin/lockdowns`.
+- Switched human operator eligibility to the WorkOS `admin` role slug and
+  verified browser access to `https://app.agent-paste.sh/admin`.
+- AP-12 is unblocked for legacy `ADMIN_TOKEN` route migration execution.
+
 ### MCP auth decision
 
 - Re-decided MCP OAuth on WorkOS AuthKit/Connect before implementation.

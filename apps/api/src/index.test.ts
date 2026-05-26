@@ -1515,7 +1515,6 @@ describe("api worker", () => {
   it("sets a lockdown for a WorkOS operator and writes the denylist key", async () => {
     const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async setLockdown(input) {
@@ -1562,7 +1561,6 @@ describe("api worker", () => {
   it("lifts a lockdown and deletes the denylist key", async () => {
     const deletes: string[] = [];
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async liftLockdown(input) {
@@ -1608,7 +1606,6 @@ describe("api worker", () => {
   it("returns 404 when lifting a lockdown that does not exist", async () => {
     const deletes: string[] = [];
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async liftLockdown() {
@@ -1638,7 +1635,6 @@ describe("api worker", () => {
 
   it("returns 404 when lifting a lockdown with an unsupported scope", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async liftLockdown() {
@@ -1659,13 +1655,12 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
-  it("returns 404 for a WorkOS session whose email is not an operator", async () => {
+  it("returns 404 for a WorkOS session without the admin role", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "ops@example.com",
-      AUTH: webAuthForTests(),
+      AUTH: webAuthForTests("member"),
       DB: operatorDbForTests({
         async setLockdown() {
-          throw new Error("setLockdown must not run for non-operators");
+          throw new Error("setLockdown must not run for non-admin roles");
         },
       }),
     };
@@ -1689,7 +1684,6 @@ describe("api worker", () => {
 
   it("returns 404 for an API-key bearer on operator routes", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: {
         async verifyApiKey(apiKey) {
           return apiKey === "ap_pk_live_example" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
@@ -1724,7 +1718,6 @@ describe("api worker", () => {
 
   it("returns 404 when no authentication is provided to operator routes", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async setLockdown() {
@@ -1748,7 +1741,6 @@ describe("api worker", () => {
 
   it("lists effective lockdowns for a WorkOS operator", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async listLockdowns(actor, pagination) {
@@ -1788,7 +1780,6 @@ describe("api worker", () => {
       lockdownDetail({ scope: "workspace", target_id: "w_2", set_at: "2026-01-02T00:00:00.000Z" }),
     ];
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async listLockdowns(_actor, pagination) {
@@ -1814,7 +1805,6 @@ describe("api worker", () => {
 
   it("returns invalid_cursor when listing lockdowns with a bad cursor", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async listLockdowns(_actor, pagination) {
@@ -1837,7 +1827,6 @@ describe("api worker", () => {
 
   it("rejects invalid lockdown pagination limits for an operator", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async listLockdowns() {
@@ -1859,13 +1848,12 @@ describe("api worker", () => {
     }
   });
 
-  it("returns 404 listing lockdowns for a WorkOS session whose email is not an operator", async () => {
+  it("returns 404 listing lockdowns for a WorkOS session without the admin role", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "ops@example.com",
-      AUTH: webAuthForTests(),
+      AUTH: webAuthForTests("member"),
       DB: operatorDbForTests({
         async listLockdowns() {
-          throw new Error("listLockdowns must not run for non-operators");
+          throw new Error("listLockdowns must not run for non-admin roles");
         },
       }),
     };
@@ -1883,7 +1871,6 @@ describe("api worker", () => {
 
   it("returns 404 listing lockdowns for an API-key bearer", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: {
         async verifyApiKey(apiKey) {
           return apiKey === "ap_pk_live_example" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
@@ -1912,7 +1899,6 @@ describe("api worker", () => {
 
   it("returns 404 listing lockdowns when no authentication is provided", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       AUTH: webAuthForTests(),
       DB: operatorDbForTests({
         async listLockdowns() {
@@ -1929,7 +1915,6 @@ describe("api worker", () => {
 
   it("returns 404 listing lockdowns for an invalid Cloudflare Access JWT", async () => {
     const env: Env = {
-      OPERATOR_EMAILS: "user@example.com",
       CF_ACCESS_TEAM_DOMAIN: "ops.cloudflareaccess.com",
       CF_ACCESS_AUD: "aud-tag",
       AUTH: {
@@ -2382,13 +2367,15 @@ describe("api worker", () => {
   });
 });
 
-function webAuthForTests(): Env["AUTH"] {
+function webAuthForTests(role = "admin"): Env["AUTH"] {
   return {
     async verifyApiKey() {
       return null;
     },
     async verifyWebToken(token) {
-      return token === "workos-ok" ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1" } : null;
+      return token === "workos-ok"
+        ? { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1", role }
+        : null;
     },
   };
 }

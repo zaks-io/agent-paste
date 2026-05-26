@@ -101,7 +101,7 @@ Run once per environment:
 **Codex can handle** this only if Cloudflare auth is already available and Isaac is comfortable with the one-time secret output passing through this workspace. Otherwise **Isaac only** should run it and paste/store the values directly in Bitwarden.
 
 ```sh
-OPERATOR_EMAILS=isaac@isaacsuttell.com pnpm bootstrap:production
+pnpm bootstrap:production
 ```
 
 The script prints every value to stdout exactly once. Capture before closing the terminal.
@@ -113,7 +113,6 @@ The script prints every value to stdout exactly once. Capture before closing the
 | `API_KEY_PEPPER_V1`      | `agent-paste-api-production`, `agent-paste-upload-production`                                   | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                            |
 | `ADMIN_TOKEN`            | Operator only (not bound on any Worker)                                                         | `scripts/bootstrap-secrets.mjs` (`ap_admin_<base64url>`)                                |
 | `ADMIN_TOKEN_HASH`       | `agent-paste-api-production`                                                                    | `scripts/bootstrap-secrets.mjs` (HMAC-SHA256 of `ADMIN_TOKEN` with `API_KEY_PEPPER_V1`) |
-| `OPERATOR_EMAILS`        | `agent-paste-api-production`                                                                    | Supplied via `OPERATOR_EMAILS=` env var on the bootstrap run                            |
 
 Bitwarden entry checklist:
 
@@ -122,7 +121,6 @@ Bitwarden entry checklist:
 - [ ] `agent-paste / production / UPLOAD_SIGNING_SECRET`. **Isaac only**.
 - [ ] `agent-paste / production / API_KEY_PEPPER_V1`. **Isaac only**.
 - [ ] `agent-paste / production / ADMIN_TOKEN_HASH` (recomputable from the two above, store anyway). **Isaac only**.
-- [ ] `agent-paste / production / OPERATOR_EMAILS`. **Isaac only**.
 
 ### Infrastructure secrets (set manually, not by bootstrap script)
 

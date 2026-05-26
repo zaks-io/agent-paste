@@ -9,8 +9,7 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { ToastProvider } from "../components/ui/ToastProvider";
 import { signInBridgeHref } from "../lib/auth-return-path";
 import { apiFetchOrEmpty } from "../server/api-client";
-import { isOperator } from "../server/env";
-import { getWebEnv } from "../server/runtime";
+import { hasOperatorRole } from "../server/env";
 
 const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth();
@@ -21,7 +20,7 @@ const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () =
   });
   return {
     user: auth.user,
-    isOperator: isOperator(getWebEnv(), auth.user.email),
+    isOperator: hasOperatorRole(auth),
     apiSession,
   };
 });
