@@ -141,6 +141,71 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("wraps selection with arrow up and down", () => {
+    renderHarness();
+    openPalette();
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+  });
+
+  it("navigates when an option is clicked", () => {
+    renderHarness();
+    openPalette();
+
+    fireEvent.click(screen.getByRole("option", { name: "Dashboard" }));
+    expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty state when no commands match", () => {
+    renderHarness();
+    openPalette();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search commands" }), {
+      target: { value: "zzzz-no-match" },
+    });
+
+    expect(screen.getByText("No matching commands.")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("traps Tab focus inside the dialog", () => {
+    renderHarness();
+    openPalette();
+
+    const dialog = getDialog();
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    expect(first).toBeTruthy();
+    expect(last).toBeTruthy();
+
+    last?.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    first?.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it("closes from the header close button", () => {
+    renderHarness();
+    openPalette();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("applies a theme preference from the actions group", () => {
     renderHarness();
     openPalette();
@@ -148,6 +213,18 @@ describe("CommandPalette", () => {
     fireEvent.click(screen.getByRole("option", { name: "Dark theme" }));
     expect(setPreference).toHaveBeenCalledWith("dark");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("applies light and system theme preferences", () => {
+    renderHarness();
+    openPalette();
+
+    fireEvent.click(screen.getByRole("option", { name: "Light theme" }));
+    expect(setPreference).toHaveBeenCalledWith("light");
+
+    openPalette();
+    fireEvent.click(screen.getByRole("option", { name: "System theme" }));
+    expect(setPreference).toHaveBeenCalledWith("system");
   });
 
   it("submits sign-out through a POST form", () => {
