@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSignInUrl } from "@workos/authkit-tanstack-react-start";
-import { parseReturnPathname } from "../../../lib/auth-return-path";
+import { decodeReturnPathname } from "../../../../lib/auth-return-path";
 
-export const Route = createFileRoute("/api/auth/sign-in")({
+export const Route = createFileRoute("/api/auth/sign-in/p/$encoded")({
   server: {
     handlers: {
-      GET: async ({ request }: { request: Request }) => {
-        const returnPathname = parseReturnPathname(new URL(request.url).searchParams.get("returnPathname"));
+      GET: async ({ params }: { params: { encoded: string } }) => {
+        const returnPathname = decodeReturnPathname(params.encoded);
         const url = await getSignInUrl(returnPathname ? { data: { returnPathname } } : undefined);
         return new Response(null, {
           status: 307,

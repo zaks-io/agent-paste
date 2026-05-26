@@ -24,6 +24,7 @@ import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
 import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
+import { Route as ApiAuthSignInPEncodedRouteImport } from './routes/api/auth/sign-in/p.$encoded'
 
 const HealthzRoute = HealthzRouteImport.update({
   id: '/healthz',
@@ -100,6 +101,11 @@ const AuthedArtifactsArtifactIdRoute =
     path: '/artifacts/$artifactId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const ApiAuthSignInPEncodedRoute = ApiAuthSignInPEncodedRouteImport.update({
+  id: '/p/$encoded',
+  path: '/p/$encoded',
+  getParentRoute: () => ApiAuthSignInRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -113,9 +119,10 @@ export interface FileRoutesByFullPath {
   '/al/$publicId': typeof AlPublicIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts/': typeof AuthedArtifactsIndexRoute
+  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -129,9 +136,10 @@ export interface FileRoutesByTo {
   '/al/$publicId': typeof AlPublicIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts': typeof AuthedArtifactsIndexRoute
+  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,9 +155,10 @@ export interface FileRoutesById {
   '/al/$publicId': typeof AlPublicIdRoute
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/_authed/artifacts/': typeof AuthedArtifactsIndexRoute
+  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts/'
+    | '/api/auth/sign-in/p/$encoded'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts'
+    | '/api/auth/sign-in/p/$encoded'
   id:
     | '__root__'
     | '/'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/_authed/artifacts/'
+    | '/api/auth/sign-in/p/$encoded'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -209,7 +221,7 @@ export interface RootRouteChildren {
   HealthzRoute: typeof HealthzRoute
   AlPublicIdRoute: typeof AlPublicIdRoute
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
-  ApiAuthSignInRoute: typeof ApiAuthSignInRoute
+  ApiAuthSignInRoute: typeof ApiAuthSignInRouteWithChildren
   ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
 }
 
@@ -320,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedArtifactsArtifactIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/api/auth/sign-in/p/$encoded': {
+      id: '/api/auth/sign-in/p/$encoded'
+      path: '/p/$encoded'
+      fullPath: '/api/auth/sign-in/p/$encoded'
+      preLoaderRoute: typeof ApiAuthSignInPEncodedRouteImport
+      parentRoute: typeof ApiAuthSignInRoute
+    }
   }
 }
 
@@ -348,13 +367,25 @@ const AuthedRouteChildren: AuthedRouteChildren = {
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface ApiAuthSignInRouteChildren {
+  ApiAuthSignInPEncodedRoute: typeof ApiAuthSignInPEncodedRoute
+}
+
+const ApiAuthSignInRouteChildren: ApiAuthSignInRouteChildren = {
+  ApiAuthSignInPEncodedRoute: ApiAuthSignInPEncodedRoute,
+}
+
+const ApiAuthSignInRouteWithChildren = ApiAuthSignInRoute._addFileChildren(
+  ApiAuthSignInRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   HealthzRoute: HealthzRoute,
   AlPublicIdRoute: AlPublicIdRoute,
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
-  ApiAuthSignInRoute: ApiAuthSignInRoute,
+  ApiAuthSignInRoute: ApiAuthSignInRouteWithChildren,
   ApiAuthSignOutRoute: ApiAuthSignOutRoute,
 }
 export const routeTree = rootRouteImport
