@@ -42,6 +42,34 @@ describe("database credentials", () => {
     expect(runtimeDatabaseUrlEnvName("production", {})).toBe("DATABASE_URL_RUNTIME_PRODUCTION");
   });
 
+  it("does not resolve preview migration env vars for production", () => {
+    expect(
+      migrationDatabaseUrlEnvName("production", {
+        DATABASE_URL_MIGRATIONS_PREVIEW: "postgres://preview@host/db",
+        PREVIEW_DATABASE_URL: "postgres://legacy-preview@host/db",
+      }),
+    ).toBe("DATABASE_URL_MIGRATIONS_PRODUCTION");
+    expect(() =>
+      resolveMigrationDatabaseUrl("production", {
+        DATABASE_URL_MIGRATIONS_PREVIEW: "postgres://preview@host/db",
+      }),
+    ).toThrow(/DATABASE_URL_MIGRATIONS_PRODUCTION/);
+  });
+
+  it("does not resolve production migration env vars for preview", () => {
+    expect(
+      migrationDatabaseUrlEnvName("preview", {
+        DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://production@host/db",
+        PRODUCTION_DATABASE_URL: "postgres://legacy-production@host/db",
+      }),
+    ).toBe("DATABASE_URL_MIGRATIONS_PREVIEW");
+    expect(() =>
+      resolveMigrationDatabaseUrl("preview", {
+        DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://production@host/db",
+      }),
+    ).toThrow(/DATABASE_URL_MIGRATIONS_PREVIEW/);
+  });
+
   it("builds a runtime connection string from a bootstrap URL", () => {
     const url = connectionStringForRole(
       "postgres://neondb_owner:owner-secret@ep-test.us-east-2.aws.neon.tech/neondb?sslmode=require",

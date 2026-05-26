@@ -32,9 +32,6 @@ export function migrationDatabaseUrlEnvName(target, env = process.env) {
   if (target === "production" && env.DATABASE_URL_MIGRATIONS_LIVE) {
     return "DATABASE_URL_MIGRATIONS_LIVE";
   }
-  if (target === "production" && env.DATABASE_URL_MIGRATIONS_PREVIEW && env.PREVIEW_DATABASE_URL) {
-    return "DATABASE_URL_MIGRATIONS_PREVIEW";
-  }
   const legacy = LEGACY_MIGRATION_ENV[target];
   if (env[legacy]) {
     return legacy;

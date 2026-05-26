@@ -127,7 +127,9 @@ do $$
 declare
   runtime_role text := current_setting('app.runtime_role', true);
 begin
-  if runtime_role is not null and runtime_role <> '' then
+  if runtime_role is not null
+    and runtime_role <> ''
+    and exists (select 1 from pg_roles where rolname = runtime_role) then
     execute format('alter role %I nobypassrls', runtime_role);
   end if;
 end $$;

@@ -38,25 +38,12 @@ async function applyMigrations(client: PGlite) {
   const dir = resolve(here, "../../migrations");
   const files = (await readdir(dir)).filter((name) => name.endsWith(".sql")).sort();
   for (const file of files) {
+    if (file === "0010_db_roles.sql") {
+      await client.exec("select set_config('app.runtime_role', 'app_role', false)");
+    }
     const text = await readFile(resolve(dir, file), "utf8");
     await client.exec(text);
   }
-}
-
-async function provisionRuntimeRole(client: PGlite) {
-  await client.exec(`
-    do $$
-    begin
-      if not exists (select 1 from pg_roles where rolname = 'app_role') then
-        create role app_role nosuperuser nobypassrls;
-      end if;
-    end $$;
-    grant select, insert, update, delete on
-      workspaces, api_keys, upload_sessions, upload_session_files,
-      artifacts, artifact_files, revisions, operation_events, idempotency_records,
-      workspace_members, platform_lockdowns
-    to app_role;
-  `);
 }
 
 const ws1Id = "11111111-1111-1111-1111-111111111111";
@@ -113,7 +100,6 @@ describe("postgres RLS runtime enforcement", () => {
   beforeAll(async () => {
     client = new PGlite();
     await applyMigrations(client);
-    await provisionRuntimeRole(client);
     executor = executorForPglite(client, "app_role");
     await seedWorkspaces(executor);
     await insertWorkspaceMember(executor, ws1Id, "mem-ws1", "user-ws1");

@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import {
-  APP_RUNTIME_ROLE,
+  MIGRATION_ROLE,
   migrationDatabaseUrlEnvName,
   usesLegacyMigrationEnv,
 } from "../packages/db/scripts/credentials.mjs";
@@ -35,7 +35,6 @@ function run(command, args) {
         ...process.env,
         DATABASE_URL: process.env[envName],
         AGENT_PASTE_ENVIRONMENT: target,
-        DATABASE_RUNTIME_ROLE: process.env.DATABASE_RUNTIME_ROLE || APP_RUNTIME_ROLE,
       },
     });
     child.on("error", reject);

@@ -17,9 +17,7 @@ begin
   end if;
 end $$;
 
--- Workers connect as app_role through Hyperdrive. platform_admin is for migrations and
--- for SET LOCAL ROLE inside narrow platform paths once the app uses role switching.
-grant platform_admin to app_role;
+-- Workers connect as app_role through Hyperdrive. platform_admin is for migrations only.
 
 grant usage on schema public to app_role;
 grant select, insert, update, delete on all tables in schema public to app_role;
@@ -37,7 +35,9 @@ do $$
 declare
   runtime_role text := current_setting('app.runtime_role', true);
 begin
-  if runtime_role is not null and runtime_role <> '' then
+  if runtime_role is not null
+    and runtime_role <> ''
+    and exists (select 1 from pg_roles where rolname = runtime_role) then
     execute format('alter role %I nobypassrls', runtime_role);
   end if;
 end $$;
