@@ -1658,6 +1658,73 @@ describe("api worker", () => {
     });
   });
 
+  it("lists operator audit events with filters for a WorkOS operator", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listOperatorEvents(actor, input) {
+          expect(actor).toMatchObject({ type: "platform", id: "user@example.com" });
+          expect(input).toEqual({
+            limit: 25,
+            focus: "security",
+            actorType: "platform",
+            requestId: "req_1",
+          });
+          return {
+            items: [
+              {
+                id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+                time: "2026-01-01T00:00:00.000Z",
+                actor: "platform:user@example.com",
+                actor_type: "platform",
+                action: "platform.lockdown.set",
+                target: "workspace:w_1",
+                target_type: "workspace",
+                workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
+                change_summary: "reason_code=abuse",
+                request_id: "req_1",
+              },
+            ],
+            page_info: { next_cursor: null, has_more: false },
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/events?limit=25&focus=security&actor_type=platform&request_id=req_1", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [{ action: "platform.lockdown.set", actor_type: "platform" }],
+    });
+  });
+
+  it("rejects invalid operator event filters", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: operatorDbForTests({
+        async listOperatorEvents() {
+          throw new Error("listOperatorEvents must not run for invalid filters");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/admin/events?focus=unknown", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
   it("paginates effective lockdowns and excludes lifted ones via the repository", async () => {
     const lockdowns = [
       lockdownDetail({ scope: "workspace", target_id: "w_3", set_at: "2026-01-03T00:00:00.000Z" }),

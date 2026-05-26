@@ -7,7 +7,8 @@ import type {
   toWorkspaceSummary,
 } from "../transforms.js";
 import type { AdminActor, ApiActor, ApiKeyActor, OperationEvent, PlatformActor, Workspace } from "../types.js";
-import type { toWebArtifactRow, toWebAuditRow } from "./web-transforms.js";
+import type { OperatorEventFilters } from "./operator-event-filters.js";
+import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
@@ -17,6 +18,8 @@ type ApiKeySummary = ReturnType<typeof toApiKeySummary>;
 type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
 type WebArtifactRow = ReturnType<typeof toWebArtifactRow>;
 type WebAuditRow = ReturnType<typeof toWebAuditRow>;
+type WebOperatorEventRow = ReturnType<typeof toWebOperatorEventRow>;
+type OperatorEventListInput = OperatorEventFilters & { cursor?: string; limit?: number };
 
 type PageInfo = { next_cursor: string | null; has_more: boolean };
 
@@ -167,6 +170,10 @@ export type Repository = {
     actor: PlatformActor,
     pagination?: { cursor?: string; limit?: number },
   ): Promise<{ items: LockdownDetail[]; page_info: PageInfo }>;
+  listOperatorEvents(
+    actor: PlatformActor,
+    filters?: OperatorEventListInput,
+  ): Promise<{ items: WebOperatorEventRow[]; page_info: PageInfo }>;
   setLockdown(input: {
     actor: PlatformActor;
     idempotencyKey: string;

@@ -53,6 +53,15 @@ export function toWebAuditRow(event: OperationEvent) {
   };
 }
 
+export function toWebOperatorEventRow(event: OperationEvent) {
+  return {
+    ...toWebAuditRow(event),
+    workspace_id: event.workspace_id,
+    actor_type: event.actor_type,
+    target_type: event.target_type,
+  };
+}
+
 export function summarizeEventDetails(details: Record<string, unknown>): string {
   const keys = Object.keys(details);
   if (keys.length === 0) {

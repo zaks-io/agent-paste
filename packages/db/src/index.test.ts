@@ -787,6 +787,63 @@ describe("LocalRepository", () => {
     await expect(repo.listWebAuditEvents(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
 
+  it("lists cross-workspace operator events with focus and workspace filters", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const platformActor = { type: "platform" as const, id: "operator@example.com" };
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "platform",
+      actor_id: "operator@example.com",
+      action: "platform.lockdown.set",
+      target_type: "workspace",
+      target_id: memberActor.workspace_id,
+      details: { reason_code: "abuse" },
+      request_id: "req_lock",
+      occurred_at: "2026-01-01T00:00:03.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z2",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "member",
+      actor_id: memberActor.id,
+      action: "api_key.created",
+      target_type: "api_key",
+      target_id: "key_1",
+      details: {},
+      request_id: "req_key",
+      occurred_at: "2026-01-01T00:00:02.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z3",
+      workspace_id: "22222222-2222-2222-2222-222222222222",
+      actor_type: "api_key",
+      actor_id: "key_2",
+      action: "artifact.published",
+      target_type: "artifact",
+      target_id: "art_5",
+      details: {},
+      request_id: "req_pub",
+      occurred_at: "2026-01-01T00:00:01.000Z",
+    });
+
+    const security = await repo.listOperatorEvents(platformActor, { focus: "security" });
+    expect(security.items.map((item) => item.action)).toEqual(["platform.lockdown.set"]);
+
+    const lifecycle = await repo.listOperatorEvents(platformActor, { focus: "lifecycle" });
+    expect(lifecycle.items.map((item) => item.action).sort()).toEqual(["api_key.created", "artifact.published"]);
+
+    const scoped = await repo.listOperatorEvents(platformActor, {
+      workspaceId: memberActor.workspace_id,
+      actorType: "member",
+    });
+    expect(scoped.items.map((item) => item.action)).toEqual(["api_key.created"]);
+
+    const byRequest = await repo.listOperatorEvents(platformActor, { requestId: "req_lock" });
+    expect(byRequest.items).toHaveLength(1);
+    expect(byRequest.items[0]?.action).toBe("platform.lockdown.set");
+  });
+
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({

@@ -137,6 +137,16 @@ export type Entities = {
     listAll(): Promise<OperationEvent[]>;
     listForWorkspace(workspaceId: string): Promise<OperationEvent[]>;
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebAuditCursor }): Promise<OperationEvent[]>;
+    listOperatorPage(input: {
+      limit: number;
+      cursor?: WebAuditCursor;
+      workspaceId?: string;
+      actorType?: string;
+      action?: string;
+      targetType?: string;
+      requestId?: string;
+      actions?: string[];
+    }): Promise<OperationEvent[]>;
     listIdsForTarget(targetId: string): Promise<string[]>;
   };
 };

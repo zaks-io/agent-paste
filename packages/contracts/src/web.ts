@@ -1,6 +1,6 @@
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
-import { Scope } from "./enums.js";
+import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
 import { ApiKeyId, ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
 import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
@@ -98,6 +98,22 @@ export const WebAuditListResponse = z.object({
   page_info: PageInfo,
 });
 export type WebAuditListResponse = z.infer<typeof WebAuditListResponse>;
+
+export const WebOperatorEventFocus = z.enum(["all", "security", "lifecycle"]);
+export type WebOperatorEventFocus = z.infer<typeof WebOperatorEventFocus>;
+
+export const WebOperatorEventRow = WebAuditRow.extend({
+  workspace_id: WorkspaceId.nullable(),
+  actor_type: ActorType,
+  target_type: OperationEventTargetType,
+});
+export type WebOperatorEventRow = z.infer<typeof WebOperatorEventRow>;
+
+export const WebOperatorEventListResponse = z.object({
+  items: z.array(WebOperatorEventRow),
+  page_info: PageInfo,
+});
+export type WebOperatorEventListResponse = z.infer<typeof WebOperatorEventListResponse>;
 
 export const WebSettingsResponse = z.object({
   workspace_name: z.string().min(1),

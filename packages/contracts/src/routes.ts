@@ -330,6 +330,18 @@ export const routeContracts = [
     errors: operatorMutationErrors,
   },
   {
+    id: "web.admin.events.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/admin/events",
+    auth: "operator",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "WebOperatorEventListResponse",
+    errors: operatorReadErrors,
+  },
+  {
     id: "uploadSessions.create",
     app: "upload",
     method: "POST",

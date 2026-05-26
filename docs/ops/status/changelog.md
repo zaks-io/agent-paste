@@ -5,6 +5,13 @@ use `git log` for commit-level detail.
 
 ## 2026-05-26
 
+### Operator event and audit browsing (AP-16)
+
+- Added `GET /v1/web/admin/events` for WorkOS operators with pagination and
+  filters (`focus`, workspace, actor type, action, target type, request id).
+- Extended the `/admin` dashboard with a cross-workspace platform events table.
+- Workspace member audit at `/v1/web/audit` remains tenant-scoped.
+
 ### AP-13: retire legacy ADMIN_TOKEN admin path
 
 - Removed `/admin/*` contract routes, API handlers, CLI `admin` verbs, and

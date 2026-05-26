@@ -397,6 +397,29 @@ export function localEntities(state: LocalState): Entities {
           .sort(compareOperationEventsForWeb)
           .slice(0, input.limit);
       },
+      async listOperatorPage(input) {
+        const cursorOccurredAt = input.cursor ? input.cursor.occurredAt.toISOString() : null;
+        const cursorId = input.cursor?.id ?? null;
+        if (input.actions !== undefined && input.actions.length === 0) {
+          return [];
+        }
+        const actionSet = input.actions ? new Set(input.actions) : null;
+        return [...state.operationEvents.values()]
+          .filter((event) => (input.workspaceId ? event.workspace_id === input.workspaceId : true))
+          .filter((event) => (input.actorType ? event.actor_type === input.actorType : true))
+          .filter((event) => (input.targetType ? event.target_type === input.targetType : true))
+          .filter((event) => (input.requestId ? event.request_id === input.requestId : true))
+          .filter((event) => (actionSet ? actionSet.has(event.action) : true))
+          .filter(
+            (event) =>
+              cursorOccurredAt === null ||
+              cursorId === null ||
+              event.occurred_at < cursorOccurredAt ||
+              (event.occurred_at === cursorOccurredAt && event.id < cursorId),
+          )
+          .sort(compareOperationEventsForWeb)
+          .slice(0, input.limit);
+      },
       async listIdsForTarget(targetId) {
         return [...state.operationEvents.values()]
           .filter((event) => event.target_id === targetId)

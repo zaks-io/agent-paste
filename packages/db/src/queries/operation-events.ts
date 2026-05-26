@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm";
 import { createId } from "../id.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { operationEvents } from "../schema.js";
@@ -73,6 +73,51 @@ export const operationEventQueries = {
       .select()
       .from(operationEvents)
       .where(and(...conditions))
+      .orderBy(desc(operationEvents.occurredAt), desc(operationEvents.id))
+      .limit(input.limit);
+    return rows.map((row) => mapOperationEvent(row));
+  },
+
+  async listOperatorPage(
+    db: DrizzleDb,
+    input: {
+      limit: number;
+      cursor?: OperationEventCursor;
+      workspaceId?: string;
+      actorType?: string;
+      action?: string;
+      targetType?: string;
+      requestId?: string;
+      actions?: string[];
+    },
+  ): Promise<OperationEvent[]> {
+    const conditions: SQL[] = [];
+    if (input.workspaceId) {
+      conditions.push(eq(operationEvents.workspaceId, input.workspaceId));
+    }
+    if (input.actorType) {
+      conditions.push(eq(operationEvents.actorType, input.actorType));
+    }
+    if (input.targetType) {
+      conditions.push(eq(operationEvents.targetType, input.targetType));
+    }
+    if (input.requestId) {
+      conditions.push(eq(operationEvents.requestId, input.requestId));
+    }
+    if (input.actions !== undefined) {
+      conditions.push(input.actions.length === 0 ? sql`false` : inArray(operationEvents.action, input.actions));
+    }
+    if (input.cursor) {
+      const cursorPredicate = or(
+        lt(operationEvents.occurredAt, input.cursor.occurredAt),
+        and(eq(operationEvents.occurredAt, input.cursor.occurredAt), lt(operationEvents.id, input.cursor.id)),
+      ) as SQL;
+      conditions.push(cursorPredicate);
+    }
+    const rows = await db
+      .select()
+      .from(operationEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(operationEvents.occurredAt), desc(operationEvents.id))
       .limit(input.limit);
     return rows.map((row) => mapOperationEvent(row));

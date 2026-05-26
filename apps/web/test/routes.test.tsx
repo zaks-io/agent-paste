@@ -39,6 +39,7 @@ vi.mock("@tanstack/react-router", () => ({
   redirect: (input: unknown) => ({ redirected: true, ...((input as Record<string, unknown>) ?? {}) }),
   useRouteContext: () => state.parentRouteContext,
   useRouter: () => ({ invalidate: state.invalidate }),
+  useNavigate: () => vi.fn(),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -304,15 +305,46 @@ describe("web routes", () => {
     expect(screen.getByText("Access Links")).toBeInTheDocument();
     view.unmount();
 
-    state.apiFetchOrEmpty.mockResolvedValueOnce({
-      data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
-      empty: false,
-      error: null,
-    });
-    await expect((admin.Route.loader as () => Promise<unknown>)()).resolves.toMatchObject({
+    state.apiFetchOrEmpty
+      .mockResolvedValueOnce({
+        data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          items: [
+            {
+              id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              time: "2026-01-01T00:00:00.000Z",
+              actor: "platform:operator@example.com",
+              actor_type: "platform",
+              action: "platform.lockdown.set",
+              target: "workspace:w_1",
+              target_type: "workspace",
+              workspace_id: "w_1",
+              change_summary: "reason_code=phishing_report",
+              request_id: "req_1",
+            },
+          ],
+          page_info: { next_cursor: null, has_more: false },
+        },
+        empty: false,
+        error: null,
+      });
+    await expect(
+      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+        location: { search: { focus: "security" } },
+      }),
+    ).resolves.toMatchObject({
       lockdowns: { data: { items: [{ reason_code: "phishing_report" }] } },
+      events: { data: { items: [{ action: "platform.lockdown.set" }] } },
+      eventSearch: { focus: "security" },
     });
-    expect(state.apiFetchOrEmpty).toHaveBeenLastCalledWith("/v1/web/admin/lockdowns", {
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/lockdowns", {
+      accessToken: "workos-token",
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/events?focus=security", {
       accessToken: "workos-token",
     });
     state.loaderData = {
@@ -321,6 +353,28 @@ describe("web routes", () => {
         empty: false,
         error: null,
       },
+      events: {
+        data: {
+          items: [
+            {
+              id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              time: "2026-01-01T00:00:00.000Z",
+              actor: "platform:operator@example.com",
+              actor_type: "platform",
+              action: "platform.lockdown.set",
+              target: "workspace:w_1",
+              target_type: "workspace",
+              workspace_id: "w_1",
+              change_summary: "",
+              request_id: "req_1",
+            },
+          ],
+          page_info: { next_cursor: null, has_more: false },
+        },
+        empty: false,
+        error: null,
+      },
+      eventSearch: { focus: "security" },
     };
     view = render(
       <ToastProvider>
@@ -329,6 +383,8 @@ describe("web routes", () => {
     );
     expect(screen.getByText("Operator")).toBeInTheDocument();
     expect(screen.getByText("phishing_report")).toBeInTheDocument();
+    expect(screen.getByText("Platform events")).toBeInTheDocument();
+    expect(screen.getByText("platform.lockdown.set")).toBeInTheDocument();
     view.unmount();
 
     await expect((health.Route.loader as () => Promise<unknown>)()).resolves.toEqual({ ok: true, app: "web" });
@@ -342,7 +398,11 @@ describe("web routes", () => {
 
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "member" };
 
-    await expect((admin.Route.loader as () => Promise<unknown>)()).rejects.toMatchObject({
+    await expect(
+      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+        location: { search: {} },
+      }),
+    ).rejects.toMatchObject({
       redirected: true,
       to: "/dashboard",
     });
@@ -353,16 +413,30 @@ describe("web routes", () => {
     const admin = await import("../src/routes/_authed.admin");
 
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", roles: ["member", "admin"] };
-    state.apiFetchOrEmpty.mockResolvedValueOnce({
-      data: { items: [], page_info: { next_cursor: null, has_more: false } },
-      empty: false,
-      error: null,
-    });
+    state.apiFetchOrEmpty
+      .mockResolvedValueOnce({
+        data: { items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      });
 
-    await expect((admin.Route.loader as () => Promise<unknown>)()).resolves.toMatchObject({
+    await expect(
+      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+        location: { search: {} },
+      }),
+    ).resolves.toMatchObject({
       lockdowns: { data: { items: [] } },
+      events: { data: { items: [] } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/lockdowns", {
+      accessToken: "workos-token",
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/events", {
       accessToken: "workos-token",
     });
   });
@@ -446,7 +520,10 @@ describe("web routes", () => {
     ).toEqual({
       meta: expect.arrayContaining([
         { title: "Operator | agent-paste" },
-        { name: "description", content: "Platform-level lockdown and recent operator actions." },
+        {
+          name: "description",
+          content: "Platform lockdowns and cross-workspace security or lifecycle event browsing.",
+        },
       ]),
     });
 
