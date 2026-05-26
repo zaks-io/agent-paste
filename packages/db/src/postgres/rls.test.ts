@@ -229,6 +229,28 @@ describe("postgres RLS runtime enforcement", () => {
   // The deploy-production migration runner has no journal table; it re-applies
   // every .sql file every run. Bare `create policy` failed here in 2026-05-22's
   // prod deploys. Re-applying the migrations must be a no-op.
+  it("scopes access_links to the tenant workspace", async () => {
+    const platform = rlsExecutor(executor, { kind: "platform" });
+    await platform.query(
+      `insert into access_links
+         (id, workspace_id, artifact_id, revision_id, public_id, type, scopes_bitmask,
+          created_by_type, created_by_id, created_at)
+       values ('al-ws1', $1, 'art-ws1', null, '0123456789ABCDEF', 'share', 1, 'api_key', 'key-ws1', now())`,
+      [ws1Id],
+    );
+    await platform.query(
+      `insert into access_links
+         (id, workspace_id, artifact_id, revision_id, public_id, type, scopes_bitmask,
+          created_by_type, created_by_id, created_at)
+       values ('al-ws2', $1, 'art-ws2', null, 'FEDCBA9876543210', 'share', 1, 'api_key', 'key-ws2', now())`,
+      [ws2Id],
+    );
+
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    const rows = await ws1.query<{ id: string }>("select id from access_links order by id");
+    expect(rows.rows).toEqual([{ id: "al-ws1" }]);
+  });
+
   it("re-applies migrations idempotently", async () => {
     await expect(applyMigrations(client)).resolves.toBeUndefined();
   });

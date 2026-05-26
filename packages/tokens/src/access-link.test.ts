@@ -7,7 +7,7 @@ import {
   mintAccessLinkBlob,
   verifyAccessLinkBlob,
 } from "./access-link.js";
-import { base64UrlDecode } from "./crypto.js";
+import { base64UrlDecode, base64UrlEncode } from "./crypto.js";
 
 const SECRET_V1 = "access-link-secret-v1";
 const PUBLIC_ID = "0123456789ABCDEF";
@@ -89,6 +89,88 @@ describe("access link signed blob codec", () => {
         clock: { now: () => exp + 1 },
       }),
     ).toBeNull();
+  });
+
+  it("rejects verification when the path public id does not match the signed id", async () => {
+    const exp = Date.now() + 60_000;
+    const blob = await mintAccessLinkBlob({
+      publicId: PUBLIC_ID,
+      kid: 1,
+      exp,
+      scopes: ACCESS_LINK_SCOPE.VIEW_ARTIFACT,
+      signingSecret: SECRET_V1,
+    });
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: "AAAAAAAAAAAAAAAA",
+        blob,
+        signingSecret: SECRET_V1,
+        clock: { now: () => exp - 1 },
+      }),
+    ).toBeNull();
+  });
+
+  it("throws when mint inputs are invalid", async () => {
+    await expect(
+      mintAccessLinkBlob({
+        publicId: "not-valid",
+        kid: 1,
+        exp: Date.now() + 1000,
+        scopes: 1,
+        signingSecret: SECRET_V1,
+      }),
+    ).rejects.toThrow("access_link_invalid_public_id");
+    await expect(
+      mintAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        kid: 0,
+        exp: Date.now() + 1000,
+        scopes: 1,
+        signingSecret: SECRET_V1,
+      }),
+    ).rejects.toThrow("access_link_invalid_kid");
+    await expect(
+      mintAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        kid: 1,
+        exp: -1,
+        scopes: 1,
+        signingSecret: SECRET_V1,
+      }),
+    ).rejects.toThrow("access_link_invalid_exp");
+  });
+
+  it("rejects blobs with unsupported payload versions", async () => {
+    const exp = Date.now() + 60_000;
+    const blob = await mintAccessLinkBlob({
+      publicId: PUBLIC_ID,
+      kid: 1,
+      exp,
+      scopes: ACCESS_LINK_SCOPE.VIEW_ARTIFACT,
+      signingSecret: SECRET_V1,
+    });
+    const bytes = base64UrlDecode(blob);
+    bytes[0] = 2;
+    const reencoded = base64UrlEncode(bytes);
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        blob: reencoded,
+        signingSecret: SECRET_V1,
+        clock: { now: () => exp - 1 },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects malformed blobs before signature verification", async () => {
+    expect(
+      await verifyAccessLinkBlob({
+        publicId: PUBLIC_ID,
+        blob: "tooshort",
+        signingSecret: SECRET_V1,
+      }),
+    ).toBeNull();
+    expect(accessLinkBlobLooksValid("tooshort")).toBe(false);
   });
 
   it("builds viewer URLs without putting the blob in the path or query", () => {

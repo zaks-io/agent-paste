@@ -11,5 +11,6 @@ describe("decodeCrockfordPublicId", () => {
   it("rejects invalid lengths and characters", () => {
     expect(decodeCrockfordPublicId("short")).toBeNull();
     expect(decodeCrockfordPublicId("0123456789ABCDEI")).toBeNull();
+    expect(decodeCrockfordPublicId("0123456789ABCDEFG")).toBeNull();
   });
 });
