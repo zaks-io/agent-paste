@@ -8,7 +8,7 @@ OpenAPI will be generated inline from REST route definitions in each HTTP app. T
 - A shared contracts package can hold cross-app request, response, and domain types when they are genuinely shared.
 - The CLI is the agent-first ergonomic layer and exposes **Publish** as its primary verb, hiding **Upload Session**, **Draft Revision**, idempotency, retries, and multipart details.
 - The CLI talks to the public REST API directly. Its internal HTTP-client code is not exported as a library.
-- The CLI is distributed as an npm package; the modal invocation is `npx agent-paste publish <path>`. A standalone binary is deferred until usage justifies a second build pipeline.
+- The CLI is distributed as the `@zaks-io/agent-paste` npm package; the modal invocation is `npx @zaks-io/agent-paste publish <path>`, and the installed binary is `agent-paste`. A standalone binary is deferred until usage justifies a second build pipeline.
 - Direct REST access is documented as an equal-standing public surface for integrations that cannot rely on `npx`: non-Node hosts, language ecosystems other than TypeScript, and server-to-server callers.
 - Lower-level upload-session REST endpoints remain public and documented as advanced APIs; the CLI guides most users through `publish`.
 - Superseded in part by [ADR 0037](./0037-internal-api-client-package-powers-cli.md): the initial `publish`-only CLI expands to management verbs (list, get, delete, access-link CRUD, lockdown, download, whoami). `publish` remains the primary verb.

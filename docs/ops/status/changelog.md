@@ -3,6 +3,14 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-05-26
+
+### npm package namespace
+
+- Created the npm org scope `@zaks-io` and reserved the public CLI package name
+  `@zaks-io/agent-paste` with placeholder version `0.0.0`.
+- The package name is scoped, but the installed command remains `agent-paste`.
+
 ## 2026-05-25
 
 ### Open-core billing decisions

@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-26.
 
 ## Environment
 
@@ -8,6 +8,8 @@ Last updated: 2026-05-25.
 - Domain: `agent-paste.sh` on Cloudflare nameservers.
 - Neon project: `still-forest-91029005`.
 - GitHub org/repo: `zaks-io/agent-paste`.
+- npm org/package: `@zaks-io/agent-paste` is reserved as a public placeholder
+  package for CLI distribution; the installed command remains `agent-paste`.
 
 ## Deployed / Routed Workers
 
@@ -53,7 +55,8 @@ Deferred secrets not created for the current app:
   `AGENT_PASTE_PRODUCTION_ADMIN_TOKEN` are present or proven by successful
   workflows.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
-- `NPM_TOKEN` is needed only when public CLI package publishing is imminent.
+- `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
+  already reserved by `@zaks-io/agent-paste@0.0.0`.
 - GitHub Production required-reviewer/wait-timer/admin-bypass posture is parked.
 
 ## Deploy Order
