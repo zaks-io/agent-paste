@@ -4,6 +4,7 @@ import {
   APP_RUNTIME_ROLE,
   connectionStringForRole,
   connectionUriHasPassword,
+  DATABASE_RUNTIME_ROLE_PASSWORD_ENV,
   maskConnectionUri,
 } from "../packages/db/scripts/credentials.mjs";
 
@@ -14,6 +15,7 @@ const apiKey = requiredEnv("NEON_API_KEY");
 const roleName = process.env.NEON_ROLE_NAME ?? APP_RUNTIME_ROLE;
 const databaseName = process.env.NEON_DATABASE_NAME ?? "neondb";
 const bootstrapUrl = process.env.NEON_BOOTSTRAP_DATABASE_URL;
+const providedPassword = process.env[DATABASE_RUNTIME_ROLE_PASSWORD_ENV];
 const apiHost = (process.env.NEON_API_HOST ?? "https://console.neon.tech/api/v2").replace(/\/$/, "");
 
 const headers = {
@@ -29,22 +31,37 @@ const connectionUri = await resolveRoleConnectionUri({
   roleName,
   databaseName,
   bootstrapUrl,
+  providedPassword,
 });
 
 process.stdout.write(`Resolved Neon role ${roleName} on branch ${branchId}\n`);
 emitOutput(options.githubOutput, connectionUri);
 
 async function resolveRoleConnectionUri(context) {
+  if (context.providedPassword && context.bootstrapUrl) {
+    const built = connectionStringForRole(context.bootstrapUrl, context.roleName, context.providedPassword);
+    if (!connectionUriHasPassword(built)) {
+      throw new Error(`Built ${context.roleName} connection URI is missing a password.`);
+    }
+    return built;
+  }
+
   const fromUri = await tryConnectionUri(context);
   if (fromUri && connectionUriHasPassword(fromUri)) {
     return fromUri;
+  }
+
+  if (context.providedPassword) {
+    throw new Error(
+      `Set NEON_BOOTSTRAP_DATABASE_URL when ${DATABASE_RUNTIME_ROLE_PASSWORD_ENV} is provided so the ${context.roleName} URI can be built without Neon reset_password.`,
+    );
   }
 
   const password = await tryResetRolePassword(context);
   if (!password) {
     throw new Error(
       `Could not resolve a password-backed connection URI for Neon role ${context.roleName} on branch ${context.branchId}. ` +
-        "Ensure migration 0010_db_roles.sql has run and the role exists on this branch.",
+        `Set ${DATABASE_RUNTIME_ROLE_PASSWORD_ENV} for SQL-provisioned roles or ensure migration 0010_db_roles.sql has run.`,
     );
   }
 
@@ -90,6 +107,9 @@ async function tryResetRolePassword(context) {
   const url = `${context.apiHost}/projects/${context.projectId}/branches/${context.branchId}/roles/${encodeURIComponent(context.roleName)}/reset_password`;
   const response = await fetch(url, { method: "POST", headers: context.headers });
   if (response.status === 404) {
+    return null;
+  }
+  if (response.status === 422) {
     return null;
   }
   if (!response.ok) {

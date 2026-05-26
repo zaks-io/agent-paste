@@ -40,6 +40,15 @@ async function applyMigrations(client: PGlite) {
   for (const file of files) {
     if (file === "0010_db_roles.sql") {
       await client.exec("select set_config('app.runtime_role', 'app_role', false)");
+      await client.exec("select set_config('app.runtime_role_password', 'test-runtime-password', false)");
+      try {
+        const text = await readFile(resolve(dir, file), "utf8");
+        await client.exec(text);
+      } finally {
+        await client.exec("select set_config('app.runtime_role', '', false)");
+        await client.exec("select set_config('app.runtime_role_password', '', false)");
+      }
+      continue;
     }
     const text = await readFile(resolve(dir, file), "utf8");
     await client.exec(text);

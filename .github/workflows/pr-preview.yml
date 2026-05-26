@@ -78,10 +78,18 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare PR app_role password
+        id: pr_app_role
+        run: |
+          PASSWORD="$(openssl rand -base64 24)"
+          echo "::add-mask::$PASSWORD"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
+
       - name: Migrate PR database
         env:
           # Bootstrap migrations with the Neon owner URL until platform_admin exists on the project.
           DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon.outputs.db_url }}
+          DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
         run: node scripts/migrate.mjs preview
 
       - name: Resolve PR runtime database URL
@@ -92,6 +100,7 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_BOOTSTRAP_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
           NEON_ROLE_NAME: app_role
+          DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
         run: node scripts/resolve-neon-role-url.mjs --github-output db_url
 
       - name: Create or reuse PR Hyperdrive

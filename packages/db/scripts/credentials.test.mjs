@@ -79,6 +79,17 @@ describe("database credentials", () => {
     ).toBe(true);
   });
 
+  it("builds a runtime URL from a provided preview password without Neon reset_password", () => {
+    const built = connectionStringForRole(
+      "postgres://neondb_owner:owner-secret@ep-test.neon.tech/neondb?sslmode=require",
+      APP_RUNTIME_ROLE,
+      "preview-runtime-secret",
+    );
+    expect(connectionUriHasPassword(built)).toBe(true);
+    expect(built).toContain("preview-runtime-secret");
+    expect(built).not.toContain("neondb_owner");
+  });
+
   it("masks connection URIs for logs", () => {
     expect(maskConnectionUri("postgres://app_role:secret@ep-test.neon.tech/neondb?sslmode=require")).toBe(
       "postgres://app_role:***@ep-test.neon.tech/neondb?sslmode=require",

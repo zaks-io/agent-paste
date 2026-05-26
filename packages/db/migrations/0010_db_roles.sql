@@ -18,6 +18,21 @@ begin
 end $$;
 
 -- Workers connect as app_role through Hyperdrive. platform_admin is for migrations only.
+-- When the migration runner sets app.runtime_role_password (PR preview bootstrap), apply it
+-- so SQL-created login roles are password-backed for Hyperdrive.
+do $$
+declare
+  runtime_role text := current_setting('app.runtime_role', true);
+  runtime_password text := current_setting('app.runtime_role_password', true);
+begin
+  if runtime_role is not null
+    and runtime_role <> ''
+    and runtime_password is not null
+    and runtime_password <> ''
+    and exists (select 1 from pg_roles where rolname = runtime_role) then
+    execute format('alter role %I password %L', runtime_role, runtime_password);
+  end if;
+end $$;
 
 grant usage on schema public to app_role;
 grant select, insert, update, delete on all tables in schema public to app_role;
