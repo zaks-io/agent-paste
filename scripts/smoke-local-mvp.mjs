@@ -2,6 +2,17 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
+import {
+  DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
+  deleteSmokeArtifact,
+  fetchDenylistKey,
+  forceExpireArtifact,
+  listR2Keys,
+  provisionSmokeWorkspace,
+  runSmokeCleanup,
+  smokeHarnessSecretFromEnv,
+  waitForHealthz,
+} from "./smoke-harness.mjs";
 
 const root = new URL("..", import.meta.url);
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
@@ -10,7 +21,7 @@ const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
-const adminToken = process.env.AGENT_PASTE_ADMIN_TOKEN ?? "local-admin-token";
+const harnessSecret = smokeHarnessSecretFromEnv();
 const cliEntry = new URL("../apps/cli/dist/src/index.js", import.meta.url).pathname;
 const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
 
@@ -21,7 +32,7 @@ const server = spawn(process.execPath, [serverEntry], {
     AGENT_PASTE_LOCAL_API_PORT: String(apiPort),
     AGENT_PASTE_LOCAL_UPLOAD_PORT: String(uploadPort),
     AGENT_PASTE_LOCAL_CONTENT_PORT: String(contentPort),
-    AGENT_PASTE_ADMIN_TOKEN: adminToken,
+    SMOKE_HARNESS_SECRET: harnessSecret,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -35,30 +46,28 @@ server.stderr.on("data", (chunk) => {
 });
 
 try {
-  await waitForHealthy(`${apiBaseUrl}/admin/whoami`, {
-    Authorization: `Bearer ${adminToken}`,
-  });
+  await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
-  const baseEnv = {
+  const provisioned = await provisionSmokeWorkspace(apiBaseUrl, {
+    email: `local-${Date.now()}@example.test`,
+    name: "Local Smoke",
+    secret: harnessSecret,
+  });
+  assert(provisioned.workspace?.id, "provision-smoke returned a workspace id");
+  assert(
+    provisioned.api_key?.secret?.startsWith("ap_pk_preview_"),
+    "provision-smoke returned a preview API key secret",
+  );
+
+  const apiEnv = {
     ...process.env,
-    AGENT_PASTE_ADMIN_TOKEN: adminToken,
-    AGENT_PASTE_ADMIN_URL: apiBaseUrl,
+    AGENT_PASTE_API_KEY: provisioned.api_key.secret,
     AGENT_PASTE_API_URL: apiBaseUrl,
     AGENT_PASTE_UPLOAD_URL: uploadBaseUrl,
   };
 
-  const workspace = await runCliJson(
-    ["admin", "workspace", "create", `local-${Date.now()}@example.test`, "--name", "Local Smoke", "--json"],
-    baseEnv,
-  );
-  assert(workspace.id, "workspace create returned an id");
-
-  const keyResult = await runCliJson(["admin", "key", "create", workspace.id, "--name", "smoke", "--json"], baseEnv);
-  assert(keyResult.secret?.startsWith("ap_pk_preview_"), "api key create returned a preview secret");
-
-  const apiEnv = { ...baseEnv, AGENT_PASTE_API_KEY: keyResult.secret };
   const whoami = await runCliJson(["whoami", "--json"], apiEnv);
-  assert(whoami.workspace?.id === workspace.id, "whoami resolves the created workspace");
+  assert(whoami.workspace?.id === provisioned.workspace.id, "whoami resolves the provisioned workspace");
 
   const published = await runCliJson(
     ["publish", "examples/local-harness/site", "--ttl", "1d", "--title", "Local harness", "--json"],
@@ -87,33 +96,12 @@ try {
   assert(browserAgentViewHtml.includes(published.artifact_id), "browser agent view renders artifact id");
   assert(browserAgentViewHtml.includes("index.html"), "browser agent view renders file list");
 
-  const list = await runCliJson(["admin", "artifact", "list", "--json"], baseEnv);
-  assert(
-    list.data.some((artifact) => artifact.id === published.artifact_id),
-    "admin artifact list contains published artifact",
-  );
-
-  const detail = await runCliJson(["admin", "artifact", "get", published.artifact_id, "--json"], baseEnv);
-  assert(
-    detail.files.some((file) => file.path === "index.html"),
-    "admin artifact inspect lists uploaded files",
-  );
-
-  const cleanupDryRun = await runCliJson(["admin", "cleanup", "run", "--dry-run", "--json"], baseEnv);
-  assert(cleanupDryRun.dry_run === true, "cleanup dry-run reports dry_run=true");
-
-  await assertBytesPurgedAfterDelete(published, apiBaseUrl, adminToken);
-  await assertBytesPurgedAfterExpiry(apiEnv, apiBaseUrl, adminToken);
-
-  const events = await runCliJson(["admin", "events", "list", "--json"], baseEnv);
-  assert(events.data.length > 0, "operation events list is non-empty");
-  const serializedEvents = JSON.stringify(events);
-  assert(!serializedEvents.includes(keyResult.secret), "operation events do not include API key secret");
-  assert(!serializedEvents.includes("token="), "operation events do not include signed upload URLs");
+  await assertBytesPurgedAfterDelete(published);
+  await assertBytesPurgedAfterExpiry(apiEnv);
 
   process.stdout.write(`Local MVP smoke test passed.
 
-  Workspace: ${workspace.id}
+  Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
   View URL:  ${published.view_url}
 
@@ -163,25 +151,6 @@ function run(command, args, env) {
   });
 }
 
-async function waitForHealthy(url, headers) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 10_000) {
-    if (server.exitCode !== null) {
-      throw new Error(`local server exited early\n${serverLog}`);
-    }
-    try {
-      const response = await fetch(url, { headers });
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Server is still starting.
-    }
-    await delay(100);
-  }
-  throw new Error(`local server did not become healthy at ${url}`);
-}
-
 async function fetchJson(url, headers) {
   const init = headers ? { headers } : undefined;
   const response = await fetch(url, init);
@@ -202,81 +171,46 @@ function intEnv(name, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-async function assertBytesPurgedAfterDelete(published, apiUrl, token) {
+async function assertBytesPurgedAfterDelete(published) {
   const prefix = `artifacts/${published.artifact_id}/`;
-  const before = await listR2Keys(apiUrl, token, prefix);
+  const before = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(before.length > 0, "R2 prefix has keys before delete");
 
-  await runCliJson(["admin", "artifact", "delete", published.artifact_id, "--yes", "--json"], {
-    ...process.env,
-    AGENT_PASTE_ADMIN_TOKEN: token,
-    AGENT_PASTE_ADMIN_URL: apiUrl,
-  });
+  await deleteSmokeArtifact(apiBaseUrl, published.artifact_id, harnessSecret);
 
-  const after = await listR2Keys(apiUrl, token, prefix);
+  const after = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
 
   const deletedView = await fetch(published.view_url);
   assert(deletedView.status === 404, `deleted content URL returned ${deletedView.status}, expected 404`);
 
-  const denyKey = await fetchDenylistKey(apiUrl, token, `ad:${published.artifact_id}`);
+  const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${published.artifact_id}`, harnessSecret);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
 }
 
-async function assertBytesPurgedAfterExpiry(apiEnv, apiUrl, token) {
+async function assertBytesPurgedAfterExpiry(apiEnv) {
   const expiryPublish = await runCliJson(
-    [
-      "publish",
-      "examples/local-harness/site",
-      "--ttl",
-      "1d",
-      "--title",
-      "Local expiry harness",
-      "--json",
-    ],
+    ["publish", "examples/local-harness/site", "--ttl", "1d", "--title", "Local expiry harness", "--json"],
     apiEnv,
   );
   const prefix = `artifacts/${expiryPublish.artifact_id}/`;
-  const before = await listR2Keys(apiUrl, token, prefix);
+  const before = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(before.length > 0, "expiry harness: R2 prefix populated after publish");
 
-  const forceExpire = await fetch(`${apiUrl}/__test__/force-expire`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ artifact_id: expiryPublish.artifact_id }),
-  });
-  assert(forceExpire.status === 200, `force-expire returned ${forceExpire.status}`);
+  await forceExpireArtifact(apiBaseUrl, expiryPublish.artifact_id, harnessSecret);
 
-  const cleanup = await runCliJson(["admin", "cleanup", "run", "--yes", "--json"], {
-    ...process.env,
-    AGENT_PASTE_ADMIN_TOKEN: token,
-    AGENT_PASTE_ADMIN_URL: apiUrl,
-  });
+  const cleanup = await runSmokeCleanup(apiBaseUrl, harnessSecret);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
   assert(cleanup.deleted_r2_objects >= before.length, "cleanup reports deleted_r2_objects matching purged keys");
 
-  const after = await listR2Keys(apiUrl, token, prefix);
+  const after = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
 
   const expiredView = await fetch(expiryPublish.view_url);
   assert(expiredView.status === 404, `expired content URL returned ${expiredView.status}, expected 404`);
 
-  const denyKey = await fetchDenylistKey(apiUrl, token, `ad:${expiryPublish.artifact_id}`);
+  const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${expiryPublish.artifact_id}`, harnessSecret);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");
 }
 
-async function fetchDenylistKey(apiUrl, token, key) {
-  return fetchJson(`${apiUrl}/__test__/denylist?key=${encodeURIComponent(key)}`, {
-    Authorization: `Bearer ${token}`,
-  });
-}
-
-async function listR2Keys(apiUrl, token, prefix) {
-  const data = await fetchJson(`${apiUrl}/__test__/r2-list?prefix=${encodeURIComponent(prefix)}`, {
-    Authorization: `Bearer ${token}`,
-  });
-  return data.keys;
-}
+export { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET };

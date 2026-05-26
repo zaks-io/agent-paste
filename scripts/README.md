@@ -58,7 +58,7 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
-- `ADMIN_TOKEN_HASH`
+- `SMOKE_HARNESS_SECRET` (api preview/PR only; not production)
 
 With `--with-web`, it also writes:
 
@@ -66,7 +66,7 @@ With `--with-web`, it also writes:
 - `WORKOS_CLIENT_ID`
 - `WORKOS_COOKIE_PASSWORD`
 
-It prints generated values once for password-manager capture, including the one-time `ADMIN_TOKEN`; only the HMAC is written to Cloudflare as `ADMIN_TOKEN_HASH`. It checks existing Worker secrets first and refuses to overwrite unless `--force` is passed and the operator types `overwrite <env> secrets`.
+It prints generated values once for password-manager capture, including `SMOKE_HARNESS_SECRET` for non-production smoke harness routes. It checks existing Worker secrets first and refuses to overwrite unless `--force` is passed and the operator types `overwrite <env> secrets`.
 Human operator access is controlled in WorkOS by granting the `admin` role slug to the user.
 
 Use `--print-only` to verify generation shape without calling Wrangler. Use `--skip-web` to force CLI-first bootstrap even if WorkOS values are present.
@@ -106,9 +106,15 @@ The web deploy runs last because its service binding targets the deployed API Wo
 Hosted smoke test:
 
 ```sh
-AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
-AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview
+AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
 ```
+
+Harness secrets (`scripts/smoke-hosted.mjs`):
+
+- Preview: `AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET`, then `AGENT_PASTE_SMOKE_HARNESS_SECRET`.
+- PR preview: `AGENT_PASTE_PR_SMOKE_HARNESS_SECRET`, then `AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET`.
+- Local harness: `AGENT_PASTE_SMOKE_HARNESS_SECRET`, then `SMOKE_HARNESS_SECRET` (see `scripts/smoke-harness.mjs`).
 
 Optional endpoint overrides:
 
@@ -119,7 +125,7 @@ Optional endpoint overrides:
 
 Assertions:
 
-- admin workspace/key bootstrap works
+- smoke harness provisions a workspace and API key (preview/PR) or uses a pre-provisioned production key
 - CLI publish returns content `view_url` and API `agent_view_url`
 - Agent View JSON returns the published artifact and file list
 - browser Agent View HTML returns `text/html` and renders the artifact/file list

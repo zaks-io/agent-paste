@@ -5,13 +5,20 @@ use `git log` for commit-level detail.
 
 ## 2026-05-26
 
+### AP-13: retire legacy ADMIN_TOKEN admin path
+
+- Removed `/admin/*` contract routes, API handlers, CLI `admin` verbs, and
+  `ADMIN_TOKEN`/`ADMIN_TOKEN_HASH` bootstrap secrets.
+- Added `SMOKE_HARNESS_SECRET` and non-production `__test__/*` smoke helpers;
+  production hosted smoke uses `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`.
+
 ### Production operator access smoke
 
 - Verified Cloudflare Access service-token auth against production
   `/v1/web/admin/lockdowns`.
 - Switched human operator eligibility to the WorkOS `admin` role slug and
   verified browser access to `https://app.agent-paste.sh/admin`.
-- AP-12 is unblocked for legacy `ADMIN_TOKEN` route migration execution.
+- AP-12 migration plan executed; legacy admin path fully retired.
 
 ### MCP auth decision
 

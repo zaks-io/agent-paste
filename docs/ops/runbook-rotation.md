@@ -6,15 +6,14 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 
 ## Current Inventory
 
-| Secret                   | Bound on             | Rotation impact                                                                 |
-| ------------------------ | -------------------- | ------------------------------------------------------------------------------- |
-| `CONTENT_SIGNING_SECRET` | api, upload, content | Invalidates currently minted content and Agent View URLs.                       |
-| `UPLOAD_SIGNING_SECRET`  | upload               | Invalidates in-flight signed upload PUT URLs.                                   |
-| `API_KEY_PEPPER_V1`      | api, upload          | Invalidates existing API Keys in the current MVP implementation.                |
-| `ADMIN_TOKEN_HASH`       | api                  | Replaces the repo-local admin bearer token hash; the raw token is never stored. |
-| `WORKOS_API_KEY`         | api, web             | Swaps the WorkOS server-side API credential.                                    |
-| `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present.              |
-| `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                               |
+| Secret                   | Bound on             | Rotation impact                                                    |
+| ------------------------ | -------------------- | ------------------------------------------------------------------ |
+| `CONTENT_SIGNING_SECRET` | api, upload, content | Invalidates currently minted content and Agent View URLs.          |
+| `UPLOAD_SIGNING_SECRET`  | upload               | Invalidates in-flight signed upload PUT URLs.                      |
+| `API_KEY_PEPPER_V1`      | api, upload          | Invalidates existing API Keys in the current MVP implementation.   |
+| `WORKOS_API_KEY`         | api, web             | Swaps the WorkOS server-side API credential.                       |
+| `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present. |
+| `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                  |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.
@@ -41,11 +40,12 @@ Do not create or rotate these names for the CLI-first MVP:
   wrangler secret list --cwd apps/web --env preview --json
   ```
 
-- After writing, run the environment smoke test with the new admin token:
+- After writing, run the environment smoke test:
 
   ```sh
-  AGENT_PASTE_PREVIEW_ADMIN_TOKEN=... pnpm smoke:preview
-  AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production
+  AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET=... pnpm smoke:preview   # shared preview Workers
+  AGENT_PASTE_PR_SMOKE_HARNESS_SECRET=... pnpm smoke:pr             # PR Workers; falls back to preview secret
+  AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production
   ```
 
 - If smoke fails, roll back the changed secret bindings from the previous password-manager values, not from `wrangler secret list` output. Check formatting and encoding for the secret named by the failure, confirm cross-Worker shared secrets match when required, rerun the relevant smoke test, then collect Worker logs and escalate if the rollback smoke still fails.
@@ -107,7 +107,7 @@ Emergency cutover (invalidates in-flight upload URLs immediately):
 
 ## Rotate API Key Pepper
 
-Current status: `api_keys.pepper_kid` records which pepper signed each row. `api` and `upload` load `API_KEY_PEPPER_V1`, optional `API_KEY_PEPPER_V2`, and `API_KEY_PEPPER_CURRENT_KID` (`v1` / `v2`). Existing API Keys keep verifying with their stored `pepper_kid` during overlap; only new keys use the promoted kid. `ADMIN_TOKEN_HASH` is checked against every active pepper until kid `1` is dropped.
+Current status: `api_keys.pepper_kid` records which pepper signed each row. `api` and `upload` load `API_KEY_PEPPER_V1`, optional `API_KEY_PEPPER_V2`, and `API_KEY_PEPPER_CURRENT_KID` (`v1` / `v2`). Existing API Keys keep verifying with their stored `pepper_kid` during overlap; only new keys use the promoted kid.
 
 Procedure (non-disruptive overlap):
 
@@ -122,29 +122,11 @@ Procedure (non-disruptive overlap):
    Keep `API_KEY_PEPPER_CURRENT_KID` at `v1`.
 
 3. **Flip minting:** set `API_KEY_PEPPER_CURRENT_KID` to `v2` in Wrangler vars for `api` and `upload`, then deploy. New API Keys persist `pepper_kid = 2`. Do not set `API_KEY_PEPPER_CURRENT_KID` to `v2` until `API_KEY_PEPPER_V2` is bound on both Workers.
-4. **Admin token (optional timing):** either generate a new `ADMIN_TOKEN` now and compute `ADMIN_TOKEN_HASH` with `pepper-v2` (HMAC-SHA-256 via `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs`), or delay until after the flip to keep the existing admin token during overlap. Until kid `1` is dropped, `api` verifies `ADMIN_TOKEN_HASH` against every active pepper, so the old admin token keeps working while `API_KEY_PEPPER_V1` remains bound.
-5. **Drain:** wait for operational confidence that no API Keys under `pepper_kid = 1` are still needed (or reissue long-lived keys).
-6. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, promote the v2 pepper into `API_KEY_PEPPER_V1` on `api` and `upload`, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, deploy both Workers, verify runtime consistency, and only then delete `API_KEY_PEPPER_V2`. Do not remove or unbind `API_KEY_PEPPER_V1` while `API_KEY_PEPPER_CURRENT_KID` still points at `v2`.
-7. Run hosted smoke with the new admin token when applicable.
+4. **Drain:** wait for operational confidence that no API Keys under `pepper_kid = 1` are still needed (or reissue long-lived keys).
+5. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, promote the v2 pepper into `API_KEY_PEPPER_V1` on `api` and `upload`, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, deploy both Workers, verify runtime consistency, and only then delete `API_KEY_PEPPER_V2`. Do not remove or unbind `API_KEY_PEPPER_V1` while `API_KEY_PEPPER_CURRENT_KID` still points at `v2`.
+6. Run hosted smoke.
 
-Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V1` on both Workers, leave `API_KEY_PEPPER_V2` unset, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, rehash `ADMIN_TOKEN_HASH`, and reissue keys.
-
-## Rotate Admin Token Only
-
-Use this when the admin bearer token is exposed but the API key pepper is still trusted.
-
-Procedure:
-
-1. Generate a new `ADMIN_TOKEN` shaped `ap_admin_<base64url>` and store it in the password manager.
-2. Compute `ADMIN_TOKEN_HASH` with the current `API_KEY_PEPPER_V1`, using `hmacBase64Url()` in `scripts/bootstrap-secrets.mjs` as the implementation reference.
-3. Write only the hash:
-
-   ```sh
-   wrangler secret put ADMIN_TOKEN_HASH --cwd apps/api --env preview
-   ```
-
-4. Run hosted smoke with the new admin token.
-5. Remove the old raw admin token from operator machines and password-manager history where possible.
+Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V1` on both Workers, leave `API_KEY_PEPPER_V2` unset, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, and reissue keys.
 
 ## Rotate WorkOS Web Secrets
 

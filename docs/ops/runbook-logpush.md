@@ -112,7 +112,7 @@ Drop or never-log (Worker code is already responsible; this is the operator's de
   - `CONTENT_SIGNING_SECRET`
   - `UPLOAD_SIGNING_SECRET`
   - `API_KEY_PEPPER_V1`
-  - `ADMIN_TOKEN`, `ADMIN_TOKEN_HASH`
+  - `SMOKE_HARNESS_SECRET` (non-production smoke only)
 - API key material: full `ap_pk_*` strings. The structured logger already truncates to a `prefix` only; verify the truncation by spot-checking the Axiom dataset after first ingest.
 - WorkOS operator identity details and role assignments: never log on the request path.
 
@@ -222,7 +222,7 @@ Must return `0`. If non-zero: pause the Logpush job, file an incident, and rotat
 
 ### 3. Repeat for production
 
-Use a real artifact `view-token` from a production smoke run (`AGENT_PASTE_PRODUCTION_ADMIN_TOKEN=... pnpm smoke:production`) and run the same APL against `agent-paste-content-production`.
+Use a real artifact `view-token` from a production smoke run (`AGENT_PASTE_PRODUCTION_SMOKE_API_KEY=... pnpm smoke:production`) and run the same APL against `agent-paste-content-production`.
 
 ## Done criteria
 

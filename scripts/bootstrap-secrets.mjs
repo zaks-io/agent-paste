@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { createHmac, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 
 const target = parseTarget(process.argv.slice(2));
@@ -16,7 +16,7 @@ const workerSecrets = [
     names: [
       "CONTENT_SIGNING_SECRET",
       "API_KEY_PEPPER_V1",
-      "ADMIN_TOKEN_HASH",
+      "SMOKE_HARNESS_SECRET",
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
   },
@@ -157,14 +157,12 @@ function workerName(app) {
 }
 
 function generatedSecrets() {
-  const adminToken = `ap_admin_${secretBytes(32)}`;
   const apiKeyPepper = secretBytes();
   return {
     CONTENT_SIGNING_SECRET: secretBytes(),
     UPLOAD_SIGNING_SECRET: secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,
-    ADMIN_TOKEN: adminToken,
-    ADMIN_TOKEN_HASH: hmacBase64Url(adminToken, apiKeyPepper),
+    SMOKE_HARNESS_SECRET: secretBytes(32),
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: options.workosApiKey,
@@ -180,8 +178,7 @@ function plannedSecrets() {
     CONTENT_SIGNING_SECRET: "<generated>",
     UPLOAD_SIGNING_SECRET: "<generated>",
     API_KEY_PEPPER_V1: "<generated>",
-    ADMIN_TOKEN: "<generated>",
-    ADMIN_TOKEN_HASH: "<generated from ADMIN_TOKEN + API_KEY_PEPPER_V1>",
+    SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>",
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: "<provided>",
@@ -266,10 +263,6 @@ function stringOption(argv, name) {
 
 function secretBytes(byteLength = 48) {
   return randomBytes(byteLength).toString("base64url");
-}
-
-function hmacBase64Url(value, secret) {
-  return createHmac("sha256", secret).update(value).digest("base64url");
 }
 
 function usage(message) {

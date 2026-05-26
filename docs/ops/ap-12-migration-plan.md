@@ -1,5 +1,7 @@
 # AP-12: Legacy Admin Route Migration Plan
 
+**Status:** Executed in AP-13 (2026-05-26). Legacy `/admin/*` routes, CLI admin verbs, and `ADMIN_TOKEN` secrets are removed from the codebase.
+
 Issue: AP-12. Retire the repo-local `/admin/*` + `ADMIN_TOKEN` operating path
 after replacement paths and smokes are complete.
 

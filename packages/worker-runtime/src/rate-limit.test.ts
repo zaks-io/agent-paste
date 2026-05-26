@@ -42,30 +42,6 @@ describe("applyRateLimit", () => {
     ).resolves.toEqual({ ok: false, code: "rate_limited_workspace", retryAfter: "10" });
   });
 
-  it("rate-limits legacy admin-token principals by actor only", async () => {
-    const actor = vi.fn().mockResolvedValue({ success: false });
-    const workspace = vi.fn().mockResolvedValue({ success: true });
-    const principal: Principal = { kind: "admin_token", actor: { type: "admin", id: "operator" } };
-
-    await expect(
-      applyRateLimit(actorContract, principal, { actor: { limit: actor }, workspace: { limit: workspace } }),
-    ).resolves.toEqual({
-      ok: false,
-      code: "rate_limited_actor",
-      retryAfter: "60",
-    });
-    expect(actor).toHaveBeenCalledWith({ key: "platform:admin:operator" });
-    expect(workspace).not.toHaveBeenCalled();
-  });
-
-  it("rejects admin-token principals without a usable admin id", async () => {
-    await expect(applyRateLimit(actorContract, { kind: "admin_token", actor: {} }, {})).resolves.toEqual({
-      ok: false,
-      code: "not_authenticated",
-      retryAfter: "60",
-    });
-  });
-
   it("rate-limits platform operators by actor only", async () => {
     const actor = vi.fn().mockResolvedValue({ success: false });
     const principal: Principal = { kind: "operator", actor: { type: "platform", id: "operator@example.com" } };

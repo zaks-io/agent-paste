@@ -72,5 +72,5 @@ jobs:
 
       - name: Smoke production
         env:
-          AGENT_PASTE_PRODUCTION_ADMIN_TOKEN: ${{ secrets.AGENT_PASTE_PRODUCTION_ADMIN_TOKEN }}
+          AGENT_PASTE_PRODUCTION_SMOKE_API_KEY: ${{ secrets.AGENT_PASTE_PRODUCTION_SMOKE_API_KEY }}
         run: pnpm smoke:production
