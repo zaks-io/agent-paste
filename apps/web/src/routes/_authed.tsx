@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authed")({
       // Thrown redirect hrefs must stay query-string-free (TanStack Router SSR
       // coercion bug). Thread returnPathname through the sign-in bridge route
       // instead: /api/auth/sign-in/p/{base64url(pathname)}.
-      const returnPathname = location.search ? `${location.pathname}${location.search}` : location.pathname;
+      const returnPathname = location.searchStr ? `${location.pathname}${location.searchStr}` : location.pathname;
       throw redirect({ href: signInBridgeHref(returnPathname) });
     }
     return result;

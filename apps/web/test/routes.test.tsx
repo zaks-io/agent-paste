@@ -89,12 +89,32 @@ describe("web routes", () => {
 
     state.auth = { user: null, accessToken: "" };
     await expect(
-      (authed.Route.beforeLoad as (input: { location: { pathname: string; search: string } }) => Promise<unknown>)({
-        location: { pathname: "/settings", search: "" },
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: { pathname: "/settings", search: {}, searchStr: "" },
       }),
     ).rejects.toMatchObject({
       redirected: true,
       href: signInBridgeHref("/settings"),
+    });
+    await expect(
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: {
+          pathname: "/audit",
+          search: { request_id: "req_1" },
+          searchStr: "?request_id=req_1",
+        },
+      }),
+    ).rejects.toMatchObject({
+      redirected: true,
+      href: signInBridgeHref("/audit?request_id=req_1"),
     });
     expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
@@ -111,8 +131,12 @@ describe("web routes", () => {
     });
 
     await expect(
-      (authed.Route.beforeLoad as (input: { location: { pathname: string; search: string } }) => Promise<unknown>)({
-        location: { pathname: "/dashboard", search: "" },
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
+        location: { pathname: "/dashboard", search: {}, searchStr: "" },
       }),
     ).resolves.toMatchObject({
       user: { email: "user@example.com" },
