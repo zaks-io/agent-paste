@@ -1,0 +1,9 @@
+{
+  "name": "agent-paste",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "pnpm setup:codex --skip-env",
+  "terminals": []
+}

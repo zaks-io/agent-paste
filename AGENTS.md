@@ -23,3 +23,11 @@ Defaults applied as Linear labels: `needs-triage`, `needs-info`, `ready-for-agen
 ### Domain docs
 
 Single-context layout: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Remote Cursor agents
+
+Remote Cursor agents are unattended Cursor Background Agents for implementing
+delegated Linear issues in an isolated remote environment.
+
+Remote Cursor agents should read `docs/agents/remote-cursor-agent.md` after this
+file. Only delegate issues labeled both `ready-for-agent` and `remote-cursor`.
