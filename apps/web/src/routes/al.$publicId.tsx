@@ -118,6 +118,9 @@ function AccessLinkViewer() {
             : current,
         );
       },
+      onRevoked: () => {
+        setState({ kind: "not_found" });
+      },
     });
     return () => connection.close();
   }, [publicId, liveUpdatesEnabled]);
