@@ -32,6 +32,9 @@ describe("postgres query adapters", () => {
       [artifactRow({ id: "artifact_filtered" })],
       [artifactRow({ id: "artifact_page" })],
       [{ id: "artifact_1", expiresAt: new Date("2026-01-02T00:00:00.000Z") }],
+      [{ count: 1 }],
+      [{ id: "artifact_1" }],
+      [{ id: "artifact_1" }],
       [fileRow({ path: "index.html" })],
       [uploadSessionRow({ id: "session_1" })],
       [fileRow({ uploadSessionId: "session_1", uploadedAt: null, putUrlExpiresAt: now })],
@@ -104,6 +107,13 @@ describe("postgres query adapters", () => {
       artifact_id: "artifact_1",
       expires_at: "2026-01-02T00:00:00.000Z",
     });
+    await expect(artifactQueries.countPinned(db, "workspace_1")).resolves.toBe(1);
+    await expect(
+      artifactQueries.setPinnedAt(db, "artifact_1", "2026-01-02T00:00:00.000Z", "2026-01-02T00:00:00.000Z"),
+    ).resolves.toBe(true);
+    await expect(artifactQueries.setAccessLinkLockdown(db, "artifact_1", "2026-01-02T00:00:00.000Z")).resolves.toBe(
+      true,
+    );
     await artifactFileQueries.insert(db, "artifact_1", "revision_1", fileEntity(), "2026-01-01T00:00:00.000Z");
     await expect(artifactFileQueries.listForArtifact(db, "artifact_1")).resolves.toMatchObject([
       { path: "index.html" },
@@ -193,8 +203,11 @@ describe("postgres query adapters", () => {
       [],
       [memberRow({ id: "member_seen" })],
       [],
-      [artifactRow({ deletedAt: now, deleteReason: "admin_delete" })],
+      [artifactRow({ deletedAt: now, deleteReason: "admin_delete", pinnedAt: now })],
       [artifactRow({ id: "artifact_unfiltered" })],
+      [],
+      [{ count: 0 }],
+      [],
       [],
       [uploadSessionRow({ finalizedAt: now })],
       [fileRow({ uploadedAt: null, putUrlExpiresAt: now })],
@@ -231,6 +244,11 @@ describe("postgres query adapters", () => {
       { id: "artifact_unfiltered" },
     ]);
     await expect(artifactQueries.updateExpiry(db, "missing", "2026-01-02T00:00:00.000Z")).resolves.toBeNull();
+    await expect(artifactQueries.countPinned(db, "workspace_1")).resolves.toBe(0);
+    await expect(
+      artifactQueries.setPinnedAt(db, "missing", null, "2026-01-02T00:00:00.000Z"),
+    ).resolves.toBe(false);
+    await expect(artifactQueries.setAccessLinkLockdown(db, "missing", null)).resolves.toBe(false);
 
     await expect(uploadSessionQueries.findById(db, "session_1")).resolves.toMatchObject({
       finalized_at: "2026-01-01T00:00:00.000Z",
@@ -497,7 +515,9 @@ function artifactEntity() {
     file_count: 1,
     size_bytes: 12,
     expires_at: "2026-01-01T00:00:00.000Z",
+    pinned_at: "2026-01-02T00:00:00.000Z",
     created_by_api_key_id: "key_1",
+    access_link_lockdown_at: null,
     deleted_at: null,
     delete_reason: null,
     created_at: "2026-01-01T00:00:00.000Z",
