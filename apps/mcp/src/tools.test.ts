@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import * as publishChain from "./publish-chain.js";
 import { callMcpTool } from "./tools.js";
+
+vi.mock("./publish-chain.js", () => ({
+  runTextPublishChain: vi.fn(),
+}));
 
 const auth = { tokenSub: "user_01", scopes: ["read"] as const, bearerToken: "token-read" };
 const whoamiBody = {
@@ -69,6 +74,220 @@ describe("callMcpTool", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("insufficient_scope");
     }
+  });
+
+  it("deletes an artifact through the API binding", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const deleteBody = { artifact_id: artifactId, deleted_at: "2026-01-01T00:00:00.000Z" };
+    const api = {
+      fetch: vi.fn(async () => Response.json(deleteBody)),
+    };
+    const result = await callMcpTool(
+      "delete_artifact",
+      { artifact_id: artifactId },
+      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
+      { api, upload, bearerToken: "token-write" },
+    );
+    expect(result).toEqual({ ok: true, result: deleteBody });
+  });
+
+  it("reads an artifact agent view from the API binding", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const agentView = {
+      artifact_id: artifactId,
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "Demo",
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      entrypoint: "index.md",
+      view_url: "https://view.example",
+      files: [
+        {
+          path: "index.md",
+          size_bytes: 5,
+          content_type: "text/markdown",
+          url: "https://content.example/index.md",
+        },
+      ],
+      bundle: { status: "pending", retry_after_seconds: 30 },
+    };
+    const api = { fetch: vi.fn(async () => Response.json(agentView)) };
+    const result = await callMcpTool("read_artifact", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: auth.bearerToken,
+    });
+    expect(result).toEqual({ ok: true, result: agentView });
+  });
+
+  it("delegates publish_artifact to the text publish chain", async () => {
+    const published = {
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "Note",
+      view_url: "https://view.example",
+      agent_view_url: "https://agent-view.example",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      bundle: { status: "pending", retry_after_seconds: 30 },
+    };
+    vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
+    const result = await callMcpTool(
+      "publish_artifact",
+      { title: "Note", body: "hello", render_mode: "text" },
+      { tokenSub: "user_01", scopes: ["write", "read", "share"], bearerToken: "token-all" },
+      { api: { fetch: vi.fn() }, upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 42 },
+    );
+    expect(result).toEqual({ ok: true, result: published });
+  });
+
+  it("lists revisions for an artifact", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisions = {
+      artifact_id: artifactId,
+      items: [],
+      page_info: { next_cursor: null, has_more: false },
+    };
+    const api = { fetch: vi.fn(async () => Response.json(revisions)) };
+    const result = await callMcpTool("list_revisions", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: auth.bearerToken,
+    });
+    expect(result).toEqual({ ok: true, result: revisions });
+  });
+
+  it("creates and mints a share link", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = {
+      fetch: vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            type: "share",
+            artifact_id: artifactId,
+            revision_id: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+          }),
+        )
+        .mockResolvedValueOnce(Response.json({ url: "https://share.example/al" })),
+    };
+    const result = await callMcpTool(
+      "create_share_link",
+      { artifact_id: artifactId },
+      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
+      { api, upload, bearerToken: "token-share", jsonRpcId: 7 },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ url: "https://share.example/al" });
+    }
+  });
+
+  it("delegates add_revision to the text publish chain", async () => {
+    const published = {
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "Revision",
+      view_url: "https://view.example",
+      agent_view_url: "https://agent-view.example",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      bundle: { status: "pending", retry_after_seconds: 30 },
+    };
+    vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
+    const result = await callMcpTool(
+      "add_revision",
+      {
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        body: "next",
+        render_mode: "text",
+      },
+      { tokenSub: "user_01", scopes: ["write", "read", "share"], bearerToken: "token-all" },
+      { api: { fetch: vi.fn() }, upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
+    );
+    expect(result).toEqual({ ok: true, result: published });
+  });
+
+  it("creates a revision link", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = {
+      fetch: vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0",
+            type: "revision",
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            created_at: "2026-01-01T00:00:00.000Z",
+          }),
+        )
+        .mockResolvedValueOnce(Response.json({ url: "https://share.example/rev" })),
+    };
+    const result = await callMcpTool(
+      "create_revision_link",
+      { artifact_id: artifactId, revision_id: revisionId },
+      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
+      { api, upload, bearerToken: "token-share", jsonRpcId: 8 },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ url: "https://share.example/rev" });
+    }
+  });
+
+  it("lists and revokes access links", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const linkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = {
+      fetch: vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            artifact_id: artifactId,
+            items: [
+              {
+                id: linkId,
+                type: "share",
+                artifact_id: artifactId,
+                revision_id: null,
+                created_at: "2026-01-01T00:00:00.000Z",
+                expires_at: null,
+                revoked_at: null,
+              },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(Response.json({ access_link_id: linkId, revoked_at: "2026-01-02T00:00:00.000Z" })),
+    };
+    const listResult = await callMcpTool(
+      "list_access_links",
+      { artifact_id: artifactId },
+      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
+      { api, upload, bearerToken: "token-share" },
+    );
+    expect(listResult.ok).toBe(true);
+    const revokeResult = await callMcpTool(
+      "revoke_access_link",
+      { access_link_id: linkId },
+      { tokenSub: "user_01", scopes: ["share"], bearerToken: "token-share" },
+      { api, upload, bearerToken: "token-share" },
+    );
+    expect(revokeResult.ok).toBe(true);
+  });
+
+  it("updates display metadata through the API binding", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const metadata = { title: "Renamed", description: null };
+    const api = { fetch: vi.fn(async () => Response.json(metadata)) };
+    const result = await callMcpTool(
+      "update_display_metadata",
+      { artifact_id: artifactId, title: "Renamed" },
+      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
+      { api, upload, bearerToken: "token-write" },
+    );
+    expect(result).toEqual({ ok: true, result: metadata });
   });
 
   it("returns internal_error when whoami payload fails validation", async () => {

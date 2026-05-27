@@ -21,6 +21,8 @@ export default defineConfig({
         "apps/web/src/components/theme-provider.tsx",
         "apps/api/src/index.ts",
         "apps/upload/src/index.ts",
+        "apps/upload/src/workos.ts",
+        "apps/upload/src/mcp-auth.ts",
         "apps/content/src/index.ts",
         "apps/cli/src/local.ts",
         "apps/cli/src/loopback.ts",
