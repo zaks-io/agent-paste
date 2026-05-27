@@ -1,7 +1,9 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { RevokeApiKeyResponse } from "../admin.js";
-import { AccessLinkResolveRequest, AccessLinkResolveResponse } from "../accessLinks.js";
+import { AccessLinkResolveRequest } from "../accessLinks.js";
 import { AgentView } from "../agentView.js";
+import { PlainTextTitle, UrlString } from "../primitives.js";
+import { RenderMode } from "../revisions.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
@@ -39,9 +41,17 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
-  registry.register("AgentView", AgentView);
+  const registeredAgentView = registry.register("AgentView", AgentView);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
-  registry.register("AccessLinkResolveResponse", AccessLinkResolveResponse);
+  registry.register(
+    "AccessLinkResolveResponse",
+    z.object({
+      agent_view: registeredAgentView,
+      render_mode: RenderMode,
+      iframe_src: UrlString,
+      title: PlainTextTitle,
+    }),
+  );
   registry.register("CreateApiKeyRequest", CreateApiKeyRequest);
   registry.register("CreateApiKeyResponse", CreateApiKeyResponse);
   registry.register("ApiKeySummary", ApiKeySummary);

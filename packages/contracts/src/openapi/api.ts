@@ -95,6 +95,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     request: {
       headers: [requestIdHeader],
       body: {
+        required: true,
         content: {
           "application/json": {
             schema: schemaRef("AccessLinkResolveRequest"),

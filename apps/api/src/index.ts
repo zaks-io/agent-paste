@@ -1488,7 +1488,7 @@ async function signAgentViewContentUrls(
   env: Env,
   options?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<unknown> {
-  if (!env.CONTENT_SIGNING_SECRET || !view || typeof view !== "object") {
+  if (!agentViewSigningSecret(env) || !view || typeof view !== "object") {
     return view;
   }
 
@@ -1557,13 +1557,13 @@ async function signedContentUrl(
   expiresAt?: string,
   auth?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<string> {
-  if (!env.CONTENT_SIGNING_SECRET) {
+  const signingSecret = agentViewSigningSecret(env);
+  if (!signingSecret) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
-  const signingRing = contentSigningRingFromEnv(env);
   return mintContentUrl({
     baseUrl: contentBaseUrl(env),
-    secret: signingRing?.signingSecret() ?? env.CONTENT_SIGNING_SECRET,
+    secret: signingSecret,
     payload: {
       artifact_id: artifactId,
       revision_id: revisionId,

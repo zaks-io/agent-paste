@@ -8,6 +8,7 @@ import type {
   OperationEvent,
   PlatformLockdown,
   RepositoryOptions,
+  Revision,
   StoredFile,
   UploadSession,
   Workspace,
@@ -22,6 +23,7 @@ export class LocalRepository extends RepositoryCore {
   readonly workspaceMembers: Map<string, WorkspaceMember>;
   readonly apiKeys: Map<string, ApiKey>;
   readonly artifacts: Map<string, Artifact>;
+  readonly revisions: Map<string, Revision>;
   readonly artifactFiles: Map<string, StoredFile>;
   readonly uploadSessions: Map<string, UploadSession>;
   readonly uploadSessionFiles: Map<string, StoredFile>;
@@ -36,6 +38,7 @@ export class LocalRepository extends RepositoryCore {
     this.workspaceMembers = state.workspaceMembers;
     this.apiKeys = state.apiKeys;
     this.artifacts = state.artifacts;
+    this.revisions = state.revisions;
     this.artifactFiles = state.artifactFiles;
     this.uploadSessions = state.uploadSessions;
     this.uploadSessionFiles = state.uploadSessionFiles;

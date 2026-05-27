@@ -166,12 +166,10 @@ describe("resolveAccessLink", () => {
       now: "2026-01-01T00:00:00.000Z",
     });
     repo.accessLinks.set(revisionLink.id, revisionLink);
-    await repo.uow.read({ kind: "platform" }, async (entities) => {
-      const stored = await entities.revisions.findById(artifact.revision_id ?? "");
-      if (stored) {
-        stored.status = "retained";
-      }
-    });
+    const retainedRevision = repo.revisions.get(artifact.revision_id ?? "");
+    if (retainedRevision) {
+      retainedRevision.status = "retained";
+    }
     await expect(
       repo.resolveAccessLink({
         publicId: revisionLink.public_id,
@@ -195,28 +193,24 @@ describe("resolveAccessLink", () => {
       }),
     ).resolves.toBeNull();
 
-    await repo.uow.read({ kind: "platform" }, async (entities) => {
-      await entities.platformLockdowns.insert({
-        id: "lockdown_test",
-        scope: "workspace",
-        target_id: artifact.workspace_id,
-        reason_code: "abuse",
-        set_at: "2026-01-10T00:00:00.000Z",
-        set_by: "operator",
-        lifted_at: null,
-        lifted_by: null,
-      });
+    repo.platformLockdowns.set("lockdown_test", {
+      id: "lockdown_test",
+      scope: "workspace",
+      target_id: artifact.workspace_id,
+      reason_code: "abuse",
+      set_at: "2026-01-10T00:00:00.000Z",
+      set_by: "operator",
+      lifted_at: null,
+      lifted_by: null,
     });
     if (deleted) {
       deleted.deleted_at = null;
       deleted.status = "active";
     }
-    await repo.uow.read({ kind: "platform" }, async (entities) => {
-      const stored = await entities.revisions.findById(artifact.revision_id ?? "");
-      if (stored) {
-        stored.status = "published";
-      }
-    });
+    const publishedRevision = repo.revisions.get(artifact.revision_id ?? "");
+    if (publishedRevision) {
+      publishedRevision.status = "published";
+    }
     await expect(
       repo.resolveAccessLink({
         publicId: shareLink.public_id,

@@ -373,90 +373,7 @@
         "type": "object",
         "properties": {
           "agent_view": {
-            "type": "object",
-            "properties": {
-              "artifact_id": {
-                "type": "string",
-                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
-              },
-              "revision_id": {
-                "type": "string",
-                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
-              },
-              "title": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 160
-              },
-              "description": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "maxLength": 2000
-              },
-              "created_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "expires_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "entrypoint": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4096
-              },
-              "view_url": {
-                "type": "string",
-                "format": "uri"
-              },
-              "files": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "path": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 4096
-                    },
-                    "size_bytes": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "content_type": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 200
-                    },
-                    "url": {
-                      "type": "string",
-                      "format": "uri"
-                    }
-                  },
-                  "required": [
-                    "path",
-                    "size_bytes",
-                    "content_type",
-                    "url"
-                  ]
-                },
-                "minItems": 1,
-                "maxItems": 100
-              }
-            },
-            "required": [
-              "artifact_id",
-              "revision_id",
-              "title",
-              "created_at",
-              "expires_at",
-              "entrypoint",
-              "view_url",
-              "files"
-            ]
+            "$ref": "#/components/schemas/AgentView"
           },
           "render_mode": {
             "type": "string",
@@ -3636,6 +3553,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
