@@ -72,7 +72,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
           };
         },
       });
-      if (!command.result.expired) {
+      if (!command.result.expired || command.isReplay) {
         continue;
       }
       const sideEffects = await applyArtifactPurgeSideEffects(env, executor, {
