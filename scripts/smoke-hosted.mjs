@@ -8,6 +8,7 @@ import {
   listR2Keys as listHarnessR2Keys,
   provisionSmokeWorkspace,
   runSmokeCleanup,
+  runSmokePurgeRecovery,
   waitForHealthz,
 } from "./smoke-harness.mjs";
 
@@ -166,6 +167,19 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function waitForR2Empty(prefix, label) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const keys = await listR2Keys(prefix);
+    if (keys.length === 0) {
+      return;
+    }
+    await sleep(1000);
+  }
+  const keys = await listR2Keys(prefix);
+  throw new Error(`${label}: R2 prefix ${prefix} still has ${keys.length} keys after waiting`);
+}
+
 async function waitForStatus(url, expectedStatus, label) {
   const deadline = Date.now() + 30_000;
   let lastStatus = 0;
@@ -213,6 +227,7 @@ function smokeConfig(target) {
         "AGENT_PASTE_PREVIEW_CONTENT_URL",
         "https://agent-paste-content-preview.isaac-a46.workers.dev",
       ),
+      jobsBaseUrl: env("AGENT_PASTE_PREVIEW_JOBS_URL", "https://agent-paste-jobs-preview.isaac-a46.workers.dev"),
       apexBaseUrl: env("AGENT_PASTE_PREVIEW_APEX_URL", "https://preview.agent-paste.sh"),
       webBaseUrl: env("AGENT_PASTE_PREVIEW_WEB_URL", "https://app.preview.agent-paste.sh"),
       harnessSecret: optionalEnv(["AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET", "AGENT_PASTE_SMOKE_HARNESS_SECRET"]),
@@ -244,6 +259,7 @@ function smokeConfig(target) {
       apiBaseUrl: requiredEnv(["AGENT_PASTE_PR_API_URL"]),
       uploadBaseUrl: requiredEnv(["AGENT_PASTE_PR_UPLOAD_URL"]),
       contentBaseUrl: requiredEnv(["AGENT_PASTE_PR_CONTENT_URL"]),
+      jobsBaseUrl: requiredEnv(["AGENT_PASTE_PR_JOBS_URL"]),
       apexBaseUrl: requiredEnv(["AGENT_PASTE_PR_APEX_URL"]),
       // The web Worker is not deployed per-PR (blocked on a per-PR WorkOS redirect URI),
       // so this stays unset and smokeWebAuth skips unless a URL is supplied.
@@ -394,10 +410,10 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   assert(before.length > 0, "R2 prefix has keys before delete");
 
   await deleteSmokeArtifact(config.apiBaseUrl, publishedArtifact.artifact_id, config.harnessSecret);
+  await runSmokePurgeRecovery(config.jobsBaseUrl, publishedArtifact.artifact_id, config.harnessSecret);
   await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
 
-  const after = await listR2Keys(prefix);
-  assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
+  await waitForR2Empty(prefix, "delete purge");
 
   const denyKey = await fetchDenylistKey(`ad:${publishedArtifact.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after delete");
@@ -414,14 +430,12 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
 
   await forceExpireArtifact(config.apiBaseUrl, expiryPublish.artifact_id, config.harnessSecret);
 
-  const cleanup = await runSmokeCleanup(config.apiBaseUrl, config.harnessSecret);
+  const cleanup = await runSmokeCleanup(config.jobsBaseUrl, config.harnessSecret);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
-  assert(cleanup.deleted_r2_objects >= before.length, "cleanup deleted_r2_objects matches purged keys");
 
   await waitForStatus(expiryPublish.view_url, 404, "expired content");
 
-  const after = await listR2Keys(prefix);
-  assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
+  await waitForR2Empty(prefix, "expiry cleanup purge");
 
   const denyKey = await fetchDenylistKey(`ad:${expiryPublish.artifact_id}`);
   assert(denyKey.value !== null, "denylist KV has artifact deny key after cleanup");

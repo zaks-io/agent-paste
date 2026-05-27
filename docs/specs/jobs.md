@@ -1,6 +1,6 @@
 # Jobs Spec
 
-This is a future-phase spec. The CLI-first MVP does not have a separate `jobs` Worker; retention and upload-session cleanup live in the API Worker scheduled handler, with manual triggering through the admin CLI. Keep this file for Phase 4+ queue/DLQ design.
+This spec describes the `jobs` Worker cron discovery and Cloudflare Queue consumers. Lifecycle byte purge and retention sweeps are authoritative here; the API Worker no longer runs scheduled cleanup.
 
 The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports `packages/contracts` for payload types when those payloads are promoted into code.
 

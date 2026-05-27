@@ -23,6 +23,7 @@ export type QueueMessage = {
 export type Env = {
   AGENT_PASTE_ENV?: string;
   JOBS_ENABLED?: string;
+  SMOKE_HARNESS_SECRET?: string;
   SENTRY_DSN?: string;
   DB?: HyperdriveBinding | SqlExecutor;
   ARTIFACTS?: R2Bucket;
@@ -30,6 +31,18 @@ export type Env = {
   BYTE_PURGE_QUEUE?: QueueBinding;
   SAFETY_SCAN_QUEUE?: QueueBinding;
   BUNDLE_GENERATE_QUEUE?: QueueBinding;
+  /** Populated by the local sync queue harness to report deleted object counts. */
+  SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
+  LOCAL_MVP_REPOSITORY?: {
+    runCleanup(input: {
+      actor: { type: string; id: string };
+      dryRun: boolean;
+      batchSize?: number;
+      now: string;
+    }): Promise<{ expired_artifacts: number; expired_artifact_ids?: string[] }>;
+    artifacts: Map<string, { workspace_id: string; revision_id: string | null }>;
+    revisions: Map<string, { bytes_purge_enqueued_at?: string | null }>;
+  };
 };
 
 export function jobsEnabled(env: Env): boolean {

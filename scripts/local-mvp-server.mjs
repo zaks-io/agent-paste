@@ -2,13 +2,16 @@
 import { createServer } from "node:http";
 import apiWorker from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
+import jobsWorker from "../apps/jobs/dist/index.js";
 import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
+import { createJobsEnv } from "./local-jobs-bridge.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);
 const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
+const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
 const smokeHarnessSecret = smokeHarnessSecretFromEnv();
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
@@ -18,6 +21,7 @@ const accessLinkSigningKey = process.env.AGENT_PASTE_ACCESS_LINK_SIGNING_KEY ?? 
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
+const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 
 function createWorkerServer(name, port, worker, env) {
   return createServer(async (incoming, outgoing) => {
@@ -82,7 +86,10 @@ function close(server) {
 }
 
 function serverPort(server) {
-  return server === servers?.[0] ? apiPort : server === servers?.[1] ? uploadPort : contentPort;
+  if (server === servers?.[0]) return apiPort;
+  if (server === servers?.[1]) return uploadPort;
+  if (server === servers?.[2]) return contentPort;
+  return jobsPort;
 }
 
 function intEnv(name, fallback) {
@@ -211,17 +218,6 @@ function createApiDatabase(repo, denylistNamespace) {
       await denylistNamespace.put(`ad:${input.artifactId}`, JSON.stringify({ reason: "deletion" }));
       return result;
     },
-    async runCleanup(input) {
-      const result = await repo.runCleanup(input);
-      if (!input.dryRun) {
-        for (const artifact of repo.artifacts.values()) {
-          if (artifact.status !== "active") {
-            await denylistNamespace.put(`ad:${artifact.id}`, JSON.stringify({ reason: "retention" }));
-          }
-        }
-      }
-      return result;
-    },
   };
 }
 
@@ -269,6 +265,12 @@ const contentEnv = {
   DENYLIST: denylist,
   CONTENT_SIGNING_SECRET: contentSecret,
 };
+const jobsEnv = createJobsEnv({
+  repo: services.repo,
+  artifacts,
+  denylist,
+  smokeHarnessSecret,
+});
 
 await seedProofArtifacts(services.repo, artifacts);
 
@@ -276,6 +278,7 @@ const servers = [
   createWorkerServer("api", apiPort, apiWorker, apiEnv),
   createWorkerServer("upload", uploadPort, uploadWorker, uploadEnv),
   createWorkerServer("content", contentPort, contentWorker, contentEnv),
+  createWorkerServer("jobs", jobsPort, jobsWorker, jobsEnv),
 ];
 
 await Promise.all(servers.map((server) => listen(server)));
@@ -285,9 +288,11 @@ process.stdout.write(`agent-paste local MVP running
   API:     ${apiBaseUrl}
   Upload:  ${uploadBaseUrl}
   Content: ${contentBaseUrl}
+  Jobs:    ${jobsBaseUrl}
 
   export AGENT_PASTE_API_URL=${apiBaseUrl}
   export AGENT_PASTE_UPLOAD_URL=${uploadBaseUrl}
+  export AGENT_PASTE_JOBS_URL=${jobsBaseUrl}
 
 Sign in and publish:
   pnpm cli:dev login

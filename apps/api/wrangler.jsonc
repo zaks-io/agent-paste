@@ -9,9 +9,6 @@
     "enabled": true
   },
   "upload_source_maps": true,
-  "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
   "vars": {
     "AGENT_PASTE_ENV": "dev",
     "API_KEY_ENV": "preview",

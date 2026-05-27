@@ -3,6 +3,7 @@ import { CRON_HOURLY_DISCOVERY, CRON_UPLOAD_CLEANUP } from "./constants.js";
 import { resolveSqlExecutor } from "./db.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
 import { runMaintenanceGc } from "./discovery/maintenance-gc.js";
+import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import { runRetentionDiscovery } from "./discovery/retention.js";
 import { runUploadCleanupDiscovery } from "./discovery/upload-cleanup.js";
 import type { Env } from "./env.js";
@@ -37,16 +38,17 @@ export async function runScheduledJobs(event: ScheduledEvent, env: Env): Promise
   }
 
   if (event.cron === CRON_HOURLY_DISCOVERY) {
-    await runHourlyDiscovery(executor, now);
+    await runHourlyDiscovery(executor, env, now);
     return;
   }
 
   logOpError("cron.unknown_schedule", { cron: event.cron });
 }
 
-async function runHourlyDiscovery(executor: SqlExecutor, now: string): Promise<void> {
+async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string): Promise<void> {
   const tasks: Array<{ name: string; run: () => Promise<unknown> }> = [
-    { name: "auto_deletion", run: () => runAutoDeletionDiscovery(executor, now) },
+    { name: "auto_deletion", run: () => runAutoDeletionDiscovery(executor, env, now) },
+    { name: "purge_recovery", run: () => runPurgeRecoveryDiscovery(executor, env) },
     { name: "retention", run: () => runRetentionDiscovery(executor) },
     { name: "maintenance_gc", run: () => runMaintenanceGc(executor, now) },
   ];

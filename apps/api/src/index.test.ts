@@ -2,7 +2,7 @@ import { routeContracts } from "@agent-paste/contracts";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
-import apiWorker, {
+import {
   type ApiDatabase,
   type Env,
   handleRequest,
@@ -23,7 +23,6 @@ describe("api worker", () => {
       "/openapi.json",
       "/__test__/provision-smoke",
       "/__test__/force-expire",
-      "/__test__/run-cleanup",
       "/__test__/delete-artifact",
       "/__test__/r2-list",
       "/__test__/denylist",
@@ -1277,56 +1276,6 @@ describe("api worker", () => {
     expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({ reason: "deletion", at: expect.any(String) });
   });
 
-  it("writes ADR 0057 artifact denylist keys for expired cleanup artifacts", async () => {
-    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
-    const env: Env = {
-      AGENT_PASTE_ENV: "preview",
-      SMOKE_HARNESS_SECRET: "harness",
-      DB: {
-        async getWhoami() {
-          return {};
-        },
-        async getAgentView() {
-          return null;
-        },
-        async getPublicAgentView() {
-          return null;
-        },
-        async runCleanup(input) {
-          return input.dryRun ? { expired_artifact_ids: [] } : { expired_artifact_ids: ["art_1", "art_2"] };
-        },
-      },
-      DENYLIST: {
-        async put(key, value, options) {
-          puts.push({ key, value, expirationTtl: options?.expirationTtl });
-        },
-      },
-    };
-
-    const response = await handleRequest(
-      new Request("https://api.test/__test__/run-cleanup", {
-        method: "POST",
-        headers: { authorization: "Bearer harness" },
-      }),
-      env,
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      expired_artifact_ids: ["art_1", "art_2"],
-      deleted_r2_objects: 0,
-    });
-    expect(puts).toHaveLength(2);
-    expect(puts.map((put) => ({ key: put.key, expirationTtl: put.expirationTtl }))).toEqual([
-      { key: "ad:art_1", expirationTtl: 90 * 24 * 60 * 60 },
-      { key: "ad:art_2", expirationTtl: 90 * 24 * 60 * 60 },
-    ]);
-    expect(puts.map((put) => JSON.parse(put.value))).toEqual([
-      { reason: "deletion", at: expect.any(String) },
-      { reason: "deletion", at: expect.any(String) },
-    ]);
-  });
-
   it("renders public Agent View as HTML for browsers", async () => {
     const env: Env = {
       AGENT_VIEW_SIGNING_SECRET: "test-secret",
@@ -2240,33 +2189,6 @@ describe("api worker", () => {
 
     expect(authenticated.status).toBe(404);
     expect(publicResponse.status).toBe(404);
-  });
-
-  it("runs scheduled cleanup with the system actor", async () => {
-    const calls: string[] = [];
-    const env: Env = {
-      DB: operatorDbForTests({
-        async runCleanup(input) {
-          calls.push(`cleanup:${input.actor.id}:${input.batchSize}`);
-          return {
-            dry_run: false,
-            expired_artifacts: 0,
-            expired_artifact_ids: [],
-            expired_upload_sessions: 0,
-            deleted_r2_objects: 0,
-            occurred_at: input.now,
-          };
-        },
-      }),
-      CLEANUP_BATCH_SIZE: "7",
-    };
-
-    await apiWorker.scheduled({ type: "scheduled", scheduledTime: Date.now(), cron: "* * * * *" }, env, {
-      waitUntil() {},
-      passThroughOnException() {},
-    } as ExecutionContext);
-
-    expect(calls).toEqual(["cleanup:scheduled-cleanup:7"]);
   });
 
   it("serves non-production force-expire, R2 list, and denylist helpers", async () => {

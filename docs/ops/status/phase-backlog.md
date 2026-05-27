@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-05-26 (through AP-19). Source of truth for the ordered
+Last updated: 2026-05-27 (AP-22 jobs lifecycle byte purge ownership).
 remaining work. When asked to "implement the next step", start at the first
 unchecked item in the active phase below unless the user says otherwise.
 
@@ -110,7 +110,7 @@ Recommended order:
        Implement cron discovery and Cloudflare Queue consumers for `byte-purge`,
        `safety-scan`, and `bundle-generate`; add DLQs according to ADR 0032,
        0049, and 0050.
-5. [ ] Move lifecycle byte purge and retention work out of `api` scheduled
+5. [x] Move lifecycle byte purge and retention work out of `api` scheduled
        cleanup as the jobs worker becomes authoritative.
 6. [ ] Bundle generation and download.
        Add bundle status fields, deterministic R2 bundle keys, bundle size caps,

@@ -45,13 +45,13 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Retention
 
-| Scenario             | Expected Result                                                                          |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                               |
-| Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.                       |
-| Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.               |
-| Manual cleanup       | Non-production harness `POST /__test__/run-cleanup` or scheduled cleanup reports counts. |
-| No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`.            |
+| Scenario             | Expected Result                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                                     |
+| Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.                             |
+| Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.                     |
+| Manual cleanup       | Non-production harness `POST /__test__/run-cleanup` on `jobs` reports expiry and purge counts. |
+| No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`.                  |
 
 ## Operator Operations
 

@@ -44,7 +44,7 @@ agent-paste whoami
 ```
 
 **API Worker**:
-Owns API-key auth, artifact metadata, public Agent View, web/operator routes, operation events, and scheduled cleanup.
+Owns API-key auth, artifact metadata, public Agent View, web/operator routes, and operation events.
 
 **Upload Worker**:
 Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, and R2 writes.
@@ -153,7 +153,7 @@ Retention is required in the MVP.
 - No forever retention in MVP.
 - No pinning in MVP.
 
-Cleanup runs in the API Worker scheduled handler; non-production smokes can trigger it through the smoke harness (`POST /__test__/run-cleanup`).
+Cleanup runs in the `jobs` Worker cron discovery path; non-production smokes trigger it through the jobs harness (`POST /__test__/run-cleanup`).
 
 ## Caps And Limits
 

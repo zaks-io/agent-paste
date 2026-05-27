@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-26 (AP-18 Neon database credential boundaries).
+Last updated: 2026-05-27 (AP-22 jobs lifecycle byte purge ownership).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -86,7 +86,7 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 - Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`,
   `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`, `api-client`,
   `commands`, `storage`, and repo guardrail packages.
-- Partial: `jobs` (queue topology landed; bundle generation and lifecycle authority still follow-ups).
+- Partial: `jobs` (queue topology and lifecycle byte purge/retention landed; bundle generation authority still follow-ups).
 - Scaffolded only: `mcp`.
 - Placeholder UI: `web` Access Links.
 - Absent: `stream`, `billing`, bundle zip generation, safety-warning storage,
