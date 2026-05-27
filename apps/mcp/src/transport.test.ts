@@ -57,6 +57,44 @@ describe("MCP streamable HTTP transport", () => {
     expect(response.status).toBe(405);
   });
 
+  it("returns 401 with WWW-Authenticate before parsing when bearer is missing and content-type is invalid", async () => {
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: "not json",
+      }),
+      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh" },
+      { verifyBearer: testAuth },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh"),
+    );
+    const payload = (await response.json()) as { error: { data: { code: string } } };
+    expect(payload.error.data.code).toBe("invalid_token");
+  });
+
+  it("returns 401 with WWW-Authenticate before parsing when bearer is missing and JSON is invalid", async () => {
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{not-json",
+      }),
+      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh" },
+      { verifyBearer: testAuth },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh"),
+    );
+    const payload = (await response.json()) as { error: { data: { code: string } } };
+    expect(payload.error.data.code).toBe("invalid_token");
+  });
+
   it("returns WWW-Authenticate when bearer is missing", async () => {
     const response = await mcpPost({
       jsonrpc: "2.0",

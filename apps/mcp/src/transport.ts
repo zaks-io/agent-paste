@@ -15,6 +15,12 @@ function resourceFromEnv(env: McpTransportEnv): string {
   return env.MCP_RESOURCE ?? "https://mcp.agent-paste.sh";
 }
 
+function unauthorizedMcpResponse(message: string, resource: string): Response {
+  return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_token", message), {
+    headers: authenticateChallengeHeaders(resource),
+  });
+}
+
 function authenticateChallengeHeaders(resource: string): Headers {
   const header =
     resource === MCP_RESOURCE_INDICATOR
@@ -40,6 +46,13 @@ export async function handleMcpEndpoint(
     return new Response(null, { status: 405 });
   }
 
+  const authResult = await verifyBearer({
+    authorizationHeader: request.headers.get("authorization"),
+  });
+  if (!authResult.ok) {
+    return unauthorizedMcpResponse(authResult.message, resource);
+  }
+
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
     return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "content_type_must_be_json"));
@@ -55,15 +68,6 @@ export async function handleMcpEndpoint(
   const parsed = parseMcpJsonRpcBody(body);
   if (parsed.kind === "invalid") {
     return jsonRpcErrorResponse(undefined, mapParseFailure(parsed.message));
-  }
-
-  const authResult = await verifyBearer({
-    authorizationHeader: request.headers.get("authorization"),
-  });
-  if (!authResult.ok) {
-    return jsonRpcErrorResponse(undefined, mapMcpProtocolError(authResult.code, authResult.message), {
-      headers: authenticateChallengeHeaders(resource),
-    });
   }
 
   if (parsed.kind === "notification") {
