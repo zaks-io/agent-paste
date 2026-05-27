@@ -42,6 +42,17 @@ describe("authorizeLiveUpdate", () => {
     expect(result).toBeNull();
   });
 
+  it("forwards requests without an internal secret when none is configured", async () => {
+    const api = {
+      fetch: vi.fn(async (request: Request) => {
+        expect(request.headers.get(STREAM_INTERNAL_SECRET_HEADER)).toBeNull();
+        return new Response("nope", { status: 404 });
+      }),
+    };
+    await authorizeLiveUpdate(api, { kind: "dashboard", artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }, {});
+    expect(api.fetch).toHaveBeenCalled();
+  });
+
   it("forwards authorization and the shared internal secret", async () => {
     const pointer = {
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",

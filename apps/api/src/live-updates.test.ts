@@ -61,6 +61,13 @@ describe("handleLiveUpdateAuthorize", () => {
       db,
     );
     expect(wrongSecret.status).toBe(404);
+
+    const missingConfiguredSecret = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest(),
+      { ...env, STREAM_INTERNAL_SECRET: undefined } as Env,
+      db,
+    );
+    expect(missingConfiguredSecret.status).toBe(404);
   });
 
   it("rejects malformed bodies from authorized stream callers", async () => {
@@ -200,6 +207,75 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(rateLimited.status).toBe(429);
     await expect(rateLimited.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
     expect(rateLimited.headers.get("Retry-After")).toBe("60");
+  });
+
+  it("allows access-link authorize when artifact rate limiting fails open", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    wireLiveUpdateDeps({
+      signAgentView: async (view) => ({
+        ...(view as object),
+        view_url: "https://content.test/v/art.rev/index.html",
+      }),
+      authenticateWeb: async () => null,
+    });
+    const blob = await mintAccessLinkBlob({
+      publicId: "0123456789ABCDEF",
+      kid: 1,
+      exp: Date.now() + 60_000,
+      scopes: 1,
+      signingSecret: "access-link-secret",
+    });
+    const env = {
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+      ARTIFACT_RATE_LIMIT: {
+        limit: vi.fn(async () => {
+          throw new Error("rate limit unavailable");
+        }),
+      },
+    } as Env;
+    const db = {
+      async resolveAccessLink(input: { publicId: string }) {
+        if (input.publicId === "0123456789ABCDEF") {
+          return {
+            access_link_id: "al_test",
+            access_link_type: "share",
+            workspace_id: "00000000-0000-4000-8000-000000000001",
+            render_mode: "html",
+            title: "Shared",
+            iframe_src: "https://content.test/v/art.rev/index.html",
+            agent_view: {
+              artifact_id: artifactId,
+              revision_id: pointer.revision_id,
+              title: "Shared",
+              created_at: "2026-01-01T00:00:00.000Z",
+              expires_at: "2030-01-01T00:00:00.000Z",
+              entrypoint: "index.html",
+              view_url: "https://content.test/v/art.rev/index.html",
+              files: [],
+            },
+          };
+        }
+        return null;
+      },
+    } as unknown as Repository;
+
+    const response = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "access_link", public_id: "0123456789ABCDEF", blob }),
+      }),
+      env,
+      db,
+    );
+    expect(response.status).toBe(200);
+    expect(warn).toHaveBeenCalledWith(
+      "Artifact rate limit binding failed; allowing live update authorize.",
+      expect.any(Error),
+    );
+    warn.mockRestore();
   });
 
   it("authorizes dashboard sessions and requires bearer tokens", async () => {

@@ -38,4 +38,20 @@ describe("stream internal auth", () => {
       [STREAM_INTERNAL_SECRET_HEADER]: "stream-internal-secret",
     });
   });
+
+  it("rejects requests when the configured secret is missing", () => {
+    expect(
+      isAuthorizedStreamInternalRequest(
+        new Request("https://api.test/x", { headers: { [STREAM_INTERNAL_SECRET_HEADER]: "stream-internal-secret" } }),
+        undefined,
+      ),
+    ).toBe(false);
+  });
+
+  it("omits the internal secret header when no secret is configured", () => {
+    expect(streamInternalSecretHeaders(undefined)).toEqual({
+      accept: "application/json",
+      "content-type": "application/json",
+    });
+  });
 });
