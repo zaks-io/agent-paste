@@ -130,4 +130,100 @@ describe("resolveAccessLink", () => {
       }),
     ).resolves.toBeNull();
   });
+
+  it("rejects retained revisions, deleted artifacts, and platform lockdown", async () => {
+    const { repo, actor, artifact } = await repoWithPublishedArtifact();
+    const resolveNow = "2026-01-15T00:00:00.000Z";
+    const shareLink = createAccessLinkRow({
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "share",
+      createdByType: "api_key",
+      createdById: actor.id,
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    repo.accessLinks.set(shareLink.id, shareLink);
+    const minted = await mintAccessLinkSignedUrl({
+      link: shareLink,
+      artifact,
+      appBaseUrl: APP_BASE,
+      signingSecret: "access-link-resolve-secret",
+      signingKid: 1,
+    });
+    const verified = await verifyAccessLinkSignedBlobWithRing({
+      publicId: shareLink.public_id,
+      blob: minted.blob,
+      ring: RING,
+    });
+
+    const revisionLink = createAccessLinkRow({
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "revision",
+      revisionId: artifact.revision_id,
+      createdByType: "api_key",
+      createdById: actor.id,
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    repo.accessLinks.set(revisionLink.id, revisionLink);
+    await repo.uow.read({ kind: "platform" }, async (entities) => {
+      const stored = await entities.revisions.findById(artifact.revision_id ?? "");
+      if (stored) {
+        stored.status = "retained";
+      }
+    });
+    await expect(
+      repo.resolveAccessLink({
+        publicId: revisionLink.public_id,
+        blobScopes: verified?.scopes ?? 0,
+        contentBaseUrl: CONTENT_BASE,
+        now: resolveNow,
+      }),
+    ).resolves.toBeNull();
+
+    const deleted = repo.artifacts.get(artifact.id);
+    if (deleted) {
+      deleted.deleted_at = "2026-01-10T00:00:00.000Z";
+      deleted.status = "deleted";
+    }
+    await expect(
+      repo.resolveAccessLink({
+        publicId: shareLink.public_id,
+        blobScopes: verified?.scopes ?? 0,
+        contentBaseUrl: CONTENT_BASE,
+        now: resolveNow,
+      }),
+    ).resolves.toBeNull();
+
+    await repo.uow.read({ kind: "platform" }, async (entities) => {
+      await entities.platformLockdowns.insert({
+        id: "lockdown_test",
+        scope: "workspace",
+        target_id: artifact.workspace_id,
+        reason_code: "abuse",
+        set_at: "2026-01-10T00:00:00.000Z",
+        set_by: "operator",
+        lifted_at: null,
+        lifted_by: null,
+      });
+    });
+    if (deleted) {
+      deleted.deleted_at = null;
+      deleted.status = "active";
+    }
+    await repo.uow.read({ kind: "platform" }, async (entities) => {
+      const stored = await entities.revisions.findById(artifact.revision_id ?? "");
+      if (stored) {
+        stored.status = "published";
+      }
+    });
+    await expect(
+      repo.resolveAccessLink({
+        publicId: shareLink.public_id,
+        blobScopes: verified?.scopes ?? 0,
+        contentBaseUrl: CONTENT_BASE,
+        now: resolveNow,
+      }),
+    ).resolves.toBeNull();
+  });
 });
