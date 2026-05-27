@@ -60,10 +60,19 @@ export const LiveUpdateAuthorizeResponse = z.object({
 });
 export type LiveUpdateAuthorizeResponse = z.infer<typeof LiveUpdateAuthorizeResponse>;
 
+/** Published revision metadata for DO fan-out; content URLs are signed per viewer. */
+export const LiveUpdateRevisionNotice = z.object({
+  revision_id: RevisionId,
+  entrypoint: z.string().min(1),
+  render_mode: RenderMode,
+  title: PlainTextTitle,
+});
+export type LiveUpdateRevisionNotice = z.infer<typeof LiveUpdateRevisionNotice>;
+
 export const LiveUpdatePublishNotify = z.object({
   op: z.literal("publish"),
   artifact_id: ArtifactId,
-  pointer: LiveUpdatePointer,
+  revision: LiveUpdateRevisionNotice,
 });
 export type LiveUpdatePublishNotify = z.infer<typeof LiveUpdatePublishNotify>;
 

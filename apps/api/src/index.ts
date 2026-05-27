@@ -63,7 +63,7 @@ import {
   runPostCommitArtifactDeletionInvalidation,
 } from "./deletion-invalidation.js";
 import {
-  buildPointerFromPublishResult,
+  buildRevisionNoticeFromPublishResult,
   handleLiveUpdateAuthorize,
   notifyLiveUpdateDisconnect,
   notifyLiveUpdateDisconnectWorkspace,
@@ -543,12 +543,12 @@ async function publishRevision(
             ? entrypointPathFromViewUrl((signed as { view_url: string }).view_url)
             : "index.html";
         const title = typeof publish.title === "string" ? publish.title : "Untitled";
-        const pointer = await buildPointerFromPublishResult(context.env, signed, entrypoint, title);
-        if (pointer) {
+        const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, title);
+        if (revision) {
           try {
             await notifyLiveUpdatePublish(context.env, {
               artifactId: publish.artifact_id,
-              pointer,
+              revision,
             });
           } catch (error) {
             console.warn("Live update publish notify failed after commit.", {

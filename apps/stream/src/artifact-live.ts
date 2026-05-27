@@ -5,11 +5,13 @@ import {
   LiveUpdateNotifyMessage,
   type LiveUpdatePointer,
 } from "@agent-paste/contracts";
+import { type ApiServiceBinding, parseConnectAuth, resignLiveUpdatePointer } from "./connection-auth.js";
 import { ArtifactLiveHub } from "./live-hub.js";
 import { createSseStream } from "./sse.js";
 
-export type ApiServiceBinding = {
-  fetch(request: Request): Promise<Response>;
+export type ArtifactLiveEnv = {
+  API: ApiServiceBinding;
+  STREAM_INTERNAL_SECRET?: string;
 };
 
 type ConnectPayload = {
@@ -17,6 +19,7 @@ type ConnectPayload = {
   artifact_id: string;
   audience: LiveUpdateAuthorizeResponse["audience"];
   pointer: LiveUpdatePointer;
+  auth: unknown;
 };
 
 export class ArtifactLiveUpdates implements DurableObject {
@@ -24,7 +27,7 @@ export class ArtifactLiveUpdates implements DurableObject {
 
   constructor(
     readonly state: DurableObjectState,
-    readonly env: { API: ApiServiceBinding },
+    readonly env: ArtifactLiveEnv,
   ) {}
 
   async fetch(request: Request): Promise<Response> {
@@ -49,7 +52,18 @@ export class ArtifactLiveUpdates implements DurableObject {
     }
     const message = parsed.data;
     if (message.op === "publish") {
-      this.#hub.publish(message.pointer, message.artifact_id as ArtifactId);
+      await this.#hub.publishRevision(message.revision, message.artifact_id as ArtifactId, async (connection) => {
+        const resignOptions = this.env.STREAM_INTERNAL_SECRET
+          ? { streamInternalSecret: this.env.STREAM_INTERNAL_SECRET }
+          : {};
+        const authorized = await resignLiveUpdatePointer(
+          this.env.API,
+          connection.auth,
+          message.artifact_id as ArtifactId,
+          resignOptions,
+        );
+        return authorized?.pointer ?? null;
+      });
       return new Response("ok");
     }
     this.#hub.disconnect(message.audiences, message.reason);
@@ -62,11 +76,13 @@ export class ArtifactLiveUpdates implements DurableObject {
       return new Response("invalid_request", { status: 400 });
     }
     const payload = body as Partial<ConnectPayload>;
+    const auth = parseConnectAuth(payload.auth);
     if (
       typeof payload.connection_id !== "string" ||
       typeof payload.artifact_id !== "string" ||
       (payload.audience !== "share" && payload.audience !== "dashboard") ||
-      !payload.pointer
+      !payload.pointer ||
+      !auth
     ) {
       return new Response("invalid_request", { status: 400 });
     }
@@ -86,6 +102,7 @@ export class ArtifactLiveUpdates implements DurableObject {
         const result = this.#hub.connect({
           id: connectionId,
           audience: payload.audience as LiveUpdateAuthorizeResponse["audience"],
+          auth,
           send,
           close: terminateAndRemove,
         });

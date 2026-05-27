@@ -1,5 +1,5 @@
 import {
-  LiveUpdateAuthorizeRequest,
+  LiveUpdateAuthorizeAccessLinkRequest,
   type LiveUpdateAuthorizeRequest as LiveUpdateAuthorizeRequestType,
   LiveUpdateAuthorizeResponse,
 } from "@agent-paste/contracts";
@@ -42,7 +42,10 @@ export async function authorizeLiveUpdate(
   }
 }
 
-export function parseAuthorizeAccessLinkBody(publicId: string, body: unknown): LiveUpdateAuthorizeRequestType | null {
+export function parseAuthorizeAccessLinkBody(
+  publicId: string,
+  body: unknown,
+): Extract<LiveUpdateAuthorizeRequestType, { kind: "access_link" }> | null {
   if (typeof body !== "object" || body === null) {
     return null;
   }
@@ -50,7 +53,7 @@ export function parseAuthorizeAccessLinkBody(publicId: string, body: unknown): L
   if (typeof blob !== "string" || blob.length === 0) {
     return null;
   }
-  const parsed = LiveUpdateAuthorizeRequest.safeParse({
+  const parsed = LiveUpdateAuthorizeAccessLinkRequest.safeParse({
     kind: "access_link",
     public_id: publicId,
     blob,

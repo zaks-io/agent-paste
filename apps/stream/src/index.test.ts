@@ -11,9 +11,10 @@ const pointer = {
 };
 
 function envWithApi(apiFetch: Env["API"]["fetch"]): Env {
+  const api = { fetch: apiFetch };
   return {
-    API: { fetch: apiFetch },
-    ARTIFACT_LIVE: createMemoryArtifactLiveNamespace() as unknown as Env["ARTIFACT_LIVE"],
+    API: api,
+    ARTIFACT_LIVE: createMemoryArtifactLiveNamespace({ api }) as unknown as Env["ARTIFACT_LIVE"],
   };
 }
 
