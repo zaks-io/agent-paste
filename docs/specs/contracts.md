@@ -13,7 +13,7 @@ This document names the contract surfaces an implementer should treat as canonic
 
 The first implementation pass should import schemas from this package instead of creating local route-only shapes. Hono/OpenAPI route definitions can wrap these schemas, but they should not re-declare them.
 
-Future phases may add MCP tool schemas, Access Link schemas, dashboard/auth schemas, bundle schemas, multi-revision lifecycle schemas, and app-layer encryption metadata schemas. They are not MVP build gates.
+Future phases may add Access Link REST route registry entries, dashboard/auth schemas, bundle schemas, multi-revision lifecycle schemas, and app-layer encryption metadata schemas beyond what MCP forwarding already references. They are not MVP build gates.
 
 ## Wire Rules
 

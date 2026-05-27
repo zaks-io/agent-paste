@@ -16,5 +16,6 @@ This package intentionally contains schemas and registries only. It does not con
 - `apiKeys.ts`: admin-created API Key schemas.
 - `workspace.ts`: workspace, usage policy, and whoami schemas.
 - `routes.ts`: MVP route registry for `api`, `upload`, `content`, and internal admin routes.
+- `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, twelve-tool registry, error mapping, and forwarded API call plans (ADR 0061).
 
-Future dashboard, MCP, Access Link lifecycle, bundle, safety warning, multi-revision, and app-layer encryption contracts are intentionally not exported by this MVP package.
+Future dashboard, Access Link lifecycle, bundle, safety warning, multi-revision, and app-layer encryption contracts are intentionally not exported by this MVP package beyond what MCP and current REST surfaces already need.
