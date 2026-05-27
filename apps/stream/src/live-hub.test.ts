@@ -55,6 +55,23 @@ describe("ArtifactLiveHub", () => {
     expect(sendOk).toHaveBeenCalled();
   });
 
+  it("continues disconnect fan-out when one connection close throws", () => {
+    const hub = new ArtifactLiveHub();
+    const closeOk = vi.fn();
+    hub.connect({
+      id: "broken-close",
+      audience: "share",
+      send: vi.fn(),
+      close: () => {
+        throw new Error("close failed");
+      },
+    });
+    hub.connect({ id: "ok-close", audience: "share", send: vi.fn(), close: closeOk });
+    hub.disconnect(["share"], "deletion");
+    expect(closeOk).toHaveBeenCalled();
+    expect(hub.connectionCount).toBe(0);
+  });
+
   it("disconnects only share connections on access link lockdown", () => {
     const hub = new ArtifactLiveHub();
     const closeShare = vi.fn();

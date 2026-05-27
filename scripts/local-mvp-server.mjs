@@ -86,21 +86,43 @@ async function writeFetchResponse(outgoing, response) {
   outgoing.end(bytes);
 }
 
+function isOutgoingClosed(outgoing) {
+  return outgoing.destroyed || outgoing.writableEnded;
+}
+
 async function pipeWebStreamToNode(outgoing, webStream) {
   const reader = webStream.getReader();
+  const waitForDrain = () =>
+    new Promise((resolve) => {
+      if (isOutgoingClosed(outgoing)) {
+        resolve();
+        return;
+      }
+      outgoing.once("drain", resolve);
+    });
+
   try {
     while (true) {
+      if (isOutgoingClosed(outgoing)) {
+        break;
+      }
       const { done, value } = await reader.read();
       if (done) {
         break;
       }
-      if (value?.byteLength) {
-        outgoing.write(Buffer.from(value));
+      if (!value?.byteLength) {
+        continue;
+      }
+      const canWrite = outgoing.write(Buffer.from(value));
+      if (!canWrite) {
+        await waitForDrain();
       }
     }
   } finally {
     reader.releaseLock();
-    outgoing.end();
+    if (!isOutgoingClosed(outgoing)) {
+      outgoing.end();
+    }
   }
 }
 

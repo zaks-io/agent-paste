@@ -358,15 +358,27 @@ describe("live update notify helpers", () => {
     expect(warn).toHaveBeenCalled();
 
     warn.mockClear();
-    await notifyLiveUpdateDisconnectWorkspace(env, {
+    const failingNotifyFetch = vi.fn(async () => new Response("notify failed", { status: 500 }));
+    const envWithListedArtifacts = {
+      ARTIFACT_LIVE: {
+        idFromName: (name: string) => name,
+        get: () => ({ fetch: failingNotifyFetch }),
+      },
+    } as never;
+    await notifyLiveUpdateDisconnectWorkspace(envWithListedArtifacts, {
       async listArtifacts() {
-        return { data: [{ id: artifactId }] };
+        return { data: [{ id: artifactId }, { id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0" }] };
       },
     } as unknown as Repository, {
       workspaceId: "00000000-0000-4000-8000-000000000001",
       audiences: ["share"],
       reason: "platform_lockdown",
     });
+    expect(failingNotifyFetch).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Live update notify failed"),
+      expect.objectContaining({ artifactId, status: 500, body: "notify failed" }),
+    );
     warn.mockRestore();
   });
 });

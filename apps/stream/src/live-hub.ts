@@ -82,8 +82,13 @@ export class ArtifactLiveHub {
       } catch {
         // still close broken connections
       }
-      connection.close();
-      this.#connections.delete(id);
+      try {
+        connection.close();
+      } catch {
+        // keep disconnecting remaining viewers when one close handler throws
+      } finally {
+        this.#connections.delete(id);
+      }
     }
   }
 
