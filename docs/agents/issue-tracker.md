@@ -1,6 +1,8 @@
-# Issue tracker: Linear
+# Issue Tracker: Linear
 
-Issues and PRDs for this repo live in Linear, in the team with identifier prefix `AP-`. Use the Linear MCP tools (`mcp__claude_ai_Linear__*`) for all operations.
+Issues and PRDs for this repo live in Linear, in the team with identifier
+prefix `AP-`. Use the Linear tools available in the current runtime for all
+operations.
 
 ## Team
 
@@ -37,8 +39,34 @@ Background Agent implementation after it becomes `ready-for-agent`.
   the issue, move the issue to **In Review** with `save_issue`. Rely on the
   GitHub integration for the PR link; do not comment on the issue only to paste
   the URL.
+- **Changes requested**: when PR review finds actionable feedback, move the
+  issue to **Changes Requested** when that state exists. Route feedback back to
+  the original implementation worker so it continues on the same branch and PR.
+  If the state does not exist yet, leave the issue in **In Review**, add a
+  comment with the requested changes, and ask the human operator to map or add
+  the state.
+- **Ready to merge**: move to **Ready to Merge** only after required checks pass
+  and the PR review gate is clean.
 
 When sending markdown content (title or description), pass real newlines, not literal `\n` escape sequences.
+
+## Workflow States
+
+The shared state contract lives in `docs/agents/workflow.md` and
+`docs/agents/autonomous-loop.md`.
+
+Use these state meanings:
+
+| State               | Meaning                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `Todo`              | Ready queue or backlog.                                         |
+| `In Progress`       | Active implementation.                                          |
+| `Blocked`           | Cannot continue until a blocker is resolved.                    |
+| `In Review`         | PR is open and ready for review.                                |
+| `Changes Requested` | PR has actionable feedback; continue on the same branch and PR. |
+| `Ready to Merge`    | Required checks and review are clean.                           |
+| `Done`              | Completed.                                                      |
+| `Canceled`          | Closed without completion.                                      |
 
 ## When a skill says "publish to the issue tracker"
 

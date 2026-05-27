@@ -12,6 +12,8 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-The labels need to exist on the Linear AP team. Create any missing ones with `mcp__claude_ai_Linear__create_issue_label` on first use; cache the resolved ids per session.
+The labels need to exist on the Linear AP team. Create any missing ones with
+the available Linear label creation tool on first use; cache the resolved ids
+per session.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
