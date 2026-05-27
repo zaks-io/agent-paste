@@ -37,6 +37,7 @@ jobs:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    environment: Preview
 
     steps:
       - name: Checkout
@@ -89,5 +90,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: "agent-paste PR preview resources were cleaned up. The pr-preview-${context.issue.number} environment is left in place; remove it from the GitHub UI if desired.",
+              body: "agent-paste PR preview resources were cleaned up. The shared Preview GitHub Environment is retained for future preview deploys.",
             });
