@@ -187,6 +187,45 @@ describe("retention discovery", () => {
     const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
     expect(result).toEqual({ discovered: 0, enqueued: 0, cap_hit: false });
   });
+
+  it("retains revisions and enqueues revision-scoped purge work", async () => {
+    const oldRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+    const send = vi.fn(async () => ({}));
+    const put = vi.fn(async () => {});
+    let discovery = true;
+    const executor = mockExecutor(async (sql) => {
+      if (discovery && sql.includes("from revisions")) {
+        discovery = false;
+        return {
+          rows: [{ id: oldRevisionId, workspace_id: workspaceId, artifact_id: artifactId }],
+        };
+      }
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [{ workspace_id: workspaceId }] };
+      }
+      if (sql.includes("update revisions")) {
+        return { rows: [{ id: oldRevisionId }] };
+      }
+      if (sql.includes("bytes_purge_enqueued_at")) {
+        return { rows: [{ id: oldRevisionId }] };
+      }
+      return { rows: [] };
+    });
+    const env = {
+      BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+      DENYLIST: { put },
+    };
+    const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toMatchObject({ discovered: 1, enqueued: 1, cap_hit: false });
+    expect(put).toHaveBeenCalledWith(`rd:${oldRevisionId}`, expect.any(String), expect.any(Object));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        revision_id: oldRevisionId,
+        reason: "retention",
+        prefixes: [`artifacts/${artifactId}/revisions/${oldRevisionId}/`],
+      }),
+    );
+  });
 });
 
 describe("auto deletion discovery", () => {

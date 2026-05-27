@@ -5,6 +5,15 @@ use `git log` for commit-level detail.
 
 ## 2026-05-27
 
+### Pinning and revision retention (AP-24)
+
+- Added `artifacts.pinned_at` and dashboard `POST /v1/web/artifacts/{id}/pin|unpin`
+  with a 50-artifact workspace cap; pinned rows are exempt from auto-deletion.
+- Added `workspaces.revision_retention_days`; jobs retention cron marks older
+  non-current published revisions `retained`, writes `rd:` denylist keys, and
+  enqueues revision-scoped byte purge.
+- Migration `0013_pinning_and_revision_retention.sql`.
+
 ### Jobs lifecycle byte purge ownership (AP-22)
 
 - Moved auto-deletion expiry, denylist writes, and byte-purge enqueue from the
