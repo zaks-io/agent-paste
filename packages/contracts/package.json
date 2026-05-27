@@ -15,7 +15,7 @@
     "lint": "biome lint .",
     "openapi:check": "node ../../scripts/openapi-goldens.mjs",
     "openapi:write": "node ../../scripts/openapi-goldens.mjs --write",
-    "test": "vitest run src/mvp-contracts.test.ts",
+    "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {

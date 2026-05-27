@@ -225,6 +225,15 @@ importers:
 
   apps/jobs:
     dependencies:
+      '@agent-paste/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@agent-paste/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@agent-paste/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime

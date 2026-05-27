@@ -1,0 +1,184 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-jobs",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "triggers": {
+    "crons": ["*/15 * * * *", "0 * * * *"]
+  },
+  "vars": {
+    "AGENT_PASTE_ENV": "dev",
+    "JOBS_ENABLED": "true"
+  },
+  "hyperdrive": [
+    {
+      "binding": "DB",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTIFACTS",
+      "bucket_name": "agent-paste-artifacts-dev"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "DENYLIST",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "queues": {
+    "producers": [
+      { "queue": "byte-purge", "binding": "BYTE_PURGE_QUEUE" },
+      { "queue": "safety-scan", "binding": "SAFETY_SCAN_QUEUE" },
+      { "queue": "bundle-generate", "binding": "BUNDLE_GENERATE_QUEUE" }
+    ],
+    "consumers": [
+      {
+        "queue": "byte-purge",
+        "max_batch_size": 50,
+        "max_retries": 3,
+        "dead_letter_queue": "byte-purge-dlq"
+      },
+      {
+        "queue": "safety-scan",
+        "max_batch_size": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "safety-scan-dlq"
+      },
+      {
+        "queue": "bundle-generate",
+        "max_batch_size": 1,
+        "max_retries": 5,
+        "dead_letter_queue": "bundle-generate-dlq"
+      },
+      {
+        "queue": "bundle-generate-dlq",
+        "max_batch_size": 10
+      }
+    ]
+  },
+  "env": {
+    "preview": {
+      "name": "agent-paste-jobs-preview",
+      "workers_dev": true,
+      "vars": {
+        "AGENT_PASTE_ENV": "preview",
+        "JOBS_ENABLED": "true"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "7da9ea500b534f3fa522460c8a9f2efc"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-preview"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "5780695433d4494897dcbb78bcb4f180"
+        }
+      ],
+      "queues": {
+        "producers": [
+          { "queue": "byte-purge-preview", "binding": "BYTE_PURGE_QUEUE" },
+          { "queue": "safety-scan-preview", "binding": "SAFETY_SCAN_QUEUE" },
+          { "queue": "bundle-generate-preview", "binding": "BUNDLE_GENERATE_QUEUE" }
+        ],
+        "consumers": [
+          {
+            "queue": "byte-purge-preview",
+            "max_batch_size": 50,
+            "max_retries": 3,
+            "dead_letter_queue": "byte-purge-dlq-preview"
+          },
+          {
+            "queue": "safety-scan-preview",
+            "max_batch_size": 1,
+            "max_retries": 3,
+            "dead_letter_queue": "safety-scan-dlq-preview"
+          },
+          {
+            "queue": "bundle-generate-preview",
+            "max_batch_size": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "bundle-generate-dlq-preview"
+          },
+          {
+            "queue": "bundle-generate-dlq-preview",
+            "max_batch_size": 10
+          }
+        ]
+      }
+    },
+    "production": {
+      "name": "agent-paste-jobs-production",
+      "workers_dev": false,
+      "vars": {
+        "AGENT_PASTE_ENV": "production",
+        "JOBS_ENABLED": "true"
+      },
+      "hyperdrive": [
+        {
+          "binding": "DB",
+          "id": "ca07f5b895084f60b666586c362982fc"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "agent-paste-artifacts-production"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "DENYLIST",
+          "id": "86d8b139223e45108d320533277a235d"
+        }
+      ],
+      "queues": {
+        "producers": [
+          { "queue": "byte-purge-production", "binding": "BYTE_PURGE_QUEUE" },
+          { "queue": "safety-scan-production", "binding": "SAFETY_SCAN_QUEUE" },
+          { "queue": "bundle-generate-production", "binding": "BUNDLE_GENERATE_QUEUE" }
+        ],
+        "consumers": [
+          {
+            "queue": "byte-purge-production",
+            "max_batch_size": 50,
+            "max_retries": 3,
+            "dead_letter_queue": "byte-purge-dlq-production"
+          },
+          {
+            "queue": "safety-scan-production",
+            "max_batch_size": 1,
+            "max_retries": 3,
+            "dead_letter_queue": "safety-scan-dlq-production"
+          },
+          {
+            "queue": "bundle-generate-production",
+            "max_batch_size": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "bundle-generate-dlq-production"
+          },
+          {
+            "queue": "bundle-generate-dlq-production",
+            "max_batch_size": 10
+          }
+        ]
+      }
+    }
+  }
+}

@@ -21,7 +21,7 @@ Last updated: 2026-05-26.
 | `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.                                                                                                                                                                                      |
 | `apps/cli`                | Implemented                 | `publish` (finalize + publish), optional `--artifact-id` updates, `whoami`, `login`, `logout`, local credential storage, and API-client plumbing.                                                                                                                                                                  |
 | `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, operator event browsing, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Link `/al/{publicId}` viewer and resolve proxy route ship; dashboard Access Link management UI remains deferred. |
-| `apps/jobs`               | Scaffolded                  | Health/OpenAPI and empty scheduled handler only. No cron discovery, queues, DLQs, bundle, scan, or purge consumers.                                                                                                                                                                                                |
+| `apps/jobs`               | Partial                     | Cron discovery (upload cleanup + maintenance GC; auto-deletion discovery-only; retention no-op), queue consumers + DLQs in `wrangler.jsonc`, bundle DLQ `mark_failed`, stub safety-scan/bundle-generate handlers. Full lifecycle ownership and bundle zip generation remain follow-ups.                            |
 | `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                                                                                                                                                                                                 |
 | `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces including Access Link resolve request/response. MCP transport schemas and bundle contracts still absent.                                                                                                                                    |
 | `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                                                                                                                                                                                                       |
@@ -41,14 +41,15 @@ Last updated: 2026-05-26.
 | `apps/stream`      | Phase 4        | Does not exist. Needed for ADR 0069 Live Updates.                                                                                                                                                                      |
 | `packages/billing` | Post-launch    | Does not exist. Needed for ADR 0073/0074 once hosted billing is enabled.                                                                                                                                               |
 | Access Link tables | Phase 4        | `access_links` migration, lockdown column, signed-url codec, mint/revoke helpers (AP-19), and `POST /v1/access-links/resolve` plus `/al/{publicId}` viewer (AP-20) landed. Dashboard link management UI still pending. |
-| Jobs queues        | Phase 4        | No Cloudflare Queue bindings/consumers for `byte-purge`, `safety-scan`, or `bundle-generate`.                                                                                                                          |
+| Jobs queues        | Phase 4        | `apps/jobs` has Wrangler queue/DLQ bindings and consumers; bundle generation and full lifecycle sweeps remain follow-ups (see phase-backlog #5–#6).                                                                    |
 | Bundle state       | Phase 4        | No bundle status columns, R2 bundle writer, or Agent View bundle output.                                                                                                                                               |
 | Safety warnings    | Phase 4/6      | No scanner/warning tables yet; ADR 0051 is still future work.                                                                                                                                                          |
 
 ## Known Implementation Gaps
 
-- `apps/jobs/src/index.ts` returns health and skips work unless disabled; there
-  is no business logic in `runScheduledJobs`.
+- `apps/jobs` runs cron discovery and queue consumers, but auto-deletion still
+  discovers only (lifecycle commands stay in `api` until phase-backlog #5) and
+  bundle zip generation is deferred to phase-backlog #6.
 - `apps/mcp/src/index.ts` advertises protected-resource metadata but does not
   implement MCP JSON-RPC or authenticate tool calls.
 - `apps/web/src/routes/_authed.admin.tsx` now exposes the Phase 3 operator

@@ -1,3 +1,9 @@
+export {
+  type RevisionQueueTargetState,
+  type SkipRevisionQueueWorkReason,
+  shouldSkipRevisionQueueWork,
+} from "./queue-target.js";
+
 export type OperationStatus = "started" | "succeeded" | "failed" | "skipped";
 
 export type OperationEvent = {
