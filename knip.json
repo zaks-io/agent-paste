@@ -2,5 +2,10 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreDependencies": ["cloudflare"],
   "ignoreExportsUsedInFile": true,
-  "ignoreFiles": ["**/worker-configuration.d.ts"]
+  "ignoreFiles": ["**/worker-configuration.d.ts"],
+  "workspaces": {
+    "apps/web": {
+      "entry": ["src/server.ts"]
+    }
+  }
 }
