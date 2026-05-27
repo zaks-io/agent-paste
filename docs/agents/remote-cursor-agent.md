@@ -8,11 +8,14 @@ for the repo instructions.
 
 1. `AGENTS.md`
 2. This file
-3. `docs/ops/project-status.md`
-4. `CONTEXT.md`
-5. `docs/specs/README.md`
-6. `docs/adr/README.md`
-7. The Linear issue and any linked ADRs/specs/runbooks
+3. `docs/agents/workflow.md`
+4. `docs/agents/skill-usage.md`
+5. `docs/agents/autonomous-loop.md`
+6. `docs/ops/project-status.md`
+7. `CONTEXT.md`
+8. `docs/specs/README.md`
+9. `docs/adr/README.md`
+10. The Linear issue and any linked ADRs/specs/runbooks
 
 When a ticket names a specific app/package, also read that app/package README
 before editing.
@@ -60,26 +63,36 @@ Operational notes from the Background Agents docs:
   be present when the Linear issue explicitly requires them.
 - Do not assume the `coderabbit` CLI is available inside Cursor's remote agent
   environment. CodeRabbit is on-demand only and should be reserved for the
-  high-risk cases described in the repo-local `code-review` skill.
+  high-risk cases described in the repo-local `agent-paste-code-review` skill.
+- Cursor Composer 2.5 is the preferred implementation workhorse for ready,
+  well-scoped AP issues that can be verified locally or in CI. The orchestrator
+  remains responsible for review, CI watching, and escalation.
 
 ## Repo-Local Skills
 
-This repo carries real copies of shared skills so remote environments use the
-same review workflow as local agents:
+This repo is Claude-first for repo-local skills. Canonical skill files live
+under `.claude/skills`, and `.agents/skills` links to those directories for
+Codex-style runtimes. Remote environments should preserve those links.
 
-- `.claude/skills/create-pr`
-- `.claude/skills/code-review`
-- `.agents/skills/create-pr`
-- `.agents/skills/code-review`
+- `.claude/skills/agent-paste-implement-issue`
+- `.claude/skills/agent-paste-local-code-review`
+- `.claude/skills/agent-paste-next-pr`
+- `.claude/skills/agent-paste-neon-postgres`
+- `.claude/skills/agent-paste-orchestrator`
+- `.claude/skills/agent-paste-review-pr`
+- `.claude/skills/agent-paste-create-pr`
+- `.claude/skills/agent-paste-code-review`
 
-Do not replace these with symlinks. Remote Cursor environments should be able to
-clone the repo and read the skill files directly.
+The linked `.agents/skills/agent-paste-*` paths should resolve to the same
+skill files after clone. If a runtime cannot follow symlinks, read the matching
+`.claude/skills/agent-paste-*` path directly.
 
-Before opening a PR, run the repo-local `code-review` workflow as a read-only
-review pass. Use CodeRabbit only when that skill recommends escalation or the
-change is high risk: auth, authorization, secrets, migrations, destructive data
-changes, background jobs, concurrency, generated artifacts, public API/CLI
-contracts, or broad refactors.
+Use `agent-paste-implement-issue` for the implementation flow. Before opening a
+PR, run `agent-paste-local-code-review` as a read-only review pass. Use
+CodeRabbit only when the local review or `agent-paste-code-review` skill
+recommends escalation or the change is high risk: auth, authorization, secrets,
+migrations, destructive data changes, background jobs, concurrency, generated
+artifacts, public API/CLI contracts, or broad refactors.
 
 ## Normal Commands
 
@@ -158,15 +171,20 @@ untouched and move or ask for the ticket to be moved to `ready-for-human`.
 Respect milestone dependencies. For example, do not implement the Access Link
 viewer before the Access Link model/codec ticket is complete.
 
+When the orchestrator sends `Changes Requested` feedback, resume the same
+Cursor thread, branch, and PR. Read the PR review comments and failed checks,
+push fixes to the same PR, rerun the relevant checks, and move the issue back to
+`In Review` when ready for another review pass.
+
 ## Pull requests (ready for review, not draft)
 
 Create GitHub pull requests **ready for review** (`draft: false`). Do not open
 draft PRs unless the Linear issue explicitly asks for a draft.
 
 This repo does not rely on automatic CodeRabbit review for every PR. Run the
-repo-local `code-review` skill first. If it recommends CodeRabbit, request
-CodeRabbit explicitly with a PR comment after the PR exists and address only
-high-priority actionable findings.
+repo-local `agent-paste-local-code-review` skill first. If it recommends
+CodeRabbit, request CodeRabbit explicitly with a PR comment after the PR exists
+and address only high-priority actionable findings.
 
 There is no separate Cursor or repo UI setting for this today; follow this
 handoff doc and any Linear issue that overrides it.
@@ -183,7 +201,7 @@ The final PR or handoff comment must include:
 - Summary of the behavior changed.
 - Files changed.
 - Tests and checks run, with exact command names.
-- Review result: local `code-review` verdict and CodeRabbit
+- Review result: local review verdict and CodeRabbit
   `skipped`/`CLI`/`PR review` decision.
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.

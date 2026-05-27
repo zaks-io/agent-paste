@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Paste Neon Postgres"
+  short_description: "Use Neon Postgres for agent-paste"
+  default_prompt: "Use $agent-paste-neon-postgres to help with this Neon Postgres task."

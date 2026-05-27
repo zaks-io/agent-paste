@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Paste Next PR"
+  short_description: "Drive next AP work to PR"
+  default_prompt: "Use $agent-paste-next-pr to pick the next ready agent-paste issue and drive it to PR."

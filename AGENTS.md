@@ -12,6 +12,13 @@ Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in t
 
 ## Agent skills
 
+### Workflow
+
+Shared workflow docs live in `docs/agents/workflow.md`.
+Use `docs/agents/skill-usage.md` to choose the smallest repo-local skill for a
+task. Use `docs/agents/autonomous-loop.md` for the detailed Linear state
+contract and orchestrator/worker loop.
+
 ### Issue tracker
 
 Linear, team prefix `AP-`. See `docs/agents/issue-tracker.md`.
@@ -31,6 +38,8 @@ delegated Linear issues in an isolated remote environment.
 
 Remote Cursor agents should read `docs/agents/remote-cursor-agent.md` after this
 file. Only delegate issues labeled both `ready-for-agent` and `remote-cursor`.
+Review fixes should return to the original Cursor thread, branch, and PR when
+possible.
 
 ## Cursor Cloud specific instructions
 
