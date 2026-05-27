@@ -59,8 +59,27 @@ Operational notes from the Background Agents docs:
   without foreground approval, so production or preview credentials should only
   be present when the Linear issue explicitly requires them.
 - Do not assume the `coderabbit` CLI is available inside Cursor's remote agent
-  environment. In that environment, CodeRabbit review normally happens after a
-  PR is opened, through PR review comments.
+  environment. CodeRabbit is on-demand only and should be reserved for the
+  high-risk cases described in the repo-local `code-review` skill.
+
+## Repo-Local Skills
+
+This repo carries real copies of shared skills so remote environments use the
+same review workflow as local agents:
+
+- `.claude/skills/create-pr`
+- `.claude/skills/code-review`
+- `.agents/skills/create-pr`
+- `.agents/skills/code-review`
+
+Do not replace these with symlinks. Remote Cursor environments should be able to
+clone the repo and read the skill files directly.
+
+Before opening a PR, run the repo-local `code-review` workflow as a read-only
+review pass. Use CodeRabbit only when that skill recommends escalation or the
+change is high risk: auth, authorization, secrets, migrations, destructive data
+changes, background jobs, concurrency, generated artifacts, public API/CLI
+contracts, or broad refactors.
 
 ## Normal Commands
 
@@ -144,9 +163,10 @@ viewer before the Access Link model/codec ticket is complete.
 Create GitHub pull requests **ready for review** (`draft: false`). Do not open
 draft PRs unless the Linear issue explicitly asks for a draft.
 
-This repo uses CodeRabbit on published PRs; draft PRs delay or skip that review
-pass. After `git push`, open or update the PR as ready for review so review
-automation runs immediately.
+This repo does not rely on automatic CodeRabbit review for every PR. Run the
+repo-local `code-review` skill first. If it recommends CodeRabbit, request
+CodeRabbit explicitly with a PR comment after the PR exists and address only
+high-priority actionable findings.
 
 There is no separate Cursor or repo UI setting for this today; follow this
 handoff doc and any Linear issue that overrides it.
@@ -163,6 +183,8 @@ The final PR or handoff comment must include:
 - Summary of the behavior changed.
 - Files changed.
 - Tests and checks run, with exact command names.
+- Review result: local `code-review` verdict and CodeRabbit
+  `skipped`/`CLI`/`PR review` decision.
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.
 - Docs/status ledgers updated when the change affects project status.
