@@ -38,6 +38,7 @@
     "lighthouse:dashboard-a11y": "node scripts/lighthouse-dashboard-a11y.mjs",
     "setup:codex": "node scripts/setup-codex-worktree.mjs",
     "test": "turbo run test",
+    "test:scripts": "vitest run scripts",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
     "verify": "pnpm format:docs:check && turbo run lint typecheck test openapi:check db:check"

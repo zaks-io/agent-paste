@@ -2,8 +2,8 @@
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { ensureJobQueues } from "./ensure-job-queues.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
-import { isQueueAlreadyExists } from "./wrangler-queue-cli.mjs";
 
 const prNumber = requiredEnv("PR_NUMBER");
 const hyperdriveId = requiredEnv("PR_HYPERDRIVE_ID");
@@ -90,20 +90,7 @@ ${webDeployed ? `Web:     ${urls.web} (smoke: ${urls.webWorkersDev})\n` : "Web: 
 
 async function ensurePreviewJobQueues() {
   process.stdout.write(`Ensuring PR-scoped preview Cloudflare Queues exist for PR ${prNumber}...\n`);
-  for (const queueName of jobQueues.creationOrder) {
-    const result = await run("pnpm", ["exec", "wrangler", "queues", "create", queueName], { allowFailure: true });
-    if (result.code === 0) {
-      process.stdout.write(`Created queue ${queueName}\n`);
-      continue;
-    }
-    if (isQueueAlreadyExists(result)) {
-      process.stdout.write(`Queue ${queueName} already exists\n`);
-      continue;
-    }
-    throw new Error(
-      `Failed to create queue ${queueName}: ${result.stderr?.trim() || result.stdout?.trim() || `exit ${result.code}`}`,
-    );
-  }
+  await ensureJobQueues(jobQueues.creationOrder, { run });
 }
 
 async function deploy(app, configPath, secretsPath) {

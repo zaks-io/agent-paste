@@ -91,15 +91,16 @@ pnpm deploy:preview
 pnpm deploy:production
 ```
 
-It deploys hosted Workers in dependency order:
+It ensures shared preview/production Cloudflare Queues exist (DLQs first), then deploys hosted Workers in dependency order:
 
 1. `api`
 2. `upload`
 3. `content`
-4. `apex`
-5. `web`
+4. `jobs`
+5. `apex`
+6. `web`
 
-The web deploy runs last because its service binding targets the deployed API Worker. `apps/web` builds with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific deploy config.
+Queue provisioning runs before `api` because the API and jobs Workers bind `bundle-generate-*` producers/consumers. The web deploy runs last because its service binding targets the deployed API Worker. `apps/web` builds with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific deploy config.
 
 ### `smoke-hosted.mjs`
 
