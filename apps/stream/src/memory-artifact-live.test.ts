@@ -1,5 +1,5 @@
 import { LIVE_UPDATE_VIEWER_CAP } from "@agent-paste/contracts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createMemoryArtifactLiveNamespace,
   formatSseEvent,
@@ -13,6 +13,8 @@ const pointer = {
   title: "Demo",
 };
 
+const shareAuth = { kind: "access_link" as const, public_id: "0123456789ABCDEF", blob: "signed" };
+
 describe("memory artifact live namespace", () => {
   afterEach(() => {
     resetMemoryArtifactLiveHubs();
@@ -23,7 +25,16 @@ describe("memory artifact live namespace", () => {
   });
 
   it("handles notify, connect, cap, and not_found paths", async () => {
-    const ns = createMemoryArtifactLiveNamespace();
+    const api = {
+      fetch: vi.fn(async () =>
+        Response.json({
+          artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          audience: "share",
+          pointer,
+        }),
+      ),
+    };
+    const ns = createMemoryArtifactLiveNamespace({ api });
     const stub = ns.get("art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
 
     const unknown = await stub.fetch(new Request("https://memory.test/missing"));
@@ -34,6 +45,21 @@ describe("memory artifact live namespace", () => {
     );
     expect(badNotify.status).toBe(400);
 
+    const connected = await stub.fetch(
+      new Request("https://memory.test/sse/connect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          connection_id: "mem-publish",
+          artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          audience: "share",
+          pointer,
+          auth: shareAuth,
+        }),
+      }),
+    );
+    expect(connected.status).toBe(200);
+
     await stub.fetch(
       new Request("https://memory.test/internal/notify", {
         method: "POST",
@@ -41,10 +67,17 @@ describe("memory artifact live namespace", () => {
         body: JSON.stringify({
           op: "publish",
           artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-          pointer,
+          revision: {
+            revision_id: pointer.revision_id,
+            entrypoint: "index.html",
+            render_mode: pointer.render_mode,
+            title: pointer.title,
+          },
         }),
       }),
     );
+    expect(api.fetch).toHaveBeenCalled();
+    await connected.body?.cancel();
 
     await stub.fetch(
       new Request("https://memory.test/internal/notify", {
@@ -78,6 +111,7 @@ describe("memory artifact live namespace", () => {
             artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
             audience: "share",
             pointer,
+            auth: shareAuth,
           }),
         }),
       );
@@ -93,6 +127,7 @@ describe("memory artifact live namespace", () => {
           artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
           audience: "share",
           pointer,
+          auth: shareAuth,
         }),
       }),
     );

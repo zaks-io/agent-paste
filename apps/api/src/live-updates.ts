@@ -6,6 +6,7 @@ import {
   LiveUpdateNotifyMessage,
   LiveUpdatePointer,
   LiveUpdatePublishNotify,
+  LiveUpdateRevisionNotice,
 } from "@agent-paste/contracts";
 import { type ApiActor, inferRenderMode, type Repository } from "@agent-paste/db";
 import { accessLinkSigningRingFromEnv, verifyAccessLinkBlobWithKeyRing } from "@agent-paste/rotation";
@@ -185,26 +186,21 @@ async function authorizeDashboard(
   return authorized.success ? authorized.data : null;
 }
 
-export async function buildPointerFromPublishResult(
-  _env: Env,
+export async function buildRevisionNoticeFromPublishResult(
   signedPublish: unknown,
   entrypoint: string,
   title: string,
-): Promise<LiveUpdatePointer | null> {
+): Promise<LiveUpdateRevisionNotice | null> {
   if (!signedPublish || typeof signedPublish !== "object") {
     return null;
   }
-  const data = signedPublish as { artifact_id?: unknown; revision_id?: unknown; view_url?: unknown };
-  if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
+  const data = signedPublish as { revision_id?: unknown };
+  if (typeof data.revision_id !== "string") {
     return null;
   }
-  const viewUrl = data.view_url;
-  if (typeof viewUrl !== "string") {
-    return null;
-  }
-  const parsed = LiveUpdatePointer.safeParse({
+  const parsed = LiveUpdateRevisionNotice.safeParse({
     revision_id: data.revision_id,
-    iframe_src: viewUrl,
+    entrypoint,
     render_mode: inferRenderMode(entrypoint),
     title,
   });
@@ -213,12 +209,12 @@ export async function buildPointerFromPublishResult(
 
 export async function notifyLiveUpdatePublish(
   env: LiveUpdatesEnv,
-  input: { artifactId: string; pointer: LiveUpdatePointer },
+  input: { artifactId: string; revision: LiveUpdateRevisionNotice },
 ): Promise<void> {
   const message = LiveUpdatePublishNotify.safeParse({
     op: "publish",
     artifact_id: input.artifactId,
-    pointer: input.pointer,
+    revision: input.revision,
   });
   if (!message.success) {
     return;

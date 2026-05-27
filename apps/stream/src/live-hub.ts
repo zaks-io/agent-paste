@@ -4,13 +4,16 @@ import {
   LIVE_UPDATE_VIEWER_CAP,
   type LiveUpdateAudience,
   type LiveUpdatePointer,
+  type LiveUpdateRevisionNotice,
   type LiveUpdateRevokedEvent,
   type LiveUpdateSseEvent,
 } from "@agent-paste/contracts";
+import type { LiveConnectionAuth } from "./connection-auth.js";
 
 export type LiveConnection = {
   id: string;
   audience: LiveUpdateAudience;
+  auth: LiveConnectionAuth;
   send: (event: LiveUpdateSseEvent) => void;
   close: () => void;
 };
@@ -21,19 +24,15 @@ export type ConnectResult =
 
 export class ArtifactLiveHub {
   #connections = new Map<string, LiveConnection>();
-  #lastPointer: LiveUpdatePointer | null = null;
 
   get connectionCount(): number {
     return this.#connections.size;
   }
 
-  get lastPointer(): LiveUpdatePointer | null {
-    return this.#lastPointer;
-  }
-
   connect(input: {
     id: string;
     audience: LiveUpdateAudience;
+    auth: LiveConnectionAuth;
     send: (event: LiveUpdateSseEvent) => void;
     close: () => void;
   }): ConnectResult {
@@ -43,6 +42,7 @@ export class ArtifactLiveHub {
     const connection: LiveConnection = {
       id: input.id,
       audience: input.audience,
+      auth: input.auth,
       send: input.send,
       close: input.close,
     };
@@ -54,45 +54,61 @@ export class ArtifactLiveHub {
     this.#connections.delete(connectionId);
   }
 
-  publish(pointer: LiveUpdatePointer, artifactId: ArtifactId): void {
-    this.#lastPointer = pointer;
-    const event: LiveUpdateSseEvent = {
-      type: "published_revision",
-      artifact_id: artifactId,
-      pointer,
-    };
-    for (const connection of this.#connections.values()) {
+  async publishRevision(
+    revision: LiveUpdateRevisionNotice,
+    artifactId: ArtifactId,
+    resign: (connection: LiveConnection) => Promise<LiveUpdatePointer | null>,
+  ): Promise<void> {
+    for (const [id, connection] of [...this.#connections.entries()]) {
       try {
-        connection.send(event);
+        const pointer = await resign(connection);
+        if (!pointer || pointer.revision_id !== revision.revision_id) {
+          this.#revokeConnection(connection, lockdownReasonForAudience(connection.audience));
+          this.#connections.delete(id);
+          continue;
+        }
+        connection.send({
+          type: "published_revision",
+          artifact_id: artifactId,
+          pointer,
+        });
       } catch {
-        // keep fan-out best-effort when one connection's stream is broken
+        this.#revokeConnection(connection, lockdownReasonForAudience(connection.audience));
+        this.#connections.delete(id);
       }
     }
   }
 
   disconnect(audiences: LiveUpdateAudience[], reason: LiveUpdateRevokedEvent["reason"]): void {
     const audienceSet = new Set(audiences);
-    const event: LiveUpdateSseEvent = { type: "revoked", reason };
     for (const [id, connection] of this.#connections) {
       if (!audienceSet.has(connection.audience)) {
         continue;
       }
-      try {
-        connection.send(event);
-      } catch {
-        // still close broken connections
-      }
-      try {
-        connection.close();
-      } catch {
-        // keep disconnecting remaining viewers when one close handler throws
-      } finally {
-        this.#connections.delete(id);
-      }
+      this.#revokeConnection(connection, reason);
+      this.#connections.delete(id);
     }
   }
 
   disconnectAll(reason: LiveUpdateRevokedEvent["reason"]): void {
     this.disconnect(["share", "dashboard"], reason);
   }
+
+  #revokeConnection(connection: LiveConnection, reason: LiveUpdateRevokedEvent["reason"]): void {
+    const event: LiveUpdateSseEvent = { type: "revoked", reason };
+    try {
+      connection.send(event);
+    } catch {
+      // still close broken connections
+    }
+    try {
+      connection.close();
+    } catch {
+      // keep disconnecting remaining viewers when one close handler throws
+    }
+  }
+}
+
+function lockdownReasonForAudience(audience: LiveUpdateAudience): LiveUpdateRevokedEvent["reason"] {
+  return audience === "share" ? "access_link_lockdown" : "platform_lockdown";
 }
