@@ -48,6 +48,7 @@ function AccessLinkViewer() {
       setState({ kind: "not_found" });
       return () => controller.abort();
     }
+    setState({ kind: "loading" });
     fetch("/api/access-links/resolve", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
