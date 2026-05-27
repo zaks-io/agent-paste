@@ -98,7 +98,15 @@ async function pipeWebStreamToNode(outgoing, webStream) {
         resolve();
         return;
       }
-      outgoing.once("drain", resolve);
+      const onDone = () => {
+        outgoing.off("drain", onDone);
+        outgoing.off("close", onDone);
+        outgoing.off("error", onDone);
+        resolve();
+      };
+      outgoing.on("drain", onDone);
+      outgoing.on("close", onDone);
+      outgoing.on("error", onDone);
     });
 
   try {
