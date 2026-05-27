@@ -138,7 +138,7 @@ Recommended order:
 3. [x] Implement Streamable HTTP MCP transport on `apps/mcp`: JSON-RPC over
        `POST /`, optional SSE responses, stateless request auth, and correct
        `WWW-Authenticate` challenges.
-4. [ ] Verify OAuth tokens and forward to `api` over a service binding. API keys
+4. [x] Verify OAuth tokens and forward to `api` over a service binding. API keys
        must not authenticate to MCP.
 5. [ ] Implement the initial tool surface from ADR 0061: text-only publish,
        add revision, list/read artifacts, list revisions, delete/update

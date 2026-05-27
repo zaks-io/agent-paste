@@ -70,6 +70,7 @@ import {
   notifyLiveUpdatePublish,
   wireLiveUpdateDeps,
 } from "./live-updates.js";
+import { authenticateMcpBearer, resolveMcpMemberActor } from "./mcp-auth.js";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import {
@@ -163,6 +164,9 @@ export type Env = {
   // for non-default subdomains (see ADR 0060).
   WORKOS_CLI_JWKS_URL?: string;
   WORKOS_CLI_ISSUER?: string;
+  WORKOS_MCP_AUDIENCE?: string;
+  WORKOS_MCP_JWKS_URL?: string;
+  WORKOS_MCP_ISSUER?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
   SENTRY_DSN?: string;
@@ -206,6 +210,29 @@ const apiAuthResolvers = {
     return actor
       ? ({ ok: true, principal: { kind: "api_key", actor } } as const)
       : ({ ok: false, code: "not_authenticated" } as const);
+  },
+  async mcp_oauth(context: Context) {
+    const env = context.env as Env;
+    const authenticated = await authenticateMcpBearer(context.req.raw, env);
+    if (!authenticated) {
+      return { ok: false, code: "not_authenticated" } as const;
+    }
+    const db = apiDatabase(env);
+    if (!db) {
+      return { ok: false, code: "database_unavailable" } as const;
+    }
+    const actor = await resolveMcpMemberActor(authenticated, db);
+    if (!actor) {
+      return { ok: false, code: "forbidden" } as const;
+    }
+    return {
+      ok: true,
+      principal: {
+        kind: "workos_access_token",
+        identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
+        actor,
+      },
+    } as const;
   },
   async signed_agent_view_token(context: Context) {
     const token = context.req.param("token");
@@ -271,6 +298,9 @@ const apiNoDbRegistrar = createRegistrar({
 });
 apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) =>
   whoami(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("mcp.whoami"), async (context, principal, db) =>
+  mcpWhoami(context as AppContext, principal, db),
 );
 apiNoDbRegistrar.mount(contractById("usagePolicy.get"), async (context) => getUsagePolicy(context as AppContext));
 apiDbRegistrar.mount(contractById("apiKeys.revokeCurrent"), async (context, principal, db) =>
@@ -416,6 +446,23 @@ async function whoami(context: AppContext, principal: Principal, db: Repository)
   const actor = principal.actor as ApiKeyActor;
 
   return jsonResponse(context, await db.getWhoami(actor));
+}
+
+async function mcpWhoami(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  if (principal.kind !== "workos_access_token" || !principal.actor || principal.actor.type !== "member") {
+    return errorResponse(context, "not_authenticated");
+  }
+  const identity = principal.identity as WorkOsIdentity;
+  const actor = principal.actor as Extract<ApiActor, { type: "member" }>;
+  const workspace = await db.getWebWorkspace(actor);
+  return jsonResponse(context, {
+    workspace_member: {
+      id: actor.id,
+      email: identity.email ?? actor.email,
+    },
+    workspace: workspace.workspace,
+    scopes: [...(identity.mcp_scopes ?? [])],
+  });
 }
 
 async function getUsagePolicy(context: AppContext): Promise<Response> {

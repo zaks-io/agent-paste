@@ -2,6 +2,7 @@ import { AccessLinkSignedUrl, AccessLinkType } from "./accessLinks.js";
 import { AgentView, DisplayMetadata } from "./agentView.js";
 import { ArtifactListResponse, DeleteArtifactResponse } from "./artifacts.js";
 import { type ErrorCode, ErrorCode as ErrorCodeSchema, Mebibytes, PaginationRequest } from "./common.js";
+import type { Scope } from "./enums.js";
 import {
   AccessLinkId,
   ArtifactId,
@@ -706,10 +707,10 @@ export const mcpToolContracts = [
     outputSchema: "whoami",
     forwardedCalls: [
       {
-        routeId: "whoami.get",
+        routeId: "mcp.whoami",
         app: "api",
         method: "GET",
-        path: "/v1/whoami",
+        path: "/v1/mcp/whoami",
         auth: "mcp_bearer",
         idempotency: "none",
       },
@@ -772,6 +773,46 @@ export function mcpWwwAuthenticateHeader(resource = MCP_RESOURCE_INDICATOR): str
 export function mcpTokenHasRequiredScopes(granted: readonly McpScope[], required: readonly McpScope[]): boolean {
   const grantedSet = new Set(granted);
   return required.every((scope) => grantedSet.has(scope));
+}
+
+const mcpScopeSet = new Set<string>(MCP_DELEGATED_SCOPES);
+const excludedMemberOnlyScopeSet = new Set<string>(MCP_EXCLUDED_MEMBER_ONLY_SCOPES);
+
+/** Parse the OAuth `scope` claim into delegated MCP scopes only. */
+export function parseMcpScopeClaim(value: unknown): McpScope[] {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return [];
+  }
+  const scopes: McpScope[] = [];
+  for (const part of value.split(/\s+/u)) {
+    if (mcpScopeSet.has(part)) {
+      scopes.push(McpScope.parse(part));
+    }
+  }
+  return scopes;
+}
+
+/** True when the claim includes Member-Only Scopes that MCP tokens must never carry. */
+export function mcpScopeClaimIncludesMemberOnlyScopes(value: unknown): boolean {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return false;
+  }
+  return value.split(/\s+/u).some((part) => excludedMemberOnlyScopeSet.has(part));
+}
+
+/** Map delegated MCP scopes to API route scopes for service-binding forwarding (ADR 0034). */
+export function mcpScopesToApiScopes(mcpScopes: readonly McpScope[]): Scope[] {
+  const apiScopes: Scope[] = [];
+  if (mcpScopes.includes("write")) {
+    apiScopes.push("publish");
+  }
+  if (mcpScopes.includes("read")) {
+    apiScopes.push("read");
+  }
+  if (mcpScopes.includes("share")) {
+    apiScopes.push("admin");
+  }
+  return apiScopes;
 }
 
 const MCP_IDEMPOTENCY_SEGMENT_MAX = 64;

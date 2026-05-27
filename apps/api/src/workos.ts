@@ -1,3 +1,4 @@
+import type { McpScope } from "@agent-paste/contracts";
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 
 export type WorkOsIdentity = {
@@ -7,7 +8,8 @@ export type WorkOsIdentity = {
   token_id?: string;
   role?: string;
   roles?: readonly string[];
-  auth_surface?: "dashboard" | "cli";
+  auth_surface?: "dashboard" | "cli" | "mcp";
+  mcp_scopes?: readonly McpScope[];
 };
 
 export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });

@@ -12,6 +12,7 @@ export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
 export type AuthRequirement =
   | "none"
   | "api_key"
+  | "mcp_oauth"
   | "workos_access_token"
   | "operator"
   | "signed_agent_view_token"
@@ -92,6 +93,18 @@ export const routeContracts = [
     rateLimit: "actor",
     responseSchema: "WhoamiResponse",
     errors: apiKeyReadErrors,
+  },
+  {
+    id: "mcp.whoami",
+    app: "api",
+    method: "GET",
+    path: "/v1/mcp/whoami",
+    auth: "mcp_oauth",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "McpWhoamiResponse",
+    errors: ["not_authenticated", "forbidden", "database_unavailable"] as const,
   },
   {
     id: "usagePolicy.get",

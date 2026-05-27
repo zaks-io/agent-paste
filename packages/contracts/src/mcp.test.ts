@@ -8,9 +8,12 @@ import {
   mcpEntrypointForRenderMode,
   mcpIdempotencySegment,
   mcpProtectedResourceMetadata,
+  mcpScopeClaimIncludesMemberOnlyScopes,
+  mcpScopesToApiScopes,
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
+  parseMcpScopeClaim,
   toMcpJsonRpcError,
 } from "./mcp.js";
 import { IdempotencyKey } from "./primitives.js";
@@ -98,6 +101,18 @@ describe("MCP auth and idempotency helpers", () => {
   it("checks delegated scope subsets", () => {
     expect(mcpTokenHasRequiredScopes(["write", "read", "share"], ["read"])).toBe(true);
     expect(mcpTokenHasRequiredScopes(["read"], ["write"])).toBe(false);
+  });
+
+  it("parses OAuth scope claims and rejects member-only scopes", () => {
+    expect(parseMcpScopeClaim("write read share")).toEqual(["write", "read", "share"]);
+    expect(parseMcpScopeClaim("read unknown")).toEqual(["read"]);
+    expect(mcpScopeClaimIncludesMemberOnlyScopes("read manage_keys")).toBe(true);
+    expect(mcpScopeClaimIncludesMemberOnlyScopes("write read share")).toBe(false);
+  });
+
+  it("maps delegated MCP scopes to API route scopes", () => {
+    expect(mcpScopesToApiScopes(["write", "read", "share"])).toEqual(["publish", "read", "admin"]);
+    expect(mcpScopesToApiScopes(["read"])).toEqual(["read"]);
   });
 
   it("derives idempotency keys from token sub, json rpc id, and tool name", () => {

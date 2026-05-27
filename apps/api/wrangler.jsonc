@@ -18,6 +18,7 @@
     "DOCS_BASE_URL": "",
     "WORKOS_CLIENT_ID": "",
     "WORKOS_CLI_AUDIENCE": "",
+    "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
     "CF_ACCESS_TEAM_DOMAIN": ""
   },
   "r2_buckets": [
@@ -101,6 +102,9 @@
         "WORKOS_CLI_AUDIENCE": "client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
         "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
         "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": ""
       },
       "hyperdrive": [
@@ -194,6 +198,9 @@
         "WORKOS_CLI_AUDIENCE": "client_01KSAGD5VSVFATV6ZY5CFGC6PJ",
         "WORKOS_CLI_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
         "WORKOS_CLI_ISSUER": "https://soulful-path-50.authkit.app",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
+        "WORKOS_MCP_ISSUER": "https://soulful-path-50.authkit.app",
         // Cloudflare Access app protecting production operator web/API paths.
         // The corresponding routes are path-gated at the edge, and api can use
         // these to verify Cf-Access-Jwt-Assertion for service-token operator
