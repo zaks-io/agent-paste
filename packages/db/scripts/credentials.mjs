@@ -47,9 +47,8 @@ export function migrationDatabaseUrlEnvName(target, env = process.env) {
 
 /**
  * @param {MigrationTarget} target
- * @param {NodeJS.ProcessEnv} [env]
  */
-export function runtimeDatabaseUrlEnvName(target, env = process.env) {
+export function runtimeDatabaseUrlEnvName(target) {
   return RUNTIME_ENV[target];
 }
 
@@ -62,19 +61,6 @@ export function resolveMigrationDatabaseUrl(target, env = process.env) {
   const url = env[envName];
   if (!url) {
     throw new Error(`Set ${envName} before running ${target} migrations.`);
-  }
-  return { envName, url };
-}
-
-/**
- * @param {MigrationTarget} target
- * @param {NodeJS.ProcessEnv} [env]
- */
-export function resolveRuntimeDatabaseUrl(target, env = process.env) {
-  const envName = runtimeDatabaseUrlEnvName(target, env);
-  const url = env[envName];
-  if (!url) {
-    throw new Error(`Set ${envName} for the ${target} Hyperdrive runtime connection.`);
   }
   return { envName, url };
 }

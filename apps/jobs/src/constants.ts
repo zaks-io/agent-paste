@@ -19,6 +19,3 @@ export const QUEUE_BYTE_PURGE = "byte-purge";
 export const QUEUE_SAFETY_SCAN = "safety-scan";
 export const QUEUE_BUNDLE_GENERATE = "bundle-generate";
 export const QUEUE_BUNDLE_GENERATE_DLQ = "bundle-generate-dlq";
-
-export const STUB_SCANNER_ID = "stub_v1";
-export const STUB_SCANNER_VERSION = "1";

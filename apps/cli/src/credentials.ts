@@ -33,10 +33,6 @@ export function loadCredential(): Promise<Credential | null> {
   return credentialStore().load();
 }
 
-export function saveCredential(credential: Credential): Promise<void> {
-  return credentialStore().save(credential);
-}
-
 export function deleteCredential(): Promise<void> {
   return credentialStore().delete();
 }

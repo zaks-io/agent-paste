@@ -5,8 +5,6 @@ export const MAX_PATH_SEGMENTS = 64;
 export const MAX_PATH_LENGTH = 512;
 /** Per-URL default cap for Access Link Signed URLs (ADR 0047 / 0056). */
 export const ACCESS_LINK_SIGNED_URL_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-/** @deprecated Use ACCESS_LINK_SIGNED_URL_DEFAULT_TTL_MS; kept for older call sites. */
-export const DEFAULT_ACCESS_LINK_TTL_MS = ACCESS_LINK_SIGNED_URL_DEFAULT_TTL_MS;
 export const DEFAULT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_API_KEY_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const CLEANUP_BATCH_SIZE = 100;

@@ -84,21 +84,22 @@ pnpm hooks:install
 
 ### Quality
 
-| Command                  | Purpose                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`             | Run `turbo run build`.                                                                                        |
-| `pnpm check`             | Run package `check` tasks where defined.                                                                      |
-| `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                           |
-| `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                    |
-| `pnpm test`              | Run `turbo run test`.                                                                                         |
-| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers (deploy and queue provisioning).                                 |
-| `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                |
-| `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                            |
-| `pnpm format:code`       | Format non-doc files with Biome.                                                                              |
-| `pnpm format:docs`       | Format Markdown files with Prettier.                                                                          |
-| `pnpm format:docs:check` | Check Markdown formatting.                                                                                    |
-| `pnpm verify`            | Full CI-style local verification: docs format check plus lint, typecheck, tests, OpenAPI check, and DB check. |
-| `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                      |
+| Command                  | Purpose                                                                                                         |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`             | Run `turbo run build`.                                                                                          |
+| `pnpm check`             | Run package `check` tasks where defined.                                                                        |
+| `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                             |
+| `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                      |
+| `pnpm test`              | Run `turbo run test`.                                                                                           |
+| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers (deploy and queue provisioning).                                   |
+| `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                  |
+| `pnpm knip`              | Run Knip unused file, dependency, and export checks.                                                            |
+| `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                              |
+| `pnpm format:code`       | Format non-doc files with Biome.                                                                                |
+| `pnpm format:docs`       | Format Markdown files with Prettier.                                                                            |
+| `pnpm format:docs:check` | Check Markdown formatting.                                                                                      |
+| `pnpm verify`            | Full CI-style local verification: docs format check, Knip, lint, typecheck, tests, OpenAPI check, and DB check. |
+| `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                        |
 
 ### Contracts and Database
 
@@ -158,4 +159,4 @@ pnpm hooks:install
 
 ## Git Hooks
 
-Lefthook is configured at the repo root. `pre-commit` runs Biome on staged files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and Turbo typecheck for packages affected since `origin/main` with a local `HEAD` fallback. `pre-push` runs `pnpm test:coverage` so global coverage thresholds match CI.
+Lefthook is configured at the repo root. `pre-commit` runs Biome on staged files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and Turbo typecheck for packages affected since `origin/main` with a local `HEAD` fallback. `pre-push` runs `pnpm knip` and `pnpm test:coverage` so dead-code and global coverage checks run before local pushes.

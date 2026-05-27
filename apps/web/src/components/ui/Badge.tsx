@@ -34,15 +34,3 @@ export function Badge({ tone = "neutral", className, children, ...rest }: Props)
     </span>
   );
 }
-
-export function StatusPip({ tone = "neutral" }: { tone?: BadgeTone }) {
-  const colorByTone: Record<BadgeTone, string> = {
-    neutral: "bg-[hsl(var(--muted))]",
-    success: "bg-[hsl(var(--success))]",
-    warning: "bg-[hsl(var(--warning))]",
-    destructive: "bg-[hsl(var(--destructive))]",
-    accent: "bg-[hsl(var(--accent))]",
-    info: "bg-[hsl(var(--info))]",
-  };
-  return <span aria-hidden className={cn("inline-block size-[6px] rounded-full", colorByTone[tone])} />;
-}

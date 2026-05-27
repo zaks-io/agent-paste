@@ -12,11 +12,6 @@ import { errorResponse, jsonResponse, unknownErrorToCode } from "./errors.js";
 import type { AuthResult, Principal, PrincipalFor, ScopedActor } from "./principal.js";
 import { applyRateLimit, type RateLimitBindings } from "./rate-limit.js";
 
-export type RouteContext = {
-  request: Request;
-  params: Record<string, string>;
-};
-
 export type AuthResolver<P extends Principal = Principal> = (
   context: Context,
   contract: RouteContract,

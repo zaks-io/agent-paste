@@ -28,8 +28,3 @@ export function withPlatformScope(executor: SqlExecutor): SqlExecutor {
 export function withWorkspaceScope(executor: SqlExecutor, workspaceId: string): SqlExecutor {
   return rlsExecutor(executor, { kind: "workspace", workspaceId });
 }
-
-export function resolvePlatformSqlExecutor(env: Env): SqlExecutor | null {
-  const base = resolveSqlExecutor(env);
-  return base ? withPlatformScope(base) : null;
-}
