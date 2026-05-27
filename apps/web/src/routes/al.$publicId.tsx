@@ -42,22 +42,31 @@ function AccessLinkViewer() {
   const [state, setState] = useState<ResolveResult>({ kind: "loading" });
 
   useEffect(() => {
+    const controller = new AbortController();
     const blob = window.location.hash.replace(/^#/, "");
     if (!blob) {
       setState({ kind: "not_found" });
-      return;
+      return () => controller.abort();
     }
-    fetch("/al-resolve", {
+    setState({ kind: "loading" });
+    fetch("/api/access-links/resolve", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({ public_id: publicId, blob }),
+      signal: controller.signal,
     })
       .then(async (res) => {
+        if (controller.signal.aborted) {
+          return;
+        }
         if (!res.ok) {
           setState({ kind: "not_found" });
           return;
         }
         const body = (await res.json()) as unknown;
+        if (controller.signal.aborted) {
+          return;
+        }
         if (!isResolveBody(body)) {
           setState({ kind: "not_found" });
           return;
@@ -70,7 +79,15 @@ function AccessLinkViewer() {
         };
         setState(resolved);
       })
-      .catch(() => setState({ kind: "not_found" }));
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        if (!controller.signal.aborted) {
+          setState({ kind: "not_found" });
+        }
+      });
+    return () => controller.abort();
   }, [publicId]);
 
   if (state.kind === "loading") {

@@ -38,13 +38,18 @@ export type SignedContentTokenPrincipal<Payload = unknown> = {
   payload: Payload;
 };
 
+export type AnonymousPrincipal = {
+  kind: "none";
+};
+
 export type Principal =
   | ApiKeyPrincipal
   | WorkOsAccessTokenPrincipal
   | OperatorPrincipal
   | SignedAgentViewTokenPrincipal
   | SignedUploadUrlPrincipal
-  | SignedContentTokenPrincipal;
+  | SignedContentTokenPrincipal
+  | AnonymousPrincipal;
 
 export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
   ? ApiKeyPrincipal
@@ -58,7 +63,9 @@ export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
           ? SignedUploadUrlPrincipal
           : Auth extends "signed_content_token"
             ? SignedContentTokenPrincipal
-            : Principal;
+            : Auth extends "none"
+              ? AnonymousPrincipal
+              : Principal;
 
 export type AuthSuccess<P extends Principal = Principal> = { ok: true; principal: P };
 export type AuthFailure = { ok: false; code: ErrorCode; message?: string };

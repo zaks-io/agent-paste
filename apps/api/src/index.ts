@@ -33,8 +33,10 @@ import {
   type Repository,
 } from "@agent-paste/db";
 import {
+  accessLinkSigningRingFromEnv,
   contentSigningRingFromEnv,
   pepperRingFromWorkerEnv,
+  verifyAccessLinkBlobWithKeyRing,
   verifyAgentViewTokenWithKeyRing,
 } from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -103,6 +105,9 @@ export type Env = {
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
+  ACCESS_LINK_SIGNING_KEY_V1?: string;
+  ACCESS_LINK_SIGNING_KEY_V2?: string;
+  ACCESS_LINK_SIGNING_KID?: string;
   AGENT_VIEW_SIGNING_SECRET?: string;
   CLEANUP_BATCH_SIZE?: string;
   DENYLIST?: KVNamespace;
@@ -168,6 +173,9 @@ app.get("/openapi.json", (context) =>
   ),
 );
 const apiAuthResolvers = {
+  async none() {
+    return { ok: true, principal: { kind: "none" } } as const;
+  },
   async api_key(context: Context) {
     const actor = await authenticateApiKey(context.req.raw, context.env as Env);
     return actor
@@ -242,6 +250,9 @@ apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) 
 apiNoDbRegistrar.mount(contractById("usagePolicy.get"), async (context) => getUsagePolicy(context as AppContext));
 apiDbRegistrar.mount(contractById("agentView.public"), async (context, principal, db) =>
   publicAgentView(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("accessLinks.resolve"), async (context, _principal, db, guard) =>
+  resolveAccessLinkRoute(context as AppContext, db, guard),
 );
 apiDbRegistrar.mount(contractById("agentView.getLatest"), async (context, principal, db) =>
   authenticatedAgentView(context as AppContext, principal, db, {
@@ -439,6 +450,83 @@ class RepositoryRouteError extends Error {
     super(message ?? code);
     this.name = "RepositoryRouteError";
   }
+}
+
+async function resolveAccessLinkRoute(
+  context: AppContext,
+  db: Repository,
+  guard: GuardFor<"accessLinks.resolve">,
+): Promise<Response> {
+  const env = context.env as Env;
+  const body = guard.body;
+  const accessLinkSigningEnv: {
+    ACCESS_LINK_SIGNING_KEY_V1?: string;
+    ACCESS_LINK_SIGNING_KEY_V2?: string;
+    ACCESS_LINK_SIGNING_KID?: string;
+  } = {};
+  if (env.ACCESS_LINK_SIGNING_KEY_V1) {
+    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KEY_V1 = env.ACCESS_LINK_SIGNING_KEY_V1;
+  }
+  if (env.ACCESS_LINK_SIGNING_KEY_V2) {
+    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KEY_V2 = env.ACCESS_LINK_SIGNING_KEY_V2;
+  }
+  if (env.ACCESS_LINK_SIGNING_KID) {
+    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KID = env.ACCESS_LINK_SIGNING_KID;
+  }
+  const ring = accessLinkSigningRingFromEnv(accessLinkSigningEnv);
+  if (!ring) {
+    return errorResponse(context, "not_found");
+  }
+  const verified = await verifyAccessLinkBlobWithKeyRing(
+    { publicId: body.public_id, blob: body.blob },
+    ring,
+  );
+  if (!verified) {
+    return errorResponse(context, "not_found");
+  }
+
+  const resolved = await db.resolveAccessLink({
+    publicId: body.public_id,
+    blobScopes: verified.scopes,
+    contentBaseUrl: contentBaseUrl(env),
+    now: new Date().toISOString(),
+  });
+  if (!resolved) {
+    return errorResponse(context, "not_found");
+  }
+
+  const rateLimited = await enforceArtifactRateLimit(context, resolved.agent_view.artifact_id);
+  if (rateLimited) {
+    return rateLimited;
+  }
+
+  const signedView = await signAgentViewContentUrls(resolved.agent_view, env, {
+    accessLinkId: resolved.access_link_id,
+    workspaceId: resolved.workspace_id,
+  });
+  const view = signedView as { view_url?: string; title?: string };
+  return jsonResponse(context, {
+    agent_view: signedView,
+    render_mode: resolved.render_mode,
+    title: resolved.title,
+    iframe_src: typeof view.view_url === "string" ? view.view_url : resolved.iframe_src,
+  });
+}
+
+async function enforceArtifactRateLimit(context: AppContext, artifactId: string): Promise<Response | null> {
+  const binding = context.env.ARTIFACT_RATE_LIMIT;
+  if (!binding) {
+    return null;
+  }
+  try {
+    const outcome = await binding.limit({ key: artifactId });
+    if (!outcome.success) {
+      return errorResponse(context, "rate_limited_artifact", undefined, { "Retry-After": "60" });
+    }
+  } catch (error) {
+    console.warn("Artifact rate limit binding failed; allowing access link resolve.", error);
+  }
+  return null;
 }
 
 async function publicAgentView(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -1395,8 +1483,12 @@ async function verifyAgentViewTokenForEnv(token: string, env: Env) {
   return env.CONTENT_SIGNING_SECRET ? verifyAgentViewToken(token, env.CONTENT_SIGNING_SECRET) : null;
 }
 
-async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknown> {
-  if (!env.CONTENT_SIGNING_SECRET || !view || typeof view !== "object") {
+async function signAgentViewContentUrls(
+  view: unknown,
+  env: Env,
+  options?: { accessLinkId?: string; workspaceId?: string },
+): Promise<unknown> {
+  if (!agentViewSigningSecret(env) || !view || typeof view !== "object") {
     return view;
   }
 
@@ -1414,6 +1506,10 @@ async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknow
 
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
+  const contentAuth = {
+    ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
+    ...(options?.workspaceId ? { workspaceId: options.workspaceId } : {}),
+  };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(
         data.files.map(async (file) => {
@@ -1428,6 +1524,7 @@ async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknow
               data.revision_id as string,
               file.path,
               expiresAt,
+              contentAuth,
             ),
           };
         }),
@@ -1437,7 +1534,14 @@ async function signAgentViewContentUrls(view: unknown, env: Env): Promise<unknow
   return {
     ...data,
     view_url: entrypoint
-      ? await signedContentUrl(env, data.artifact_id, data.revision_id, entrypoint, expiresAt)
+      ? await signedContentUrl(
+          env,
+          data.artifact_id,
+          data.revision_id,
+          entrypoint,
+          expiresAt,
+          contentAuth,
+        )
       : typeof data.view_url === "string"
         ? data.view_url
         : undefined,
@@ -1451,17 +1555,20 @@ async function signedContentUrl(
   revisionId: string,
   path: string,
   expiresAt?: string,
+  auth?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<string> {
-  if (!env.CONTENT_SIGNING_SECRET) {
+  const signingSecret = agentViewSigningSecret(env);
+  if (!signingSecret) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
-  const signingRing = contentSigningRingFromEnv(env);
   return mintContentUrl({
     baseUrl: contentBaseUrl(env),
-    secret: signingRing?.signingSecret() ?? env.CONTENT_SIGNING_SECRET,
+    secret: signingSecret,
     payload: {
       artifact_id: artifactId,
       revision_id: revisionId,
+      ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
+      ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
       paths: [path],
       exp: contentTokenExpiration(expiresAt),
     },

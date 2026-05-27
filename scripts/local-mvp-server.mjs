@@ -13,6 +13,7 @@ const smokeHarnessSecret = smokeHarnessSecretFromEnv();
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
 const contentSecret = process.env.AGENT_PASTE_CONTENT_SIGNING_SECRET ?? "local-content-secret";
+const accessLinkSigningKey = process.env.AGENT_PASTE_ACCESS_LINK_SIGNING_KEY ?? "access-link-secret";
 
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
@@ -185,6 +186,7 @@ function createApiDatabase(repo, denylistNamespace) {
     getWhoami: repo.getWhoami.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
+    resolveAccessLink: repo.resolveAccessLink.bind(repo),
     getAdminWhoami: repo.getAdminWhoami?.bind(repo),
     createWorkspace: repo.createWorkspace.bind(repo),
     listWorkspaces: repo.listWorkspaces.bind(repo),
@@ -242,6 +244,7 @@ const apiEnv = {
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
+  ACCESS_LINK_SIGNING_KEY_V1: accessLinkSigningKey,
   CLEANUP_BATCH_SIZE: "100",
   AGENT_PASTE_ENV: "dev",
   WORKOS_API_KEY: process.env.WORKOS_API_KEY,
