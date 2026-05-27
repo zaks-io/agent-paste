@@ -184,8 +184,11 @@ export type CommandRunContext = {
   command<T>(spec: Omit<CommandSpec, "scope">, run: (entities: Entities) => Promise<T>): Promise<T>;
 };
 
+// peekReplay() distinguishes missing keys, in-flight commands, and completed replays.
+export type PeekReplayResult<T> = { result: T } | { inFlight: true } | null;
+
 // The unit of work the core depends on. read() runs a scoped query; command()
-// wraps a mutation in durable idempotency; peekReplay() returns a completed result.
+// wraps a mutation in durable idempotency; peekReplay() reports replay state.
 export type UnitOfWork = {
   read<T>(scope: RunScope, run: (entities: Entities) => Promise<T>): Promise<T>;
   command<T>(spec: CommandSpec, run: (entities: Entities, ctx: CommandRunContext) => Promise<T>): Promise<T>;
@@ -194,5 +197,5 @@ export type UnitOfWork = {
     operation: string;
     idempotencyKey: string;
     scope: RunScope;
-  }): Promise<{ result: T } | null>;
+  }): Promise<PeekReplayResult<T>>;
 };

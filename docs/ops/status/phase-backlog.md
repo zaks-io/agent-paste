@@ -176,7 +176,7 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
 
 These are not phase gates, but they are documented cleanup:
 
-- [ ] `LocalUnitOfWork` in-flight idempotency tracking and `peekReplay`
+- [x] `LocalUnitOfWork` in-flight idempotency tracking and `peekReplay`
       faithfulness.
 - [ ] Deepen the Upload Session lifecycle module when Phase 4 publish/update
       work starts.
