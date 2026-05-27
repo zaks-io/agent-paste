@@ -1,3 +1,4 @@
+import type { McpScope } from "@agent-paste/contracts";
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 
 export type WorkOsIdentity = {
@@ -7,7 +8,8 @@ export type WorkOsIdentity = {
   token_id?: string;
   role?: string;
   roles?: readonly string[];
-  auth_surface?: "dashboard" | "cli";
+  auth_surface?: "dashboard" | "cli" | "mcp";
+  mcp_scopes?: readonly McpScope[];
 };
 
 export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });
@@ -34,6 +36,8 @@ export type WorkOsVerificationOptions = {
   issuers?: string[];
   jwksUrl?: string;
   requireClientIdClaim?: boolean;
+  /** When true, do not require `client_id`/`azp` to match `clientId` (caller pins via `aud` instead). */
+  skipClientIdClaimVerification?: boolean;
   onReject?: (reason: WorkOsRejectReason, detail?: Record<string, unknown>) => void;
 };
 
@@ -102,7 +106,10 @@ export async function verifyWorkOsAccessToken(
       options.onReject?.("issuer_mismatch", { iss: payload.iss ?? null });
       return null;
     }
-    if (!clientIdMatches(payload, options.clientId, options.requireClientIdClaim === true)) {
+    if (
+      !options.skipClientIdClaimVerification &&
+      !clientIdMatches(payload, options.clientId, options.requireClientIdClaim === true)
+    ) {
       options.onReject?.("client_id_mismatch", {
         client_id: stringClaim(payload.client_id) ?? stringClaim(payload.azp) ?? null,
         aud: payload.aud ?? null,

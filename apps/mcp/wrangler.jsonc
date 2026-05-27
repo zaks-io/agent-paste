@@ -1,0 +1,67 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "vars": {
+    "AGENT_PASTE_ENV": "dev",
+    "MCP_RESOURCE": "https://mcp.agent-paste.sh",
+    "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh"
+  },
+  "services": [
+    {
+      "binding": "API",
+      "service": "agent-paste-api"
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "agent-paste-mcp-preview",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "mcp.preview.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "preview",
+        "MCP_RESOURCE": "https://mcp.preview.agent-paste.sh",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh"
+      },
+      "services": [
+        {
+          "binding": "API",
+          "service": "agent-paste-api-preview"
+        }
+      ]
+    },
+    "production": {
+      "name": "agent-paste-mcp-production",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "mcp.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "production",
+        "MCP_RESOURCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh"
+      },
+      "services": [
+        {
+          "binding": "API",
+          "service": "agent-paste-api-production"
+        }
+      ]
+    }
+  }
+}

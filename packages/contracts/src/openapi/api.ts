@@ -59,6 +59,16 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
 
   registry.registerPath({
     method: "get",
+    path: "/v1/mcp/whoami",
+    operationId: "mcp.whoami",
+    summary: "Resolve the authenticated workspace member for an MCP OAuth token.",
+    security: [{ McpOAuthBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("McpWhoamiResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
     path: "/v1/usage-policy",
     operationId: "usagePolicy.get",
     summary: "Read the MVP usage policy.",

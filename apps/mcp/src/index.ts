@@ -2,12 +2,15 @@ import { mcpProtectedResourceMetadata } from "@agent-paste/contracts";
 import { sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
+import type { ApiServiceBinding } from "./forward.js";
 import { handleMcpEndpoint } from "./transport.js";
+import type { McpWorkOsEnv } from "./workos.js";
 
-export type Env = {
+export type Env = McpWorkOsEnv & {
   AGENT_PASTE_ENV?: string;
   MCP_RESOURCE?: string;
   MCP_AUTHORIZATION_SERVER?: string;
+  API?: ApiServiceBinding;
   SENTRY_DSN?: string;
 };
 

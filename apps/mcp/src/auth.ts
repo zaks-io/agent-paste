@@ -1,8 +1,10 @@
 import type { McpScope } from "@agent-paste/contracts";
+import { isConfiguredMcpOAuthVerifier, type McpWorkOsEnv, verifyMcpOAuthToken } from "./workos.js";
 
 export type McpAuthContext = {
   tokenSub: string;
   scopes: readonly McpScope[];
+  bearerToken: string;
 };
 
 export type McpAuthSuccess = {
@@ -18,7 +20,10 @@ export type McpAuthFailure = {
 
 export type McpAuthResult = McpAuthSuccess | McpAuthFailure;
 
-export type VerifyMcpBearer = (input: { authorizationHeader: string | null }) => McpAuthResult | Promise<McpAuthResult>;
+export type VerifyMcpBearer = (input: {
+  authorizationHeader: string | null;
+  env?: McpWorkOsEnv;
+}) => McpAuthResult | Promise<McpAuthResult>;
 
 export function parseBearerToken(authorizationHeader: string | null): string | null {
   if (!authorizationHeader) {
@@ -50,7 +55,7 @@ function detectRejectedAuthKind(token: string): "api_key" | "workos_access_token
   return null;
 }
 
-/** Stateless bearer hook used until WorkOS JWT verification lands in a follow-up ticket. */
+/** Stateless bearer hook used when WorkOS MCP verification is not configured. */
 export function createUnconfiguredMcpBearerAuth(): VerifyMcpBearer {
   return ({ authorizationHeader }) => {
     const token = parseBearerToken(authorizationHeader);
@@ -69,6 +74,38 @@ export function createUnconfiguredMcpBearerAuth(): VerifyMcpBearer {
   };
 }
 
+export function createWorkOsMcpBearerAuth(env: McpWorkOsEnv): VerifyMcpBearer {
+  return async ({ authorizationHeader }) => {
+    const token = parseBearerToken(authorizationHeader);
+    if (!token) {
+      return rejectMissingBearer();
+    }
+    const rejected = detectRejectedAuthKind(token);
+    if (rejected) {
+      return rejectRejectedAuthKind(rejected);
+    }
+    if (!isConfiguredMcpOAuthVerifier(env)) {
+      return {
+        ok: false,
+        code: "invalid_token",
+        message: "mcp_oauth_verifier_not_configured",
+      };
+    }
+    const verified = await verifyMcpOAuthToken(token, env);
+    if (!verified) {
+      return rejectMissingBearer();
+    }
+    return {
+      ok: true,
+      context: {
+        tokenSub: verified.tokenSub,
+        scopes: verified.scopes,
+        bearerToken: token,
+      },
+    };
+  };
+}
+
 export function createTestMcpBearerAuth(tokens: Record<string, McpAuthContext>): VerifyMcpBearer {
   return ({ authorizationHeader }) => {
     const token = parseBearerToken(authorizationHeader);
@@ -83,6 +120,6 @@ export function createTestMcpBearerAuth(tokens: Record<string, McpAuthContext>):
     if (!context) {
       return rejectMissingBearer();
     }
-    return { ok: true, context };
+    return { ok: true, context: { ...context, bearerToken: token } };
   };
 }

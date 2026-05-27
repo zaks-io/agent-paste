@@ -13,6 +13,7 @@ import {
 } from "../bundle.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
+import { McpWhoamiResponse } from "../mcp.js";
 import { PlainTextTitle, UrlString } from "../primitives.js";
 import { RenderMode, RevisionListResponse, RevisionSummary } from "../revisions.js";
 import {
@@ -55,6 +56,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
   registerBundleAvailabilitySchemas(registry);
   registry.register("WhoamiResponse", WhoamiResponse);
+  registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   const registeredAgentView = registry.register("AgentView", AgentView);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
@@ -119,6 +121,11 @@ export const securitySchemes = {
     type: "http",
     scheme: "bearer",
     description: "WorkOS AuthKit access token forwarded by the web Worker.",
+  },
+  McpOAuthBearer: {
+    type: "http",
+    scheme: "bearer",
+    description: "WorkOS AuthKit/Connect access token minted for the MCP resource indicator.",
   },
   CfAccessServiceToken: {
     type: "apiKey",

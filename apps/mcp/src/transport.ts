@@ -1,14 +1,18 @@
 import { MCP_RESOURCE_INDICATOR, mapMcpProtocolError, mcpWwwAuthenticateHeader } from "@agent-paste/contracts";
-import { createUnconfiguredMcpBearerAuth, type VerifyMcpBearer } from "./auth.js";
+import { createUnconfiguredMcpBearerAuth, createWorkOsMcpBearerAuth, type VerifyMcpBearer } from "./auth.js";
+import type { ApiServiceBinding } from "./forward.js";
 import { jsonRpcErrorResponse, mapParseFailure, parseMcpJsonRpcBody, respondWithJsonRpc } from "./jsonrpc.js";
 import { handleMcpProtocolMethod } from "./protocol.js";
+import type { McpWorkOsEnv } from "./workos.js";
 
-export type McpTransportEnv = {
+export type McpTransportEnv = McpWorkOsEnv & {
   MCP_RESOURCE?: string;
+  API?: ApiServiceBinding;
 };
 
 export type McpTransportDeps = {
   verifyBearer?: VerifyMcpBearer;
+  api?: ApiServiceBinding;
 };
 
 function resourceFromEnv(env: McpTransportEnv): string {
@@ -37,7 +41,7 @@ export async function handleMcpEndpoint(
   deps: McpTransportDeps = {},
 ): Promise<Response> {
   const resource = resourceFromEnv(env);
-  const verifyBearer = deps.verifyBearer ?? createUnconfiguredMcpBearerAuth();
+  const verifyBearer = deps.verifyBearer ?? bearerVerifierForEnv(env);
 
   if (request.method === "GET" || request.method === "DELETE") {
     return new Response(null, { status: 405 });
@@ -85,12 +89,21 @@ export async function handleMcpEndpoint(
     return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "json_rpc_request_id_required"));
   }
 
-  const handled = handleMcpProtocolMethod({
+  const apiBinding = deps.api ?? env.API;
+  const protocolInput: Parameters<typeof handleMcpProtocolMethod>[0] = {
     method: parsed.request.method,
     params: parsed.request.params,
     id: requestId,
     auth: authResult.context,
-  });
+  };
+  if (apiBinding) {
+    protocolInput.toolDeps = {
+      api: apiBinding,
+      bearerToken: authResult.context.bearerToken,
+    };
+  }
+
+  const handled = await Promise.resolve(handleMcpProtocolMethod(protocolInput));
 
   if (handled.kind === "accepted") {
     return new Response(null, { status: 202 });
@@ -101,6 +114,14 @@ export async function handleMcpEndpoint(
   }
 
   return respondWithJsonRpc(handled.response, request.headers.get("accept"), optionalSessionHeader(request));
+}
+
+function bearerVerifierForEnv(env: McpTransportEnv): VerifyMcpBearer {
+  const { API: _api, ...workOsEnv } = env;
+  if (env.WORKOS_API_KEY && (env.WORKOS_MCP_JWKS_URL ?? env.WORKOS_CLI_JWKS_URL)) {
+    return createWorkOsMcpBearerAuth(workOsEnv);
+  }
+  return createUnconfiguredMcpBearerAuth();
 }
 
 function optionalSessionHeader(request: Request): HeadersInit | undefined {

@@ -21,4 +21,6 @@ Current endpoints:
 - `GET /openapi.json`
 
 Transport auth is OAuth-bearer only via a stateless `VerifyMcpBearer` hook. WorkOS JWT
-verification and tool forwarding are follow-up tickets.
+verification runs locally on the Worker, then authenticated calls forward to `api` over
+the `API` service binding with the same bearer. The `whoami` tool is wired as the auth
+smoke fixture; the remaining ADR 0061 tools ship in a follow-up ticket.

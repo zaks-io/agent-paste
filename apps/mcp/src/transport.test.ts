@@ -8,10 +8,12 @@ const testAuth = createTestMcpBearerAuth({
   "mcp-valid-token": {
     tokenSub: "user_01",
     scopes: ["write", "read", "share"],
+    bearerToken: "mcp-valid-token",
   },
   "mcp-read-only": {
     tokenSub: "user_02",
     scopes: ["read"],
+    bearerToken: "mcp-read-only",
   },
 });
 
@@ -206,7 +208,7 @@ describe("MCP streamable HTTP transport", () => {
     expect(await response.text()).toBe("");
   });
 
-  it("returns method_not_found for tools/call until forwarding ships", async () => {
+  it("returns internal_error for tools/call when the API binding is missing", async () => {
     const response = await mcpPost(
       {
         jsonrpc: "2.0",
@@ -217,9 +219,79 @@ describe("MCP streamable HTTP transport", () => {
       { authorization: "Bearer mcp-valid-token" },
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(500);
     const payload = (await response.json()) as { error: { data: { code: string } } };
-    expect(payload.error.data.code).toBe("method_not_found");
+    expect(payload.error.data.code).toBe("internal_error");
+  });
+
+  it("forwards whoami over the API service binding", async () => {
+    const api = {
+      async fetch(request: Request) {
+        expect(request.headers.get("authorization")).toBe("Bearer mcp-valid-token");
+        expect(new URL(request.url).pathname).toBe("/v1/mcp/whoami");
+        return Response.json({
+          workspace_member: {
+            id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            email: "user@example.com",
+          },
+          workspace: {
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            name: "Personal",
+            created_at: "2026-05-20T12:00:00.000Z",
+          },
+          scopes: ["read", "share"],
+        });
+      },
+    };
+
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 7,
+          method: "tools/call",
+          params: { name: "whoami", arguments: {} },
+        }),
+      }),
+      {},
+      { verifyBearer: testAuth, api },
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      result: { structuredContent: { workspace_member: { id: string } } };
+    };
+    expect(payload.result.structuredContent.workspace_member.id).toBe("mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
+  });
+
+  it("returns insufficient_scope when the token lacks required scopes", async () => {
+    const api = { fetch: async () => new Response(null, { status: 500 }) };
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-read-only",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 10,
+          method: "tools/call",
+          params: { name: "publish_artifact", arguments: { title: "t", body: "b", render_mode: "text" } },
+        }),
+      }),
+      {},
+      { verifyBearer: testAuth, api },
+    );
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { data: { code: string } } };
+    expect(payload.error.data.code).toBe("insufficient_scope");
   });
 
   it("rejects DELETE and non-POST methods with 405", async () => {
@@ -276,10 +348,7 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("accepts client JSON-RPC responses with 202", async () => {
-    const response = await mcpPost(
-      { jsonrpc: "2.0", id: 2, result: {} },
-      { authorization: "Bearer mcp-valid-token" },
-    );
+    const response = await mcpPost({ jsonrpc: "2.0", id: 2, result: {} }, { authorization: "Bearer mcp-valid-token" });
     expect(response.status).toBe(202);
   });
 
@@ -297,10 +366,7 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("handles ping and unknown methods", async () => {
-    const ping = await mcpPost(
-      { jsonrpc: "2.0", id: 5, method: "ping" },
-      { authorization: "Bearer mcp-valid-token" },
-    );
+    const ping = await mcpPost({ jsonrpc: "2.0", id: 5, method: "ping" }, { authorization: "Bearer mcp-valid-token" });
     const unknown = await mcpPost(
       { jsonrpc: "2.0", id: 6, method: "experimental/method" },
       { authorization: "Bearer mcp-valid-token" },
