@@ -115,6 +115,7 @@ export type Env = {
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   SMOKE_HARNESS_SECRET?: string;
+  STREAM_INTERNAL_SECRET?: string;
   API_KEY_PEPPER_V1?: string;
   API_KEY_PEPPER_V2?: string;
   API_KEY_PEPPER_CURRENT_KID?: string;

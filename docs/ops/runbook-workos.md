@@ -108,10 +108,10 @@ JWKS for dashboard verification: `https://api.workos.com/sso/jwks/{WORKOS_CLIENT
 List secret binding names (values redacted):
 
 ```sh
-wrangler secret list --cwd apps/api --env preview --json
-wrangler secret list --cwd apps/web --env preview --json
-wrangler secret list --cwd apps/api --env production --json
-wrangler secret list --cwd apps/web --env production --json
+wrangler secret list --cwd apps/api --env preview --format json
+wrangler secret list --cwd apps/web --env preview --format json
+wrangler secret list --cwd apps/api --env production --format json
+wrangler secret list --cwd apps/web --env production --format json
 ```
 
 ## Redirect URI drift detection and remediation

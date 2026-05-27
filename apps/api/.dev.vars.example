@@ -2,6 +2,7 @@
 # Do not commit real .dev.vars files.
 
 SMOKE_HARNESS_SECRET=local-smoke-harness-secret
+STREAM_INTERNAL_SECRET=local-stream-internal-secret
 CONTENT_BASE_URL=http://127.0.0.1:8789
 CLEANUP_BATCH_SIZE=100
 AGENT_PASTE_ENV=dev

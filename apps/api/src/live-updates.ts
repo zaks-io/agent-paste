@@ -9,6 +9,7 @@ import {
 } from "@agent-paste/contracts";
 import { type ApiActor, inferRenderMode, type Repository } from "@agent-paste/db";
 import { accessLinkSigningRingFromEnv, verifyAccessLinkBlobWithKeyRing } from "@agent-paste/rotation";
+import { isAuthorizedStreamInternalRequest } from "@agent-paste/worker-runtime";
 import type { Env } from "./index.js";
 
 export type ArtifactLiveBinding = {
@@ -36,16 +37,12 @@ export function wireLiveUpdateDeps(deps: { signAgentView: SignAgentViewFn; authe
   authenticateWebImpl = deps.authenticateWeb;
 }
 
-export function isStreamCaller(request: Request): boolean {
-  return request.headers.get("x-agent-paste-caller") === "stream";
-}
-
 export async function handleLiveUpdateAuthorize(
   request: Request,
   env: LiveUpdatesEnv,
   db: Repository,
 ): Promise<Response> {
-  if (!isStreamCaller(request)) {
+  if (!isAuthorizedStreamInternalRequest(request, env.STREAM_INTERNAL_SECRET)) {
     return jsonError("not_found", 404);
   }
   let body: unknown;
@@ -61,7 +58,14 @@ export async function handleLiveUpdateAuthorize(
 
   if (parsed.data.kind === "access_link") {
     const authorized = await authorizeAccessLink(env, db, parsed.data);
-    return authorized ? jsonOk(authorized) : jsonError("not_found", 404);
+    if (!authorized) {
+      return jsonError("not_found", 404);
+    }
+    const rateLimited = await enforceArtifactRateLimit(env, authorized.artifact_id);
+    if (rateLimited) {
+      return rateLimited;
+    }
+    return jsonOk(authorized);
   }
 
   const authorization = request.headers.get("authorization");
@@ -120,6 +124,22 @@ async function authorizeAccessLink(
     pointer: pointer.data,
   });
   return authorized.success ? authorized.data : null;
+}
+
+async function enforceArtifactRateLimit(env: LiveUpdatesEnv, artifactId: string): Promise<Response | null> {
+  const binding = env.ARTIFACT_RATE_LIMIT;
+  if (!binding) {
+    return null;
+  }
+  try {
+    const outcome = await binding.limit({ key: artifactId });
+    if (!outcome.success) {
+      return jsonError("rate_limited_artifact", 429, { "Retry-After": "60" });
+    }
+  } catch (error) {
+    console.warn("Artifact rate limit binding failed; allowing live update authorize.", error);
+  }
+  return null;
 }
 
 async function authorizeDashboard(
@@ -305,9 +325,12 @@ function jsonOk(body: unknown): Response {
   });
 }
 
-function jsonError(code: string, status: number): Response {
+function jsonError(code: string, status: number, extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify({ error: { code, message: code } }), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...extraHeaders,
+    },
   });
 }

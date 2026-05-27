@@ -3,6 +3,7 @@ import {
   type LiveUpdateAuthorizeRequest as LiveUpdateAuthorizeRequestType,
   LiveUpdateAuthorizeResponse,
 } from "@agent-paste/contracts";
+import { streamInternalSecretHeaders } from "@agent-paste/worker-runtime";
 
 export type ApiServiceBinding = {
   fetch(request: Request): Promise<Response>;
@@ -11,13 +12,9 @@ export type ApiServiceBinding = {
 export async function authorizeLiveUpdate(
   api: ApiServiceBinding,
   request: LiveUpdateAuthorizeRequestType,
-  options: { authorization?: string },
+  options: { authorization?: string; streamInternalSecret?: string },
 ): Promise<LiveUpdateAuthorizeResponse | null> {
-  const headers = new Headers({
-    accept: "application/json",
-    "content-type": "application/json",
-    "x-agent-paste-caller": "stream",
-  });
+  const headers = new Headers(streamInternalSecretHeaders(options.streamInternalSecret));
   if (options.authorization) {
     headers.set("authorization", options.authorization);
   }

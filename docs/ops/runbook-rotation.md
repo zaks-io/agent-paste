@@ -34,10 +34,10 @@ Do not create or rotate these names for the CLI-first MVP:
 - Before writing, capture the current secret names only:
 
   ```sh
-  wrangler secret list --cwd apps/api --env preview --json
-  wrangler secret list --cwd apps/upload --env preview --json
-  wrangler secret list --cwd apps/content --env preview --json
-  wrangler secret list --cwd apps/web --env preview --json
+  wrangler secret list --cwd apps/api --env preview --format json
+  wrangler secret list --cwd apps/upload --env preview --format json
+  wrangler secret list --cwd apps/content --env preview --format json
+  wrangler secret list --cwd apps/web --env preview --format json
   ```
 
 - After writing, run the environment smoke test:

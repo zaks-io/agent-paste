@@ -560,6 +560,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@agent-paste/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@sentry/cloudflare':
         specifier: ^10.53.1
         version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
