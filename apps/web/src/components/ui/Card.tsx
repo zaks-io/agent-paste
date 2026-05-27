@@ -35,7 +35,3 @@ export function CardHeader({
     </div>
   );
 }
-
-export function CardFooter({ children }: { children: ReactNode }) {
-  return <div className="mt-6 -mx-6 px-6 pt-4 border-t border-[hsl(var(--rule))]">{children}</div>;
-}

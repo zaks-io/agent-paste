@@ -1,6 +1,9 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { RevokeApiKeyResponse } from "../admin.js";
 import { AccessLinkResolveRequest } from "../accessLinks.js";
+import { RevokeApiKeyResponse } from "../admin.js";
+import { AgentView } from "../agentView.js";
+import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
+import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import {
   BundleAvailability,
   BundleAvailabilityDisabled,
@@ -8,14 +11,10 @@ import {
   BundleAvailabilityPending,
   BundleAvailabilityReady,
 } from "../bundle.js";
-import { AgentView } from "../agentView.js";
-import { PlainTextTitle, UrlString } from "../primitives.js";
-import { RenderMode } from "../revisions.js";
-import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
-import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
-import { RevisionListResponse, RevisionSummary } from "../revisions.js";
+import { PlainTextTitle, UrlString } from "../primitives.js";
+import { RenderMode, RevisionListResponse, RevisionSummary } from "../revisions.js";
 import {
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
@@ -147,16 +146,3 @@ export const requestIdHeader = z
     param: { name: "X-Request-Id", in: "header", required: false },
     description: "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
   });
-
-export type OpenApiVersion = "3.1.0";
-
-export type OpenApiInfo = {
-  title: string;
-  version: string;
-  description?: string;
-};
-
-export type OpenApiServer = {
-  url: string;
-  description?: string;
-};

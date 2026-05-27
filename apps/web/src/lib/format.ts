@@ -42,8 +42,3 @@ export function truncateId(value: string, lead = 6, tail = 4): string {
   if (value.length <= lead + tail + 1) return value;
   return `${value.slice(0, lead)}…${value.slice(-tail)}`;
 }
-
-export function toIsoString(input: Date | string | number): string {
-  const date = input instanceof Date ? input : new Date(input);
-  return date.toISOString();
-}

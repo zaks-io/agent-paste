@@ -1,5 +1,4 @@
 import type { ErrorCode, RateLimitRequirement, RouteContract } from "@agent-paste/contracts";
-import type { Context } from "hono";
 import type { Principal, ScopedActor } from "./principal.js";
 
 export type RateLimitBinding = {
@@ -107,8 +106,4 @@ async function rateLimitOrFailOpen(
     console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
     return undefined;
   }
-}
-
-export function routeContextFromHono(context: Context): { request: Request; params: Record<string, string> } {
-  return { request: context.req.raw, params: context.req.param() };
 }

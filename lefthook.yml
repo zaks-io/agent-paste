@@ -18,5 +18,7 @@ pre-commit:
 
 pre-push:
   commands:
+    knip:
+      run: pnpm knip
     test:
       run: pnpm test:coverage

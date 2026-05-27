@@ -53,8 +53,6 @@ export const CONTENT_SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
-export const SECURITY_HEADERS = CONTENT_SECURITY_HEADERS;
-
 export type MimeExtension = keyof typeof MIME_TYPES_BY_EXTENSION;
 export type ContentDisposition = "inline" | "attachment";
 

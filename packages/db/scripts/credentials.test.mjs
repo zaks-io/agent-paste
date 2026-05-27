@@ -35,14 +35,12 @@ describe("database credentials", () => {
 
   it("falls back to legacy migration env vars", () => {
     expect(migrationDatabaseUrlEnvName("preview", { PREVIEW_DATABASE_URL: "x" })).toBe("PREVIEW_DATABASE_URL");
-    expect(migrationDatabaseUrlEnvName("production", { PRODUCTION_DATABASE_URL: "x" })).toBe(
-      "PRODUCTION_DATABASE_URL",
-    );
+    expect(migrationDatabaseUrlEnvName("production", { PRODUCTION_DATABASE_URL: "x" })).toBe("PRODUCTION_DATABASE_URL");
   });
 
   it("returns canonical names when unset", () => {
     expect(migrationDatabaseUrlEnvName("preview", {})).toBe("DATABASE_URL_MIGRATIONS_PREVIEW");
-    expect(runtimeDatabaseUrlEnvName("production", {})).toBe("DATABASE_URL_RUNTIME_PRODUCTION");
+    expect(runtimeDatabaseUrlEnvName("production")).toBe("DATABASE_URL_RUNTIME_PRODUCTION");
   });
 
   it("does not resolve preview migration env vars for production", () => {
@@ -87,9 +85,7 @@ describe("database credentials", () => {
 
   it("detects passwordless Neon connection URIs", () => {
     expect(connectionUriHasPassword("postgres://app_role@ep-test.neon.tech/neondb?sslmode=require")).toBe(false);
-    expect(
-      connectionUriHasPassword("postgres://app_role:secret@ep-test.neon.tech/neondb?sslmode=require"),
-    ).toBe(true);
+    expect(connectionUriHasPassword("postgres://app_role:secret@ep-test.neon.tech/neondb?sslmode=require")).toBe(true);
   });
 
   it("builds a runtime URL from a provided preview password without Neon reset_password", () => {

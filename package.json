@@ -23,6 +23,7 @@
     "hooks:install": "node scripts/install-hooks.mjs",
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push --force",
+    "knip": "node scripts/knip-check.mjs",
     "lint": "turbo run lint",
     "openapi:check": "pnpm --filter @agent-paste/contracts openapi:check",
     "openapi:write": "pnpm --filter @agent-paste/contracts openapi:write",
@@ -41,7 +42,7 @@
     "test:scripts": "vitest run scripts",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm format:docs:check && turbo run lint typecheck test openapi:check db:check"
+    "verify": "pnpm format:docs:check && pnpm knip && turbo run lint typecheck test openapi:check db:check"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -50,10 +51,10 @@
     "@vitest/coverage-v8": "catalog:",
     "@workos/authkit-session": "0.5.2",
     "chrome-launcher": "^1.2.1",
+    "knip": "^6.14.2",
     "lefthook": "^2.1.8",
     "lighthouse": "^12.8.2",
     "prettier": "3.5.3",
-    "tslib": "^2.8.1",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
