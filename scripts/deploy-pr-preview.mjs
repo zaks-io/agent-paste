@@ -61,6 +61,7 @@ writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET"]));
 await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
+await ensurePreviewJobQueues();
 await deploy("jobs", files.jobsConfig, files.jobsSecrets);
 await deploy("apex", files.apexConfig);
 const webDeployed = await deployWeb();
@@ -83,6 +84,27 @@ Content: ${urls.content}
 Jobs:    ${urls.jobs}
 Apex:    ${urls.apex}
 ${webDeployed ? `Web:     ${urls.web} (smoke: ${urls.webWorkersDev})\n` : "Web:     skipped (WORKOS_PREVIEW_API_KEY unset)\n"}`);
+
+// Shared preview queue names from apps/jobs/wrangler.jsonc (env.preview). PR jobs
+// workers bind to these queues rather than per-PR queue names.
+const PREVIEW_JOB_QUEUES = [
+  "byte-purge-dlq-preview",
+  "safety-scan-dlq-preview",
+  "bundle-generate-dlq-preview",
+  "byte-purge-preview",
+  "safety-scan-preview",
+  "bundle-generate-preview",
+];
+
+async function ensurePreviewJobQueues() {
+  process.stdout.write("Ensuring shared preview Cloudflare Queues exist...\n");
+  for (const queueName of PREVIEW_JOB_QUEUES) {
+    const result = await run("pnpm", ["exec", "wrangler", "queues", "create", queueName], { allowFailure: true });
+    if (result.code === 0) {
+      process.stdout.write(`Created queue ${queueName}\n`);
+    }
+  }
+}
 
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
@@ -299,14 +321,33 @@ function emitOutput(name, value) {
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const env = options.env ? { ...process.env, ...options.env } : process.env;
-    const child = spawn(command, args, { stdio: "inherit", env });
+    const child = spawn(command, args, { stdio: options.allowFailure ? ["ignore", "pipe", "pipe"] : "inherit", env });
+    let stdout = "";
+    let stderr = "";
+    if (options.allowFailure) {
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk.toString();
+      });
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk.toString();
+      });
+    }
     child.on("error", reject);
     child.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} ${args.join(" ")} exited ${code}`));
+      const exitCode = code ?? 1;
+      if (exitCode === 0 || options.allowFailure) {
+        if (options.allowFailure) {
+          if (stdout.trim()) {
+            process.stdout.write(stdout);
+          }
+          if (stderr.trim()) {
+            process.stderr.write(stderr);
+          }
+        }
+        resolve({ code: exitCode, stdout, stderr });
+        return;
       }
+      reject(new Error(`${command} ${args.join(" ")} exited ${exitCode}`));
     });
   });
 }

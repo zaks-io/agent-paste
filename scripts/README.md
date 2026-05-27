@@ -168,5 +168,6 @@ PR preview runs this step after hosted smoke. It does not depend on the per-PR w
 - `workers.dev` URLs for smoke testing
 - an apex preview URL
 - a fail-soft web preview when `WORKOS_PREVIEW_API_KEY` is available
+- shared preview Cloudflare Queues for the jobs worker (`byte-purge-preview`, etc.), created idempotently before jobs deploy when missing
 
 If the WorkOS preview API key is missing, `deploy-pr-preview.mjs` skips the per-PR web Worker rather than failing the API/upload/content/apex preview.
