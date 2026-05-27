@@ -434,13 +434,22 @@ async function publishRevision(
           ? (result as { bundle: { status: string } }).bundle.status
           : "disabled";
       if (bundleStatus === "pending") {
-        await enqueuePostPublishJobs(context.env as Env, {
-          workspaceId: actor.workspace_id,
-          artifactId: params.artifactId ?? "",
-          revisionId: params.revisionId ?? "",
-          bundleStatus: "pending",
-          requestedAt: now,
-        });
+        try {
+          await enqueuePostPublishJobs(context.env as Env, {
+            workspaceId: actor.workspace_id,
+            artifactId: params.artifactId ?? "",
+            revisionId: params.revisionId ?? "",
+            bundleStatus: "pending",
+            requestedAt: now,
+          });
+        } catch (error) {
+          console.warn("Bundle generate enqueue failed after publish; revision remains published.", {
+            artifactId: params.artifactId ?? "",
+            revisionId: params.revisionId ?? "",
+            bundleStatus,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
       return signPublishResult(result, context.env);
     } catch (error) {

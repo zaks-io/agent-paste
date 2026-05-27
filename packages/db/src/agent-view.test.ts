@@ -117,7 +117,6 @@ describe("agent-view helpers", () => {
       }),
     ).toEqual({
       status: "ready",
-      size_bytes: 0,
     });
     expect(
       buildBundleAvailability({

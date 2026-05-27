@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { revisions } from "../schema.js";
-import type { Revision } from "../types.js";
+import type { PublishBundleStatus, Revision } from "../types.js";
 
 export const revisionQueries = {
   async insert(db: DrizzleDb, row: Revision) {
@@ -67,7 +67,7 @@ export const revisionQueries = {
       revisionId: string;
       revisionNumber: number;
       publishedAt: string;
-      bundleStatus: Revision["bundle_status"];
+      bundleStatus: PublishBundleStatus;
     },
   ): Promise<boolean> {
     const rows = await db

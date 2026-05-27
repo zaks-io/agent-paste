@@ -4,6 +4,7 @@ import type {
   Artifact,
   OperationEvent,
   PlatformLockdown,
+  PublishBundleStatus,
   Revision,
   StoredFile,
   UploadSession,
@@ -106,7 +107,7 @@ export type Entities = {
       revisionId: string;
       revisionNumber: number;
       publishedAt: string;
-      bundleStatus: Revision["bundle_status"];
+      bundleStatus: PublishBundleStatus;
     }): Promise<boolean>;
   };
   artifactFiles: {

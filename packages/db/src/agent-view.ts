@@ -11,7 +11,7 @@ export function buildBundleAvailability(revision: {
   if (revision.bundle_status === "ready") {
     return {
       ...bundle,
-      size_bytes: revision.bundle_size_bytes ?? 0,
+      ...(revision.bundle_size_bytes != null ? { size_bytes: revision.bundle_size_bytes } : {}),
       ...(revision.bundle_status_updated_at ? { generated_at: revision.bundle_status_updated_at } : {}),
     };
   }

@@ -12,7 +12,7 @@ export async function markBundleFailed(executor: SqlExecutor, workspaceId: strin
       await tx.query(
         `update revisions
          set bundle_status = 'failed', bundle_status_updated_at = now(), bundle_size_bytes = null
-         where workspace_id = $1 and id = $2`,
+         where workspace_id = $1 and id = $2 and bundle_status = 'pending'`,
         [workspaceId, revisionId],
       );
       return { result: { revision_id: revisionId, bundle_status: "failed" as const } };
@@ -38,7 +38,7 @@ export async function markBundleReady(
          set bundle_status = 'ready',
              bundle_size_bytes = $3,
              bundle_status_updated_at = now()
-         where workspace_id = $1 and id = $2`,
+         where workspace_id = $1 and id = $2 and bundle_status = 'pending'`,
         [workspaceId, revisionId, bundleSizeBytes],
       );
       return {

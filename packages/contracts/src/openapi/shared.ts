@@ -1,6 +1,13 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AccessLinkResolveRequest } from "../accessLinks.js";
+import {
+  BundleAvailability,
+  BundleAvailabilityDisabled,
+  BundleAvailabilityFailed,
+  BundleAvailabilityPending,
+  BundleAvailabilityReady,
+} from "../bundle.js";
 import { AgentView } from "../agentView.js";
 import { PlainTextTitle, UrlString } from "../primitives.js";
 import { RenderMode } from "../revisions.js";
@@ -37,8 +44,17 @@ export function registerSharedSchemas(registry: OpenAPIRegistry): void {
   registry.register("ErrorEnvelope", ErrorEnvelope);
 }
 
+function registerBundleAvailabilitySchemas(registry: OpenAPIRegistry): void {
+  registry.register("BundleAvailabilityPending", BundleAvailabilityPending);
+  registry.register("BundleAvailabilityReady", BundleAvailabilityReady);
+  registry.register("BundleAvailabilityFailed", BundleAvailabilityFailed);
+  registry.register("BundleAvailabilityDisabled", BundleAvailabilityDisabled);
+  registry.register("BundleAvailability", BundleAvailability);
+}
+
 export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
+  registerBundleAvailabilitySchemas(registry);
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   const registeredAgentView = registry.register("AgentView", AgentView);
@@ -80,6 +96,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
+  registerBundleAvailabilitySchemas(registry);
   registry.register("CreateUploadSessionRequest", CreateUploadSessionRequest);
   registry.register("CreateUploadSessionResponse", CreateUploadSessionResponse);
   registry.register("FinalizeUploadSessionResponse", FinalizeUploadSessionResponse);

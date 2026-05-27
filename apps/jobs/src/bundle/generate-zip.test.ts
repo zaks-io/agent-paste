@@ -11,4 +11,14 @@ describe("buildRevisionZip", () => {
     expect(zip[0]).toBe(0x50);
     expect(zip[1]).toBe(0x4b);
   });
+
+  it("rejects duplicate revision paths deterministically", () => {
+    const bytes = new TextEncoder().encode("x");
+    expect(() =>
+      buildRevisionZip([
+        { path: "index.html", bytes },
+        { path: "index.html", bytes },
+      ]),
+    ).toThrow("duplicate_revision_path:index.html");
+  });
 });
