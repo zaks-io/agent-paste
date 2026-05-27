@@ -318,4 +318,55 @@ describe("live update notify helpers", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  it("logs non-2xx durable object notify responses", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = {
+      ARTIFACT_LIVE: {
+        idFromName: (name: string) => name,
+        get: () => ({
+          fetch: vi.fn(async () => new Response("bad notify", { status: 500 })),
+        }),
+      },
+    } as never;
+    await notifyLiveUpdatePublish(env, { artifactId, pointer });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Live update notify failed"),
+      expect.objectContaining({ status: 500, body: "bad notify" }),
+    );
+    warn.mockRestore();
+  });
+
+  it("swallows workspace list and per-artifact disconnect failures", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = {
+      ARTIFACT_LIVE: {
+        idFromName: (name: string) => name,
+        get: () => ({ fetch: vi.fn(async () => new Response("ok")) }),
+      },
+    } as never;
+
+    await notifyLiveUpdateDisconnectWorkspace(env, {
+      async listArtifacts() {
+        throw new Error("db down");
+      },
+    } as unknown as Repository, {
+      workspaceId: "00000000-0000-4000-8000-000000000001",
+      audiences: ["share"],
+      reason: "platform_lockdown",
+    });
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockClear();
+    await notifyLiveUpdateDisconnectWorkspace(env, {
+      async listArtifacts() {
+        return { data: [{ id: artifactId }] };
+      },
+    } as unknown as Repository, {
+      workspaceId: "00000000-0000-4000-8000-000000000001",
+      audiences: ["share"],
+      reason: "platform_lockdown",
+    });
+    warn.mockRestore();
+  });
 });

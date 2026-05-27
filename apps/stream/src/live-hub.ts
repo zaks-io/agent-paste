@@ -62,7 +62,11 @@ export class ArtifactLiveHub {
       pointer,
     };
     for (const connection of this.#connections.values()) {
-      connection.send(event);
+      try {
+        connection.send(event);
+      } catch {
+        // keep fan-out best-effort when one connection's stream is broken
+      }
     }
   }
 
@@ -73,7 +77,11 @@ export class ArtifactLiveHub {
       if (!audienceSet.has(connection.audience)) {
         continue;
       }
-      connection.send(event);
+      try {
+        connection.send(event);
+      } catch {
+        // still close broken connections
+      }
       connection.close();
       this.#connections.delete(id);
     }

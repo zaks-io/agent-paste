@@ -54,7 +54,7 @@ function ArtifactDetailPage() {
   }, [artifact?.viewer?.iframe_src]);
 
   useEffect(() => {
-    if (!artifact?.viewer?.iframe_src) {
+    if (!artifact) {
       return;
     }
     const connection = connectLiveUpdates({
@@ -64,7 +64,7 @@ function ArtifactDetailPage() {
       },
     });
     return () => connection.close();
-  }, [artifact?.viewer?.iframe_src, artifactId]);
+  }, [artifact, artifactId]);
 
   if (result.error) {
     return (

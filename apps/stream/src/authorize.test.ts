@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { authorizeLiveUpdate, parseAuthorizeAccessLinkBody } from "./authorize.js";
 
 describe("authorizeLiveUpdate", () => {
+  it("returns null when the API binding throws", async () => {
+    const api = {
+      fetch: vi.fn(async () => {
+        throw new Error("binding down");
+      }),
+    };
+    const result = await authorizeLiveUpdate(
+      api,
+      { kind: "dashboard", artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+      {},
+    );
+    expect(result).toBeNull();
+  });
+
   it("returns null when the API rejects authorization", async () => {
     const api = {
       fetch: vi.fn(async () => new Response("nope", { status: 404 })),

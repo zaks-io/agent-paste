@@ -94,7 +94,7 @@ function AccessLinkViewer() {
     return () => controller.abort();
   }, [publicId]);
 
-  const liveUpdatesEnabled = state.kind === "resolved" && Boolean(state.iframe_src);
+  const liveUpdatesEnabled = state.kind === "resolved";
 
   useEffect(() => {
     if (!liveUpdatesEnabled) {

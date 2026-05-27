@@ -16,7 +16,7 @@ describe("sse helpers", () => {
     const onConnect = vi.fn((send: (event: LiveUpdateSseEvent) => void) => {
       send({ type: "revoked", reason: "takedown" });
     });
-    const stream = createSseStream({ onConnect, onClose });
+    const { stream } = createSseStream({ onConnect, onClose });
     const reader = stream.getReader();
     const first = await reader.read();
     expect(first.done).toBe(false);
@@ -27,7 +27,7 @@ describe("sse helpers", () => {
 
   it("ignores duplicate close and send after the stream is closed", async () => {
     let sendRef: ((event: LiveUpdateSseEvent) => void) | undefined;
-    const stream = createSseStream({
+    const { stream } = createSseStream({
       onConnect(send) {
         sendRef = send;
         send({ type: "revoked", reason: "platform_lockdown" });
@@ -44,7 +44,7 @@ describe("sse helpers", () => {
   it("closes when onConnect throws and when abort fires", async () => {
     const onClose = vi.fn();
     const controller = new AbortController();
-    const failing = createSseStream({
+    const { stream: failing } = createSseStream({
       signal: controller.signal,
       onConnect: async () => {
         throw new Error("boom");
@@ -56,7 +56,7 @@ describe("sse helpers", () => {
     expect(onClose).toHaveBeenCalled();
 
     const onCloseAbort = vi.fn();
-    const abortable = createSseStream({
+    const { stream: abortable } = createSseStream({
       signal: controller.signal,
       onConnect: () => {},
       onClose: onCloseAbort,
@@ -65,5 +65,18 @@ describe("sse helpers", () => {
     controller.abort();
     await abortReader.cancel();
     expect(onCloseAbort).toHaveBeenCalled();
+  });
+
+  it("still closes the controller when onClose throws", async () => {
+    const { stream, close } = createSseStream({
+      onConnect: () => {},
+      onClose: () => {
+        throw new Error("onClose failed");
+      },
+    });
+    const reader = stream.getReader();
+    close();
+    const afterClose = await reader.read();
+    expect(afterClose.done).toBe(true);
   });
 });

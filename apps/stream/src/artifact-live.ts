@@ -39,7 +39,10 @@ export class ArtifactLiveUpdates implements DurableObject {
   }
 
   async handleNotify(request: Request): Promise<Response> {
-    const body = (await request.json()) as unknown;
+    const body = await readJsonBody(request);
+    if (body === null) {
+      return new Response("invalid_request", { status: 400 });
+    }
     const parsed = LiveUpdateNotifyMessage.safeParse(body);
     if (!parsed.success) {
       return new Response("invalid_request", { status: 400 });
@@ -54,7 +57,7 @@ export class ArtifactLiveUpdates implements DurableObject {
   }
 
   async handleConnect(request: Request): Promise<Response> {
-    const body = (await request.json()) as unknown;
+    const body = await readJsonBody(request);
     if (typeof body !== "object" || body === null) {
       return new Response("invalid_request", { status: 400 });
     }
@@ -72,16 +75,19 @@ export class ArtifactLiveUpdates implements DurableObject {
       return liveUpdateAtCapResponse();
     }
 
-    const stream = createSseStream({
+    const connectionId = payload.connection_id;
+    const { stream, close: closeSseStream } = createSseStream({
       signal: request.signal,
       onConnect: (send) => {
+        const terminateAndRemove = () => {
+          closeSseStream();
+          this.#hub.remove(connectionId);
+        };
         const result = this.#hub.connect({
-          id: payload.connection_id as string,
+          id: connectionId,
           audience: payload.audience as LiveUpdateAuthorizeResponse["audience"],
           send,
-          close: () => {
-            this.#hub.remove(payload.connection_id as string);
-          },
+          close: terminateAndRemove,
         });
         if (!result.ok) {
           return;
@@ -93,7 +99,7 @@ export class ArtifactLiveUpdates implements DurableObject {
         });
       },
       onClose: () => {
-        this.#hub.remove(payload.connection_id as string);
+        this.#hub.remove(connectionId);
       },
     });
 
@@ -101,6 +107,14 @@ export class ArtifactLiveUpdates implements DurableObject {
       status: 200,
       headers: sseResponseHeaders(),
     });
+  }
+}
+
+async function readJsonBody(request: Request): Promise<unknown | null> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
   }
 }
 

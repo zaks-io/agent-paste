@@ -14,6 +14,7 @@ export const Route = createFileRoute("/api/live/access-links/$publicId")({
             "content-type": request.headers.get("content-type") ?? "application/json",
           },
           body: await request.text(),
+          signal: request.signal,
         });
         return new Response(upstream.body, {
           status: upstream.status,

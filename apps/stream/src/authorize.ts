@@ -21,19 +21,28 @@ export async function authorizeLiveUpdate(
   if (options.authorization) {
     headers.set("authorization", options.authorization);
   }
-  const response = await api.fetch(
-    new Request("https://agent-paste.internal/v1/internal/live-updates/authorize", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(request),
-    }),
-  );
-  if (!response.ok) {
+  try {
+    const response = await api.fetch(
+      new Request("https://agent-paste.internal/v1/internal/live-updates/authorize", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(request),
+      }),
+    );
+    if (!response.ok) {
+      return null;
+    }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return null;
+    }
+    const parsed = LiveUpdateAuthorizeResponse.safeParse(body);
+    return parsed.success ? parsed.data : null;
+  } catch {
     return null;
   }
-  const body = (await response.json()) as unknown;
-  const parsed = LiveUpdateAuthorizeResponse.safeParse(body);
-  return parsed.success ? parsed.data : null;
 }
 
 export function parseAuthorizeAccessLinkBody(publicId: string, body: unknown): LiveUpdateAuthorizeRequestType | null {

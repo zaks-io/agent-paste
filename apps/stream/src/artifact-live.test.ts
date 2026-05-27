@@ -24,6 +24,11 @@ describe("ArtifactLiveUpdates", () => {
 
   it("rejects invalid notify payloads and handles publish/disconnect ops", async () => {
     const doInstance = createDo();
+    const malformed = await doInstance.fetch(
+      new Request("https://do.test/internal/notify", { method: "POST", body: "not-json" }),
+    );
+    expect(malformed.status).toBe(400);
+
     const bad = await doInstance.fetch(new Request("https://do.test/internal/notify", { method: "POST", body: "{}" }));
     expect(bad.status).toBe(400);
 

@@ -8,7 +8,7 @@ export function createSseStream(handlers: {
   onConnect: (send: (event: LiveUpdateSseEvent) => void) => void | Promise<void>;
   onClose?: () => void;
   signal?: AbortSignal;
-}): ReadableStream<Uint8Array> {
+}): { stream: ReadableStream<Uint8Array>; close: () => void } {
   const encoder = new TextEncoder();
   let closed = false;
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
@@ -18,11 +18,16 @@ export function createSseStream(handlers: {
       return;
     }
     closed = true;
-    handlers.onClose?.();
     try {
-      controllerRef?.close();
+      handlers.onClose?.();
     } catch {
-      // already closed
+      // still terminate the SSE stream when cleanup handlers fail
+    } finally {
+      try {
+        controllerRef?.close();
+      } catch {
+        // already closed
+      }
     }
   };
 
@@ -35,7 +40,7 @@ export function createSseStream(handlers: {
 
   handlers.signal?.addEventListener("abort", close, { once: true });
 
-  return new ReadableStream<Uint8Array>({
+  const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       controllerRef = controller;
       try {
@@ -48,4 +53,6 @@ export function createSseStream(handlers: {
       close();
     },
   });
+
+  return { stream, close };
 }

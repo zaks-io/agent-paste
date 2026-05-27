@@ -5,7 +5,7 @@ import { getWebEnv } from "../../../../server/runtime";
 export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ request, params }) => {
         const auth = await getAuth();
         if (!auth.user || !auth.accessToken) {
           return new Response(JSON.stringify({ error: { code: "not_found" } }), {
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
             accept: "text/event-stream",
             authorization: `Bearer ${auth.accessToken}`,
           },
+          signal: request.signal,
         });
         return new Response(upstream.body, {
           status: upstream.status,

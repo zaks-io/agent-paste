@@ -73,10 +73,33 @@ async function writeFetchResponse(outgoing, response) {
     headers[name] = value;
   });
   outgoing.writeHead(response.status, headers);
-  if (response.body) {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    outgoing.end(bytes);
-  } else {
+  if (!response.body) {
+    outgoing.end();
+    return;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream")) {
+    await pipeWebStreamToNode(outgoing, response.body);
+    return;
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  outgoing.end(bytes);
+}
+
+async function pipeWebStreamToNode(outgoing, webStream) {
+  const reader = webStream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value?.byteLength) {
+        outgoing.write(Buffer.from(value));
+      }
+    }
+  } finally {
+    reader.releaseLock();
     outgoing.end();
   }
 }

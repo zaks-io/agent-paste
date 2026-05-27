@@ -38,6 +38,20 @@ describe("connectLiveUpdates", () => {
     await vi.waitFor(() => expect(onUnavailable).toHaveBeenCalled());
   });
 
+  it("parses CRLF-delimited SSE frames", async () => {
+    const onPointer = vi.fn();
+    const published =
+      "event: published_revision\r\n" +
+      `data: ${JSON.stringify({
+        type: "published_revision",
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        pointer,
+      })}\r\n\r\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => sseResponse(published)));
+    connectLiveUpdates({ url: "https://stream.test/live", onPointer });
+    await vi.waitFor(() => expect(onPointer).toHaveBeenCalledWith(pointer));
+  });
+
   it("delivers published_revision pointers and revoked callbacks", async () => {
     const onPointer = vi.fn();
     const onRevoked = vi.fn();

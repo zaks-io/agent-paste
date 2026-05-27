@@ -230,16 +230,31 @@ export async function notifyLiveUpdateDisconnectWorkspace(
   if (!db.listArtifacts) {
     return;
   }
-  const listed = await db.listArtifacts(input.workspaceId, "active");
-  await Promise.all(
-    listed.data.map((row) =>
-      notifyLiveUpdateDisconnect(env, {
-        artifactId: row.id,
-        audiences: input.audiences,
-        reason: input.reason,
+  try {
+    const listed = await db.listArtifacts(input.workspaceId, "active");
+    await Promise.all(
+      listed.data.map(async (row) => {
+        try {
+          await notifyLiveUpdateDisconnect(env, {
+            artifactId: row.id,
+            audiences: input.audiences,
+            reason: input.reason,
+          });
+        } catch (error) {
+          console.warn("Live update workspace disconnect fan-out failed for one artifact.", {
+            workspaceId: input.workspaceId,
+            artifactId: row.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }),
-    ),
-  );
+    );
+  } catch (error) {
+    console.warn("Live update workspace disconnect listing failed; durable state remains committed.", {
+      workspaceId: input.workspaceId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function notifyArtifactLive(env: LiveUpdatesEnv, message: LiveUpdateNotifyMessage): Promise<void> {
@@ -254,13 +269,22 @@ async function notifyArtifactLive(env: LiveUpdatesEnv, message: LiveUpdateNotify
   try {
     const id = env.ARTIFACT_LIVE.idFromName(artifactId);
     const stub = env.ARTIFACT_LIVE.get(id);
-    await stub.fetch(
+    const response = await stub.fetch(
       new Request("https://artifact-live/internal/notify", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(parsed.data),
       }),
     );
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.warn("Live update notify failed; durable state remains committed.", {
+        artifactId,
+        op: parsed.data.op,
+        status: response.status,
+        body,
+      });
+    }
   } catch (error) {
     console.warn("Live update notify failed; durable state remains committed.", {
       artifactId,

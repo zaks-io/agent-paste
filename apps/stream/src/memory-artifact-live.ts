@@ -1,4 +1,4 @@
-import { type ArtifactId, LiveUpdateNotifyMessage } from "@agent-paste/contracts";
+import { type ArtifactId, LIVE_UPDATE_VIEWER_CAP, LiveUpdateNotifyMessage } from "@agent-paste/contracts";
 import { liveUpdateAtCapResponse, sseResponseHeaders } from "./artifact-live.js";
 import { ArtifactLiveHub } from "./live-hub.js";
 import { createSseStream, formatSseEvent } from "./sse.js";
@@ -14,6 +14,14 @@ function hubFor(artifactId: string): ArtifactLiveHub {
   return hub;
 }
 
+async function readJsonBody(request: Request): Promise<unknown | null> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
+
 export function createMemoryArtifactLiveNamespace() {
   return {
     idFromName(name: string) {
@@ -25,7 +33,10 @@ export function createMemoryArtifactLiveNamespace() {
           const url = new URL(request.url);
           const hub = hubFor(id);
           if (url.pathname === "/internal/notify" && request.method === "POST") {
-            const body = (await request.json()) as unknown;
+            const body = await readJsonBody(request);
+            if (body === null) {
+              return new Response("invalid_request", { status: 400 });
+            }
             const parsed = LiveUpdateNotifyMessage.safeParse(body);
             if (!parsed.success) {
               return new Response("invalid_request", { status: 400 });
@@ -39,7 +50,11 @@ export function createMemoryArtifactLiveNamespace() {
             return new Response("ok");
           }
           if (url.pathname === "/sse/connect" && request.method === "POST") {
-            const payload = (await request.json()) as {
+            const body = await readJsonBody(request);
+            if (typeof body !== "object" || body === null) {
+              return new Response("invalid_request", { status: 400 });
+            }
+            const payload = body as {
               connection_id?: string;
               artifact_id?: string;
               audience?: "share" | "dashboard";
@@ -53,17 +68,22 @@ export function createMemoryArtifactLiveNamespace() {
             ) {
               return new Response("invalid_request", { status: 400 });
             }
-            if (hub.connectionCount >= 10) {
+            if (hub.connectionCount >= LIVE_UPDATE_VIEWER_CAP) {
               return liveUpdateAtCapResponse();
             }
-            const stream = createSseStream({
+            const connectionId = payload.connection_id;
+            const { stream, close: closeSseStream } = createSseStream({
               signal: request.signal,
               onConnect: (send) => {
+                const terminateAndRemove = () => {
+                  closeSseStream();
+                  hub.remove(connectionId);
+                };
                 const result = hub.connect({
-                  id: payload.connection_id as string,
+                  id: connectionId,
                   audience: payload.audience as "share" | "dashboard",
                   send,
-                  close: () => hub.remove(payload.connection_id as string),
+                  close: terminateAndRemove,
                 });
                 if (!result.ok) {
                   return;
@@ -74,7 +94,7 @@ export function createMemoryArtifactLiveNamespace() {
                   pointer: payload.pointer as never,
                 });
               },
-              onClose: () => hub.remove(payload.connection_id as string),
+              onClose: () => hub.remove(connectionId),
             });
             return new Response(stream, { headers: sseResponseHeaders() });
           }
