@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 
 const prNumber = process.env.PR_NUMBER ?? process.argv[2];
 if (!prNumber) {
   throw new Error("Set PR_NUMBER or pass the PR number as the first argument.");
 }
+
+const jobQueues = prPreviewJobQueues(prNumber);
 
 // web is included so its worker and the pr-N.preview.agent-paste.sh custom domain
 // are torn down on PR close (wrangler delete removes attached custom domains).
@@ -13,6 +16,11 @@ const workerNames = ["api", "upload", "content", "jobs", "apex", "web"].map(
 );
 for (const workerName of workerNames) {
   await run("pnpm", ["exec", "wrangler", "delete", workerName, "--force"], { allowFailure: true });
+}
+
+for (const queueName of jobQueues.deletionOrder) {
+  await run("pnpm", ["exec", "wrangler", "queues", "delete", queueName], { allowFailure: true });
+  process.stdout.write(`Deleted queue ${queueName} (if present)\n`);
 }
 
 const hyperdriveName = `agent-paste-db-pr-${prNumber}`;

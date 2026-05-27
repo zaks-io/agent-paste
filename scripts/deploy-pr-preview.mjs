@@ -2,11 +2,13 @@
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 
 const prNumber = requiredEnv("PR_NUMBER");
 const hyperdriveId = requiredEnv("PR_HYPERDRIVE_ID");
 const workersSubdomain = requiredEnv("CLOUDFLARE_WORKERS_SUBDOMAIN");
 const outDir = new URL(`../.wrangler/pr-preview/pr-${prNumber}/`, import.meta.url);
+const jobQueues = prPreviewJobQueues(prNumber);
 
 const names = {
   api: `agent-paste-api-pr-${prNumber}`,
@@ -85,20 +87,9 @@ Jobs:    ${urls.jobs}
 Apex:    ${urls.apex}
 ${webDeployed ? `Web:     ${urls.web} (smoke: ${urls.webWorkersDev})\n` : "Web:     skipped (WORKOS_PREVIEW_API_KEY unset)\n"}`);
 
-// Shared preview queue names from apps/jobs/wrangler.jsonc (env.preview). PR jobs
-// workers bind to these queues rather than per-PR queue names.
-const PREVIEW_JOB_QUEUES = [
-  "byte-purge-dlq-preview",
-  "safety-scan-dlq-preview",
-  "bundle-generate-dlq-preview",
-  "byte-purge-preview",
-  "safety-scan-preview",
-  "bundle-generate-preview",
-];
-
 async function ensurePreviewJobQueues() {
-  process.stdout.write("Ensuring shared preview Cloudflare Queues exist...\n");
-  for (const queueName of PREVIEW_JOB_QUEUES) {
+  process.stdout.write(`Ensuring PR-scoped preview Cloudflare Queues exist for PR ${prNumber}...\n`);
+  for (const queueName of jobQueues.creationOrder) {
     const result = await run("pnpm", ["exec", "wrangler", "queues", "create", queueName], { allowFailure: true });
     if (result.code === 0) {
       process.stdout.write(`Created queue ${queueName}\n`);
@@ -232,31 +223,31 @@ function jobsConfig() {
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
     queues: {
       producers: [
-        { queue: "byte-purge-preview", binding: "BYTE_PURGE_QUEUE" },
-        { queue: "safety-scan-preview", binding: "SAFETY_SCAN_QUEUE" },
-        { queue: "bundle-generate-preview", binding: "BUNDLE_GENERATE_QUEUE" },
+        { queue: jobQueues.bytePurge, binding: "BYTE_PURGE_QUEUE" },
+        { queue: jobQueues.safetyScan, binding: "SAFETY_SCAN_QUEUE" },
+        { queue: jobQueues.bundleGenerate, binding: "BUNDLE_GENERATE_QUEUE" },
       ],
       consumers: [
         {
-          queue: "byte-purge-preview",
+          queue: jobQueues.bytePurge,
           max_batch_size: 50,
           max_retries: 3,
-          dead_letter_queue: "byte-purge-dlq-preview",
+          dead_letter_queue: jobQueues.bytePurgeDlq,
         },
         {
-          queue: "safety-scan-preview",
+          queue: jobQueues.safetyScan,
           max_batch_size: 1,
           max_retries: 3,
-          dead_letter_queue: "safety-scan-dlq-preview",
+          dead_letter_queue: jobQueues.safetyScanDlq,
         },
         {
-          queue: "bundle-generate-preview",
+          queue: jobQueues.bundleGenerate,
           max_batch_size: 1,
           max_retries: 5,
-          dead_letter_queue: "bundle-generate-dlq-preview",
+          dead_letter_queue: jobQueues.bundleGenerateDlq,
         },
         {
-          queue: "bundle-generate-dlq-preview",
+          queue: jobQueues.bundleGenerateDlq,
           max_batch_size: 10,
         },
       ],
