@@ -58,6 +58,8 @@ const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
+const BUNDLE_FILENAME = "bundle.zip";
+
 app.use("*", requestIdMiddleware());
 app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
@@ -69,9 +71,10 @@ const contentRegistrar = createRegistrar({
   app,
   auth: {
     async signed_content_token(context) {
-      const path = contentPath(context as AppContext);
+      const appContext = context as AppContext;
+      const path = contentPath(appContext);
       const env = context.env as Env;
-      const token = context.req.param("token") ?? "";
+      const token = contentTokenFromRequest(appContext);
       const signingRing = contentSigningRingFromEnv(env);
       const payload = signingRing
         ? await verifyContentTokenWithKeyRing(token, signingRing)
@@ -106,6 +109,12 @@ contentRegistrar.mount(contractById("content.head"), async (context, principal) 
     contentPath(context as AppContext),
   ),
 );
+contentRegistrar.mount(contractById("content.bundle"), async (context, principal) =>
+  serveSignedBundle(context as AppContext, (principal as SignedContentTokenPrincipal<ContentTokenPayload>).payload),
+);
+contentRegistrar.mount(contractById("content.bundleHead"), async (context, principal) =>
+  serveSignedBundle(context as AppContext, (principal as SignedContentTokenPrincipal<ContentTokenPayload>).payload),
+);
 app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
   console.error("Unhandled content error:", error);
@@ -124,14 +133,46 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
+function contentTokenFromRequest(context: AppContext): string {
+  const pathname = new URL(context.req.raw.url).pathname;
+  if (pathname.startsWith("/b/")) {
+    const encodedToken = pathname.split("/")[2];
+    return encodedToken ? (safeDecodeURIComponent(encodedToken) ?? "") : "";
+  }
+  return context.req.param("token") ?? "";
+}
+
 function contentPath(context: AppContext): string {
   const pathname = new URL(context.req.raw.url).pathname;
+  if (pathname.startsWith("/b/")) {
+    return "";
+  }
   const encodedToken = pathname.split("/")[2];
   if (!encodedToken) {
     return "";
   }
   const marker = `/v/${encodedToken}/`;
   return safeDecodeURIComponent(pathname.slice(marker.length)) ?? "";
+}
+
+async function serveSignedBundle(context: AppContext, payload: ContentTokenPayload): Promise<Response> {
+  const env = context.env;
+  const request = context.req.raw;
+  const key = payload.key_prefix;
+  if (!key?.endsWith(BUNDLE_FILENAME)) {
+    return errorResponse(context, "not_found");
+  }
+
+  const object =
+    request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
+  if (!object) {
+    return errorResponse(context, "not_found");
+  }
+
+  const headers = bundleResponseHeaders(object.size, payload.exp);
+  headers.set(REQUEST_ID_HEADER, getRequestId(context));
+
+  return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
 }
 
 async function serveSignedObject(context: AppContext, payload: ContentTokenPayload, path: string): Promise<Response> {
@@ -166,6 +207,9 @@ async function isDenylisted(env: Env, payload: ContentTokenPayload): Promise<boo
 }
 
 function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
+  if (path.length === 0) {
+    return Boolean(payload.key_prefix?.endsWith(BUNDLE_FILENAME));
+  }
   if (!isSafePath(path)) {
     return false;
   }
@@ -180,6 +224,15 @@ function isSafePath(path: string): boolean {
 function objectKeyFor(payload: ContentTokenPayload, path: string): string {
   const prefix = payload.key_prefix ?? `artifacts/${payload.artifact_id}/revisions/${payload.revision_id}/files`;
   return `${prefix.replace(/\/+$/, "")}/${path}`;
+}
+
+function bundleResponseHeaders(size: number, tokenExpiresAt: number): Headers {
+  const headers = new Headers(securityHeaders);
+  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
+  headers.set("content-length", String(size));
+  headers.set("content-type", "application/zip");
+  headers.set("content-disposition", `attachment; filename="${BUNDLE_FILENAME}"`);
+  return headers;
 }
 
 function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {

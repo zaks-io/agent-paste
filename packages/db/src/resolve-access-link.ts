@@ -1,8 +1,8 @@
 import { ACCESS_LINK_SCOPE } from "@agent-paste/tokens/access-link";
-import { buildAgentView } from "./agent-view.js";
 import { isAccessLinkRowExpired, isArtifactAccessLinkLocked } from "./access-links.js";
-import type { AccessLink, Artifact, Revision } from "./types.js";
+import { buildAgentView } from "./agent-view.js";
 import type { Entities } from "./repository/ports.js";
+import type { AccessLink, Artifact, Revision } from "./types.js";
 
 export async function resolveAccessLinkFromEntities(
   entities: Entities,
@@ -46,7 +46,7 @@ export async function resolveAccessLinkFromEntities(
   const viewArtifact =
     revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
   const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-  const agentView = buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
+  const agentView = buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
   return {
     access_link_id: link.id,
     workspace_id: artifact.workspace_id,

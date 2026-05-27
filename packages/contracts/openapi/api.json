@@ -92,6 +92,168 @@
           "error"
         ]
       },
+      "BundleAvailabilityPending": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "status",
+          "retry_after_seconds"
+        ],
+        "additionalProperties": false
+      },
+      "BundleAvailabilityReady": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "url",
+          "generated_at"
+        ],
+        "additionalProperties": false
+      },
+      "BundleAvailabilityFailed": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "BundleAvailabilityDisabled": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "disabled"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "BundleAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending"
+                ]
+              },
+              "retry_after_seconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "status",
+              "retry_after_seconds"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready"
+                ]
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "status",
+              "url",
+              "generated_at"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
       "WhoamiResponse": {
         "type": "object",
         "properties": {
@@ -165,6 +327,13 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "bundle_size_cap_bytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "bundles_enabled": {
+                "type": "boolean"
+              },
               "file_count_cap": {
                 "type": "integer",
                 "exclusiveMinimum": 0
@@ -197,6 +366,8 @@
             "required": [
               "file_size_cap_bytes",
               "artifact_size_cap_bytes",
+              "bundle_size_cap_bytes",
+              "bundles_enabled",
               "file_count_cap",
               "actor_rate_limit_per_minute",
               "workspace_burst_cap_per_minute",
@@ -224,6 +395,13 @@
           "artifact_size_cap_bytes": {
             "type": "integer",
             "exclusiveMinimum": 0
+          },
+          "bundle_size_cap_bytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bundles_enabled": {
+            "type": "boolean"
           },
           "file_count_cap": {
             "type": "integer",
@@ -257,6 +435,8 @@
         "required": [
           "file_size_cap_bytes",
           "artifact_size_cap_bytes",
+          "bundle_size_cap_bytes",
+          "bundles_enabled",
           "file_count_cap",
           "actor_rate_limit_per_minute",
           "workspace_burst_cap_per_minute",
@@ -339,6 +519,89 @@
             },
             "minItems": 1,
             "maxItems": 100
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending"
+                    ]
+                  },
+                  "retry_after_seconds": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "status",
+                  "retry_after_seconds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "generated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "status",
+                  "url",
+                  "generated_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "failed"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "disabled"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -349,7 +612,8 @@
           "expires_at",
           "entrypoint",
           "view_url",
-          "files"
+          "files",
+          "bundle"
         ]
       },
       "AccessLinkResolveRequest": {
@@ -1246,6 +1510,13 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "bundle_size_cap_bytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "bundles_enabled": {
+                "type": "boolean"
+              },
               "file_count_cap": {
                 "type": "integer",
                 "exclusiveMinimum": 0
@@ -1278,6 +1549,8 @@
             "required": [
               "file_size_cap_bytes",
               "artifact_size_cap_bytes",
+              "bundle_size_cap_bytes",
+              "bundles_enabled",
               "file_count_cap",
               "actor_rate_limit_per_minute",
               "workspace_burst_cap_per_minute",

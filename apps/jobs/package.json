@@ -23,13 +23,14 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@agent-paste/config": "workspace:*",
     "@agent-paste/commands": "workspace:*",
+    "@agent-paste/config": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.53.1",
+    "fflate": "0.8.2",
     "hono": "^4.12.21",
     "zod": "catalog:"
   }

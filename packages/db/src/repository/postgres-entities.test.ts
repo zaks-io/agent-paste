@@ -257,6 +257,7 @@ describe("postgresEntities", () => {
       size_bytes: 12,
       bundle_status: "disabled",
       bundle_status_updated_at: null,
+      bundle_size_bytes: null,
       bytes_purge_enqueued_at: null,
       created_by_api_key_id: "key",
       created_at: now,
@@ -266,7 +267,12 @@ describe("postgresEntities", () => {
     await entities.revisions.findDraftForArtifact("artifact");
     await entities.revisions.listForArtifact("artifact");
     await entities.revisions.nextRevisionNumber("artifact");
-    await entities.revisions.publish({ revisionId: "revision", revisionNumber: 1, publishedAt: now });
+    await entities.revisions.publish({
+      revisionId: "revision",
+      revisionNumber: 1,
+      publishedAt: now,
+      bundleStatus: "pending",
+    });
     await entities.uploadSessions.insert(uploadSession);
     await entities.uploadSessions.findById("session", "workspace");
     await entities.uploadSessions.findByRevisionId("revision", "workspace");

@@ -1,3 +1,4 @@
+import { BundleAvailability } from "./bundle.js";
 import {
   ArtifactId,
   FilePath,
@@ -33,5 +34,6 @@ export const AgentView = z.object({
   entrypoint: FilePath,
   view_url: UrlString,
   files: z.array(AgentViewFile).min(1).max(100),
+  bundle: BundleAvailability,
 });
 export type AgentView = z.infer<typeof AgentView>;

@@ -199,7 +199,20 @@ function createApiDatabase(repo, denylistNamespace) {
     listWorkspaces: repo.listWorkspaces.bind(repo),
     createApiKey: repo.createApiKey.bind(repo),
     revokeApiKey: repo.revokeApiKey.bind(repo),
-    publishRevision: repo.publishRevision.bind(repo),
+    async publishRevision(input) {
+      const result = await repo.publishRevision(input);
+      if (result?.bundle?.status === "pending") {
+        await jobsEnv.BUNDLE_GENERATE_QUEUE.send({
+          type: "bundle.generate.v1",
+          workspace_id: input.actor.workspace_id,
+          artifact_id: input.artifactId,
+          revision_id: input.revisionId,
+          requested_at: input.now,
+          reason: "publish",
+        });
+      }
+      return result;
+    },
     listRevisions: repo.listRevisions.bind(repo),
     listArtifacts: repo.listArtifacts.bind(repo),
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
@@ -228,12 +241,19 @@ const services = createLocalServices({
 });
 const artifacts = new MemoryR2Bucket();
 const denylist = new MemoryKVNamespace();
+const jobsEnv = createJobsEnv({
+  repo: services.repo,
+  artifacts,
+  denylist,
+  smokeHarnessSecret,
+});
 const apiDb = createApiDatabase(services.apiDb, denylist);
 
 const auth = services.auth;
 const apiEnv = {
   AUTH: auth,
   DB: apiDb,
+  BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,
@@ -265,13 +285,6 @@ const contentEnv = {
   DENYLIST: denylist,
   CONTENT_SIGNING_SECRET: contentSecret,
 };
-const jobsEnv = createJobsEnv({
-  repo: services.repo,
-  artifacts,
-  denylist,
-  smokeHarnessSecret,
-});
-
 await seedProofArtifacts(services.repo, artifacts);
 
 const servers = [

@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { revisions } from "../schema.js";
-import type { Revision } from "../types.js";
+import type { PublishBundleStatus, Revision } from "../types.js";
 
 export const revisionQueries = {
   async insert(db: DrizzleDb, row: Revision) {
@@ -17,6 +17,7 @@ export const revisionQueries = {
       sizeBytes: row.size_bytes,
       bundleStatus: row.bundle_status,
       bundleStatusUpdatedAt: row.bundle_status_updated_at ? new Date(row.bundle_status_updated_at) : null,
+      bundleSizeBytes: row.bundle_size_bytes,
       bytesPurgeEnqueuedAt: row.bytes_purge_enqueued_at ? new Date(row.bytes_purge_enqueued_at) : null,
       createdByApiKeyId: row.created_by_api_key_id,
       createdAt: new Date(row.created_at),
@@ -62,7 +63,12 @@ export const revisionQueries = {
 
   async publish(
     db: DrizzleDb,
-    input: { revisionId: string; revisionNumber: number; publishedAt: string },
+    input: {
+      revisionId: string;
+      revisionNumber: number;
+      publishedAt: string;
+      bundleStatus: PublishBundleStatus;
+    },
   ): Promise<boolean> {
     const rows = await db
       .update(revisions)
@@ -70,6 +76,9 @@ export const revisionQueries = {
         status: "published",
         revisionNumber: input.revisionNumber,
         publishedAt: new Date(input.publishedAt),
+        bundleStatus: input.bundleStatus,
+        bundleStatusUpdatedAt: new Date(input.publishedAt),
+        bundleSizeBytes: null,
       })
       .where(and(eq(revisions.id, input.revisionId), eq(revisions.status, "draft")))
       .returning({ id: revisions.id });
@@ -90,6 +99,7 @@ function mapRevision(row: typeof revisions.$inferSelect): Revision {
     size_bytes: Number(row.sizeBytes),
     bundle_status: row.bundleStatus as Revision["bundle_status"],
     bundle_status_updated_at: row.bundleStatusUpdatedAt ? row.bundleStatusUpdatedAt.toISOString() : null,
+    bundle_size_bytes: row.bundleSizeBytes ?? null,
     bytes_purge_enqueued_at: row.bytesPurgeEnqueuedAt ? row.bytesPurgeEnqueuedAt.toISOString() : null,
     created_by_api_key_id: row.createdByApiKeyId,
     created_at: row.createdAt.toISOString(),

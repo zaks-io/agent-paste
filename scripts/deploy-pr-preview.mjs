@@ -61,10 +61,10 @@ writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SI
 writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
 writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET"]));
 
+await ensurePreviewJobQueues();
 await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
-await ensurePreviewJobQueues();
 await deploy("jobs", files.jobsConfig, files.jobsSecrets);
 await deploy("apex", files.apexConfig);
 const webDeployed = await deployWeb();
@@ -180,6 +180,9 @@ function apiConfig() {
       rateLimit("ACTOR_RATE_LIMIT", `4${prNumber}001`, 60, 60),
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
     ],
+    queues: {
+      producers: [{ queue: jobQueues.bundleGenerate, binding: "BUNDLE_GENERATE_QUEUE" }],
+    },
   });
 }
 

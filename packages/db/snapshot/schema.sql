@@ -114,6 +114,7 @@ CREATE TABLE "revisions" (
 	"size_bytes" bigint NOT NULL,
 	"bundle_status" text DEFAULT 'disabled' NOT NULL,
 	"bundle_status_updated_at" timestamp with time zone,
+	"bundle_size_bytes" bigint,
 	"bytes_purge_enqueued_at" timestamp with time zone,
 	"created_by_api_key_id" text NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,

@@ -74,6 +74,9 @@ export type RenderMode = "html" | "markdown" | "text" | "image" | "audio" | "vid
 
 export type BundleStatus = "pending" | "ready" | "failed" | "disabled";
 
+/** Bundle status set when a revision is first published (not replayed terminal states). */
+export type PublishBundleStatus = "pending" | "disabled";
+
 export type Revision = {
   id: string;
   workspace_id: string;
@@ -86,6 +89,7 @@ export type Revision = {
   size_bytes: number;
   bundle_status: BundleStatus;
   bundle_status_updated_at: string | null;
+  bundle_size_bytes: number | null;
   bytes_purge_enqueued_at: string | null;
   created_by_api_key_id: string;
   created_at: string;

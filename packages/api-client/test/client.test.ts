@@ -4,6 +4,8 @@ import { type AgentPasteError, ApiClient } from "../src/index.js";
 const usagePolicy = {
   file_size_cap_bytes: 10,
   artifact_size_cap_bytes: 100,
+  bundle_size_cap_bytes: 100,
+  bundles_enabled: true,
   file_count_cap: 100,
   actor_rate_limit_per_minute: 60,
   workspace_burst_cap_per_minute: 300,
@@ -323,6 +325,7 @@ function publishResult() {
     view_url: "https://app.example.test/a",
     agent_view_url: "https://api.example.test/v1/agent-view/token",
     expires_at: "2026-02-01T00:00:00.000Z",
+    bundle: { status: "pending", retry_after_seconds: 5 },
   };
 }
 

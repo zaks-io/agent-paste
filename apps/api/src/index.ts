@@ -26,6 +26,8 @@ import {
   type AdminActor,
   type ApiActor,
   type ApiKeyActor,
+  bundleKeyFor,
+  storageEnvSegment,
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
@@ -40,7 +42,7 @@ import {
   verifyAgentViewTokenWithKeyRing,
 } from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
-import { mintContentUrl } from "@agent-paste/tokens/content";
+import { mintBundleUrl, mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
   type AppErrorCode,
@@ -55,6 +57,7 @@ import {
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
+import { enqueuePostPublishJobs } from "./post-publish.js";
 import {
   DEFAULT_WORKOS_ISSUER,
   resolveWorkOsIdentity,
@@ -114,6 +117,7 @@ export type Env = {
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
+  BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;
@@ -383,7 +387,10 @@ async function authenticatedAgentView(
     return errorResponse(context, "not_found");
   }
 
-  return jsonResponse(context, await signAgentViewContentUrls(view, env));
+  return jsonResponse(
+    context,
+    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id }),
+  );
 }
 
 async function listRevisions(
@@ -414,13 +421,36 @@ async function publishRevision(
   const idempotencyKey = guard.idempotencyKey ?? "";
   return runIdempotent(context, async () => {
     try {
+      const now = new Date().toISOString();
       const result = await db.publishRevision({
         actor,
         idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
-        now: new Date().toISOString(),
+        now,
       });
+      const bundleStatus =
+        result && typeof result === "object" && "bundle" in result
+          ? (result as { bundle: { status: string } }).bundle.status
+          : "disabled";
+      if (bundleStatus === "pending") {
+        try {
+          await enqueuePostPublishJobs(context.env as Env, {
+            workspaceId: actor.workspace_id,
+            artifactId: params.artifactId ?? "",
+            revisionId: params.revisionId ?? "",
+            bundleStatus: "pending",
+            requestedAt: now,
+          });
+        } catch (error) {
+          console.warn("Bundle generate enqueue failed after publish; revision remains published.", {
+            artifactId: params.artifactId ?? "",
+            revisionId: params.revisionId ?? "",
+            bundleStatus,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       return signPublishResult(result, context.env);
     } catch (error) {
       const mapped = mapRepositoryError(error);
@@ -1384,27 +1414,39 @@ async function signAgentViewContentUrls(
   env: Env,
   options?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<unknown> {
-  if (!agentViewSigningSecret(env) || !view || typeof view !== "object") {
+  if (!view || typeof view !== "object") {
     return view;
   }
 
   const data = view as {
+    workspace_id?: unknown;
     artifact_id?: unknown;
     revision_id?: unknown;
     entrypoint?: unknown;
     expires_at?: unknown;
     view_url?: unknown;
+    bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
     files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
   };
+  const { workspace_id: internalWorkspaceId, ...publicFields } = data;
+
+  const signingSecret = agentViewSigningSecret(env);
+  if (!signingSecret) {
+    return publicFields;
+  }
+
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
-    return view;
+    return publicFields;
   }
 
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
+  const workspaceId =
+    options?.workspaceId ??
+    (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
-    ...(options?.workspaceId ? { workspaceId: options.workspaceId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
   };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(
@@ -1427,15 +1469,61 @@ async function signAgentViewContentUrls(
       )
     : data.files;
 
+  const bundle =
+    data.bundle && typeof data.bundle === "object" && data.bundle.status === "ready"
+      ? {
+          ...data.bundle,
+          url: await signedBundleUrl(
+            env,
+            data.artifact_id as string,
+            data.revision_id as string,
+            expiresAt,
+            contentAuth,
+          ),
+        }
+      : data.bundle;
+
   return {
-    ...data,
+    ...publicFields,
     view_url: entrypoint
       ? await signedContentUrl(env, data.artifact_id, data.revision_id, entrypoint, expiresAt, contentAuth)
       : typeof data.view_url === "string"
         ? data.view_url
         : undefined,
     files: signedFiles,
+    bundle,
   };
+}
+
+async function signedBundleUrl(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  expiresAt?: string,
+  auth?: { accessLinkId?: string; workspaceId?: string },
+): Promise<string | undefined> {
+  const signingSecret = agentViewSigningSecret(env);
+  const workspaceId = auth?.workspaceId;
+  if (!signingSecret || !workspaceId) {
+    return undefined;
+  }
+  return mintBundleUrl({
+    baseUrl: contentBaseUrl(env),
+    secret: signingSecret,
+    payload: {
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      workspace_id: workspaceId,
+      ...(auth.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
+      key_prefix: bundleKeyFor({
+        workspaceId,
+        artifactId,
+        revisionId,
+        storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
+      }),
+      exp: contentTokenExpiration(expiresAt),
+    },
+  });
 }
 
 async function signedContentUrl(

@@ -34,6 +34,26 @@ export function createSyncBytePurgeQueue(jobsEnv) {
   };
 }
 
+export function createSyncBundleGenerateQueue(jobsEnv) {
+  return {
+    async send(message) {
+      const ack = () => {};
+      await handleQueueBatch(
+        {
+          queue: "bundle-generate",
+          messages: [{ body: message, ack, retry: () => {} }],
+        },
+        jobsEnv,
+      );
+    },
+    async sendBatch(messages) {
+      for (const message of messages) {
+        await this.send(message.body ?? message);
+      }
+    },
+  };
+}
+
 export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret }) {
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",
@@ -44,5 +64,6 @@ export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret })
   };
   jobsEnv.ARTIFACTS = createCountingArtifactsBucket(artifacts, jobsEnv);
   jobsEnv.BYTE_PURGE_QUEUE = createSyncBytePurgeQueue(jobsEnv);
+  jobsEnv.BUNDLE_GENERATE_QUEUE = createSyncBundleGenerateQueue(jobsEnv);
   return jobsEnv;
 }
