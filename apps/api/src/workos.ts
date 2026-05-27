@@ -7,6 +7,7 @@ export type WorkOsIdentity = {
   token_id?: string;
   role?: string;
   roles?: readonly string[];
+  auth_surface?: "dashboard" | "cli";
 };
 
 export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (WorkOsIdentity & { session_id: string });

@@ -5,6 +5,15 @@ use `git log` for commit-level detail.
 
 ## 2026-05-27
 
+### CLI credential hardening (AP-77)
+
+- Added native OS keyring storage for CLI login credentials with a warned `0600`
+  file fallback.
+- Added API key `expires_at`, 90-day expiry for CLI-minted keys, and current-key
+  self-revoke for `agent-paste logout`.
+- Updated dashboard key state display to distinguish Active, Expired, and
+  Revoked keys.
+
 ### Pinning and revision retention (AP-24)
 
 - Added `artifacts.pinned_at` and dashboard `POST /v1/web/artifacts/{id}/pin|unpin`

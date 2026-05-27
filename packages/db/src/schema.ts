@@ -68,6 +68,7 @@ export const apiKeys = pgTable(
     pepperKid: smallint("pepper_kid").notNull(),
     scopes: jsonb("scopes").$type<Array<"publish" | "read">>().notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },

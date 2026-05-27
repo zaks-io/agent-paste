@@ -2,7 +2,7 @@ import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
 import { LiveUpdatePointer } from "./liveUpdates.js";
-import { ApiKeyId, ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
+import { ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
@@ -79,8 +79,6 @@ export const WebArtifactDetailResponse = WebArtifactRow.extend({
 export type WebArtifactDetailResponse = z.infer<typeof WebArtifactDetailResponse>;
 
 export const WebApiKeyRow = ApiKeySummary.extend({
-  id: ApiKeyId,
-  expires_at: IsoDateTime.nullable(),
   revoked: z.boolean(),
 });
 export type WebApiKeyRow = z.infer<typeof WebApiKeyRow>;

@@ -81,6 +81,77 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ actor: { id: "key_1" } });
   });
 
+  it("rejects cached API key actors after their expiry", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "expired"
+            ? { type: "api_key", id: "key_1", workspace_id: "w_1", expires_at: "2000-01-01T00:00:00.000Z" }
+            : null;
+        },
+      },
+      DB: {
+        async getWhoami() {
+          throw new Error("expired key should not reach db");
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/whoami", { headers: { authorization: "Bearer expired" } }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+  });
+
+  it("revokes the current API key", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "ok" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
+        },
+      },
+      DB: {
+        async getWhoami() {
+          throw new Error("self-revoke should not call whoami");
+        },
+        async revokeCurrentApiKey(input) {
+          expect(input.actor).toMatchObject({ type: "api_key", id: "key_1", workspace_id: "w_1" });
+          return {
+            api_key: {
+              id: input.actor.id,
+              workspace_id: input.actor.workspace_id,
+              name: "CLI",
+              public_id: "01HZY7Q8X9Y2S3T4",
+              scopes: ["publish", "read"],
+              revoked_at: "2026-01-01T00:00:00.000Z",
+              expires_at: "2026-04-01T00:00:00.000Z",
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_used_at: null,
+            },
+            revoked_at: "2026-01-01T00:00:00.000Z",
+          };
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/api-keys/current/revoke", {
+        method: "POST",
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      api_key: { id: "key_1", revoked_at: "2026-01-01T00:00:00.000Z" },
+      revoked_at: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
   it("returns 429 when the actor rate limit fires", async () => {
     const env: Env = {
       AUTH: {
@@ -891,6 +962,7 @@ describe("api worker", () => {
           });
           expect(input.idempotencyKey).toBe("idem-create");
           expect(input.name).toBe("CLI Key");
+          expect(input.expiresInSeconds).toBeUndefined();
           return {
             api_key: {
               id: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
@@ -899,6 +971,7 @@ describe("api worker", () => {
               public_id: "01HZY7Q8X9Y2S3T4",
               scopes: ["publish", "read"],
               revoked_at: null,
+              expires_at: null,
               created_at: "2026-01-01T00:00:00.000Z",
               last_used_at: null,
             },
@@ -958,6 +1031,7 @@ describe("api worker", () => {
               public_id: "01HZY7Q8X9Y2S3T4",
               scopes: ["publish", "read"],
               revoked_at: null,
+              expires_at: null,
               created_at: "2026-01-01T00:00:00.000Z",
               last_used_at: null,
             },
@@ -984,6 +1058,54 @@ describe("api worker", () => {
     expect(ensureCalls).toBe(1);
   });
 
+  it("sets a 90 day expiry when the key-mint route is called with a CLI WorkOS token", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return null;
+        },
+        async verifyWebToken() {
+          return { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1", auth_surface: "cli" };
+        },
+      },
+      DB: webMemberDbForTests(["admin"], {
+        async createWebApiKey(input) {
+          expect(input.expiresInSeconds).toBe(7_776_000);
+          return {
+            api_key: {
+              id: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: input.actor.workspace_id,
+              name: input.name,
+              public_id: "01HZY7Q8X9Y2S3T4",
+              scopes: ["publish", "read"],
+              revoked_at: null,
+              expires_at: "2026-04-01T00:00:00.000Z",
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_used_at: null,
+            },
+            secret: "ap_pk_preview_01HZY7Q8X9Y2S3T4_secretsecretsecretsecretsecret",
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/keys", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-cli",
+        },
+        body: JSON.stringify({ name: "agent-paste CLI" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({ api_key: { expires_at: "2026-04-01T00:00:00.000Z" } });
+  });
+
   it("revokes a web API key from the member workspace", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
@@ -1002,6 +1124,7 @@ describe("api worker", () => {
               public_id: "01HZY7Q8X9Y2S3T4",
               scopes: ["publish", "read"],
               revoked_at: "2026-01-01T00:00:00.000Z",
+              expires_at: null,
               created_at: "2026-01-01T00:00:00.000Z",
               last_used_at: null,
             },

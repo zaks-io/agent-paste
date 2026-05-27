@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { createSign, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
-import { access } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,9 @@ import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, waitForHealthz } from "./smoke-harn
 const root = fileURLToPath(new URL("..", import.meta.url));
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
 const webWranglerConfig = fileURLToPath(new URL("../apps/web/dist/server/wrangler.json", import.meta.url));
+const localWebWranglerConfig = fileURLToPath(
+  new URL("../apps/web/dist/server/wrangler.lighthouse-dashboard-a11y.json", import.meta.url),
+);
 const localServerEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
 const wranglerBin = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
 
@@ -50,6 +53,7 @@ let workosServer;
 
 try {
   await assertBuildArtifacts();
+  await writeLocalWebWranglerConfig();
   workosServer = createWorkOsServer();
   await listen(workosServer, workosPort);
 
@@ -66,17 +70,7 @@ try {
 
   const webServer = spawnChild(
     process.execPath,
-    [
-      wranglerBin,
-      "dev",
-      "--config",
-      webWranglerConfig,
-      "--port",
-      String(webPort),
-      "--ip",
-      "127.0.0.1",
-      ...webWranglerVars(),
-    ],
+    [wranglerBin, "dev", "--config", localWebWranglerConfig, "--port", String(webPort), "--ip", "127.0.0.1"],
     {},
     { cwd: webRoot },
   );
@@ -149,31 +143,32 @@ async function assertBuildArtifacts() {
   }
 }
 
-function webWranglerVars() {
-  return [
-    "--var",
-    `API_BASE_URL:${apiBaseUrl}`,
-    "--var",
-    `WEB_BASE_URL:${webBaseUrl}`,
-    "--var",
-    `WORKOS_CLIENT_ID:${workosClientId}`,
-    "--var",
-    `WORKOS_REDIRECT_URI:${webBaseUrl}/api/auth/callback`,
-    "--var",
-    `WORKOS_COOKIE_NAME:${cookieName}`,
-    "--var",
-    "AGENT_PASTE_ENV:dev",
-    "--var",
-    `WORKOS_API_KEY:${workosApiKey}`,
-    "--var",
-    `WORKOS_COOKIE_PASSWORD:${cookiePassword}`,
-    "--var",
-    "WORKOS_API_HOSTNAME:127.0.0.1",
-    "--var",
-    `WORKOS_API_PORT:${workosPort}`,
-    "--var",
-    "WORKOS_API_HTTPS:false",
-  ];
+async function writeLocalWebWranglerConfig() {
+  const config = JSON.parse(await readFile(webWranglerConfig, "utf8"));
+
+  // The PR deploy step patches the generated config with deployed service bindings.
+  // Lighthouse uses a local API harness, so keep the generated entry/assets but
+  // strip deployment-only bindings that would send loader requests to Cloudflare.
+  delete config.routes;
+  delete config.services;
+  config.name = "agent-paste-web-lighthouse-dashboard-a11y";
+  config.workers_dev = true;
+  config.vars = {
+    ...config.vars,
+    API_BASE_URL: apiBaseUrl,
+    WEB_BASE_URL: webBaseUrl,
+    WORKOS_CLIENT_ID: workosClientId,
+    WORKOS_REDIRECT_URI: `${webBaseUrl}/api/auth/callback`,
+    WORKOS_COOKIE_NAME: cookieName,
+    AGENT_PASTE_ENV: "dev",
+    WORKOS_API_KEY: workosApiKey,
+    WORKOS_COOKIE_PASSWORD: cookiePassword,
+    WORKOS_API_HOSTNAME: "127.0.0.1",
+    WORKOS_API_PORT: String(workosPort),
+    WORKOS_API_HTTPS: "false",
+  };
+
+  await writeFile(localWebWranglerConfig, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 function createWorkOsServer() {

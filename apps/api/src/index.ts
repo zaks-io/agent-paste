@@ -17,6 +17,7 @@ import {
   OperationEventTargetType,
   type RouteContract,
   routeContracts,
+  Seconds,
   type SetLockdownRequest,
   type UpdateWebSettingsRequest,
   WebOperatorEventFocus,
@@ -84,6 +85,8 @@ type PaginationInput = {
   cursor?: string;
   limit: number;
 };
+
+const CLI_API_KEY_TTL_SECONDS = Seconds.ninetyDays;
 
 export type R2ListedObject = { key: string };
 export type R2Objects = { objects: R2ListedObject[]; truncated: boolean; cursor?: string };
@@ -259,6 +262,9 @@ apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) 
   whoami(context as AppContext, principal, db),
 );
 apiNoDbRegistrar.mount(contractById("usagePolicy.get"), async (context) => getUsagePolicy(context as AppContext));
+apiDbRegistrar.mount(contractById("apiKeys.revokeCurrent"), async (context, principal, db) =>
+  revokeCurrentApiKey(context as AppContext, principal, db),
+);
 apiDbRegistrar.mount(contractById("agentView.public"), async (context, principal, db) =>
   publicAgentView(context as AppContext, principal, db),
 );
@@ -403,6 +409,24 @@ async function whoami(context: AppContext, principal: Principal, db: Repository)
 
 async function getUsagePolicy(context: AppContext): Promise<Response> {
   return jsonResponse(context, usagePolicy);
+}
+
+async function revokeCurrentApiKey(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = apiKeyActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  if (!db.revokeCurrentApiKey) {
+    return errorResponse(context, "database_unavailable");
+  }
+  try {
+    return jsonResponse(context, await db.revokeCurrentApiKey({ actor }));
+  } catch (error) {
+    if (error instanceof Error && error.message === "api_key_not_found") {
+      return errorResponse(context, "not_authenticated");
+    }
+    throw error;
+  }
 }
 
 async function authenticatedAgentView(
@@ -867,7 +891,18 @@ async function webCreateApiKey(
   }
   const createWebApiKey = db.createWebApiKey.bind(db);
   const body: CreateApiKeyRequest = guard.body;
-  return runIdempotent(context, () => createWebApiKey({ actor, idempotencyKey, name: body.name }), 201);
+  const identity = principal.kind === "workos_access_token" ? (principal.identity as WorkOsIdentity) : null;
+  return runIdempotent(
+    context,
+    () =>
+      createWebApiKey({
+        actor,
+        idempotencyKey,
+        name: body.name,
+        ...(identity?.auth_surface === "cli" ? { expiresInSeconds: CLI_API_KEY_TTL_SECONDS } : {}),
+      }),
+    201,
+  );
 }
 
 async function webRevokeApiKey(
@@ -1145,7 +1180,7 @@ async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyAct
   }
 
   if (env.AUTH) {
-    return env.AUTH.verifyApiKey(token);
+    return validApiKeyActor(await env.AUTH.verifyApiKey(token));
   }
 
   const runtime = postgresRuntime(env);
@@ -1153,12 +1188,21 @@ async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyAct
     return null;
   }
 
-  return cachedLookup({
-    namespace: "api-key-auth",
-    key: await cacheKeyForSecret(token),
-    ttlSeconds: AUTH_CACHE_TTL_SECONDS,
-    lookup: () => runtime.auth.verifyApiKey(token),
-  });
+  return validApiKeyActor(
+    await cachedLookup({
+      namespace: "api-key-auth",
+      key: await cacheKeyForSecret(token),
+      ttlSeconds: AUTH_CACHE_TTL_SECONDS,
+      lookup: () => runtime.auth.verifyApiKey(token),
+    }),
+  );
+}
+
+function validApiKeyActor(actor: ApiKeyActor | null): ApiKeyActor | null {
+  if (!actor?.expires_at) {
+    return actor;
+  }
+  return Date.parse(actor.expires_at) <= Date.now() ? null : actor;
 }
 
 const smokeHarnessActor: AdminActor = { type: "system", id: "smoke-harness" };
@@ -1208,7 +1252,7 @@ export async function authenticateWebIdentity(
       collectRejections(dashboard, "dashboard", rejections),
     );
     if (identity) {
-      return identity;
+      return { ...identity, auth_surface: "dashboard" };
     }
   }
 
@@ -1217,7 +1261,7 @@ export async function authenticateWebIdentity(
     if (cli) {
       const identity = await resolveWorkOsIdentity(`Bearer ${token}`, collectRejections(cli, "cli", rejections));
       if (identity) {
-        return identity;
+        return { ...identity, auth_surface: "cli" };
       }
     }
   }
@@ -1347,6 +1391,13 @@ function webMemberActor(principal: Principal): ApiActor | null {
     return null;
   }
   return principal.actor as ApiActor;
+}
+
+function apiKeyActor(principal: Principal): ApiKeyActor | null {
+  if (principal.kind !== "api_key" || principal.actor.type !== "api_key") {
+    return null;
+  }
+  return principal.actor as ApiKeyActor;
 }
 
 function platformActor(principal: Principal): PlatformActor | null {

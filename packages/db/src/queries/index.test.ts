@@ -245,9 +245,7 @@ describe("postgres query adapters", () => {
     ]);
     await expect(artifactQueries.updateExpiry(db, "missing", "2026-01-02T00:00:00.000Z")).resolves.toBeNull();
     await expect(artifactQueries.countPinned(db, "workspace_1")).resolves.toBe(0);
-    await expect(
-      artifactQueries.setPinnedAt(db, "missing", null, "2026-01-02T00:00:00.000Z"),
-    ).resolves.toBe(false);
+    await expect(artifactQueries.setPinnedAt(db, "missing", null, "2026-01-02T00:00:00.000Z")).resolves.toBe(false);
     await expect(artifactQueries.setAccessLinkLockdown(db, "missing", null)).resolves.toBe(false);
 
     await expect(uploadSessionQueries.findById(db, "session_1")).resolves.toMatchObject({
@@ -358,6 +356,7 @@ function apiKeyRow(overrides: Record<string, unknown> = {}) {
     pepperKid: 1,
     scopes: ["publish", "read"],
     revokedAt: null,
+    expiresAt: null,
     lastUsedAt: null,
     createdAt: now,
     ...overrides,
@@ -487,6 +486,7 @@ function apiKeyEntity() {
     pepper_kid: 1,
     scopes: ["publish", "read"] as const,
     revoked_at: null,
+    expires_at: null,
     last_used_at: null,
     created_at: "2026-01-01T00:00:00.000Z",
   };

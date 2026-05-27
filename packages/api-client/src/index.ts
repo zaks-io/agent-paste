@@ -10,6 +10,7 @@ import {
   PublishResult,
   type RevisionId,
   RevisionListResponse,
+  RevokeApiKeyResponse,
   type UploadSessionId,
   UsagePolicy,
   WhoamiResponse,
@@ -79,6 +80,11 @@ export class ApiClient {
   usagePolicy() {
     return this.request(UsagePolicy, this.apiBaseUrl, "/v1/usage-policy");
   }
+
+  apiKeys = {
+    revokeCurrent: () =>
+      this.request(RevokeApiKeyResponse, this.apiBaseUrl, "/v1/api-keys/current/revoke", { method: "POST" }),
+  };
 
   uploadSessions = {
     create: (body: CreateUploadSessionRequest, idempotencyKey: string) =>

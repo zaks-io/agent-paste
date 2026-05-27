@@ -20,6 +20,7 @@ describe("MVP route registry", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
       "whoami.get",
       "usagePolicy.get",
+      "apiKeys.revokeCurrent",
       "agentView.public",
       "accessLinks.resolve",
       "agentView.getLatest",
@@ -63,6 +64,7 @@ describe("MVP route registry", () => {
       [
         "agentView.getLatest",
         "agentView.getRevision",
+        "apiKeys.revokeCurrent",
         "revisions.list",
         "revisions.publish",
         "uploadSessions.create",

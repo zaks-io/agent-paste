@@ -76,7 +76,7 @@ type WebArtifactDetail = WebArtifactRow & {
   viewer: { iframe_src: string; render_mode: string } | null;
 };
 
-type WebApiKeyRow = ApiKeySummary & { expires_at: null; revoked: boolean };
+type WebApiKeyRow = ApiKeySummary & { revoked: boolean };
 
 type WebSettings = {
   workspace_name: string;
@@ -171,8 +171,13 @@ export type Repository = {
     actor: ApiActor;
     idempotencyKey: string;
     name: string;
+    expiresInSeconds?: number;
     now?: Date;
   }): Promise<{ api_key: ApiKeySummary; secret: string }>;
+  revokeCurrentApiKey(input: {
+    actor: ApiKeyActor;
+    now?: Date;
+  }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
   revokeWebApiKey(input: {
     actor: ApiActor;
     idempotencyKey: string;
