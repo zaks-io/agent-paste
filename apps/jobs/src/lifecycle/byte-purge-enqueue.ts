@@ -46,12 +46,20 @@ export async function enqueueArtifactBytePurge(
 
   // Operational bookkeeping outside runCommand (ADR 0049).
   try {
-    await executor.query(
+    const result = await executor.query<{ id: string }>(
       `update revisions
        set bytes_purge_enqueued_at = now()
-       where workspace_id = $1 and id = $2 and artifact_id = $3`,
+       where workspace_id = $1 and id = $2 and artifact_id = $3
+       returning id`,
       [input.workspaceId, input.revisionId, input.artifactId],
     );
+    if (result.rows.length === 0) {
+      logOpError("lifecycle.byte_purge.bookkeeping_failed", {
+        artifact_id: input.artifactId,
+        error: "revision_not_updated",
+      });
+      return false;
+    }
   } catch (error) {
     logOpError("lifecycle.byte_purge.bookkeeping_failed", {
       artifact_id: input.artifactId,

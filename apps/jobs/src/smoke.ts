@@ -101,17 +101,19 @@ async function runLocalMvpLifecycleCleanup(repo: LocalMvpRepository, env: Env): 
 }
 
 function createLocalRevisionExecutor(repo: LocalMvpRepository): SqlExecutor {
-  const query = async (sql: string, params?: readonly unknown[]) => {
-    if (sql.includes("bytes_purge_enqueued_at") && params?.[1]) {
-      const revision = repo.revisions.get(String(params[1]));
-      if (revision) {
-        revision.bytes_purge_enqueued_at = new Date().toISOString();
-      }
-    }
-    return { rows: [] };
-  };
   const executor: SqlExecutor = {
-    query,
+    query: (async (sql, params) => {
+      if (sql.includes("bytes_purge_enqueued_at") && params?.[1]) {
+        const revisionId = String(params[1]);
+        const revision = repo.revisions.get(revisionId);
+        if (revision) {
+          revision.bytes_purge_enqueued_at = new Date().toISOString();
+          return { rows: [{ id: revisionId }] };
+        }
+        return { rows: [] };
+      }
+      return { rows: [] };
+    }) as SqlExecutor["query"],
     transaction: async (run) => run(executor),
   };
   return executor;

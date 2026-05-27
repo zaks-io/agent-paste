@@ -168,6 +168,9 @@ describe("jobs smoke harness", () => {
             ],
           };
         }
+        if (sql.includes("bytes_purge_enqueued_at")) {
+          return { rows: [{ id: revisionId }] };
+        }
         return { rows: [] };
       }),
       ARTIFACTS: {

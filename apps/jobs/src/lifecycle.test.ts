@@ -64,7 +64,7 @@ describe("lifecycle side effects", () => {
   it("marks bytes_purge_enqueued_at after enqueue succeeds", async () => {
     const send = vi.fn(async () => ({}));
     const executor = {
-      query: vi.fn(async () => ({ rows: [] })),
+      query: vi.fn(async () => ({ rows: [{ id: revisionId }] })),
       transaction: vi.fn(),
     };
     await expect(
@@ -87,6 +87,23 @@ describe("lifecycle side effects", () => {
       revisionId,
       artifactId,
     ]);
+  });
+
+  it("returns false when revision bookkeeping updates zero rows", async () => {
+    const send = vi.fn(async () => ({}));
+    const executor = {
+      query: vi.fn(async () => ({ rows: [] })),
+      transaction: vi.fn(),
+    };
+    await expect(
+      enqueueArtifactBytePurge({ BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } }, executor, {
+        workspaceId,
+        artifactId,
+        revisionId,
+        reason: "deletion",
+      }),
+    ).resolves.toBe(false);
+    expect(send).toHaveBeenCalled();
   });
 
   it("returns false when the purge queue binding is missing", async () => {
@@ -123,7 +140,7 @@ describe("lifecycle side effects", () => {
     const r2Key = `artifacts/${artifactId}/revisions/${revisionId}/files/index.html`;
     const deleted: string[][] = [];
     const executor = {
-      query: vi.fn(async () => ({ rows: [] })),
+      query: vi.fn(async () => ({ rows: [{ id: revisionId }] })),
       transaction: vi.fn(),
     };
     await expect(
@@ -180,6 +197,9 @@ describe("auto deletion discovery", () => {
       }
       if (sql.includes("update artifacts")) {
         return { rows: [{ id: artifactId }] };
+      }
+      if (sql.includes("bytes_purge_enqueued_at")) {
+        return { rows: [{ id: revisionId }] };
       }
       return { rows: [] };
     });
