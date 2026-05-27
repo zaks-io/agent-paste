@@ -13,6 +13,9 @@ export const CLEANUP_BATCH_SIZE = 100;
 
 export const SECONDS_PER_DAY = 24 * 60 * 60;
 
+/** Platform cap for pinned artifacts per workspace (ADR 0048 / 0056). */
+export const PINNED_ARTIFACT_CAP = 50;
+
 export const USAGE_POLICY = {
   file_size_cap_bytes: 10 * 1024 * 1024,
   artifact_size_cap_bytes: MAX_ARTIFACT_BYTES,

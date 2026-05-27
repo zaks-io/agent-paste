@@ -49,6 +49,9 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listFiltered: (workspaceId, status) => artifactQueries.listFiltered(drizzle, workspaceId, status),
       listWebPage: (input) => artifactQueries.listWebPage(drizzle, input),
       updateExpiry: (artifactId, expiresAt) => artifactQueries.updateExpiry(drizzle, artifactId, expiresAt),
+      countPinned: (workspaceId) => artifactQueries.countPinned(drizzle, workspaceId),
+      setPinnedAt: (artifactId, pinnedAt, updatedAt) =>
+        artifactQueries.setPinnedAt(drizzle, artifactId, pinnedAt, updatedAt),
       updatePublished: (artifactId, input) => artifactQueries.updatePublished(drizzle, artifactId, input),
       updateStaging: (artifactId, input) => artifactQueries.updateStaging(drizzle, artifactId, input),
       markDeleted: async (artifactId, deletedAt) => {
@@ -96,6 +99,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listForArtifact: (artifactId) => revisionQueries.listForArtifact(drizzle, artifactId),
       nextRevisionNumber: (artifactId) => revisionQueries.nextRevisionNumber(drizzle, artifactId),
       publish: (input) => revisionQueries.publish(drizzle, input),
+      markRetained: (input) => revisionQueries.markRetained(drizzle, input),
     },
     artifactFiles: {
       insert: (artifactId, revisionId, file, fallbackUploadedAt) =>

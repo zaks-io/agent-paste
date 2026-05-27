@@ -49,7 +49,7 @@ async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string):
   const tasks: Array<{ name: string; run: () => Promise<unknown> }> = [
     { name: "auto_deletion", run: () => runAutoDeletionDiscovery(executor, env, now) },
     { name: "purge_recovery", run: () => runPurgeRecoveryDiscovery(executor, env) },
-    { name: "retention", run: () => runRetentionDiscovery(executor) },
+    { name: "retention", run: () => runRetentionDiscovery(executor, env, now) },
     { name: "maintenance_gc", run: () => runMaintenanceGc(executor, now) },
   ];
 

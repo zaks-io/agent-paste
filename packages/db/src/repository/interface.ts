@@ -141,6 +141,18 @@ export type Repository = {
     pagination?: { cursor?: string; limit?: number },
   ): Promise<{ items: WebArtifactRow[]; page_info: PageInfo }>;
   getWebArtifact(actor: ApiActor, artifactId: string): Promise<WebArtifactDetail | null>;
+  pinWebArtifact(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    now?: Date;
+  }): Promise<WebArtifactDetail>;
+  unpinWebArtifact(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    now?: Date;
+  }): Promise<WebArtifactDetail>;
   listWebApiKeys(actor: ApiActor): Promise<{ items: WebApiKeyRow[]; page_info: PageInfo }>;
   createWebApiKey(input: {
     actor: ApiActor;

@@ -16,6 +16,7 @@ function createArtifact(overrides: Partial<Artifact> = {}): Artifact {
     file_count: 1,
     size_bytes: 1,
     expires_at: "2099-01-01T00:00:00.000Z",
+    pinned_at: null,
     created_by_api_key_id: "key_1",
     access_link_lockdown_at: null,
     deleted_at: null,

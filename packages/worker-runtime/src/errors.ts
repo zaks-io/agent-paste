@@ -21,6 +21,7 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   api_key_revoked: 409,
   draft_revision_conflict: 409,
   idempotency_in_flight: 409,
+  pinned_artifact_cap_exceeded: 409,
   unexpected_upload_object: 409,
   upload_incomplete: 409,
   upload_session_expired: 409,

@@ -24,10 +24,11 @@ export function toWebArtifactRow(artifact: Artifact) {
     title: artifact.title,
     status: webArtifactStatus(artifact),
     latest_revision_id: artifact.revision_id,
-    pinned: false,
-    lockdown: false,
+    pinned: artifact.pinned_at !== null,
+    lockdown: artifact.access_link_lockdown_at !== null,
     last_published_at: artifact.created_at,
-    auto_delete_at: artifact.status === "deleted" ? null : artifact.expires_at,
+    auto_delete_at:
+      artifact.status === "deleted" || artifact.pinned_at !== null ? null : artifact.expires_at,
   };
 }
 

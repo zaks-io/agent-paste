@@ -6,6 +6,7 @@ import {
   DEFAULT_UPLOAD_SESSION_TTL_MS,
   MAX_AUTO_DELETION_DAYS,
   MIN_AUTO_DELETION_DAYS,
+  PINNED_ARTIFACT_CAP,
   USAGE_POLICY,
 } from "../policy.js";
 import { toRevisionSummary } from "../queries/revisions.js";
@@ -132,6 +133,7 @@ export class RepositoryCore implements Repository {
       name: input.name ?? input.email.split("@")[0] ?? "workspace",
       contact_email: input.email,
       auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
+      revision_retention_days: null,
       created_at: now,
       updated_at: now,
     };
@@ -301,6 +303,7 @@ export class RepositoryCore implements Repository {
       name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
       contact_email: input.email,
       auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
+      revision_retention_days: null,
       created_at: now,
       updated_at: now,
     };
@@ -430,6 +433,103 @@ export class RepositoryCore implements Repository {
         size_bytes: artifact.size_bytes,
       };
     });
+  }
+
+  async pinWebArtifact(input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: memberCommandActor(input.actor),
+        operation: "web.artifact.pin",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const member = await this.mustMember(entities, input.actor.id);
+        const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
+        if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
+          throw new Error("artifact_not_found");
+        }
+        if (artifact.pinned_at) {
+          return this.webArtifactDetailFromRow(artifact);
+        }
+        const pinnedCount = await entities.artifacts.countPinned(member.workspace_id);
+        if (pinnedCount >= PINNED_ARTIFACT_CAP) {
+          throw new Error("pinned_artifact_cap_exceeded");
+        }
+        await entities.artifacts.setPinnedAt(artifact.id, now, now);
+        await entities.operationEvents.insert({
+          actorType: "member",
+          actorId: member.id,
+          action: "artifact.pinned",
+          targetType: "artifact",
+          targetId: artifact.id,
+          workspaceId: member.workspace_id,
+          details: {},
+          occurredAt: now,
+        });
+        const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);
+        if (!updated) {
+          throw new Error("artifact_not_found");
+        }
+        return this.webArtifactDetailFromRow(updated);
+      },
+    );
+  }
+
+  async unpinWebArtifact(input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date }) {
+    if (input.actor.type !== "member") {
+      throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    }
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: memberCommandActor(input.actor),
+        operation: "web.artifact.unpin",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const member = await this.mustMember(entities, input.actor.id);
+        const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
+        if (!artifact || artifact.status !== "active") {
+          throw new Error("artifact_not_found");
+        }
+        if (!artifact.pinned_at) {
+          return this.webArtifactDetailFromRow(artifact);
+        }
+        await entities.artifacts.setPinnedAt(artifact.id, null, now);
+        await entities.operationEvents.insert({
+          actorType: "member",
+          actorId: member.id,
+          action: "artifact.unpinned",
+          targetType: "artifact",
+          targetId: artifact.id,
+          workspaceId: member.workspace_id,
+          details: {},
+          occurredAt: now,
+        });
+        const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);
+        if (!updated) {
+          throw new Error("artifact_not_found");
+        }
+        return this.webArtifactDetailFromRow(updated);
+      },
+    );
+  }
+
+  private webArtifactDetailFromRow(artifact: Artifact) {
+    return {
+      ...toWebArtifactRow(artifact),
+      entrypoint: artifact.entrypoint,
+      file_count: artifact.file_count,
+      size_bytes: artifact.size_bytes,
+    };
   }
 
   async listWebApiKeys(actor: ApiActor) {
@@ -897,6 +997,7 @@ export class RepositoryCore implements Repository {
             file_count: session.file_count,
             size_bytes: session.size_bytes,
             expires_at: session.artifact_expires_at,
+            pinned_at: null,
             created_by_api_key_id: session.created_by_api_key_id,
             access_link_lockdown_at: null,
             deleted_at: null,

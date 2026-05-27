@@ -163,6 +163,32 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "post",
+    path: "/v1/web/artifacts/{artifact_id}/pin",
+    operationId: "web.artifacts.pin",
+    summary: "Pin an artifact to exempt it from auto deletion.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [requestIdHeader, idempotencyKeyHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebArtifactDetailResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/artifacts/{artifact_id}/unpin",
+    operationId: "web.artifacts.unpin",
+    summary: "Unpin an artifact so auto deletion applies again.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [requestIdHeader, idempotencyKeyHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebArtifactDetailResponse")),
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/web/keys",
     operationId: "web.apiKeys.list",

@@ -115,7 +115,7 @@ Recommended order:
 6. [x] Bundle generation and download.
        Add bundle status fields, deterministic R2 bundle keys, bundle size caps,
        and Agent View bundle state.
-7. [ ] Pinning and revision retention.
+7. [x] Pinning and revision retention.
        Add pinned artifacts, non-current revision retention, and auto-deletion
        behavior that respects pinning.
 8. [ ] Live Updates after dependencies are ready.
