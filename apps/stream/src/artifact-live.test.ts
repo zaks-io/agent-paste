@@ -9,9 +9,12 @@ const pointer = {
   title: "Demo",
 };
 
-function createDo() {
+const shareAuth = { kind: "access_link" as const, public_id: "0123456789ABCDEF", blob: "signed" };
+
+function createDo(apiFetch = vi.fn()) {
   return new ArtifactLiveUpdates({} as DurableObjectState, {
-    API: { fetch: vi.fn() },
+    API: { fetch: apiFetch },
+    STREAM_INTERNAL_SECRET: "stream-internal-secret",
   });
 }
 
@@ -39,7 +42,12 @@ describe("ArtifactLiveUpdates", () => {
         body: JSON.stringify({
           op: "publish",
           artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-          pointer,
+          revision: {
+            revision_id: pointer.revision_id,
+            entrypoint: "index.html",
+            render_mode: pointer.render_mode,
+            title: pointer.title,
+          },
         }),
       }),
     );
@@ -86,6 +94,7 @@ describe("ArtifactLiveUpdates", () => {
             artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
             audience: "share",
             pointer,
+            auth: shareAuth,
           }),
         }),
       );
@@ -101,6 +110,7 @@ describe("ArtifactLiveUpdates", () => {
           artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
           audience: "dashboard",
           pointer,
+          auth: { kind: "dashboard", authorization: "Bearer member" },
         }),
       }),
     );
@@ -121,6 +131,7 @@ describe("ArtifactLiveUpdates", () => {
           artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
           audience: "share",
           pointer,
+          auth: shareAuth,
         }),
       }),
     );

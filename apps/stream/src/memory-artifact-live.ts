@@ -1,5 +1,6 @@
 import { type ArtifactId, LIVE_UPDATE_VIEWER_CAP, LiveUpdateNotifyMessage } from "@agent-paste/contracts";
 import { liveUpdateAtCapResponse, sseResponseHeaders } from "./artifact-live.js";
+import { type ApiServiceBinding, parseConnectAuth, resignLiveUpdatePointer } from "./connection-auth.js";
 import { ArtifactLiveHub } from "./live-hub.js";
 import { createSseStream, formatSseEvent } from "./sse.js";
 
@@ -22,7 +23,12 @@ async function readJsonBody(request: Request): Promise<unknown | null> {
   }
 }
 
-export function createMemoryArtifactLiveNamespace() {
+export type MemoryArtifactLiveOptions = {
+  api: ApiServiceBinding;
+  streamInternalSecret?: string;
+};
+
+export function createMemoryArtifactLiveNamespace(options: MemoryArtifactLiveOptions) {
   return {
     idFromName(name: string) {
       return name;
@@ -43,7 +49,18 @@ export function createMemoryArtifactLiveNamespace() {
             }
             const message = parsed.data;
             if (message.op === "publish") {
-              hub.publish(message.pointer, message.artifact_id as ArtifactId);
+              await hub.publishRevision(message.revision, message.artifact_id as ArtifactId, async (connection) => {
+                const resignOptions = options.streamInternalSecret
+                  ? { streamInternalSecret: options.streamInternalSecret }
+                  : {};
+                const authorized = await resignLiveUpdatePointer(
+                  options.api,
+                  connection.auth,
+                  message.artifact_id as ArtifactId,
+                  resignOptions,
+                );
+                return authorized?.pointer ?? null;
+              });
               return new Response("ok");
             }
             hub.disconnect(message.audiences, message.reason);
@@ -59,12 +76,15 @@ export function createMemoryArtifactLiveNamespace() {
               artifact_id?: string;
               audience?: "share" | "dashboard";
               pointer?: unknown;
+              auth?: unknown;
             };
+            const auth = parseConnectAuth(payload.auth);
             if (
               typeof payload.connection_id !== "string" ||
               typeof payload.artifact_id !== "string" ||
               (payload.audience !== "share" && payload.audience !== "dashboard") ||
-              !payload.pointer
+              !payload.pointer ||
+              !auth
             ) {
               return new Response("invalid_request", { status: 400 });
             }
@@ -82,6 +102,7 @@ export function createMemoryArtifactLiveNamespace() {
                 const result = hub.connect({
                   id: connectionId,
                   audience: payload.audience as "share" | "dashboard",
+                  auth,
                   send,
                   close: terminateAndRemove,
                 });

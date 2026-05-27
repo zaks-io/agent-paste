@@ -33,7 +33,12 @@ describe("live update contracts", () => {
       LiveUpdateNotifyMessage.safeParse({
         op: "publish",
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        pointer,
+        revision: {
+          revision_id: pointer.revision_id,
+          entrypoint: "index.html",
+          render_mode: pointer.render_mode,
+          title: pointer.title,
+        },
       }).success,
     ).toBe(true);
     expect(

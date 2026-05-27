@@ -307,13 +307,11 @@ const jobsEnv = createJobsEnv({
   smokeHarnessSecret,
 });
 const apiDb = createApiDatabase(services.apiDb);
-const artifactLive = createMemoryArtifactLiveNamespace();
 
 const auth = services.auth;
 const apiEnv = {
   AUTH: auth,
   DB: apiDb,
-  ARTIFACT_LIVE: artifactLive,
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
   BYTE_PURGE_QUEUE: jobsEnv.BYTE_PURGE_QUEUE,
   LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
@@ -333,6 +331,15 @@ const apiEnv = {
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
 };
+const artifactLive = createMemoryArtifactLiveNamespace({
+  api: {
+    fetch(request) {
+      return apiWorker.fetch(request, apiEnv);
+    },
+  },
+  streamInternalSecret,
+});
+apiEnv.ARTIFACT_LIVE = artifactLive;
 Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
   enumerable: true,
   get() {

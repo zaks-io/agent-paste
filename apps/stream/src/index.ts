@@ -49,7 +49,11 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     if (!authorized) {
       return notFound();
     }
-    return connectToArtifact(env, authorized, request.signal);
+    return connectToArtifact(env, authorized, request.signal, {
+      kind: "access_link",
+      public_id: publicId as import("@agent-paste/contracts").AccessLinkPublicId,
+      blob: authorizeRequest.blob,
+    });
   }
 
   const dashboardMatch = /^\/v1\/live\/artifacts\/([^/]+)$/.exec(url.pathname);
@@ -73,7 +77,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     if (!authorized) {
       return notFound();
     }
-    return connectToArtifact(env, authorized, request.signal);
+    return connectToArtifact(env, authorized, request.signal, {
+      kind: "dashboard",
+      authorization,
+    });
   }
 
   return notFound();
@@ -83,6 +90,7 @@ async function connectToArtifact(
   env: Env,
   authorized: { artifact_id: string; audience: "share" | "dashboard"; pointer: unknown },
   signal: AbortSignal,
+  auth: import("./connection-auth.js").LiveConnectionAuth,
 ): Promise<Response> {
   const id = env.ARTIFACT_LIVE.idFromName(authorized.artifact_id);
   const stub = env.ARTIFACT_LIVE.get(id);
@@ -96,6 +104,7 @@ async function connectToArtifact(
         artifact_id: authorized.artifact_id,
         audience: authorized.audience,
         pointer: authorized.pointer,
+        auth,
       }),
       signal,
     }),
