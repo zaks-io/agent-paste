@@ -56,9 +56,11 @@ response. That is workable for the MVP, but the lifecycle language is now visibl
 session creation/finalization in `RepositoryCore`, and signed upload URL / R2 observation behavior
 in the upload Worker.
 
-- [ ] When Phase 4 publish/update work begins, deepen this into an Upload Session lifecycle
+- [x] When Phase 4 publish/update work begins, deepen this into an Upload Session lifecycle
       module that owns the domain sequence and response shape while keeping R2 and signing as
       ports. Do not move backend orchestration into adapters.
+      (`packages/db/src/repository/upload-session-lifecycle.ts`,
+      `packages/db/src/upload-session-lifecycle.ts`)
 
 ## `deleted_r2_objects` is not part of the idempotent delete result
 

@@ -50,4 +50,12 @@ export type {
   WorkspaceMember,
   WorkspaceMemberActor,
 } from "./types.js";
+export {
+  buildCreateUploadSessionWireResponse,
+  type ObjectStoragePort,
+  observeUploadSessionForFinalize,
+  resolveSessionObjectKey,
+  type UploadSessionRecord,
+  type UploadSigningPort,
+} from "./upload-session-lifecycle.js";
 export { bundleKeyFor, objectKeyFor, storageEnvSegment } from "./validation.js";
