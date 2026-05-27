@@ -6,17 +6,17 @@ import {
   AccessLinkId,
   ArtifactId,
   Cursor,
-  FilePath,
+  type FilePath,
   IdempotencyKey,
   PlainTextDescription,
   PlainTextTitle,
   RevisionId,
   UrlString,
 } from "./primitives.js";
-import { PublishResult } from "./uploadSessions.js";
 import { RevisionListResponse } from "./revisions.js";
-import { WorkspaceSummary } from "./workspace.js";
+import { PublishResult } from "./uploadSessions.js";
 import { WorkspaceMemberId } from "./web.js";
+import { WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
 /** OAuth resource indicator for MCP-issued tokens (ADR 0061). */
@@ -127,9 +127,6 @@ export const McpPublishArtifactOutput = PublishResult.extend({
 }).strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;
 
-export const McpAddRevisionOutput = McpPublishArtifactOutput;
-export type McpAddRevisionOutput = z.infer<typeof McpAddRevisionOutput>;
-
 export const McpListArtifactsOutput = ArtifactListResponse;
 export type McpListArtifactsOutput = z.infer<typeof McpListArtifactsOutput>;
 
@@ -225,7 +222,7 @@ export const mcpToolInputSchemas = {
 
 export const mcpToolOutputSchemas = {
   publish_artifact: McpPublishArtifactOutput,
-  add_revision: McpAddRevisionOutput,
+  add_revision: McpPublishArtifactOutput,
   list_artifacts: McpListArtifactsOutput,
   read_artifact: McpReadArtifactOutput,
   list_revisions: McpListRevisionsOutput,
@@ -756,10 +753,9 @@ export function mcpEntrypointForRenderMode(renderMode: McpPublishRenderMode): Fi
   }
 }
 
-export function mcpProtectedResourceMetadata(input: {
-  resource?: string;
-  authorizationServers?: readonly string[];
-} = {}): McpProtectedResourceMetadata {
+export function mcpProtectedResourceMetadata(
+  input: { resource?: string; authorizationServers?: readonly string[] } = {},
+): McpProtectedResourceMetadata {
   return McpProtectedResourceMetadata.parse({
     resource: input.resource ?? MCP_RESOURCE_INDICATOR,
     authorization_servers: [...(input.authorizationServers ?? [])],
@@ -773,10 +769,7 @@ export function mcpWwwAuthenticateHeader(resource = MCP_RESOURCE_INDICATOR): str
   return `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resourceMetadata}"`;
 }
 
-export function mcpTokenHasRequiredScopes(
-  granted: readonly McpScope[],
-  required: readonly McpScope[],
-): boolean {
+export function mcpTokenHasRequiredScopes(granted: readonly McpScope[], required: readonly McpScope[]): boolean {
   const grantedSet = new Set(granted);
   return required.every((scope) => grantedSet.has(scope));
 }
