@@ -112,13 +112,33 @@ describe("cron and queue routing edges", () => {
     errorSpy.mockRestore();
   });
 
-  it("acks unknown queue messages without processing", async () => {
+  it("retries unknown queue messages without acking them", async () => {
     const ack = vi.fn();
+    const retry = vi.fn();
     await handleQueueBatch(
-      { queue: "unknown-queue", messages: [{ body: {}, ack, retry: vi.fn() }] },
+      { queue: "unknown-queue", messages: [{ body: {}, ack, retry }] },
       {},
     );
-    expect(ack).toHaveBeenCalled();
+    expect(retry).toHaveBeenCalled();
+    expect(ack).not.toHaveBeenCalled();
+  });
+
+  it("continues hourly discovery when one sweep task fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const executor = {
+      query: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("auto_deletion_failed"))
+        .mockResolvedValue({ rows: [] }),
+      transaction: vi.fn(),
+    };
+    await runScheduledJobs(
+      { scheduledTime: Date.now(), cron: "0 * * * *" },
+      { DB: executor, BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() } },
+    );
+    expect(executor.query).toHaveBeenCalled();
+    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.hourly_task.failed"))).toBe(true);
+    errorSpy.mockRestore();
   });
 
   it("logs unknown cron schedules", async () => {
@@ -179,6 +199,20 @@ describe("queue handler failure isolation", () => {
       },
     );
     expect(retry).toHaveBeenCalled();
+  });
+
+  it("acks invalid bundle generate DLQ payloads without retrying", async () => {
+    const ack = vi.fn();
+    const retry = vi.fn();
+    await handleQueueBatchExported(
+      {
+        queue: "bundle-generate-dlq",
+        messages: [{ body: { type: "bundle.generate.v1" }, ack, retry }],
+      },
+      { DB: { query: vi.fn(), transaction: vi.fn() } },
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it("retries bundle generate DLQ when mark_failed fails", async () => {

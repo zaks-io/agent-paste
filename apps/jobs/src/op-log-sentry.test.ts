@@ -1,14 +1,32 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const captureMessage = vi.fn();
+const captureException = vi.fn(() => {
+  throw new Error("sentry unavailable");
+});
 
 vi.mock("@sentry/cloudflare", () => ({
-  captureException: () => {
-    throw new Error("sentry unavailable");
-  },
+  captureMessage,
+  captureException,
 }));
 
-const { logOp } = await import("./op-log.js");
+const { logOp, logOpError } = await import("./op-log.js");
 
-describe("op-log sentry fallback", () => {
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("op-log sentry forwarding", () => {
+  it("forwards error-level logs to Sentry", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    logOpError("queue.failed", { revision_id: "rev_test" });
+    expect(captureMessage).toHaveBeenCalledWith(
+      "queue.failed",
+      expect.objectContaining({ level: "error" }),
+    );
+    errorSpy.mockRestore();
+  });
+
   it("uses plain-text fallback when structured logging and Sentry both fail", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {
       throw new Error("console unavailable");

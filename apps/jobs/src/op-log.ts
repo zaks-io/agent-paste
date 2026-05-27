@@ -12,6 +12,17 @@ function sanitizeFields(fields: Record<string, unknown>): Record<string, unknown
   return safe;
 }
 
+function reportErrorToSentry(event: string, fields: Record<string, unknown>): void {
+  try {
+    Sentry.captureMessage(event, {
+      level: "error",
+      extra: sanitizeFields(fields),
+    });
+  } catch {
+    // Sentry may be unavailable outside an instrumented request.
+  }
+}
+
 function emitLog(level: "info" | "error", event: string, fields: Record<string, unknown>): void {
   try {
     const line = JSON.stringify({
@@ -23,6 +34,7 @@ function emitLog(level: "info" | "error", event: string, fields: Record<string, 
     });
     if (level === "error") {
       console.error(line);
+      reportErrorToSentry(event, fields);
     } else {
       console.log(line);
     }
@@ -36,6 +48,7 @@ function emitLog(level: "info" | "error", event: string, fields: Record<string, 
       const fallback = `[jobs] ${event} (structured log failed: ${error instanceof Error ? error.message : String(error)})`;
       if (level === "error") {
         console.error(fallback);
+        reportErrorToSentry(event, { ...fields, structured_log_failed: true });
       } else {
         console.log(fallback);
       }

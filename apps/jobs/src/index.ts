@@ -10,6 +10,16 @@ export { runScheduledJobs } from "./cron.js";
 export type { Env } from "./env.js";
 export { handleQueueBatch } from "./queue.js";
 
+export async function runQueueConsumer(batch: MessageBatch, env: Env): Promise<void> {
+  if (!jobsEnabled(env)) {
+    for (const message of batch.messages) {
+      message.ack();
+    }
+    return;
+  }
+  await handleQueueBatch(batch, env);
+}
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/healthz", (context) =>
@@ -34,13 +44,7 @@ const worker = {
     await runScheduledJobs(event, env);
   },
   async queue(batch: MessageBatch, env: Env): Promise<void> {
-    if (!jobsEnabled(env)) {
-      for (const message of batch.messages) {
-        message.ack();
-      }
-      return;
-    }
-    await handleQueueBatch(batch, env);
+    await runQueueConsumer(batch, env);
   },
 };
 

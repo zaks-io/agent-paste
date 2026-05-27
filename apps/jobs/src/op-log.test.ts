@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { logOp, logOpError } from "./op-log.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("op-log", () => {
   it("does not let caller fields override fixed metadata", () => {
@@ -10,7 +14,6 @@ describe("op-log", () => {
     expect(payload.level).toBe("info");
     expect(payload.component).toBe("jobs");
     expect(payload.ok).toBe(true);
-    logSpy.mockRestore();
   });
 
   it("does not throw when JSON serialization fails", () => {
@@ -19,6 +22,5 @@ describe("op-log", () => {
     circular.self = circular;
     expect(() => logOpError("cron.broken", circular)).not.toThrow();
     expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
 });

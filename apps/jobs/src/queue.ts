@@ -32,7 +32,7 @@ export async function handleQueueBatch(batch: MessageBatch, env: Env): Promise<v
     default:
       logOpError("queue.unknown", { queue: batch.queue });
       for (const message of batch.messages) {
-        message.ack();
+        message.retry();
       }
   }
 }

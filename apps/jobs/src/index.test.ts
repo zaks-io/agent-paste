@@ -7,7 +7,8 @@ import {
   QUEUE_BYTE_PURGE,
   QUEUE_SAFETY_SCAN,
 } from "./constants.js";
-import worker, { type Env, handleQueueBatch, runScheduledJobs } from "./index.js";
+import * as queue from "./queue.js";
+import worker, { type Env, handleQueueBatch, runQueueConsumer, runScheduledJobs } from "./index.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -40,6 +41,18 @@ describe("jobs worker", () => {
     const response = await request("/healthz", { JOBS_ENABLED: "false" });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, app: "jobs", enabled: false });
+  });
+
+  it("acks queue messages without invoking handlers when jobs are disabled", async () => {
+    const ack = vi.fn();
+    const handleQueueBatchSpy = vi.spyOn(queue, "handleQueueBatch").mockResolvedValue(undefined);
+    await runQueueConsumer(
+      { queue: "byte-purge", messages: [{ body: {}, ack, retry: vi.fn() }] },
+      { JOBS_ENABLED: "false" },
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(handleQueueBatchSpy).not.toHaveBeenCalled();
+    handleQueueBatchSpy.mockRestore();
   });
 
   it("skips scheduled jobs when disabled", async () => {

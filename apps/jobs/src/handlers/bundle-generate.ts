@@ -3,6 +3,7 @@ import { BundleGenerateMessage } from "@agent-paste/contracts";
 import { resolveSqlExecutor } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
+import { ZodError } from "zod";
 
 type RevisionRow = {
   status: string;
@@ -86,6 +87,13 @@ export async function handleBundleGenerateDlqBatch(messages: readonly QueueMessa
       });
       message.ack();
     } catch (error) {
+      if (error instanceof ZodError) {
+        logOpError("queue.bundle_generate.dlq_invalid", {
+          error: error.message,
+        });
+        message.ack();
+        continue;
+      }
       logOpError("queue.bundle_generate.dlq_failed", {
         error: error instanceof Error ? error.message : String(error),
       });
