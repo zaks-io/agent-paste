@@ -1,6 +1,7 @@
 import { BytePurgeMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
 import { UPLOAD_CLEANUP_SWEEP_CAP } from "../constants.js";
+import { withPlatformScope } from "../db.js";
 import type { QueueBinding } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import type { SweepResult } from "./types.js";
@@ -21,8 +22,9 @@ export async function runUploadCleanupDiscovery(
   queue: QueueBinding,
   now: string,
 ): Promise<SweepResult> {
+  const platformExecutor = withPlatformScope(executor);
   const limit = UPLOAD_CLEANUP_SWEEP_CAP + 1;
-  const sessions = await executor.query<ExpiredSessionRow>(
+  const sessions = await platformExecutor.query<ExpiredSessionRow>(
     `select id, workspace_id, artifact_id, revision_id
      from upload_sessions
      where status = 'pending' and expires_at <= $1
@@ -39,7 +41,7 @@ export async function runUploadCleanupDiscovery(
   let enqueued = 0;
   for (const session of batch) {
     try {
-      const files = await executor.query<SessionFileRow>(
+      const files = await platformExecutor.query<SessionFileRow>(
         `select r2_key
          from upload_session_files
          where upload_session_id = $1`,
@@ -59,7 +61,7 @@ export async function runUploadCleanupDiscovery(
         await queue.send(message);
         enqueued += 1;
       }
-      await expireUploadSession(executor, session.id, now);
+      await expireUploadSession(platformExecutor, session.id, now);
     } catch (error) {
       logOpError("cron.upload_cleanup.session_failed", {
         upload_session_id: session.id,

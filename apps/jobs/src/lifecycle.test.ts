@@ -1,4 +1,3 @@
-import type { SqlExecutor } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import { AUTO_DELETION_SWEEP_CAP } from "./constants.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
@@ -6,17 +5,14 @@ import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import { enqueueArtifactBytePurge } from "./lifecycle/byte-purge-enqueue.js";
 import { writeArtifactDenylist } from "./lifecycle/denylist.js";
 import { applyArtifactPurgeSideEffects } from "./lifecycle/purge-side-effects.js";
+import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
-function mockExecutor(run: (sql: string) => Promise<{ rows: unknown[] }>): SqlExecutor {
-  const query = async (sql: string) => run(sql);
-  return {
-    query,
-    transaction: async (handler) => handler({ query }),
-  };
+function mockExecutor(run: (sql: string) => Promise<{ rows: unknown[] }>) {
+  return createTransactionalSqlExecutor(run);
 }
 
 describe("lifecycle side effects", () => {
@@ -240,12 +236,9 @@ describe("purge recovery discovery", () => {
 
   it("enqueues purge work for deleted artifacts missing enqueue markers", async () => {
     const send = vi.fn(async () => ({}));
-    const executor = {
-      query: vi.fn(async () => ({
-        rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
-      })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async () => ({
+      rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
+    }));
     const env = {
       BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
       DENYLIST: { put: vi.fn(async () => {}) },
@@ -263,10 +256,7 @@ describe("purge recovery discovery", () => {
       revision_id: revisionId,
       status: "deleted",
     }));
-    const executor = {
-      query: vi.fn(async () => ({ rows })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async () => ({ rows }));
     const env = {
       BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
       DENYLIST: { put: vi.fn(async () => {}) },
@@ -284,12 +274,9 @@ describe("purge recovery discovery", () => {
     sideEffects.mockRejectedValueOnce(new Error("side_effect_failed"));
     try {
       const send = vi.fn(async () => ({}));
-      const executor = {
-        query: vi.fn(async () => ({
-          rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
-        })),
-        transaction: vi.fn(),
-      };
+      const executor = createTransactionalSqlExecutor(async () => ({
+        rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
+      }));
       const env = {
         BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
         DENYLIST: { put: vi.fn(async () => {}) },

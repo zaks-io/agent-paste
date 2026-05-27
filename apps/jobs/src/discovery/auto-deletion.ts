@@ -1,6 +1,7 @@
 import { runCommand } from "@agent-paste/commands";
 import type { SqlExecutor } from "@agent-paste/db";
 import { AUTO_DELETION_SWEEP_CAP } from "../constants.js";
+import { withPlatformScope, withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { applyArtifactPurgeSideEffects } from "../lifecycle/purge-side-effects.js";
 import { logOp, logOpError } from "../op-log.js";
@@ -19,7 +20,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
   }
 
   const limit = AUTO_DELETION_SWEEP_CAP + 1;
-  const rows = await executor.query<AutoDeletionRow>(
+  const rows = await withPlatformScope(executor).query<AutoDeletionRow>(
     `select a.id, a.workspace_id, a.revision_id
      from artifacts a
      inner join revisions r on r.id = a.revision_id and r.artifact_id = a.id
@@ -38,7 +39,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
   for (const row of batch) {
     try {
       const command = await runCommand({
-        executor,
+        executor: withWorkspaceScope(executor, row.workspace_id),
         actor: { type: "system", id: "auto_deletion", workspaceId: row.workspace_id },
         operation: "lifecycle.artifact.expire",
         idempotencyKey: row.id,
@@ -75,7 +76,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
       if (!command.result.expired || command.isReplay) {
         continue;
       }
-      const sideEffects = await applyArtifactPurgeSideEffects(env, executor, {
+      const sideEffects = await applyArtifactPurgeSideEffects(env, withWorkspaceScope(executor, row.workspace_id), {
         workspaceId: row.workspace_id,
         artifactId: row.id,
         revisionId: row.revision_id,

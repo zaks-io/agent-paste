@@ -23,6 +23,7 @@ export {
   createPostgresHttpExecutor,
 } from "./postgres/executor.js";
 export { PostgresRepository } from "./postgres/repository.js";
+export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
 export type { Repository } from "./repository/interface.js";
 export * as schema from "./schema.js";

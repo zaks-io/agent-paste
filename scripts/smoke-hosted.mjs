@@ -417,6 +417,10 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   );
   process.stdout.write(`purge-recovery response: ${JSON.stringify(purgeRecovery)}\n`);
   assert(
+    purgeRecovery.eligibility === "eligible",
+    `purge-recovery ineligible (${purgeRecovery.eligibility}) for ${publishedArtifact.artifact_id}: ${JSON.stringify(purgeRecovery)}`,
+  );
+  assert(
     purgeRecovery.artifact_found === true,
     `purge-recovery did not find deleted artifact ${publishedArtifact.artifact_id}: ${JSON.stringify(purgeRecovery)}`,
   );

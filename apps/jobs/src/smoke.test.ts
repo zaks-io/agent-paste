@@ -10,6 +10,14 @@ const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
+function createSqlExecutorMock(handler: (sql: string) => Promise<{ rows: unknown[] }>) {
+  const query = vi.fn(handler);
+  return {
+    query,
+    transaction: vi.fn(async (run: (tx: { query: typeof query }) => Promise<unknown>) => run({ query })),
+  };
+}
+
 describe("jobs smoke harness", () => {
   it("detects non-production environments", () => {
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "dev" })).toBe(true);
@@ -67,6 +75,7 @@ describe("jobs smoke harness", () => {
       deleted_r2_objects: 0,
       enqueued: false,
       artifact_found: false,
+      eligibility: "row_missing",
     });
   });
 
@@ -133,6 +142,7 @@ describe("jobs smoke harness", () => {
       deleted_r2_objects: 1,
       enqueued: true,
       artifact_found: true,
+      eligibility: "eligible",
     });
   });
 
@@ -144,15 +154,22 @@ describe("jobs smoke harness", () => {
       SMOKE_HARNESS_SECRET: "harness",
       DENYLIST: { put: vi.fn(async () => {}) },
       BYTE_PURGE_QUEUE: { send: vi.fn(async () => ({})), sendBatch: vi.fn() },
-      DB: {
-        query: vi.fn(async (sql: string) => {
-          if (sql.includes("from artifacts")) {
-            return { rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId }] };
-          }
-          return { rows: [] };
-        }),
-        transaction: vi.fn(),
-      },
+      DB: createSqlExecutorMock(async (sql: string) => {
+        if (sql.includes("from artifacts")) {
+          return {
+            rows: [
+              {
+                id: artifactId,
+                workspace_id: workspaceId,
+                revision_id: revisionId,
+                status: "deleted",
+                deleted_at: "2026-05-27T00:00:00.000Z",
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      }),
       ARTIFACTS: {
         list: vi.fn(async ({ prefix }: { prefix: string }) => {
           if (prefix === `artifacts/${artifactId}/`) {
@@ -180,8 +197,10 @@ describe("jobs smoke harness", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       artifact_found: true,
+      eligibility: "eligible",
       enqueued: true,
       deleted_r2_objects: 1,
+      status: "deleted",
     });
     expect(deleted).toEqual([[r2Key]]);
     expect(env.BYTE_PURGE_QUEUE.send).toHaveBeenCalledWith(
@@ -192,6 +211,49 @@ describe("jobs smoke harness", () => {
       }),
       undefined,
     );
+  });
+
+  it("reports not_deleted_or_expired from purge-recovery route", async () => {
+    const env = {
+      AGENT_PASTE_ENV: "preview",
+      SMOKE_HARNESS_SECRET: "harness",
+      DB: createSqlExecutorMock(async (sql: string) => {
+        if (sql.includes("from artifacts")) {
+          return {
+            rows: [
+              {
+                id: artifactId,
+                workspace_id: workspaceId,
+                revision_id: revisionId,
+                status: "active",
+                deleted_at: null,
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      }),
+    };
+
+    const response = await worker.fetch(
+      new Request("https://jobs.test/__test__/purge-recovery", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer harness",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ artifact_id: artifactId }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      artifact_found: false,
+      eligibility: "not_deleted_or_expired",
+      status: "active",
+      enqueued: false,
+      deleted_r2_objects: 0,
+    });
   });
 
   it("serves smoke cleanup and purge recovery routes in non-production", async () => {

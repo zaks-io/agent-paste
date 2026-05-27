@@ -1,16 +1,18 @@
 import type { SqlExecutor } from "@agent-paste/db";
 import { AUDIT_RETENTION_DAYS, IDEMPOTENCY_RETENTION_DAYS, MAINTENANCE_GC_SWEEP_CAP } from "../constants.js";
+import { withPlatformScope } from "../db.js";
 import { logOp } from "../op-log.js";
 import type { SweepResult } from "./types.js";
 
 export async function runMaintenanceGc(executor: SqlExecutor, now: string): Promise<SweepResult> {
+  const platformExecutor = withPlatformScope(executor);
   const idempotencyCutoff = subtractDays(now, IDEMPOTENCY_RETENTION_DAYS);
   const auditCutoff = subtractDays(now, AUDIT_RETENTION_DAYS);
 
   let remaining = MAINTENANCE_GC_SWEEP_CAP;
   let cap_hit = false;
 
-  const idempotencyDeleted = await deleteIdempotencyRows(executor, idempotencyCutoff, remaining);
+  const idempotencyDeleted = await deleteIdempotencyRows(platformExecutor, idempotencyCutoff, remaining);
   remaining -= idempotencyDeleted;
   if (idempotencyDeleted > 0 && remaining === 0) {
     cap_hit = true;
@@ -19,7 +21,7 @@ export async function runMaintenanceGc(executor: SqlExecutor, now: string): Prom
   let auditDeleted = 0;
   if (remaining > 0) {
     const auditLimit = remaining;
-    auditDeleted = await deleteAuditRows(executor, auditCutoff, auditLimit);
+    auditDeleted = await deleteAuditRows(platformExecutor, auditCutoff, auditLimit);
     remaining -= auditDeleted;
     if (auditDeleted === auditLimit) {
       cap_hit = true;

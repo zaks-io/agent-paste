@@ -1,5 +1,6 @@
 import type { SqlExecutor } from "@agent-paste/db";
 import { AUTO_DELETION_SWEEP_CAP } from "../constants.js";
+import { withPlatformScope, withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { applyArtifactPurgeSideEffects } from "../lifecycle/purge-side-effects.js";
 import { logOp, logOpError } from "../op-log.js";
@@ -18,7 +19,7 @@ export async function runPurgeRecoveryDiscovery(executor: SqlExecutor, env: Env)
   }
 
   const limit = AUTO_DELETION_SWEEP_CAP + 1;
-  const rows = await executor.query<RecoveryRow>(
+  const rows = await withPlatformScope(executor).query<RecoveryRow>(
     `select a.id, a.workspace_id, a.revision_id, a.status
      from artifacts a
      inner join revisions r on r.id = a.revision_id and r.artifact_id = a.id
@@ -35,7 +36,7 @@ export async function runPurgeRecoveryDiscovery(executor: SqlExecutor, env: Env)
 
   for (const row of batch) {
     try {
-      const sideEffects = await applyArtifactPurgeSideEffects(env, executor, {
+      const sideEffects = await applyArtifactPurgeSideEffects(env, withWorkspaceScope(executor, row.workspace_id), {
         workspaceId: row.workspace_id,
         artifactId: row.id,
         revisionId: row.revision_id,

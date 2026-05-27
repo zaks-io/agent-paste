@@ -3,9 +3,10 @@ import { MAINTENANCE_GC_SWEEP_CAP, UPLOAD_CLEANUP_SWEEP_CAP } from "./constants.
 import { runScheduledJobs } from "./cron.js";
 import { runMaintenanceGc } from "./discovery/maintenance-gc.js";
 import { runUploadCleanupDiscovery } from "./discovery/upload-cleanup.js";
+import { handleQueueBatch as handleQueueBatchExported } from "./index.js";
 import { handleQueueBatch } from "./queue.js";
 import { deletePrefixes } from "./r2-purge.js";
-import { handleQueueBatch as handleQueueBatchExported } from "./index.js";
+import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -14,36 +15,30 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 describe("maintenance GC sweep caps", () => {
   it("sets cap_hit when idempotency deletes fill the sweep cap", async () => {
     const rows = Array.from({ length: MAINTENANCE_GC_SWEEP_CAP }, (_, index) => ({ id: String(index) }));
-    const executor = {
-      query: vi.fn(async (sql: string) => {
-        if (sql.includes("idempotency_records")) {
-          return { rows };
-        }
-        return { rows: [] };
-      }),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("idempotency_records")) {
+        return { rows };
+      }
+      return { rows: [] };
+    });
     const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z");
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(MAINTENANCE_GC_SWEEP_CAP);
-    expect(executor.query).toHaveBeenCalledTimes(1);
+    expect(executor.query).toHaveBeenCalled();
   });
 
   it("sets cap_hit when audit deletes consume the remaining budget", async () => {
     const idempotencyRows = [{ id: "1" }];
     const auditRows = Array.from({ length: MAINTENANCE_GC_SWEEP_CAP - 1 }, (_, index) => ({ id: `a${index}` }));
-    const executor = {
-      query: vi.fn(async (sql: string) => {
-        if (sql.includes("idempotency_records")) {
-          return { rows: idempotencyRows };
-        }
-        if (sql.includes("operation_events")) {
-          return { rows: auditRows };
-        }
-        return { rows: [] };
-      }),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("idempotency_records")) {
+        return { rows: idempotencyRows };
+      }
+      if (sql.includes("operation_events")) {
+        return { rows: auditRows };
+      }
+      return { rows: [] };
+    });
     const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z");
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(MAINTENANCE_GC_SWEEP_CAP);
@@ -53,10 +48,9 @@ describe("maintenance GC sweep caps", () => {
 describe("upload cleanup discovery", () => {
   it("expires sessions with no files without enqueueing purge work", async () => {
     const send = vi.fn();
-    const executor = {
-      query: vi
-        .fn()
-        .mockResolvedValueOnce({
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
           rows: [
             {
               id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
@@ -65,15 +59,17 @@ describe("upload cleanup discovery", () => {
               revision_id: revisionId,
             },
           ],
-        })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] }),
-      transaction: vi.fn(),
-    };
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
     const result = await runUploadCleanupDiscovery(executor, { send, sendBatch: vi.fn() }, "2026-05-20T00:00:00.000Z");
     expect(send).not.toHaveBeenCalled();
     expect(result.enqueued).toBe(0);
-    expect(executor.query).toHaveBeenCalledTimes(3);
+    expect(executor.query).toHaveBeenCalled();
   });
 
   it("reports cap_hit when more sessions are due than the sweep cap", async () => {
@@ -83,10 +79,12 @@ describe("upload cleanup discovery", () => {
       artifact_id: artifactId,
       revision_id: revisionId,
     }));
-    const executor = {
-      query: vi.fn(async () => ({ rows: sessionRows })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return { rows: sessionRows };
+      }
+      return { rows: [] };
+    });
     const result = await runUploadCleanupDiscovery(executor, { send: vi.fn(), sendBatch: vi.fn() }, "now");
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(UPLOAD_CLEANUP_SWEEP_CAP);
@@ -104,10 +102,7 @@ describe("cron and queue routing edges", () => {
   it("logs when upload cleanup lacks the purge queue binding", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const executor = { query: vi.fn(), transaction: vi.fn() };
-    await runScheduledJobs(
-      { scheduledTime: Date.now(), cron: "*/15 * * * *" },
-      { DB: executor },
-    );
+    await runScheduledJobs({ scheduledTime: Date.now(), cron: "*/15 * * * *" }, { DB: executor });
     expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.queue_binding_missing"))).toBe(true);
     errorSpy.mockRestore();
   });
@@ -115,23 +110,19 @@ describe("cron and queue routing edges", () => {
   it("retries unknown queue messages without acking them", async () => {
     const ack = vi.fn();
     const retry = vi.fn();
-    await handleQueueBatch(
-      { queue: "unknown-queue", messages: [{ body: {}, ack, retry }] },
-      {},
-    );
+    await handleQueueBatch({ queue: "unknown-queue", messages: [{ body: {}, ack, retry }] }, {});
     expect(retry).toHaveBeenCalled();
     expect(ack).not.toHaveBeenCalled();
   });
 
   it("continues hourly discovery when one sweep task fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const executor = {
-      query: vi
-        .fn()
-        .mockRejectedValueOnce(new Error("auto_deletion_failed"))
-        .mockResolvedValue({ rows: [] }),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("from artifacts")) {
+        throw new Error("auto_deletion_failed");
+      }
+      return { rows: [] };
+    });
     await runScheduledJobs(
       { scheduledTime: Date.now(), cron: "0 * * * *" },
       { DB: executor, BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() } },

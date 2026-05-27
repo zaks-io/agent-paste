@@ -1,10 +1,11 @@
 import type { SqlExecutor } from "@agent-paste/db";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
-import { resolveSqlExecutor } from "./db.js";
+import { resolveSqlExecutor, withPlatformScope, withWorkspaceScope } from "./db.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import type { Env } from "./env.js";
 import { applyArtifactPurgeSideEffects } from "./lifecycle/purge-side-effects.js";
+import { inspectPurgeRecoveryArtifact, type PurgeRecoveryEligibilityReason } from "./purge-recovery-eligibility.js";
 
 export type SmokeLifecycleCleanupResult = {
   expired_artifacts: number;
@@ -120,7 +121,25 @@ export type SmokePurgeRecoveryResult = {
   deleted_r2_objects: number;
   enqueued: boolean;
   artifact_found: boolean;
+  eligibility: PurgeRecoveryEligibilityReason;
+  status: string | null;
+  deleted_at: string | null;
+  revision_id: string | null;
 };
+
+function ineligiblePurgeRecoveryResult(
+  inspection: Awaited<ReturnType<typeof inspectPurgeRecoveryArtifact>>,
+): SmokePurgeRecoveryResult {
+  return {
+    deleted_r2_objects: 0,
+    enqueued: false,
+    artifact_found: false,
+    eligibility: inspection.eligibility,
+    status: inspection.status,
+    deleted_at: inspection.deleted_at,
+    revision_id: inspection.revision_id,
+  };
+}
 
 export async function runSmokePurgeRecoveryForArtifact(
   env: Env,
@@ -128,28 +147,28 @@ export async function runSmokePurgeRecoveryForArtifact(
   artifactId: string,
 ): Promise<SmokePurgeRecoveryResult> {
   const beforeDeleted = env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0;
-  const row = await executor.query<{ id: string; workspace_id: string; revision_id: string }>(
-    `select id, workspace_id, revision_id
-     from artifacts
-     where id = $1
-       and revision_id is not null
-       and status in ('deleted', 'expired')`,
-    [artifactId],
-  );
-  const artifact = row.rows[0];
-  if (!artifact) {
-    return { deleted_r2_objects: 0, enqueued: false, artifact_found: false };
+  const inspection = await inspectPurgeRecoveryArtifact(withPlatformScope(executor), artifactId);
+  if (inspection.eligibility !== "eligible" || !inspection.artifact) {
+    return ineligiblePurgeRecoveryResult(inspection);
   }
 
-  const sideEffects = await applyArtifactPurgeSideEffects(env, executor, {
-    workspaceId: artifact.workspace_id,
-    artifactId: artifact.id,
-    revisionId: artifact.revision_id,
-    reason: "deletion",
-  });
+  const sideEffects = await applyArtifactPurgeSideEffects(
+    env,
+    withWorkspaceScope(executor, inspection.artifact.workspace_id),
+    {
+      workspaceId: inspection.artifact.workspace_id,
+      artifactId: inspection.artifact.id,
+      revisionId: inspection.artifact.revision_id,
+      reason: "deletion",
+    },
+  );
   return {
     enqueued: sideEffects.enqueued,
     artifact_found: true,
+    eligibility: "eligible",
+    status: inspection.status,
+    deleted_at: inspection.deleted_at,
+    revision_id: inspection.revision_id,
     deleted_r2_objects: (env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0) - beforeDeleted,
   };
 }
@@ -158,8 +177,27 @@ export async function runSmokeArtifactPurgeRecovery(env: Env, artifactId: string
   const beforeDeleted = env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0;
   if (env.LOCAL_MVP_REPOSITORY) {
     const artifact = env.LOCAL_MVP_REPOSITORY.artifacts.get(artifactId);
-    if (!artifact?.revision_id) {
-      return { deleted_r2_objects: 0, enqueued: false, artifact_found: false };
+    if (!artifact) {
+      return {
+        deleted_r2_objects: 0,
+        enqueued: false,
+        artifact_found: false,
+        eligibility: "row_missing",
+        status: null,
+        deleted_at: null,
+        revision_id: null,
+      };
+    }
+    if (!artifact.revision_id) {
+      return {
+        deleted_r2_objects: 0,
+        enqueued: false,
+        artifact_found: false,
+        eligibility: "missing_revision_id",
+        status: "deleted",
+        deleted_at: null,
+        revision_id: null,
+      };
     }
     const executor = createLocalRevisionExecutor(env.LOCAL_MVP_REPOSITORY);
     const sideEffects = await applyArtifactPurgeSideEffects(env, executor, {
@@ -171,6 +209,10 @@ export async function runSmokeArtifactPurgeRecovery(env: Env, artifactId: string
     return {
       enqueued: sideEffects.enqueued,
       artifact_found: true,
+      eligibility: "eligible",
+      status: "deleted",
+      deleted_at: null,
+      revision_id: artifact.revision_id,
       deleted_r2_objects: (env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0) - beforeDeleted,
     };
   }
