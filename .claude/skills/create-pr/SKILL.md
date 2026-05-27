@@ -37,7 +37,7 @@ If Linear is unavailable, skip — do not block. Note that it was skipped in the
 
 ## 4. Quality checks
 
-- Run `bun run ci:check`.
+- Run `pnpm ci:check`.
 - On failure, auto-fix and re-run `ci:check`.
 - **Never** use `--no-verify`.
 
@@ -47,7 +47,7 @@ Run local review before committing. This is the default first filter now that Co
 
 - Run the `code-review` skill against the staged and unstaged diff. Prefer the read-only `code-reviewer` subagent when available so the reviewer has independent context.
 - Fix all P0/P1 findings and obvious mechanical P2 findings before committing. Ask the user before broad, architectural, product, security, or data-behavior changes.
-- If review fixes changed code, re-run `bun run ci:check`.
+- If review fixes changed code, re-run `pnpm ci:check`.
 - Record the local-review verdict for the PR report and Linear comment.
 
 Decide whether CodeRabbit is worth spending. Default to **skip**. Trigger it only for genuinely complex or high-risk work:
@@ -69,7 +69,7 @@ Do not spend CodeRabbit on docs-only, tests-only, copy/UI-only, formatting-only,
 - Stage everything (`git add -A`), then unstage any `.env*` or credential files — never commit secrets. If the user chose to split into multiple PRs in step 3, stage only the files for this PR instead.
 - Conventional Commits:
 
-  ```
+  ```text
   <type>: <short description>
 
   [body, if needed]
@@ -135,7 +135,7 @@ Run this step only when step 5 chose the PR-review path or the user explicitly a
 - Request review with a PR comment: `@coderabbitai review`. Use `@coderabbitai full review` only for a broad, high-risk PR that needs a complete pass.
 - Fetch comments with `gh pr view <number> --comments` and `gh api repos/{owner}/{repo}/pulls/<number>/comments`.
 - Fix only high-priority actionable findings: P0/P1, security, data loss, correctness regressions, production blockers, or items the user specifically requests.
-- Commit fixes as new commits, never amend published commits. Re-run `bun run ci:check` after fixes.
+- Commit fixes as new commits, never amend published commits. Re-run `pnpm ci:check` after fixes.
 - Skip nits, style preferences, optional micro-optimizations, and broad rewrites. Reply briefly on the thread if needed.
 - Do not re-run CodeRabbit unless a high-priority issue remains or the fix materially changed the risky part of the PR.
 
@@ -167,7 +167,7 @@ Only if a ticket was found in step 2. Skip cleanly if Linear is unavailable.
 
 ## 11. Report
 
-```
+```text
 PR:     <url>
 Title:  <title>
 Risk:   <LOW|MEDIUM|HIGH>

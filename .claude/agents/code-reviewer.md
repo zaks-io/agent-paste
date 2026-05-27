@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: Read-only bug-focused code reviewer for local diffs and PRs. Use after code changes, before commits, before PR creation, and before deciding whether CodeRabbit is worth running.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob
 skills:
   - code-review
 ---

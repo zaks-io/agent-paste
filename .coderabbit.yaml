@@ -9,7 +9,6 @@ reviews:
       - "dependabot[bot]"
       - "renovate[bot]"
       - "github-actions[bot]"
-      - "coderabbitai[bot]"
   path_filters:
     - "!**/dist/**"
     - "!**/coverage/**"
