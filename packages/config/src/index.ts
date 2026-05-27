@@ -16,6 +16,8 @@ export const SECONDS_PER_DAY = 24 * 60 * 60;
 export const USAGE_POLICY = {
   file_size_cap_bytes: 10 * 1024 * 1024,
   artifact_size_cap_bytes: MAX_ARTIFACT_BYTES,
+  bundle_size_cap_bytes: MAX_ARTIFACT_BYTES,
+  bundles_enabled: true,
   file_count_cap: 100,
   actor_rate_limit_per_minute: 60,
   workspace_burst_cap_per_minute: 300,

@@ -102,7 +102,12 @@ export type Entities = {
     findDraftForArtifact(artifactId: string): Promise<Revision | null>;
     listForArtifact(artifactId: string): Promise<Revision[]>;
     nextRevisionNumber(artifactId: string): Promise<number>;
-    publish(input: { revisionId: string; revisionNumber: number; publishedAt: string }): Promise<boolean>;
+    publish(input: {
+      revisionId: string;
+      revisionNumber: number;
+      publishedAt: string;
+      bundleStatus: Revision["bundle_status"];
+    }): Promise<boolean>;
   };
   artifactFiles: {
     insert(artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string): Promise<void>;

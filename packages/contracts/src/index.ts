@@ -3,6 +3,7 @@ export * from "./admin.js";
 export * from "./agentView.js";
 export * from "./apiKeys.js";
 export * from "./artifacts.js";
+export * from "./bundle.js";
 export * from "./common.js";
 export * from "./enums.js";
 export * from "./jobs.js";

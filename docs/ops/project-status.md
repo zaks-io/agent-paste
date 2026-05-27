@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (AP-22 jobs lifecycle byte purge ownership).
+Last updated: 2026-05-27 (AP-23 bundle generation and download).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -13,9 +13,8 @@ and points to the smaller ledgers that own detail.
 - `pnpm verify` passed on 2026-05-26 with 76 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
-- `apps/jobs` has queue/cron/DLQ topology (AP-21); `apps/mcp` remains a scaffold for Phase 5.
-- `apps/stream`, `packages/billing`, Access Link persistence, bundle state, and
-  scanner persistence do not exist yet.
+- `apps/jobs` has queue/cron/DLQ topology and bundle zip generation (AP-21/AP-23); `apps/mcp` remains a scaffold for Phase 5.
+- `apps/stream`, `packages/billing`, and scanner persistence do not exist yet.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
@@ -86,11 +85,10 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 - Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`,
   `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`, `api-client`,
   `commands`, `storage`, and repo guardrail packages.
-- Partial: `jobs` (queue topology and lifecycle byte purge/retention landed; bundle generation authority still follow-ups).
+- Partial: `jobs` (queue topology, lifecycle byte purge/retention, bundle zip generation).
 - Scaffolded only: `mcp`.
 - Placeholder UI: `web` Access Links.
-- Absent: `stream`, `billing`, bundle zip generation, safety-warning storage,
-  app-layer encryption.
+- Absent: `stream`, `billing`, safety-warning storage, app-layer encryption.
 
 Full component map:
 [implementation.md](./status/implementation.md#components).

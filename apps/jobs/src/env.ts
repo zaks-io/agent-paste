@@ -1,5 +1,10 @@
 import type { HyperdriveBinding, SqlExecutor } from "@agent-paste/db";
 
+export type R2ObjectBody = {
+  body?: ReadableStream | ArrayBuffer | null;
+  size?: number;
+};
+
 export type R2Bucket = {
   list(options: { prefix: string; cursor?: string }): Promise<{
     objects: Array<{ key: string }>;
@@ -7,6 +12,12 @@ export type R2Bucket = {
     cursor?: string;
   }>;
   delete(keys: string[]): Promise<void>;
+  get?(key: string): Promise<R2ObjectBody | null>;
+  put?(
+    key: string,
+    value: ArrayBuffer | Uint8Array | ReadableStream,
+    options?: { httpMetadata?: { contentType?: string } },
+  ): Promise<void>;
 };
 
 export type QueueBinding = {

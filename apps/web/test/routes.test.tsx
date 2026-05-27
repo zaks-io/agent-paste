@@ -631,6 +631,8 @@ function workspace() {
     usage_policy: {
       file_size_cap_bytes: 10,
       artifact_size_cap_bytes: 100,
+      bundle_size_cap_bytes: 100,
+      bundles_enabled: true,
       file_count_cap: 100,
       actor_rate_limit_per_minute: 60,
       workspace_burst_cap_per_minute: 300,

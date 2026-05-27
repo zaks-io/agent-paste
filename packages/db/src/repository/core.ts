@@ -1,5 +1,4 @@
 import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "../agent-view.js";
-import { resolveAccessLinkFromEntities } from "../resolve-access-link.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
 import {
@@ -10,6 +9,7 @@ import {
   USAGE_POLICY,
 } from "../policy.js";
 import { toRevisionSummary } from "../queries/revisions.js";
+import { resolveAccessLinkFromEntities } from "../resolve-access-link.js";
 import {
   toApiKeySummary,
   toArtifactSummary,
@@ -928,6 +928,7 @@ export class RepositoryCore implements Repository {
           size_bytes: session.size_bytes,
           bundle_status: "disabled",
           bundle_status_updated_at: null,
+          bundle_size_bytes: null,
           bytes_purge_enqueued_at: null,
           created_by_api_key_id: session.created_by_api_key_id,
           created_at: input.now,
@@ -991,7 +992,7 @@ export class RepositoryCore implements Repository {
         if (revision.status === "published") {
           return buildPublishResult(
             { ...artifact, revision_id: revision.id, entrypoint: revision.entrypoint },
-            revision.id,
+            revision,
             undefined,
             this.options,
           );
@@ -1004,10 +1005,12 @@ export class RepositoryCore implements Repository {
           throw new Error("entrypoint_not_in_revision");
         }
         const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
+        const bundleStatus = USAGE_POLICY.bundles_enabled ? ("pending" as const) : ("disabled" as const);
         const published = await entities.revisions.publish({
           revisionId: revision.id,
           revisionNumber,
           publishedAt: input.now,
+          bundleStatus,
         });
         if (!published) {
           throw new Error("revision_unpublished");
@@ -1036,7 +1039,11 @@ export class RepositoryCore implements Repository {
           details: { revision_id: revision.id, revision_number: revisionNumber, file_count: revision.file_count },
           occurredAt: input.now,
         });
-        return buildPublishResult(updatedArtifact, revision.id, undefined, this.options);
+        const publishedRevision = await entities.revisions.findById(revision.id, input.actor.workspace_id);
+        if (!publishedRevision) {
+          throw new Error("revision_unpublished");
+        }
+        return buildPublishResult(updatedArtifact, publishedRevision, undefined, this.options);
       },
     );
   }
@@ -1056,15 +1063,8 @@ export class RepositoryCore implements Repository {
     });
   }
 
-  async resolveAccessLink(input: {
-    publicId: string;
-    blobScopes: number;
-    contentBaseUrl: string;
-    now?: string;
-  }) {
-    return this.uow.read(PLATFORM_SCOPE, async (entities) =>
-      resolveAccessLinkFromEntities(entities, input),
-    );
+  async resolveAccessLink(input: { publicId: string; blobScopes: number; contentBaseUrl: string; now?: string }) {
+    return this.uow.read(PLATFORM_SCOPE, async (entities) => resolveAccessLinkFromEntities(entities, input));
   }
 
   async getPublicAgentView(input: { token: string; contentBaseUrl: string }) {
@@ -1087,7 +1087,7 @@ export class RepositoryCore implements Repository {
       const viewArtifact =
         revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
       const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
     });
   }
 
@@ -1101,20 +1101,14 @@ export class RepositoryCore implements Repository {
       if (!revisionId) {
         return null;
       }
-      let revisionEntrypoint: string | undefined;
-      if (input.revisionId) {
-        const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
-        if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
-          return null;
-        }
-        revisionEntrypoint = revision.entrypoint;
+      const revision = await entities.revisions.findById(revisionId, input.actor.workspace_id);
+      if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
+        return null;
       }
       const viewArtifact =
-        revisionEntrypoint && input.revisionId !== artifact.revision_id
-          ? { ...artifact, entrypoint: revisionEntrypoint }
-          : artifact;
+        revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
       const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
     });
   }
 

@@ -281,6 +281,39 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "bundle": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "ready",
+                  "failed",
+                  "disabled"
+                ]
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "retry_after_seconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "status"
+            ]
           }
         },
         "required": [
@@ -289,7 +322,8 @@
           "title",
           "view_url",
           "agent_view_url",
-          "expires_at"
+          "expires_at",
+          "bundle"
         ]
       },
       "RevisionSummary": {

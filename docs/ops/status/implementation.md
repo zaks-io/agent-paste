@@ -21,7 +21,7 @@ Last updated: 2026-05-26.
 | `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads, CSP/security headers, extension-derived MIME, denylist, read throttling.                                                                                                                                                                                      |
 | `apps/cli`                | Implemented                 | `publish` (finalize + publish), optional `--artifact-id` updates, `whoami`, `login`, `logout`, local credential storage, and API-client plumbing.                                                                                                                                                                  |
 | `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, operator event browsing, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Link `/al/{publicId}` viewer and resolve proxy route ship; dashboard Access Link management UI remains deferred. |
-| `apps/jobs`               | Partial                     | Cron discovery (upload cleanup, auto-deletion with denylist + byte-purge enqueue, purge recovery, maintenance GC; retention no-op until policy exists), queue consumers + DLQs in `wrangler.jsonc`, bundle DLQ `mark_failed`, stub safety-scan/bundle-generate handlers. Bundle zip generation remains follow-up.  |
+| `apps/jobs`               | Partial                     | Cron discovery (upload cleanup, auto-deletion with denylist + byte-purge enqueue, purge recovery, maintenance GC; retention no-op until policy exists), queue consumers + DLQs in `wrangler.jsonc`, bundle zip generation with size-cap failure + DLQ `mark_failed`, safety-scan stub.                             |
 | `apps/mcp`                | Scaffolded                  | Health/OpenAPI plus OAuth protected-resource metadata. No MCP transport, OAuth verifier, API forwarding, or tools.                                                                                                                                                                                                 |
 | `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces including Access Link resolve request/response. MCP transport schemas and bundle contracts still absent.                                                                                                                                    |
 | `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                                                                                                                                                                                                       |
@@ -47,7 +47,7 @@ Last updated: 2026-05-26.
 
 ## Known Implementation Gaps
 
-- `apps/jobs` owns lifecycle byte purge and retention sweeps (AP-22); bundle zip
+- `apps/jobs` owns lifecycle byte purge and retention sweeps (AP-22) and bundle zip
   generation is deferred to phase-backlog #6.
 - `apps/mcp/src/index.ts` advertises protected-resource metadata but does not
   implement MCP JSON-RPC or authenticate tool calls.

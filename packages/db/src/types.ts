@@ -86,6 +86,7 @@ export type Revision = {
   size_bytes: number;
   bundle_status: BundleStatus;
   bundle_status_updated_at: string | null;
+  bundle_size_bytes: number | null;
   bytes_purge_enqueued_at: string | null;
   created_by_api_key_id: string;
   created_at: string;

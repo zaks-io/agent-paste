@@ -26,6 +26,7 @@ import {
   type AdminActor,
   type ApiActor,
   type ApiKeyActor,
+  bundleKeyFor,
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
@@ -40,7 +41,7 @@ import {
   verifyAgentViewTokenWithKeyRing,
 } from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
-import { mintContentUrl } from "@agent-paste/tokens/content";
+import { mintBundleUrl, mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
   type AppErrorCode,
@@ -55,6 +56,7 @@ import {
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
+import { enqueuePostPublishJobs } from "./post-publish.js";
 import {
   DEFAULT_WORKOS_ISSUER,
   resolveWorkOsIdentity,
@@ -114,6 +116,7 @@ export type Env = {
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
+  BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;
@@ -414,13 +417,27 @@ async function publishRevision(
   const idempotencyKey = guard.idempotencyKey ?? "";
   return runIdempotent(context, async () => {
     try {
+      const now = new Date().toISOString();
       const result = await db.publishRevision({
         actor,
         idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
-        now: new Date().toISOString(),
+        now,
       });
+      const bundleStatus =
+        result && typeof result === "object" && "bundle" in result
+          ? (result as { bundle: { status: string } }).bundle.status
+          : "disabled";
+      if (bundleStatus === "pending") {
+        await enqueuePostPublishJobs(context.env as Env, {
+          workspaceId: actor.workspace_id,
+          artifactId: params.artifactId ?? "",
+          revisionId: params.revisionId ?? "",
+          bundleStatus: "pending",
+          requestedAt: now,
+        });
+      }
       return signPublishResult(result, context.env);
     } catch (error) {
       const mapped = mapRepositoryError(error);
@@ -1394,6 +1411,7 @@ async function signAgentViewContentUrls(
     entrypoint?: unknown;
     expires_at?: unknown;
     view_url?: unknown;
+    bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
     files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
   };
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
@@ -1427,6 +1445,20 @@ async function signAgentViewContentUrls(
       )
     : data.files;
 
+  const bundle =
+    data.bundle && typeof data.bundle === "object" && data.bundle.status === "ready"
+      ? {
+          ...data.bundle,
+          url: await signedBundleUrl(
+            env,
+            data.artifact_id as string,
+            data.revision_id as string,
+            expiresAt,
+            contentAuth,
+          ),
+        }
+      : data.bundle;
+
   return {
     ...data,
     view_url: entrypoint
@@ -1435,7 +1467,33 @@ async function signAgentViewContentUrls(
         ? data.view_url
         : undefined,
     files: signedFiles,
+    bundle,
   };
+}
+
+async function signedBundleUrl(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  expiresAt?: string,
+  auth?: { accessLinkId?: string; workspaceId?: string },
+): Promise<string | undefined> {
+  const signingSecret = agentViewSigningSecret(env);
+  if (!signingSecret) {
+    return undefined;
+  }
+  return mintBundleUrl({
+    baseUrl: contentBaseUrl(env),
+    secret: signingSecret,
+    payload: {
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
+      ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
+      key_prefix: bundleKeyFor(artifactId, revisionId),
+      exp: contentTokenExpiration(expiresAt),
+    },
+  });
 }
 
 async function signedContentUrl(

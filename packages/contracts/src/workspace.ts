@@ -6,6 +6,8 @@ import { z } from "./zod.js";
 export const UsagePolicy = z.object({
   file_size_cap_bytes: z.number().int().positive(),
   artifact_size_cap_bytes: z.number().int().positive(),
+  bundle_size_cap_bytes: z.number().int().positive(),
+  bundles_enabled: z.boolean(),
   file_count_cap: z.number().int().positive(),
   actor_rate_limit_per_minute: z.number().int().positive(),
   workspace_burst_cap_per_minute: z.number().int().positive(),

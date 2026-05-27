@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "./agent-view.js";
+import {
+  buildAgentView,
+  buildBundleAvailability,
+  buildFinalizeResult,
+  buildPublishResult,
+  inferRenderMode,
+} from "./agent-view.js";
 import type { Artifact, StoredFile } from "./types.js";
 
 const artifact: Artifact = {
@@ -33,13 +39,24 @@ const file: StoredFile = {
 
 describe("agent-view helpers", () => {
   it("builds agent view and publish URLs with encoded paths", () => {
-    const view = buildAgentView(artifact, "rev_2", [file], "https://content.test/");
+    const view = buildAgentView(artifact, "rev_2", [file], "https://content.test/", {
+      bundle_status: "pending",
+      bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
+      bundle_size_bytes: null,
+    });
     expect(view.revision_id).toBe("rev_2");
+    expect(view.bundle).toEqual({ status: "pending", retry_after_seconds: 5 });
     expect(view.view_url).toBe("https://content.test/v/art_1.rev_2/docs/read%20me.md");
     expect(view.files[0]?.url).toContain("read%20me.md");
 
+    const publishedRevision = {
+      id: "rev_2",
+      bundle_status: "pending" as const,
+      bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
+      bundle_size_bytes: null,
+    };
     expect(
-      buildPublishResult(artifact, "rev_2", "upl_1", {
+      buildPublishResult(artifact, publishedRevision, "upl_1", {
         contentBaseUrl: "https://content.test",
         apiBaseUrl: "https://api.test",
       }),
@@ -47,9 +64,10 @@ describe("agent-view helpers", () => {
       upload_session_id: "upl_1",
       view_url: "https://content.test/v/art_1.rev_2/docs/read%20me.md",
       agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_2",
+      bundle: { status: "pending", retry_after_seconds: 5 },
     });
     expect(
-      buildPublishResult(artifact, "rev_2", undefined, {
+      buildPublishResult(artifact, publishedRevision, undefined, {
         contentBaseUrl: "https://content.test",
         apiBaseUrl: "https://api.test",
       }),
@@ -77,6 +95,34 @@ describe("agent-view helpers", () => {
       file_count: 1,
       size_bytes: 12,
     });
+  });
+
+  it("builds bundle availability for each terminal state", () => {
+    expect(
+      buildBundleAvailability({
+        bundle_status: "ready",
+        bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
+        bundle_size_bytes: 42,
+      }),
+    ).toEqual({
+      status: "ready",
+      size_bytes: 42,
+      generated_at: "2026-01-01T00:00:00.000Z",
+    });
+    expect(
+      buildBundleAvailability({
+        bundle_status: "failed",
+        bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
+        bundle_size_bytes: null,
+      }),
+    ).toEqual({ status: "failed" });
+    expect(
+      buildBundleAvailability({
+        bundle_status: "disabled",
+        bundle_status_updated_at: null,
+        bundle_size_bytes: null,
+      }),
+    ).toEqual({ status: "disabled" });
   });
 
   it.each([

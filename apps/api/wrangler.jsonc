@@ -137,7 +137,10 @@
             "period": 60
           }
         }
-      ]
+      ],
+      "queues": {
+        "producers": [{ "queue": "bundle-generate-preview", "binding": "BUNDLE_GENERATE_QUEUE" }]
+      }
     },
     "production": {
       "name": "agent-paste-api-production",
@@ -223,7 +226,10 @@
             "period": 60
           }
         }
-      ]
+      ],
+      "queues": {
+        "producers": [{ "queue": "bundle-generate-production", "binding": "BUNDLE_GENERATE_QUEUE" }]
+      }
     }
   }
 }

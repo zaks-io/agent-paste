@@ -1,3 +1,4 @@
+import { BundleAvailability } from "./bundle.js";
 import { Mebibytes, Seconds } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
@@ -51,6 +52,7 @@ export const PublishResult = z.object({
   view_url: UrlString,
   agent_view_url: UrlString,
   expires_at: IsoDateTime,
+  bundle: BundleAvailability,
 });
 export type PublishResult = z.infer<typeof PublishResult>;
 

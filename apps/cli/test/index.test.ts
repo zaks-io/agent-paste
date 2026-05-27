@@ -7,6 +7,8 @@ import { main, parseArgs } from "../src/index.js";
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
   artifact_size_cap_bytes: 25 * 1024 * 1024,
+  bundle_size_cap_bytes: 25 * 1024 * 1024,
+  bundles_enabled: true,
   file_count_cap: 100,
   actor_rate_limit_per_minute: 60,
   workspace_burst_cap_per_minute: 300,

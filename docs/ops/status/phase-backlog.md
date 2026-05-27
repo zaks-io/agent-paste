@@ -112,7 +112,7 @@ Recommended order:
        0049, and 0050.
 5. [x] Move lifecycle byte purge and retention work out of `api` scheduled
        cleanup as the jobs worker becomes authoritative.
-6. [ ] Bundle generation and download.
+6. [x] Bundle generation and download.
        Add bundle status fields, deterministic R2 bundle keys, bundle size caps,
        and Agent View bundle state.
 7. [ ] Pinning and revision retention.

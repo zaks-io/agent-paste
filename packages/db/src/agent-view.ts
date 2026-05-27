@@ -1,4 +1,28 @@
-import type { Artifact, RepositoryOptions, StoredFile } from "./types.js";
+import type { Artifact, BundleStatus, RepositoryOptions, StoredFile } from "./types.js";
+
+const PENDING_BUNDLE_RETRY_SECONDS = 5;
+
+export function buildBundleAvailability(revision: {
+  bundle_status: BundleStatus;
+  bundle_status_updated_at: string | null;
+  bundle_size_bytes: number | null;
+}) {
+  const bundle = { status: revision.bundle_status };
+  if (revision.bundle_status === "ready") {
+    return {
+      ...bundle,
+      size_bytes: revision.bundle_size_bytes ?? 0,
+      ...(revision.bundle_status_updated_at ? { generated_at: revision.bundle_status_updated_at } : {}),
+    };
+  }
+  if (revision.bundle_status === "pending") {
+    return {
+      ...bundle,
+      retry_after_seconds: PENDING_BUNDLE_RETRY_SECONDS,
+    };
+  }
+  return bundle;
+}
 
 function trimTrailingSlash(url: string) {
   return url.replace(/\/+$/, "");
@@ -8,7 +32,17 @@ function encodePath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
-export function buildAgentView(artifact: Artifact, revisionId: string, files: StoredFile[], contentBaseUrl: string) {
+export function buildAgentView(
+  artifact: Artifact,
+  revisionId: string,
+  files: StoredFile[],
+  contentBaseUrl: string,
+  revision: {
+    bundle_status: BundleStatus;
+    bundle_status_updated_at: string | null;
+    bundle_size_bytes: number | null;
+  },
+) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
   return {
@@ -25,6 +59,7 @@ export function buildAgentView(artifact: Artifact, revisionId: string, files: St
       content_type: file.content_type,
       url: `${prefix}/${encodePath(file.path)}`,
     })),
+    bundle: buildBundleAvailability(revision),
   };
 }
 
@@ -51,7 +86,12 @@ export function buildFinalizeResult(input: {
 
 export function buildPublishResult(
   artifact: Artifact,
-  revisionId: string,
+  revision: {
+    id: string;
+    bundle_status: BundleStatus;
+    bundle_status_updated_at: string | null;
+    bundle_size_bytes: number | null;
+  },
   uploadSessionId: string | undefined,
   options: RepositoryOptions,
 ) {
@@ -59,11 +99,12 @@ export function buildPublishResult(
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
   const result = {
     artifact_id: artifact.id,
-    revision_id: revisionId,
+    revision_id: revision.id,
     title: artifact.title,
-    view_url: `${contentBaseUrl}/v/${artifact.id}.${revisionId}/${encodePath(artifact.entrypoint)}`,
-    agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revisionId}`,
+    view_url: `${contentBaseUrl}/v/${artifact.id}.${revision.id}/${encodePath(artifact.entrypoint)}`,
+    agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
+    bundle: buildBundleAvailability(revision),
   };
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;
 }

@@ -45,6 +45,8 @@ describe("MVP route registry", () => {
       "uploadSessions.finalize",
       "content.get",
       "content.head",
+      "content.bundle",
+      "content.bundleHead",
     ]);
   });
 
@@ -84,7 +86,7 @@ describe("MVP route registry", () => {
         .filter((route) => route.rateLimit === "artifact")
         .map((route) => route.id)
         .sort(),
-    ).toEqual(["agentView.public", "content.get", "content.head"]);
+    ).toEqual(["agentView.public", "content.bundle", "content.bundleHead", "content.get", "content.head"]);
     expect(routeContracts.find((route) => route.id === "accessLinks.resolve")).toMatchObject({
       auth: "none",
       rateLimit: "none",
@@ -193,6 +195,8 @@ describe("MVP schemas", () => {
     expect(mvpUsagePolicy).toMatchObject({
       file_size_cap_bytes: 10 * 1024 * 1024,
       artifact_size_cap_bytes: 25 * 1024 * 1024,
+      bundle_size_cap_bytes: 25 * 1024 * 1024,
+      bundles_enabled: true,
       file_count_cap: 100,
     });
 
@@ -224,6 +228,7 @@ describe("MVP schemas", () => {
             url: "https://usercontent.agent-paste.sh/v/token/index.html",
           },
         ],
+        bundle: { status: "pending", retry_after_seconds: 5 },
       }),
     ).toMatchObject({ title: "demo" });
 
@@ -257,6 +262,7 @@ describe("MVP schemas", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "demo",
+        bundle: { status: "pending", retry_after_seconds: 5 },
         view_url: "https://usercontent.agent-paste.sh/v/token/index.html",
         agent_view_url: "https://api.agent-paste.sh/v1/public/agent-view/token",
         expires_at: "2026-06-19T12:00:00.000Z",

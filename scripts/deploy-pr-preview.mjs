@@ -180,6 +180,9 @@ function apiConfig() {
       rateLimit("ACTOR_RATE_LIMIT", `4${prNumber}001`, 60, 60),
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
     ],
+    queues: {
+      producers: [{ queue: jobQueues.bundleGenerate, binding: "BUNDLE_GENERATE_QUEUE" }],
+    },
   });
 }
 

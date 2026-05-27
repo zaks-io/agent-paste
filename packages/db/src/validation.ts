@@ -33,6 +33,10 @@ export function objectKeyFor(artifactId: string, revisionId: string, path: strin
   return `artifacts/${artifactId}/revisions/${revisionId}/files/${path}`;
 }
 
+export function bundleKeyFor(artifactId: string, revisionId: string) {
+  return `artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
+}
+
 export function contentTypeForPath(path: string) {
   return servedContentTypeForPath(path);
 }

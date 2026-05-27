@@ -70,6 +70,8 @@ describe("local publish helpers", () => {
       validateFilesAgainstUsagePolicy(files, {
         file_size_cap_bytes: 10 * 1024 * 1024,
         artifact_size_cap_bytes: 25 * 1024 * 1024,
+        bundle_size_cap_bytes: 25 * 1024 * 1024,
+        bundles_enabled: true,
         file_count_cap: 100,
         default_ttl_seconds: 30 * 24 * 60 * 60,
         min_ttl_seconds: 24 * 60 * 60,
@@ -86,6 +88,8 @@ describe("local publish helpers", () => {
         {
           file_size_cap_bytes: 10 * 1024 * 1024,
           artifact_size_cap_bytes: 25 * 1024 * 1024,
+          bundle_size_cap_bytes: 25 * 1024 * 1024,
+          bundles_enabled: true,
           file_count_cap: 100,
           default_ttl_seconds: 30 * 24 * 60 * 60,
           min_ttl_seconds: 24 * 60 * 60,

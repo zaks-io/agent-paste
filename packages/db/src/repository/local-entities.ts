@@ -281,6 +281,9 @@ export function localEntities(state: LocalState): Entities {
         revision.status = "published";
         revision.revision_number = input.revisionNumber;
         revision.published_at = input.publishedAt;
+        revision.bundle_status = input.bundleStatus;
+        revision.bundle_status_updated_at = input.publishedAt;
+        revision.bundle_size_bytes = null;
         return true;
       },
     },

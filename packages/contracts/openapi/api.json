@@ -165,6 +165,13 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "bundle_size_cap_bytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "bundles_enabled": {
+                "type": "boolean"
+              },
               "file_count_cap": {
                 "type": "integer",
                 "exclusiveMinimum": 0
@@ -197,6 +204,8 @@
             "required": [
               "file_size_cap_bytes",
               "artifact_size_cap_bytes",
+              "bundle_size_cap_bytes",
+              "bundles_enabled",
               "file_count_cap",
               "actor_rate_limit_per_minute",
               "workspace_burst_cap_per_minute",
@@ -224,6 +233,13 @@
           "artifact_size_cap_bytes": {
             "type": "integer",
             "exclusiveMinimum": 0
+          },
+          "bundle_size_cap_bytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bundles_enabled": {
+            "type": "boolean"
           },
           "file_count_cap": {
             "type": "integer",
@@ -257,6 +273,8 @@
         "required": [
           "file_size_cap_bytes",
           "artifact_size_cap_bytes",
+          "bundle_size_cap_bytes",
+          "bundles_enabled",
           "file_count_cap",
           "actor_rate_limit_per_minute",
           "workspace_burst_cap_per_minute",
@@ -339,6 +357,39 @@
             },
             "minItems": 1,
             "maxItems": 100
+          },
+          "bundle": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "ready",
+                  "failed",
+                  "disabled"
+                ]
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "retry_after_seconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "status"
+            ]
           }
         },
         "required": [
@@ -349,7 +400,8 @@
           "expires_at",
           "entrypoint",
           "view_url",
-          "files"
+          "files",
+          "bundle"
         ]
       },
       "AccessLinkResolveRequest": {
@@ -1246,6 +1298,13 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "bundle_size_cap_bytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "bundles_enabled": {
+                "type": "boolean"
+              },
               "file_count_cap": {
                 "type": "integer",
                 "exclusiveMinimum": 0
@@ -1278,6 +1337,8 @@
             "required": [
               "file_size_cap_bytes",
               "artifact_size_cap_bytes",
+              "bundle_size_cap_bytes",
+              "bundles_enabled",
               "file_count_cap",
               "actor_rate_limit_per_minute",
               "workspace_burst_cap_per_minute",

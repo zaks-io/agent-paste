@@ -129,6 +129,7 @@ export const revisions = pgTable(
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     bundleStatus: text("bundle_status").notNull().default("disabled"),
     bundleStatusUpdatedAt: timestamp("bundle_status_updated_at", { withTimezone: true }),
+    bundleSizeBytes: bigint("bundle_size_bytes", { mode: "number" }),
     bytesPurgeEnqueuedAt: timestamp("bytes_purge_enqueued_at", { withTimezone: true }),
     createdByApiKeyId: text("created_by_api_key_id")
       .notNull()

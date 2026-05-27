@@ -52,3 +52,13 @@ export async function mintContentUrl(input: {
   const token = await mintContentToken(input.payload, input.secret);
   return `${input.baseUrl}/v/${encodeURIComponent(token)}/${encodePath(input.path)}`;
 }
+
+/** Signs a bundle token and builds the Content Origin URL `{baseUrl}/b/{token}`. */
+export async function mintBundleUrl(input: {
+  baseUrl: string;
+  secret: string;
+  payload: ContentTokenPayload;
+}): Promise<string> {
+  const token = await mintContentToken(input.payload, input.secret);
+  return `${input.baseUrl}/b/${encodeURIComponent(token)}`;
+}
