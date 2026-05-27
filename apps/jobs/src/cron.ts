@@ -31,7 +31,7 @@ export async function runScheduledJobs(event: ScheduledEvent, env: Env): Promise
       logOpError("cron.queue_binding_missing", { cron: event.cron, queue: "BYTE_PURGE_QUEUE" });
       return;
     }
-    await runUploadCleanupDiscovery(env, executor, env.BYTE_PURGE_QUEUE, now);
+    await runUploadCleanupDiscovery(executor, env.BYTE_PURGE_QUEUE, now);
     return;
   }
 

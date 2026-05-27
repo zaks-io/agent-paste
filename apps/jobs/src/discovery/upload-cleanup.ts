@@ -1,7 +1,7 @@
 import { BytePurgeMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
 import { UPLOAD_CLEANUP_SWEEP_CAP } from "../constants.js";
-import type { Env, QueueBinding } from "../env.js";
+import type { QueueBinding } from "../env.js";
 import { logOp } from "../op-log.js";
 import type { SweepResult } from "./types.js";
 
@@ -17,7 +17,6 @@ type SessionFileRow = {
 };
 
 export async function runUploadCleanupDiscovery(
-  env: Env,
   executor: SqlExecutor,
   queue: QueueBinding,
   now: string,
