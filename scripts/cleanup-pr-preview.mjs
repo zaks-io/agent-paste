@@ -1,16 +1,37 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
+import { isQueueNotFound } from "./wrangler-queue-cli.mjs";
 
 const prNumber = process.env.PR_NUMBER ?? process.argv[2];
 if (!prNumber) {
   throw new Error("Set PR_NUMBER or pass the PR number as the first argument.");
 }
 
+const jobQueues = prPreviewJobQueues(prNumber);
+
 // web is included so its worker and the pr-N.preview.agent-paste.sh custom domain
 // are torn down on PR close (wrangler delete removes attached custom domains).
-const workerNames = ["api", "upload", "content", "apex", "web"].map((app) => `agent-paste-${app}-pr-${prNumber}`);
+const workerNames = ["api", "upload", "content", "jobs", "apex", "web"].map(
+  (app) => `agent-paste-${app}-pr-${prNumber}`,
+);
 for (const workerName of workerNames) {
   await run("pnpm", ["exec", "wrangler", "delete", workerName, "--force"], { allowFailure: true });
+}
+
+for (const queueName of jobQueues.deletionOrder) {
+  const result = await run("pnpm", ["exec", "wrangler", "queues", "delete", queueName], { allowFailure: true });
+  if (result.code === 0) {
+    process.stdout.write(`Deleted queue ${queueName}\n`);
+    continue;
+  }
+  if (isQueueNotFound(result)) {
+    process.stdout.write(`Queue ${queueName} not found (already removed)\n`);
+    continue;
+  }
+  throw new Error(
+    `Failed to delete queue ${queueName}: ${result.stderr?.trim() || result.stdout?.trim() || `exit ${result.code}`}`,
+  );
 }
 
 const hyperdriveName = `agent-paste-db-pr-${prNumber}`;

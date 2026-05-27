@@ -1,6 +1,6 @@
 # Jobs Spec
 
-This is a future-phase spec. The CLI-first MVP does not have a separate `jobs` Worker; retention and upload-session cleanup live in the API Worker scheduled handler, with manual triggering through the admin CLI. Keep this file for Phase 4+ queue/DLQ design.
+This spec describes the `jobs` Worker cron discovery and Cloudflare Queue consumers. Lifecycle byte purge and retention sweeps are authoritative here; the API Worker no longer runs scheduled cleanup.
 
 The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports `packages/contracts` for payload types when those payloads are promoted into code.
 
@@ -16,12 +16,13 @@ Only `bundle-generate-dlq` has a consumer because terminal bundle failure must u
 
 ## Cron Triggers
 
-| Cron           |          Cadence |             Sweep Cap | Work                                                                       |
-| -------------- | ---------------: | --------------------: | -------------------------------------------------------------------------- |
-| Upload Cleanup | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                |
-| Auto Deletion  |           hourly |                   200 | Delete unpinned published Artifacts past `auto_deletion_days`.             |
-| Retention      |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set. |
-| Maintenance GC |           hourly | 5000 idempotency rows | Delete old idempotency rows and audit events past Audit Retention.         |
+| Cron           |          Cadence |             Sweep Cap | Work                                                                                                                                   |
+| -------------- | ---------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Upload Cleanup | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                                                                            |
+| Auto Deletion  |           hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                             |
+| Purge Recovery |           hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge. |
+| Retention      |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                             |
+| Maintenance GC |           hourly | 5000 idempotency rows | Delete old idempotency rows and audit events past Audit Retention.                                                                     |
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 

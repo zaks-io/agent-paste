@@ -15,7 +15,7 @@ These specs describe the current CLI-first MVP and the phases that follow it. Th
 
 Future-facing specs remain useful but are not MVP build gates:
 
-- [`jobs.md`](./jobs.md): future queue/DLQ worker contract. MVP cleanup lives in the API Worker scheduled handler.
+- [`jobs.md`](./jobs.md): queue/DLQ worker contract and lifecycle sweeps.
 - [`web.md`](./web.md): future dashboard/viewer route contract. MVP has no web dashboard or Access Link viewer.
 - [`style-guide.md`](./style-guide.md): visual and interaction standard for future human-facing surfaces and renderer pages.
 - [`contracts.md`](./contracts.md): implementation contract source-of-truth rules and ID formats.

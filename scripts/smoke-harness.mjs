@@ -75,13 +75,28 @@ export async function forceExpireArtifact(apiBaseUrl, artifactId, secret = smoke
   return response.json();
 }
 
-export async function runSmokeCleanup(apiBaseUrl, secret = smokeHarnessSecretFromEnv()) {
-  const response = await fetch(`${apiBaseUrl}/__test__/run-cleanup`, {
+export async function runSmokeCleanup(jobsBaseUrl, secret = smokeHarnessSecretFromEnv()) {
+  const response = await fetch(`${jobsBaseUrl}/__test__/run-cleanup`, {
     method: "POST",
     headers: smokeHarnessHeaders(secret),
   });
   if (!response.ok) {
     throw await smokeHarnessError(response, "run-cleanup");
+  }
+  return response.json();
+}
+
+export async function runSmokePurgeRecovery(jobsBaseUrl, artifactId, secret = smokeHarnessSecretFromEnv()) {
+  const response = await fetch(`${jobsBaseUrl}/__test__/purge-recovery`, {
+    method: "POST",
+    headers: {
+      ...smokeHarnessHeaders(secret),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ artifact_id: artifactId }),
+  });
+  if (!response.ok) {
+    throw await smokeHarnessError(response, "purge-recovery");
   }
   return response.json();
 }

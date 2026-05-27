@@ -10,6 +10,7 @@ import {
   listR2Keys,
   provisionSmokeWorkspace,
   runSmokeCleanup,
+  runSmokePurgeRecovery,
   smokeHarnessSecretFromEnv,
   waitForHealthz,
 } from "./smoke-harness.mjs";
@@ -18,9 +19,11 @@ const root = new URL("..", import.meta.url);
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);
 const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
+const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
+const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 const harnessSecret = smokeHarnessSecretFromEnv();
 const cliEntry = new URL("../apps/cli/dist/src/index.js", import.meta.url).pathname;
 const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
@@ -32,6 +35,7 @@ const server = spawn(process.execPath, [serverEntry], {
     AGENT_PASTE_LOCAL_API_PORT: String(apiPort),
     AGENT_PASTE_LOCAL_UPLOAD_PORT: String(uploadPort),
     AGENT_PASTE_LOCAL_CONTENT_PORT: String(contentPort),
+    AGENT_PASTE_LOCAL_JOBS_PORT: String(jobsPort),
     SMOKE_HARNESS_SECRET: harnessSecret,
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -47,6 +51,7 @@ server.stderr.on("data", (chunk) => {
 
 try {
   await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
+  await waitForHealthz(jobsBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
   const provisioned = await provisionSmokeWorkspace(apiBaseUrl, {
     email: `local-${Date.now()}@example.test`,
@@ -177,6 +182,7 @@ async function assertBytesPurgedAfterDelete(published) {
   assert(before.length > 0, "R2 prefix has keys before delete");
 
   await deleteSmokeArtifact(apiBaseUrl, published.artifact_id, harnessSecret);
+  await runSmokePurgeRecovery(jobsBaseUrl, published.artifact_id, harnessSecret);
 
   const after = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
@@ -199,7 +205,7 @@ async function assertBytesPurgedAfterExpiry(apiEnv) {
 
   await forceExpireArtifact(apiBaseUrl, expiryPublish.artifact_id, harnessSecret);
 
-  const cleanup = await runSmokeCleanup(apiBaseUrl, harnessSecret);
+  const cleanup = await runSmokeCleanup(jobsBaseUrl, harnessSecret);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
   assert(cleanup.deleted_r2_objects >= before.length, "cleanup reports deleted_r2_objects matching purged keys");
 

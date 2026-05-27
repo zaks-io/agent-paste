@@ -71,7 +71,8 @@
       "workers_dev": true,
       "vars": {
         "AGENT_PASTE_ENV": "preview",
-        "JOBS_ENABLED": "true"
+        "JOBS_ENABLED": "true",
+        "SMOKE_SYNC_BYTE_PURGE": "true"
       },
       "hyperdrive": [
         {

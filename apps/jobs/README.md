@@ -17,12 +17,13 @@ Handlers are idempotent by target identity (`workspace_id` + `actor_id` + `opera
 
 ## Cron discovery
 
-| Cron           | Schedule       | Sweep                                                                        |
-| -------------- | -------------- | ---------------------------------------------------------------------------- |
-| Upload Cleanup | `*/15 * * * *` | Expire stale upload sessions and enqueue `byte-purge` for orphan prefixes.   |
-| Auto Deletion  | `0 * * * *`    | Discovery-only until lifecycle ownership moves out of `api`.                 |
-| Retention      | `0 * * * *`    | No-op until `revision_retention_days` exists on workspaces.                  |
-| Maintenance GC | `0 * * * *`    | Deletes aged `idempotency_records` and `operation_events` (no `runCommand`). |
+| Cron           | Schedule       | Sweep                                                                                                  |
+| -------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| Upload Cleanup | `*/15 * * * *` | Expire stale upload sessions and enqueue `byte-purge` for orphan prefixes.                             |
+| Auto Deletion  | `0 * * * *`    | Discovery, expiry via `runCommand`, denylist write, and `byte-purge` enqueue.                          |
+| Purge Recovery | `0 * * * *`    | Rediscover deleted/expired artifacts missing `bytes_purge_enqueued_at` and enqueue purge side effects. |
+| Retention      | `0 * * * *`    | No-op until `revision_retention_days` exists on workspaces.                                            |
+| Maintenance GC | `0 * * * *`    | Deletes aged `idempotency_records` and `operation_events` (no `runCommand`).                           |
 
 ## Commands
 

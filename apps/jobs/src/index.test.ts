@@ -7,8 +7,9 @@ import {
   QUEUE_BYTE_PURGE,
   QUEUE_SAFETY_SCAN,
 } from "./constants.js";
-import * as queue from "./queue.js";
 import worker, { type Env, handleQueueBatch, runQueueConsumer, runScheduledJobs } from "./index.js";
+import * as queue from "./queue.js";
+import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -20,14 +21,11 @@ function request(path: string, env: Env = {}) {
 
 function createExecutor(rows: Record<string, unknown>[] = []) {
   let call = 0;
-  return {
-    query: vi.fn(async () => {
-      const row = rows[call];
-      call += 1;
-      return { rows: row ? [row] : [] };
-    }),
-    transaction: vi.fn(async (run: (tx: { query: typeof vi.fn }) => Promise<unknown>) => run({ query: vi.fn() })),
-  };
+  return createTransactionalSqlExecutor(async () => {
+    const row = rows[call];
+    call += 1;
+    return { rows: row ? [row] : [] };
+  });
 }
 
 describe("jobs worker", () => {
@@ -70,10 +68,9 @@ describe("jobs worker", () => {
     const send = vi.fn(async () => {
       throw new Error("queue_unavailable");
     });
-    const executor = {
-      query: vi
-        .fn()
-        .mockResolvedValueOnce({
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
           rows: [
             {
               id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
@@ -82,24 +79,26 @@ describe("jobs worker", () => {
               revision_id: revisionId,
             },
           ],
-        })
-        .mockResolvedValueOnce({ rows: [{ r2_key: "env/live/ws/a/file.txt" }] }),
-      transaction: vi.fn(),
-    };
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
+      }
+      return { rows: [] };
+    });
     await runScheduledJobs(
       { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
       { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
     );
     expect(send).toHaveBeenCalled();
-    expect(executor.query).toHaveBeenCalledTimes(2);
+    expect(executor.query).toHaveBeenCalled();
   });
 
   it("routes upload cleanup cron to session expiry and purge enqueue", async () => {
     const send = vi.fn(async () => ({}));
-    const executor = {
-      query: vi
-        .fn()
-        .mockResolvedValueOnce({
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
           rows: [
             {
               id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
@@ -108,11 +107,13 @@ describe("jobs worker", () => {
               revision_id: revisionId,
             },
           ],
-        })
-        .mockResolvedValueOnce({ rows: [{ r2_key: "env/live/ws/a/file.txt" }] })
-        .mockResolvedValueOnce({ rows: [] }),
-      transaction: vi.fn(),
-    };
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
+      }
+      return { rows: [] };
+    });
     await runScheduledJobs(
       { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
       { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
@@ -127,10 +128,7 @@ describe("jobs worker", () => {
   });
 
   it("runs hourly discovery sweeps", async () => {
-    const executor = {
-      query: vi.fn(async () => ({ rows: [] })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async () => ({ rows: [] }));
     await runScheduledJobs(
       { scheduledTime: Date.now(), cron: CRON_HOURLY_DISCOVERY },
       { DB: executor, BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() } },

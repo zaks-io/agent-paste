@@ -140,11 +140,6 @@ export type Env = {
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
-type ScheduledEvent = {
-  scheduledTime: number;
-  cron: string;
-};
-
 type RouteParams = Record<string, string>;
 type RouteId = (typeof routeContracts)[number]["id"];
 type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
@@ -159,7 +154,6 @@ export const nonContractRoutePaths = [
   "/openapi.json",
   "/__test__/provision-smoke",
   "/__test__/force-expire",
-  "/__test__/run-cleanup",
   "/__test__/delete-artifact",
   "/__test__/r2-list",
   "/__test__/denylist",
@@ -321,7 +315,6 @@ apiDbRegistrar.mount(contractById("web.admin.events.list"), async (context, prin
 );
 app.post("/__test__/provision-smoke", (context) => provisionSmoke(context));
 app.post("/__test__/force-expire", (context) => forceExpire(context));
-app.post("/__test__/run-cleanup", (context) => runSmokeCleanup(context));
 app.post("/__test__/delete-artifact", (context) => deleteSmokeArtifact(context));
 app.get("/__test__/r2-list", (context) => listR2Prefix(context));
 app.get("/__test__/denylist", (context) => getDenylistKey(context));
@@ -334,9 +327,6 @@ app.onError((error, context) => {
 const worker = {
   fetch(request: Request, env: Env): Promise<Response> {
     return handleRequest(request, env);
-  },
-  scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
-    return runScheduledCleanup(env);
   },
 };
 
@@ -477,10 +467,7 @@ async function resolveAccessLinkRoute(
   if (!ring) {
     return errorResponse(context, "not_found");
   }
-  const verified = await verifyAccessLinkBlobWithKeyRing(
-    { publicId: body.public_id, blob: body.blob },
-    ring,
-  );
+  const verified = await verifyAccessLinkBlobWithKeyRing({ publicId: body.public_id, blob: body.blob }, ring);
   if (!verified) {
     return errorResponse(context, "not_found");
   }
@@ -961,21 +948,6 @@ function apiRateLimitBindings(env: Env) {
   };
 }
 
-async function runScheduledCleanup(env: Env): Promise<void> {
-  const db = apiDatabase(env);
-  if (!db) {
-    return;
-  }
-
-  await runCleanupAndDeny(
-    env,
-    db,
-    { type: "system", id: "scheduled-cleanup" },
-    false,
-    numberFromEnv(env.CLEANUP_BATCH_SIZE, 100),
-  );
-}
-
 async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyActor | null> {
   const token = bearerToken(request);
   if (!token) {
@@ -1227,75 +1199,6 @@ function isHyperdriveBinding(value: Env["DB"]): value is HyperdriveBinding {
   );
 }
 
-async function runCleanupAndDeny(
-  env: Env,
-  db: Repository,
-  actor: AdminActor,
-  dryRun: boolean,
-  batchSize: number,
-  idempotencyKey?: string,
-): Promise<unknown> {
-  const input: {
-    actor: AdminActor;
-    idempotencyKey?: string;
-    dryRun: boolean;
-    batchSize: number;
-    now: string;
-  } = {
-    actor,
-    dryRun,
-    batchSize,
-    now: new Date().toISOString(),
-  };
-  if (idempotencyKey) {
-    input.idempotencyKey = idempotencyKey;
-  }
-  const result = await db.runCleanup(input);
-  if (!dryRun && result && typeof result === "object" && "expired_artifact_ids" in result) {
-    const ids = (result as { expired_artifact_ids?: unknown }).expired_artifact_ids;
-    if (Array.isArray(ids)) {
-      const stringIds = ids.filter((value): value is string => typeof value === "string");
-      await Promise.all(stringIds.map((id) => denyArtifact(env, id)));
-      const purgeCounts = await Promise.all(stringIds.map((id) => purgeArtifactBytes(env, id)));
-      const total = purgeCounts.reduce((sum, count) => sum + count, 0);
-      return { ...(result as Record<string, unknown>), deleted_r2_objects: total };
-    }
-  }
-  return result;
-}
-
-async function denyArtifact(env: Env, artifactId: string): Promise<void> {
-  if (!artifactId || !env.DENYLIST) {
-    return;
-  }
-  await env.DENYLIST.put(`ad:${artifactId}`, JSON.stringify({ reason: "deletion", at: new Date().toISOString() }), {
-    expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS,
-  });
-}
-
-async function purgeArtifactBytes(env: Env, artifactId: string): Promise<number> {
-  if (!artifactId || !env.ARTIFACTS) {
-    return 0;
-  }
-  const prefix = `artifacts/${artifactId}/`;
-  let deleted = 0;
-  let cursor: string | undefined;
-  do {
-    const listOptions: { prefix: string; cursor?: string } = { prefix };
-    if (cursor) {
-      listOptions.cursor = cursor;
-    }
-    const page = await env.ARTIFACTS.list(listOptions);
-    const keys = page.objects.map((object) => object.key);
-    if (keys.length > 0) {
-      await env.ARTIFACTS.delete(keys);
-      deleted += keys.length;
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  return deleted;
-}
-
 // Non-production smoke harness routes. Gated by AGENT_PASTE_ENV and SMOKE_HARNESS_SECRET
 // so production never exposes them.
 async function provisionSmoke(context: AppContext): Promise<Response> {
@@ -1333,19 +1236,13 @@ async function provisionSmoke(context: AppContext): Promise<Response> {
   return jsonResponse(context, { workspace, api_key: apiKey }, 201);
 }
 
-async function runSmokeCleanup(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return errorResponse(context, "not_found");
+async function denyArtifact(env: Env, artifactId: string): Promise<void> {
+  if (!artifactId || !env.DENYLIST) {
+    return;
   }
-  const db = apiDatabase(env);
-  if (!db) {
-    return errorResponse(context, "database_unavailable");
-  }
-  const batchSize = numberFromEnv(env.CLEANUP_BATCH_SIZE, 100);
-  const result = await runCleanupAndDeny(env, db, smokeHarnessActor, false, batchSize, `smoke-cleanup:${Date.now()}`);
-  return jsonResponse(context, result);
+  await env.DENYLIST.put(`ad:${artifactId}`, JSON.stringify({ reason: "deletion", at: new Date().toISOString() }), {
+    expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS,
+  });
 }
 
 async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
@@ -1369,8 +1266,7 @@ async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
     artifactId,
   });
   await denyArtifact(env, artifactId);
-  const purged = await purgeArtifactBytes(env, artifactId);
-  return jsonResponse(context, { ...result, deleted_r2_objects: purged });
+  return jsonResponse(context, { ...result, deleted_r2_objects: 0 });
 }
 
 async function forceExpire(context: AppContext): Promise<Response> {
@@ -1534,14 +1430,7 @@ async function signAgentViewContentUrls(
   return {
     ...data,
     view_url: entrypoint
-      ? await signedContentUrl(
-          env,
-          data.artifact_id,
-          data.revision_id,
-          entrypoint,
-          expiresAt,
-          contentAuth,
-        )
+      ? await signedContentUrl(env, data.artifact_id, data.revision_id, entrypoint, expiresAt, contentAuth)
       : typeof data.view_url === "string"
         ? data.view_url
         : undefined,
@@ -1583,11 +1472,6 @@ function contentTokenExpiration(expiresAt: string | undefined): number {
 
 function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function numberFromEnv(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function jsonResponse(

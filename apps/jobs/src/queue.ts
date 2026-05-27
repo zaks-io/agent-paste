@@ -10,8 +10,8 @@ export type MessageBatch = {
   readonly messages: readonly QueueMessage[];
 };
 
-function normalizeQueueName(queue: string): string {
-  return queue.replace(/-(preview|production)$/, "");
+export function normalizeQueueName(queue: string): string {
+  return queue.replace(/-(?:preview(?:-pr-\d+)?|production)$/, "");
 }
 
 export async function handleQueueBatch(batch: MessageBatch, env: Env): Promise<void> {

@@ -13,15 +13,15 @@ Last updated: 2026-05-26.
 
 ## Deployed / Routed Workers
 
-| Worker surface | Current status                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                                   |
-| `api`          | Preview/production deployed; owns control plane, web APIs, operator APIs, scheduled MVP cleanup. |
-| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                                 |
-| `content`      | Preview/production deployed; owns `usercontent` content reads.                                   |
-| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`.        |
-| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                                   |
-| `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                                   |
+| Worker surface | Current status                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                            |
+| `api`          | Preview/production deployed; owns control plane, web APIs, and operator APIs.             |
+| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                          |
+| `content`      | Preview/production deployed; owns `usercontent` content reads.                            |
+| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`. |
+| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                            |
+| `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                            |
 
 ## Secrets
 

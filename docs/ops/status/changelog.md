@@ -3,6 +3,18 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-05-27
+
+### Jobs lifecycle byte purge ownership (AP-22)
+
+- Moved auto-deletion expiry, denylist writes, and byte-purge enqueue from the
+  API Worker scheduled cleanup path into `apps/jobs` cron discovery.
+- Added purge recovery for deleted/expired artifacts missing
+  `bytes_purge_enqueued_at`, plus jobs smoke harness routes for cleanup and
+  purge recovery.
+- Removed the API cron trigger and `POST /__test__/run-cleanup`; local/hosted
+  smokes now call the jobs worker.
+
 ## 2026-05-26
 
 ### Neon database credential boundaries (AP-18)
