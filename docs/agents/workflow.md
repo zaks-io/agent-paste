@@ -12,7 +12,8 @@ Start with:
 3. `CONTEXT.md`
 4. `docs/specs/README.md`
 5. `docs/adr/README.md`
-6. `docs/agents/skill-usage.md`
+6. `docs/agents/repo-navigation.md`
+7. `docs/agents/skill-usage.md`
 
 Use `docs/agents/issue-tracker.md` for Linear operations and
 `docs/agents/remote-cursor-agent.md` for Cursor Background Agent handoff.

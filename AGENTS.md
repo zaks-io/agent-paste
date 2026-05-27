@@ -6,6 +6,9 @@ Read `docs/ops/project-status.md` first. It is the status entrypoint and links t
 
 Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
 
+If you need to get oriented or find the owner of a workflow quickly, use
+`docs/agents/repo-navigation.md`.
+
 ## Project stage
 
 Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in the wild. Do not add legacy, deprecated, or back-compat code paths or migration shims. There is nothing to stay compatible with. When behavior needs to change, change it outright.
@@ -17,7 +20,8 @@ Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in t
 Shared workflow docs live in `docs/agents/workflow.md`.
 Use `docs/agents/skill-usage.md` to choose the smallest repo-local skill for a
 task. Use `docs/agents/autonomous-loop.md` for the detailed Linear state
-contract and orchestrator/worker loop.
+contract and orchestrator/worker loop. Use `docs/agents/repo-navigation.md`
+for the repo map and common lookup paths.
 
 ### Issue tracker
 

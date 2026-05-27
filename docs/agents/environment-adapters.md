@@ -13,6 +13,7 @@ Codex should read:
 - `AGENTS.md`
 - `docs/ops/project-status.md`
 - `docs/agents/workflow.md`
+- `docs/agents/repo-navigation.md`
 - `docs/agents/skill-usage.md`
 - the specific skill for the task
 
@@ -36,7 +37,8 @@ Cursor thread for review fixes.
 
 Cursor agents should:
 
-- read `.cursor/rules/agent-paste.mdc` and `docs/agents/remote-cursor-agent.md`
+- read `.cursor/rules/agent-paste.mdc`, `docs/agents/remote-cursor-agent.md`,
+  and `docs/agents/repo-navigation.md`
 - implement one Linear issue per branch and PR
 - resume the same thread, branch, and PR when the orchestrator sends
   `Changes Requested` feedback
