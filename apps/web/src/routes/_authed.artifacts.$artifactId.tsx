@@ -62,6 +62,9 @@ function ArtifactDetailPage() {
       onPointer: (pointer: LiveUpdatePointer) => {
         setIframeSrc(pointer.iframe_src);
       },
+      onRevoked: () => {
+        setIframeSrc(null);
+      },
     });
     return () => connection.close();
   }, [artifact, artifactId]);
