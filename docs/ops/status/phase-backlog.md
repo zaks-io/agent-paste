@@ -181,8 +181,8 @@ These are not phase gates, but they are documented cleanup:
 - [ ] Deepen the Upload Session lifecycle module when Phase 4 publish/update
       work starts.
 - [ ] Decide whether `deleted_r2_objects` is replay-stable or best-effort.
-- [ ] Deepen deletion/invalidation side effects once jobs own lifecycle byte
-      purge.
+- [x] Deepen deletion/invalidation side effects once jobs own lifecycle byte
+      purge (AP-40).
 - [ ] Split `RepositoryCore` if growth continues, without reintroducing backend
       orchestration duplication.
 - [ ] Automate SDK regeneration if public SDK work becomes real.

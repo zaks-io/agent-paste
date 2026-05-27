@@ -482,6 +482,9 @@ importers:
       '@agent-paste/config':
         specifier: workspace:*
         version: link:../config
+      '@agent-paste/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@agent-paste/rotation':
         specifier: workspace:*
         version: link:../rotation

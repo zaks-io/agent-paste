@@ -87,6 +87,7 @@ type WebSettings = {
 type ArtifactSummary = ReturnType<typeof toArtifactSummary>;
 
 type ArtifactDetail = ArtifactSummary & {
+  workspace_id: string;
   files: Array<{ path: string; size_bytes: number; content_type: string; uploaded_at: string }>;
   operation_event_ids: string[];
 };
@@ -298,7 +299,7 @@ export type Repository = {
     idempotencyKey: string;
     artifactId: string;
     now?: Date;
-  }): Promise<{ artifact_id: string; deleted_at: string }>;
+  }): Promise<{ artifact_id: string; workspace_id: string; revision_id: string | null; deleted_at: string }>;
   listOperationEvents(): Promise<{ data: OperationEvent[]; page_info: PageInfo }>;
   forceExpireArtifact(input: {
     artifactId: string;

@@ -1387,9 +1387,18 @@ describe("api worker", () => {
         async getPublicAgentView() {
           return null;
         },
+        async getArtifactDetail() {
+          return {
+            id: "art_1",
+            workspace_id: "ws_1",
+            revision_id: "rev_1",
+            status: "active",
+          };
+        },
         async deleteArtifact() {
           return {
             artifact_id: "art_1",
+            workspace_id: "ws_1",
             revision_id: "rev_1",
             deleted_at: "2026-01-01T00:00:00.000Z",
           };

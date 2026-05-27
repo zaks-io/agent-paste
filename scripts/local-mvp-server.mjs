@@ -246,7 +246,7 @@ async function bytesFromBody(value) {
   return new Uint8Array(await new Response(value).arrayBuffer());
 }
 
-function createApiDatabase(repo, denylistNamespace) {
+function createApiDatabase(repo) {
   return {
     getWhoami: repo.getWhoami.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
@@ -288,11 +288,7 @@ function createApiDatabase(repo, denylistNamespace) {
     revokeCurrentApiKey: repo.revokeCurrentApiKey.bind(repo),
     listWebAuditEvents: repo.listWebAuditEvents.bind(repo),
     getWebSettings: repo.getWebSettings.bind(repo),
-    async deleteArtifact(input) {
-      const result = await repo.deleteArtifact(input);
-      await denylistNamespace.put(`ad:${input.artifactId}`, JSON.stringify({ reason: "deletion" }));
-      return result;
-    },
+    deleteArtifact: repo.deleteArtifact.bind(repo),
   };
 }
 
@@ -309,7 +305,7 @@ const jobsEnv = createJobsEnv({
   denylist,
   smokeHarnessSecret,
 });
-const apiDb = createApiDatabase(services.apiDb, denylist);
+const apiDb = createApiDatabase(services.apiDb);
 const artifactLive = createMemoryArtifactLiveNamespace();
 
 const auth = services.auth;
@@ -318,6 +314,8 @@ const apiEnv = {
   DB: apiDb,
   ARTIFACT_LIVE: artifactLive,
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
+  BYTE_PURGE_QUEUE: jobsEnv.BYTE_PURGE_QUEUE,
+  LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,
@@ -333,6 +331,15 @@ const apiEnv = {
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
 };
+Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
+  enumerable: true,
+  get() {
+    return jobsEnv.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0;
+  },
+  set(value) {
+    jobsEnv.SYNC_BYTE_PURGE_DELETED_OBJECTS = value;
+  },
+});
 const uploadEnv = {
   AUTH: auth,
   DB: services.uploadDb,

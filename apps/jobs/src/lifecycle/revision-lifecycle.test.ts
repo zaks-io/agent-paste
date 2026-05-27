@@ -1,7 +1,7 @@
+import { revisionPurgePrefix } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import { enqueueRevisionBytePurge } from "./revision-byte-purge-enqueue.js";
 import { writeRevisionDenylist } from "./revision-denylist.js";
-import { revisionPurgePrefix } from "./revision-prefix.js";
 import { applyRevisionPurgeSideEffects } from "./revision-purge-side-effects.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";

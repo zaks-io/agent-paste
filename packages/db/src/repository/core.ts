@@ -1209,6 +1209,7 @@ export class RepositoryCore implements Repository {
       const eventIds = await entities.operationEvents.listIdsForTarget(artifact.id);
       return {
         ...toArtifactSummary(artifact),
+        workspace_id: artifact.workspace_id,
         files: files.map(({ path, size_bytes, content_type, uploaded_at }) => ({
           path,
           size_bytes,
@@ -1250,7 +1251,12 @@ export class RepositoryCore implements Repository {
           details: {},
           occurredAt: deletedAt,
         });
-        return { artifact_id: artifact.id, deleted_at: deletedAt };
+        return {
+          artifact_id: artifact.id,
+          workspace_id: artifact.workspace_id,
+          revision_id: artifact.revision_id,
+          deleted_at: deletedAt,
+        };
       },
     );
   }

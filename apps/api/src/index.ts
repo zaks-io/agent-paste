@@ -58,6 +58,11 @@ import {
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import {
+  peekAdminArtifactDeleteReplay,
+  resolveDeletionInvalidationExecutor,
+  runPostCommitArtifactDeletionInvalidation,
+} from "./deletion-invalidation.js";
+import {
   buildPointerFromPublishResult,
   handleLiveUpdateAuthorize,
   notifyLiveUpdateDisconnect,
@@ -129,6 +134,11 @@ export type Env = {
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
+  BYTE_PURGE_QUEUE?: { send(message: unknown): Promise<unknown> };
+  SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
+  LOCAL_MVP_REPOSITORY?: {
+    revisions: Map<string, { bytes_purge_enqueued_at?: string | null }>;
+  };
   ARTIFACT_LIVE?: {
     idFromName(name: string): DurableObjectId;
     get(id: DurableObjectId): { fetch(request: Request): Promise<Response> };
@@ -1477,15 +1487,6 @@ async function provisionSmoke(context: AppContext): Promise<Response> {
   return jsonResponse(context, { workspace, api_key: apiKey }, 201);
 }
 
-async function denyArtifact(env: Env, artifactId: string): Promise<void> {
-  if (!artifactId || !env.DENYLIST) {
-    return;
-  }
-  await env.DENYLIST.put(`ad:${artifactId}`, JSON.stringify({ reason: "deletion", at: new Date().toISOString() }), {
-    expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS,
-  });
-}
-
 async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
@@ -1501,18 +1502,45 @@ async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
   if (!artifactId) {
     return errorResponse(context, "invalid_request", "artifact_id is required");
   }
+  const idempotencyKey = `smoke-delete:${artifactId}`;
+  const executor = resolveDeletionInvalidationExecutor(env);
+  let isReplay = false;
+  const detail = await db.getArtifactDetail(artifactId);
+  if (executor && detail) {
+    isReplay = await peekAdminArtifactDeleteReplay(executor, {
+      actor: smokeHarnessActor,
+      workspaceId: detail.workspace_id,
+      idempotencyKey,
+    });
+  }
   const result = await db.deleteArtifact({
     actor: smokeHarnessActor,
-    idempotencyKey: `smoke-delete:${artifactId}`,
+    idempotencyKey,
     artifactId,
   });
-  await denyArtifact(env, artifactId);
-  await notifyLiveUpdateDisconnect(env, {
-    artifactId,
-    audiences: ["share", "dashboard"],
-    reason: "deletion",
+  const invalidation = await runPostCommitArtifactDeletionInvalidation(
+    env,
+    {
+      actor: smokeHarnessActor,
+      idempotencyKey,
+      workspaceId: result.workspace_id,
+      artifactId: result.artifact_id,
+      revisionId: result.revision_id,
+    },
+    { isReplay },
+  );
+  if (!invalidation.replaySkipped) {
+    await notifyLiveUpdateDisconnect(env, {
+      artifactId,
+      audiences: ["share", "dashboard"],
+      reason: "deletion",
+    });
+  }
+  return jsonResponse(context, {
+    artifact_id: result.artifact_id,
+    deleted_at: result.deleted_at,
+    deleted_r2_objects: invalidation.deleted_r2_objects,
   });
-  return jsonResponse(context, { ...result, deleted_r2_objects: 0 });
 }
 
 async function forceExpire(context: AppContext): Promise<Response> {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { handleQueueBatch } from "../apps/jobs/dist/queue.js";
+import { createLocalMvpSqlExecutor } from "../packages/db/dist/index.js";
 
 export function createCountingArtifactsBucket(baseBucket, jobsEnv) {
   return {
@@ -59,6 +60,19 @@ export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret })
     AGENT_PASTE_ENV: "dev",
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
     LOCAL_MVP_REPOSITORY: repo,
+    DB: createLocalMvpSqlExecutor({
+      workspaces: repo.workspaces,
+      workspaceMembers: repo.workspaceMembers,
+      apiKeys: repo.apiKeys,
+      artifacts: repo.artifacts,
+      revisions: repo.revisions,
+      artifactFiles: repo.artifactFiles,
+      uploadSessions: repo.uploadSessions,
+      uploadSessionFiles: repo.uploadSessionFiles,
+      operationEvents: repo.operationEvents,
+      platformLockdowns: repo.platformLockdowns,
+      accessLinks: repo.accessLinks,
+    }),
     DENYLIST: denylist,
     SYNC_BYTE_PURGE_DELETED_OBJECTS: 0,
   };
