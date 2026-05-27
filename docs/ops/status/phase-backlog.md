@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-05-27 (AP-22 jobs lifecycle byte purge ownership).
+Last updated: 2026-05-27 (AP-24 pinning and non-current revision retention).
 remaining work. When asked to "implement the next step", start at the first
 unchecked item in the active phase below unless the user says otherwise.
 

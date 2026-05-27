@@ -457,11 +457,19 @@ export class RepositoryCore implements Repository {
         if (artifact.pinned_at) {
           return this.webArtifactDetailFromRow(artifact);
         }
-        const pinnedCount = await entities.artifacts.countPinned(member.workspace_id);
-        if (pinnedCount >= PINNED_ARTIFACT_CAP) {
+        const pinResult = await entities.artifacts.tryPinUnderCap(
+          member.workspace_id,
+          artifact.id,
+          now,
+          now,
+          PINNED_ARTIFACT_CAP,
+        );
+        if (pinResult === "cap_exceeded") {
           throw new Error("pinned_artifact_cap_exceeded");
         }
-        await entities.artifacts.setPinnedAt(artifact.id, now, now);
+        if (pinResult === "not_found") {
+          throw new Error("artifact_not_found");
+        }
         await entities.operationEvents.insert({
           actorType: "member",
           actorId: member.id,

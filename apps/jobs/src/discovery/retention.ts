@@ -18,6 +18,10 @@ export async function runRetentionDiscovery(executor: SqlExecutor, env: Env, now
     logOpError("cron.queue_binding_missing", { cron: "retention", queue: "BYTE_PURGE_QUEUE" });
     return { discovered: 0, enqueued: 0, cap_hit: false };
   }
+  if (!env.DENYLIST) {
+    logOpError("cron.kv_binding_missing", { cron: "retention", kv: "DENYLIST" });
+    return { discovered: 0, enqueued: 0, cap_hit: false };
+  }
 
   const limit = RETENTION_SWEEP_CAP + 1;
   const rows = await withPlatformScope(executor).query<RetentionRow>(
@@ -42,6 +46,21 @@ export async function runRetentionDiscovery(executor: SqlExecutor, env: Env, now
 
   for (const row of batch) {
     try {
+      const sideEffects = await applyRevisionPurgeSideEffects(env, withWorkspaceScope(executor, row.workspace_id), {
+        workspaceId: row.workspace_id,
+        artifactId: row.artifact_id,
+        revisionId: row.id,
+        reason: "retention",
+      });
+      if (!sideEffects.denylistWritten || !sideEffects.enqueued) {
+        logOpError("cron.retention.side_effects_incomplete", {
+          revision_id: row.id,
+          denylist_written: sideEffects.denylistWritten,
+          enqueued: sideEffects.enqueued,
+        });
+        continue;
+      }
+
       const command = await runCommand({
         executor: withWorkspaceScope(executor, row.workspace_id),
         actor: { type: "system", id: "retention", workspaceId: row.workspace_id },
@@ -80,15 +99,7 @@ export async function runRetentionDiscovery(executor: SqlExecutor, env: Env, now
       if (!command.result.retained || command.isReplay) {
         continue;
       }
-      const sideEffects = await applyRevisionPurgeSideEffects(env, withWorkspaceScope(executor, row.workspace_id), {
-        workspaceId: row.workspace_id,
-        artifactId: row.artifact_id,
-        revisionId: row.id,
-        reason: "retention",
-      });
-      if (sideEffects.enqueued) {
-        enqueued += 1;
-      }
+      enqueued += 1;
     } catch (error) {
       logOpError("cron.retention.revision_failed", {
         revision_id: row.id,

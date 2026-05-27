@@ -50,6 +50,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listWebPage: (input) => artifactQueries.listWebPage(drizzle, input),
       updateExpiry: (artifactId, expiresAt) => artifactQueries.updateExpiry(drizzle, artifactId, expiresAt),
       countPinned: (workspaceId) => artifactQueries.countPinned(drizzle, workspaceId),
+      tryPinUnderCap: (workspaceId, artifactId, pinnedAt, updatedAt, cap) =>
+        artifactQueries.tryPinUnderCap(drizzle, workspaceId, artifactId, pinnedAt, updatedAt, cap),
       setPinnedAt: (artifactId, pinnedAt, updatedAt) =>
         artifactQueries.setPinnedAt(drizzle, artifactId, pinnedAt, updatedAt),
       updatePublished: (artifactId, input) => artifactQueries.updatePublished(drizzle, artifactId, input),

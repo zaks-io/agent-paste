@@ -650,9 +650,17 @@ async function webPinArtifact(
   }
   const pinWebArtifact = db.pinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey as string;
-  return runIdempotent(context, () =>
-    pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }),
-  );
+  return runIdempotent(context, async () => {
+    try {
+      return await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
+    } catch (error) {
+      const mapped = mapRepositoryError(error);
+      if (mapped) {
+        throw new RepositoryRouteError(mapped.code, mapped.message);
+      }
+      throw error;
+    }
+  });
 }
 
 async function webUnpinArtifact(
@@ -671,9 +679,17 @@ async function webUnpinArtifact(
   }
   const unpinWebArtifact = db.unpinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey as string;
-  return runIdempotent(context, () =>
-    unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }),
-  );
+  return runIdempotent(context, async () => {
+    try {
+      return await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
+    } catch (error) {
+      const mapped = mapRepositoryError(error);
+      if (mapped) {
+        throw new RepositoryRouteError(mapped.code, mapped.message);
+      }
+      throw error;
+    }
+  });
 }
 
 function parsePagination(

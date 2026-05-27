@@ -1120,6 +1120,66 @@ describe("LocalRepository", () => {
     expect(unpinned.auto_delete_at).not.toBeNull();
   });
 
+  it("rejects pin and unpin for missing artifacts and other workspaces", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:pin-scope",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const keySecret = session.default_api_key?.secret;
+    const apiActor = keySecret ? await repo.verifyApiKey(keySecret) : null;
+    const webActor = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!apiActor || !webActor) {
+      throw new Error("expected actors");
+    }
+    const published = await publishLocalArtifact(repo, apiActor, "scoped-pin", "2026-01-01T00:00:01.000Z");
+
+    await expect(
+      repo.pinWebArtifact({
+        actor: webActor,
+        idempotencyKey: "idem-pin-missing",
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+    const otherSession = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ_OTHER",
+      email: "other@example.com",
+      idempotencyKey: "workos-jti:pin-other-workspace",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const otherWebActor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ_OTHER",
+    });
+    if (!otherWebActor || otherWebActor.workspace_id === webActor.workspace_id) {
+      throw new Error("expected a distinct workspace member");
+    }
+    expect(otherSession.workspace.id).not.toBe(session.workspace.id);
+
+    await expect(
+      repo.pinWebArtifact({
+        actor: otherWebActor,
+        idempotencyKey: "idem-pin-cross-workspace",
+        artifactId: published.artifact_id,
+      }),
+    ).rejects.toThrow("artifact_not_found");
+    await expect(
+      repo.unpinWebArtifact({
+        actor: webActor,
+        idempotencyKey: "idem-unpin-missing",
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }),
+    ).rejects.toThrow("artifact_not_found");
+    await expect(
+      repo.unpinWebArtifact({
+        actor: otherWebActor,
+        idempotencyKey: "idem-unpin-cross-workspace",
+        artifactId: published.artifact_id,
+      }),
+    ).rejects.toThrow("artifact_not_found");
+  });
+
   it("returns web artifact details only inside the member workspace", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { artifactFiles, artifacts } from "../schema.js";
 import type { Artifact, StoredFile } from "../types.js";
@@ -140,9 +140,50 @@ export const artifactQueries = {
       .select({ count: sql<number>`count(*)::int` })
       .from(artifacts)
       .where(
-        and(eq(artifacts.workspaceId, workspaceId), eq(artifacts.status, "active"), sql`${artifacts.pinnedAt} is not null`),
+        and(eq(artifacts.workspaceId, workspaceId), eq(artifacts.status, "active"), isNotNull(artifacts.pinnedAt)),
       );
     return Number(rows[0]?.count ?? 0);
+  },
+
+  async tryPinUnderCap(
+    db: DrizzleDb,
+    workspaceId: string,
+    artifactId: string,
+    pinnedAt: string,
+    updatedAt: string,
+    cap: number,
+  ): Promise<"pinned" | "cap_exceeded" | "not_found"> {
+    const pinnedAtDate = new Date(pinnedAt);
+    const updatedAtDate = new Date(updatedAt);
+    const rows = await db.execute<{ id: string }>(sql`
+      update artifacts as a
+      set pinned_at = ${pinnedAtDate},
+          updated_at = ${updatedAtDate}
+      where a.id = ${artifactId}
+        and a.workspace_id = ${workspaceId}
+        and a.status = 'active'
+        and a.pinned_at is null
+        and a.revision_id is not null
+        and (
+          select count(*)::int
+          from artifacts
+          where workspace_id = ${workspaceId}
+            and status = 'active'
+            and pinned_at is not null
+        ) < ${cap}
+      returning a.id
+    `);
+    if (rows.length > 0) {
+      return "pinned";
+    }
+    const artifact = await artifactQueries.findById(db, artifactId, workspaceId);
+    if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
+      return "not_found";
+    }
+    if (artifact.pinned_at) {
+      return "pinned";
+    }
+    return "cap_exceeded";
   },
 
   async setPinnedAt(db: DrizzleDb, artifactId: string, pinnedAt: string | null, updatedAt: string): Promise<boolean> {
