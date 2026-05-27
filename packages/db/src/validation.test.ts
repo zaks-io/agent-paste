@@ -21,5 +21,13 @@ describe("storage keys", () => {
     ).toBe(
       "env/live/workspaces/00000000-0000-4000-8000-000000000000/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/bundle.zip",
     );
+    expect(
+      bundleKeyFor({
+        workspaceId: "00000000-0000-4000-8000-000000000000",
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        storageEnv: "production",
+      }),
+    ).toMatch(/^env\/live\/workspaces\//);
   });
 });

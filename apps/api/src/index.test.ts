@@ -2258,6 +2258,52 @@ describe("api worker", () => {
     expect(pendingBody.bundle).not.toHaveProperty("url");
   });
 
+  it("strips internal workspace_id when content signing is not configured", async () => {
+    const workspaceId = "00000000-0000-4000-8000-000000000001";
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["read"] };
+        },
+      },
+      DB: operatorDbForTests({
+        async getAgentView() {
+          return {
+            workspace_id: workspaceId,
+            artifact_id: artifactId,
+            revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            title: "Demo",
+            created_at: "2026-01-01T00:00:00.000Z",
+            expires_at: "2026-12-01T00:00:00.000Z",
+            entrypoint: "index.html",
+            view_url: "https://content.test/v/old/index.html",
+            files: [
+              {
+                path: "index.html",
+                url: "https://content.test/v/old/index.html",
+                content_type: "text/html",
+                size_bytes: 1,
+              },
+            ],
+            bundle: { status: "ready", size_bytes: 10, generated_at: "2026-01-01T00:00:00.000Z" },
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/artifacts/${artifactId}/agent-view`, {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { workspace_id?: string; bundle?: { url?: string } };
+    expect(body.workspace_id).toBeUndefined();
+    expect(body.bundle?.url).toBeUndefined();
+  });
+
   it("returns not_found for missing authenticated and public Agent Views", async () => {
     const signed = await mintAgentViewToken(
       {

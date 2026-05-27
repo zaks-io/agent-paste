@@ -67,61 +67,64 @@ describe("handleBundleGenerateBatch integration", () => {
     const ack = vi.fn();
     const updates: string[] = [];
     const overCapZip = vi.spyOn(generateZip, "buildRevisionZip").mockReturnValue(new Uint8Array(26 * 1024 * 1024 + 1));
-    await handleBundleGenerateBatch(
-      [
+    try {
+      await handleBundleGenerateBatch(
+        [
+          {
+            body: {
+              type: "bundle.generate.v1",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              requested_at: "2026-05-20T00:00:00.000Z",
+              reason: "publish",
+            },
+            ack,
+            retry: vi.fn(),
+          },
+        ],
         {
-          body: {
-            type: "bundle.generate.v1",
-            workspace_id: workspaceId,
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            requested_at: "2026-05-20T00:00:00.000Z",
-            reason: "publish",
+          AGENT_PASTE_ENV: "dev",
+          DB: {
+            query: async (sql: string) => {
+              if (sql.includes("from revisions r")) {
+                return {
+                  rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
+                };
+              }
+              if (sql.includes("from artifact_files")) {
+                return {
+                  rows: [{ path: "big.bin", r2_key: "artifacts/art/rev/files/big.bin" }],
+                };
+              }
+              return { rows: [] };
+            },
+            transaction: async (fn) =>
+              fn({
+                query: async (sql: string) => {
+                  if (sql.includes("bundle_status = 'failed'")) {
+                    updates.push(sql);
+                  }
+                  if (sql.includes("insert into idempotency_records")) {
+                    return { rows: [{ workspace_id: workspaceId }] };
+                  }
+                  return { rows: [] };
+                },
+              }),
           },
-          ack,
-          retry: vi.fn(),
-        },
-      ],
-      {
-        AGENT_PASTE_ENV: "dev",
-        DB: {
-          query: async (sql: string) => {
-            if (sql.includes("from revisions r")) {
-              return {
-                rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
-              };
-            }
-            if (sql.includes("from artifact_files")) {
-              return {
-                rows: [{ path: "big.bin", r2_key: "artifacts/art/rev/files/big.bin" }],
-              };
-            }
-            return { rows: [] };
+          ARTIFACTS: {
+            list: vi.fn(),
+            delete: vi.fn(),
+            get: async () => ({ body: new Uint8Array([1, 2, 3]) }),
+            put: vi.fn(),
           },
-          transaction: async (fn) =>
-            fn({
-              query: async (sql: string) => {
-                if (sql.includes("bundle_status = 'failed'")) {
-                  updates.push(sql);
-                }
-                if (sql.includes("insert into idempotency_records")) {
-                  return { rows: [{ workspace_id: workspaceId }] };
-                }
-                return { rows: [] };
-              },
-            }),
         },
-        ARTIFACTS: {
-          list: vi.fn(),
-          delete: vi.fn(),
-          get: async () => ({ body: new Uint8Array([1, 2, 3]) }),
-          put: vi.fn(),
-        },
-      },
-    );
-    overCapZip.mockRestore();
-    expect(ack).toHaveBeenCalled();
-    expect(updates.some((sql) => sql.includes("bundle_status = 'failed'"))).toBe(true);
+      );
+      expect(ack).toHaveBeenCalled();
+      expect(updates.some((sql) => sql.includes("bundle_status = 'failed'"))).toBe(true);
+    } finally {
+      overCapZip.mockRestore();
+    }
   });
 
   it("writes bundle.zip under the ADR 0021 key prefix", async () => {

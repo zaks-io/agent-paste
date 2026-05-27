@@ -50,7 +50,7 @@ export function bundleKeyFor(input: {
   revisionId: string;
   storageEnv?: string;
 }): string {
-  const env = input.storageEnv ?? "dev";
+  const env = storageEnvSegment(input.storageEnv);
   return `env/${env}/workspaces/${input.workspaceId}/artifacts/${input.artifactId}/revisions/${input.revisionId}/bundle.zip`;
 }
 

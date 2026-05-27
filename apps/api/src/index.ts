@@ -1414,7 +1414,7 @@ async function signAgentViewContentUrls(
   env: Env,
   options?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<unknown> {
-  if (!agentViewSigningSecret(env) || !view || typeof view !== "object") {
+  if (!view || typeof view !== "object") {
     return view;
   }
 
@@ -1428,14 +1428,22 @@ async function signAgentViewContentUrls(
     bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
     files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
   };
+  const { workspace_id: internalWorkspaceId, ...publicFields } = data;
+
+  const signingSecret = agentViewSigningSecret(env);
+  if (!signingSecret) {
+    return publicFields;
+  }
+
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
-    return view;
+    return publicFields;
   }
 
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const workspaceId =
-    options?.workspaceId ?? (typeof data.workspace_id === "string" ? data.workspace_id : undefined);
+    options?.workspaceId ??
+    (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
@@ -1475,7 +1483,6 @@ async function signAgentViewContentUrls(
         }
       : data.bundle;
 
-  const { workspace_id: _workspaceId, ...publicFields } = data;
   return {
     ...publicFields,
     view_url: entrypoint
@@ -1496,7 +1503,8 @@ async function signedBundleUrl(
   auth?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<string | undefined> {
   const signingSecret = agentViewSigningSecret(env);
-  if (!signingSecret) {
+  const workspaceId = auth?.workspaceId;
+  if (!signingSecret || !workspaceId) {
     return undefined;
   }
   return mintBundleUrl({
@@ -1505,10 +1513,10 @@ async function signedBundleUrl(
     payload: {
       artifact_id: artifactId,
       revision_id: revisionId,
-      ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
-      ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
+      workspace_id: workspaceId,
+      ...(auth.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
       key_prefix: bundleKeyFor({
-        workspaceId: auth?.workspaceId ?? "",
+        workspaceId,
         artifactId,
         revisionId,
         storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
