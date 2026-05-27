@@ -13,7 +13,7 @@ vi.mock("@sentry/cloudflare", () => ({
 const { logOp, logOpError } = await import("./op-log.js");
 
 afterEach(() => {
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("op-log sentry forwarding", () => {
