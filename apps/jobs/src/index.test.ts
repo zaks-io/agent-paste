@@ -53,6 +53,34 @@ describe("jobs worker", () => {
     expect(executor.query).not.toHaveBeenCalled();
   });
 
+  it("leaves upload sessions pending when purge enqueue fails", async () => {
+    const send = vi.fn(async () => {
+      throw new Error("queue_unavailable");
+    });
+    const executor = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ r2_key: "env/live/ws/a/file.txt" }] }),
+      transaction: vi.fn(),
+    };
+    await runScheduledJobs(
+      { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
+      { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
+    );
+    expect(send).toHaveBeenCalled();
+    expect(executor.query).toHaveBeenCalledTimes(2);
+  });
+
   it("routes upload cleanup cron to session expiry and purge enqueue", async () => {
     const send = vi.fn(async () => ({}));
     const executor = {
@@ -68,8 +96,8 @@ describe("jobs worker", () => {
             },
           ],
         })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ r2_key: "env/live/ws/a/file.txt" }] }),
+        .mockResolvedValueOnce({ rows: [{ r2_key: "env/live/ws/a/file.txt" }] })
+        .mockResolvedValueOnce({ rows: [] }),
       transaction: vi.fn(),
     };
     await runScheduledJobs(

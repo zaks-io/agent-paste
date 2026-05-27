@@ -114,7 +114,7 @@ Recommended order:
        cleanup as the jobs worker becomes authoritative.
 6. [ ] Bundle generation and download.
        Add bundle status fields, deterministic R2 bundle keys, bundle size caps,
-       Agent View bundle state, and the bundle-generate DLQ consumer.
+       and Agent View bundle state.
 7. [ ] Pinning and revision retention.
        Add pinned artifacts, non-current revision retention, and auto-deletion
        behavior that respects pinning.

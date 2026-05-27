@@ -17,28 +17,28 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
   }
 
   for (const message of messages) {
-    const payload = BundleGenerateMessage.parse(message.body);
-    const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
-    if (!state) {
-      message.ack();
-      continue;
-    }
-
-    const skip = shouldSkipRevisionQueueWork({
-      revisionStatus: state.status,
-      artifactStatus: state.artifact_status,
-      bundleStatus: state.bundle_status,
-    });
-    if (skip) {
-      logOp("queue.bundle_generate.skipped", {
-        revision_id: payload.revision_id,
-        reason: skip,
-      });
-      message.ack();
-      continue;
-    }
-
     try {
+      const payload = BundleGenerateMessage.parse(message.body);
+      const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
+      if (!state) {
+        message.ack();
+        continue;
+      }
+
+      const skip = shouldSkipRevisionQueueWork({
+        revisionStatus: state.status,
+        artifactStatus: state.artifact_status,
+        bundleStatus: state.bundle_status,
+      });
+      if (skip) {
+        logOp("queue.bundle_generate.skipped", {
+          revision_id: payload.revision_id,
+          reason: skip,
+        });
+        message.ack();
+        continue;
+      }
+
       // Bundle zip generation is implemented in a follow-up ticket; topology records pending work only.
       logOp("queue.bundle_generate.deferred", {
         revision_id: payload.revision_id,
@@ -47,7 +47,6 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
       message.ack();
     } catch (error) {
       logOpError("queue.bundle_generate.failed", {
-        revision_id: payload.revision_id,
         error: error instanceof Error ? error.message : String(error),
       });
       message.retry();
@@ -62,8 +61,8 @@ export async function handleBundleGenerateDlqBatch(messages: readonly QueueMessa
   }
 
   for (const message of messages) {
-    const payload = BundleGenerateMessage.parse(message.body);
     try {
+      const payload = BundleGenerateMessage.parse(message.body);
       await runCommand({
         executor,
         actor: { type: "system", id: "bundle_generate", workspaceId: payload.workspace_id },
@@ -88,7 +87,6 @@ export async function handleBundleGenerateDlqBatch(messages: readonly QueueMessa
       message.ack();
     } catch (error) {
       logOpError("queue.bundle_generate.dlq_failed", {
-        revision_id: payload.revision_id,
         error: error instanceof Error ? error.message : String(error),
       });
       message.retry();

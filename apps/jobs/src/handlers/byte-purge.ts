@@ -9,8 +9,8 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
   }
 
   for (const message of messages) {
-    const payload = BytePurgeMessage.parse(message.body);
     try {
+      const payload = BytePurgeMessage.parse(message.body);
       const deleted = await deletePrefixes(env.ARTIFACTS, payload.prefixes);
       logOp("queue.byte_purge.succeeded", {
         artifact_id: payload.artifact_id,
@@ -21,9 +21,6 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
       message.ack();
     } catch (error) {
       logOpError("queue.byte_purge.failed", {
-        artifact_id: payload.artifact_id,
-        revision_id: payload.revision_id,
-        reason: payload.reason,
         error: error instanceof Error ? error.message : String(error),
       });
       message.retry();

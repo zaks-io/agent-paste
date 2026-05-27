@@ -16,27 +16,27 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
   }
 
   for (const message of messages) {
-    const payload = SafetyScanMessage.parse(message.body);
-    const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
-    if (!state) {
-      message.ack();
-      continue;
-    }
-
-    const skip = shouldSkipRevisionQueueWork({
-      revisionStatus: state.status,
-      artifactStatus: state.artifact_status,
-    });
-    if (skip) {
-      logOp("queue.safety_scan.skipped", {
-        revision_id: payload.revision_id,
-        reason: skip,
-      });
-      message.ack();
-      continue;
-    }
-
     try {
+      const payload = SafetyScanMessage.parse(message.body);
+      const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
+      if (!state) {
+        message.ack();
+        continue;
+      }
+
+      const skip = shouldSkipRevisionQueueWork({
+        revisionStatus: state.status,
+        artifactStatus: state.artifact_status,
+      });
+      if (skip) {
+        logOp("queue.safety_scan.skipped", {
+          revision_id: payload.revision_id,
+          reason: skip,
+        });
+        message.ack();
+        continue;
+      }
+
       // Stub scanner: replace warnings in a future ticket; topology acks after state check.
       logOp("queue.safety_scan.stub", {
         revision_id: payload.revision_id,
@@ -46,7 +46,6 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
       message.ack();
     } catch (error) {
       logOpError("queue.safety_scan.failed", {
-        revision_id: payload.revision_id,
         error: error instanceof Error ? error.message : String(error),
       });
       message.retry();
@@ -55,13 +54,10 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
 }
 
 async function loadRevisionState(
-  executor: Awaited<ReturnType<typeof resolveSqlExecutor>>,
+  executor: NonNullable<Awaited<ReturnType<typeof resolveSqlExecutor>>>,
   workspaceId: string,
   revisionId: string,
 ): Promise<RevisionRow | null> {
-  if (!executor) {
-    return null;
-  }
   const result = await executor.query<RevisionRow>(
     `select r.status, a.status as artifact_status
      from revisions r
