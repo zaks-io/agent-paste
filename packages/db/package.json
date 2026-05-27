@@ -27,6 +27,7 @@
   "dependencies": {
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/config": "workspace:*",
+    "@agent-paste/contracts": "workspace:*",
     "@agent-paste/rotation": "workspace:*",
     "@agent-paste/storage": "workspace:*",
     "@agent-paste/tokens": "workspace:*",

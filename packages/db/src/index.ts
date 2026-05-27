@@ -14,6 +14,15 @@ export {
   verifyAccessLinkSignedBlobWithRing,
 } from "./access-links.js";
 export { inferRenderMode } from "./agent-view.js";
+export {
+  type ArtifactBytePurgeHooks,
+  type ArtifactBytePurgeInput,
+  type ArtifactInvalidationEnv,
+  applyArtifactPurgeSideEffects,
+  artifactPurgePrefix,
+  enqueueArtifactBytePurge,
+  writeArtifactDenylist,
+} from "./artifact-invalidation.js";
 export { createLocalServices, LocalRepository } from "./local-repository.js";
 export { DEFAULT_UPLOAD_SESSION_TTL_MS, MAX_ARTIFACT_BYTES, USAGE_POLICY } from "./policy.js";
 export type { DrizzleConnection, DrizzleDb } from "./postgres/drizzle.js";
@@ -27,6 +36,14 @@ export { PostgresRepository } from "./postgres/repository.js";
 export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
 export type { Repository } from "./repository/interface.js";
+export {
+  applyRevisionPurgeSideEffects,
+  enqueueRevisionBytePurge,
+  type RevisionBytePurgeInput,
+  type RevisionInvalidationEnv,
+  revisionPurgePrefix,
+  writeRevisionDenylist,
+} from "./revision-invalidation.js";
 export * as schema from "./schema.js";
 export type {
   AccessLink,

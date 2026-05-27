@@ -81,6 +81,6 @@ semantics, deliberately out of scope for the behavior-preserving unification.
       the same number), or document that `deleted_r2_objects` is best-effort and not replay-stable.
 - [ ] If it becomes replay-stable, add a test that issues the same delete idempotency key twice
       and asserts identical `deleted_r2_objects` across both responses.
-- [ ] When the jobs worker takes over byte purge, deepen deletion/invalidation into an API-side
+- [x] When the jobs worker takes over byte purge, deepen deletion/invalidation into an API-side
       module that owns denylist writes, purge job enqueueing, and replay accounting as one
-      explicit side-effect boundary.
+      explicit side-effect boundary (AP-40).
