@@ -46,6 +46,7 @@ export function buildAgentView(
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
   return {
+    workspace_id: artifact.workspace_id,
     artifact_id: artifact.id,
     revision_id: revisionId,
     title: artifact.title,

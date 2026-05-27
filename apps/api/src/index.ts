@@ -27,6 +27,7 @@ import {
   type ApiActor,
   type ApiKeyActor,
   bundleKeyFor,
+  storageEnvSegment,
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
@@ -386,7 +387,10 @@ async function authenticatedAgentView(
     return errorResponse(context, "not_found");
   }
 
-  return jsonResponse(context, await signAgentViewContentUrls(view, env));
+  return jsonResponse(
+    context,
+    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id }),
+  );
 }
 
 async function listRevisions(
@@ -1406,6 +1410,7 @@ async function signAgentViewContentUrls(
   }
 
   const data = view as {
+    workspace_id?: unknown;
     artifact_id?: unknown;
     revision_id?: unknown;
     entrypoint?: unknown;
@@ -1420,9 +1425,11 @@ async function signAgentViewContentUrls(
 
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
+  const workspaceId =
+    options?.workspaceId ?? (typeof data.workspace_id === "string" ? data.workspace_id : undefined);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
-    ...(options?.workspaceId ? { workspaceId: options.workspaceId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
   };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(
@@ -1459,8 +1466,9 @@ async function signAgentViewContentUrls(
         }
       : data.bundle;
 
+  const { workspace_id: _workspaceId, ...publicFields } = data;
   return {
-    ...data,
+    ...publicFields,
     view_url: entrypoint
       ? await signedContentUrl(env, data.artifact_id, data.revision_id, entrypoint, expiresAt, contentAuth)
       : typeof data.view_url === "string"
@@ -1490,7 +1498,12 @@ async function signedBundleUrl(
       revision_id: revisionId,
       ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
       ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
-      key_prefix: bundleKeyFor(artifactId, revisionId),
+      key_prefix: bundleKeyFor({
+        workspaceId: auth?.workspaceId ?? "",
+        artifactId,
+        revisionId,
+        storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
+      }),
       exp: contentTokenExpiration(expiresAt),
     },
   });

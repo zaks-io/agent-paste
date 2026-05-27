@@ -1,7 +1,7 @@
 import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import { USAGE_POLICY } from "@agent-paste/config";
 import { BundleGenerateMessage } from "@agent-paste/contracts";
-import { bundleKeyFor } from "@agent-paste/db";
+import { bundleKeyFor, storageEnvSegment } from "@agent-paste/db";
 import { ZodError } from "zod";
 import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
 import { buildRevisionZip } from "../bundle/generate-zip.js";
@@ -91,7 +91,12 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         continue;
       }
 
-      const bundleKey = bundleKeyFor(payload.artifact_id, payload.revision_id);
+      const bundleKey = bundleKeyFor({
+        workspaceId: payload.workspace_id,
+        artifactId: payload.artifact_id,
+        revisionId: payload.revision_id,
+        storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
+      });
       await putObject(bundleKey, zipBytes, {
         httpMetadata: { contentType: "application/zip" },
       });

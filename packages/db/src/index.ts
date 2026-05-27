@@ -49,4 +49,4 @@ export type {
   WorkspaceMember,
   WorkspaceMemberActor,
 } from "./types.js";
-export { bundleKeyFor, objectKeyFor } from "./validation.js";
+export { bundleKeyFor, objectKeyFor, storageEnvSegment } from "./validation.js";

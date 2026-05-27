@@ -521,6 +521,42 @@ describe("content worker", () => {
     );
   });
 
+  it("serves signed bundle downloads from /b/{token} using key_prefix", async () => {
+    const bundleKey =
+      "env/dev/workspaces/00000000-0000-4000-8000-000000000001/artifacts/art_1/revisions/rev_1/bundle.zip";
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        workspace_id: "00000000-0000-4000-8000-000000000001",
+        key_prefix: bundleKey,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: {
+        async get() {
+          return null;
+        },
+      },
+      ARTIFACTS: {
+        async get(key) {
+          expect(key).toBe(bundleKey);
+          return { body: new Response("zip-bytes").body, size: 8 };
+        },
+      },
+    };
+
+    const response = await handleRequest(new Request(`https://content.test/b/${token}`), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/zip");
+    expect(response.headers.get("content-disposition")).toBe('attachment; filename="bundle.zip"');
+    await expect(response.text()).resolves.toBe("zip-bytes");
+  });
+
   it("rejects denylisted artifacts", async () => {
     const token = await signContentToken(
       {

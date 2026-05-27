@@ -33,8 +33,25 @@ export function objectKeyFor(artifactId: string, revisionId: string, path: strin
   return `artifacts/${artifactId}/revisions/${revisionId}/files/${path}`;
 }
 
-export function bundleKeyFor(artifactId: string, revisionId: string) {
-  return `artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
+/** Maps `AGENT_PASTE_ENV` to the R2 key segment from ADR 0021. */
+export function storageEnvSegment(agentPasteEnv?: string): string {
+  if (agentPasteEnv === "production" || agentPasteEnv === "live") {
+    return "live";
+  }
+  if (agentPasteEnv === "preview") {
+    return "preview";
+  }
+  return "dev";
+}
+
+export function bundleKeyFor(input: {
+  workspaceId: string;
+  artifactId: string;
+  revisionId: string;
+  storageEnv?: string;
+}): string {
+  const env = input.storageEnv ?? "dev";
+  return `env/${env}/workspaces/${input.workspaceId}/artifacts/${input.artifactId}/revisions/${input.revisionId}/bundle.zip`;
 }
 
 export function contentTypeForPath(path: string) {

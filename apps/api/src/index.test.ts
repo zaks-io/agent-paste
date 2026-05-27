@@ -2153,6 +2153,111 @@ describe("api worker", () => {
     ]);
   });
 
+  it("exposes bundle availability per ADR 0050 and signs ready bundles with ADR 0021 keys", async () => {
+    const workspaceId = "00000000-0000-4000-8000-000000000001";
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const bundleKey = `env/dev/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
+    const env: Env = {
+      AGENT_PASTE_ENV: "dev",
+      CONTENT_SIGNING_SECRET: "content-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["read"] };
+        },
+      },
+      DB: operatorDbForTests({
+        async getAgentView(input) {
+          return {
+            workspace_id: workspaceId,
+            artifact_id: input.artifactId,
+            revision_id: input.revisionId ?? revisionId,
+            title: "Demo",
+            created_at: "2026-01-01T00:00:00.000Z",
+            expires_at: "2026-12-01T00:00:00.000Z",
+            entrypoint: "index.html",
+            view_url: `https://content.test/v/${input.artifactId}.${input.revisionId ?? revisionId}/index.html`,
+            files: [
+              {
+                path: "index.html",
+                url: `https://content.test/v/${input.artifactId}.${input.revisionId ?? revisionId}/index.html`,
+                content_type: "text/html",
+                size_bytes: 1,
+              },
+            ],
+            bundle: {
+              status: "ready",
+              size_bytes: 100,
+              generated_at: "2026-01-01T00:00:00.000Z",
+            },
+          };
+        },
+        async getPublicAgentView() {
+          return {
+            workspace_id: workspaceId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            title: "Demo",
+            created_at: "2026-01-01T00:00:00.000Z",
+            expires_at: "2026-12-01T00:00:00.000Z",
+            entrypoint: "index.html",
+            view_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+            files: [
+              {
+                path: "index.html",
+                url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+                content_type: "text/html",
+                size_bytes: 1,
+              },
+            ],
+            bundle: { status: "pending", retry_after_seconds: 5 },
+          };
+        },
+      }),
+    };
+
+    const { verifyContentToken } = await import("@agent-paste/tokens/content");
+    const readyResponse = await handleRequest(
+      new Request(`https://api.test/v1/artifacts/${artifactId}/agent-view`, {
+        headers: { authorization: "Bearer ok" },
+      }),
+      env,
+    );
+    expect(readyResponse.status).toBe(200);
+    const readyBody = (await readyResponse.json()) as {
+      workspace_id?: string;
+      bundle?: { status: string; url?: string; size_bytes?: number; generated_at?: string };
+    };
+    expect(readyBody.workspace_id).toBeUndefined();
+    expect(readyBody.bundle).toEqual({
+      status: "ready",
+      size_bytes: 100,
+      generated_at: "2026-01-01T00:00:00.000Z",
+      url: expect.stringMatching(/^https:\/\/content\.test\/b\//),
+    });
+    const readyToken = decodeURIComponent(readyBody.bundle!.url!.split("/b/")[1] ?? "");
+    const readyPayload = await verifyContentToken(readyToken, "content-secret");
+    expect(readyPayload?.key_prefix).toBe(bundleKey);
+
+    const signed = await mintAgentViewToken(
+      { artifact_id: artifactId, revision_id: revisionId, exp: Math.floor(Date.now() / 1000) + 3600 },
+      "agent-view-secret",
+    );
+    const pendingEnv: Env = {
+      ...env,
+      AGENT_VIEW_SIGNING_SECRET: "agent-view-secret",
+    };
+    const pendingResponse = await handleRequest(
+      new Request(`https://api.test/v1/public/agent-view/${signed}`),
+      pendingEnv,
+    );
+    expect(pendingResponse.status).toBe(200);
+    const pendingBody = (await pendingResponse.json()) as { bundle?: Record<string, unknown> };
+    expect(pendingBody.bundle).toEqual({ status: "pending", retry_after_seconds: 5 });
+    expect(pendingBody.bundle).not.toHaveProperty("url");
+  });
+
   it("returns not_found for missing authenticated and public Agent Views", async () => {
     const signed = await mintAgentViewToken(
       {
