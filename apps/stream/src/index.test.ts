@@ -1,3 +1,4 @@
+import { STREAM_INTERNAL_SECRET_HEADER } from "@agent-paste/worker-runtime";
 import { describe, expect, it, vi } from "vitest";
 import { type Env, handleRequest } from "./index.js";
 import { createMemoryArtifactLiveNamespace, resetMemoryArtifactLiveHubs } from "./memory-artifact-live.js";
@@ -10,9 +11,10 @@ const pointer = {
 };
 
 function envWithApi(apiFetch: Env["API"]["fetch"]): Env {
+  const api = { fetch: apiFetch };
   return {
-    API: { fetch: apiFetch },
-    ARTIFACT_LIVE: createMemoryArtifactLiveNamespace() as unknown as Env["ARTIFACT_LIVE"],
+    API: api,
+    ARTIFACT_LIVE: createMemoryArtifactLiveNamespace({ api }) as unknown as Env["ARTIFACT_LIVE"],
   };
 }
 
@@ -30,20 +32,21 @@ describe("stream worker", () => {
 
   it("connects access-link clients when authorization succeeds", async () => {
     resetMemoryArtifactLiveHubs();
-    const apiFetch = vi.fn(async () =>
-      Response.json({
+    const apiFetch = vi.fn(async (request: Request) => {
+      expect(request.headers.get(STREAM_INTERNAL_SECRET_HEADER)).toBe("stream-internal-secret");
+      return Response.json({
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         audience: "share",
         pointer,
-      }),
-    );
+      });
+    });
     const response = await handleRequest(
       new Request("https://stream.test/v1/live/access-links/0123456789ABCDEF", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ blob: "signed" }),
       }),
-      envWithApi(apiFetch),
+      { ...envWithApi(apiFetch), STREAM_INTERNAL_SECRET: "stream-internal-secret" },
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
@@ -73,20 +76,21 @@ describe("stream worker", () => {
 
   it("connects dashboard clients when bearer authorization succeeds", async () => {
     resetMemoryArtifactLiveHubs();
+    const apiFetch = vi.fn(async (request: Request) => {
+      expect(request.headers.get("authorization")).toBe("Bearer workos");
+      expect(request.headers.get(STREAM_INTERNAL_SECRET_HEADER)).toBe("stream-internal-secret");
+      return Response.json({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        audience: "dashboard",
+        pointer,
+      });
+    });
     const response = await handleRequest(
       new Request("https://stream.test/v1/live/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", {
         method: "GET",
         headers: { authorization: "Bearer workos" },
       }),
-      envWithApi(
-        vi.fn(async () =>
-          Response.json({
-            artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-            audience: "dashboard",
-            pointer,
-          }),
-        ),
-      ),
+      { ...envWithApi(apiFetch), STREAM_INTERNAL_SECRET: "stream-internal-secret" },
     );
     expect(response.status).toBe(200);
   });

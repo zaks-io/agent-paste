@@ -14,6 +14,7 @@ export type Env = {
   ARTIFACT_LIVE: DurableObjectNamespace;
   AGENT_PASTE_ENV?: string;
   STREAM_BASE_URL?: string;
+  STREAM_INTERNAL_SECRET?: string;
   SENTRY_DSN?: string;
 };
 
@@ -42,11 +43,17 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     if (!authorizeRequest) {
       return notFound();
     }
-    const authorized = await authorizeLiveUpdate(env.API, authorizeRequest, {});
+    const authorized = await authorizeLiveUpdate(env.API, authorizeRequest, {
+      ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
+    });
     if (!authorized) {
       return notFound();
     }
-    return connectToArtifact(env, authorized, request.signal);
+    return connectToArtifact(env, authorized, request.signal, {
+      kind: "access_link",
+      public_id: publicId as import("@agent-paste/contracts").AccessLinkPublicId,
+      blob: authorizeRequest.blob,
+    });
   }
 
   const dashboardMatch = /^\/v1\/live\/artifacts\/([^/]+)$/.exec(url.pathname);
@@ -62,12 +69,18 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     const authorized = await authorizeLiveUpdate(
       env.API,
       { kind: "dashboard", artifact_id: artifactId as import("@agent-paste/contracts").ArtifactId },
-      { authorization },
+      {
+        authorization,
+        ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
+      },
     );
     if (!authorized) {
       return notFound();
     }
-    return connectToArtifact(env, authorized, request.signal);
+    return connectToArtifact(env, authorized, request.signal, {
+      kind: "dashboard",
+      authorization,
+    });
   }
 
   return notFound();
@@ -77,6 +90,7 @@ async function connectToArtifact(
   env: Env,
   authorized: { artifact_id: string; audience: "share" | "dashboard"; pointer: unknown },
   signal: AbortSignal,
+  auth: import("./connection-auth.js").LiveConnectionAuth,
 ): Promise<Response> {
   const id = env.ARTIFACT_LIVE.idFromName(authorized.artifact_id);
   const stub = env.ARTIFACT_LIVE.get(id);
@@ -90,6 +104,7 @@ async function connectToArtifact(
         artifact_id: authorized.artifact_id,
         audience: authorized.audience,
         pointer: authorized.pointer,
+        auth,
       }),
       signal,
     }),

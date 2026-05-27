@@ -1,8 +1,9 @@
 import {
-  LiveUpdateAuthorizeRequest,
+  LiveUpdateAuthorizeAccessLinkRequest,
   type LiveUpdateAuthorizeRequest as LiveUpdateAuthorizeRequestType,
   LiveUpdateAuthorizeResponse,
 } from "@agent-paste/contracts";
+import { streamInternalSecretHeaders } from "@agent-paste/worker-runtime";
 
 export type ApiServiceBinding = {
   fetch(request: Request): Promise<Response>;
@@ -11,13 +12,9 @@ export type ApiServiceBinding = {
 export async function authorizeLiveUpdate(
   api: ApiServiceBinding,
   request: LiveUpdateAuthorizeRequestType,
-  options: { authorization?: string },
+  options: { authorization?: string; streamInternalSecret?: string },
 ): Promise<LiveUpdateAuthorizeResponse | null> {
-  const headers = new Headers({
-    accept: "application/json",
-    "content-type": "application/json",
-    "x-agent-paste-caller": "stream",
-  });
+  const headers = new Headers(streamInternalSecretHeaders(options.streamInternalSecret));
   if (options.authorization) {
     headers.set("authorization", options.authorization);
   }
@@ -45,7 +42,10 @@ export async function authorizeLiveUpdate(
   }
 }
 
-export function parseAuthorizeAccessLinkBody(publicId: string, body: unknown): LiveUpdateAuthorizeRequestType | null {
+export function parseAuthorizeAccessLinkBody(
+  publicId: string,
+  body: unknown,
+): Extract<LiveUpdateAuthorizeRequestType, { kind: "access_link" }> | null {
   if (typeof body !== "object" || body === null) {
     return null;
   }
@@ -53,7 +53,7 @@ export function parseAuthorizeAccessLinkBody(publicId: string, body: unknown): L
   if (typeof blob !== "string" || blob.length === 0) {
     return null;
   }
-  const parsed = LiveUpdateAuthorizeRequest.safeParse({
+  const parsed = LiveUpdateAuthorizeAccessLinkRequest.safeParse({
     kind: "access_link",
     public_id: publicId,
     blob,

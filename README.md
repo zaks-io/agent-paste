@@ -114,14 +114,16 @@ pnpm hooks:install
 
 ### Deploy
 
-| Command                     | Purpose                                                                                        |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `pnpm bootstrap:preview`    | Generate/write preview Worker secrets.                                                         |
-| `pnpm bootstrap:production` | Generate/write production Worker secrets.                                                      |
-| `pnpm bootstrap:live`       | Alias for `pnpm bootstrap:production`.                                                         |
-| `pnpm deploy:preview`       | Run preview migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.    |
-| `pnpm deploy:production`    | Run production migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order. |
-| `pnpm deploy:live`          | Alias for `pnpm deploy:production`.                                                            |
+| Command                                   | Purpose                                                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `pnpm bootstrap:preview`                  | Generate/write preview Worker secrets.                                                         |
+| `pnpm bootstrap:production`               | Generate/write production Worker secrets.                                                      |
+| `pnpm bootstrap:live`                     | Alias for `pnpm bootstrap:production`.                                                         |
+| `pnpm secrets:stream-internal:preview`    | Set `STREAM_INTERNAL_SECRET` on preview `api` and `stream` Workers only.                       |
+| `pnpm secrets:stream-internal:production` | Set `STREAM_INTERNAL_SECRET` on production `api` and `stream` Workers only.                    |
+| `pnpm deploy:preview`                     | Run preview migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.    |
+| `pnpm deploy:production`                  | Run production migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order. |
+| `pnpm deploy:live`                        | Alias for `pnpm deploy:production`.                                                            |
 
 ### Smoke Tests
 

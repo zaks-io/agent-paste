@@ -16,6 +16,7 @@ const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
 const streamPort = intEnv("AGENT_PASTE_LOCAL_STREAM_PORT", 8791);
 const smokeHarnessSecret = smokeHarnessSecretFromEnv();
+const streamInternalSecret = process.env.STREAM_INTERNAL_SECRET ?? "local-stream-internal-secret";
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
 const contentSecret = process.env.AGENT_PASTE_CONTENT_SIGNING_SECRET ?? "local-content-secret";
@@ -306,19 +307,18 @@ const jobsEnv = createJobsEnv({
   smokeHarnessSecret,
 });
 const apiDb = createApiDatabase(services.apiDb);
-const artifactLive = createMemoryArtifactLiveNamespace();
 
 const auth = services.auth;
 const apiEnv = {
   AUTH: auth,
   DB: apiDb,
-  ARTIFACT_LIVE: artifactLive,
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
   BYTE_PURGE_QUEUE: jobsEnv.BYTE_PURGE_QUEUE,
   LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,
+  STREAM_INTERNAL_SECRET: streamInternalSecret,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
@@ -331,6 +331,15 @@ const apiEnv = {
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
 };
+const artifactLive = createMemoryArtifactLiveNamespace({
+  api: {
+    fetch(request) {
+      return apiWorker.fetch(request, apiEnv);
+    },
+  },
+  streamInternalSecret,
+});
+apiEnv.ARTIFACT_LIVE = artifactLive;
 Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
   enumerable: true,
   get() {
@@ -364,6 +373,7 @@ const streamEnv = {
   },
   ARTIFACT_LIVE: artifactLive,
   STREAM_BASE_URL: streamBaseUrl,
+  STREAM_INTERNAL_SECRET: streamInternalSecret,
   AGENT_PASTE_ENV: "dev",
 };
 await seedProofArtifacts(services.repo, artifacts);
