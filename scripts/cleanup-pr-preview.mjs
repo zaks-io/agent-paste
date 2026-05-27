@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
+import { isQueueNotFound } from "./wrangler-queue-cli.mjs";
 
 const prNumber = process.env.PR_NUMBER ?? process.argv[2];
 if (!prNumber) {
@@ -19,8 +20,18 @@ for (const workerName of workerNames) {
 }
 
 for (const queueName of jobQueues.deletionOrder) {
-  await run("pnpm", ["exec", "wrangler", "queues", "delete", queueName], { allowFailure: true });
-  process.stdout.write(`Deleted queue ${queueName} (if present)\n`);
+  const result = await run("pnpm", ["exec", "wrangler", "queues", "delete", queueName], { allowFailure: true });
+  if (result.code === 0) {
+    process.stdout.write(`Deleted queue ${queueName}\n`);
+    continue;
+  }
+  if (isQueueNotFound(result)) {
+    process.stdout.write(`Queue ${queueName} not found (already removed)\n`);
+    continue;
+  }
+  throw new Error(
+    `Failed to delete queue ${queueName}: ${result.stderr?.trim() || result.stdout?.trim() || `exit ${result.code}`}`,
+  );
 }
 
 const hyperdriveName = `agent-paste-db-pr-${prNumber}`;
