@@ -1012,6 +1012,80 @@ describe("LocalRepository", () => {
     expect(events[0]).toMatchObject({ actor_type: "admin", target_id: key.api_key.id });
   });
 
+  it("rejects pin and unpin from non-member actors", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:pin-actor",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const keySecret = session.default_api_key?.secret;
+    const apiActor = keySecret ? await repo.verifyApiKey(keySecret) : null;
+    if (!apiActor) {
+      throw new Error("expected actor");
+    }
+    const published = await publishLocalArtifact(repo, apiActor, "no-pin", "2026-01-01T00:00:01.000Z");
+    await expect(
+      repo.pinWebArtifact({
+        actor: apiActor,
+        idempotencyKey: "idem-pin-api-key",
+        artifactId: published.artifact_id,
+      }),
+    ).rejects.toThrow("unexpected_actor_type:api_key");
+    await expect(
+      repo.unpinWebArtifact({
+        actor: apiActor,
+        idempotencyKey: "idem-unpin-api-key",
+        artifactId: published.artifact_id,
+      }),
+    ).rejects.toThrow("unexpected_actor_type:api_key");
+  });
+
+  it("pin and unpin are idempotent when state is already satisfied", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:pin-idem",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const keySecret = session.default_api_key?.secret;
+    const apiActor = keySecret ? await repo.verifyApiKey(keySecret) : null;
+    const webActor = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!apiActor || !webActor) {
+      throw new Error("expected actors");
+    }
+    const published = await publishLocalArtifact(repo, apiActor, "idem-pin", "2026-01-01T00:00:01.000Z");
+    await repo.pinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-pin-once",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    const pinnedAgain = await repo.pinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-pin-twice",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-02T00:00:01.000Z"),
+    });
+    expect(pinnedAgain.pinned).toBe(true);
+    const unpinned = await repo.unpinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-unpin-once",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    expect(unpinned.pinned).toBe(false);
+    const unpinnedAgain = await repo.unpinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-unpin-twice",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-03T00:00:01.000Z"),
+    });
+    expect(unpinnedAgain.pinned).toBe(false);
+  });
+
   it("pins and unpins artifacts for web members", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({

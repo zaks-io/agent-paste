@@ -178,6 +178,13 @@ describe("lifecycle side effects", () => {
 });
 
 describe("retention discovery", () => {
+  it("returns zero enqueued when the purge queue binding is missing", async () => {
+    const executor = { query: vi.fn(), transaction: vi.fn() };
+    const result = await runRetentionDiscovery(executor, {}, "2026-05-20T00:00:00.000Z");
+    expect(result).toEqual({ discovered: 0, enqueued: 0, cap_hit: false });
+    expect(executor.query).not.toHaveBeenCalled();
+  });
+
   it("returns zero enqueued when no revisions qualify for retention", async () => {
     const executor = createTransactionalSqlExecutor(async () => ({ rows: [] }));
     const env = {
@@ -225,6 +232,42 @@ describe("retention discovery", () => {
         prefixes: [`artifacts/${artifactId}/revisions/${oldRevisionId}/`],
       }),
     );
+  });
+
+  it("replays runCommand without re-enqueueing retention purge work", async () => {
+    const oldRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+    const send = vi.fn(async () => ({}));
+    let discovery = true;
+    const executor = mockExecutor(async (sql) => {
+      if (discovery && sql.includes("from revisions")) {
+        discovery = false;
+        return {
+          rows: [{ id: oldRevisionId, workspace_id: workspaceId, artifact_id: artifactId }],
+        };
+      }
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [] };
+      }
+      if (sql.includes("select status, result_json")) {
+        return {
+          rows: [
+            {
+              status: "completed",
+              result_json: { revision_id: oldRevisionId, retained: true },
+              created_at: "2026-05-20T00:00:00.000Z",
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const env = {
+      BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result.enqueued).toBe(0);
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
