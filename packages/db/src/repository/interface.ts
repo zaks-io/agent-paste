@@ -308,5 +308,5 @@ export type Repository = {
     actor: ApiKeyActor;
     operation: string;
     idempotencyKey: string;
-  }): Promise<{ result: unknown } | null>;
+  }): Promise<{ result: unknown } | { inFlight: true } | null>;
 };

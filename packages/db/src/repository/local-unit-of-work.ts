@@ -1,6 +1,7 @@
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { localEntities } from "./local-entities.js";
 import type { LocalState } from "./local-state.js";
-import type { CommandRunContext, CommandSpec, RunScope, UnitOfWork } from "./ports.js";
+import type { CommandRunContext, CommandSpec, PeekReplayResult, RunScope, UnitOfWork } from "./ports.js";
 
 function scopeWorkspaceId(scope: RunScope): string | null {
   return scope.kind === "workspace" ? scope.workspaceId : null;
@@ -21,12 +22,17 @@ function commandKey(input: {
   return `${input.operation}:${actor.type}:${actor.id}:${workspaceId}:${input.idempotencyKey}`;
 }
 
-// The local backend has no transactions or RLS, so scopes are advisory. Idempotency is
-// a naive key->result cache: the first call runs the handler and stores the resolved
-// value; replays return it. Concurrency-faithful in-flight handling is a tracked follow-up.
+type IdempotencyEntry =
+  | { kind: "in_flight" }
+  | { kind: "completed"; value: unknown };
+
+// The local backend has no transactions or RLS, so scopes are advisory. Idempotency
+// claims the command key before the handler runs, rejects concurrent same-key calls with
+// IdempotencyInFlightError (matching Postgres 409 semantics), and caches only terminal
+// values. Rejected handlers evict the key so a later retry can run.
 export class LocalUnitOfWork implements UnitOfWork {
   private readonly entities: ReturnType<typeof localEntities>;
-  private readonly idempotency = new Map<string, unknown>();
+  private readonly idempotency = new Map<string, IdempotencyEntry>();
 
   constructor(state: LocalState) {
     this.entities = localEntities(state);
@@ -52,12 +58,16 @@ export class LocalUnitOfWork implements UnitOfWork {
     operation: string;
     idempotencyKey: string;
     scope: RunScope;
-  }): Promise<{ result: T } | null> {
+  }): Promise<PeekReplayResult<T>> {
     const key = commandKey(input);
-    if (!this.idempotency.has(key)) {
+    const entry = this.idempotency.get(key);
+    if (!entry) {
       return null;
     }
-    return { result: this.idempotency.get(key) as T };
+    if (entry.kind === "in_flight") {
+      return { inFlight: true };
+    }
+    return { result: entry.value as T };
   }
 
   private async runCached<T>(
@@ -65,11 +75,22 @@ export class LocalUnitOfWork implements UnitOfWork {
     run: (entities: ReturnType<typeof localEntities>) => Promise<T>,
   ): Promise<T> {
     const key = commandKey(input);
-    if (this.idempotency.has(key)) {
-      return this.idempotency.get(key) as T;
+    const existing = this.idempotency.get(key);
+    if (existing?.kind === "completed") {
+      return existing.value as T;
     }
-    const result = await run(this.entities);
-    this.idempotency.set(key, result);
-    return result;
+    if (existing?.kind === "in_flight") {
+      throw new IdempotencyInFlightError();
+    }
+
+    this.idempotency.set(key, { kind: "in_flight" });
+    try {
+      const result = await run(this.entities);
+      this.idempotency.set(key, { kind: "completed", value: result });
+      return result;
+    } catch (error) {
+      this.idempotency.delete(key);
+      throw error;
+    }
   }
 }

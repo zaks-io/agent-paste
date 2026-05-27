@@ -19,10 +19,10 @@ The Postgres backend does not have this gap: `runCommand` claims the idempotency
 inside the transaction, so an in-flight collision raises `IdempotencyInFlightError` and the
 Worker returns 409.
 
-- [ ] Make `LocalUnitOfWork` store an in-flight promise keyed by the command key, await it on
+- [x] Make `LocalUnitOfWork` store an in-flight promise keyed by the command key, await it on
       collision, and only cache the terminal value once it resolves. A rejected handler must
       evict the key so a later retry can run.
-- [ ] Decide whether a same-key collision while a handler is still running should reject with
+- [x] Decide whether a same-key collision while a handler is still running should reject with
       an in-flight error (matching Postgres 409 semantics) or coalesce onto the same promise. The
       local backend powers `pnpm dev:all` and the in-memory test harness, so the choice only has
       to be faithful enough that worker tests asserting 409 behavior can run against it if they
@@ -34,7 +34,7 @@ Worker returns 409.
 in-flight command as in-flight. This is the read-side of the item above and is fixed by the
 same change.
 
-- [ ] Once in-flight tracking lands, have `peekReplay` distinguish "no record", "in-flight",
+- [x] Once in-flight tracking lands, have `peekReplay` distinguish "no record", "in-flight",
       and "completed with result". `apps/upload` currently only branches on completed-with-result
       versus null, so this is forward-looking, not a current bug.
 

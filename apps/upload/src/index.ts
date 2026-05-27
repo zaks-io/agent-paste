@@ -386,7 +386,7 @@ async function peekUploadReplay<T>(
   idempotencyKey: string,
 ): Promise<T | null> {
   const hit = await db.peekIdempotentReplay({ actor, operation, idempotencyKey });
-  return hit ? (hit.result as T) : null;
+  return hit && "result" in hit ? (hit.result as T) : null;
 }
 
 async function uploadReplay(input: {
