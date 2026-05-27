@@ -10,6 +10,7 @@ export const ApiKeySummary = z.object({
   public_id: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{16}$/),
   scopes: z.array(Scope).min(1),
   revoked_at: IsoDateTime.nullable(),
+  expires_at: IsoDateTime.nullable(),
   created_at: IsoDateTime,
   last_used_at: IsoDateTime.nullable(),
 });

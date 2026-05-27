@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (AP-25 Live Updates via stream Worker).
+Last updated: 2026-05-27 (AP-77 CLI credential hardening, rebased after AP-25).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state

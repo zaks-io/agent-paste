@@ -109,6 +109,7 @@ class MemoryDb {
         public_id: "0000000000000000",
         scopes: ["publish", "read"],
         revoked_at: null,
+        expires_at: null,
         created_at: this.workspace.created_at,
         last_used_at: null,
       },

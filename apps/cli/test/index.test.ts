@@ -2,7 +2,8 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { main, parseArgs } from "../src/index.js";
+import type { Credential } from "../src/credentials.js";
+import { logout, main, parseArgs } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -172,6 +173,66 @@ describe("cli command dispatch", () => {
 
     expect(stdout).not.toHaveBeenCalled();
   });
+
+  it("revokes and removes the stored credential on logout", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const revokeCurrent = vi.fn().mockResolvedValue({ ok: true });
+
+    await logout(
+      { json: false, quiet: false },
+      {
+        load: async () => storedCredential(),
+        delete: remove,
+        client: fakeClient({ apiKeys: { revokeCurrent } }),
+      },
+    );
+
+    expect(revokeCurrent).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledOnce();
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("Revoked and removed stored API key"));
+  });
+
+  it("deletes the stored credential and warns when remote logout revoke fails", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const warnings: string[] = [];
+    const remove = vi.fn().mockResolvedValue(undefined);
+
+    await logout(
+      { json: false, quiet: false },
+      {
+        load: async () => storedCredential(),
+        delete: remove,
+        warn: (message) => warnings.push(message),
+        client: fakeClient({
+          apiKeys: { revokeCurrent: vi.fn().mockRejectedValue(new Error("offline")) },
+        }),
+      },
+    );
+
+    expect(remove).toHaveBeenCalledOnce();
+    expect(warnings.join("")).toContain("remote revoke failed");
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("Remote revoke failed"));
+  });
+
+  it("deletes expired stored credentials without remote revoke", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const revokeCurrent = vi.fn();
+
+    await logout(
+      { json: true, quiet: false },
+      {
+        load: async () => ({ ...storedCredential(), expires_at: "2026-01-01T00:00:00.000Z" }),
+        delete: remove,
+        now: new Date("2026-01-01T00:00:00.000Z"),
+        client: fakeClient({ apiKeys: { revokeCurrent } }),
+      },
+    );
+
+    expect(revokeCurrent).not.toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledOnce();
+  });
 });
 
 function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parameters<typeof main>[1]> {
@@ -187,8 +248,21 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
       publish: vi.fn(),
       list: vi.fn(),
     },
+    apiKeys: {
+      revokeCurrent: vi.fn(),
+    },
     ...overrides,
   } as unknown as NonNullable<Parameters<typeof main>[1]>;
+}
+
+function storedCredential(): Credential {
+  return {
+    api_key: "ap_pk_preview_secret",
+    public_id: "0123456789ABCDEF",
+    workspace_id: "ws_1",
+    member_email: "user@example.com",
+    expires_at: "2026-12-01T00:00:00.000Z",
+  };
 }
 
 async function removePublishFixture(root: string) {

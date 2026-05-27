@@ -35,6 +35,7 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 | `secret_hmac`  | `BYTEA NOT NULL`                          | HMAC-SHA-256 of secret segment with pepper. |
 | `pepper_kid`   | `SMALLINT NOT NULL`                       | Current pepper generation.                  |
 | `revoked_at`   | `TIMESTAMPTZ NULL`                        |                                             |
+| `expires_at`   | `TIMESTAMPTZ NULL`                        | Null means no key-level expiration.         |
 | `last_used_at` | `TIMESTAMPTZ NULL`                        |                                             |
 | `created_at`   | `TIMESTAMPTZ NOT NULL`                    |                                             |
 

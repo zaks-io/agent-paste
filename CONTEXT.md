@@ -332,7 +332,7 @@ _Avoid_: sse worker, push worker, realtime gateway
 
 <a id="cli"></a>
 **cli**:
-The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow (against a dedicated Public OAuth Connect app) that mints and stores a scoped **API Key**, then discards the WorkOS token (ADR 0060); `AGENT_PASTE_API_KEY` remains the path for CI and headless agents and takes precedence over the stored key.
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow (against a dedicated Public OAuth Connect app) that mints and stores a scoped 90-day **API Key** in the OS keyring when available, then discards the WorkOS token (ADR 0060); `AGENT_PASTE_API_KEY` remains the path for CI and headless agents and takes precedence over the stored key.
 _Avoid_: client, sdk, ap tool
 
 <a id="mcp"></a>
@@ -547,7 +547,8 @@ _Avoid_: middleware, interceptor, auth filter
 - **Audit Event** reads require a **Member-Only Scope**
 - **Workspace** administration requires a **Member-Only Scope**
 - An **API Key** is named by a **Workspace Member**
-- An **API Key** has no **Expiration** unless one is set
+- A dashboard-created or default **API Key** has no **Expiration** unless one is set
+- A CLI-minted **API Key** created by `agent-paste login` expires after 90 days
 - An **API Key** **Expiration** stops future use of the **API Key**
 - An **API Key** **Expiration** does not revoke **Artifacts** or **Access Links** created with it
 - **API Key Revocation** stops future use of the **API Key**

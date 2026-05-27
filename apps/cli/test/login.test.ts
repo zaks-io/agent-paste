@@ -44,6 +44,7 @@ describe("login flow", () => {
             public_id: "0123456789ABCDEF",
             scopes: ["publish", "read"],
             revoked_at: null,
+            expires_at: "2026-08-22T00:00:00.000Z",
             created_at: "2026-05-24T00:00:00.000Z",
             last_used_at: null,
           },
@@ -83,6 +84,7 @@ describe("login flow", () => {
       public_id: "0123456789ABCDEF",
       workspace_id: "22222222-2222-4222-8222-222222222222",
       member_email: "dev@example.com",
+      expires_at: "2026-08-22T00:00:00.000Z",
     });
     expect(store.saved).toEqual(credential);
     expect(tokenCalls[0]).toMatchObject({

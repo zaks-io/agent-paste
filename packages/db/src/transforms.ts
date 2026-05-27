@@ -16,6 +16,7 @@ export function toApiKeySummary(apiKey: ApiKey) {
     public_id: apiKey.public_id,
     scopes: apiKey.scopes,
     revoked_at: apiKey.revoked_at,
+    expires_at: apiKey.expires_at,
     created_at: apiKey.created_at,
     last_used_at: apiKey.last_used_at,
   };

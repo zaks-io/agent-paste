@@ -21,14 +21,14 @@ The npm package name is `@zaks-io/agent-paste`; the installed binary is
 
 ## Authenticate
 
-For interactive use, sign in with WorkOS. `login` runs a loopback PKCE flow in your browser, mints a scoped **API Key**, and stores it (macOS Keychain, or `~/.config/agent-paste/credentials.json` at mode `0600` elsewhere). The WorkOS token is discarded after the key is minted.
+For interactive use, sign in with WorkOS. `login` runs a loopback PKCE flow in your browser, mints a scoped **API Key**, and stores it in the OS keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service through the active desktop keyring). If no keyring is available, the CLI falls back to `~/.config/agent-paste/credentials.json` at mode `0600` and prints a warning. The WorkOS token is discarded after the key is minted.
 
 ```sh
 agent-paste login
 agent-paste logout
 ```
 
-The minted key is capped at `publish` and `read`. CLI sign-in never grants `admin`.
+The minted key is capped at `publish` and `read`, expires after 90 days, and never grants `admin`.
 
 For CI and headless agents, set `AGENT_PASTE_API_KEY` in the environment:
 
@@ -63,7 +63,7 @@ npx @zaks-io/agent-paste publish ./report --ttl 7d
 | Command                      | Purpose                                                                                                                               |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `agent-paste login`          | Mint a publish/read API key via WorkOS loopback login (see [ADR 0060](../../docs/adr/0060-cli-authentication-via-auth0-loopback.md)). |
-| `agent-paste logout`         | Remove the stored login credential.                                                                                                   |
+| `agent-paste logout`         | Revoke the stored API key when possible, then remove the local credential.                                                            |
 | `agent-paste whoami`         | Show the resolved **Workspace**, actor, and granted **Scopes**.                                                                       |
 | `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the published Artifact result.                                      |
 

@@ -5,6 +5,7 @@ export type ApiKeyActor = {
   id: string;
   workspace_id: string;
   scopes?: Array<Extract<Scope, "publish" | "read">>;
+  expires_at?: string | null;
 };
 
 export type WorkspaceMemberActor = {
@@ -55,6 +56,7 @@ export type ApiKey = {
   pepper_kid: number;
   scopes: Array<"publish" | "read">;
   revoked_at: string | null;
+  expires_at: string | null;
   last_used_at: string | null;
   created_at: string;
 };

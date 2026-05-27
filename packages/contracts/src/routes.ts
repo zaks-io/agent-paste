@@ -106,6 +106,18 @@ export const routeContracts = [
     errors: apiKeyReadErrors,
   },
   {
+    id: "apiKeys.revokeCurrent",
+    app: "api",
+    method: "POST",
+    path: "/v1/api-keys/current/revoke",
+    auth: "api_key",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "RevokeApiKeyResponse",
+    errors: apiKeyReadErrors,
+  },
+  {
     id: "agentView.public",
     app: "api",
     method: "GET",

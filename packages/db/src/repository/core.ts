@@ -58,6 +58,14 @@ function workspaceScope(workspaceId: string): RunScope {
   return { kind: "workspace", workspaceId };
 }
 
+function expiresAtFromSeconds(now: string, expiresInSeconds: number | undefined): string | null {
+  return expiresInSeconds === undefined ? null : new Date(Date.parse(now) + expiresInSeconds * 1000).toISOString();
+}
+
+function isApiKeyExpired(apiKey: { expires_at: string | null }, now: Date = new Date()): boolean {
+  return apiKey.expires_at !== null && Date.parse(apiKey.expires_at) <= now.getTime();
+}
+
 function apiCommandActor(actor: ApiActor): CommandActor {
   if (actor.type !== "api_key") {
     throw new Error(`unexpected_actor_type:${actor.type}`);
@@ -191,6 +199,7 @@ export class RepositoryCore implements Repository {
           workspaceId: input.workspaceId,
           name: input.name,
           now,
+          expiresAt: null,
         });
         await entities.apiKeys.insert(apiKey);
         await entities.operationEvents.insert({
@@ -242,7 +251,7 @@ export class RepositoryCore implements Repository {
       return null;
     }
     const record = await this.uow.read(PLATFORM_SCOPE, (entities) => entities.apiKeys.findByPublicId(parsed.publicId));
-    if (!record || record.revoked_at) {
+    if (!record || record.revoked_at || isApiKeyExpired(record)) {
       return null;
     }
     const pepper = this.pepperForRecord(record.pepper_kid);
@@ -256,7 +265,13 @@ export class RepositoryCore implements Repository {
     await this.uow.read(workspaceScope(record.workspace_id), (entities) =>
       entities.apiKeys.updateLastUsedAt(record.id, new Date().toISOString()),
     );
-    return { type: "api_key", id: record.id, workspace_id: record.workspace_id, scopes: record.scopes };
+    return {
+      type: "api_key",
+      id: record.id,
+      workspace_id: record.workspace_id,
+      scopes: record.scopes,
+      expires_at: record.expires_at,
+    };
   }
 
   async getWhoami(actor: ApiKeyActor) {
@@ -318,7 +333,12 @@ export class RepositoryCore implements Repository {
       last_seen_at: now,
     };
     await entities.members.insert(member);
-    const { apiKey, secret } = await buildApiKey(this.options, { workspaceId: workspace.id, name: "Default", now });
+    const { apiKey, secret } = await buildApiKey(this.options, {
+      workspaceId: workspace.id,
+      name: "Default",
+      now,
+      expiresAt: null,
+    });
     await entities.apiKeys.insert(apiKey);
     await entities.operationEvents.insert({
       actorType: "system",
@@ -555,7 +575,6 @@ export class RepositoryCore implements Repository {
       return {
         items: rows.map((apiKey) => ({
           ...toApiKeySummary(apiKey),
-          expires_at: null,
           revoked: apiKey.revoked_at !== null,
         })),
         page_info: { next_cursor: null, has_more: false },
@@ -563,7 +582,13 @@ export class RepositoryCore implements Repository {
     });
   }
 
-  async createWebApiKey(input: { actor: ApiActor; idempotencyKey: string; name: string; now?: Date }) {
+  async createWebApiKey(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    name: string;
+    expiresInSeconds?: number;
+    now?: Date;
+  }) {
     if (input.actor.type !== "member") {
       throw new Error(`unexpected_actor_type:${input.actor.type}`);
     }
@@ -582,6 +607,7 @@ export class RepositoryCore implements Repository {
           workspaceId: member.workspace_id,
           name: input.name,
           now,
+          expiresAt: expiresAtFromSeconds(now, input.expiresInSeconds),
         });
         await entities.apiKeys.insert(apiKey);
         await entities.operationEvents.insert({
@@ -595,6 +621,37 @@ export class RepositoryCore implements Repository {
           occurredAt: now,
         });
         return { api_key: toApiKeySummary(apiKey), secret };
+      },
+    );
+  }
+
+  async revokeCurrentApiKey(input: { actor: ApiKeyActor; now?: Date }) {
+    const revokedAt = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: apiCommandActor(input.actor),
+        operation: "api_key.revoke_current",
+        idempotencyKey: `self-revoke:${input.actor.id}`,
+        scope: workspaceScope(input.actor.workspace_id),
+        now: revokedAt,
+      },
+      async (entities) => {
+        const apiKey = await entities.apiKeys.findById(input.actor.id);
+        if (!apiKey || apiKey.workspace_id !== input.actor.workspace_id) {
+          throw new Error("api_key_not_found");
+        }
+        await entities.apiKeys.updateRevokedAt(apiKey.id, revokedAt);
+        await entities.operationEvents.insert({
+          actorType: "api_key",
+          actorId: apiKey.id,
+          action: "api_key.revoked",
+          targetType: "api_key",
+          targetId: apiKey.id,
+          workspaceId: apiKey.workspace_id,
+          details: { public_id: apiKey.public_id, self_revoked: true },
+          occurredAt: revokedAt,
+        });
+        return { api_key: toApiKeySummary({ ...apiKey, revoked_at: revokedAt }), revoked_at: revokedAt };
       },
     );
   }

@@ -32,7 +32,7 @@ export function webAuthResponse(
 
 export async function buildApiKey(
   options: RepositoryOptions,
-  input: { id?: string; workspaceId: string; name: string; now: string },
+  input: { id?: string; workspaceId: string; name: string; now: string; expiresAt?: string | null },
 ): Promise<{ apiKey: ApiKey; secret: string }> {
   const pepperRing = options.pepperRing ?? PepperRing.single(options.apiKeyPepper, 1);
   const generated = await generateApiKey(options.apiKeyEnv ?? "preview", pepperRing.currentPepper());
@@ -45,6 +45,7 @@ export async function buildApiKey(
     pepper_kid: pepperRing.currentKid,
     scopes: ["publish", "read"],
     revoked_at: null,
+    expires_at: input.expiresAt ?? null,
     last_used_at: null,
     created_at: input.now,
   };

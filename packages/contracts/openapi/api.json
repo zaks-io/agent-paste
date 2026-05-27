@@ -723,6 +723,13 @@
                 ],
                 "format": "date-time"
               },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
               "created_at": {
                 "type": "string",
                 "format": "date-time"
@@ -742,6 +749,7 @@
               "public_id",
               "scopes",
               "revoked_at",
+              "expires_at",
               "created_at",
               "last_used_at"
             ]
@@ -795,6 +803,13 @@
             ],
             "format": "date-time"
           },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -814,6 +829,7 @@
           "public_id",
           "scopes",
           "revoked_at",
+          "expires_at",
           "created_at",
           "last_used_at"
         ]
@@ -860,6 +876,13 @@
                 ],
                 "format": "date-time"
               },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
               "created_at": {
                 "type": "string",
                 "format": "date-time"
@@ -879,6 +902,7 @@
               "public_id",
               "scopes",
               "revoked_at",
+              "expires_at",
               "created_at",
               "last_used_at"
             ]
@@ -1388,6 +1412,13 @@
                     ],
                     "format": "date-time"
                   },
+                  "expires_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
                   "created_at": {
                     "type": "string",
                     "format": "date-time"
@@ -1407,6 +1438,7 @@
                   "public_id",
                   "scopes",
                   "revoked_at",
+                  "expires_at",
                   "created_at",
                   "last_used_at"
                 ]
@@ -1865,18 +1897,18 @@
                   ],
                   "format": "date-time"
                 },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "last_used_at": {
+                "expires_at": {
                   "type": [
                     "string",
                     "null"
                   ],
                   "format": "date-time"
                 },
-                "expires_at": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "last_used_at": {
                   "type": [
                     "string",
                     "null"
@@ -1894,9 +1926,9 @@
                 "public_id",
                 "scopes",
                 "revoked_at",
+                "expires_at",
                 "created_at",
                 "last_used_at",
-                "expires_at",
                 "revoked"
               ]
             }

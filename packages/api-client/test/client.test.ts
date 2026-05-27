@@ -208,6 +208,29 @@ describe("ApiClient", () => {
     expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
   });
 
+  it("revokes the current API key with API-key auth", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        calls.push(request);
+        return Response.json({
+          api_key: { ...apiKeySummary(), revoked_at: "2026-01-02T00:00:00.000Z" },
+          revoked_at: "2026-01-02T00:00:00.000Z",
+        });
+      },
+    });
+
+    await expect(client.apiKeys.revokeCurrent()).resolves.toMatchObject({
+      api_key: { id: apiKeyId, revoked_at: "2026-01-02T00:00:00.000Z" },
+    });
+
+    expect(calls[0]?.url).toBe("https://api.example.test/v1/api-keys/current/revoke");
+    expect(calls[0]?.method).toBe("POST");
+    expect(calls[0]?.headers.get("authorization")).toBe(`Bearer ${apiKeySecret}`);
+  });
+
   it("puts files without API-client auth and wraps upload failures", async () => {
     const calls: Request[] = [];
     const client = authedClient({
@@ -295,6 +318,7 @@ function apiKeySummary() {
     public_id: "0123456789ABCDEF",
     scopes: ["publish", "read"],
     revoked_at: null,
+    expires_at: null,
     created_at: "2026-01-01T00:00:00.000Z",
     last_used_at: null,
   };

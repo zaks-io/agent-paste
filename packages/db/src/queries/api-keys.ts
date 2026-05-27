@@ -14,6 +14,7 @@ export const apiKeyQueries = {
       pepperKid: row.pepper_kid,
       scopes: row.scopes,
       revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
+      expiresAt: row.expires_at ? new Date(row.expires_at) : null,
       lastUsedAt: row.last_used_at ? new Date(row.last_used_at) : null,
       createdAt: new Date(row.created_at),
     });
@@ -65,6 +66,7 @@ function mapApiKey(row: typeof apiKeys.$inferSelect): ApiKey {
     pepper_kid: row.pepperKid,
     scopes: row.scopes,
     revoked_at: row.revokedAt ? row.revokedAt.toISOString() : null,
+    expires_at: row.expiresAt ? row.expiresAt.toISOString() : null,
     last_used_at: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
     created_at: row.createdAt.toISOString(),
   };
