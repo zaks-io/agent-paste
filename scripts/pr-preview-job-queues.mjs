@@ -17,6 +17,9 @@ export function prPreviewJobQueues(prNumber) {
     bundleGenerateDlq,
     // DLQs must exist before consumers reference them.
     creationOrder: [bytePurgeDlq, safetyScanDlq, bundleGenerateDlq, bytePurge, safetyScan, bundleGenerate],
+    // Detach consumers before deleting the jobs Worker; Cloudflare rejects
+    // Worker deletion while it is attached to Queues.
+    consumerDetachOrder: [bytePurge, safetyScan, bundleGenerate, bundleGenerateDlq],
     deletionOrder: [bytePurge, safetyScan, bundleGenerate, bytePurgeDlq, safetyScanDlq, bundleGenerateDlq],
   };
 }

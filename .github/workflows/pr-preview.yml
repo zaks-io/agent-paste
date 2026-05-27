@@ -58,6 +58,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
+      - name: Check PR preview resource capacity
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-pr-preview-capacity.mjs
+
       - name: Create Neon PR branch
         id: neon
         uses: neondatabase/create-branch-action@v6
