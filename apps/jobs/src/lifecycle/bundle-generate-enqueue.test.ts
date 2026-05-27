@@ -37,4 +37,21 @@ describe("enqueueBundleGenerate", () => {
       }),
     );
   });
+
+  it("returns false when queue send fails", async () => {
+    const send = vi.fn(async () => {
+      throw new Error("queue unavailable");
+    });
+    await expect(
+      enqueueBundleGenerate(
+        { BUNDLE_GENERATE_QUEUE: { send, sendBatch: vi.fn() } },
+        {
+          workspaceId: "00000000-0000-0000-0000-000000000000",
+          artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          requestedAt: "2026-05-20T00:00:00.000Z",
+        },
+      ),
+    ).resolves.toBe(false);
+  });
 });

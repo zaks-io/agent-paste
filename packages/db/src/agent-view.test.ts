@@ -111,6 +111,16 @@ describe("agent-view helpers", () => {
     });
     expect(
       buildBundleAvailability({
+        bundle_status: "ready",
+        bundle_status_updated_at: null,
+        bundle_size_bytes: null,
+      }),
+    ).toEqual({
+      status: "ready",
+      size_bytes: 0,
+    });
+    expect(
+      buildBundleAvailability({
         bundle_status: "failed",
         bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
         bundle_size_bytes: null,
