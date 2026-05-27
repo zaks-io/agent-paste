@@ -59,8 +59,23 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
 - `SMOKE_HARNESS_SECRET` (api preview/PR only; not production)
+- `STREAM_INTERNAL_SECRET` (api and stream; stream-to-api live-update authorize)
 
-With `--with-web`, it also writes:
+It uses `wrangler secret list --format json` and refuses to write when listing fails or when secrets already exist (unless `--force`).
+
+### `set-stream-internal-secret.mjs`
+
+Targeted rollout for live-update internal auth only. Sets the same `STREAM_INTERNAL_SECRET` on `agent-paste-api-<target>` and `agent-paste-stream-<target>` without reading or rotating unrelated secrets.
+
+```sh
+node scripts/set-stream-internal-secret.mjs preview
+node scripts/set-stream-internal-secret.mjs production --value <existing-secret>
+node scripts/set-stream-internal-secret.mjs preview --dry-run
+```
+
+Use this for AP-80 / live-update rollout on existing hosted environments. First-deploy bootstrap can still mint `STREAM_INTERNAL_SECRET`, but operators should prefer this script when other Worker secrets are already present.
+
+With `--with-web`, bootstrap also writes:
 
 - `WORKOS_API_KEY`
 - `WORKOS_CLIENT_ID`

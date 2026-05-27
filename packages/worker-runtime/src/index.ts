@@ -23,3 +23,8 @@ export {
   type HeaderGuardState,
 } from "./registrar.js";
 export { type SentryEnv, sentryOptions } from "./sentry.js";
+export {
+  isAuthorizedStreamInternalRequest,
+  STREAM_INTERNAL_SECRET_HEADER,
+  streamInternalSecretHeaders,
+} from "./stream-internal-auth.js";

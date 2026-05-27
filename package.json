@@ -10,6 +10,8 @@
     "dev:all": "pnpm build && node scripts/local-mvp-server.mjs",
     "bootstrap:preview": "node scripts/bootstrap-secrets.mjs preview",
     "bootstrap:production": "node scripts/bootstrap-secrets.mjs production",
+    "secrets:stream-internal:preview": "node scripts/set-stream-internal-secret.mjs preview",
+    "secrets:stream-internal:production": "node scripts/set-stream-internal-secret.mjs production",
     "bootstrap:live": "pnpm bootstrap:production",
     "ci:check": "pnpm verify",
     "cli:test": "pnpm --filter agent-paste test",
