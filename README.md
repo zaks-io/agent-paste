@@ -90,6 +90,7 @@ pnpm hooks:install
 | `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                           |
 | `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                    |
 | `pnpm test`              | Run `turbo run test`.                                                                                         |
+| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers (deploy and queue provisioning).                                 |
 | `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                |
 | `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                            |
 | `pnpm format:code`       | Format non-doc files with Biome.                                                                              |
