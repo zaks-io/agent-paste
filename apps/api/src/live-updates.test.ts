@@ -1,11 +1,11 @@
 import type { Repository } from "@agent-paste/db";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
+import { STREAM_INTERNAL_SECRET_HEADER } from "@agent-paste/worker-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./index.js";
 import {
   buildPointerFromPublishResult,
   handleLiveUpdateAuthorize,
-  isStreamCaller,
   notifyLiveUpdateDisconnect,
   notifyLiveUpdateDisconnectWorkspace,
   notifyLiveUpdatePublish,
@@ -20,6 +20,13 @@ const pointer = {
 };
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const streamSecret = "stream-internal-secret";
+
+function streamAuthorizeRequest(init: RequestInit = {}): Request {
+  const headers = new Headers(init.headers);
+  headers.set(STREAM_INTERNAL_SECRET_HEADER, streamSecret);
+  return new Request("https://api.test/x", { ...init, headers });
+}
 
 afterEach(() => {
   wireLiveUpdateDeps({
@@ -28,26 +35,44 @@ afterEach(() => {
   });
 });
 
-describe("isStreamCaller", () => {
-  it("matches only the stream internal caller header", () => {
-    expect(isStreamCaller(new Request("https://api.test/x", { headers: { "x-agent-paste-caller": "stream" } }))).toBe(
-      true,
-    );
-    expect(isStreamCaller(new Request("https://api.test/x"))).toBe(false);
-  });
-});
-
 describe("handleLiveUpdateAuthorize", () => {
-  it("rejects non-stream callers and malformed bodies", async () => {
+  it("rejects spoofed caller headers and missing internal secrets", async () => {
     const db = {} as Repository;
-    const env = { CONTENT_BASE_URL: "https://content.test" } as Env;
+    const env = {
+      CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+    } as Env;
+
     const wrongCaller = await handleLiveUpdateAuthorize(new Request("https://api.test/x"), env, db);
     expect(wrongCaller.status).toBe(404);
 
-    const invalidJson = await handleLiveUpdateAuthorize(
+    const spoofedHeader = await handleLiveUpdateAuthorize(
+      new Request("https://api.test/x", { headers: { "x-agent-paste-caller": "stream" } }),
+      env,
+      db,
+    );
+    expect(spoofedHeader.status).toBe(404);
+
+    const wrongSecret = await handleLiveUpdateAuthorize(
       new Request("https://api.test/x", {
+        headers: { [STREAM_INTERNAL_SECRET_HEADER]: "wrong-secret" },
+      }),
+      env,
+      db,
+    );
+    expect(wrongSecret.status).toBe(404);
+  });
+
+  it("rejects malformed bodies from authorized stream callers", async () => {
+    const db = {} as Repository;
+    const env = {
+      CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+    } as Env;
+
+    const invalidJson = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest({
         method: "POST",
-        headers: { "x-agent-paste-caller": "stream" },
         body: "not-json",
       }),
       env,
@@ -56,9 +81,9 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(invalidJson.status).toBe(400);
 
     const invalidBody = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
-        headers: { "x-agent-paste-caller": "stream", "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "unknown" }),
       }),
       env,
@@ -67,7 +92,7 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(invalidBody.status).toBe(400);
   });
 
-  it("authorizes access links and rejects revision links", async () => {
+  it("authorizes access links, rejects revision links, and rate limits artifact reads", async () => {
     wireLiveUpdateDeps({
       signAgentView: async (view) => ({
         ...(view as object),
@@ -85,6 +110,10 @@ describe("handleLiveUpdateAuthorize", () => {
     const env = {
       ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
       CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+      ARTIFACT_RATE_LIMIT: {
+        limit: vi.fn(async () => ({ success: true })),
+      },
     } as Env;
     const db = {
       async resolveAccessLink(input: { publicId: string }) {
@@ -130,9 +159,9 @@ describe("handleLiveUpdateAuthorize", () => {
     } as unknown as Repository;
 
     const ok = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
-        headers: { "x-agent-paste-caller": "stream", "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "access_link", public_id: "0123456789ABCDEF", blob }),
       }),
       env,
@@ -140,17 +169,37 @@ describe("handleLiveUpdateAuthorize", () => {
     );
     expect(ok.status).toBe(200);
     await expect(ok.json()).resolves.toMatchObject({ audience: "share", artifact_id: artifactId });
+    expect(env.ARTIFACT_RATE_LIMIT?.limit).toHaveBeenCalledWith({ key: artifactId });
 
     const revisionDenied = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
-        headers: { "x-agent-paste-caller": "stream", "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "access_link", public_id: "0123456789ABCDFG", blob }),
       }),
       { ...env, ACCESS_LINK_SIGNING_KEY_V1: undefined } as Env,
       db,
     );
     expect(revisionDenied.status).toBe(404);
+
+    const rateLimitedEnv = {
+      ...env,
+      ARTIFACT_RATE_LIMIT: {
+        limit: vi.fn(async () => ({ success: false })),
+      },
+    } as Env;
+    const rateLimited = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "access_link", public_id: "0123456789ABCDEF", blob }),
+      }),
+      rateLimitedEnv,
+      db,
+    );
+    expect(rateLimited.status).toBe(429);
+    await expect(rateLimited.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
+    expect(rateLimited.headers.get("Retry-After")).toBe("60");
   });
 
   it("authorizes dashboard sessions and requires bearer tokens", async () => {
@@ -164,7 +213,10 @@ describe("handleLiveUpdateAuthorize", () => {
           ? { member: { workspace_id: "00000000-0000-4000-8000-000000000001" } as never }
           : null,
     });
-    const env = { CONTENT_BASE_URL: "https://content.test" } as Env;
+    const env = {
+      CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+    } as Env;
     const db = {
       async getAgentView() {
         return {
@@ -177,9 +229,9 @@ describe("handleLiveUpdateAuthorize", () => {
     } as unknown as Repository;
 
     const missingAuth = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
-        headers: { "x-agent-paste-caller": "stream", "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: "dashboard", artifact_id: artifactId }),
       }),
       env,
@@ -188,10 +240,9 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(missingAuth.status).toBe(404);
 
     const ok = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
         headers: {
-          "x-agent-paste-caller": "stream",
           "content-type": "application/json",
           authorization: "Bearer member",
         },
@@ -208,10 +259,9 @@ describe("handleLiveUpdateAuthorize", () => {
       authenticateWeb: async () => ({ member: { workspace_id: "ws" } as never }),
     });
     const badViewUrl = await handleLiveUpdateAuthorize(
-      new Request("https://api.test/x", {
+      streamAuthorizeRequest({
         method: "POST",
         headers: {
-          "x-agent-paste-caller": "stream",
           "content-type": "application/json",
           authorization: "Bearer member",
         },
@@ -346,15 +396,19 @@ describe("live update notify helpers", () => {
       },
     } as never;
 
-    await notifyLiveUpdateDisconnectWorkspace(env, {
-      async listArtifacts() {
-        throw new Error("db down");
+    await notifyLiveUpdateDisconnectWorkspace(
+      env,
+      {
+        async listArtifacts() {
+          throw new Error("db down");
+        },
+      } as unknown as Repository,
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        audiences: ["share"],
+        reason: "platform_lockdown",
       },
-    } as unknown as Repository, {
-      workspaceId: "00000000-0000-4000-8000-000000000001",
-      audiences: ["share"],
-      reason: "platform_lockdown",
-    });
+    );
     expect(warn).toHaveBeenCalled();
 
     warn.mockClear();
@@ -365,15 +419,19 @@ describe("live update notify helpers", () => {
         get: () => ({ fetch: failingNotifyFetch }),
       },
     } as never;
-    await notifyLiveUpdateDisconnectWorkspace(envWithListedArtifacts, {
-      async listArtifacts() {
-        return { data: [{ id: artifactId }, { id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0" }] };
+    await notifyLiveUpdateDisconnectWorkspace(
+      envWithListedArtifacts,
+      {
+        async listArtifacts() {
+          return { data: [{ id: artifactId }, { id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0" }] };
+        },
+      } as unknown as Repository,
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        audiences: ["share"],
+        reason: "platform_lockdown",
       },
-    } as unknown as Repository, {
-      workspaceId: "00000000-0000-4000-8000-000000000001",
-      audiences: ["share"],
-      reason: "platform_lockdown",
-    });
+    );
     expect(failingNotifyFetch).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("Live update notify failed"),

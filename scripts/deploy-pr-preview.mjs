@@ -56,7 +56,10 @@ writeJson(files.uploadConfig, uploadConfig());
 writeJson(files.contentConfig, contentConfig());
 writeJson(files.jobsConfig, jobsConfig());
 writeJson(files.apexConfig, apexConfig());
-writeJson(files.apiSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "SMOKE_HARNESS_SECRET"]));
+writeJson(
+  files.apiSecrets,
+  pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "SMOKE_HARNESS_SECRET", "STREAM_INTERNAL_SECRET"]),
+);
 writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
 writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
 writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET"]));
@@ -361,11 +364,14 @@ function createPrSecrets() {
     process.env.AGENT_PASTE_PR_SMOKE_HARNESS_SECRET ??
     process.env.AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET ??
     prPreviewSecret("smoke-harness", 32);
+  const streamInternalSecret =
+    process.env.AGENT_PASTE_PREVIEW_STREAM_INTERNAL_SECRET ?? prPreviewSecret("stream-internal", 32);
   const values = {
     CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? prPreviewSecret("content-signing"),
     UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? prPreviewSecret("upload-signing"),
     API_KEY_PEPPER_V1: apiKeyPepper,
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
+    STREAM_INTERNAL_SECRET: streamInternalSecret,
     // AuthKit seals its session cookie with this; 32+ chars required. Derived so
     // a PR's web worker can decrypt cookies it set on an earlier deploy.
     WORKOS_COOKIE_PASSWORD: process.env.PREVIEW_WORKOS_COOKIE_PASSWORD ?? prPreviewSecret("workos-cookie-password", 32),

@@ -59,6 +59,7 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 - `UPLOAD_SIGNING_SECRET`
 - `API_KEY_PEPPER_V1`
 - `SMOKE_HARNESS_SECRET` (api preview/PR only; not production)
+- `STREAM_INTERNAL_SECRET` (api and stream; stream-to-api live-update authorize)
 
 With `--with-web`, it also writes:
 

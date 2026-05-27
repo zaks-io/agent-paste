@@ -17,11 +17,13 @@ const workerSecrets = [
       "CONTENT_SIGNING_SECRET",
       "API_KEY_PEPPER_V1",
       "SMOKE_HARNESS_SECRET",
+      "STREAM_INTERNAL_SECRET",
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
   },
   { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
   { app: "content", names: ["CONTENT_SIGNING_SECRET"] },
+  { app: "stream", names: ["STREAM_INTERNAL_SECRET"] },
   ...(options.includeWeb
     ? [
         {
@@ -163,6 +165,7 @@ function generatedSecrets() {
     UPLOAD_SIGNING_SECRET: secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,
     SMOKE_HARNESS_SECRET: secretBytes(32),
+    STREAM_INTERNAL_SECRET: secretBytes(32),
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: options.workosApiKey,
@@ -179,6 +182,7 @@ function plannedSecrets() {
     UPLOAD_SIGNING_SECRET: "<generated>",
     API_KEY_PEPPER_V1: "<generated>",
     SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>",
+    STREAM_INTERNAL_SECRET: "<generated; shared by api and stream Workers>",
     ...(options.includeWeb
       ? {
           WORKOS_API_KEY: "<provided>",
