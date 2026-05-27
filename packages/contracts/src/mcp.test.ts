@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMcpToolList,
   deriveMcpIdempotencyKey,
   McpPublishArtifactInput,
   McpToolName,
@@ -40,6 +41,12 @@ describe("MCP tool registry", () => {
     expect(mcpToolContracts.every((tool) => tool.auth === "mcp_oauth")).toBe(true);
   });
 
+  it("builds tools/list descriptors for every registered tool", () => {
+    const listed = buildMcpToolList();
+    expect(listed.tools.map((tool) => tool.name)).toEqual(mcpToolContracts.map((tool) => tool.name));
+    expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
+  });
+
   it("requires write read share for publish tools", () => {
     expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["write", "read", "share"]);
     expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read", "share"]);
@@ -52,7 +59,7 @@ describe("MCP tool registry", () => {
       "uploadSessions.putFile",
       "uploadSessions.finalize",
       "revisions.publish",
-      "accessLinks.createShare",
+      "accessLinks.create",
       "accessLinks.mint",
     ]);
     expect(

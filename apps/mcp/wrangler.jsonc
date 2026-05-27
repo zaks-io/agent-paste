@@ -18,6 +18,10 @@
     {
       "binding": "API",
       "service": "agent-paste-api"
+    },
+    {
+      "binding": "UPLOAD",
+      "service": "agent-paste-upload"
     }
   ],
   "env": {
@@ -39,6 +43,10 @@
         {
           "binding": "API",
           "service": "agent-paste-api-preview"
+        },
+        {
+          "binding": "UPLOAD",
+          "service": "agent-paste-upload-preview"
         }
       ]
     },
@@ -60,6 +68,10 @@
         {
           "binding": "API",
           "service": "agent-paste-api-production"
+        },
+        {
+          "binding": "UPLOAD",
+          "service": "agent-paste-upload-production"
         }
       ]
     }

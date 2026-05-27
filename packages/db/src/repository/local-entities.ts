@@ -145,6 +145,15 @@ export function localEntities(state: LocalState): Entities {
           artifact.updated_at = input.updatedAt;
         }
       },
+      async updateTitle(artifactId, workspaceId, title, updatedAt) {
+        const artifact = state.artifacts.get(artifactId);
+        if (!artifact || artifact.workspace_id !== workspaceId) {
+          return false;
+        }
+        artifact.title = title;
+        artifact.updated_at = updatedAt;
+        return true;
+      },
       async updateStaging(artifactId, input) {
         const artifact = state.artifacts.get(artifactId);
         if (artifact) {
@@ -172,7 +181,12 @@ export function localEntities(state: LocalState): Entities {
       },
       async tryPinUnderCap(workspaceId, artifactId, pinnedAt, updatedAt, cap) {
         const artifact = state.artifacts.get(artifactId);
-        if (!artifact || artifact.workspace_id !== workspaceId || artifact.status !== "active" || !artifact.revision_id) {
+        if (
+          !artifact ||
+          artifact.workspace_id !== workspaceId ||
+          artifact.status !== "active" ||
+          !artifact.revision_id
+        ) {
           return "not_found";
         }
         if (artifact.pinned_at) {
@@ -202,9 +216,7 @@ export function localEntities(state: LocalState): Entities {
         return [...state.artifacts.values()]
           .filter(
             (artifact) =>
-              artifact.status === "active" &&
-              !artifact.pinned_at &&
-              new Date(artifact.expires_at).getTime() <= nowMs,
+              artifact.status === "active" && !artifact.pinned_at && new Date(artifact.expires_at).getTime() <= nowMs,
           )
           .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
           .slice(0, limit)

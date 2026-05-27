@@ -31,7 +31,6 @@ import {
   verifyUploadToken as verifyUploadTokenSignature,
 } from "@agent-paste/tokens/upload-url";
 import {
-  type ApiKeyPrincipal,
   type AppErrorCode,
   createRegistrar,
   type GuardState,
@@ -44,6 +43,7 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
+import { authenticateMcpBearer, resolveMcpMemberActor } from "./mcp-auth.js";
 
 export type UploadActor = {
   type: "api_key";
@@ -102,6 +102,13 @@ export type Env = {
   DOCS_BASE_URL?: string;
   AGENT_PASTE_ENV?: string;
   SENTRY_DSN?: string;
+  WORKOS_API_KEY?: string;
+  WORKOS_API_BASE_URL?: string;
+  WORKOS_MCP_AUDIENCE?: string;
+  WORKOS_MCP_ISSUER?: string;
+  WORKOS_MCP_JWKS_URL?: string;
+  WORKOS_CLI_ISSUER?: string;
+  WORKOS_CLI_JWKS_URL?: string;
 };
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
@@ -126,6 +133,33 @@ const uploadDbRegistrar = createRegistrar<Repository>({
     async api_key(context) {
       const actor = await authenticateApiKey(context.req.raw, context.env as Env);
       return actor ? { ok: true, principal: { kind: "api_key", actor } } : { ok: false, code: "not_authenticated" };
+    },
+    async api_key_or_mcp_oauth(context) {
+      const env = context.env as Env;
+      const apiKeyActor = await authenticateApiKey(context.req.raw, env);
+      if (apiKeyActor) {
+        return { ok: true, principal: { kind: "api_key", actor: apiKeyActor } };
+      }
+      const authenticated = await authenticateMcpBearer(context.req.raw, env);
+      if (!authenticated) {
+        return { ok: false, code: "not_authenticated" } as const;
+      }
+      const db = uploadDatabase(env);
+      if (!db) {
+        return { ok: false, code: "database_unavailable" } as const;
+      }
+      const actor = await resolveMcpMemberActor(authenticated, db);
+      if (!actor) {
+        return { ok: false, code: "forbidden" } as const;
+      }
+      return {
+        ok: true,
+        principal: {
+          kind: "workos_access_token",
+          identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
+          actor,
+        },
+      } as const;
     },
   },
   db: (context) => uploadDatabase(context.env as Env),
@@ -161,13 +195,13 @@ const uploadNoDbRegistrar = createRegistrar({
   },
 });
 uploadDbRegistrar.mount(contractById("uploadSessions.create"), async (context, principal, db, guard) =>
-  createUploadSession(context as AppContext, principal as ApiKeyPrincipal<UploadActor>, db, guard),
+  createUploadSession(context as AppContext, principal, db, guard),
 );
 uploadNoDbRegistrar.mount(contractById("uploadSessions.putFile"), async (context, principal) =>
   putUploadFile(context as AppContext, principal as SignedUploadUrlPrincipal<SignedUploadPayload>),
 );
 uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context, principal, db, guard) =>
-  finalizeUploadSession(context as AppContext, principal as ApiKeyPrincipal<UploadActor>, db, guard),
+  finalizeUploadSession(context as AppContext, principal, db, guard),
 );
 app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
@@ -193,15 +227,44 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
+function uploadSessionActor(principal: Principal): UploadActor | null {
+  if (principal.kind === "api_key") {
+    const actor = principal.actor;
+    if (actor.type !== "api_key" || !actor.workspace_id) {
+      return null;
+    }
+    return {
+      type: "api_key",
+      id: actor.id,
+      workspace_id: actor.workspace_id,
+    };
+  }
+  if (principal.kind === "workos_access_token" && principal.actor?.type === "member") {
+    const actor = principal.actor;
+    if (!actor.workspace_id) {
+      return null;
+    }
+    return {
+      type: "api_key",
+      id: actor.id,
+      workspace_id: actor.workspace_id,
+    };
+  }
+  return null;
+}
+
 async function createUploadSession(
   context: AppContext,
-  principal: ApiKeyPrincipal<UploadActor>,
+  principal: Principal,
   db: Repository,
   guard: GuardFor<"uploadSessions.create">,
 ): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  const actor = principal.actor;
+  const actor = uploadSessionActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
   const idempotencyKey = guard.idempotencyKey ?? "";
   const body: CreateUploadSessionRequest = guard.body;
   const createRequest = {
@@ -276,12 +339,15 @@ async function putUploadFile(
 
 async function finalizeUploadSession(
   context: AppContext,
-  principal: ApiKeyPrincipal<UploadActor>,
+  principal: Principal,
   db: Repository,
   guard: GuardState,
 ): Promise<Response> {
   const env = context.env;
-  const actor = principal.actor;
+  const actor = uploadSessionActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
   const idempotencyKey = guard.idempotencyKey ?? "";
   const sessionId = context.req.param("upload_session_id") ?? "";
 

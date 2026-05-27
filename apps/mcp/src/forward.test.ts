@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-import { forwardToApi } from "./forward.js";
+import { forwardToApi, forwardToUpload, putSignedUploadFile } from "./forward.js";
 
 const bearer = "mcp-test-token";
 
 describe("forwardToApi", () => {
+  it("forwards idempotency keys on mutating requests", async () => {
+    const api = {
+      fetch: vi.fn(async () => Response.json({ ok: true })),
+    };
+    await forwardToApi({
+      api,
+      method: "POST",
+      path: "/v1/example",
+      bearerToken: bearer,
+      body: "{}",
+      idempotencyKey: "idem-123",
+    });
+    const request = api.fetch.mock.calls[0]?.[0] as Request;
+    expect(request.headers.get("idempotency-key")).toBe("idem-123");
+  });
+
   it("returns JSON bodies for successful responses", async () => {
     const api = {
       fetch: vi.fn(async () => Response.json({ ok: true }, { headers: { "content-type": "application/json" } })),
@@ -163,5 +179,90 @@ describe("forwardToApi", () => {
       headers: { "content-type": "application/custom+json" },
       body: "{}",
     });
+  });
+});
+
+describe("forwardToUpload", () => {
+  it("maps upload fetch failures to database_unavailable", async () => {
+    const upload = { fetch: vi.fn(async () => Promise.reject(new Error("network"))) };
+    const result = await forwardToUpload({
+      upload,
+      method: "POST",
+      path: "/v1/upload-sessions",
+      bearerToken: bearer,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("database_unavailable");
+    }
+  });
+
+  it("forwards upload requests with idempotency keys", async () => {
+    const upload = {
+      fetch: vi.fn(async () => Response.json({ upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" })),
+    };
+    const result = await forwardToUpload({
+      upload,
+      method: "POST",
+      path: "/v1/upload-sessions",
+      bearerToken: bearer,
+      body: "{}",
+      idempotencyKey: "idem-1",
+    });
+    expect(result.ok).toBe(true);
+    const request = upload.fetch.mock.calls[0]?.[0] as Request;
+    expect(request.url).toBe("https://agent-paste.internal/v1/upload-sessions");
+    expect(request.headers.get("idempotency-key")).toBe("idem-1");
+  });
+});
+
+describe("putSignedUploadFile", () => {
+  it("uploads bytes to the signed URL", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await putSignedUploadFile({
+      putUrl: "https://storage.example/put",
+      body: new TextEncoder().encode("hello"),
+      contentType: "text/plain; charset=utf-8",
+    });
+
+    expect(result).toEqual({ ok: true, status: 200, body: null });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
+
+  it("maps PUT network failures to storage_unavailable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new Error("network"))),
+    );
+    const result = await putSignedUploadFile({
+      putUrl: "https://storage.example/put",
+      body: new TextEncoder().encode("hello"),
+      contentType: "text/plain; charset=utf-8",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("storage_unavailable");
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it("maps failed PUT responses to upload_incomplete", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 500 })),
+    );
+    const result = await putSignedUploadFile({
+      putUrl: "https://storage.example/put",
+      body: new TextEncoder().encode("hello"),
+      contentType: "text/plain; charset=utf-8",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("upload_incomplete");
+    }
+    vi.unstubAllGlobals();
   });
 });

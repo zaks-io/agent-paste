@@ -1,4 +1,4 @@
-import { McpToolCallParams, mapMcpProtocolError } from "@agent-paste/contracts";
+import { buildMcpToolList, McpToolCallParams, mapMcpProtocolError } from "@agent-paste/contracts";
 import type { McpAuthContext } from "./auth.js";
 import { type JsonRpcResponse, jsonRpcResult, MCP_PROTOCOL_VERSION } from "./jsonrpc.js";
 import { callMcpTool, type McpToolDeps } from "./tools.js";
@@ -37,7 +37,7 @@ export function handleMcpProtocolMethod(input: {
     case "tools/list":
       return {
         kind: "result",
-        response: jsonRpcResult(input.id, { tools: [] }),
+        response: jsonRpcResult(input.id, buildMcpToolList()),
       };
     case "tools/call":
       return handleToolsCall(input);
@@ -58,7 +58,7 @@ async function handleToolsCall(input: {
   if (!input.toolDeps) {
     return {
       kind: "error",
-      error: mapMcpProtocolError("internal_error", "mcp_api_binding_not_configured"),
+      error: mapMcpProtocolError("internal_error", "mcp_service_bindings_not_configured"),
     };
   }
   const parsed = McpToolCallParams.safeParse(input.params);

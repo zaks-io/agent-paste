@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt, or, type SQL, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { artifactFiles, artifacts } from "../schema.js";
 import type { Artifact, StoredFile } from "../types.js";
@@ -108,6 +108,15 @@ export const artifactQueries = {
         updatedAt: new Date(input.updatedAt),
       })
       .where(eq(artifacts.id, artifactId));
+  },
+
+  async updateTitle(db: DrizzleDb, artifactId: string, workspaceId: string, title: string, updatedAt: string) {
+    const rows = await db
+      .update(artifacts)
+      .set({ title, updatedAt: new Date(updatedAt) })
+      .where(and(eq(artifacts.id, artifactId), eq(artifacts.workspaceId, workspaceId)))
+      .returning({ id: artifacts.id });
+    return rows.length > 0;
   },
 
   async updateStaging(

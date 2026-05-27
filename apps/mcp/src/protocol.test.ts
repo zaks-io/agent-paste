@@ -1,3 +1,4 @@
+import { mcpToolContracts } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { handleMcpProtocolMethod } from "./protocol.js";
 
@@ -29,6 +30,7 @@ describe("handleMcpProtocolMethod tools/call", () => {
             Response.json({ error: { code: "not_authenticated", message: "not_authenticated" } }, { status: 401 }),
           ),
         },
+        upload: { fetch: vi.fn() },
         bearerToken: "token-read",
       },
     });
@@ -53,7 +55,11 @@ describe("handleMcpProtocolMethod tools/call", () => {
       params: { name: "whoami", arguments: {} },
       id: 3,
       auth,
-      toolDeps: { api: { fetch: vi.fn(async () => Response.json(whoami)) }, bearerToken: auth.bearerToken },
+      toolDeps: {
+        api: { fetch: vi.fn(async () => Response.json(whoami)) },
+        upload: { fetch: vi.fn() },
+        bearerToken: auth.bearerToken,
+      },
     });
     expect(handled.kind).toBe("result");
     if (handled.kind === "result") {
@@ -61,6 +67,37 @@ describe("handleMcpProtocolMethod tools/call", () => {
         structuredContent: whoami,
         content: [{ type: "text", text: JSON.stringify(whoami) }],
       });
+    }
+  });
+});
+
+describe("handleMcpProtocolMethod protocol errors", () => {
+  it("returns method_not_found for unknown methods", () => {
+    const handled = handleMcpProtocolMethod({
+      method: "unknown/method",
+      params: undefined,
+      id: 10,
+      auth: { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
+    });
+    expect(handled).toEqual({
+      kind: "error",
+      error: expect.objectContaining({ code: "method_not_found" }),
+    });
+  });
+});
+
+describe("handleMcpProtocolMethod tools/list", () => {
+  it("returns descriptors for every ADR 0061 tool", () => {
+    const handled = handleMcpProtocolMethod({
+      method: "tools/list",
+      params: undefined,
+      id: 9,
+      auth: { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
+    });
+    expect(handled.kind).toBe("result");
+    if (handled.kind === "result") {
+      const tools = (handled.response.result as { tools: Array<{ name: string }> }).tools;
+      expect(tools.map((tool) => tool.name)).toEqual(mcpToolContracts.map((tool) => tool.name));
     }
   });
 });
