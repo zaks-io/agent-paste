@@ -1,7 +1,12 @@
 /** True when wrangler queues create failed because the queue already exists. */
 export function isQueueAlreadyExists(result) {
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.toLowerCase();
-  return output.includes("already exists") || output.includes("queue already created");
+  return (
+    output.includes("already exists") ||
+    output.includes("queue already created") ||
+    output.includes("already taken") ||
+    output.includes("[code: 11009]")
+  );
 }
 
 /** True when wrangler queues delete failed because the queue is absent. */
