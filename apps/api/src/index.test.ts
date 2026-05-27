@@ -719,6 +719,33 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it("maps pinned_artifact_cap_exceeded to a 409 contract error on pin", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async pinWebArtifact() {
+          throw new Error("pinned_artifact_cap_exceeded");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/pin", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "idempotency-key": "idem-pin-cap",
+        },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "pinned_artifact_cap_exceeded" },
+    });
+  });
+
   it.each([
     ["create", "https://api.test/v1/web/keys", { method: "POST", body: JSON.stringify({ name: "cli" }) }],
     ["revoke", "https://api.test/v1/web/keys/key_1/revoke", { method: "POST" }],

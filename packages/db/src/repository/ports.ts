@@ -62,6 +62,13 @@ export type Entities = {
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;
     countPinned(workspaceId: string): Promise<number>;
+    tryPinUnderCap(
+      workspaceId: string,
+      artifactId: string,
+      pinnedAt: string,
+      updatedAt: string,
+      cap: number,
+    ): Promise<"pinned" | "cap_exceeded" | "not_found">;
     setPinnedAt(artifactId: string, pinnedAt: string | null, updatedAt: string): Promise<boolean>;
     updatePublished(
       artifactId: string,
