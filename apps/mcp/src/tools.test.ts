@@ -9,9 +9,12 @@ const whoamiBody = {
 };
 
 describe("callMcpTool", () => {
+  const upload = { fetch: vi.fn() };
+
   it("rejects invalid tool call params", async () => {
     const result = await callMcpTool("not-a-tool", {}, auth, {
       api: { fetch: vi.fn() },
+      upload,
       bearerToken: auth.bearerToken,
     });
     expect(result.ok).toBe(false);
@@ -23,6 +26,7 @@ describe("callMcpTool", () => {
   it("rejects tools when delegated scopes are insufficient", async () => {
     const result = await callMcpTool("publish_artifact", { title: "t", body: "b", render_mode: "text" }, auth, {
       api: { fetch: vi.fn() },
+      upload,
       bearerToken: auth.bearerToken,
     });
     expect(result.ok).toBe(false);
@@ -31,24 +35,28 @@ describe("callMcpTool", () => {
     }
   });
 
-  it("returns method_not_found for tools that are not wired yet", async () => {
+  it("returns list_artifacts results from the API binding", async () => {
+    const listBody = {
+      data: [],
+      page_info: { next_cursor: null, has_more: false },
+    };
+    const api = {
+      fetch: vi.fn(async () => Response.json(listBody)),
+    };
     const result = await callMcpTool(
       "list_artifacts",
       {},
       { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
-      { api: { fetch: vi.fn() }, bearerToken: "token-read" },
+      { api, upload, bearerToken: "token-read" },
     );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("method_not_found");
-    }
+    expect(result).toEqual({ ok: true, result: listBody });
   });
 
   it("returns whoami results from the API binding", async () => {
     const api = {
       fetch: vi.fn(async () => Response.json(whoamiBody)),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
     expect(result).toEqual({ ok: true, result: whoamiBody });
   });
 
@@ -56,7 +64,7 @@ describe("callMcpTool", () => {
     const api = {
       fetch: vi.fn(async () => Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 })),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("insufficient_scope");
@@ -67,7 +75,7 @@ describe("callMcpTool", () => {
     const api = {
       fetch: vi.fn(async () => Response.json({ workspace_member: { id: "bad" } })),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("internal_error");

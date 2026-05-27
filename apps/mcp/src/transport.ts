@@ -1,6 +1,6 @@
 import { MCP_RESOURCE_INDICATOR, mapMcpProtocolError, mcpWwwAuthenticateHeader } from "@agent-paste/contracts";
 import { createUnconfiguredMcpBearerAuth, createWorkOsMcpBearerAuth, type VerifyMcpBearer } from "./auth.js";
-import type { ApiServiceBinding } from "./forward.js";
+import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
 import { jsonRpcErrorResponse, mapParseFailure, parseMcpJsonRpcBody, respondWithJsonRpc } from "./jsonrpc.js";
 import { handleMcpProtocolMethod } from "./protocol.js";
 import type { McpWorkOsEnv } from "./workos.js";
@@ -8,11 +8,13 @@ import type { McpWorkOsEnv } from "./workos.js";
 export type McpTransportEnv = McpWorkOsEnv & {
   MCP_RESOURCE?: string;
   API?: ApiServiceBinding;
+  UPLOAD?: UploadServiceBinding;
 };
 
 export type McpTransportDeps = {
   verifyBearer?: VerifyMcpBearer;
   api?: ApiServiceBinding;
+  upload?: UploadServiceBinding;
 };
 
 function resourceFromEnv(env: McpTransportEnv): string {
@@ -85,21 +87,24 @@ export async function handleMcpEndpoint(
   }
 
   const requestId = parsed.request.id;
-  if (requestId === undefined) {
+  if (requestId === undefined || requestId === null) {
     return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "json_rpc_request_id_required"));
   }
 
   const apiBinding = deps.api ?? env.API;
+  const uploadBinding = deps.upload ?? env.UPLOAD;
   const protocolInput: Parameters<typeof handleMcpProtocolMethod>[0] = {
     method: parsed.request.method,
     params: parsed.request.params,
     id: requestId,
     auth: authResult.context,
   };
-  if (apiBinding) {
+  if (apiBinding && uploadBinding) {
     protocolInput.toolDeps = {
       api: apiBinding,
+      upload: uploadBinding,
       bearerToken: authResult.context.bearerToken,
+      jsonRpcId: requestId,
     };
   }
 

@@ -29,6 +29,7 @@ describe("handleMcpProtocolMethod tools/call", () => {
             Response.json({ error: { code: "not_authenticated", message: "not_authenticated" } }, { status: 401 }),
           ),
         },
+        upload: { fetch: vi.fn() },
         bearerToken: "token-read",
       },
     });
@@ -53,7 +54,11 @@ describe("handleMcpProtocolMethod tools/call", () => {
       params: { name: "whoami", arguments: {} },
       id: 3,
       auth,
-      toolDeps: { api: { fetch: vi.fn(async () => Response.json(whoami)) }, bearerToken: auth.bearerToken },
+      toolDeps: {
+        api: { fetch: vi.fn(async () => Response.json(whoami)) },
+        upload: { fetch: vi.fn() },
+        bearerToken: auth.bearerToken,
+      },
     });
     expect(handled.kind).toBe("result");
     if (handled.kind === "result") {

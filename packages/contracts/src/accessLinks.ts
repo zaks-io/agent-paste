@@ -1,5 +1,13 @@
 import { AgentView } from "./agentView.js";
-import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
+import {
+  AccessLinkId,
+  ArtifactId,
+  IsoDateTime,
+  PlainTextDescription,
+  PlainTextTitle,
+  RevisionId,
+  UrlString,
+} from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
@@ -36,6 +44,47 @@ export const AccessLinkSignedUrl = z.object({
   url: UrlString,
 });
 export type AccessLinkSignedUrl = z.infer<typeof AccessLinkSignedUrl>;
+
+export const CreateAccessLinkRequest = z
+  .object({
+    type: AccessLinkType,
+    revision_id: RevisionId.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.type === "revision" && !value.revision_id) {
+      ctx.addIssue({ code: "custom", message: "revision_id is required for revision links" });
+    }
+    if (value.type === "share" && value.revision_id) {
+      ctx.addIssue({ code: "custom", message: "revision_id must not be set for share links" });
+    }
+  });
+export type CreateAccessLinkRequest = z.infer<typeof CreateAccessLinkRequest>;
+
+export const CreateAccessLinkResponse = z
+  .object({
+    id: AccessLinkId,
+    type: AccessLinkType,
+    artifact_id: ArtifactId,
+    revision_id: RevisionId.nullable(),
+    created_at: IsoDateTime,
+  })
+  .strict();
+export type CreateAccessLinkResponse = z.infer<typeof CreateAccessLinkResponse>;
+
+export const MintAccessLinkRequest = z.object({}).strict();
+export type MintAccessLinkRequest = z.infer<typeof MintAccessLinkRequest>;
+
+export const UpdateDisplayMetadataRequest = z
+  .object({
+    title: PlainTextTitle.optional(),
+    description: PlainTextDescription.nullable().optional(),
+  })
+  .strict()
+  .refine((value) => value.title !== undefined || value.description !== undefined, {
+    message: "At least one of title or description is required",
+  });
+export type UpdateDisplayMetadataRequest = z.infer<typeof UpdateDisplayMetadataRequest>;
 
 export const AccessLinkResolveRequest = z.object({
   public_id: AccessLinkPublicId,

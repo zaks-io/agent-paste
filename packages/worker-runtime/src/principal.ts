@@ -53,19 +53,23 @@ export type Principal =
 
 export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
   ? ApiKeyPrincipal
-  : Auth extends "workos_access_token"
-    ? WorkOsAccessTokenPrincipal
-    : Auth extends "operator"
-      ? OperatorPrincipal
-      : Auth extends "signed_agent_view_token"
-        ? SignedAgentViewTokenPrincipal
-        : Auth extends "signed_upload_url"
-          ? SignedUploadUrlPrincipal
-          : Auth extends "signed_content_token"
-            ? SignedContentTokenPrincipal
-            : Auth extends "none"
-              ? AnonymousPrincipal
-              : Principal;
+  : Auth extends "api_key_or_mcp_oauth"
+    ? ApiKeyPrincipal | WorkOsAccessTokenPrincipal
+    : Auth extends "mcp_oauth"
+      ? WorkOsAccessTokenPrincipal
+      : Auth extends "workos_access_token"
+        ? WorkOsAccessTokenPrincipal
+        : Auth extends "operator"
+          ? OperatorPrincipal
+          : Auth extends "signed_agent_view_token"
+            ? SignedAgentViewTokenPrincipal
+            : Auth extends "signed_upload_url"
+              ? SignedUploadUrlPrincipal
+              : Auth extends "signed_content_token"
+                ? SignedContentTokenPrincipal
+                : Auth extends "none"
+                  ? AnonymousPrincipal
+                  : Principal;
 
 export type AuthSuccess<P extends Principal = Principal> = { ok: true; principal: P };
 export type AuthFailure = { ok: false; code: ErrorCode; message?: string };

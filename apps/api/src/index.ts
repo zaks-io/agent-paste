@@ -212,27 +212,15 @@ const apiAuthResolvers = {
       : ({ ok: false, code: "not_authenticated" } as const);
   },
   async mcp_oauth(context: Context) {
+    return authenticateMcpPrincipal(context);
+  },
+  async api_key_or_mcp_oauth(context: Context) {
     const env = context.env as Env;
-    const authenticated = await authenticateMcpBearer(context.req.raw, env);
-    if (!authenticated) {
-      return { ok: false, code: "not_authenticated" } as const;
+    const apiKeyActor = await authenticateApiKey(context.req.raw, env);
+    if (apiKeyActor) {
+      return { ok: true, principal: { kind: "api_key", actor: apiKeyActor } } as const;
     }
-    const db = apiDatabase(env);
-    if (!db) {
-      return { ok: false, code: "database_unavailable" } as const;
-    }
-    const actor = await resolveMcpMemberActor(authenticated, db);
-    if (!actor) {
-      return { ok: false, code: "forbidden" } as const;
-    }
-    return {
-      ok: true,
-      principal: {
-        kind: "workos_access_token",
-        identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
-        actor,
-      },
-    } as const;
+    return authenticateMcpPrincipal(context);
   },
   async signed_agent_view_token(context: Context) {
     const token = context.req.param("token");
@@ -301,6 +289,27 @@ apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) 
 );
 apiDbRegistrar.mount(contractById("mcp.whoami"), async (context, principal, db) =>
   mcpWhoami(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("artifacts.list"), async (context, principal, db) =>
+  listMemberArtifactsRoute(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("artifacts.delete"), async (context, principal, db, guard) =>
+  deleteMemberArtifactRoute(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("artifacts.updateDisplayMetadata"), async (context, principal, db, guard) =>
+  updateDisplayMetadataRoute(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("accessLinks.create"), async (context, principal, db, guard) =>
+  createAccessLinkRoute(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("accessLinks.mint"), async (context, principal, db, guard) =>
+  mintAccessLinkRoute(context as AppContext, principal, db, guard),
+);
+apiDbRegistrar.mount(contractById("accessLinks.list"), async (context, principal, db) =>
+  listAccessLinksRoute(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("accessLinks.revoke"), async (context, principal, db) =>
+  revokeAccessLinkRoute(context as AppContext, principal, db),
 );
 apiNoDbRegistrar.mount(contractById("usagePolicy.get"), async (context) => getUsagePolicy(context as AppContext));
 apiDbRegistrar.mount(contractById("apiKeys.revokeCurrent"), async (context, principal, db) =>
@@ -448,6 +457,227 @@ async function whoami(context: AppContext, principal: Principal, db: Repository)
   return jsonResponse(context, await db.getWhoami(actor));
 }
 
+async function authenticateMcpPrincipal(context: Context) {
+  const env = context.env as Env;
+  const authenticated = await authenticateMcpBearer(context.req.raw, env);
+  if (!authenticated) {
+    return { ok: false, code: "not_authenticated" } as const;
+  }
+  const db = apiDatabase(env);
+  if (!db) {
+    return { ok: false, code: "database_unavailable" } as const;
+  }
+  const actor = await resolveMcpMemberActor(authenticated, db);
+  if (!actor) {
+    return { ok: false, code: "forbidden" } as const;
+  }
+  return {
+    ok: true,
+    principal: {
+      kind: "workos_access_token",
+      identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
+      actor,
+    },
+  } as const;
+}
+
+function workspaceApiActor(principal: Principal): ApiActor | null {
+  if (principal.kind === "api_key") {
+    return principal.actor as ApiActor;
+  }
+  if (principal.kind === "workos_access_token" && principal.actor?.type === "member") {
+    return principal.actor as ApiActor;
+  }
+  return null;
+}
+
+function webBaseUrl(env: Env): string {
+  return (env as Env & { WEB_BASE_URL?: string }).WEB_BASE_URL ?? "https://app.agent-paste.sh";
+}
+
+function accessLinkSigningSecret(env: Env): { secret: string; kid: number } | null {
+  const ring = accessLinkSigningRingFromEnv(env);
+  if (!ring) {
+    return null;
+  }
+  return { secret: ring.signingSecret(), kid: ring.signingKid };
+}
+
+async function listMemberArtifactsRoute(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const pagination = parsePagination(context.req.raw);
+  if (!pagination.ok) {
+    return errorResponse(context, pagination.code);
+  }
+  try {
+    return jsonResponse(context, await db.listMemberArtifacts(actor, pagination.value));
+  } catch (error) {
+    if (error instanceof Error && error.message === "invalid_cursor") {
+      return errorResponse(context, "invalid_cursor");
+    }
+    throw error;
+  }
+}
+
+async function deleteMemberArtifactRoute(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardState,
+): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const artifactId = context.req.param("artifact_id") ?? "";
+  const idempotencyKey = guard.idempotencyKey ?? `mcp-delete:${artifactId}`;
+  const env = context.env;
+  return runIdempotent(context, async () => {
+    const result = await db.deleteMemberArtifact({ actor, idempotencyKey, artifactId });
+    await notifyLiveUpdateDisconnect(env, {
+      artifactId,
+      audiences: ["share", "dashboard"],
+      reason: "deletion",
+    });
+    return result;
+  });
+}
+
+async function updateDisplayMetadataRoute(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"artifacts.updateDisplayMetadata">,
+): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const body = guard.body;
+  try {
+    return jsonResponse(
+      context,
+      await db.updateArtifactDisplayMetadata({
+        actor,
+        artifactId: context.req.param("artifact_id") ?? "",
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.description !== undefined ? { description: body.description } : {}),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "artifact_not_found") {
+      return errorResponse(context, "artifact_not_found");
+    }
+    if (error instanceof Error && error.message === "invalid_request") {
+      return errorResponse(context, "invalid_request");
+    }
+    throw error;
+  }
+}
+
+async function createAccessLinkRoute(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"accessLinks.create">,
+): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const body = guard.body;
+  try {
+    return jsonResponse(
+      context,
+      await db.createMemberAccessLink({
+        actor,
+        artifactId: context.req.param("artifact_id") ?? "",
+        type: body.type,
+        revisionId: body.revision_id ?? null,
+      }),
+      201,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "artifact_not_found") {
+      return errorResponse(context, "artifact_not_found");
+    }
+    if (error instanceof Error && error.message === "not_found") {
+      return errorResponse(context, "not_found");
+    }
+    throw error;
+  }
+}
+
+async function mintAccessLinkRoute(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  _guard: GuardFor<"accessLinks.mint">,
+): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const signing = accessLinkSigningSecret(context.env);
+  if (!signing) {
+    return errorResponse(context, "database_unavailable");
+  }
+  return runIdempotent(context, async () => {
+    try {
+      return await db.mintMemberAccessLink({
+        actor,
+        accessLinkId: context.req.param("access_link_id") ?? "",
+        appBaseUrl: webBaseUrl(context.env),
+        signingSecret: signing.secret,
+        signingKid: signing.kid,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "not_found" ||
+          error.message.startsWith("access_link_inactive") ||
+          error.message === "access_link_lockdown_active")
+      ) {
+        throw new RepositoryRouteError("not_found");
+      }
+      throw error;
+    }
+  });
+}
+
+async function listAccessLinksRoute(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  const result = await db.listMemberAccessLinks(actor, context.req.param("artifact_id") ?? "");
+  return result ? jsonResponse(context, result) : errorResponse(context, "artifact_not_found");
+}
+
+async function revokeAccessLinkRoute(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  try {
+    return jsonResponse(
+      context,
+      await db.revokeMemberAccessLink({
+        actor,
+        accessLinkId: context.req.param("access_link_id") ?? "",
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "not_found") {
+      return errorResponse(context, "not_found");
+    }
+    throw error;
+  }
+}
+
 async function mcpWhoami(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "workos_access_token" || !principal.actor || principal.actor.type !== "member") {
     return errorResponse(context, "not_authenticated");
@@ -494,10 +724,10 @@ async function authenticatedAgentView(
   params: RouteParams,
 ): Promise<Response> {
   const env = context.env;
-  if (principal.kind !== "api_key") {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const actor = principal.actor as ApiActor;
 
   const input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string } = {
     actor,
@@ -530,10 +760,10 @@ async function listRevisions(
   db: Repository,
   params: RouteParams,
 ): Promise<Response> {
-  if (principal.kind !== "api_key") {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const actor = principal.actor as ApiActor;
   const result = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
   return result ? jsonResponse(context, result) : errorResponse(context, "artifact_not_found");
 }
@@ -545,10 +775,10 @@ async function publishRevision(
   guard: GuardState,
   params: RouteParams,
 ): Promise<Response> {
-  if (principal.kind !== "api_key") {
+  const actor = workspaceApiActor(principal);
+  if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const actor = principal.actor as ApiActor;
   const idempotencyKey = guard.idempotencyKey ?? "";
   return runIdempotent(context, async () => {
     try {

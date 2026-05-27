@@ -1,3 +1,4 @@
+import { assertAccessLinkMintable, createAccessLinkRow, mintAccessLinkSignedUrl } from "../access-links.js";
 import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
@@ -73,6 +74,16 @@ function memberCommandActor(actor: ApiActor): CommandActor {
     throw new Error(`unexpected_actor_type:${actor.type}`);
   }
   return { type: "member", id: actor.id, workspaceId: actor.workspace_id };
+}
+
+function workspaceCommandActor(actor: ApiActor): CommandActor {
+  if (actor.type === "api_key") {
+    return apiCommandActor(actor);
+  }
+  if (actor.type === "member") {
+    return memberCommandActor(actor);
+  }
+  throw new Error("unexpected_actor_type");
 }
 
 function adminCommandActor(actor: AdminActor, workspaceId: string | null): CommandActor {
@@ -926,7 +937,7 @@ export class RepositoryCore implements Repository {
   }) {
     return this.uow.command(
       {
-        actor: apiCommandActor(input.actor),
+        actor: workspaceCommandActor(input.actor),
         operation: "upload.session.create",
         idempotencyKey: input.idempotencyKey,
         scope: workspaceScope(input.actor.workspace_id),
@@ -969,7 +980,7 @@ export class RepositoryCore implements Repository {
   }) {
     return this.uow.command(
       {
-        actor: apiCommandActor(input.actor),
+        actor: workspaceCommandActor(input.actor),
         operation: "upload.session.finalize",
         idempotencyKey: input.idempotencyKey,
         scope: workspaceScope(input.actor.workspace_id),
@@ -994,7 +1005,7 @@ export class RepositoryCore implements Repository {
   }) {
     return this.uow.command(
       {
-        actor: apiCommandActor(input.actor),
+        actor: workspaceCommandActor(input.actor),
         operation: "artifact.revision.publish",
         idempotencyKey: input.idempotencyKey,
         scope: workspaceScope(input.actor.workspace_id),
@@ -1188,6 +1199,223 @@ export class RepositoryCore implements Repository {
         };
       },
     );
+  }
+
+  async listMemberArtifacts(actor: ApiActor, pagination: { cursor?: string; limit?: number } = {}) {
+    const limit = normalizeWebArtifactLimit(pagination.limit);
+    return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
+      const rows = await entities.artifacts.listWebPage({
+        workspaceId: actor.workspace_id,
+        limit: limit + 1,
+        ...(pagination.cursor ? { cursor: decodeWebArtifactCursor(pagination.cursor) } : {}),
+      });
+      const active = rows.filter((row) => row.status === "active" && !row.deleted_at);
+      const page = active.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        data: page.map(toArtifactSummary),
+        page_info: {
+          next_cursor: active.length > limit && last ? encodeWebArtifactCursor(last) : null,
+          has_more: active.length > limit,
+        },
+      };
+    });
+  }
+
+  async deleteMemberArtifact(input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date }) {
+    const deletedAt = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: workspaceCommandActor(input.actor),
+        operation: "artifact.delete",
+        idempotencyKey: input.idempotencyKey,
+        scope: workspaceScope(input.actor.workspace_id),
+        now: deletedAt,
+      },
+      async (entities) => {
+        const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+        if (!artifact || artifact.status !== "active") {
+          throw new Error("artifact_not_found");
+        }
+        await entities.artifacts.markDeleted(artifact.id, deletedAt);
+        await entities.operationEvents.insert({
+          actorType: input.actor.type,
+          actorId: input.actor.id,
+          action: "artifact.deleted",
+          targetType: "artifact",
+          targetId: artifact.id,
+          workspaceId: artifact.workspace_id,
+          details: {},
+          occurredAt: deletedAt,
+        });
+        return { artifact_id: artifact.id, deleted_at: deletedAt };
+      },
+    );
+  }
+
+  async updateArtifactDisplayMetadata(input: {
+    actor: ApiActor;
+    artifactId: string;
+    title?: string;
+    description?: string | null;
+    now?: Date;
+  }) {
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: workspaceCommandActor(input.actor),
+        operation: "artifact.display_metadata.update",
+        idempotencyKey: `display-metadata:${input.artifactId}:${now}`,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+        if (!artifact || artifact.status !== "active") {
+          throw new Error("artifact_not_found");
+        }
+        if (input.title === undefined && input.description === undefined) {
+          throw new Error("invalid_request");
+        }
+        if (input.description !== undefined) {
+          throw new Error("invalid_request");
+        }
+        if (input.title !== undefined) {
+          await entities.artifacts.updateTitle(artifact.id, input.actor.workspace_id, input.title, now);
+        }
+        const updated = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
+        if (!updated) {
+          throw new Error("artifact_not_found");
+        }
+        return {
+          title: updated.title,
+          description: null,
+        };
+      },
+    );
+  }
+
+  async createMemberAccessLink(input: {
+    actor: ApiActor;
+    artifactId: string;
+    type: import("../types.js").AccessLink["type"];
+    revisionId?: string | null;
+    now?: Date;
+  }) {
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: workspaceCommandActor(input.actor),
+        operation: "access_link.create",
+        idempotencyKey: `access-link:create:${input.artifactId}:${input.type}:${input.revisionId ?? "latest"}:${now}`,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+        if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
+          throw new Error("artifact_not_found");
+        }
+        const revisionId = input.type === "revision" ? (input.revisionId ?? null) : null;
+        if (input.type === "revision") {
+          const revision = revisionId ? await entities.revisions.findById(revisionId, input.actor.workspace_id) : null;
+          if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
+            throw new Error("not_found");
+          }
+        }
+        const link = createAccessLinkRow({
+          workspaceId: input.actor.workspace_id,
+          artifactId: artifact.id,
+          type: input.type,
+          revisionId,
+          createdByType: input.actor.type === "member" ? "member" : "api_key",
+          createdById: input.actor.id,
+          now,
+        });
+        await entities.accessLinks.insert(link);
+        return {
+          id: link.id,
+          type: link.type,
+          artifact_id: link.artifact_id,
+          revision_id: link.revision_id,
+          created_at: link.created_at,
+        };
+      },
+    );
+  }
+
+  async listMemberAccessLinks(actor: ApiActor, artifactId: string) {
+    return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
+      const artifact = await entities.artifacts.findById(artifactId, actor.workspace_id);
+      if (!artifact) {
+        return null;
+      }
+      const links = await entities.accessLinks.listForArtifact(artifact.id);
+      return {
+        artifact_id: artifact.id,
+        items: links.map((link) => ({
+          id: link.id,
+          type: link.type,
+          artifact_id: link.artifact_id,
+          revision_id: link.revision_id,
+          created_at: link.created_at,
+          expires_at: link.expires_at,
+          revoked_at: link.revoked_at,
+        })),
+      };
+    });
+  }
+
+  async revokeMemberAccessLink(input: { actor: ApiActor; accessLinkId: string; now?: Date }) {
+    const now = nowIso(input.now);
+    return this.uow.command(
+      {
+        actor: workspaceCommandActor(input.actor),
+        operation: "access_link.revoke",
+        idempotencyKey: `access-link:revoke:${input.accessLinkId}`,
+        scope: workspaceScope(input.actor.workspace_id),
+        now,
+      },
+      async (entities) => {
+        const link = await entities.accessLinks.findById(input.accessLinkId, input.actor.workspace_id);
+        if (!link) {
+          throw new Error("not_found");
+        }
+        const revoked = await entities.accessLinks.revoke(link.id, now);
+        if (!revoked) {
+          throw new Error("not_found");
+        }
+        return { access_link_id: link.id, revoked_at: now };
+      },
+    );
+  }
+
+  async mintMemberAccessLink(input: {
+    actor: ApiActor;
+    accessLinkId: string;
+    appBaseUrl: string;
+    signingSecret: string;
+    signingKid: number;
+    now?: Date;
+  }) {
+    const now = nowIso(input.now);
+    return this.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
+      const link = await entities.accessLinks.findById(input.accessLinkId, input.actor.workspace_id);
+      if (!link) {
+        throw new Error("not_found");
+      }
+      const artifact = await entities.artifacts.findById(link.artifact_id, input.actor.workspace_id);
+      assertAccessLinkMintable(link, artifact, new Date(now));
+      const minted = await mintAccessLinkSignedUrl({
+        link,
+        artifact,
+        appBaseUrl: input.appBaseUrl,
+        signingSecret: input.signingSecret,
+        signingKid: input.signingKid,
+        now: new Date(now),
+      });
+      return { url: minted.url };
+    });
   }
 
   async listArtifacts(workspaceId?: string, status?: string) {

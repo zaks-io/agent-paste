@@ -56,6 +56,8 @@ export function postgresEntities(ctx: PostgresContext): Entities {
         artifactQueries.setPinnedAt(drizzle, artifactId, pinnedAt, updatedAt),
       updatePublished: (artifactId, input) => artifactQueries.updatePublished(drizzle, artifactId, input),
       updateStaging: (artifactId, input) => artifactQueries.updateStaging(drizzle, artifactId, input),
+      updateTitle: (artifactId, workspaceId, title, updatedAt) =>
+        artifactQueries.updateTitle(drizzle, artifactId, workspaceId, title, updatedAt),
       markDeleted: async (artifactId, deletedAt) => {
         await sql.query(
           `update artifacts

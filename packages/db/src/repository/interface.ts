@@ -254,6 +254,64 @@ export type Repository = {
     revisionId: string;
     now: string;
   }): Promise<PublishResult>;
+  listMemberArtifacts(
+    actor: ApiActor,
+    pagination?: { cursor?: string; limit?: number },
+  ): Promise<{ data: ArtifactSummary[]; page_info: PageInfo }>;
+  deleteMemberArtifact(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    now?: Date;
+  }): Promise<{ artifact_id: string; deleted_at: string }>;
+  updateArtifactDisplayMetadata(input: {
+    actor: ApiActor;
+    artifactId: string;
+    title?: string;
+    description?: string | null;
+    now?: Date;
+  }): Promise<{ title: string; description: string | null }>;
+  createMemberAccessLink(input: {
+    actor: ApiActor;
+    artifactId: string;
+    type: AccessLinkType;
+    revisionId?: string | null;
+    now?: Date;
+  }): Promise<{
+    id: string;
+    type: AccessLinkType;
+    artifact_id: string;
+    revision_id: string | null;
+    created_at: string;
+  }>;
+  listMemberAccessLinks(
+    actor: ApiActor,
+    artifactId: string,
+  ): Promise<{
+    artifact_id: string;
+    items: Array<{
+      id: string;
+      type: AccessLinkType;
+      artifact_id: string;
+      revision_id: string | null;
+      created_at: string;
+      expires_at: string | null;
+      revoked_at: string | null;
+    }>;
+  } | null>;
+  revokeMemberAccessLink(input: {
+    actor: ApiActor;
+    accessLinkId: string;
+    now?: Date;
+  }): Promise<{ access_link_id: string; revoked_at: string }>;
+  mintMemberAccessLink(input: {
+    actor: ApiActor;
+    accessLinkId: string;
+    appBaseUrl: string;
+    signingSecret: string;
+    signingKid: number;
+    now?: Date;
+  }): Promise<{ url: string }>;
   listRevisions(input: { actor: ApiActor; artifactId: string }): Promise<{
     artifact_id: string;
     items: Array<{

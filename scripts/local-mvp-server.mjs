@@ -359,6 +359,13 @@ const uploadEnv = {
   UPLOAD_SIGNING_SECRET: uploadSecret,
   UPLOAD_BASE_URL: uploadBaseUrl,
   UPLOAD_URL_TTL_SECONDS: "900",
+  WORKOS_API_KEY: process.env.WORKOS_API_KEY,
+  WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
+  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh",
+  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
+  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
+  WORKOS_CLI_ISSUER: process.env.WORKOS_CLI_ISSUER,
+  WORKOS_CLI_JWKS_URL: process.env.WORKOS_CLI_JWKS_URL,
 };
 const contentEnv = {
   ARTIFACTS: artifacts,

@@ -271,6 +271,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@agent-paste/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
@@ -342,6 +345,9 @@ importers:
       hono:
         specifier: ^4.12.21
         version: 4.12.21
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
     devDependencies:
       typescript:
         specifier: 'catalog:'

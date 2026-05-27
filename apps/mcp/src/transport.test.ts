@@ -208,7 +208,7 @@ describe("MCP streamable HTTP transport", () => {
     expect(await response.text()).toBe("");
   });
 
-  it("returns internal_error for tools/call when the API binding is missing", async () => {
+  it("returns internal_error for tools/call when service bindings are missing", async () => {
     const response = await mcpPost(
       {
         jsonrpc: "2.0",
@@ -225,6 +225,7 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("forwards whoami over the API service binding", async () => {
+    const upload = { fetch: async () => new Response(null, { status: 500 }) };
     const api = {
       async fetch(request: Request) {
         expect(request.headers.get("authorization")).toBe("Bearer mcp-valid-token");
@@ -259,7 +260,7 @@ describe("MCP streamable HTTP transport", () => {
         }),
       }),
       {},
-      { verifyBearer: testAuth, api },
+      { verifyBearer: testAuth, api, upload },
     );
 
     expect(response.status).toBe(200);
@@ -270,6 +271,7 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("returns insufficient_scope when the token lacks required scopes", async () => {
+    const upload = { fetch: async () => new Response(null, { status: 500 }) };
     const api = { fetch: async () => new Response(null, { status: 500 }) };
     const response = await handleMcpEndpoint(
       new Request("https://mcp.test/", {
@@ -286,7 +288,7 @@ describe("MCP streamable HTTP transport", () => {
         }),
       }),
       {},
-      { verifyBearer: testAuth, api },
+      { verifyBearer: testAuth, api, upload },
     );
 
     expect(response.status).toBe(403);
@@ -399,7 +401,7 @@ describe("MCP streamable HTTP transport", () => {
     expect(response.headers.get("mcp-session-id")).toBe("session-abc");
   });
 
-  it("lists no tools until the tool surface is implemented", async () => {
+  it("lists all ADR 0061 tools with JSON Schema inputs", async () => {
     const response = await mcpPost(
       {
         jsonrpc: "2.0",
@@ -410,10 +412,28 @@ describe("MCP streamable HTTP transport", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const body = await response.json();
+    expect(body).toMatchObject({
       jsonrpc: "2.0",
       id: 4,
-      result: { tools: [] },
     });
+    const tools = (body as { result?: { tools?: Array<{ name: string }> } }).result?.tools ?? [];
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "publish_artifact",
+      "add_revision",
+      "list_artifacts",
+      "read_artifact",
+      "list_revisions",
+      "delete_artifact",
+      "update_display_metadata",
+      "create_share_link",
+      "create_revision_link",
+      "list_access_links",
+      "revoke_access_link",
+      "whoami",
+    ]);
+    expect(tools.every((tool) => tool.name && "inputSchema" in tool && typeof tool.inputSchema === "object")).toBe(
+      true,
+    );
   });
 });

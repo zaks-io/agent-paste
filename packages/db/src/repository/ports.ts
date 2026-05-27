@@ -94,6 +94,7 @@ export type Entities = {
       },
     ): Promise<void>;
     markDeleted(artifactId: string, deletedAt: string): Promise<void>;
+    updateTitle(artifactId: string, workspaceId: string, title: string, updatedAt: string): Promise<boolean>;
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
     setAccessLinkLockdown(artifactId: string, lockdownAt: string | null): Promise<boolean>;

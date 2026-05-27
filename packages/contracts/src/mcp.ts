@@ -1,3 +1,4 @@
+import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { AccessLinkSignedUrl, AccessLinkType } from "./accessLinks.js";
 import { AgentView, DisplayMetadata } from "./agentView.js";
 import { ArtifactListResponse, DeleteArtifactResponse } from "./artifacts.js";
@@ -419,7 +420,7 @@ export const mcpToolContracts = [
         idempotency: "same_as_tool",
       },
       {
-        routeId: "accessLinks.createShare",
+        routeId: "accessLinks.create",
         app: "api",
         method: "POST",
         path: "/v1/artifacts/{artifact_id}/access-links",
@@ -481,7 +482,7 @@ export const mcpToolContracts = [
         idempotency: "same_as_tool",
       },
       {
-        routeId: "accessLinks.createShare",
+        routeId: "accessLinks.create",
         app: "api",
         method: "POST",
         path: "/v1/artifacts/{artifact_id}/access-links",
@@ -611,7 +612,7 @@ export const mcpToolContracts = [
     outputSchema: "create_share_link",
     forwardedCalls: [
       {
-        routeId: "accessLinks.createShare",
+        routeId: "accessLinks.create",
         app: "api",
         method: "POST",
         path: "/v1/artifacts/{artifact_id}/access-links",
@@ -639,7 +640,7 @@ export const mcpToolContracts = [
     outputSchema: "create_revision_link",
     forwardedCalls: [
       {
-        routeId: "accessLinks.createRevision",
+        routeId: "accessLinks.create",
         app: "api",
         method: "POST",
         path: "/v1/artifacts/{artifact_id}/access-links",
@@ -909,5 +910,34 @@ export function toMcpJsonRpcError(error: McpMappedToolError): McpJsonRpcError {
       ...(error.requestId ? { request_id: error.requestId } : {}),
       ...(error.docs ? { docs: error.docs } : {}),
     },
+  };
+}
+
+export type McpToolListEntry = {
+  name: McpToolName;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
+/** MCP `tools/list` descriptors derived from Zod input schemas (ADR 0061). */
+export function buildMcpToolList(): { tools: McpToolListEntry[] } {
+  const registry = new OpenAPIRegistry();
+  for (const tool of mcpToolContracts) {
+    registry.register(`McpInput_${tool.name}`, mcpToolInputSchemas[tool.name]);
+  }
+  const document = new OpenApiGeneratorV31(registry.definitions).generateDocument({
+    openapi: "3.1.0",
+    info: { title: "agent-paste-mcp-tools", version: "0.1.0" },
+  });
+  const schemas = document.components?.schemas ?? {};
+  return {
+    tools: mcpToolContracts.map((tool) => {
+      const schema = schemas[`McpInput_${tool.name}`];
+      return {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: (schema ?? { type: "object" }) as Record<string, unknown>,
+      };
+    }),
   };
 }
