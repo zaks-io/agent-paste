@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveMcpIdempotencyKey,
+  McpPublishArtifactInput,
+  McpToolName,
   mapApiErrorToMcp,
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
+  mcpIdempotencySegment,
   mcpProtectedResourceMetadata,
   mcpTokenHasRequiredScopes,
-  mcpToolContracts,
   mcpToolContractByName,
-  McpPublishArtifactInput,
-  McpToolName,
+  mcpToolContracts,
   toMcpJsonRpcError,
 } from "./mcp.js";
+import { IdempotencyKey } from "./primitives.js";
 
 describe("MCP tool registry", () => {
   it("registers the twelve ADR 0061 tools in snake_case", () => {
@@ -50,9 +52,9 @@ describe("MCP tool registry", () => {
       "accessLinks.createShare",
       "accessLinks.mint",
     ]);
-    expect(publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url")).toBe(
-      true,
-    );
+    expect(
+      publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
+    ).toBe(true);
   });
 
   it("accepts only text render modes for publish tools", () => {
@@ -99,13 +101,49 @@ describe("MCP auth and idempotency helpers", () => {
   });
 
   it("derives idempotency keys from token sub, json rpc id, and tool name", () => {
-    expect(
-      deriveMcpIdempotencyKey({
-        tokenSub: "user_01",
-        jsonRpcId: 42,
-        toolName: "publish_artifact",
-      }),
-    ).toBe("mcp:user_01:42:publish_artifact");
+    const key = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 42,
+      toolName: "publish_artifact",
+    });
+    expect(key).toBe("mcp:user_01:42:publish_artifact");
+    expect(IdempotencyKey.safeParse(key).success).toBe(true);
+  });
+
+  it("sanitizes json rpc ids with spaces and slashes into valid idempotency keys", () => {
+    const withSpaces = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: "task 1",
+      toolName: "publish_artifact",
+    });
+    expect(withSpaces).toBe("mcp:user_01:task_1:publish_artifact");
+    expect(IdempotencyKey.safeParse(withSpaces).success).toBe(true);
+
+    const withSlashes = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: "req/phase-2",
+      toolName: "add_revision",
+    });
+    expect(withSlashes).toBe("mcp:user_01:req_phase-2:add_revision");
+    expect(IdempotencyKey.safeParse(withSlashes).success).toBe(true);
+  });
+
+  it("hashes long or unsafe json rpc ids to a bounded stable segment", () => {
+    const longId = "x".repeat(500);
+    const first = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: longId,
+      toolName: "publish_artifact",
+    });
+    const second = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: longId,
+      toolName: "publish_artifact",
+    });
+    expect(first).toBe(second);
+    expect(first.length).toBeLessThanOrEqual(200);
+    expect(IdempotencyKey.safeParse(first).success).toBe(true);
+    expect(mcpIdempotencySegment(longId)).toMatch(/^h[0-9a-f]{8}$/);
   });
 });
 
@@ -136,9 +174,7 @@ describe("MCP error mapping", () => {
   });
 
   it("renders JSON-RPC error envelopes with stable data codes", () => {
-    const envelope = toMcpJsonRpcError(
-      mapMcpProtocolError("insufficient_scope", "Actor lacks share scope"),
-    );
+    const envelope = toMcpJsonRpcError(mapMcpProtocolError("insufficient_scope", "Actor lacks share scope"));
     expect(envelope.data?.code).toBe("insufficient_scope");
     expect(envelope.message).toBe("Actor lacks share scope");
   });
