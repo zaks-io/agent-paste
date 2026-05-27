@@ -81,6 +81,19 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: node scripts/delete-neon-pr-branch.mjs
 
+      - name: Delete legacy GitHub PR environment
+        if: ${{ always() && steps.pr.outputs.number != '' }}
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.PR_PREVIEW_ENVIRONMENT_CLEANUP_TOKEN }}
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "Skipping legacy pr-preview-$PR_NUMBER GitHub Environment deletion; set PR_PREVIEW_ENVIRONMENT_CLEANUP_TOKEN with repository Administration write permission to enable it."
+            exit 0
+          fi
+          node scripts/delete-github-pr-preview-environment.mjs
+
       - name: Comment cleanup status
         if: ${{ github.event_name == 'pull_request' && success() }}
         uses: actions/github-script@v8
