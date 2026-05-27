@@ -1,5 +1,5 @@
 import {
-  cachedLookup,
+  cachedNegativeLookup,
   cacheKeyForSecret,
   getRequestId,
   REQUEST_ID_HEADER,
@@ -338,12 +338,21 @@ async function authenticateApiKey(request: Request, env: Env): Promise<UploadAct
     return null;
   }
 
-  return cachedLookup({
-    namespace: "upload-api-key-auth",
-    key: await cacheKeyForSecret(token),
-    ttlSeconds: AUTH_CACHE_TTL_SECONDS,
-    lookup: () => runtime.auth.verifyApiKey(token),
-  });
+  return validApiKeyActor(
+    (await cachedNegativeLookup({
+      namespace: "upload-api-key-auth-v2",
+      key: await cacheKeyForSecret(token),
+      ttlSeconds: AUTH_CACHE_TTL_SECONDS,
+      lookup: () => runtime.auth.verifyApiKey(token),
+    })) ?? null,
+  );
+}
+
+function validApiKeyActor(actor: (UploadActor & { expires_at?: string | null }) | null): UploadActor | null {
+  if (!actor?.expires_at) {
+    return actor;
+  }
+  return Date.parse(actor.expires_at) <= Date.now() ? null : actor;
 }
 
 function uploadDatabase(env: Env): Repository | undefined {

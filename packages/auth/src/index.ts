@@ -31,6 +31,7 @@ type EdgeCache = {
 };
 
 const memoryCache = new Map<string, CacheEntry>();
+const NEGATIVE_CACHE_SENTINEL = "null";
 
 export async function cacheKeyForSecret(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -38,37 +39,93 @@ export async function cacheKeyForSecret(value: string): Promise<string> {
 }
 
 export async function cachedLookup<T>(options: CacheLookupOptions<T>): Promise<T> {
-  const cacheKey = `${options.namespace}:${options.key}`;
+  const cacheKey = cacheEntryKey(options.namespace, options.key);
   const now = Date.now();
-  const local = memoryCache.get(cacheKey);
-  if (local && local.expiresAt > now) {
-    return JSON.parse(local.value) as T;
-  }
-
-  const edgeCache = getEdgeCache();
-  const edgeRequest = new Request(
-    `https://agent-paste.internal/cache/${encodeURIComponent(options.namespace)}/${encodeURIComponent(options.key)}`,
-  );
-  const edgeResponse = await edgeCache?.match(edgeRequest);
-  if (edgeResponse) {
-    const value = await edgeResponse.text();
-    memoryCache.set(cacheKey, {
-      expiresAt: now + memoryTtlFromEdgeResponse(edgeResponse, options.ttlSeconds) * 1000,
-      value,
-    });
-    return JSON.parse(value) as T;
+  const cached = await readCachedPayload(cacheKey, now, options.ttlSeconds);
+  if (cached !== undefined) {
+    return JSON.parse(cached) as T;
   }
 
   const value = await options.lookup();
-  const encoded = JSON.stringify(value);
-  memoryCache.set(cacheKey, { expiresAt: now + options.ttlSeconds * 1000, value: encoded });
+  await writeCachedPayload(options.namespace, options.key, options.ttlSeconds, JSON.stringify(value), now);
+  return value;
+}
+
+/** Caches only failed (null/undefined) lookups so revocable credentials always re-hit the source of truth. */
+export async function cachedNegativeLookup<T>(
+  options: CacheLookupOptions<T | null | undefined>,
+): Promise<T | null | undefined> {
+  const cacheKey = cacheEntryKey(options.namespace, options.key);
+  const now = Date.now();
+  const cached = await readCachedPayload(cacheKey, now, options.ttlSeconds);
+  if (cached !== undefined) {
+    const parsed = parseCachedPayload(cached);
+    if (parsed === null || parsed === undefined) {
+      return parsed;
+    }
+  }
+
+  const value = await options.lookup();
+  if (value === null || value === undefined) {
+    await writeCachedPayload(options.namespace, options.key, options.ttlSeconds, NEGATIVE_CACHE_SENTINEL, now);
+  }
+  return value;
+}
+
+function cacheEntryKey(namespace: string, key: string): string {
+  return `${namespace}:${key}`;
+}
+
+function parseCachedPayload(payload: string): unknown {
+  return JSON.parse(payload) as unknown;
+}
+
+async function readCachedPayload(
+  cacheKey: string,
+  now: number,
+  requestedTtlSeconds: number,
+): Promise<string | undefined> {
+  const local = memoryCache.get(cacheKey);
+  if (local && local.expiresAt > now) {
+    return local.value;
+  }
+
+  const edgeCache = getEdgeCache();
+  const separator = cacheKey.indexOf(":");
+  const namespace = cacheKey.slice(0, separator);
+  const key = cacheKey.slice(separator + 1);
+  const edgeRequest = edgeCacheRequest(namespace, key);
+  const edgeResponse = await edgeCache?.match(edgeRequest);
+  if (!edgeResponse) {
+    return undefined;
+  }
+
+  const value = await edgeResponse.text();
+  memoryCache.set(cacheKey, {
+    expiresAt: now + memoryTtlFromEdgeResponse(edgeResponse, requestedTtlSeconds) * 1000,
+    value,
+  });
+  return value;
+}
+
+async function writeCachedPayload(
+  namespace: string,
+  key: string,
+  ttlSeconds: number,
+  encoded: string,
+  now: number,
+): Promise<void> {
+  const cacheKey = cacheEntryKey(namespace, key);
+  memoryCache.set(cacheKey, { expiresAt: now + ttlSeconds * 1000, value: encoded });
+  const edgeCache = getEdgeCache();
+  const edgeRequest = edgeCacheRequest(namespace, key);
   try {
     void edgeCache
       ?.put(
         edgeRequest,
         new Response(encoded, {
           headers: {
-            "cache-control": `private, max-age=${options.ttlSeconds}`,
+            "cache-control": `private, max-age=${ttlSeconds}`,
             "content-type": "application/json; charset=utf-8",
           },
         }),
@@ -77,7 +134,10 @@ export async function cachedLookup<T>(options: CacheLookupOptions<T>): Promise<T
   } catch {
     // Edge cache writes are best effort; the lookup result is still valid.
   }
-  return value;
+}
+
+function edgeCacheRequest(namespace: string, key: string): Request {
+  return new Request(`https://agent-paste.internal/cache/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`);
 }
 
 function getEdgeCache(): EdgeCache | undefined {

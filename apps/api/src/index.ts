@@ -1,5 +1,5 @@
 import {
-  cachedLookup,
+  cachedNegativeLookup,
   cacheKeyForSecret,
   getRequestId,
   REQUEST_ID_HEADER,
@@ -1200,12 +1200,12 @@ async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyAct
   }
 
   return validApiKeyActor(
-    await cachedLookup({
-      namespace: "api-key-auth",
+    (await cachedNegativeLookup({
+      namespace: "api-key-auth-v2",
       key: await cacheKeyForSecret(token),
       ttlSeconds: AUTH_CACHE_TTL_SECONDS,
       lookup: () => runtime.auth.verifyApiKey(token),
-    }),
+    })) ?? null,
   );
 }
 
