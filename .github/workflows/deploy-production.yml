@@ -69,6 +69,8 @@ jobs:
         run: pnpm migrate:production
 
       - name: Deploy production Workers
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: node scripts/deploy-preview.mjs production
 
       - name: Smoke production
