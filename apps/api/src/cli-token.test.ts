@@ -37,7 +37,12 @@ describe("CLI Connect token isolation on the key-mint path", () => {
     stubFetch(fixture.publicJwk);
 
     const identity = await authenticateWebIdentity(request(fixture.token), baseEnv(), { allowCliClient: true });
-    expect(identity).toEqual({ workos_user_id: subject, email: "user@example.com", session_id: "sid_cli" });
+    expect(identity).toEqual({
+      workos_user_id: subject,
+      email: "user@example.com",
+      session_id: "sid_cli",
+      auth_surface: "cli",
+    });
   });
 
   it("rejects a CLI-client token on non-mint routes (allowCliClient false)", async () => {

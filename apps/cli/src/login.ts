@@ -108,6 +108,7 @@ async function mintCredential(config: LoginConfig, token: TokenResponse, fetchIm
     public_id: result.api_key.public_id,
     workspace_id: result.api_key.workspace_id,
     member_email: emailFromIdToken(token.id_token) ?? "unknown",
+    expires_at: result.api_key.expires_at,
   };
 }
 

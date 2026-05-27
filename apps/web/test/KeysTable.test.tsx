@@ -64,4 +64,26 @@ describe("KeysTable", () => {
     renderTable([{ ...baseRow, revoked: true }]);
     expect(screen.queryByRole("button", { name: "Revoke" })).not.toBeInTheDocument();
   });
+
+  it("shows active, expired, and revoked key states with expiry text", () => {
+    renderTable([
+      { ...baseRow, id: "key_01HABCDEFGHJKMNPQRSTVWXYA1" as WebApiKeyRow["id"], expires_at: null },
+      {
+        ...baseRow,
+        id: "key_01HABCDEFGHJKMNPQRSTVWXYA2" as WebApiKeyRow["id"],
+        expires_at: "2000-01-01T00:00:00.000Z" as WebApiKeyRow["expires_at"],
+      },
+      {
+        ...baseRow,
+        id: "key_01HABCDEFGHJKMNPQRSTVWXYA3" as WebApiKeyRow["id"],
+        revoked: true,
+        revoked_at: "2026-05-02T00:00:00.000Z" as WebApiKeyRow["revoked_at"],
+      },
+    ]);
+
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(screen.getByText("Revoked")).toBeInTheDocument();
+    expect(screen.getAllByText("never").length).toBeGreaterThan(0);
+  });
 });

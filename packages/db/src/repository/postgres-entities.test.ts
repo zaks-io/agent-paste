@@ -100,6 +100,7 @@ describe("postgresEntities", () => {
       pepper_kid: 1,
       scopes: ["publish", "read"],
       revoked_at: null,
+      expires_at: null,
       last_used_at: null,
       created_at: now,
     };

@@ -1,20 +1,25 @@
-import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
-
-const run = promisify<{ stdout: string; stderr: string }>(execFile);
+import { Entry } from "@napi-rs/keyring";
 
 export type Credential = {
   api_key: string;
   public_id: string;
   workspace_id: string;
   member_email: string;
+  expires_at: string | null;
 };
 
 const SERVICE = "agent-paste";
 const ACCOUNT = "default";
+const KEYRING_PLATFORMS = new Set(["darwin", "win32", "linux"]);
+
+type KeyringEntry = {
+  getPassword(): string | null;
+  setPassword(password: string): void;
+  deletePassword(): void;
+};
 
 export type CredentialStore = {
   load(): Promise<Credential | null>;
@@ -22,11 +27,16 @@ export type CredentialStore = {
   delete(): Promise<void>;
 };
 
-// macOS keeps the key in the login keychain; every other platform uses a
-// 0600 file under XDG config. The backend is selected once at module load so
-// tests can force the file path by stubbing process.platform.
+type WarningSink = (message: string) => void;
+
+let warnedAboutFileFallback = false;
+
+// Desktop platforms prefer the native OS keyring. Headless Linux and other
+// keyring failures fall back to the existing 0600 file so remote shells still
+// work, but the warning makes the weaker storage explicit.
 export function credentialStore(platform: string = process.platform): CredentialStore {
-  return platform === "darwin" ? keychainStore() : fileStore();
+  const fallback = fileStore();
+  return KEYRING_PLATFORMS.has(platform) ? keyringStore(new Entry(SERVICE, ACCOUNT), fallback) : fallback;
 }
 
 export function loadCredential(): Promise<Credential | null> {
@@ -52,6 +62,7 @@ export function fileStore(filePath = defaultCredentialPath()): CredentialStore {
     },
     async save(credential) {
       await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+      await rejectSymlink(filePath);
       await fs.writeFile(filePath, JSON.stringify(credential), { mode: 0o600 });
       // writeFile's mode only applies when creating the file; an overwrite of a
       // pre-existing, looser-permission file keeps its old mode, so re-assert it.
@@ -69,36 +80,43 @@ export function fileStore(filePath = defaultCredentialPath()): CredentialStore {
   };
 }
 
-function keychainStore(): CredentialStore {
+export function keyringStore(
+  entry: KeyringEntry,
+  fallback: CredentialStore = fileStore(),
+  warn: WarningSink = warnFileFallback,
+): CredentialStore {
   return {
     async load() {
       try {
-        const { stdout } = await run("security", ["find-generic-password", "-s", SERVICE, "-a", ACCOUNT, "-w"]);
-        return parseCredential(stdout.trim());
+        const raw = entry.getPassword();
+        return raw ? parseCredential(raw) : await fallback.load();
       } catch {
-        return null;
+        return fallback.load();
       }
     },
     async save(credential) {
-      await run("security", [
-        "add-generic-password",
-        "-s",
-        SERVICE,
-        "-a",
-        ACCOUNT,
-        "-w",
-        JSON.stringify(credential),
-        "-U",
-      ]);
+      try {
+        entry.setPassword(JSON.stringify(credential));
+      } catch {
+        warn("agent-paste: OS keyring unavailable; storing credential in a 0600 file fallback.\n");
+        await fallback.save(credential);
+        return;
+      }
+      await fallback.delete();
     },
     async delete() {
       try {
-        await run("security", ["delete-generic-password", "-s", SERVICE, "-a", ACCOUNT]);
+        entry.deletePassword();
       } catch {
-        // Nothing stored; treat as already deleted.
+        // A missing or unavailable keyring is still a successful local cleanup.
       }
+      await fallback.delete();
     },
   };
+}
+
+export function isCredentialExpired(credential: Credential, now: Date = new Date()): boolean {
+  return credential.expires_at !== null && Date.parse(credential.expires_at) <= now.getTime();
 }
 
 export function defaultCredentialPath(): string {
@@ -118,13 +136,15 @@ function parseCredential(raw: string): Credential | null {
     typeof value.api_key === "string" &&
     typeof value.public_id === "string" &&
     typeof value.workspace_id === "string" &&
-    typeof value.member_email === "string"
+    typeof value.member_email === "string" &&
+    (typeof value.expires_at === "string" || value.expires_at === null)
   ) {
     return {
       api_key: value.api_key,
       public_id: value.public_id,
       workspace_id: value.workspace_id,
       member_email: value.member_email,
+      expires_at: value.expires_at,
     };
   }
   return null;
@@ -132,4 +152,24 @@ function parseCredential(raw: string): Credential | null {
 
 function isNotFound(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as { code?: string }).code === "ENOENT";
+}
+
+async function rejectSymlink(filePath: string): Promise<void> {
+  try {
+    const stat = await fs.lstat(filePath);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Refusing to write credential through symlink: ${filePath}`);
+    }
+  } catch (error) {
+    if (!isNotFound(error)) {
+      throw error;
+    }
+  }
+}
+
+function warnFileFallback(message: string): void {
+  if (!warnedAboutFileFallback) {
+    process.stderr.write(message);
+    warnedAboutFileFallback = true;
+  }
 }

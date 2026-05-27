@@ -215,6 +215,7 @@ describe("LocalRepository", () => {
       workspace_id: session.workspace.id,
       name: "Dashboard Key",
       scopes: ["publish", "read"],
+      expires_at: null,
     });
     expect(repo.apiKeys.size).toBe(2);
     const events = [...repo.operationEvents.values()].filter((event) => event.target_id === first.api_key.id);
@@ -225,6 +226,42 @@ describe("LocalRepository", () => {
       action: "api_key.created",
       workspace_id: session.workspace.id,
     });
+  });
+
+  it("creates expiring CLI API keys and rejects them after expiry without touching last_used_at", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const actor = await repo.getWebMemberByWorkOsUserId({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+    });
+    if (!actor) {
+      throw new Error("expected member actor");
+    }
+
+    const key = await repo.createWebApiKey({
+      actor,
+      idempotencyKey: "idem-expiring-key",
+      name: "CLI Key",
+      expiresInSeconds: 60,
+      now: new Date("2099-01-02T00:00:00.000Z"),
+    });
+
+    expect(key.api_key.expires_at).toBe("2099-01-02T00:01:00.000Z");
+    expect(await repo.verifyApiKey(key.secret)).not.toBeNull();
+    const row = repo.apiKeys.get(key.api_key.id);
+    if (!row) {
+      throw new Error("expected key row");
+    }
+    row.expires_at = "2000-01-01T00:00:00.000Z";
+    row.last_used_at = null;
+
+    expect(await repo.verifyApiKey(key.secret)).toBeNull();
+    expect(repo.apiKeys.get(key.api_key.id)?.last_used_at).toBeNull();
   });
 
   it("revokes member-owned API keys and hides missing or cross-workspace keys", async () => {
@@ -298,6 +335,45 @@ describe("LocalRepository", () => {
     ).rejects.toThrow("api_key_not_found");
     expect(firstKey.api_key.workspace_id).toBe(firstSession.workspace.id);
     expect(secondKey.api_key.workspace_id).toBe(secondSession.workspace.id);
+  });
+
+  it("self-revokes the current API key with an API-key actor audit event", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const key = await repo.createApiKey({
+      actor: { type: "admin", id: "admin" },
+      idempotencyKey: "idem-admin-key",
+      workspaceId: (
+        await repo.createWorkspace({
+          actor: { type: "admin", id: "admin" },
+          idempotencyKey: "idem-workspace",
+          email: "user@example.com",
+        })
+      ).id,
+      name: "CLI",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected api key actor");
+    }
+
+    const revoked = await repo.revokeCurrentApiKey({
+      actor,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    expect(revoked).toMatchObject({
+      api_key: { id: key.api_key.id, revoked_at: "2026-01-03T00:00:00.000Z" },
+      revoked_at: "2026-01-03T00:00:00.000Z",
+    });
+    expect(await repo.verifyApiKey(key.secret)).toBeNull();
+    expect([...repo.operationEvents.values()]).toContainEqual(
+      expect.objectContaining({
+        actor_type: "api_key",
+        actor_id: key.api_key.id,
+        action: "api_key.revoked",
+        target_id: key.api_key.id,
+      }),
+    );
   });
 
   it("persists web settings updates and reflects them in getWebSettings", async () => {

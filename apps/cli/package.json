@@ -20,7 +20,8 @@
   "dependencies": {
     "@agent-paste/api-client": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
-    "@agent-paste/storage": "workspace:*"
+    "@agent-paste/storage": "workspace:*",
+    "@napi-rs/keyring": "1.3.0"
   },
   "devDependencies": {
     "typescript": "catalog:",

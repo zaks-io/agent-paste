@@ -2,7 +2,7 @@
 import { promises as fs } from "node:fs";
 import { type AgentPasteAuth, AgentPasteError, ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
 import { CreateUploadSessionRequest } from "@agent-paste/contracts";
-import { deleteCredential, loadCredential } from "./credentials.js";
+import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
   expiresAtFromTtl,
@@ -13,7 +13,7 @@ import {
 } from "./local.js";
 import { login } from "./login.js";
 
-type GlobalFlags = {
+export type GlobalFlags = {
   json: boolean;
   quiet: boolean;
 };
@@ -62,29 +62,69 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
 async function resolveClient(): Promise<ApiClient> {
   const envKey = process.env.AGENT_PASTE_API_KEY;
   const stored = await loadCredential();
-  if (envKey && stored) {
+  const usableStored = stored && isCredentialExpired(stored) ? null : stored;
+  if (stored && !usableStored) {
+    await deleteCredential();
+    process.stderr.write(`agent-paste: removed expired stored login credential ${stored.public_id}.\n`);
+  }
+  if (envKey && usableStored) {
     process.stderr.write("agent-paste: using AGENT_PASTE_API_KEY (overrides the stored login credential).\n");
   }
   if (envKey) {
     return new ApiClient();
   }
-  if (stored) {
-    const auth: AgentPasteAuth = { type: "api_key", apiKey: stored.api_key };
+  if (usableStored) {
+    const auth: AgentPasteAuth = { type: "api_key", apiKey: usableStored.api_key };
     return new ApiClient({ auth });
   }
   return new ApiClient();
 }
 
-async function logout(global: GlobalFlags) {
-  const stored = await loadCredential();
+export type LogoutDeps = {
+  load?: () => Promise<Credential | null>;
+  delete?: () => Promise<void>;
+  client?: ApiClient;
+  clientForCredential?: (credential: Credential) => ApiClient;
+  warn?: (message: string) => void;
+  now?: Date;
+};
+
+export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
+  const load = deps.load ?? loadCredential;
+  const remove = deps.delete ?? deleteCredential;
+  const warn = deps.warn ?? ((message: string) => process.stderr.write(message));
+  const stored = await load();
   if (!stored) {
     return output({ status: "no_credential" }, global, "Not signed in. Nothing to remove.");
   }
-  await deleteCredential();
+  if (isCredentialExpired(stored, deps.now)) {
+    await remove();
+    return output(
+      { status: "logged_out", public_id: stored.public_id, remote_revoked: false, reason: "expired" },
+      global,
+      `Removed expired stored API key ${stored.public_id}.`,
+    );
+  }
+
+  const client =
+    deps.client ??
+    deps.clientForCredential?.(stored) ??
+    new ApiClient({ auth: { type: "api_key", apiKey: stored.api_key } });
+  let remoteRevoked = true;
+  try {
+    await client.apiKeys.revokeCurrent();
+  } catch (error) {
+    remoteRevoked = false;
+    const message = error instanceof Error ? error.message : String(error);
+    warn(`agent-paste: remote revoke failed for stored API key ${stored.public_id}: ${message}\n`);
+  }
+  await remove();
   return output(
-    { status: "logged_out", public_id: stored.public_id },
+    { status: "logged_out", public_id: stored.public_id, remote_revoked: remoteRevoked },
     global,
-    `Removed stored API key ${stored.public_id}.`,
+    remoteRevoked
+      ? `Revoked and removed stored API key ${stored.public_id}.`
+      : `Removed stored API key ${stored.public_id}. Remote revoke failed; the key may remain active.`,
   );
 }
 

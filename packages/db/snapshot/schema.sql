@@ -27,6 +27,7 @@ CREATE TABLE "api_keys" (
 	"pepper_kid" smallint NOT NULL,
 	"scopes" jsonb NOT NULL,
 	"revoked_at" timestamp with time zone,
+	"expires_at" timestamp with time zone,
 	"last_used_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "api_keys_public_id_unique" UNIQUE("public_id")

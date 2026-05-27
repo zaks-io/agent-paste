@@ -26,6 +26,7 @@ declare module "node:crypto" {
 declare module "node:fs" {
   export const promises: {
     stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number }>;
+    lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
     mkdir(path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined>;
     mkdtemp(prefix: string): Promise<string>;
     readdir(
@@ -35,6 +36,7 @@ declare module "node:fs" {
     readFile(path: string): Promise<Uint8Array<ArrayBuffer>>;
     readFile(path: string, encoding: "utf8"): Promise<string>;
     writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;
+    symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
     rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };
