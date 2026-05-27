@@ -35,6 +35,10 @@ const workerSecrets = [
           app: "web",
           names: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD"],
         },
+        {
+          app: "mcp",
+          names: ["WORKOS_API_KEY"],
+        },
       ]
     : []),
 ];

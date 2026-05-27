@@ -13,15 +13,15 @@ Last updated: 2026-05-27.
 
 ## Deployed / Routed Workers
 
-| Worker surface | Current status                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                            |
-| `api`          | Preview/production deployed; owns control plane, web APIs, and operator APIs.             |
-| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                          |
-| `content`      | Preview/production deployed; owns `usercontent` content reads.                            |
-| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`. |
-| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                            |
-| `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                            |
+| Worker surface | Current status                                                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apex`         | Marketing/apex route live at `agent-paste.sh`.                                                                                               |
+| `api`          | Preview/production deployed; owns control plane, web APIs, and operator APIs.                                                                |
+| `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                                                                             |
+| `content`      | Preview/production deployed; owns `usercontent` content reads.                                                                               |
+| `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`.                                                    |
+| `jobs`         | Preview/production deployed; queue consumers and lifecycle sweeps active.                                                                    |
+| `mcp`          | Preview/production Workers configured; deploy after `api`/`upload`. Hosted smoke via `pnpm smoke:mcp:preview` / `pnpm smoke:mcp:production`. |
 
 ## Secrets
 
@@ -41,6 +41,7 @@ re-running bootstrap; it sets only `STREAM_INTERNAL_SECRET` on `api` and `stream
 | `WORKOS_CLIENT_ID`       | api, web             | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                     |
 | `WORKOS_COOKIE_PASSWORD` | web                  | WorkOS AuthKit sealed-session password.                                                        |
 | `WORKOS_CLI_AUDIENCE`    | api                  | WorkOS User Management audience used to verify CLI/login and dashboard session issuer details. |
+| `WORKOS_API_KEY`         | mcp (preview/prod)   | WorkOS API credential for MCP JWT verification (written by `bootstrap:* --with-web`).          |
 
 Deferred secrets not created for the current app:
 
@@ -101,10 +102,12 @@ Deferred secrets not created for the current app:
 3. `pnpm smoke:local`
 4. Address the active backlog item, or document why it is deferred.
 5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
-6. Same-repo PRs exercise the PR preview deploy workflow automatically. The PR
+6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` (optionally with
+   `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` for authenticated tool checks).
+7. Same-repo PRs exercise the PR preview deploy workflow automatically. The PR
    workflow gates on `/healthz` readiness and local dashboard Lighthouse only;
    full hosted smoke is manual for PRs and automatic after `main` deploy.
-7. Production deploy only with explicit Isaac approval:
+8. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`
 
 ## Database credential boundaries

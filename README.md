@@ -131,6 +131,9 @@ pnpm hooks:install
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `pnpm smoke:local`               | Build and run the local publish/content/delete smoke path.                                                            |
 | `pnpm smoke:web`                 | Build and run local web API auth/dashboard smoke assertions.                                                          |
+| `pnpm smoke:mcp`                 | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                |
+| `pnpm smoke:mcp:preview`         | Build and run hosted preview MCP smoke (optional token for authenticated checks).                                     |
+| `pnpm smoke:mcp:production`      | Build and run hosted production MCP smoke (requires explicit approval and token).                                     |
 | `pnpm lighthouse:dashboard-a11y` | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first). |
 | `pnpm smoke:preview`             | Build and run hosted preview smoke assertions.                                                                        |
 | `pnpm smoke:production`          | Build and run hosted production smoke assertions.                                                                     |

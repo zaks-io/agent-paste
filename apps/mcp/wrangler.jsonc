@@ -37,7 +37,10 @@
       "vars": {
         "AGENT_PASTE_ENV": "preview",
         "MCP_RESOURCE": "https://mcp.preview.agent-paste.sh",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh"
+        "MCP_AUTHORIZATION_SERVER": "https://courageous-milestone-75-staging.authkit.app",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
+        "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app"
       },
       "services": [
         {
@@ -62,7 +65,10 @@
       "vars": {
         "AGENT_PASTE_ENV": "production",
         "MCP_RESOURCE": "https://mcp.agent-paste.sh",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh"
+        "MCP_AUTHORIZATION_SERVER": "https://soulful-path-50.authkit.app",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
+        "WORKOS_MCP_ISSUER": "https://soulful-path-50.authkit.app"
       },
       "services": [
         {

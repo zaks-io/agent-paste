@@ -330,6 +330,9 @@ const apiEnv = {
   WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
+  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh",
+  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
+  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
 };
 const artifactLive = createMemoryArtifactLiveNamespace({
   api: {
