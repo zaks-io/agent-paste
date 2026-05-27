@@ -271,9 +271,6 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@agent-paste/storage':
-        specifier: workspace:*
-        version: link:../../packages/storage
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
