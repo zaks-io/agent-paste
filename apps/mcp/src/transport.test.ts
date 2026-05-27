@@ -222,6 +222,117 @@ describe("MCP streamable HTTP transport", () => {
     expect(payload.error.data.code).toBe("method_not_found");
   });
 
+  it("rejects DELETE and non-POST methods with 405", async () => {
+    const deleteResponse = await handleMcpEndpoint(
+      new Request("https://mcp.test/", { method: "DELETE" }),
+      {},
+      { verifyBearer: testAuth },
+    );
+    const putResponse = await handleMcpEndpoint(
+      new Request("https://mcp.test/", { method: "PUT" }),
+      {},
+      { verifyBearer: testAuth },
+    );
+    expect(deleteResponse.status).toBe(405);
+    expect(putResponse.status).toBe(405);
+  });
+
+  it("uses the default resource indicator challenge on production resource", async () => {
+    const response = await mcpPost(
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { resource: "https://mcp.agent-paste.sh" },
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(mcpWwwAuthenticateHeader());
+  });
+
+  it("returns 400 for invalid content-type or JSON after auth succeeds", async () => {
+    const badType = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "text/plain",
+        },
+        body: "x",
+      }),
+      {},
+      { verifyBearer: testAuth },
+    );
+    const badJson = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "application/json",
+        },
+        body: "not-json",
+      }),
+      {},
+      { verifyBearer: testAuth },
+    );
+    expect(badType.status).toBe(400);
+    expect(badJson.status).toBe(400);
+  });
+
+  it("accepts client JSON-RPC responses with 202", async () => {
+    const response = await mcpPost(
+      { jsonrpc: "2.0", id: 2, result: {} },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    expect(response.status).toBe(202);
+  });
+
+  it("rejects unknown notifications and requests without ids", async () => {
+    const unknownNotification = await mcpPost(
+      { jsonrpc: "2.0", method: "notifications/unknown" },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    const invalidRequest = await mcpPost(
+      { jsonrpc: "2.0", method: "ping", id: [] },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    expect(unknownNotification.status).toBe(404);
+    expect(invalidRequest.status).toBe(400);
+  });
+
+  it("handles ping and unknown methods", async () => {
+    const ping = await mcpPost(
+      { jsonrpc: "2.0", id: 5, method: "ping" },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    const unknown = await mcpPost(
+      { jsonrpc: "2.0", id: 6, method: "experimental/method" },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    expect(ping.status).toBe(200);
+    await expect(ping.json()).resolves.toMatchObject({ jsonrpc: "2.0", id: 5, result: {} });
+    expect(unknown.status).toBe(404);
+  });
+
+  it("echoes Mcp-Session-Id on JSON responses when provided", async () => {
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "application/json",
+          accept: "application/json",
+          "mcp-session-id": "session-abc",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 8,
+          method: "ping",
+        }),
+      }),
+      {},
+      { verifyBearer: testAuth },
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("mcp-session-id")).toBe("session-abc");
+  });
+
   it("lists no tools until the tool surface is implemented", async () => {
     const response = await mcpPost(
       {
