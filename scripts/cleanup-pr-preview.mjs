@@ -8,7 +8,9 @@ if (!prNumber) {
 
 // web is included so its worker and the pr-N.preview.agent-paste.sh custom domain
 // are torn down on PR close (wrangler delete removes attached custom domains).
-const workerNames = ["api", "upload", "content", "apex", "web"].map((app) => `agent-paste-${app}-pr-${prNumber}`);
+const workerNames = ["api", "upload", "content", "jobs", "apex", "web"].map(
+  (app) => `agent-paste-${app}-pr-${prNumber}`,
+);
 for (const workerName of workerNames) {
   await run("pnpm", ["exec", "wrangler", "delete", workerName, "--force"], { allowFailure: true });
 }

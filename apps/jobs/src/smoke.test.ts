@@ -67,12 +67,7 @@ describe("jobs smoke harness", () => {
   });
 
   it("runs local MVP lifecycle cleanup through the repository adapter", async () => {
-    const artifacts = new Map([
-      [
-        artifactId,
-        { workspace_id: workspaceId, revision_id: revisionId },
-      ],
-    ]);
+    const artifacts = new Map([[artifactId, { workspace_id: workspaceId, revision_id: revisionId }]]);
     const revisions = new Map<string, { bytes_purge_enqueued_at?: string | null }>([[revisionId, {}]]);
     const env = {
       LOCAL_MVP_REPOSITORY: {
@@ -103,9 +98,7 @@ describe("jobs smoke harness", () => {
   it("runs local MVP purge recovery for deleted artifacts", async () => {
     const env = {
       LOCAL_MVP_REPOSITORY: {
-        artifacts: new Map([
-          [artifactId, { workspace_id: workspaceId, revision_id: revisionId }],
-        ]),
+        artifacts: new Map([[artifactId, { workspace_id: workspaceId, revision_id: revisionId }]]),
         revisions: new Map([[revisionId, {}]]),
         runCleanup: vi.fn(),
       },
@@ -188,5 +181,18 @@ describe("jobs smoke harness", () => {
       env,
     );
     expect(invalid.status).toBe(400);
+
+    const malformed = await worker.fetch(
+      new Request("https://jobs.test/__test__/purge-recovery", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer harness",
+          "content-type": "application/json",
+        },
+        body: "{not-json",
+      }),
+      env,
+    );
+    expect(malformed.status).toBe(400);
   });
 });

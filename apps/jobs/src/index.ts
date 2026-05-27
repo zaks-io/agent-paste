@@ -104,7 +104,12 @@ async function runSmokePurgeRecoveryRoute(context: Context<{ Bindings: Env }>) {
   if (!isNonProductionEnv(context.env) || !authenticateSmokeHarness(context.req.raw, context.env)) {
     return context.json({ error: { code: "not_found", message: "not_found" } }, 404);
   }
-  const body = await readJsonObject(context.req.raw);
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(context.req.raw);
+  } catch {
+    return context.json({ error: { code: "invalid_request", message: "invalid_json" } }, 400);
+  }
   const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
   if (!artifactId) {
     return context.json({ error: { code: "invalid_request", message: "artifact_id is required" } }, 400);

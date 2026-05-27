@@ -12,6 +12,7 @@ const names = {
   api: `agent-paste-api-pr-${prNumber}`,
   upload: `agent-paste-upload-pr-${prNumber}`,
   content: `agent-paste-content-pr-${prNumber}`,
+  jobs: `agent-paste-jobs-pr-${prNumber}`,
   apex: `agent-paste-apex-pr-${prNumber}`,
   web: `agent-paste-web-pr-${prNumber}`,
 };
@@ -23,6 +24,7 @@ const urls = {
   api: `https://${names.api}.${workersSubdomain}.workers.dev`,
   upload: `https://${names.upload}.${workersSubdomain}.workers.dev`,
   content: `https://${names.content}.${workersSubdomain}.workers.dev`,
+  jobs: `https://${names.jobs}.${workersSubdomain}.workers.dev`,
   apex: `https://${names.apex}.${workersSubdomain}.workers.dev`,
   // Custom domain carries the real OAuth callback (cert issues async, minutes).
   web: `https://${webHost}`,
@@ -39,28 +41,34 @@ const files = {
   uploadConfig: new URL("upload.json", outDir).pathname,
   contentConfig: new URL("content.json", outDir).pathname,
   apexConfig: new URL("apex.json", outDir).pathname,
+  jobsConfig: new URL("jobs.json", outDir).pathname,
   apiSecrets: new URL("api.secrets.json", outDir).pathname,
   uploadSecrets: new URL("upload.secrets.json", outDir).pathname,
   contentSecrets: new URL("content.secrets.json", outDir).pathname,
+  jobsSecrets: new URL("jobs.secrets.json", outDir).pathname,
 };
 
 writeJson(files.apiConfig, apiConfig());
 writeJson(files.uploadConfig, uploadConfig());
 writeJson(files.contentConfig, contentConfig());
+writeJson(files.jobsConfig, jobsConfig());
 writeJson(files.apexConfig, apexConfig());
 writeJson(files.apiSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "SMOKE_HARNESS_SECRET"]));
 writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
 writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
+writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET"]));
 
 await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
+await deploy("jobs", files.jobsConfig, files.jobsSecrets);
 await deploy("apex", files.apexConfig);
 const webDeployed = await deployWeb();
 
 emitOutput("api_url", urls.api);
 emitOutput("upload_url", urls.upload);
 emitOutput("content_url", urls.content);
+emitOutput("jobs_url", urls.jobs);
 emitOutput("apex_url", urls.apex);
 if (webDeployed) {
   emitOutput("web_url", urls.web);
@@ -72,6 +80,7 @@ process.stdout.write(`PR preview deployed:
 API:     ${urls.api}
 Upload:  ${urls.upload}
 Content: ${urls.content}
+Jobs:    ${urls.jobs}
 Apex:    ${urls.apex}
 ${webDeployed ? `Web:     ${urls.web} (smoke: ${urls.webWorkersDev})\n` : "Web:     skipped (WORKOS_PREVIEW_API_KEY unset)\n"}`);
 
@@ -135,7 +144,6 @@ function apiConfig() {
   return baseConfig("api", {
     main: workspacePath("apps/api/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
-    triggers: { crons: ["*/15 * * * *"] },
     vars: {
       API_KEY_ENV: "preview",
       API_BASE_URL: urls.api,
@@ -185,6 +193,52 @@ function contentConfig() {
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
     ratelimits: [rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60)],
+  });
+}
+
+function jobsConfig() {
+  return baseConfig("jobs", {
+    main: workspacePath("apps/jobs/src/index.ts"),
+    compatibility_flags: ["nodejs_compat"],
+    triggers: { crons: ["*/15 * * * *", "0 * * * *"] },
+    vars: {
+      AGENT_PASTE_ENV: "preview",
+      JOBS_ENABLED: "true",
+    },
+    hyperdrive: [{ binding: "DB", id: hyperdriveId }],
+    r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
+    kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
+    queues: {
+      producers: [
+        { queue: "byte-purge-preview", binding: "BYTE_PURGE_QUEUE" },
+        { queue: "safety-scan-preview", binding: "SAFETY_SCAN_QUEUE" },
+        { queue: "bundle-generate-preview", binding: "BUNDLE_GENERATE_QUEUE" },
+      ],
+      consumers: [
+        {
+          queue: "byte-purge-preview",
+          max_batch_size: 50,
+          max_retries: 3,
+          dead_letter_queue: "byte-purge-dlq-preview",
+        },
+        {
+          queue: "safety-scan-preview",
+          max_batch_size: 1,
+          max_retries: 3,
+          dead_letter_queue: "safety-scan-dlq-preview",
+        },
+        {
+          queue: "bundle-generate-preview",
+          max_batch_size: 1,
+          max_retries: 5,
+          dead_letter_queue: "bundle-generate-dlq-preview",
+        },
+        {
+          queue: "bundle-generate-dlq-preview",
+          max_batch_size: 10,
+        },
+      ],
+    },
   });
 }
 

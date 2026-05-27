@@ -51,6 +51,7 @@ server.stderr.on("data", (chunk) => {
 
 try {
   await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
+  await waitForHealthz(jobsBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
   const provisioned = await provisionSmokeWorkspace(apiBaseUrl, {
     email: `local-${Date.now()}@example.test`,

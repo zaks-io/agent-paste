@@ -141,6 +141,7 @@ jobs:
           API_URL: ${{ steps.deploy.outputs.api_url }}
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          JOBS_URL: ${{ steps.deploy.outputs.jobs_url }}
           APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           WEB_SMOKE_URL: ${{ steps.deploy.outputs.web_smoke_url }}
         run: |
@@ -181,6 +182,7 @@ jobs:
           wait_for_healthz "$API_URL"
           wait_for_healthz "$UPLOAD_URL"
           wait_for_healthz "$CONTENT_URL"
+          wait_for_healthz "$JOBS_URL"
           wait_for_healthz "$APEX_URL"
           if [ -n "$WEB_SMOKE_URL" ]; then wait_for_healthz "$WEB_SMOKE_URL"; fi
 
@@ -190,6 +192,7 @@ jobs:
           AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
           AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          AGENT_PASTE_PR_JOBS_URL: ${{ steps.deploy.outputs.jobs_url }}
           AGENT_PASTE_PR_APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           AGENT_PASTE_PR_SMOKE_HARNESS_SECRET: ${{ steps.deploy.outputs.smoke_harness_secret }}
           # Empty when web was skipped (no WorkOS key); smokeWebAuth no-ops then.
@@ -217,6 +220,7 @@ jobs:
               `API: ${process.env.API_URL}`,
               `Upload: ${process.env.UPLOAD_URL}`,
               `Content: ${process.env.CONTENT_URL}`,
+              `Jobs: ${process.env.JOBS_URL}`,
               `Apex: ${process.env.APEX_URL}`,
               ...webLine,
               `Neon branch: https://console.neon.tech/app/projects/${process.env.NEON_PROJECT_ID}/branches/${process.env.NEON_BRANCH_ID}`,
@@ -231,6 +235,7 @@ jobs:
           API_URL: ${{ steps.deploy.outputs.api_url }}
           UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
           CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          JOBS_URL: ${{ steps.deploy.outputs.jobs_url }}
           APEX_URL: ${{ steps.deploy.outputs.apex_url }}
           WEB_URL: ${{ steps.deploy.outputs.web_url }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}

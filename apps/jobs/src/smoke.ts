@@ -125,7 +125,9 @@ export async function runSmokePurgeRecoveryForArtifact(
   const row = await executor.query<{ id: string; workspace_id: string; revision_id: string }>(
     `select id, workspace_id, revision_id
      from artifacts
-     where id = $1 and revision_id is not null`,
+     where id = $1
+       and revision_id is not null
+       and status in ('deleted', 'expired')`,
     [artifactId],
   );
   const artifact = row.rows[0];

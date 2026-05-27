@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import type { SqlExecutor } from "@agent-paste/db";
+import { describe, expect, it, vi } from "vitest";
 import { AUTO_DELETION_SWEEP_CAP } from "./constants.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
@@ -240,27 +240,30 @@ describe("purge recovery discovery", () => {
 
   it("continues recovery when one artifact side effect throws", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const send = vi.fn(async () => ({}));
-    const executor = {
-      query: vi.fn(async (sql: string) => {
-        if (sql.includes("update revisions") && sql.includes("bytes_purge_enqueued_at")) {
-          throw new Error("db_write_failed");
-        }
-        return {
-          rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
-        };
-      }),
-      transaction: vi.fn(),
-    };
-    const env = {
-      BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
-      DENYLIST: { put: vi.fn(async () => {}) },
-    };
-    const result = await runPurgeRecoveryDiscovery(executor, env);
-    expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
-    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.purge_recovery.artifact_failed"))).toBe(
-      true,
-    );
-    errorSpy.mockRestore();
+    try {
+      const send = vi.fn(async () => ({}));
+      const executor = {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("update revisions") && sql.includes("bytes_purge_enqueued_at")) {
+            throw new Error("db_write_failed");
+          }
+          return {
+            rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
+          };
+        }),
+        transaction: vi.fn(),
+      };
+      const env = {
+        BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+        DENYLIST: { put: vi.fn(async () => {}) },
+      };
+      const result = await runPurgeRecoveryDiscovery(executor, env);
+      expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
+      expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.purge_recovery.artifact_failed"))).toBe(
+        true,
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
