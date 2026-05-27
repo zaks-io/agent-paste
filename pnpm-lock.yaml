@@ -225,6 +225,15 @@ importers:
 
   apps/jobs:
     dependencies:
+      '@agent-paste/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@agent-paste/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@agent-paste/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
@@ -234,6 +243,9 @@ importers:
       hono:
         specifier: ^4.12.21
         version: 4.12.21
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: 'catalog:'

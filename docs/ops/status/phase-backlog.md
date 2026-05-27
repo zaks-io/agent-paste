@@ -106,7 +106,7 @@ Recommended order:
        Implement `POST /v1/access-links/resolve`, wire `/al/{publicId}` to the
        API, enforce generic not-found failures, and keep the no-auth/no-analytics
        lint boundary.
-4. [ ] Jobs worker queue topology.
+4. [x] Jobs worker queue topology.
        Implement cron discovery and Cloudflare Queue consumers for `byte-purge`,
        `safety-scan`, and `bundle-generate`; add DLQs according to ADR 0032,
        0049, and 0050.
@@ -114,7 +114,7 @@ Recommended order:
        cleanup as the jobs worker becomes authoritative.
 6. [ ] Bundle generation and download.
        Add bundle status fields, deterministic R2 bundle keys, bundle size caps,
-       Agent View bundle state, and the bundle-generate DLQ consumer.
+       and Agent View bundle state.
 7. [ ] Pinning and revision retention.
        Add pinned artifacts, non-current revision retention, and auto-deletion
        behavior that respects pinning.

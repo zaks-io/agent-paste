@@ -13,7 +13,7 @@ and points to the smaller ledgers that own detail.
 - `pnpm verify` passed on 2026-05-26 with 76 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
-- `apps/jobs` and `apps/mcp` remain scaffolds, as expected for Phase 4/5.
+- `apps/jobs` has queue/cron/DLQ topology (AP-21); `apps/mcp` remains a scaffold for Phase 5.
 - `apps/stream`, `packages/billing`, Access Link persistence, bundle state, and
   scanner persistence do not exist yet.
 - Known security/ops debt: Cloudflare Access now gates the production operator
@@ -67,7 +67,7 @@ and deep-link return paths are implemented.
 Highest-signal gaps:
 
 - Phase 4: multi-revision artifacts, Access Links, link resolve/mint/revoke,
-  jobs queues/cron/DLQs, bundles, pinning, revision retention, and Live Updates.
+  full jobs lifecycle sweeps, bundles, pinning, revision retention, and Live Updates.
 - Phase 5: OAuth-only MCP transport, auth verification, API forwarding, and MCP
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
@@ -86,10 +86,11 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 - Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`,
   `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`, `api-client`,
   `commands`, `storage`, and repo guardrail packages.
-- Scaffolded only: `jobs` and `mcp`.
+- Partial: `jobs` (queue topology landed; bundle generation and lifecycle authority still follow-ups).
+- Scaffolded only: `mcp`.
 - Placeholder UI: `web` Access Links.
-- Absent: `stream`, `billing`, Access Link tables/routes, jobs queues, bundle
-  state, safety-warning storage, app-layer encryption.
+- Absent: `stream`, `billing`, bundle zip generation, safety-warning storage,
+  app-layer encryption.
 
 Full component map:
 [implementation.md](./status/implementation.md#components).

@@ -1,17 +1,24 @@
 import { sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
+import { runScheduledJobs, type ScheduledEvent } from "./cron.js";
+import type { Env } from "./env.js";
+import { jobsEnabled } from "./env.js";
+import { handleQueueBatch, type MessageBatch } from "./queue.js";
 
-export type Env = {
-  AGENT_PASTE_ENV?: string;
-  JOBS_ENABLED?: string;
-  SENTRY_DSN?: string;
-};
+export { runScheduledJobs } from "./cron.js";
+export type { Env } from "./env.js";
+export { handleQueueBatch } from "./queue.js";
 
-type ScheduledEvent = {
-  scheduledTime: number;
-  cron: string;
-};
+export async function runQueueConsumer(batch: MessageBatch, env: Env): Promise<void> {
+  if (!jobsEnabled(env)) {
+    for (const message of batch.messages) {
+      message.ack();
+    }
+    return;
+  }
+  await handleQueueBatch(batch, env);
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -19,7 +26,7 @@ app.get("/healthz", (context) =>
   context.json({
     ok: true,
     app: "jobs",
-    enabled: context.env.JOBS_ENABLED !== "false",
+    enabled: jobsEnabled(context.env),
   }),
 );
 app.get("/openapi.json", (context) => context.json(openApiDocument()));
@@ -36,15 +43,12 @@ const worker = {
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
     await runScheduledJobs(event, env);
   },
+  async queue(batch: MessageBatch, env: Env): Promise<void> {
+    await runQueueConsumer(batch, env);
+  },
 };
 
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
-
-export async function runScheduledJobs(_event: ScheduledEvent, env: Env): Promise<void> {
-  if (env.JOBS_ENABLED === "false") {
-    return;
-  }
-}
 
 function openApiDocument(): Record<string, unknown> {
   return {
