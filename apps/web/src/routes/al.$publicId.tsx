@@ -1,6 +1,8 @@
+import type { LiveUpdatePointer } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
+import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
 
 type ResolveResult =
@@ -40,10 +42,12 @@ export const Route = createFileRoute("/al/$publicId")({
 function AccessLinkViewer() {
   const { publicId } = Route.useParams();
   const [state, setState] = useState<ResolveResult>({ kind: "loading" });
+  const liveBlobRef = useRef<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     const blob = window.location.hash.replace(/^#/, "");
+    liveBlobRef.current = blob || null;
     if (!blob) {
       setState({ kind: "not_found" });
       return () => controller.abort();
@@ -89,6 +93,34 @@ function AccessLinkViewer() {
       });
     return () => controller.abort();
   }, [publicId]);
+
+  const liveUpdatesEnabled = state.kind === "resolved";
+
+  useEffect(() => {
+    if (!liveUpdatesEnabled) {
+      return;
+    }
+    const blob = liveBlobRef.current;
+    if (!blob) {
+      return;
+    }
+    const connection = connectLiveUpdates({
+      url: `/api/live/access-links/${publicId}`,
+      method: "POST",
+      body: JSON.stringify({ blob }),
+      onPointer: (pointer: LiveUpdatePointer) => {
+        setState((current) =>
+          current.kind === "resolved"
+            ? {
+                ...current,
+                iframe_src: pointer.iframe_src,
+              }
+            : current,
+        );
+      },
+    });
+    return () => connection.close();
+  }, [publicId, liveUpdatesEnabled]);
 
   if (state.kind === "loading") {
     return (

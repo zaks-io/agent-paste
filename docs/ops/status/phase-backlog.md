@@ -118,10 +118,10 @@ Recommended order:
 7. [x] Pinning and revision retention.
        Add pinned artifacts, non-current revision retention, and auto-deletion
        behavior that respects pinning.
-8. [ ] Live Updates after dependencies are ready.
-       Follow `docs/ops/live-updates-todo.md`: add `apps/stream`, per-artifact
+8. [x] Live Updates after dependencies are ready.
+       Follow `docs/ops/live-updates-todo.md`: `apps/stream`, per-artifact
        Durable Objects, SSE over `fetch()`, publish notification, viewer caps,
-       and proactive disconnect on takedown.
+       and proactive disconnect on takedown (AP-25).
 
 ## Phase 5: MCP
 

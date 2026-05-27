@@ -1,10 +1,6 @@
 import { KeyRing } from "@agent-paste/rotation";
 import { describe, expect, it } from "vitest";
-import {
-  createAccessLinkRow,
-  mintAccessLinkSignedUrl,
-  verifyAccessLinkSignedBlobWithRing,
-} from "./access-links.js";
+import { createAccessLinkRow, mintAccessLinkSignedUrl, verifyAccessLinkSignedBlobWithRing } from "./access-links.js";
 import { LocalRepository } from "./local-repository.js";
 
 const APP_BASE = "https://app.agent-paste.test";
@@ -92,6 +88,7 @@ describe("resolveAccessLink", () => {
       now: "2026-01-15T00:00:00.000Z",
     });
     expect(resolved).toMatchObject({
+      access_link_type: "share",
       render_mode: "html",
       title: "shared",
       iframe_src: `${CONTENT_BASE}/v/${artifact.id}.${artifact.revision_id}/index.html`,

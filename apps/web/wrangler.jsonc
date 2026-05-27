@@ -14,6 +14,7 @@
   },
   "vars": {
     "API_BASE_URL": "http://127.0.0.1:8787",
+    "STREAM_BASE_URL": "http://127.0.0.1:8791",
     "AGENT_PASTE_ENV": "dev",
     "WORKOS_CLIENT_ID": "",
     "WORKOS_REDIRECT_URI": "http://127.0.0.1:5173/api/auth/callback",
@@ -34,6 +35,7 @@
       "vars": {
         "AGENT_PASTE_ENV": "preview",
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
+        "STREAM_BASE_URL": "https://stream.preview.agent-paste.sh",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         "WORKOS_REDIRECT_URI": "https://app.preview.agent-paste.sh/api/auth/callback",
         "WORKOS_COOKIE_NAME": "__agp_session",
@@ -59,6 +61,7 @@
       "vars": {
         "AGENT_PASTE_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
+        "STREAM_BASE_URL": "https://stream.agent-paste.sh",
         "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
         "WORKOS_REDIRECT_URI": "https://app.agent-paste.sh/api/auth/callback",
         "WORKOS_COOKIE_NAME": "__agp_session",

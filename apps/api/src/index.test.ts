@@ -2,13 +2,7 @@ import { routeContracts } from "@agent-paste/contracts";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
-import {
-  type ApiDatabase,
-  type Env,
-  handleRequest,
-  mountedRouteIds,
-  nonContractRoutePaths,
-} from "./index.js";
+import { type ApiDatabase, type Env, handleRequest, mountedRouteIds, nonContractRoutePaths } from "./index.js";
 
 describe("api worker", () => {
   it("mounts every api route contract", () => {
@@ -26,6 +20,7 @@ describe("api worker", () => {
       "/__test__/delete-artifact",
       "/__test__/r2-list",
       "/__test__/denylist",
+      "/v1/internal/live-updates/authorize",
     ]);
   });
 
@@ -1393,6 +1388,7 @@ describe("api worker", () => {
           resolveCalls.push({ publicId: input.publicId, blobScopes: input.blobScopes });
           return {
             access_link_id: "al_test",
+            access_link_type: "share",
             workspace_id: "00000000-0000-4000-8000-000000000001",
             render_mode: "html",
             title: "Shared",

@@ -49,6 +49,7 @@ export async function resolveAccessLinkFromEntities(
   const agentView = buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
   return {
     access_link_id: link.id,
+    access_link_type: link.type,
     workspace_id: artifact.workspace_id,
     agent_view: agentView,
     render_mode: revision.render_mode,

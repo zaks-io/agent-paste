@@ -1,0 +1,78 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "agent-paste-stream",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "vars": {
+    "AGENT_PASTE_ENV": "dev",
+    "STREAM_BASE_URL": "http://127.0.0.1:8791"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ARTIFACT_LIVE",
+        "class_name": "ArtifactLiveUpdates"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ArtifactLiveUpdates"]
+    }
+  ],
+  "services": [
+    {
+      "binding": "API",
+      "service": "agent-paste-api"
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "agent-paste-stream-preview",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "stream.preview.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "preview",
+        "STREAM_BASE_URL": "https://stream.preview.agent-paste.sh"
+      },
+      "services": [
+        {
+          "binding": "API",
+          "service": "agent-paste-api-preview"
+        }
+      ]
+    },
+    "production": {
+      "name": "agent-paste-stream-production",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "stream.agent-paste.sh",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "AGENT_PASTE_ENV": "production",
+        "STREAM_BASE_URL": "https://stream.agent-paste.sh"
+      },
+      "services": [
+        {
+          "binding": "API",
+          "service": "agent-paste-api-production"
+        }
+      ]
+    }
+  }
+}

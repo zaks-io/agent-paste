@@ -426,12 +426,7 @@ export class RepositoryCore implements Repository {
       if (!artifact) {
         return null;
       }
-      return {
-        ...toWebArtifactRow(artifact),
-        entrypoint: artifact.entrypoint,
-        file_count: artifact.file_count,
-        size_bytes: artifact.size_bytes,
-      };
+      return this.webArtifactDetailFromArtifact(entities, artifact, actor.workspace_id);
     });
   }
 
@@ -455,7 +450,7 @@ export class RepositoryCore implements Repository {
           throw new Error("artifact_not_found");
         }
         if (artifact.pinned_at) {
-          return this.webArtifactDetailFromRow(artifact);
+          return this.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
         }
         const pinResult = await entities.artifacts.tryPinUnderCap(
           member.workspace_id,
@@ -484,7 +479,7 @@ export class RepositoryCore implements Repository {
         if (!updated) {
           throw new Error("artifact_not_found");
         }
-        return this.webArtifactDetailFromRow(updated);
+        return this.webArtifactDetailFromArtifact(entities, updated, member.workspace_id);
       },
     );
   }
@@ -509,7 +504,7 @@ export class RepositoryCore implements Repository {
           throw new Error("artifact_not_found");
         }
         if (!artifact.pinned_at) {
-          return this.webArtifactDetailFromRow(artifact);
+          return this.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
         }
         await entities.artifacts.setPinnedAt(artifact.id, null, now);
         await entities.operationEvents.insert({
@@ -526,17 +521,31 @@ export class RepositoryCore implements Repository {
         if (!updated) {
           throw new Error("artifact_not_found");
         }
-        return this.webArtifactDetailFromRow(updated);
+        return this.webArtifactDetailFromArtifact(entities, updated, member.workspace_id);
       },
     );
   }
 
-  private webArtifactDetailFromRow(artifact: Artifact) {
+  private async webArtifactDetailFromArtifact(entities: Entities, artifact: Artifact, workspaceId: string) {
+    const revisionId = artifact.revision_id;
+    let viewer: { iframe_src: string; render_mode: Revision["render_mode"] } | null = null;
+    if (revisionId && artifact.status === "active") {
+      const revision = await entities.revisions.findById(revisionId, workspaceId);
+      if (revision && revision.status === "published") {
+        const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
+        const agentView = buildAgentView(artifact, revisionId, files, this.options.contentBaseUrl ?? "", revision);
+        viewer = {
+          iframe_src: agentView.view_url,
+          render_mode: revision.render_mode,
+        };
+      }
+    }
     return {
       ...toWebArtifactRow(artifact),
       entrypoint: artifact.entrypoint,
       file_count: artifact.file_count,
       size_bytes: artifact.size_bytes,
+      viewer,
     };
   }
 
