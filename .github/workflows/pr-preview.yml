@@ -132,6 +132,8 @@ jobs:
           # Preview WorkOS environment API key; when unset, deploy-pr-preview.mjs
           # skips the web worker (the other workers need no WorkOS credential).
           WORKOS_PREVIEW_API_KEY: ${{ secrets.WORKOS_PREVIEW_API_KEY }}
+          # Enables client source-map upload during the web build; no-ops if unset.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: node scripts/deploy-pr-preview.mjs
 
       - name: Wait for Workers /healthz readiness
