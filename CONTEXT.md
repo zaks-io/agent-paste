@@ -2,6 +2,9 @@
 
 A platform for agents to publish shareable work products that can be viewed online by humans or consumed by other agents.
 
+For repository orientation, app/package ownership, and common lookup paths, use
+[`docs/agents/repo-navigation.md`](./docs/agents/repo-navigation.md).
+
 ## Language
 
 Each glossary entry carries an HTML anchor. ADRs and specs deep-link with `[Term](./CONTEXT.md#term-slug)` where the slug is kebab-case of the term name. Anchor convention applies to entries in the `## Language` and `## Apps and Workers` sections.

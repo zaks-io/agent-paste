@@ -13,6 +13,7 @@ Read these before implementation work:
 
 - `AGENTS.md`
 - `docs/agents/workflow.md`
+- `docs/agents/repo-navigation.md`
 - `docs/agents/skill-usage.md`
 - `docs/agents/remote-cursor-agent.md`
 - `docs/ops/project-status.md`
@@ -39,4 +40,3 @@ and move the issue back to `In Review` when ready.
 
 Stop and comment in Linear when product scope, security posture, credentials,
 provider approval, or ADR decisions are missing.
-

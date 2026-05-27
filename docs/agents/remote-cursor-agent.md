@@ -9,13 +9,14 @@ for the repo instructions.
 1. `AGENTS.md`
 2. This file
 3. `docs/agents/workflow.md`
-4. `docs/agents/skill-usage.md`
-5. `docs/agents/autonomous-loop.md`
-6. `docs/ops/project-status.md`
-7. `CONTEXT.md`
-8. `docs/specs/README.md`
-9. `docs/adr/README.md`
-10. The Linear issue and any linked ADRs/specs/runbooks
+4. `docs/agents/repo-navigation.md`
+5. `docs/agents/skill-usage.md`
+6. `docs/agents/autonomous-loop.md`
+7. `docs/ops/project-status.md`
+8. `CONTEXT.md`
+9. `docs/specs/README.md`
+10. `docs/adr/README.md`
+11. The Linear issue and any linked ADRs/specs/runbooks
 
 When a ticket names a specific app/package, also read that app/package README
 before editing.
