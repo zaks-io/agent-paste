@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (AP-23 bundle generation and download).
+Last updated: 2026-05-27 (AP-23 closed; production deploy/smoke green).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,9 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `a3da446 test: restore AP-16 coverage gate`.
+  `1ad2436 fix: provision hosted job queues before preview/production deploy (AP-23)`.
+- Post-merge main CI run `26492084576` and Deploy Production run `26492117360`
+  (including production smoke) passed on 2026-05-27.
 - `pnpm verify` passed on 2026-05-26 with 76 Turbo tasks.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
@@ -65,8 +67,8 @@ and deep-link return paths are implemented.
 
 Highest-signal gaps:
 
-- Phase 4: multi-revision artifacts, Access Links, link resolve/mint/revoke,
-  full jobs lifecycle sweeps, bundles, pinning, revision retention, and Live Updates.
+- Phase 4: pinning, non-current revision retention, and Live Updates (multi-revision
+  artifacts, Access Links, jobs lifecycle sweeps, and bundles are implemented).
 - Phase 5: OAuth-only MCP transport, auth verification, API forwarding, and MCP
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse

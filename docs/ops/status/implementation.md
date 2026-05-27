@@ -5,7 +5,7 @@ Last updated: 2026-05-26.
 ## Snapshot
 
 - Local `main` and `origin/main` are aligned at
-  `a3da446 test: restore AP-16 coverage gate`.
+  `1ad2436 fix: provision hosted job queues before preview/production deploy (AP-23)`.
 - Working tree was clean before this status-doc split.
 - `pnpm verify` passed on 2026-05-26: 76 Turbo tasks successful.
 - Last recorded hosted MVP smokes remain green from the 2026-05-22 production
@@ -63,7 +63,7 @@ Last updated: 2026-05-26.
 
 | Check                   | Latest known result | Date       | Notes                                                                                                                           |
 | ----------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm verify`           | Pass                | 2026-05-26 | 76 Turbo tasks on `a3da446`.                                                                                                    |
+| `pnpm verify`           | Pass                | 2026-05-26 | 76 Turbo tasks; post-merge main CI `26492084576` green on `1ad2436`.                                                            |
 | `pnpm smoke:local`      | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
 | `pnpm smoke:preview`    | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
 | `pnpm smoke:production` | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |

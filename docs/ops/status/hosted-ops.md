@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-27.
 
 ## Environment
 
@@ -20,7 +20,7 @@ Last updated: 2026-05-26.
 | `upload`       | Preview/production deployed; owns upload sessions and R2 writes.                          |
 | `content`      | Preview/production deployed; owns `usercontent` content reads.                            |
 | `web`          | Preview and production deployed at `app.preview.agent-paste.sh` and `app.agent-paste.sh`. |
-| `jobs`         | Scaffolded only; not a business-critical deployed surface yet.                            |
+| `jobs`         | Preview/production deployed; queue consumers include `bundle-generate` (AP-23).           |
 | `mcp`          | Scaffolded only; not a business-critical deployed surface yet.                            |
 
 ## Secrets

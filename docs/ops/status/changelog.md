@@ -5,6 +5,17 @@ use `git log` for commit-level detail.
 
 ## 2026-05-27
 
+### Bundle generation and download (AP-23)
+
+- Added revision bundle availability (`pending` / `ready` / `failed` / `disabled`),
+  `bundle_size_bytes`, and deterministic R2 bundle keys per ADR 0021.
+- Jobs `bundle-generate` consumer writes zip archives with size-cap terminal
+  failure; publish enqueues without failing the publish path.
+- Content serves signed `/b/{token}` bundle downloads; Agent View exposes bundle
+  availability per ADR 0050/0054.
+- Hosted deploy fix (PR #102): provision preview/production job queues (including
+  `bundle-generate`) before Worker deploy; production deploy/smoke passed after merge.
+
 ### Jobs lifecycle byte purge ownership (AP-22)
 
 - Moved auto-deletion expiry, denylist writes, and byte-purge enqueue from the
