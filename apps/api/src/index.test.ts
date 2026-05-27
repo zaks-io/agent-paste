@@ -1,4 +1,5 @@
 import { routeContracts } from "@agent-paste/contracts";
+import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
 import apiWorker, {
@@ -1394,6 +1395,98 @@ describe("api worker", () => {
     const response = await handleRequest(new Request("https://api.test/v1/public/agent-view/art_1.rev_1"), env);
 
     expect(response.status).toBe(404);
+  });
+
+  it("resolves access links and collapses invalid cases to not_found", async () => {
+    const resolveCalls: Array<{ publicId: string; blobScopes: number }> = [];
+    const env: Env = {
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      CONTENT_SIGNING_SECRET: "content-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async resolveAccessLink(input) {
+          resolveCalls.push({ publicId: input.publicId, blobScopes: input.blobScopes });
+          return {
+            access_link_id: "al_test",
+            workspace_id: "00000000-0000-4000-8000-000000000001",
+            render_mode: "html",
+            title: "Shared",
+            iframe_src: "https://content.test/v/art_1.rev_1/index.html",
+            agent_view: {
+              artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              title: "Shared",
+              created_at: "2026-01-01T00:00:00.000Z",
+              expires_at: "2030-01-01T00:00:00.000Z",
+              entrypoint: "index.html",
+              view_url: "https://content.test/v/art_1.rev_1/index.html",
+              files: [
+                {
+                  path: "index.html",
+                  size_bytes: 12,
+                  content_type: "text/html",
+                  url: "https://content.test/v/art_1.rev_1/index.html",
+                },
+              ],
+            },
+          };
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+    const blob = await mintAccessLinkBlob({
+      publicId: "0123456789ABCDEF",
+      kid: 1,
+      exp: Date.now() + 60_000,
+      scopes: 7,
+      signingSecret: "access-link-secret",
+    });
+    const ok = await handleRequest(
+      new Request("https://api.test/v1/access-links/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ public_id: "0123456789ABCDEF", blob }),
+      }),
+      env,
+    );
+    expect(ok.status).toBe(200);
+    await expect(ok.json()).resolves.toMatchObject({
+      render_mode: "html",
+      title: "Shared",
+      agent_view: { artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+    });
+    expect(resolveCalls).toEqual([{ publicId: "0123456789ABCDEF", blobScopes: 7 }]);
+
+    const missingSigningKey = await handleRequest(
+      new Request("https://api.test/v1/access-links/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ public_id: "0123456789ABCDEF", blob }),
+      }),
+      { DB: env.DB },
+    );
+    expect(missingSigningKey.status).toBe(404);
+
+    const badBlob = await handleRequest(
+      new Request("https://api.test/v1/access-links/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ public_id: "0123456789ABCDEF", blob: "bad" }),
+      }),
+      env,
+    );
+    expect(badBlob.status).toBe(404);
   });
 
   it("sets a lockdown for a WorkOS operator and writes the denylist key", async () => {

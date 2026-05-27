@@ -1,4 +1,5 @@
 import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "../agent-view.js";
+import { resolveAccessLinkFromEntities } from "../resolve-access-link.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
 import {
@@ -1053,6 +1054,17 @@ export class RepositoryCore implements Repository {
         page_info: { next_cursor: null, has_more: false },
       };
     });
+  }
+
+  async resolveAccessLink(input: {
+    publicId: string;
+    blobScopes: number;
+    contentBaseUrl: string;
+    now?: string;
+  }) {
+    return this.uow.read(PLATFORM_SCOPE, async (entities) =>
+      resolveAccessLinkFromEntities(entities, input),
+    );
   }
 
   async getPublicAgentView(input: { token: string; contentBaseUrl: string }) {

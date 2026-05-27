@@ -1,3 +1,4 @@
+import { AccessLinkResolveRequest } from "./accessLinks.js";
 import { CreateApiKeyRequest } from "./apiKeys.js";
 import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
@@ -20,6 +21,7 @@ export type IdempotencyRequirement = "none" | "required";
 export type RateLimitRequirement = "none" | "actor" | "artifact";
 
 export const requestSchemas = {
+  AccessLinkResolveRequest,
   CreateApiKeyRequest,
   CreateUploadSessionRequest,
   SetLockdownRequest,
@@ -114,6 +116,19 @@ export const routeContracts = [
     rateLimit: "artifact",
     responseSchema: "AgentView",
     errors: ["not_found", "database_unavailable", "rate_limited_artifact"],
+  },
+  {
+    id: "accessLinks.resolve",
+    app: "api",
+    method: "POST",
+    path: "/v1/access-links/resolve",
+    auth: "none",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "none",
+    requestSchema: "AccessLinkResolveRequest",
+    responseSchema: "AccessLinkResolveResponse",
+    errors: ["not_found", "invalid_request", "database_unavailable", "rate_limited_artifact"],
   },
   {
     id: "agentView.getLatest",

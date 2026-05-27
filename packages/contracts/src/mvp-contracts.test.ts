@@ -21,6 +21,7 @@ describe("MVP route registry", () => {
       "whoami.get",
       "usagePolicy.get",
       "agentView.public",
+      "accessLinks.resolve",
       "agentView.getLatest",
       "agentView.getRevision",
       "revisions.list",
@@ -84,6 +85,10 @@ describe("MVP route registry", () => {
         .map((route) => route.id)
         .sort(),
     ).toEqual(["agentView.public", "content.get", "content.head"]);
+    expect(routeContracts.find((route) => route.id === "accessLinks.resolve")).toMatchObject({
+      auth: "none",
+      rateLimit: "none",
+    });
   });
 
   it("documents artifact-level public Agent View throttling", () => {

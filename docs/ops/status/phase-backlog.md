@@ -102,7 +102,7 @@ Recommended order:
 2. [x] Access Link data model and signed URL codec.
        Add `access_links`, fragment payload signing with `kid`, mint/re-mint,
        revoke, row expiration, and Access Link Lockdown state.
-3. [ ] Access Link resolve API and viewer.
+3. [x] Access Link resolve API and viewer.
        Implement `POST /v1/access-links/resolve`, wire `/al/{publicId}` to the
        API, enforce generic not-found failures, and keep the no-auth/no-analytics
        lint boundary.

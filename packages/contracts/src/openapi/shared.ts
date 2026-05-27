@@ -1,5 +1,6 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { RevokeApiKeyResponse } from "../admin.js";
+import { AccessLinkResolveRequest, AccessLinkResolveResponse } from "../accessLinks.js";
 import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
@@ -39,6 +40,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   registry.register("AgentView", AgentView);
+  registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
+  registry.register("AccessLinkResolveResponse", AccessLinkResolveResponse);
   registry.register("CreateApiKeyRequest", CreateApiKeyRequest);
   registry.register("CreateApiKeyResponse", CreateApiKeyResponse);
   registry.register("ApiKeySummary", ApiKeySummary);

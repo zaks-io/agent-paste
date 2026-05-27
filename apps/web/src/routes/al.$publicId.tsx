@@ -47,7 +47,7 @@ function AccessLinkViewer() {
       setState({ kind: "not_found" });
       return;
     }
-    fetch("/al-resolve", {
+    fetch("/api/access-links/resolve", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({ public_id: publicId, blob }),

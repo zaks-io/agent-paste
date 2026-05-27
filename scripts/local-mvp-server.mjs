@@ -185,6 +185,7 @@ function createApiDatabase(repo, denylistNamespace) {
     getWhoami: repo.getWhoami.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
+    resolveAccessLink: repo.resolveAccessLink.bind(repo),
     getAdminWhoami: repo.getAdminWhoami?.bind(repo),
     createWorkspace: repo.createWorkspace.bind(repo),
     listWorkspaces: repo.listWorkspaces.bind(repo),

@@ -352,6 +352,140 @@
           "files"
         ]
       },
+      "AccessLinkResolveRequest": {
+        "type": "object",
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{16}$"
+          },
+          "blob": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "public_id",
+          "blob"
+        ]
+      },
+      "AccessLinkResolveResponse": {
+        "type": "object",
+        "properties": {
+          "agent_view": {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2000
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "entrypoint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "view_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "content_type": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "content_type",
+                    "url"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "artifact_id",
+              "revision_id",
+              "title",
+              "created_at",
+              "expires_at",
+              "entrypoint",
+              "view_url",
+              "files"
+            ]
+          },
+          "render_mode": {
+            "type": "string",
+            "enum": [
+              "html",
+              "markdown",
+              "text",
+              "image",
+              "audio",
+              "video"
+            ]
+          },
+          "iframe_src": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "agent_view",
+          "render_mode",
+          "iframe_src",
+          "title"
+        ]
+      },
       "CreateApiKeyRequest": {
         "type": "object",
         "properties": {
@@ -3254,6 +3388,343 @@
             }
           },
           "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Artifact read rate limit exceeded. Error code is rate_limited_artifact.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/access-links/resolve": {
+      "post": {
+        "operationId": "accessLinks.resolve",
+        "summary": "Resolve an Access Link Signed URL to Agent View and content URLs.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessLinkResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessLinkResolveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Error envelope",
             "content": {
               "application/json": {

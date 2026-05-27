@@ -238,6 +238,19 @@ export type Repository = {
     }>;
     page_info: PageInfo;
   } | null>;
+  resolveAccessLink(input: {
+    publicId: string;
+    blobScopes: number;
+    contentBaseUrl: string;
+    now?: string;
+  }): Promise<{
+    access_link_id: string;
+    workspace_id: string;
+    agent_view: AgentView;
+    render_mode: string;
+    title: string;
+    iframe_src: string;
+  } | null>;
   getPublicAgentView(input: { token: string; contentBaseUrl: string }): Promise<AgentView | null>;
   getAgentView(input: {
     actor: ApiActor;
