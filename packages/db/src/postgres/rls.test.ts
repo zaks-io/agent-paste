@@ -39,20 +39,25 @@ function executorForPglite(client: PGlite, role?: string): SqlExecutor {
   return outer;
 }
 
-async function applyMigrationFile(client: PGlite, file: string) {
+async function applyDbRolesMigration(client: PGlite) {
   const dir = resolve(here, "../../migrations");
+  await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '${APP_RUNTIME_ROLE}', false)`);
+  await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', 'test-runtime-password', false)`);
+  try {
+    const text = await readFile(resolve(dir, "0010_db_roles.sql"), "utf8");
+    await client.exec(text);
+  } finally {
+    await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '', false)`);
+    await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', '', false)`);
+  }
+}
+
+async function applyMigrationFile(client: PGlite, file: string) {
   if (file === "0010_db_roles.sql") {
-    await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '${APP_RUNTIME_ROLE}', false)`);
-    await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', 'test-runtime-password', false)`);
-    try {
-      const text = await readFile(resolve(dir, file), "utf8");
-      await client.exec(text);
-    } finally {
-      await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '', false)`);
-      await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', '', false)`);
-    }
+    await applyDbRolesMigration(client);
     return;
   }
+  const dir = resolve(here, "../../migrations");
   const text = await readFile(resolve(dir, file), "utf8");
   await client.exec(text);
 }
@@ -62,15 +67,7 @@ async function applyMigrations(client: PGlite) {
   const files = (await readdir(dir)).filter((name) => name.endsWith(".sql")).sort();
   for (const file of files) {
     if (file === "0010_db_roles.sql") {
-      await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '${APP_RUNTIME_ROLE}', false)`);
-      await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', 'test-runtime-password', false)`);
-      try {
-        const text = await readFile(resolve(dir, file), "utf8");
-        await client.exec(text);
-      } finally {
-        await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '', false)`);
-        await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', '', false)`);
-      }
+      await applyDbRolesMigration(client);
       continue;
     }
     const text = await readFile(resolve(dir, file), "utf8");

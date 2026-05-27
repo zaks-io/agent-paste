@@ -52,7 +52,8 @@ select
 from artifacts a
 where a.revision_id is not null
   and not exists (
-    select 1 from revisions r where r.id = a.revision_id
+    select 1 from revisions r
+    where r.id = a.revision_id
   );
 
 -- artifact_files must allow multiple revisions per artifact.
