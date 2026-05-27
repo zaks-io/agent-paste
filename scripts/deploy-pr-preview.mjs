@@ -226,6 +226,7 @@ function jobsConfig() {
     vars: {
       AGENT_PASTE_ENV: "preview",
       JOBS_ENABLED: "true",
+      SMOKE_SYNC_BYTE_PURGE: "true",
     },
     hyperdrive: [{ binding: "DB", id: hyperdriveId }],
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],

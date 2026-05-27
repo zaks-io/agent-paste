@@ -121,6 +121,41 @@ describe("lifecycle side effects", () => {
     ).resolves.toBe(false);
     expect(executor.query).not.toHaveBeenCalled();
   });
+
+  it("drains byte purge synchronously when smoke sync is enabled", async () => {
+    const send = vi.fn(async () => ({}));
+    const deleted: string[][] = [];
+    const executor = {
+      query: vi.fn(async () => ({ rows: [] })),
+      transaction: vi.fn(),
+    };
+    await expect(
+      enqueueArtifactBytePurge(
+        {
+          BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+          SMOKE_SYNC_BYTE_PURGE: "true",
+          ARTIFACTS: {
+            async list() {
+              return { objects: [{ key: `artifacts/${artifactId}/index.html` }], truncated: false };
+            },
+            async delete(keys) {
+              deleted.push(keys);
+            },
+          },
+        },
+        executor,
+        {
+          workspaceId,
+          artifactId,
+          revisionId,
+          reason: "deletion",
+        },
+      ),
+    ).resolves.toBe(true);
+    expect(send).toHaveBeenCalled();
+    expect(deleted).toEqual([[`artifacts/${artifactId}/index.html`]]);
+    expect(executor.query).toHaveBeenCalled();
+  });
 });
 
 describe("auto deletion discovery", () => {

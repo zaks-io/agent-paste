@@ -33,6 +33,8 @@ export type Env = {
   BUNDLE_GENERATE_QUEUE?: QueueBinding;
   /** Populated by the local sync queue harness to report deleted object counts. */
   SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
+  /** When true, smoke harness enqueue paths drain byte purge immediately after send. */
+  SMOKE_SYNC_BYTE_PURGE?: string;
   LOCAL_MVP_REPOSITORY?: {
     runCleanup(input: {
       actor: { type: string; id: string };

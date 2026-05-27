@@ -3,6 +3,7 @@ import type { SqlExecutor } from "@agent-paste/db";
 import type { Env } from "../env.js";
 import { logOpError } from "../op-log.js";
 import { artifactPurgePrefix } from "./artifact-prefix.js";
+import { processSmokeSyncBytePurge } from "../smoke-sync-byte-purge.js";
 
 export type ArtifactBytePurgeInput = {
   workspaceId: string;
@@ -34,6 +35,7 @@ export async function enqueueArtifactBytePurge(
 
   try {
     await env.BYTE_PURGE_QUEUE.send(message);
+    await processSmokeSyncBytePurge(env, message);
   } catch (error) {
     logOpError("lifecycle.byte_purge.enqueue_failed", {
       artifact_id: input.artifactId,
