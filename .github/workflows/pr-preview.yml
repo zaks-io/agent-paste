@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 25
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     environment:
-      name: pr-preview-${{ github.event.pull_request.number }}
+      name: Preview
       url: ${{ steps.deploy.outputs.apex_url }}
 
     steps:
@@ -185,19 +185,6 @@ jobs:
           wait_for_healthz "$JOBS_URL"
           wait_for_healthz "$APEX_URL"
           if [ -n "$WEB_SMOKE_URL" ]; then wait_for_healthz "$WEB_SMOKE_URL"; fi
-
-      - name: Smoke PR preview
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
-          AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
-          AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
-          AGENT_PASTE_PR_JOBS_URL: ${{ steps.deploy.outputs.jobs_url }}
-          AGENT_PASTE_PR_APEX_URL: ${{ steps.deploy.outputs.apex_url }}
-          AGENT_PASTE_PR_SMOKE_HARNESS_SECRET: ${{ steps.deploy.outputs.smoke_harness_secret }}
-          # Empty when web was skipped (no WorkOS key); smokeWebAuth no-ops then.
-          AGENT_PASTE_PR_WEB_URL: ${{ steps.deploy.outputs.web_smoke_url }}
-        run: pnpm smoke:pr
 
       - name: Lighthouse dashboard accessibility gate
         env:

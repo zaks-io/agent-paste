@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-26.
+Last updated: 2026-05-27.
 
 ## Environment
 
@@ -77,11 +77,15 @@ Deferred secrets not created for the current app:
 ## GitHub / CI
 
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
-  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `DATABASE_URL_MIGRATIONS_PRODUCTION`
-  (or legacy `PRODUCTION_DATABASE_URL`),
-  `NEON_API_KEY`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`, and
-  `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, and preview/PR smoke harness secrets
-  are present or proven by successful workflows.
+  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
+  `DATABASE_URL_MIGRATIONS_PRODUCTION` (or legacy `PRODUCTION_DATABASE_URL`),
+  `NEON_API_KEY`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`,
+  `PR_PREVIEW_SECRET_SEED`, the preview smoke harness secret, and
+  `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are present or proven by successful
+  workflows.
+- PR preview deploys target the single GitHub Environment named `Preview` for
+  secrets and variables. Runtime resources are still PR-scoped Cloudflare
+  Workers, Neon branches, Hyperdrive configs, and queues.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
 - `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
   already reserved by `@zaks-io/agent-paste@0.0.0`.
@@ -94,7 +98,9 @@ Deferred secrets not created for the current app:
 3. `pnpm smoke:local`
 4. Address the active backlog item, or document why it is deferred.
 5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
-6. Same-repo PRs exercise the PR preview workflow automatically.
+6. Same-repo PRs exercise the PR preview deploy workflow automatically. The PR
+   workflow gates on `/healthz` readiness and local dashboard Lighthouse only;
+   full hosted smoke is manual for PRs and automatic after `main` deploy.
 7. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`
 

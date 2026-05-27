@@ -84,12 +84,25 @@ Each smoke publishes `examples/local-harness/site`, verifies Agent View and cont
 
 ## Dynamic PR Previews
 
-Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow creates a Neon branch named `preview/pr-<number>` from `main`, runs migrations against that branch URL, creates a PR-scoped Hyperdrive config, deploys `agent-paste-{api,upload,content}-pr-<number>` Workers to `workers.dev`, runs the hosted smoke, and comments the URLs on the PR. `.github/workflows/pr-preview-cleanup.yml` deletes the Workers, Hyperdrive config, and Neon branch when the PR closes.
+Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow targets the
+single GitHub Environment named `Preview` for secrets and variables, while the
+runtime resources remain PR-scoped for isolation. It creates a Neon branch named
+`preview/pr-<number>` from `main`, runs migrations against that branch URL,
+creates a PR-scoped Hyperdrive config, deploys
+`agent-paste-{api,upload,content,jobs,apex,web}-pr-<number>` Workers to
+`workers.dev`, waits for `/healthz` readiness, runs the local dashboard
+Lighthouse accessibility gate, and comments the URLs on the PR. It does not run
+the full hosted smoke on every PR; `pnpm smoke:pr` remains available for manual
+diagnosis when needed. `.github/workflows/pr-preview-cleanup.yml` deletes the
+Workers, Hyperdrive config, and Neon branch when the PR closes.
 
 Required GitHub Actions values:
 
 - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
-  `DATABASE_URL_MIGRATIONS_PRODUCTION`, `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`,
-  `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
+  `PR_PREVIEW_SECRET_SEED`, `WORKOS_PREVIEW_API_KEY` when PR web previews are
+  enabled, `DATABASE_URL_MIGRATIONS_PRODUCTION`,
+  `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
 - Variables: `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN=isaac-a46`, `TURBO_TEAM`.
-- Environment: `Production` on the production deploy job, with reviewer approval enabled in GitHub settings.
+- Environments: `Preview` on the PR preview deploy job, without required
+  reviewers so PR deploys are not blocked; `Production` on the production deploy
+  job, with reviewer approval enabled in GitHub settings.

@@ -131,7 +131,7 @@ pnpm hooks:install
 | `pnpm lighthouse:dashboard-a11y` | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first). |
 | `pnpm smoke:preview`             | Build and run hosted preview smoke assertions.                                                                        |
 | `pnpm smoke:production`          | Build and run hosted production smoke assertions.                                                                     |
-| `pnpm smoke:pr`                  | Build and run hosted PR-preview smoke assertions using PR workflow-provided URLs.                                     |
+| `pnpm smoke:pr`                  | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                            |
 
 ### Hooks
 

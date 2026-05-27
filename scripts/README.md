@@ -157,7 +157,10 @@ pnpm lighthouse:dashboard-a11y
 
 The script builds on the same local harness pattern as `smoke-web-api.mjs`: mock WorkOS JWKS, the local MVP API/upload/content stack, and a built `@agent-paste/web` Worker via `wrangler dev`. It seals an AuthKit session cookie for a returning member with no published artifacts, asserts `/dashboard` renders authenticated chrome plus an empty overview, then runs Lighthouse with `onlyCategories: ['accessibility']`. The process exits non-zero when the score is below `95` (override with `AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE`).
 
-PR preview runs this step after hosted smoke. It does not depend on the per-PR web deploy and therefore still runs when `WORKOS_PREVIEW_API_KEY` is unset and web preview is skipped.
+PR preview runs this step after Worker readiness. It does not depend on the
+per-PR web deploy and therefore still runs when `WORKOS_PREVIEW_API_KEY` is
+unset and web preview is skipped. The full hosted PR smoke is not part of the
+default PR cycle; run `pnpm smoke:pr` manually when diagnosing a preview.
 
 ## PR Preview Helpers
 
@@ -172,3 +175,6 @@ PR preview runs this step after hosted smoke. It does not depend on the per-PR w
 - PR-scoped Cloudflare Queues for the jobs worker (`byte-purge-preview-pr-<number>`, etc.), created idempotently before jobs deploy and deleted on PR close
 
 If the WorkOS preview API key is missing, `deploy-pr-preview.mjs` skips the per-PR web Worker rather than failing the API/upload/content/apex preview.
+The GitHub Actions job uses the shared `Preview` GitHub Environment so preview
+secrets and variables are assigned once, even though Cloudflare, Neon,
+Hyperdrive, and queue resources stay PR-scoped.
