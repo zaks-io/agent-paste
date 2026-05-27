@@ -12,6 +12,13 @@ describe("buildRevisionZip", () => {
     expect(zip[1]).toBe(0x4b);
   });
 
+  it("tracks paths on a null-prototype map", () => {
+    const entries = Object.create(null) as Record<string, Uint8Array>;
+    entries.__proto__ = new Uint8Array([1]);
+    expect(Object.hasOwn(entries, "__proto__")).toBe(true);
+    expect(({} as { polluted?: string }).polluted).toBeUndefined();
+  });
+
   it("rejects duplicate revision paths deterministically", () => {
     const bytes = new TextEncoder().encode("x");
     expect(() =>

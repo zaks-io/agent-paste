@@ -137,7 +137,6 @@
         "required": [
           "status",
           "url",
-          "size_bytes",
           "generated_at"
         ],
         "additionalProperties": false
@@ -219,7 +218,6 @@
             "required": [
               "status",
               "url",
-              "size_bytes",
               "generated_at"
             ],
             "additionalProperties": false
@@ -569,7 +567,6 @@
                 "required": [
                   "status",
                   "url",
-                  "size_bytes",
                   "generated_at"
                 ],
                 "additionalProperties": false

@@ -15,6 +15,13 @@ describe("BundleAvailability", () => {
       BundleAvailability.safeParse({
         status: "ready",
         url: "https://content.test/b/token",
+        generated_at: "2026-01-01T00:00:00.000Z",
+      }).success,
+    ).toBe(true);
+    expect(
+      BundleAvailability.safeParse({
+        status: "ready",
+        url: "https://content.test/b/token",
         size_bytes: 10,
         generated_at: "2026-01-01T00:00:00.000Z",
         retry_after_seconds: 5,

@@ -15,7 +15,7 @@ export const BundleAvailabilityReady = z
   .object({
     status: z.literal("ready"),
     url: z.string().url(),
-    size_bytes: z.number().int().nonnegative(),
+    size_bytes: z.number().int().nonnegative().optional(),
     generated_at: IsoDateTime,
   })
   .strict();
