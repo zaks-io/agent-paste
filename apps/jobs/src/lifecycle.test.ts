@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { AUTO_DELETION_SWEEP_CAP } from "./constants.js";
+import { AUTO_DELETION_SWEEP_CAP, RETENTION_SWEEP_CAP } from "./constants.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
 import { runRetentionDiscovery } from "./discovery/retention.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
@@ -269,6 +269,83 @@ describe("retention discovery", () => {
     expect(result.enqueued).toBe(0);
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("reports cap_hit when more revisions qualify than the sweep cap", async () => {
+    const rows = Array.from({ length: RETENTION_SWEEP_CAP + 1 }, (_, index) => ({
+      id: `rev_${String(index).padStart(26, "0")}`,
+      workspace_id: workspaceId,
+      artifact_id: artifactId,
+    }));
+    const executor = createTransactionalSqlExecutor(async () => ({ rows }));
+    const env = {
+      BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toMatchObject({
+      discovered: RETENTION_SWEEP_CAP,
+      cap_hit: true,
+    });
+  });
+
+  it("skips enqueue when retention update does not retain the revision", async () => {
+    const oldRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+    const send = vi.fn(async () => ({}));
+    let discovery = true;
+    const executor = mockExecutor(async (sql) => {
+      if (discovery && sql.includes("from revisions")) {
+        discovery = false;
+        return {
+          rows: [{ id: oldRevisionId, workspace_id: workspaceId, artifact_id: artifactId }],
+        };
+      }
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [{ workspace_id: workspaceId }] };
+      }
+      if (sql.includes("update revisions")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+    const env = {
+      BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("continues retention when one revision command throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const runCommand = vi.spyOn(await import("@agent-paste/commands"), "runCommand");
+    runCommand.mockRejectedValueOnce(new Error("retention_tx_failed"));
+    try {
+      const oldRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+      let discovery = true;
+      const executor = mockExecutor(async (sql) => {
+        if (discovery && sql.includes("from revisions")) {
+          discovery = false;
+          return {
+            rows: [{ id: oldRevisionId, workspace_id: workspaceId, artifact_id: artifactId }],
+          };
+        }
+        return { rows: [] };
+      });
+      const env = {
+        BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() },
+        DENYLIST: { put: vi.fn(async () => {}) },
+      };
+      const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+      expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
+      expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.retention.revision_failed"))).toBe(
+        true,
+      );
+    } finally {
+      runCommand.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
 });
 
 describe("auto deletion discovery", () => {
@@ -339,6 +416,77 @@ describe("auto deletion discovery", () => {
     const result = await runAutoDeletionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
     expect(result.enqueued).toBe(0);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("reports cap_hit when more artifacts expire than the sweep cap", async () => {
+    const rows = Array.from({ length: AUTO_DELETION_SWEEP_CAP + 1 }, (_, index) => ({
+      id: `art_${String(index).padStart(26, "0")}`,
+      workspace_id: workspaceId,
+      revision_id: revisionId,
+    }));
+    const executor = createTransactionalSqlExecutor(async () => ({ rows }));
+    const env = {
+      BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runAutoDeletionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toMatchObject({
+      discovered: AUTO_DELETION_SWEEP_CAP,
+      cap_hit: true,
+    });
+  });
+
+  it("skips enqueue when auto-deletion update does not expire the artifact", async () => {
+    const send = vi.fn(async () => ({}));
+    let discovery = true;
+    const executor = mockExecutor(async (sql) => {
+      if (discovery && sql.includes("from artifacts")) {
+        discovery = false;
+        return { rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId }] };
+      }
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [{ workspace_id: workspaceId }] };
+      }
+      if (sql.includes("update artifacts")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+    const env = {
+      BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runAutoDeletionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("continues auto-deletion when one artifact command throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const runCommand = vi.spyOn(await import("@agent-paste/commands"), "runCommand");
+    runCommand.mockRejectedValueOnce(new Error("auto_deletion_tx_failed"));
+    try {
+      let discovery = true;
+      const executor = mockExecutor(async (sql) => {
+        if (discovery && sql.includes("from artifacts")) {
+          discovery = false;
+          return { rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId }] };
+        }
+        return { rows: [] };
+      });
+      const env = {
+        BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() },
+        DENYLIST: { put: vi.fn(async () => {}) },
+      };
+      const result = await runAutoDeletionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+      expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
+      expect(
+        errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.auto_deletion.artifact_failed")),
+      ).toBe(true);
+    } finally {
+      runCommand.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });
 
