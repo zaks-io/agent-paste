@@ -15,10 +15,14 @@ import {
   routeContracts,
 } from "@agent-paste/contracts";
 import {
+  buildCreateUploadSessionWireResponse,
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
+  observeUploadSessionForFinalize,
   type Repository,
+  resolveSessionObjectKey,
+  type UploadSessionRecord,
 } from "@agent-paste/db";
 import { pepperRingFromWorkerEnv, uploadSigningRingFromEnv, verifyUploadTokenWithKeyRing } from "@agent-paste/rotation";
 import {
@@ -57,13 +61,7 @@ export type UploadFileInput = {
   sha256?: string;
 };
 
-export type UploadSessionRecord = {
-  session_id: string;
-  artifact_id: string;
-  revision_id: string;
-  expires_at: string;
-  files: Array<UploadFileInput & { object_key?: string; put_url?: string; expires_at?: string }>;
-};
+export type { UploadSessionRecord };
 
 export type R2Object = {
   size: number;
@@ -233,31 +231,12 @@ async function createUploadSession(
     throw error;
   }
 
-  return jsonResponse(context, await buildCreateSessionResponse(request, env, session));
-}
-
-async function buildCreateSessionResponse(
-  request: Request,
-  env: Env,
-  session: UploadSessionRecord,
-): Promise<Record<string, unknown>> {
-  const signedFiles = await Promise.all(
-    session.files.map(async (file) => ({
-      path: file.path,
-      put_url: file.put_url ?? (await signUploadUrl(request, env, session, file)),
-      required_headers: { "content-length": String(file.size_bytes) },
-      expires_at: file.expires_at ?? session.expires_at,
-    })),
+  return jsonResponse(
+    context,
+    await buildCreateUploadSessionWireResponse(session, {
+      signPutUrl: (uploadSession, file) => signUploadUrl(request, env, uploadSession, file),
+    }),
   );
-
-  return {
-    upload_session_id: session.session_id,
-    artifact_id: session.artifact_id,
-    revision_id: session.revision_id,
-    status: "pending",
-    expires_at: session.expires_at,
-    files: signedFiles,
-  };
 }
 
 async function putUploadFile(
@@ -315,16 +294,11 @@ async function finalizeUploadSession(
     return errorResponse(context, "not_found");
   }
 
-  const observedFiles = [];
-  for (const file of session.files) {
-    const objectKey = objectKeyFor(session, file.path, file.object_key);
-    const object = await env.ARTIFACTS.head(objectKey);
-    if (!object || object.size !== file.size_bytes) {
-      return errorResponse(context, "upload_incomplete", file.path);
-    }
-
-    observedFiles.push({ path: file.path, objectKey, sizeBytes: object.size });
+  const observation = await observeUploadSessionForFinalize(session, env.ARTIFACTS);
+  if ("incompletePath" in observation) {
+    return errorResponse(context, "upload_incomplete", observation.incompletePath);
   }
+  const { observedFiles } = observation;
 
   let result: unknown;
   try {
@@ -409,7 +383,13 @@ async function uploadReplay(input: {
       input.guard.idempotencyKey,
     );
     return replay
-      ? jsonResponse(context, await buildCreateSessionResponse(context.req.raw, context.env, replay))
+      ? jsonResponse(
+          context,
+          await buildCreateUploadSessionWireResponse(replay, {
+            signPutUrl: (uploadSession, file) =>
+              signUploadUrl(context.req.raw, context.env as Env, uploadSession, file),
+          }),
+        )
       : null;
   }
   if (input.contract.id === "uploadSessions.finalize") {
@@ -472,7 +452,7 @@ async function signUploadUrl(
     payload: {
       sid: session.session_id,
       path: file.path,
-      key: objectKeyFor(session, file.path, file.object_key),
+      key: resolveSessionObjectKey(session, file.path, file.object_key),
       size: file.size_bytes,
       exp: Math.floor(Date.now() / 1000) + ttlSeconds(env),
     },
@@ -489,10 +469,6 @@ async function verifyUploadToken(token: string | null, env: Env): Promise<Signed
     return verifyUploadTokenWithKeyRing(token, signingRing);
   }
   return verifyUploadTokenSignature(token, env.UPLOAD_SIGNING_SECRET);
-}
-
-function objectKeyFor(session: UploadSessionRecord, path: string, explicitKey?: string): string {
-  return explicitKey ?? `artifacts/${session.artifact_id}/revisions/${session.revision_id}/files/${path}`;
 }
 
 function bearerToken(request: Request): string | null {

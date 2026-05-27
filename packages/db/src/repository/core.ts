@@ -1,9 +1,8 @@
-import { buildAgentView, buildFinalizeResult, buildPublishResult, inferRenderMode } from "../agent-view.js";
+import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
 import { createId } from "../id.js";
 import {
   DEFAULT_AUTO_DELETION_DAYS,
-  DEFAULT_UPLOAD_SESSION_TTL_MS,
   MAX_AUTO_DELETION_DAYS,
   MIN_AUTO_DELETION_DAYS,
   PINNED_ARTIFACT_CAP,
@@ -11,13 +10,7 @@ import {
 } from "../policy.js";
 import { toRevisionSummary } from "../queries/revisions.js";
 import { resolveAccessLinkFromEntities } from "../resolve-access-link.js";
-import {
-  toApiKeySummary,
-  toArtifactSummary,
-  toUploadSessionRecord,
-  toWorkspaceDetail,
-  toWorkspaceSummary,
-} from "../transforms.js";
+import { toApiKeySummary, toArtifactSummary, toWorkspaceDetail, toWorkspaceSummary } from "../transforms.js";
 import type {
   AdminActor,
   ApiActor,
@@ -27,16 +20,18 @@ import type {
   PlatformLockdown,
   RepositoryOptions,
   Revision,
-  StoredFile,
-  UploadSession,
   Workspace,
   WorkspaceMember,
 } from "../types.js";
-import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Repository } from "./interface.js";
 import { type OperatorEventFilters, resolveOperatorEventActions } from "./operator-event-filters.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
+import {
+  createUploadSessionInEntities,
+  finalizeUploadSessionInEntities,
+  readUploadSessionInEntities,
+} from "./upload-session-lifecycle.js";
 import {
   decodeLockdownCursor,
   decodeWebArtifactCursor,
@@ -937,72 +932,12 @@ export class RepositoryCore implements Repository {
         scope: workspaceScope(input.actor.workspace_id),
         now: input.now,
       },
-      async (entities) => {
-        const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
-        const isUpdate = Boolean(input.request.artifact_id);
-        let baseArtifact: Artifact | null = null;
-        if (isUpdate) {
-          const artifactId = input.request.artifact_id;
-          if (!artifactId) {
-            throw new Error("artifact_not_found");
-          }
-          baseArtifact = await entities.artifacts.findById(artifactId, input.actor.workspace_id);
-          if (!baseArtifact || baseArtifact.status !== "active") {
-            throw new Error("artifact_not_found");
-          }
-          const existingDraft = await entities.revisions.findDraftForArtifact(baseArtifact.id);
-          if (existingDraft) {
-            throw new Error("draft_revision_conflict");
-          }
-        }
-        const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
-        validateUpload(files, entrypoint);
-        const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
-        const updateArtifactId = input.request.artifact_id;
-        const session: UploadSession = {
-          id: createId("upl"),
-          workspace_id: input.actor.workspace_id,
-          artifact_id: isUpdate && updateArtifactId ? updateArtifactId : createId("art"),
-          revision_id: createId("rev"),
-          status: "pending",
-          title: input.request.title ?? baseArtifact?.title ?? "untitled",
-          entrypoint,
-          artifact_expires_at: new Date(
-            new Date(input.now).getTime() + (input.request.ttl_seconds ?? USAGE_POLICY.default_ttl_seconds) * 1000,
-          ).toISOString(),
-          file_count: files.length,
-          size_bytes: totalSize,
-          created_by_api_key_id: input.actor.id,
-          expires_at: new Date(new Date(input.now).getTime() + DEFAULT_UPLOAD_SESSION_TTL_MS).toISOString(),
-          created_at: input.now,
-          finalized_at: null,
-        };
-        await entities.uploadSessions.insert(session);
-        const storedFiles: StoredFile[] = files.map((file) => ({
-          workspace_id: input.actor.workspace_id,
-          upload_session_id: session.id,
-          path: file.path,
-          size_bytes: file.size_bytes,
-          content_type: contentTypeForPath(file.path),
-          r2_key: objectKeyFor(session.artifact_id, session.revision_id, file.path),
-          uploaded_at: null,
-          put_url_expires_at: session.expires_at,
-        }));
-        for (const file of storedFiles) {
-          await entities.uploadSessionFiles.insert(session.id, file);
-        }
-        await entities.operationEvents.insert({
-          actorType: "api_key",
-          actorId: input.actor.id,
-          action: "upload_session.created",
-          targetType: "upload_session",
-          targetId: session.id,
-          workspaceId: session.workspace_id,
-          details: { artifact_id: session.artifact_id, revision_id: session.revision_id, file_count: files.length },
-          occurredAt: input.now,
-        });
-        return toUploadSessionRecord(session, storedFiles);
-      },
+      (entities) =>
+        createUploadSessionInEntities(entities, {
+          actor: input.actor,
+          request: input.request,
+          now: input.now,
+        }),
     );
   }
 
@@ -1017,14 +952,12 @@ export class RepositoryCore implements Repository {
   }
 
   async getUploadSession(input: { actor: ApiActor; sessionId: string }) {
-    return this.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
-      const session = await entities.uploadSessions.findById(input.sessionId, input.actor.workspace_id);
-      if (!session) {
-        return null;
-      }
-      const files = await entities.uploadSessionFiles.listForSession(session.id);
-      return toUploadSessionRecord(session, files);
-    });
+    return this.uow.read(workspaceScope(input.actor.workspace_id), (entities) =>
+      readUploadSessionInEntities(entities, {
+        workspaceId: input.actor.workspace_id,
+        sessionId: input.sessionId,
+      }),
+    );
   }
 
   async finalizeUploadSession(input: {
@@ -1042,98 +975,13 @@ export class RepositoryCore implements Repository {
         scope: workspaceScope(input.actor.workspace_id),
         now: input.now,
       },
-      async (entities) => {
-        const session = await entities.uploadSessions.findById(input.sessionId, input.actor.workspace_id);
-        if (!session) {
-          throw new Error("upload_session_not_found");
-        }
-        const files = await entities.uploadSessionFiles.listForSession(session.id);
-        const observed = new Set(input.observedFiles.map((file) => `${file.path}:${file.objectKey}:${file.sizeBytes}`));
-        for (const file of files) {
-          if (!observed.has(`${file.path}:${file.r2_key}:${file.size_bytes}`)) {
-            throw new Error("upload_incomplete");
-          }
-        }
-        const existingArtifact = await entities.artifacts.findById(session.artifact_id, input.actor.workspace_id);
-        if (existingArtifact) {
-          const existingDraft = await entities.revisions.findDraftForArtifact(existingArtifact.id);
-          if (existingDraft && existingDraft.id !== session.revision_id) {
-            throw new Error("draft_revision_conflict");
-          }
-        } else {
-          const artifact: Artifact = {
-            id: session.artifact_id,
-            workspace_id: session.workspace_id,
-            revision_id: null,
-            status: "active",
-            title: session.title,
-            entrypoint: session.entrypoint,
-            file_count: session.file_count,
-            size_bytes: session.size_bytes,
-            expires_at: session.artifact_expires_at,
-            pinned_at: null,
-            created_by_api_key_id: session.created_by_api_key_id,
-            access_link_lockdown_at: null,
-            deleted_at: null,
-            delete_reason: null,
-            created_at: input.now,
-            updated_at: input.now,
-          };
-          await entities.artifacts.insert(artifact);
-          await entities.operationEvents.insert({
-            actorType: "api_key",
-            actorId: input.actor.id,
-            action: "artifact.created",
-            targetType: "artifact",
-            targetId: artifact.id,
-            workspaceId: artifact.workspace_id,
-            details: {},
-            occurredAt: input.now,
-          });
-        }
-        const revision: Revision = {
-          id: session.revision_id,
-          workspace_id: session.workspace_id,
-          artifact_id: session.artifact_id,
-          revision_number: null,
-          status: "draft",
-          entrypoint: session.entrypoint,
-          render_mode: inferRenderMode(session.entrypoint),
-          file_count: session.file_count,
-          size_bytes: session.size_bytes,
-          bundle_status: "disabled",
-          bundle_status_updated_at: null,
-          bundle_size_bytes: null,
-          bytes_purge_enqueued_at: null,
-          created_by_api_key_id: session.created_by_api_key_id,
-          created_at: input.now,
-          published_at: null,
-        };
-        await entities.revisions.insert(revision);
-        await entities.uploadSessions.markFinalized(session.id, input.now);
-        for (const file of files) {
-          await entities.artifactFiles.insert(session.artifact_id, session.revision_id, file, input.now);
-        }
-        await entities.operationEvents.insert({
-          actorType: "api_key",
-          actorId: input.actor.id,
-          action: "revision.draft_created",
-          targetType: "artifact",
-          targetId: session.artifact_id,
-          workspaceId: session.workspace_id,
-          details: { revision_id: session.revision_id, file_count: session.file_count },
-          occurredAt: input.now,
-        });
-        return buildFinalizeResult({
-          uploadSessionId: session.id,
-          artifactId: session.artifact_id,
-          revisionId: session.revision_id,
-          title: session.title,
-          entrypoint: session.entrypoint,
-          fileCount: session.file_count,
-          sizeBytes: session.size_bytes,
-        });
-      },
+      (entities) =>
+        finalizeUploadSessionInEntities(entities, {
+          actor: input.actor,
+          sessionId: input.sessionId,
+          observedFiles: input.observedFiles,
+          now: input.now,
+        }),
     );
   }
 
