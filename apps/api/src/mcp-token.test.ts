@@ -34,6 +34,31 @@ describe("MCP OAuth bearer verification on api", () => {
     vi.unstubAllGlobals();
   });
 
+  it("accepts MCP resource aud when azp is a separate OAuth client id", async () => {
+    const oauthClientId = "client_01MCPREGRESSIONAZP";
+    const fixture = await mcpTokenFixture({ scope: "read", azp: oauthClientId });
+    stubFetch(fixture.publicJwk);
+
+    const principal = await authenticateMcpBearer(request(fixture.token), baseEnv());
+    expect(principal).toMatchObject({
+      identity: { workos_user_id: subject, auth_surface: "mcp" },
+      mcpScopes: ["read"],
+    });
+    expect(oauthClientId).not.toBe(MCP_RESOURCE_INDICATOR);
+  });
+
+  it("accepts MCP resource aud when client_id is a separate OAuth client id", async () => {
+    const oauthClientId = "client_01MCPREGRESSIONCLIENTID";
+    const fixture = await mcpTokenFixture({ scope: "read", client_id: oauthClientId });
+    stubFetch(fixture.publicJwk);
+
+    const principal = await authenticateMcpBearer(request(fixture.token), baseEnv());
+    expect(principal).toMatchObject({
+      identity: { workos_user_id: subject, auth_surface: "mcp" },
+      mcpScopes: ["read"],
+    });
+  });
+
   it("accepts a valid MCP resource token and maps scopes", async () => {
     const fixture = await mcpTokenFixture({ scope: "write read share" });
     stubFetch(fixture.publicJwk);
@@ -85,6 +110,7 @@ describe("MCP OAuth bearer verification on api", () => {
     expect(mcpVerifyOptions({ WORKOS_API_KEY: "sk_test" })).toMatchObject({
       apiKey: "sk_test",
       clientId: MCP_RESOURCE_INDICATOR,
+      skipClientIdClaimVerification: true,
     });
   });
 
@@ -167,13 +193,22 @@ describe("MCP OAuth bearer verification on api", () => {
   });
 });
 
-async function mcpTokenFixture(input: { scope?: string; audience?: string | string[] } = {}) {
+async function mcpTokenFixture(
+  input: { scope?: string; audience?: string | string[]; azp?: string; client_id?: string } = {},
+) {
   keyPairPromise ??= generateKeyPair("RS256");
   const { publicKey, privateKey } = await keyPairPromise;
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "mcp-key";
   publicJwk.alg = "RS256";
-  const token = await new SignJWT({ scope: input.scope ?? "read" })
+  const claims: Record<string, string> = { scope: input.scope ?? "read" };
+  if (input.azp) {
+    claims.azp = input.azp;
+  }
+  if (input.client_id) {
+    claims.client_id = input.client_id;
+  }
+  const token = await new SignJWT(claims)
     .setProtectedHeader({ alg: "RS256", kid: "mcp-key" })
     .setIssuer(mcpIssuer)
     .setAudience(input.audience ?? MCP_RESOURCE_INDICATOR)

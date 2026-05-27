@@ -47,6 +47,7 @@ export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | n
     apiKey: env.WORKOS_API_KEY,
     clientId: audience,
     requireClientIdClaim: false,
+    skipClientIdClaimVerification: true,
   };
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
