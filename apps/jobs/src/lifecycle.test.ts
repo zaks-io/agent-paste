@@ -124,6 +124,7 @@ describe("lifecycle side effects", () => {
 
   it("drains byte purge synchronously when smoke sync is enabled", async () => {
     const send = vi.fn(async () => ({}));
+    const r2Key = `artifacts/${artifactId}/revisions/${revisionId}/files/index.html`;
     const deleted: string[][] = [];
     const executor = {
       query: vi.fn(async () => ({ rows: [] })),
@@ -134,11 +135,15 @@ describe("lifecycle side effects", () => {
         {
           BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() },
           SMOKE_SYNC_BYTE_PURGE: "true",
+          AGENT_PASTE_ENV: "preview",
           ARTIFACTS: {
-            async list() {
-              return { objects: [{ key: `artifacts/${artifactId}/index.html` }], truncated: false };
+            async list({ prefix }: { prefix: string }) {
+              if (prefix === `artifacts/${artifactId}/`) {
+                return { objects: [{ key: r2Key }], truncated: false };
+              }
+              return { objects: [], truncated: false };
             },
-            async delete(keys) {
+            async delete(keys: string[]) {
               deleted.push(keys);
             },
           },
@@ -153,7 +158,7 @@ describe("lifecycle side effects", () => {
       ),
     ).resolves.toBe(true);
     expect(send).toHaveBeenCalled();
-    expect(deleted).toEqual([[`artifacts/${artifactId}/index.html`]]);
+    expect(deleted).toEqual([[r2Key]]);
     expect(executor.query).toHaveBeenCalled();
   });
 });
@@ -275,17 +280,14 @@ describe("purge recovery discovery", () => {
 
   it("continues recovery when one artifact side effect throws", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sideEffects = vi.spyOn(await import("./lifecycle/purge-side-effects.js"), "applyArtifactPurgeSideEffects");
+    sideEffects.mockRejectedValueOnce(new Error("side_effect_failed"));
     try {
       const send = vi.fn(async () => ({}));
       const executor = {
-        query: vi.fn(async (sql: string) => {
-          if (sql.includes("update revisions") && sql.includes("bytes_purge_enqueued_at")) {
-            throw new Error("db_write_failed");
-          }
-          return {
-            rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
-          };
-        }),
+        query: vi.fn(async () => ({
+          rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId, status: "deleted" }],
+        })),
         transaction: vi.fn(),
       };
       const env = {
@@ -298,6 +300,7 @@ describe("purge recovery discovery", () => {
         true,
       );
     } finally {
+      sideEffects.mockRestore();
       errorSpy.mockRestore();
     }
   });

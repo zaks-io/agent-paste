@@ -410,7 +410,24 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
   assert(before.length > 0, "R2 prefix has keys before delete");
 
   await deleteSmokeArtifact(config.apiBaseUrl, publishedArtifact.artifact_id, config.harnessSecret);
-  await runSmokePurgeRecovery(config.jobsBaseUrl, publishedArtifact.artifact_id, config.harnessSecret);
+  const purgeRecovery = await runSmokePurgeRecovery(
+    config.jobsBaseUrl,
+    publishedArtifact.artifact_id,
+    config.harnessSecret,
+  );
+  process.stdout.write(`purge-recovery response: ${JSON.stringify(purgeRecovery)}\n`);
+  assert(
+    purgeRecovery.artifact_found === true,
+    `purge-recovery did not find deleted artifact ${publishedArtifact.artifact_id}: ${JSON.stringify(purgeRecovery)}`,
+  );
+  assert(
+    purgeRecovery.enqueued === true,
+    `purge-recovery did not enqueue byte purge for ${publishedArtifact.artifact_id}: ${JSON.stringify(purgeRecovery)}`,
+  );
+  assert(
+    purgeRecovery.deleted_r2_objects >= before.length,
+    `purge-recovery deleted_r2_objects=${purgeRecovery.deleted_r2_objects}, expected at least ${before.length} for prefix ${prefix}: ${JSON.stringify(purgeRecovery)}`,
+  );
   await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
 
   await waitForR2Empty(prefix, "delete purge");
@@ -431,7 +448,12 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
   await forceExpireArtifact(config.apiBaseUrl, expiryPublish.artifact_id, config.harnessSecret);
 
   const cleanup = await runSmokeCleanup(config.jobsBaseUrl, config.harnessSecret);
+  process.stdout.write(`run-cleanup response: ${JSON.stringify(cleanup)}\n`);
   assert(cleanup.expired_artifacts >= 1, "cleanup expired at least one artifact");
+  assert(
+    cleanup.deleted_r2_objects >= before.length,
+    `cleanup deleted_r2_objects=${cleanup.deleted_r2_objects}, expected at least ${before.length} for prefix ${prefix}: ${JSON.stringify(cleanup)}`,
+  );
 
   await waitForStatus(expiryPublish.view_url, 404, "expired content");
 

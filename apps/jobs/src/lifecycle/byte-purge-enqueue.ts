@@ -2,8 +2,8 @@ import { BytePurgeMessage, type BytePurgeMessage as BytePurgePayload } from "@ag
 import type { SqlExecutor } from "@agent-paste/db";
 import type { Env } from "../env.js";
 import { logOpError } from "../op-log.js";
-import { artifactPurgePrefix } from "./artifact-prefix.js";
 import { processSmokeSyncBytePurge } from "../smoke-sync-byte-purge.js";
+import { artifactPurgePrefix } from "./artifact-prefix.js";
 
 export type ArtifactBytePurgeInput = {
   workspaceId: string;
@@ -45,11 +45,19 @@ export async function enqueueArtifactBytePurge(
   }
 
   // Operational bookkeeping outside runCommand (ADR 0049).
-  await executor.query(
-    `update revisions
-     set bytes_purge_enqueued_at = now()
-     where workspace_id = $1 and id = $2 and artifact_id = $3`,
-    [input.workspaceId, input.revisionId, input.artifactId],
-  );
+  try {
+    await executor.query(
+      `update revisions
+       set bytes_purge_enqueued_at = now()
+       where workspace_id = $1 and id = $2 and artifact_id = $3`,
+      [input.workspaceId, input.revisionId, input.artifactId],
+    );
+  } catch (error) {
+    logOpError("lifecycle.byte_purge.bookkeeping_failed", {
+      artifact_id: input.artifactId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
   return true;
 }

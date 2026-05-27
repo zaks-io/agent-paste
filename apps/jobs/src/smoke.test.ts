@@ -63,7 +63,11 @@ describe("jobs smoke harness", () => {
         },
         artifactId,
       ),
-    ).resolves.toEqual({ deleted_r2_objects: 0 });
+    ).resolves.toMatchObject({
+      deleted_r2_objects: 0,
+      enqueued: false,
+      artifact_found: false,
+    });
   });
 
   it("runs local MVP lifecycle cleanup through the repository adapter", async () => {
@@ -127,7 +131,67 @@ describe("jobs smoke harness", () => {
 
     await expect(runSmokeArtifactPurgeRecovery(env, artifactId)).resolves.toMatchObject({
       deleted_r2_objects: 1,
+      enqueued: true,
+      artifact_found: true,
     });
+  });
+
+  it("purges hosted preview artifact prefix through purge-recovery route", async () => {
+    const r2Key = `artifacts/${artifactId}/revisions/${revisionId}/files/index.html`;
+    const deleted: string[][] = [];
+    const env = {
+      AGENT_PASTE_ENV: "preview",
+      SMOKE_HARNESS_SECRET: "harness",
+      DENYLIST: { put: vi.fn(async () => {}) },
+      BYTE_PURGE_QUEUE: { send: vi.fn(async () => ({})), sendBatch: vi.fn() },
+      DB: {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("from artifacts")) {
+            return { rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId }] };
+          }
+          return { rows: [] };
+        }),
+        transaction: vi.fn(),
+      },
+      ARTIFACTS: {
+        list: vi.fn(async ({ prefix }: { prefix: string }) => {
+          if (prefix === `artifacts/${artifactId}/`) {
+            return { objects: [{ key: r2Key }], truncated: false };
+          }
+          return { objects: [], truncated: false };
+        }),
+        delete: vi.fn(async (keys: string[]) => {
+          deleted.push(keys);
+        }),
+      },
+    };
+
+    const response = await worker.fetch(
+      new Request("https://jobs.test/__test__/purge-recovery", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer harness",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ artifact_id: artifactId }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      artifact_found: true,
+      enqueued: true,
+      deleted_r2_objects: 1,
+    });
+    expect(deleted).toEqual([[r2Key]]);
+    expect(env.BYTE_PURGE_QUEUE.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "byte.purge.v1",
+        artifact_id: artifactId,
+        prefixes: [`artifacts/${artifactId}/`],
+      }),
+      undefined,
+    );
   });
 
   it("serves smoke cleanup and purge recovery routes in non-production", async () => {
