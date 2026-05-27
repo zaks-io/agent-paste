@@ -70,6 +70,16 @@ carry the local contract summary and commands.
 | Hosted deploys or smokes         | [`docs/ops/status/hosted-ops.md`](../ops/status/hosted-ops.md), [`docs/ops/bootstrap-hosting-checklist.md`](../ops/bootstrap-hosting-checklist.md), [`scripts`](../../scripts), and [`.github/workflows`](../../.github/workflows).                                                                                                                         |
 | Agent workflow or delegation     | [`docs/agents/workflow.md`](./workflow.md), [`docs/agents/autonomous-loop.md`](./autonomous-loop.md), [`docs/agents/environment-adapters.md`](./environment-adapters.md), [`docs/agents/issue-tracker.md`](./issue-tracker.md).                                                                                                                             |
 
+For repo-local skill selection:
+
+- Use `.claude/skills/agent-paste-goal-keep-agent-queue-moving/SKILL.md` for
+  the recurring implementation queue loop across Linear, agents, PR checks, and
+  review feedback.
+- Use
+  `.claude/skills/agent-paste-goal-review-main-and-queue-fixes/SKILL.md` for
+  the periodic sidecar review of newly landed `main` commits that should become
+  queued fixes.
+
 ## Search Recipes
 
 Prefer `rg` over broad directory browsing.

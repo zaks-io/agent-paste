@@ -66,8 +66,8 @@ Operational notes from the Background Agents docs:
   environment. CodeRabbit is on-demand only and should be reserved for the
   high-risk cases described in the repo-local `agent-paste-code-review` skill.
 - Cursor Composer 2.5 is the preferred implementation workhorse for ready,
-  well-scoped AP issues that can be verified locally or in CI. The orchestrator
-  remains responsible for review, CI watching, and escalation.
+  well-scoped AP issues that can be verified locally or in CI. The queue-moving
+  loop remains responsible for review, CI watching, and escalation.
 
 ## Repo-Local Skills
 
@@ -79,7 +79,8 @@ Codex-style runtimes. Remote environments should preserve those links.
 - `.claude/skills/agent-paste-local-code-review`
 - `.claude/skills/agent-paste-next-pr`
 - `.claude/skills/agent-paste-neon-postgres`
-- `.claude/skills/agent-paste-orchestrator`
+- `.claude/skills/agent-paste-goal-keep-agent-queue-moving`
+- `.claude/skills/agent-paste-goal-review-main-and-queue-fixes`
 - `.claude/skills/agent-paste-review-pr`
 - `.claude/skills/agent-paste-create-pr`
 - `.claude/skills/agent-paste-code-review`
@@ -172,7 +173,7 @@ untouched and move or ask for the ticket to be moved to `ready-for-human`.
 Respect milestone dependencies. For example, do not implement the Access Link
 viewer before the Access Link model/codec ticket is complete.
 
-When the orchestrator sends `Changes Requested` feedback, resume the same
+When the queue-moving loop sends `Changes Requested` feedback, resume the same
 Cursor thread, branch, and PR. Read the PR review comments and failed checks,
 push fixes to the same PR, rerun the relevant checks, and move the issue back to
 `In Review` when ready for another review pass.

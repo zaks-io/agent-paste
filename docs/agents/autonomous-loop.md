@@ -19,7 +19,7 @@ Agent-ready work must be:
 
 Cursor work must also be labeled `remote-cursor`.
 
-## Orchestrator Loop
+## Queue-Moving Loop
 
 On each run:
 
@@ -29,14 +29,17 @@ On each run:
 2. List active Linear issues in `Todo`, `In Progress`, `Blocked`, `In Review`,
    `Changes Requested`, and `Ready to Merge`.
 3. Check PR state for active work before starting new work.
-4. Select the next issue by milestone order, priority, dependency state, risk,
+4. Include agent-ready issues filed by
+   `agent-paste-goal-review-main-and-queue-fixes` in the same implementation
+   queue as other `Todo` + `ready-for-agent` work.
+5. Select the next issue by milestone order, priority, dependency state, risk,
    and file/package contention.
-5. Choose the executor from `docs/agents/environment-adapters.md`.
-6. Build a worker prompt package with the issue, linked docs, required checks,
+6. Choose the executor from `docs/agents/environment-adapters.md`.
+7. Build a worker prompt package with the issue, linked docs, required checks,
    branch expectation, and explicit stop conditions.
-7. Record delegation in Linear when a worker is assigned.
-8. Watch for PRs, failed checks, stale branches, blockers, and review comments.
-9. Update Linear using the state contract below.
+8. Record delegation in Linear when a worker is assigned.
+9. Watch for PRs, failed checks, stale branches, blockers, and review comments.
+10. Update Linear using the state contract below.
 
 ## Worker Loop
 
@@ -46,7 +49,7 @@ Workers should:
 2. Confirm the issue is ready for that runtime.
 3. Claim the issue and move it to `In Progress`.
 4. Create or use one branch for the issue. Include `AP-<number>` in the branch
-   name when the orchestrator did not assign a branch.
+   name when the queue-moving loop did not assign a branch.
 5. Implement only the stated scope.
 6. Run ticket-specific checks first, then broader checks as needed.
 7. Run or request `agent-paste-local-code-review` before PR handoff.
@@ -55,9 +58,9 @@ Workers should:
 
 ## Review And Fix Loop
 
-The orchestrator owns the review/fix loop. It should review PRs from an isolated
-local worktree or review subagent, then route actionable feedback through normal
-GitHub PR review comments.
+The queue-moving loop owns the review/fix loop. It should review PRs from an
+isolated local worktree or review subagent, then route actionable feedback
+through normal GitHub PR review comments.
 
 When review finds actionable implementation feedback:
 
@@ -71,10 +74,11 @@ When review finds actionable implementation feedback:
 6. Move the issue back to `In Review` for another review pass, then to
    `Ready to Merge` only after review and required checks are clean.
 
-The orchestrator should not become the local implementer for ordinary review
-feedback. It may make bookkeeping updates, verify checks, and escalate important
-problems, but implementation fixes should stay with the assigned worker unless
-the original worker thread is unavailable or a human redirects the work.
+The queue-moving loop should not become the local implementer for ordinary
+review feedback. It may make bookkeeping updates, verify checks, and escalate
+important problems, but implementation fixes should stay with the assigned
+worker unless the original worker thread is unavailable or a human redirects the
+work.
 
 ## Linear State Contract
 

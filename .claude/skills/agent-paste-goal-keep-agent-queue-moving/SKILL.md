@@ -1,11 +1,11 @@
 ---
-name: agent-paste-orchestrator
-description: Use when coordinating the agent-paste backlog across Linear issues, worker agents, PR review, CI checks, and Changes Requested feedback loops.
+name: agent-paste-goal-keep-agent-queue-moving
+description: Use when running the agent-paste loop whose goal is to keep the implementation queue moving across Linear issues, worker agents, PR review, CI checks, and Changes Requested feedback loops.
 ---
 
-# Agent Paste Orchestrator
+# Agent Paste Keep Agent Queue Moving
 
-Coordinate work. Do not turn the orchestrator into the default local
+Coordinate work. Do not turn the queue-moving loop into the default local
 implementer.
 
 ## Required Context
@@ -30,20 +30,24 @@ On each run:
    assignee/delegate.
 3. Find active `In Progress`, `Blocked`, `In Review`, `Changes Requested`, and
    `Ready to Merge` issues.
-4. Check PR state for active work before starting new work.
-5. Select work by milestone order, dependency order, priority, risk, and
+4. Include agent-ready issues filed by
+   `agent-paste-goal-review-main-and-queue-fixes` in the same queue as other
+   `Todo` + `ready-for-agent` work.
+5. Check PR state for active work before starting new work.
+6. Select work by milestone order, dependency order, priority, risk, and
    file/package contention.
-6. Choose an executor runtime:
+7. Choose an executor runtime:
    - Cursor Composer 2.5 for isolated, well-scoped implementation work.
-   - Codex for local repo edits, verification, orchestration, and PR watching.
+   - Codex for local repo edits, verification, queue maintenance, and PR
+     watching.
    - Claude for planning, docs/spec refinement, or second-pass review.
-7. Build a prompt package from the issue, linked docs, repo instructions,
+8. Build a prompt package from the issue, linked docs, repo instructions,
    required checks, and runtime adapter.
-8. Delegate the work and record the run in Linear.
-9. Require or run a pre-PR local review with
-   `agent-paste-local-code-review` where the environment supports it.
-10. Watch PRs, failed checks, stale branches, blockers, and review comments.
-11. Update Linear using `docs/agents/autonomous-loop.md`.
+9. Delegate the work and record the run in Linear.
+10. Require or run a pre-PR local review with
+    `agent-paste-local-code-review` where the environment supports it.
+11. Watch PRs, failed checks, stale branches, blockers, and review comments.
+12. Update Linear using `docs/agents/autonomous-loop.md`.
 
 ## Review Loop
 
@@ -73,7 +77,7 @@ Do not route to Cursor by default when the issue needs new product judgment,
 security posture changes, credentials, provider approval, ADR changes, or broad
 planning. Escalate those to a human or use a planning/review agent first.
 
-The orchestrator remains responsible for quality: issue interpretation, code
+The queue-moving loop remains responsible for quality: issue interpretation, code
 review, test quality, security invariants, CI status, PR feedback loops, and
 surfacing important risks to the user.
 

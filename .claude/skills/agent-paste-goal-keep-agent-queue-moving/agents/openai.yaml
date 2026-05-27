@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Paste Queue Loop"
+  short_description: "Keep AP implementation moving"
+  default_prompt: "Use $agent-paste-goal-keep-agent-queue-moving to coordinate ready Linear issues, worker agents, and PR review."

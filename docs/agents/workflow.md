@@ -20,7 +20,7 @@ Use `docs/agents/issue-tracker.md` for Linear operations and
 
 ## Workflow
 
-Work moves through six stages.
+Work moves through six stages plus one sidecar review loop.
 
 1. Roadmap and readiness
 
@@ -55,42 +55,54 @@ Work moves through six stages.
    actionable feedback, post it on the PR, move Linear to `Changes Requested`,
    and send the original worker thread back to the same branch and PR.
 
-6. Orchestration
+6. Queue-moving loop
 
-   Use `agent-paste-orchestrator` when coordinating multiple issues, worker
-   runs, PR checks, and review loops. The orchestrator selects ready work,
-   chooses the runtime, delegates with a complete prompt package, watches PRs,
-   routes feedback, and escalates human decisions.
+   Use `agent-paste-goal-keep-agent-queue-moving` when coordinating multiple
+   issues, worker runs, PR checks, and review loops. The queue-moving loop
+   selects ready work, chooses the runtime, delegates with a complete prompt
+   package, watches PRs, routes feedback, and escalates human decisions.
 
-## Orchestrator Review Loop
+7. Review-main sidecar loop
+
+   Use `agent-paste-goal-review-main-and-queue-fixes` for the periodic review
+   agent that checks `origin/main` for new commits, reviews only the newly
+   landed range from a disposable worktree, and files actionable Linear issues
+   for bugs, security regressions, or product-contract drift. Issues created by
+   this loop must still satisfy the normal Linear contract before they receive
+   `ready-for-agent`; otherwise they stay in a non-agent-ready backlog state
+   with the appropriate readiness label.
+
+## Queue-Moving Review Loop
 
 For delegated implementation work:
 
-1. The orchestrator assigns a ready Linear issue to a worker. Cursor Composer
-   2.5 is the preferred workhorse for isolated, well-scoped implementation
-   tickets when the remote environment can run the needed checks.
+1. The queue-moving loop assigns a ready Linear issue to a worker. Cursor
+   Composer 2.5 is the preferred workhorse for isolated, well-scoped
+   implementation tickets when the remote environment can run the needed
+   checks.
 2. The worker implements on one branch and runs the required checks.
 3. Before PR handoff, the branch gets a local review pass with
    `agent-paste-local-code-review` where the environment supports it.
 4. The worker opens a ready-for-review PR, links Linear, and moves the issue to
    `In Review`.
-5. The orchestrator checks out the PR in a clean local worktree and reviews it
-   with `agent-paste-review-pr`, using the strongest available review model and
-   reasoning tier.
+5. The queue-moving loop checks out the PR in a clean local worktree and
+   reviews it with `agent-paste-review-pr`, using the strongest available
+   review model and reasoning tier.
 6. Review findings are posted as normal GitHub PR review comments.
 7. If changes are needed, Linear moves to `Changes Requested`.
-8. The orchestrator replies in the original worker thread with the PR feedback,
-   failed checks, acceptance gaps, and security concerns that must be addressed.
+8. The queue-moving loop replies in the original worker thread with the PR
+   feedback, failed checks, acceptance gaps, and security concerns that must be
+   addressed.
 9. The worker pushes fixes to the same PR.
-10. The orchestrator repeats clean-worktree review until checks and review are
-    clean.
+10. The queue-moving loop repeats clean-worktree review until checks and review
+    are clean.
 11. The issue moves to `Ready to Merge` only when required checks pass and the
     review gate is clean.
 
-The local orchestrator should maximize throughput by selecting work, preserving
-context, and routing ordinary fixes back to the assigned worker. It should not
-quietly become the implementer for a stuck PR unless the original thread is no
-longer usable or a human redirects the work.
+The local queue-moving loop should maximize throughput by selecting work,
+preserving context, and routing ordinary fixes back to the assigned worker. It
+should not quietly become the implementer for a stuck PR unless the original
+thread is no longer usable or a human redirects the work.
 
 Implementation and review have different defaults. Fast worker models are fine
 for well-scoped implementation. PR review should use the strongest available

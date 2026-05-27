@@ -20,7 +20,7 @@ Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in t
 Shared workflow docs live in `docs/agents/workflow.md`.
 Use `docs/agents/skill-usage.md` to choose the smallest repo-local skill for a
 task. Use `docs/agents/autonomous-loop.md` for the detailed Linear state
-contract and orchestrator/worker loop. Use `docs/agents/repo-navigation.md`
+contract and queue-moving/worker loop. Use `docs/agents/repo-navigation.md`
 for the repo map and common lookup paths.
 
 ### Issue tracker

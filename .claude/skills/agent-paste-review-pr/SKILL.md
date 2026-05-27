@@ -55,10 +55,10 @@ Lead with findings, ordered by severity, with file and line references when
 available. If there are no blocking findings, say that directly and list any
 residual risk or test gap.
 
-When running under the orchestrator and findings require author changes:
+When running under the queue-moving loop and findings require author changes:
 
 - post detailed feedback on the PR
-- move or ask the orchestrator to move Linear to `Changes Requested`
+- move or ask the queue-moving loop to move Linear to `Changes Requested`
 - send feedback back to the original implementation worker thread
 - keep fixes on the same branch and PR
 

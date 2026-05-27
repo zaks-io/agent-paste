@@ -5,8 +5,9 @@ which runtime to choose and what each runtime must read.
 
 ## Codex
 
-Use Codex for local orchestration, repo-wide edits, verification, PR creation,
-Linear maintenance, and review loops that need access to local worktrees.
+Use Codex for local queue-moving orchestration, repo-wide edits, verification,
+PR creation, Linear maintenance, periodic main review that queues fixes, and
+review loops that need access to local worktrees.
 
 Codex should read:
 
@@ -51,7 +52,7 @@ Use Cursor when the issue is isolated, well specified, implementation-heavy, and
 CI-verifiable.
 
 Use Codex when the task needs local verification, repo-wide cleanup, Linear
-state management, PR watching, or orchestration maintenance.
+state management, PR watching, periodic main review, or queue-loop maintenance.
 
 Use Claude when the task is mostly planning, documentation, or independent
 review and the user wants that runtime.

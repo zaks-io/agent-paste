@@ -4,16 +4,26 @@ Use the smallest skill that matches the job. Repo-local skills are Claude-first:
 `.claude/skills` is the canonical source, and `.agents/skills` contains links
 to those Claude skill directories for Codex-style runtimes.
 
-| Task                                                                   | Skill                           |
-| ---------------------------------------------------------------------- | ------------------------------- |
-| Pick up the next repo item and drive it toward a PR                    | `agent-paste-next-pr`           |
-| Coordinate multiple issues, worker runs, PR checks, and feedback loops | `agent-paste-orchestrator`      |
-| Implement one ready Linear issue                                       | `agent-paste-implement-issue`   |
-| Review local changes before PR                                         | `agent-paste-local-code-review` |
-| Review one PR against its issue and repo invariants                    | `agent-paste-review-pr`         |
-| Generic local diff or PR bug review                                    | `agent-paste-code-review`       |
-| Create a PR from an existing branch                                    | `agent-paste-create-pr`         |
-| Work on Neon setup or Postgres platform tasks                          | `agent-paste-neon-postgres`     |
+| Task                                                           | Skill                                          |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| Pick up the next repo item and drive it toward a PR            | `agent-paste-next-pr`                          |
+| Keep Linear, worker runs, PR checks, and feedback loops moving | `agent-paste-goal-keep-agent-queue-moving`     |
+| Review new `main` commits and queue actionable fixes in Linear | `agent-paste-goal-review-main-and-queue-fixes` |
+| Implement one ready Linear issue                               | `agent-paste-implement-issue`                  |
+| Review local changes before PR                                 | `agent-paste-local-code-review`                |
+| Review one PR against its issue and repo invariants            | `agent-paste-review-pr`                        |
+| Generic local diff or PR bug review                            | `agent-paste-code-review`                      |
+| Create a PR from an existing branch                            | `agent-paste-create-pr`                        |
+| Work on Neon setup or Postgres platform tasks                  | `agent-paste-neon-postgres`                    |
+
+## Recurring Loops To Run
+
+Run these side by side:
+
+- `agent-paste-goal-keep-agent-queue-moving` keeps Linear, delegated agents,
+  PR checks, and review feedback moving.
+- `agent-paste-goal-review-main-and-queue-fixes` reviews newly landed `main`
+  commits and queues actionable fixes in Linear.
 
 ## Runtime Locations
 
