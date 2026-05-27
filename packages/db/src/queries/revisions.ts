@@ -61,6 +61,22 @@ export const revisionQueries = {
     return Number(rows[0]?.max ?? 0) + 1;
   },
 
+  async markRetained(db: DrizzleDb, input: { revisionId: string; workspaceId: string; artifactId: string }): Promise<boolean> {
+    const rows = await db
+      .update(revisions)
+      .set({ status: "retained" })
+      .where(
+        and(
+          eq(revisions.id, input.revisionId),
+          eq(revisions.workspaceId, input.workspaceId),
+          eq(revisions.artifactId, input.artifactId),
+          eq(revisions.status, "published"),
+        ),
+      )
+      .returning({ id: revisions.id });
+    return rows.length > 0;
+  },
+
   async publish(
     db: DrizzleDb,
     input: {

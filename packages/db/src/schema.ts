@@ -23,10 +23,17 @@ export const workspaces = pgTable(
     name: text("name").notNull(),
     contactEmail: text("contact_email"),
     autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
+    revisionRetentionDays: integer("revision_retention_days"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
-  (table) => [check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`)],
+  (table) => [
+    check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`),
+    check(
+      "workspaces_revision_retention_days_check",
+      sql`${table.revisionRetentionDays} is null or ${table.revisionRetentionDays} >= 1`,
+    ),
+  ],
 );
 
 export const workspaceMembers = pgTable(
@@ -168,6 +175,7 @@ export const artifacts = pgTable(
     fileCount: integer("file_count").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }),
     createdByApiKeyId: text("created_by_api_key_id")
       .notNull()
       .references(() => apiKeys.id, { onDelete: "restrict" }),

@@ -41,6 +41,7 @@ export type Workspace = {
   name: string;
   contact_email: string | null;
   auto_deletion_days: number;
+  revision_retention_days: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -106,6 +107,7 @@ export type Artifact = {
   file_count: number;
   size_bytes: number;
   expires_at: string;
+  pinned_at: string | null;
   created_by_api_key_id: string;
   access_link_lockdown_at: string | null;
   deleted_at: string | null;

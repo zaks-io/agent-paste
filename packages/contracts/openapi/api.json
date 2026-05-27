@@ -56,6 +56,7 @@
                   "invalid_request",
                   "not_authenticated",
                   "not_found",
+                  "pinned_artifact_cap_exceeded",
                   "rate_limited_actor",
                   "rate_limited_artifact",
                   "rate_limited_workspace",
@@ -2523,6 +2524,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2592,6 +2594,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2661,6 +2664,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2730,6 +2734,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2819,6 +2824,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2888,6 +2894,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -2994,6 +3001,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3063,6 +3071,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3132,6 +3141,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3201,6 +3211,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3290,6 +3301,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3359,6 +3371,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3469,6 +3482,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3538,6 +3552,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3607,6 +3622,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3696,6 +3712,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3765,6 +3782,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3876,6 +3894,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -3945,6 +3964,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4034,6 +4054,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4103,6 +4124,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4209,6 +4231,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4278,6 +4301,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4347,6 +4371,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4416,6 +4441,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4505,6 +4531,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4574,6 +4601,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4680,6 +4708,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4749,6 +4778,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4818,6 +4848,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4887,6 +4918,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -4976,6 +5008,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5045,6 +5078,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5173,6 +5207,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5242,6 +5277,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5311,6 +5347,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5380,6 +5417,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5469,6 +5507,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5538,6 +5577,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5653,6 +5693,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5722,6 +5763,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5791,6 +5833,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5860,6 +5903,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -5949,6 +5993,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6018,6 +6063,1003 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web/artifacts/{artifact_id}/pin": {
+      "post": {
+        "operationId": "web.artifacts.pin",
+        "summary": "Pin an artifact to exempt it from auto deletion.",
+        "security": [
+          {
+            "WorkOsBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebArtifactDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web/artifacts/{artifact_id}/unpin": {
+      "post": {
+        "operationId": "web.artifacts.unpin",
+        "summary": "Unpin an artifact so auto deletion applies again.",
+        "security": [
+          {
+            "WorkOsBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebArtifactDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": true,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6124,6 +7166,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6193,6 +7236,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6262,6 +7306,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6331,6 +7376,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6420,6 +7466,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6489,6 +7536,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6615,6 +7663,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6684,6 +7733,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6753,6 +7803,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6822,6 +7873,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6911,6 +7963,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -6980,6 +8033,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7107,6 +8161,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7176,6 +8231,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7245,6 +8301,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7314,6 +8371,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7403,6 +8461,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7472,6 +8531,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7600,6 +8660,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7669,6 +8730,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7738,6 +8800,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7807,6 +8870,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7896,6 +8960,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -7965,6 +9030,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8071,6 +9137,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8140,6 +9207,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8209,6 +9277,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8278,6 +9347,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8367,6 +9437,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8436,6 +9507,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8562,6 +9634,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8631,6 +9704,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8700,6 +9774,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8769,6 +9844,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8858,6 +9934,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -8927,6 +10004,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9056,6 +10134,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9125,6 +10204,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9194,6 +10274,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9283,6 +10364,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9352,6 +10434,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9479,6 +10562,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9548,6 +10632,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9617,6 +10702,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9706,6 +10792,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9775,6 +10862,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9916,6 +11004,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -9985,6 +11074,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10054,6 +11144,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10143,6 +11234,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10212,6 +11304,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10436,6 +11529,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10505,6 +11599,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10574,6 +11669,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10663,6 +11759,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10732,6 +11829,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10847,6 +11945,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10916,6 +12015,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -10985,6 +12085,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11054,6 +12155,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11143,6 +12245,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11212,6 +12315,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11336,6 +12440,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11405,6 +12510,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11474,6 +12580,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11543,6 +12650,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11632,6 +12740,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11701,6 +12810,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11816,6 +12926,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11885,6 +12996,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -11954,6 +13066,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12023,6 +13136,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12112,6 +13226,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12181,6 +13296,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12317,6 +13433,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12386,6 +13503,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12455,6 +13573,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12524,6 +13643,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12613,6 +13733,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",
@@ -12682,6 +13803,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
                             "rate_limited_workspace",

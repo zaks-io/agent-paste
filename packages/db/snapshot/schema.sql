@@ -54,6 +54,7 @@ CREATE TABLE "artifacts" (
 	"file_count" integer NOT NULL,
 	"size_bytes" bigint NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
+	"pinned_at" timestamp with time zone,
 	"created_by_api_key_id" text NOT NULL,
 	"access_link_lockdown_at" timestamp with time zone,
 	"deleted_at" timestamp with time zone,
@@ -168,9 +169,11 @@ CREATE TABLE "workspaces" (
 	"name" text NOT NULL,
 	"contact_email" text,
 	"auto_deletion_days" integer DEFAULT 30 NOT NULL,
+	"revision_retention_days" integer,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90)
+	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90),
+	CONSTRAINT "workspaces_revision_retention_days_check" CHECK ("workspaces"."revision_retention_days" is null or "workspaces"."revision_retention_days" >= 1)
 );
 
 ALTER TABLE "access_links" ADD CONSTRAINT "access_links_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;

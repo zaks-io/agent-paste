@@ -26,6 +26,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
      inner join revisions r on r.id = a.revision_id and r.artifact_id = a.id
      where a.status = 'active'
        and r.status = 'published'
+       and a.pinned_at is null
        and a.expires_at <= $1
        and a.revision_id is not null
      order by a.expires_at asc

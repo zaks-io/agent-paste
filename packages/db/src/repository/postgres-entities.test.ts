@@ -87,6 +87,7 @@ describe("postgresEntities", () => {
       name: "Demo",
       contact_email: "user@example.com",
       auto_deletion_days: 30,
+      revision_retention_days: null,
       created_at: now,
       updated_at: now,
     };
@@ -121,6 +122,7 @@ describe("postgresEntities", () => {
       file_count: 1,
       size_bytes: 12,
       expires_at: now,
+      pinned_at: null,
       created_by_api_key_id: "key",
       access_link_lockdown_at: null,
       deleted_at: null,

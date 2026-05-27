@@ -323,6 +323,7 @@ function workspaceRow(overrides: Record<string, unknown> = {}) {
     name: "Demo",
     contactEmail: "user@example.com",
     autoDeletionDays: 14,
+    revisionRetentionDays: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -369,6 +370,7 @@ function artifactRow(overrides: Record<string, unknown> = {}) {
     fileCount: 1,
     sizeBytes: 12,
     expiresAt: now,
+    pinnedAt: null,
     createdByApiKeyId: "key_1",
     accessLinkLockdownAt: null,
     deletedAt: null,
@@ -451,6 +453,7 @@ function workspaceEntity() {
     name: "Demo",
     contact_email: "user@example.com",
     auto_deletion_days: 14,
+    revision_retention_days: null,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
   };

@@ -61,6 +61,8 @@ export type Entities = {
     listFiltered(workspaceId?: string, status?: string): Promise<Artifact[]>;
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;
+    countPinned(workspaceId: string): Promise<number>;
+    setPinnedAt(artifactId: string, pinnedAt: string | null, updatedAt: string): Promise<boolean>;
     updatePublished(
       artifactId: string,
       input: {
@@ -109,6 +111,7 @@ export type Entities = {
       publishedAt: string;
       bundleStatus: PublishBundleStatus;
     }): Promise<boolean>;
+    markRetained(input: { revisionId: string; workspaceId: string; artifactId: string }): Promise<boolean>;
   };
   artifactFiles: {
     insert(artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string): Promise<void>;

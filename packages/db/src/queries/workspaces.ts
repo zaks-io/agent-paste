@@ -10,6 +10,7 @@ export const workspaceQueries = {
       name: row.name,
       contactEmail: row.contact_email,
       autoDeletionDays: row.auto_deletion_days,
+      revisionRetentionDays: row.revision_retention_days,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
@@ -40,6 +41,7 @@ function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
     name: row.name,
     contact_email: row.contactEmail,
     auto_deletion_days: row.autoDeletionDays,
+    revision_retention_days: row.revisionRetentionDays,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

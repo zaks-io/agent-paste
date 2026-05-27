@@ -22,7 +22,7 @@ Handlers are idempotent by target identity (`workspace_id` + `actor_id` + `opera
 | Upload Cleanup | `*/15 * * * *` | Expire stale upload sessions and enqueue `byte-purge` for orphan prefixes.                             |
 | Auto Deletion  | `0 * * * *`    | Discovery, expiry via `runCommand`, denylist write, and `byte-purge` enqueue.                          |
 | Purge Recovery | `0 * * * *`    | Rediscover deleted/expired artifacts missing `bytes_purge_enqueued_at` and enqueue purge side effects. |
-| Retention      | `0 * * * *`    | No-op until `revision_retention_days` exists on workspaces.                                            |
+| Retention      | `0 * * * *`    | Mark non-current published revisions retained when `revision_retention_days` is set on a workspace.    |
 | Maintenance GC | `0 * * * *`    | Deletes aged `idempotency_records` and `operation_events` (no `runCommand`).                           |
 
 ## Commands

@@ -284,6 +284,16 @@ apiDbRegistrar.mount(contractById("web.artifacts.list"), async (context, princip
 apiDbRegistrar.mount(contractById("web.artifacts.get"), async (context, principal, db) =>
   webArtifactDetail(context as AppContext, principal, db, { artifactId: context.req.param("artifact_id") ?? "" }),
 );
+apiDbRegistrar.mount(contractById("web.artifacts.pin"), async (context, principal, db, guard) =>
+  webPinArtifact(context as AppContext, principal, db, guard, {
+    artifactId: context.req.param("artifact_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.artifacts.unpin"), async (context, principal, db, guard) =>
+  webUnpinArtifact(context as AppContext, principal, db, guard, {
+    artifactId: context.req.param("artifact_id") ?? "",
+  }),
+);
 apiDbRegistrar.mount(contractById("web.apiKeys.list"), async (context, principal, db) =>
   webApiKeys(context as AppContext, principal, db),
 );
@@ -622,6 +632,48 @@ async function webArtifactDetail(
   }
   const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
   return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found");
+}
+
+async function webPinArtifact(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"web.artifacts.pin">,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return errorResponse(context, "forbidden");
+  }
+  if (!db.pinWebArtifact) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const pinWebArtifact = db.pinWebArtifact.bind(db);
+  const idempotencyKey = guard.idempotencyKey as string;
+  return runIdempotent(context, () =>
+    pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }),
+  );
+}
+
+async function webUnpinArtifact(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"web.artifacts.unpin">,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return errorResponse(context, "forbidden");
+  }
+  if (!db.unpinWebArtifact) {
+    return errorResponse(context, "database_unavailable");
+  }
+  const unpinWebArtifact = db.unpinWebArtifact.bind(db);
+  const idempotencyKey = guard.idempotencyKey as string;
+  return runIdempotent(context, () =>
+    unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }),
+  );
 }
 
 function parsePagination(
@@ -1613,6 +1665,8 @@ function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: str
       return { code: "entrypoint_not_in_revision" };
     case "draft_revision_conflict":
       return { code: "draft_revision_conflict" };
+    case "pinned_artifact_cap_exceeded":
+      return { code: "pinned_artifact_cap_exceeded" };
     default:
       return null;
   }

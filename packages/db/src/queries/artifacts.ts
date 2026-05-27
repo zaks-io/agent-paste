@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql, type SQL } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { artifactFiles, artifacts } from "../schema.js";
 import type { Artifact, StoredFile } from "../types.js";
@@ -15,6 +15,7 @@ export const artifactQueries = {
       fileCount: row.file_count,
       sizeBytes: row.size_bytes,
       expiresAt: new Date(row.expires_at),
+      pinnedAt: row.pinned_at ? new Date(row.pinned_at) : null,
       createdByApiKeyId: row.created_by_api_key_id,
       accessLinkLockdownAt: row.access_link_lockdown_at ? new Date(row.access_link_lockdown_at) : null,
       deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
@@ -134,6 +135,25 @@ export const artifactQueries = {
       .where(eq(artifacts.id, artifactId));
   },
 
+  async countPinned(db: DrizzleDb, workspaceId: string): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(artifacts)
+      .where(
+        and(eq(artifacts.workspaceId, workspaceId), eq(artifacts.status, "active"), sql`${artifacts.pinnedAt} is not null`),
+      );
+    return Number(rows[0]?.count ?? 0);
+  },
+
+  async setPinnedAt(db: DrizzleDb, artifactId: string, pinnedAt: string | null, updatedAt: string): Promise<boolean> {
+    const rows = await db
+      .update(artifacts)
+      .set({ pinnedAt: pinnedAt ? new Date(pinnedAt) : null, updatedAt: new Date(updatedAt) })
+      .where(eq(artifacts.id, artifactId))
+      .returning({ id: artifacts.id });
+    return rows.length > 0;
+  },
+
   async setAccessLinkLockdown(db: DrizzleDb, artifactId: string, lockdownAt: string | null): Promise<boolean> {
     const rows = await db
       .update(artifacts)
@@ -186,6 +206,7 @@ function mapArtifact(row: typeof artifacts.$inferSelect): Artifact {
     file_count: row.fileCount,
     size_bytes: Number(row.sizeBytes),
     expires_at: row.expiresAt.toISOString(),
+    pinned_at: row.pinnedAt ? row.pinnedAt.toISOString() : null,
     created_by_api_key_id: row.createdByApiKeyId,
     access_link_lockdown_at: row.accessLinkLockdownAt ? row.accessLinkLockdownAt.toISOString() : null,
     deleted_at: row.deletedAt ? row.deletedAt.toISOString() : null,

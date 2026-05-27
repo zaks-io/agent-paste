@@ -1012,6 +1012,40 @@ describe("LocalRepository", () => {
     expect(events[0]).toMatchObject({ actor_type: "admin", target_id: key.api_key.id });
   });
 
+  it("pins and unpins artifacts for web members", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const session = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:pin",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const keySecret = session.default_api_key?.secret;
+    const apiActor = keySecret ? await repo.verifyApiKey(keySecret) : null;
+    const webActor = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!apiActor || !webActor) {
+      throw new Error("expected actors");
+    }
+    const published = await publishLocalArtifact(repo, apiActor, "pin-me", "2026-01-01T00:00:01.000Z");
+
+    const pinned = await repo.pinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-pin",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    expect(pinned).toMatchObject({ id: published.artifact_id, pinned: true, auto_delete_at: null });
+
+    const unpinned = await repo.unpinWebArtifact({
+      actor: webActor,
+      idempotencyKey: "idem-unpin",
+      artifactId: published.artifact_id,
+      now: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    expect(unpinned).toMatchObject({ id: published.artifact_id, pinned: false });
+    expect(unpinned.auto_delete_at).not.toBeNull();
+  });
+
   it("returns web artifact details only inside the member workspace", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({

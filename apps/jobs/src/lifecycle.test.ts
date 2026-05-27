@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AUTO_DELETION_SWEEP_CAP } from "./constants.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
+import { runRetentionDiscovery } from "./discovery/retention.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import { enqueueArtifactBytePurge } from "./lifecycle/byte-purge-enqueue.js";
 import { writeArtifactDenylist } from "./lifecycle/denylist.js";
@@ -176,6 +177,18 @@ describe("lifecycle side effects", () => {
   });
 });
 
+describe("retention discovery", () => {
+  it("returns zero enqueued when no revisions qualify for retention", async () => {
+    const executor = createTransactionalSqlExecutor(async () => ({ rows: [] }));
+    const env = {
+      BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() },
+      DENYLIST: { put: vi.fn(async () => {}) },
+    };
+    const result = await runRetentionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
+    expect(result).toEqual({ discovered: 0, enqueued: 0, cap_hit: false });
+  });
+});
+
 describe("auto deletion discovery", () => {
   it("returns zero enqueued when the purge queue binding is missing", async () => {
     const executor = { query: vi.fn(), transaction: vi.fn() };
@@ -190,6 +203,7 @@ describe("auto deletion discovery", () => {
     const executor = mockExecutor(async (sql) => {
       if (discovery && sql.includes("from artifacts")) {
         discovery = false;
+        expect(sql).toContain("pinned_at is null");
         return { rows: [{ id: artifactId, workspace_id: workspaceId, revision_id: revisionId }] };
       }
       if (sql.includes("insert into idempotency_records")) {

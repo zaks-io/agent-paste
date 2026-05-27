@@ -165,10 +165,29 @@ export function localEntities(state: LocalState): Entities {
           artifact.updated_at = deletedAt;
         }
       },
+      async countPinned(workspaceId) {
+        return [...state.artifacts.values()].filter(
+          (artifact) => artifact.workspace_id === workspaceId && artifact.status === "active" && artifact.pinned_at,
+        ).length;
+      },
+      async setPinnedAt(artifactId, pinnedAt, updatedAt) {
+        const artifact = state.artifacts.get(artifactId);
+        if (!artifact) {
+          return false;
+        }
+        artifact.pinned_at = pinnedAt;
+        artifact.updated_at = updatedAt;
+        return true;
+      },
       async listExpiring(now, limit) {
         const nowMs = new Date(now).getTime();
         return [...state.artifacts.values()]
-          .filter((artifact) => artifact.status === "active" && new Date(artifact.expires_at).getTime() <= nowMs)
+          .filter(
+            (artifact) =>
+              artifact.status === "active" &&
+              !artifact.pinned_at &&
+              new Date(artifact.expires_at).getTime() <= nowMs,
+          )
           .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
           .slice(0, limit)
           .map((artifact) => ({ id: artifact.id }));
@@ -284,6 +303,19 @@ export function localEntities(state: LocalState): Entities {
         revision.bundle_status = input.bundleStatus;
         revision.bundle_status_updated_at = input.publishedAt;
         revision.bundle_size_bytes = null;
+        return true;
+      },
+      async markRetained(input) {
+        const revision = state.revisions.get(input.revisionId);
+        if (
+          !revision ||
+          revision.workspace_id !== input.workspaceId ||
+          revision.artifact_id !== input.artifactId ||
+          revision.status !== "published"
+        ) {
+          return false;
+        }
+        revision.status = "retained";
         return true;
       },
     },
