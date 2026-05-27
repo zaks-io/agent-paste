@@ -17,6 +17,7 @@ await ensureJobQueues(jobQueues.creationOrder);
 // web deploys last: its API service binding targets agent-paste-api-<target>,
 // which must already exist from the api deploy above.
 const apps = [
+  { name: "stream", package: "@agent-paste/stream" },
   { name: "api", package: "@agent-paste/api" },
   { name: "upload", package: "@agent-paste/upload" },
   { name: "content", package: "@agent-paste/content" },
@@ -30,7 +31,9 @@ for (const app of apps) {
   await run("pnpm", ["--filter", app.package, `deploy:${target}`]);
 }
 
-process.stdout.write(`${target} deploy completed in order: api -> upload -> content -> jobs -> apex -> web\n`);
+process.stdout.write(
+  `${target} deploy completed in order: stream -> api -> upload -> content -> jobs -> apex -> web\n`,
+);
 
 function run(command, args) {
   return new Promise((resolve, reject) => {

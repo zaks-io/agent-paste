@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import apiWorker from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
+import streamWorker from "../apps/stream/dist/index.js";
+import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
 import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
@@ -12,6 +14,7 @@ const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);
 const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
+const streamPort = intEnv("AGENT_PASTE_LOCAL_STREAM_PORT", 8791);
 const smokeHarnessSecret = smokeHarnessSecretFromEnv();
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
@@ -22,6 +25,7 @@ const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
 const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
+const streamBaseUrl = `http://127.0.0.1:${streamPort}`;
 
 function createWorkerServer(name, port, worker, env) {
   return createServer(async (incoming, outgoing) => {
@@ -89,7 +93,8 @@ function serverPort(server) {
   if (server === servers?.[0]) return apiPort;
   if (server === servers?.[1]) return uploadPort;
   if (server === servers?.[2]) return contentPort;
-  return jobsPort;
+  if (server === servers?.[3]) return jobsPort;
+  return streamPort;
 }
 
 function intEnv(name, fallback) {
@@ -248,11 +253,13 @@ const jobsEnv = createJobsEnv({
   smokeHarnessSecret,
 });
 const apiDb = createApiDatabase(services.apiDb, denylist);
+const artifactLive = createMemoryArtifactLiveNamespace();
 
 const auth = services.auth;
 const apiEnv = {
   AUTH: auth,
   DB: apiDb,
+  ARTIFACT_LIVE: artifactLive,
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
@@ -285,6 +292,16 @@ const contentEnv = {
   DENYLIST: denylist,
   CONTENT_SIGNING_SECRET: contentSecret,
 };
+const streamEnv = {
+  API: {
+    fetch(request) {
+      return apiWorker.fetch(request, apiEnv);
+    },
+  },
+  ARTIFACT_LIVE: artifactLive,
+  STREAM_BASE_URL: streamBaseUrl,
+  AGENT_PASTE_ENV: "dev",
+};
 await seedProofArtifacts(services.repo, artifacts);
 
 const servers = [
@@ -292,6 +309,7 @@ const servers = [
   createWorkerServer("upload", uploadPort, uploadWorker, uploadEnv),
   createWorkerServer("content", contentPort, contentWorker, contentEnv),
   createWorkerServer("jobs", jobsPort, jobsWorker, jobsEnv),
+  createWorkerServer("stream", streamPort, streamWorker, streamEnv),
 ];
 
 await Promise.all(servers.map((server) => listen(server)));
@@ -302,10 +320,12 @@ process.stdout.write(`agent-paste local MVP running
   Upload:  ${uploadBaseUrl}
   Content: ${contentBaseUrl}
   Jobs:    ${jobsBaseUrl}
+  Stream:  ${streamBaseUrl}
 
   export AGENT_PASTE_API_URL=${apiBaseUrl}
   export AGENT_PASTE_UPLOAD_URL=${uploadBaseUrl}
   export AGENT_PASTE_JOBS_URL=${jobsBaseUrl}
+  export AGENT_PASTE_STREAM_URL=${streamBaseUrl}
 
 Sign in and publish:
   pnpm cli:dev login

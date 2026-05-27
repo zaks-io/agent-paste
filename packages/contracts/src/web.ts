@@ -1,7 +1,9 @@
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
+import { LiveUpdatePointer } from "./liveUpdates.js";
 import { ApiKeyId, ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
+import { RenderMode } from "./revisions.js";
 import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
@@ -62,10 +64,17 @@ export const WebArtifactListResponse = z.object({
 });
 export type WebArtifactListResponse = z.infer<typeof WebArtifactListResponse>;
 
+export const WebArtifactViewer = z.object({
+  iframe_src: LiveUpdatePointer.shape.iframe_src,
+  render_mode: RenderMode,
+});
+export type WebArtifactViewer = z.infer<typeof WebArtifactViewer>;
+
 export const WebArtifactDetailResponse = WebArtifactRow.extend({
   entrypoint: z.string().min(1),
   file_count: z.number().int().nonnegative(),
   size_bytes: z.number().int().nonnegative(),
+  viewer: WebArtifactViewer.nullable(),
 });
 export type WebArtifactDetailResponse = z.infer<typeof WebArtifactDetailResponse>;
 

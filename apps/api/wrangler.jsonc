@@ -33,6 +33,15 @@
       "id": "00000000000000000000000000000000"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ARTIFACT_LIVE",
+        "class_name": "ArtifactLiveUpdates",
+        "script_name": "agent-paste-stream"
+      }
+    ]
+  },
   "ratelimits": [
     {
       "name": "ACTOR_RATE_LIMIT",
@@ -140,6 +149,15 @@
       ],
       "queues": {
         "producers": [{ "queue": "bundle-generate-preview", "binding": "BUNDLE_GENERATE_QUEUE" }]
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "ARTIFACT_LIVE",
+            "class_name": "ArtifactLiveUpdates",
+            "script_name": "agent-paste-stream-preview"
+          }
+        ]
       }
     },
     "production": {
@@ -229,6 +247,15 @@
       ],
       "queues": {
         "producers": [{ "queue": "bundle-generate-production", "binding": "BUNDLE_GENERATE_QUEUE" }]
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "ARTIFACT_LIVE",
+            "class_name": "ArtifactLiveUpdates",
+            "script_name": "agent-paste-stream-production"
+          }
+        ]
       }
     }
   }

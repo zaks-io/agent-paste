@@ -25,6 +25,8 @@ import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
 import { Route as ApiAccessLinksResolveRouteImport } from './routes/api/access-links/resolve'
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
+import { Route as ApiLiveArtifactsArtifactIdRouteImport } from './routes/api/live/artifacts/$artifactId'
+import { Route as ApiLiveAccessLinksPublicIdRouteImport } from './routes/api/live/access-links/$publicId'
 import { Route as ApiAuthSignInPEncodedRouteImport } from './routes/api/auth/sign-in/p.$encoded'
 
 const HealthzRoute = HealthzRouteImport.update({
@@ -107,6 +109,18 @@ const AuthedArtifactsArtifactIdRoute =
     path: '/artifacts/$artifactId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const ApiLiveArtifactsArtifactIdRoute =
+  ApiLiveArtifactsArtifactIdRouteImport.update({
+    id: '/api/live/artifacts/$artifactId',
+    path: '/api/live/artifacts/$artifactId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiLiveAccessLinksPublicIdRoute =
+  ApiLiveAccessLinksPublicIdRouteImport.update({
+    id: '/api/live/access-links/$publicId',
+    path: '/api/live/access-links/$publicId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSignInPEncodedRoute = ApiAuthSignInPEncodedRouteImport.update({
   id: '/p/$encoded',
   path: '/p/$encoded',
@@ -129,6 +143,8 @@ export interface FileRoutesByFullPath {
   '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts/': typeof AuthedArtifactsIndexRoute
+  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
+  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
   '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesByTo {
@@ -147,6 +163,8 @@ export interface FileRoutesByTo {
   '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts': typeof AuthedArtifactsIndexRoute
+  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
+  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
   '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesById {
@@ -167,6 +185,8 @@ export interface FileRoutesById {
   '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/_authed/artifacts/': typeof AuthedArtifactsIndexRoute
+  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
+  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
   '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRouteTypes {
@@ -187,6 +207,8 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts/'
+    | '/api/live/access-links/$publicId'
+    | '/api/live/artifacts/$artifactId'
     | '/api/auth/sign-in/p/$encoded'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -205,6 +227,8 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts'
+    | '/api/live/access-links/$publicId'
+    | '/api/live/artifacts/$artifactId'
     | '/api/auth/sign-in/p/$encoded'
   id:
     | '__root__'
@@ -224,6 +248,8 @@ export interface FileRouteTypes {
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/_authed/artifacts/'
+    | '/api/live/access-links/$publicId'
+    | '/api/live/artifacts/$artifactId'
     | '/api/auth/sign-in/p/$encoded'
   fileRoutesById: FileRoutesById
 }
@@ -236,6 +262,8 @@ export interface RootRouteChildren {
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
   ApiAuthSignInRoute: typeof ApiAuthSignInRouteWithChildren
   ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
+  ApiLiveAccessLinksPublicIdRoute: typeof ApiLiveAccessLinksPublicIdRoute
+  ApiLiveArtifactsArtifactIdRoute: typeof ApiLiveArtifactsArtifactIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -352,6 +380,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedArtifactsArtifactIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/api/live/artifacts/$artifactId': {
+      id: '/api/live/artifacts/$artifactId'
+      path: '/api/live/artifacts/$artifactId'
+      fullPath: '/api/live/artifacts/$artifactId'
+      preLoaderRoute: typeof ApiLiveArtifactsArtifactIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/live/access-links/$publicId': {
+      id: '/api/live/access-links/$publicId'
+      path: '/api/live/access-links/$publicId'
+      fullPath: '/api/live/access-links/$publicId'
+      preLoaderRoute: typeof ApiLiveAccessLinksPublicIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/sign-in/p/$encoded': {
       id: '/api/auth/sign-in/p/$encoded'
       path: '/p/$encoded'
@@ -408,6 +450,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
   ApiAuthSignInRoute: ApiAuthSignInRouteWithChildren,
   ApiAuthSignOutRoute: ApiAuthSignOutRoute,
+  ApiLiveAccessLinksPublicIdRoute: ApiLiveAccessLinksPublicIdRoute,
+  ApiLiveArtifactsArtifactIdRoute: ApiLiveArtifactsArtifactIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

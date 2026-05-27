@@ -1777,6 +1777,33 @@
           "size_bytes": {
             "type": "integer",
             "minimum": 0
+          },
+          "viewer": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "iframe_src": {
+                "type": "string",
+                "format": "uri"
+              },
+              "render_mode": {
+                "type": "string",
+                "enum": [
+                  "html",
+                  "markdown",
+                  "text",
+                  "image",
+                  "audio",
+                  "video"
+                ]
+              }
+            },
+            "required": [
+              "iframe_src",
+              "render_mode"
+            ]
           }
         },
         "required": [
@@ -1790,7 +1817,8 @@
           "auto_delete_at",
           "entrypoint",
           "file_count",
-          "size_bytes"
+          "size_bytes",
+          "viewer"
         ]
       },
       "WebApiKeyListResponse": {

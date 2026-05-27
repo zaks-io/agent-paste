@@ -1,7 +1,8 @@
-import type { WebArtifactDetailResponse } from "@agent-paste/contracts";
+import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
 import { Card, CardHeader } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -9,7 +10,9 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { artifactStatusTone } from "../lib/artifact-status";
+import { cn } from "../lib/cn";
 import { formatBytes, formatRelativeTime } from "../lib/format";
+import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -44,6 +47,24 @@ function ArtifactDetailPage() {
   const { artifactId } = Route.useParams();
   const result = Route.useLoaderData();
   const artifact = result.data;
+  const [iframeSrc, setIframeSrc] = useState<string | null>(artifact?.viewer?.iframe_src ?? null);
+
+  useEffect(() => {
+    setIframeSrc(artifact?.viewer?.iframe_src ?? null);
+  }, [artifact?.viewer?.iframe_src]);
+
+  useEffect(() => {
+    if (!artifact?.viewer?.iframe_src) {
+      return;
+    }
+    const connection = connectLiveUpdates({
+      url: `/api/live/artifacts/${encodeURIComponent(artifactId)}`,
+      onPointer: (pointer: LiveUpdatePointer) => {
+        setIframeSrc(pointer.iframe_src);
+      },
+    });
+    return () => connection.close();
+  }, [artifact?.viewer?.iframe_src, artifactId]);
 
   if (result.error) {
     return (
@@ -77,6 +98,20 @@ function ArtifactDetailPage() {
           </div>
         }
       />
+      {iframeSrc ? (
+        <Card>
+          <CardHeader title="Published viewer" subtitle="Live updates when a new revision is published." />
+          <div className="h-[min(70vh,720px)] border border-[hsl(var(--rule))] rounded-[var(--radius)] overflow-hidden">
+            <iframe
+              title="Artifact content"
+              src={iframeSrc}
+              sandbox="allow-scripts allow-popups"
+              referrerPolicy="no-referrer"
+              className={cn("w-full h-full border-0")}
+            />
+          </div>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader title="Latest revision" subtitle="The currently published file tree." />
         <dl className="grid grid-cols-2 gap-y-2 text-[13px]">

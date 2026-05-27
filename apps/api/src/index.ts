@@ -27,12 +27,12 @@ import {
   type ApiActor,
   type ApiKeyActor,
   bundleKeyFor,
-  storageEnvSegment,
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
   type PlatformActor,
   type Repository,
+  storageEnvSegment,
 } from "@agent-paste/db";
 import {
   accessLinkSigningRingFromEnv,
@@ -56,6 +56,14 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
+import {
+  buildPointerFromPublishResult,
+  handleLiveUpdateAuthorize,
+  notifyLiveUpdateDisconnect,
+  notifyLiveUpdateDisconnectWorkspace,
+  notifyLiveUpdatePublish,
+  wireLiveUpdateDeps,
+} from "./live-updates.js";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import {
@@ -118,6 +126,10 @@ export type Env = {
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
+  ARTIFACT_LIVE?: {
+    idFromName(name: string): DurableObjectId;
+    get(id: DurableObjectId): { fetch(request: Request): Promise<Response> };
+  };
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;
@@ -161,6 +173,7 @@ export const nonContractRoutePaths = [
   "/__test__/delete-artifact",
   "/__test__/r2-list",
   "/__test__/denylist",
+  "/v1/internal/live-updates/authorize",
 ] as const;
 
 app.use("*", requestIdMiddleware());
@@ -332,6 +345,13 @@ app.post("/__test__/force-expire", (context) => forceExpire(context));
 app.post("/__test__/delete-artifact", (context) => deleteSmokeArtifact(context));
 app.get("/__test__/r2-list", (context) => listR2Prefix(context));
 app.get("/__test__/denylist", (context) => getDenylistKey(context));
+app.post("/v1/internal/live-updates/authorize", async (context) => {
+  const db = apiDatabase(context.env);
+  if (!db) {
+    return errorResponse(context, "database_unavailable");
+  }
+  return handleLiveUpdateAuthorize(context.req.raw, context.env, db);
+});
 app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
   console.error("Unhandled API error:", error);
@@ -343,6 +363,28 @@ const worker = {
     return handleRequest(request, env);
   },
 };
+
+wireLiveUpdateDeps({
+  signAgentView: signAgentViewContentUrls,
+  authenticateWeb: async (authorization, env) => {
+    const request = new Request("https://api.internal/authorize", {
+      headers: { authorization },
+    });
+    const identity = await authenticateWebIdentity(request, env);
+    if (!identity) {
+      return null;
+    }
+    const db = apiDatabase(env);
+    if (!db) {
+      return null;
+    }
+    const actor = await db.getWebMemberByWorkOsUserId({ workosUserId: identity.workos_user_id });
+    if (!actor || actor.type !== "member") {
+      return null;
+    }
+    return { member: actor };
+  },
+});
 
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
@@ -397,10 +439,7 @@ async function authenticatedAgentView(
     return errorResponse(context, "not_found");
   }
 
-  return jsonResponse(
-    context,
-    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id }),
-  );
+  return jsonResponse(context, await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id }));
 }
 
 async function listRevisions(
@@ -461,7 +500,30 @@ async function publishRevision(
           });
         }
       }
-      return signPublishResult(result, context.env);
+      const signed = await signPublishResult(result, context.env);
+      if (result && typeof result === "object" && "artifact_id" in result) {
+        const publish = result as { artifact_id: string; title?: string };
+        const entrypoint =
+          typeof (signed as { view_url?: string }).view_url === "string"
+            ? entrypointPathFromViewUrl((signed as { view_url: string }).view_url)
+            : "index.html";
+        const title = typeof publish.title === "string" ? publish.title : "Untitled";
+        const pointer = await buildPointerFromPublishResult(context.env, signed, entrypoint, title);
+        if (pointer) {
+          try {
+            await notifyLiveUpdatePublish(context.env, {
+              artifactId: publish.artifact_id,
+              pointer,
+            });
+          } catch (error) {
+            console.warn("Live update publish notify failed after commit.", {
+              artifactId: publish.artifact_id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+      return signed;
     } catch (error) {
       const mapped = mapRepositoryError(error);
       if (mapped) {
@@ -631,7 +693,24 @@ async function webArtifactDetail(
     return errorResponse(context, "forbidden");
   }
   const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
-  return detail ? jsonResponse(context, detail) : errorResponse(context, "not_found");
+  if (!detail) {
+    return errorResponse(context, "not_found");
+  }
+  if (detail.viewer) {
+    const signed = (await signAgentViewContentUrls(
+      {
+        artifact_id: detail.id,
+        revision_id: detail.latest_revision_id,
+        entrypoint: detail.entrypoint,
+        view_url: detail.viewer.iframe_src,
+      },
+      context.env,
+      { workspaceId: actor.workspace_id },
+    )) as { view_url?: unknown };
+    const iframeSrc = typeof signed.view_url === "string" ? signed.view_url : detail.viewer.iframe_src;
+    return jsonResponse(context, { ...detail, viewer: { ...detail.viewer, iframe_src: iframeSrc } });
+  }
+  return jsonResponse(context, detail);
 }
 
 async function webPinArtifact(
@@ -959,6 +1038,19 @@ async function webAdminSetLockdown(
         reasonCode: body.reason_code,
       });
       await writeDenylistEntry(env, body.scope, body.target_id);
+      if (body.scope === "artifact") {
+        await notifyLiveUpdateDisconnect(env, {
+          artifactId: body.target_id,
+          audiences: ["share", "dashboard"],
+          reason: "platform_lockdown",
+        });
+      } else {
+        await notifyLiveUpdateDisconnectWorkspace(env, db, {
+          workspaceId: body.target_id,
+          audiences: ["share", "dashboard"],
+          reason: "platform_lockdown",
+        });
+      }
       return detail;
     },
     201,
@@ -1364,6 +1456,11 @@ async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
     artifactId,
   });
   await denyArtifact(env, artifactId);
+  await notifyLiveUpdateDisconnect(env, {
+    artifactId,
+    audiences: ["share", "dashboard"],
+    reason: "deletion",
+  });
   return jsonResponse(context, { ...result, deleted_r2_objects: 0 });
 }
 
@@ -1510,8 +1607,7 @@ async function signAgentViewContentUrls(
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const workspaceId =
-    options?.workspaceId ??
-    (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
+    options?.workspaceId ?? (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
     ...(workspaceId ? { workspaceId } : {}),

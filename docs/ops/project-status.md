@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (AP-24 pinning and revision retention in review).
+Last updated: 2026-05-27 (AP-25 Live Updates via stream Worker).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -16,7 +16,7 @@ and points to the smaller ledgers that own detail.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology and bundle zip generation (AP-21/AP-23); `apps/mcp` remains a scaffold for Phase 5.
-- `apps/stream`, `packages/billing`, and scanner persistence do not exist yet.
+- `packages/billing` and scanner persistence do not exist yet. `apps/stream` implements ADR 0069 Live Updates (AP-25).
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
@@ -67,8 +67,7 @@ and deep-link return paths are implemented.
 
 Highest-signal gaps:
 
-- Phase 4: Live Updates (after AP-24 lands); pinning/revision retention are on
-  PR #104 pending merge.
+- Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
 - Phase 5: OAuth-only MCP transport, auth verification, API forwarding, and MCP
   tools.
 - Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse

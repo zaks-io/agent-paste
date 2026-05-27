@@ -6,7 +6,15 @@ import type {
   toWorkspaceDetail,
   toWorkspaceSummary,
 } from "../transforms.js";
-import type { AdminActor, ApiActor, ApiKeyActor, OperationEvent, PlatformActor, Workspace } from "../types.js";
+import type {
+  AccessLinkType,
+  AdminActor,
+  ApiActor,
+  ApiKeyActor,
+  OperationEvent,
+  PlatformActor,
+  Workspace,
+} from "../types.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 
@@ -61,7 +69,12 @@ type WebWorkspaceView = {
   default_key_first_run: boolean;
 };
 
-type WebArtifactDetail = WebArtifactRow & { entrypoint: string; file_count: number; size_bytes: number };
+type WebArtifactDetail = WebArtifactRow & {
+  entrypoint: string;
+  file_count: number;
+  size_bytes: number;
+  viewer: { iframe_src: string; render_mode: string } | null;
+};
 
 type WebApiKeyRow = ApiKeySummary & { expires_at: null; revoked: boolean };
 
@@ -250,13 +263,9 @@ export type Repository = {
     }>;
     page_info: PageInfo;
   } | null>;
-  resolveAccessLink(input: {
-    publicId: string;
-    blobScopes: number;
-    contentBaseUrl: string;
-    now?: string;
-  }): Promise<{
+  resolveAccessLink(input: { publicId: string; blobScopes: number; contentBaseUrl: string; now?: string }): Promise<{
     access_link_id: string;
+    access_link_type: AccessLinkType;
     workspace_id: string;
     agent_view: AgentView;
     render_mode: string;
