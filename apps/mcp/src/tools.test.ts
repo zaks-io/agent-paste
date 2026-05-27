@@ -290,6 +290,19 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: metadata });
   });
 
+  it("maps rate_limited_actor from forwarded API errors", async () => {
+    const api = {
+      fetch: vi.fn(async () =>
+        Response.json({ error: { code: "rate_limited_actor", message: "rate_limited_actor" } }, { status: 429 }),
+      ),
+    };
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("rate_limited_actor");
+    }
+  });
+
   it("returns internal_error when whoami payload fails validation", async () => {
     const api = {
       fetch: vi.fn(async () => Response.json({ workspace_member: { id: "bad" } })),
