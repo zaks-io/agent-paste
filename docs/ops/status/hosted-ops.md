@@ -26,7 +26,9 @@ Last updated: 2026-05-27.
 ## Secrets
 
 `scripts/bootstrap-secrets.mjs` writes MVP secrets and optional web secrets. Use
-`--with-web` only when all WorkOS inputs are available.
+`--with-web` only when all WorkOS inputs are available. For live-update rollout on
+an existing environment, use `scripts/set-stream-internal-secret.mjs` instead of
+re-running bootstrap; it sets only `STREAM_INTERNAL_SECRET` on `api` and `stream`.
 
 | Secret                   | Bound on             | Notes                                                                                          |
 | ------------------------ | -------------------- | ---------------------------------------------------------------------------------------------- |

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import {
+  findSecretCollisions,
+  listWorkerSecrets,
+  putWorkerSecret,
+  workerName,
+} from "./wrangler-secrets.mjs";
 
 const target = parseTarget(process.argv.slice(2));
 const options = parseOptions(process.argv.slice(2));
@@ -34,11 +39,17 @@ const workerSecrets = [
     : []),
 ];
 
+const workerBindings = workerSecrets.map((binding) => ({
+  app: binding.app,
+  worker: workerName(binding.app, target),
+  names: binding.names,
+}));
+
 if (!options.printOnly && !options.dryRun) {
   await assertSafeToWrite();
-  for (const binding of workerSecrets) {
+  for (const binding of workerBindings) {
     for (const name of binding.names) {
-      await putSecret(binding.app, name, secrets[name]);
+      await putWorkerSecret(binding.worker, name, secrets[name]);
     }
   }
 }
@@ -97,19 +108,13 @@ function parseOptions(argv) {
 }
 
 async function assertSafeToWrite() {
-  const existing = new Map();
-  for (const binding of workerSecrets) {
-    const listed = await listSecrets(binding.app);
-    for (const secret of listed) {
-      existing.set(`${binding.app}:${secret}`, true);
-    }
+  const existingByWorker = new Map();
+  for (const binding of workerBindings) {
+    const listed = await listWorkerSecrets(binding.worker);
+    existingByWorker.set(binding.worker, new Set(listed));
   }
 
-  const collisions = workerSecrets.flatMap((binding) =>
-    binding.names
-      .filter((name) => existing.has(`${binding.app}:${name}`))
-      .map((name) => `${workerName(binding.app)}:${name}`),
-  );
+  const collisions = findSecretCollisions(workerBindings, existingByWorker);
 
   if (collisions.length === 0) {
     return;
@@ -133,29 +138,6 @@ async function assertSafeToWrite() {
   if (answer !== phrase) {
     throw new Error("Confirmation did not match; no secrets were written.");
   }
-}
-
-async function listSecrets(app) {
-  const result = await run("wrangler", ["secret", "list", "--name", workerName(app), "--json"], null, {
-    allowFailure: true,
-  });
-  if (result.code !== 0) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(result.stdout);
-    return Array.isArray(parsed) ? parsed.flatMap((item) => (typeof item.name === "string" ? [item.name] : [])) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function putSecret(app, name, value) {
-  await run("wrangler", ["secret", "put", name, "--name", workerName(app)], value);
-}
-
-function workerName(app) {
-  return `agent-paste-${app}-${target}`;
 }
 
 function generatedSecrets() {
@@ -193,34 +175,6 @@ function plannedSecrets() {
   };
 }
 
-function run(command, args, stdin, runOptions = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      const result = { code: code ?? 1, stdout, stderr };
-      if (result.code === 0 || runOptions.allowFailure) {
-        resolve(result);
-      } else {
-        reject(new Error(`${command} ${args.join(" ")} exited ${result.code}\n${stderr || stdout}`));
-      }
-    });
-    if (stdin !== null) {
-      child.stdin.end(`${stdin}\n`);
-    } else {
-      child.stdin.end();
-    }
-  });
-}
-
 function printCaptureBlock() {
   const bindingHeader = options.dryRun || options.printOnly ? "Worker bindings planned:" : "Worker bindings written:";
   const intro = options.dryRun
@@ -236,8 +190,9 @@ ${Object.entries(secrets)
   .join("\n")}
 
 ${bindingHeader}
-${workerSecrets.map((binding) => `  ${workerName(binding.app)}: ${binding.names.join(", ")}`).join("\n")}
+${workerBindings.map((binding) => `  ${binding.worker}: ${binding.names.join(", ")}`).join("\n")}
 ${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this script. The wrangler.jsonc vars remain non-secret deployment metadata/placeholders and are not modified here.\n" : ""}
+For ${target} live-update rollout after bootstrap, use scripts/set-stream-internal-secret.mjs with the generated STREAM_INTERNAL_SECRET value instead of re-running bootstrap.
 `);
 }
 
@@ -295,6 +250,9 @@ Options:
   --workos-client-id   WorkOS client id (client_...). Env fallback: WORKOS_CLIENT_ID.
   --workos-cookie-password
                        32+ char AuthKit cookie password. Env fallback: WORKOS_COOKIE_PASSWORD.
+
+Hosted live-update rollout for an existing environment:
+  node scripts/set-stream-internal-secret.mjs <preview|production>
 `);
   process.exit(1);
 }
