@@ -45,8 +45,14 @@ describe("mcp worker", () => {
     expect(response.status).toBe(200);
     expect(doc.openapi).toBe("3.1.0");
     expect(doc.info.title).toBe("Agent Paste MCP API");
+    expect(doc.paths).toHaveProperty("/");
     expect(doc.paths).toHaveProperty("/healthz");
     expect(doc.paths).toHaveProperty("/.well-known/oauth-protected-resource");
+  });
+
+  it("returns 405 for GET on the MCP endpoint", async () => {
+    const response = await request("/");
+    expect(response.status).toBe(405);
   });
 
   it("returns a canonical not_found envelope for unknown paths", async () => {

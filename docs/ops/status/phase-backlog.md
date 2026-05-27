@@ -135,7 +135,7 @@ Recommended order:
        for compatibility.
 2. [x] Define MCP contracts in `packages/contracts` for tool schemas, auth
        requirements, error mapping, and forwarded API calls.
-3. [ ] Implement Streamable HTTP MCP transport on `apps/mcp`: JSON-RPC over
+3. [x] Implement Streamable HTTP MCP transport on `apps/mcp`: JSON-RPC over
        `POST /`, optional SSE responses, stateless request auth, and correct
        `WWW-Authenticate` challenges.
 4. [ ] Verify OAuth tokens and forward to `api` over a service binding. API keys
