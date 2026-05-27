@@ -50,9 +50,10 @@ select
   a.created_at,
   a.created_at
 from artifacts a
-where not exists (
-  select 1 from revisions r where r.id = a.revision_id
-);
+where a.revision_id is not null
+  and not exists (
+    select 1 from revisions r where r.id = a.revision_id
+  );
 
 -- artifact_files must allow multiple revisions per artifact.
 alter table artifact_files drop constraint if exists artifact_files_pkey;

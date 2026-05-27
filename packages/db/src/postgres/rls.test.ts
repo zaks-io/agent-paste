@@ -39,6 +39,24 @@ function executorForPglite(client: PGlite, role?: string): SqlExecutor {
   return outer;
 }
 
+async function applyMigrationFile(client: PGlite, file: string) {
+  const dir = resolve(here, "../../migrations");
+  if (file === "0010_db_roles.sql") {
+    await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '${APP_RUNTIME_ROLE}', false)`);
+    await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', 'test-runtime-password', false)`);
+    try {
+      const text = await readFile(resolve(dir, file), "utf8");
+      await client.exec(text);
+    } finally {
+      await client.exec(`select set_config('${RUNTIME_ROLE_GUC}', '', false)`);
+      await client.exec(`select set_config('${RUNTIME_ROLE_PASSWORD_GUC}', '', false)`);
+    }
+    return;
+  }
+  const text = await readFile(resolve(dir, file), "utf8");
+  await client.exec(text);
+}
+
 async function applyMigrations(client: PGlite) {
   const dir = resolve(here, "../../migrations");
   const files = (await readdir(dir)).filter((name) => name.endsWith(".sql")).sort();
@@ -253,5 +271,23 @@ describe("postgres RLS runtime enforcement", () => {
 
   it("re-applies migrations idempotently", async () => {
     await expect(applyMigrations(client)).resolves.toBeUndefined();
+  });
+
+  it("re-applies 0009 revisions backfill when an artifact has a null revision pointer", async () => {
+    await platformQuery(
+      executor,
+      `insert into artifacts
+         (id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at,
+          created_by_api_key_id, created_at, updated_at)
+       values ('art-null-rev', $1, null, 'active', 'draft-only', 'index.html', 1, 1, now() + interval '1 day', 'key-ws1', now(), now())`,
+      [ws1Id],
+    );
+
+    await expect(applyMigrationFile(client, "0009_revisions.sql")).resolves.toBeUndefined();
+
+    const revisions = await platformQuery(executor, "select id from revisions where id is null");
+    expect(revisions.rows).toEqual([]);
+    const artifact = await platformQuery(executor, "select revision_id from artifacts where id = 'art-null-rev'");
+    expect(artifact.rows).toEqual([{ revision_id: null }]);
   });
 });
