@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Paste Orchestrator"
+  short_description: "Coordinate AP agents and PRs"
+  default_prompt: "Use $agent-paste-orchestrator to coordinate ready Linear issues, worker agents, and PR review."

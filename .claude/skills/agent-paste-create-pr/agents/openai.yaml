@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Paste Create PR"
+  short_description: "Create agent-paste pull requests"
+  default_prompt: "Use $agent-paste-create-pr to open a PR for my current branch."
