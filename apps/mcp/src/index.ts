@@ -1,6 +1,8 @@
+import { mcpProtectedResourceMetadata } from "@agent-paste/contracts";
 import { sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
+import { handleMcpEndpoint } from "./transport.js";
 
 export type Env = {
   AGENT_PASTE_ENV?: string;
@@ -14,6 +16,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.get("/healthz", (context) => context.json({ ok: true, app: "mcp" }));
 app.get("/.well-known/oauth-protected-resource", (context) => context.json(protectedResourceMetadata(context.env)));
 app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.all("/", (context) => handleMcpEndpoint(context.req.raw, context.env));
 app.notFound((context) => context.json({ error: { code: "not_found", message: "not_found" } }, 404));
 app.onError((error, context) => {
   console.error("Unhandled MCP error:", error);
@@ -29,14 +32,10 @@ const worker = {
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {
-  const resource = env.MCP_RESOURCE ?? "https://mcp.agent-paste.sh";
-  const authorizationServer = env.MCP_AUTHORIZATION_SERVER;
-  return {
-    resource,
-    authorization_servers: authorizationServer ? [authorizationServer] : [],
-    bearer_methods_supported: ["header"],
-    scopes_supported: ["write", "read", "share"],
-  };
+  return mcpProtectedResourceMetadata({
+    ...(env.MCP_RESOURCE ? { resource: env.MCP_RESOURCE } : {}),
+    ...(env.MCP_AUTHORIZATION_SERVER ? { authorizationServers: [env.MCP_AUTHORIZATION_SERVER] } : {}),
+  });
 }
 
 function openApiDocument(): Record<string, unknown> {
@@ -47,6 +46,31 @@ function openApiDocument(): Record<string, unknown> {
       version: "0.1.0",
     },
     paths: {
+      "/": {
+        get: {
+          operationId: "mcp.streamableHttpGet",
+          responses: {
+            405: { description: "SSE stream not offered in stateless v1" },
+          },
+        },
+        post: {
+          operationId: "mcp.streamableHttpPost",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object" },
+              },
+            },
+          },
+          responses: {
+            200: { description: "JSON-RPC result (JSON or SSE)" },
+            202: { description: "Accepted client notification or response" },
+            400: { description: "Malformed JSON-RPC" },
+            401: { description: "Missing or invalid OAuth bearer" },
+          },
+        },
+      },
       "/healthz": {
         get: {
           operationId: "mcp.health",

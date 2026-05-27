@@ -14,6 +14,11 @@ Contracts: [ADR 0061](../../docs/adr/0061-mcp-worker-with-oauth-only-via-auth0-d
 
 Current endpoints:
 
+- `POST /` — Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
+- `GET /` — returns `405` in stateless v1 (no standalone SSE stream)
 - `GET /healthz`
 - `GET /.well-known/oauth-protected-resource`
 - `GET /openapi.json`
+
+Transport auth is OAuth-bearer only via a stateless `VerifyMcpBearer` hook. WorkOS JWT
+verification and tool forwarding are follow-up tickets.
