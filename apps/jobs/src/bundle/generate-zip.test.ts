@@ -12,11 +12,16 @@ describe("buildRevisionZip", () => {
     expect(zip[1]).toBe(0x4b);
   });
 
-  it("tracks paths on a null-prototype map", () => {
-    const entries = Object.create(null) as Record<string, Uint8Array>;
-    entries.__proto__ = new Uint8Array([1]);
-    expect(Object.hasOwn(entries, "__proto__")).toBe(true);
-    expect(({} as { polluted?: string }).polluted).toBeUndefined();
+  it("packages __proto__ paths without polluting Object.prototype", () => {
+    const pollutionProbe = "ap23BundleZipProtoProbe";
+    expect((Object.prototype as Record<string, unknown>)[pollutionProbe]).toBeUndefined();
+
+    const zip = buildRevisionZip([{ path: "__proto__", bytes: new Uint8Array([1]) }]);
+
+    expect(zip.byteLength).toBeGreaterThan(0);
+    expect(zip[0]).toBe(0x50);
+    expect(zip[1]).toBe(0x4b);
+    expect((Object.prototype as Record<string, unknown>)[pollutionProbe]).toBeUndefined();
   });
 
   it("rejects duplicate revision paths deterministically", () => {
