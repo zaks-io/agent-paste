@@ -43,22 +43,23 @@ MVP API keys grant the publish/read capability needed by the public CLI. Granula
 
 ### `artifacts`
 
-| Column                  | Type                                      | Notes                                        |
-| ----------------------- | ----------------------------------------- | -------------------------------------------- |
-| `id`                    | `TEXT PRIMARY KEY`                        | `art_...`.                                   |
-| `workspace_id`          | `UUID NOT NULL REFERENCES workspaces(id)` |                                              |
-| `revision_id`           | `TEXT NOT NULL UNIQUE`                    | `rev_...`; one revision per artifact in MVP. |
-| `status`                | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.           |
-| `title`                 | `TEXT NOT NULL`                           | Plain text.                                  |
-| `entrypoint`            | `TEXT NOT NULL`                           | Normalized file path.                        |
-| `file_count`            | `INTEGER NOT NULL`                        |                                              |
-| `size_bytes`            | `BIGINT NOT NULL`                         | Total uploaded bytes.                        |
-| `expires_at`            | `TIMESTAMPTZ NOT NULL`                    | Required.                                    |
-| `created_by_api_key_id` | `TEXT NOT NULL REFERENCES api_keys(id)`   | Historical attribution.                      |
-| `deleted_at`            | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.             |
-| `delete_reason`         | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason. |
-| `created_at`            | `TIMESTAMPTZ NOT NULL`                    |                                              |
-| `updated_at`            | `TIMESTAMPTZ NOT NULL`                    |                                              |
+| Column            | Type                                      | Notes                                        |
+| ----------------- | ----------------------------------------- | -------------------------------------------- |
+| `id`              | `TEXT PRIMARY KEY`                        | `art_...`.                                   |
+| `workspace_id`    | `UUID NOT NULL REFERENCES workspaces(id)` |                                              |
+| `revision_id`     | `TEXT NOT NULL UNIQUE`                    | `rev_...`; one revision per artifact in MVP. |
+| `status`          | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.           |
+| `title`           | `TEXT NOT NULL`                           | Plain text.                                  |
+| `entrypoint`      | `TEXT NOT NULL`                           | Normalized file path.                        |
+| `file_count`      | `INTEGER NOT NULL`                        |                                              |
+| `size_bytes`      | `BIGINT NOT NULL`                         | Total uploaded bytes.                        |
+| `expires_at`      | `TIMESTAMPTZ NOT NULL`                    | Required.                                    |
+| `created_by_type` | `TEXT NOT NULL`                           | `api_key` or `member`.                       |
+| `created_by_id`   | `TEXT NOT NULL`                           | Creator id for the stored type.              |
+| `deleted_at`      | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.             |
+| `delete_reason`   | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason. |
+| `created_at`      | `TIMESTAMPTZ NOT NULL`                    |                                              |
+| `updated_at`      | `TIMESTAMPTZ NOT NULL`                    |                                              |
 
 No artifact can be created without `expires_at`.
 
@@ -79,22 +80,23 @@ Primary key `(artifact_id, path)`. Unique normalized paths per artifact.
 
 ### `upload_sessions`
 
-| Column                  | Type                                      | Notes                                           |
-| ----------------------- | ----------------------------------------- | ----------------------------------------------- |
-| `id`                    | `TEXT PRIMARY KEY`                        | `upl_...`.                                      |
-| `workspace_id`          | `UUID NOT NULL REFERENCES workspaces(id)` |                                                 |
-| `artifact_id`           | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
-| `revision_id`           | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
-| `status`                | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`. |
-| `title`                 | `TEXT NOT NULL`                           | Plain text.                                     |
-| `entrypoint`            | `TEXT NOT NULL`                           | Normalized file path.                           |
-| `artifact_expires_at`   | `TIMESTAMPTZ NOT NULL`                    | Copied to `artifacts.expires_at` on finalize.   |
-| `file_count`            | `INTEGER NOT NULL`                        | Expected files.                                 |
-| `size_bytes`            | `BIGINT NOT NULL`                         | Expected total bytes.                           |
-| `created_by_api_key_id` | `TEXT NOT NULL REFERENCES api_keys(id)`   |                                                 |
-| `expires_at`            | `TIMESTAMPTZ NOT NULL`                    | Upload session TTL, typically 24 hours.         |
-| `created_at`            | `TIMESTAMPTZ NOT NULL`                    |                                                 |
-| `finalized_at`          | `TIMESTAMPTZ NULL`                        |                                                 |
+| Column                | Type                                      | Notes                                           |
+| --------------------- | ----------------------------------------- | ----------------------------------------------- |
+| `id`                  | `TEXT PRIMARY KEY`                        | `upl_...`.                                      |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                                 |
+| `artifact_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
+| `revision_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
+| `status`              | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`. |
+| `title`               | `TEXT NOT NULL`                           | Plain text.                                     |
+| `entrypoint`          | `TEXT NOT NULL`                           | Normalized file path.                           |
+| `artifact_expires_at` | `TIMESTAMPTZ NOT NULL`                    | Copied to `artifacts.expires_at` on finalize.   |
+| `file_count`          | `INTEGER NOT NULL`                        | Expected files.                                 |
+| `size_bytes`          | `BIGINT NOT NULL`                         | Expected total bytes.                           |
+| `created_by_type`     | `TEXT NOT NULL`                           | `api_key` or `member`.                          |
+| `created_by_id`       | `TEXT NOT NULL`                           | Creator id for the stored type.                 |
+| `expires_at`          | `TIMESTAMPTZ NOT NULL`                    | Upload session TTL, typically 24 hours.         |
+| `created_at`          | `TIMESTAMPTZ NOT NULL`                    |                                                 |
+| `finalized_at`        | `TIMESTAMPTZ NULL`                        |                                                 |
 
 ### `upload_session_files`
 

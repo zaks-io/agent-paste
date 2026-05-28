@@ -15,6 +15,7 @@ import {
   routeContracts,
 } from "@agent-paste/contracts";
 import {
+  type ApiActor,
   buildCreateUploadSessionWireResponse,
   createHyperdriveExecutor,
   createPostgresServices,
@@ -45,14 +46,10 @@ import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { authenticateMcpBearer, resolveMcpMemberActor } from "./mcp-auth.js";
 
-export type UploadActor = {
-  type: "api_key";
-  id: string;
-  workspace_id: string;
-};
+export type UploadActor = ApiActor;
 
 export type AuthService = {
-  verifyApiKey(apiKey: string): Promise<UploadActor | null>;
+  verifyApiKey(apiKey: string): Promise<Extract<UploadActor, { type: "api_key" }> | null>;
 };
 
 export type UploadFileInput = {
@@ -240,15 +237,11 @@ function uploadSessionActor(principal: Principal): UploadActor | null {
     };
   }
   if (principal.kind === "workos_access_token" && principal.actor?.type === "member") {
-    const actor = principal.actor;
-    if (!actor.workspace_id) {
+    const actor = principal.actor as ApiActor;
+    if (actor.type !== "member" || !actor.workspace_id) {
       return null;
     }
-    return {
-      type: "api_key",
-      id: actor.id,
-      workspace_id: actor.workspace_id,
-    };
+    return actor;
   }
   return null;
 }
@@ -430,7 +423,7 @@ function uploadDatabase(env: Env): Repository | undefined {
 
 async function peekUploadReplay<T>(
   db: Repository,
-  actor: UploadActor,
+  actor: Extract<UploadActor, { type: "api_key" }>,
   operation: string,
   idempotencyKey: string,
 ): Promise<T | null> {
@@ -449,7 +442,7 @@ async function uploadReplay(input: {
     return null;
   }
   const context = input.context as AppContext;
-  const actor = input.principal.actor as UploadActor;
+  const actor = input.principal.actor as Extract<UploadActor, { type: "api_key" }>;
   if (input.contract.id === "uploadSessions.create") {
     const replay = await peekUploadReplay<UploadSessionRecord>(
       input.db,

@@ -56,12 +56,14 @@ CREATE TABLE "artifacts" (
 	"size_bytes" bigint NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"pinned_at" timestamp with time zone,
-	"created_by_api_key_id" text NOT NULL,
+	"created_by_type" text NOT NULL,
+	"created_by_id" text NOT NULL,
 	"access_link_lockdown_at" timestamp with time zone,
 	"deleted_at" timestamp with time zone,
 	"delete_reason" text,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "artifacts_created_by_type_check" CHECK ("artifacts"."created_by_type" in ('api_key', 'member'))
 );
 
 CREATE TABLE "idempotency_records" (
@@ -118,12 +120,14 @@ CREATE TABLE "revisions" (
 	"bundle_status_updated_at" timestamp with time zone,
 	"bundle_size_bytes" bigint,
 	"bytes_purge_enqueued_at" timestamp with time zone,
-	"created_by_api_key_id" text NOT NULL,
+	"created_by_type" text NOT NULL,
+	"created_by_id" text NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"published_at" timestamp with time zone,
 	CONSTRAINT "revisions_status_check" CHECK ("revisions"."status" in ('draft', 'published', 'retained')),
 	CONSTRAINT "revisions_render_mode_check" CHECK ("revisions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video')),
-	CONSTRAINT "revisions_bundle_status_check" CHECK ("revisions"."bundle_status" in ('pending', 'ready', 'failed', 'disabled'))
+	CONSTRAINT "revisions_bundle_status_check" CHECK ("revisions"."bundle_status" in ('pending', 'ready', 'failed', 'disabled')),
+	CONSTRAINT "revisions_created_by_type_check" CHECK ("revisions"."created_by_type" in ('api_key', 'member'))
 );
 
 CREATE TABLE "upload_session_files" (
@@ -149,10 +153,12 @@ CREATE TABLE "upload_sessions" (
 	"artifact_expires_at" timestamp with time zone NOT NULL,
 	"file_count" integer NOT NULL,
 	"size_bytes" bigint NOT NULL,
-	"created_by_api_key_id" text NOT NULL,
+	"created_by_type" text NOT NULL,
+	"created_by_id" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
-	"finalized_at" timestamp with time zone
+	"finalized_at" timestamp with time zone,
+	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member'))
 );
 
 CREATE TABLE "workspace_members" (
@@ -185,15 +191,12 @@ ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspa
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
-ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "revisions" ADD CONSTRAINT "revisions_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
-ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_created_by_api_key_id_api_keys_id_fk" FOREIGN KEY ("created_by_api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 CREATE UNIQUE INDEX "access_links_public_id_unique" ON "access_links" USING btree ("public_id");
 CREATE INDEX "access_links_artifact_created_idx" ON "access_links" USING btree ("artifact_id","created_at");

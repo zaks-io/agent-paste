@@ -3,11 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  APP_RUNTIME_ROLE,
-  RUNTIME_ROLE_GUC,
-  RUNTIME_ROLE_PASSWORD_GUC,
-} from "../../scripts/credentials.mjs";
+import { APP_RUNTIME_ROLE, RUNTIME_ROLE_GUC, RUNTIME_ROLE_PASSWORD_GUC } from "../../scripts/credentials.mjs";
 import type { SqlExecutor, SqlValue } from "../types.js";
 import { rlsExecutor } from "./rls.js";
 
@@ -101,8 +97,8 @@ async function insertArtifact(executor: SqlExecutor, workspaceId: string, artifa
   await tenant.query(
     `insert into artifacts
        (id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at,
-        created_by_api_key_id, created_at, updated_at)
-     values ($1, $2, $3, 'active', 't', 'index.html', 1, 1, now() + interval '1 day', $4, now(), now())`,
+        created_by_type, created_by_id, created_at, updated_at)
+     values ($1, $2, $3, 'active', 't', 'index.html', 1, 1, now() + interval '1 day', 'api_key', $4, now(), now())`,
     [artifactId, workspaceId, `rev-${artifactId}`, apiKeyId],
   );
 }
@@ -178,8 +174,8 @@ describe("postgres RLS runtime enforcement", () => {
       ws2.query(
         `insert into artifacts
            (id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at,
-            created_by_api_key_id, created_at, updated_at)
-         values ('bad', $1, 'rev-bad', 'active', 't', 'i.html', 1, 1, now() + interval '1 day', 'key-ws2', now(), now())`,
+            created_by_type, created_by_id, created_at, updated_at)
+         values ('bad', $1, 'rev-bad', 'active', 't', 'i.html', 1, 1, now() + interval '1 day', 'api_key', 'key-ws2', now(), now())`,
         [ws1Id],
       ),
     ).rejects.toThrow();
@@ -275,8 +271,8 @@ describe("postgres RLS runtime enforcement", () => {
       executor,
       `insert into artifacts
          (id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at,
-          created_by_api_key_id, created_at, updated_at)
-       values ('art-null-rev', $1, null, 'active', 'draft-only', 'index.html', 1, 1, now() + interval '1 day', 'key-ws1', now(), now())`,
+          created_by_type, created_by_id, created_at, updated_at)
+       values ('art-null-rev', $1, null, 'active', 'draft-only', 'index.html', 1, 1, now() + interval '1 day', 'api_key', 'key-ws1', now(), now())`,
       [ws1Id],
     );
 

@@ -1,4 +1,5 @@
 import { buildFinalizeResult, inferRenderMode } from "../agent-view.js";
+import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
 import { DEFAULT_UPLOAD_SESSION_TTL_MS, USAGE_POLICY } from "../policy.js";
 import { toUploadSessionRecord } from "../transforms.js";
@@ -45,6 +46,7 @@ export async function createUploadSessionInEntities(
   validateUpload(files, entrypoint);
   const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
   const updateArtifactId = input.request.artifact_id;
+  const createdBy = createdByFromActor(input.actor);
   const session: UploadSession = {
     id: createId("upl"),
     workspace_id: input.actor.workspace_id,
@@ -58,7 +60,8 @@ export async function createUploadSessionInEntities(
     ).toISOString(),
     file_count: files.length,
     size_bytes: totalSize,
-    created_by_api_key_id: input.actor.id,
+    created_by_type: createdBy.created_by_type,
+    created_by_id: createdBy.created_by_id,
     expires_at: new Date(new Date(input.now).getTime() + DEFAULT_UPLOAD_SESSION_TTL_MS).toISOString(),
     created_at: input.now,
     finalized_at: null,
@@ -77,9 +80,10 @@ export async function createUploadSessionInEntities(
   for (const file of storedFiles) {
     await entities.uploadSessionFiles.insert(session.id, file);
   }
+  const operationActor = operationActorFromApiActor(input.actor);
   await entities.operationEvents.insert({
-    actorType: "api_key",
-    actorId: input.actor.id,
+    actorType: operationActor.actorType,
+    actorId: operationActor.actorId,
     action: "upload_session.created",
     targetType: "upload_session",
     targetId: session.id,
@@ -122,6 +126,7 @@ export async function finalizeUploadSessionInEntities(
       throw new Error("upload_incomplete");
     }
   }
+  const operationActor = operationActorFromApiActor(input.actor);
   const existingArtifact = await entities.artifacts.findById(session.artifact_id, input.actor.workspace_id);
   if (existingArtifact) {
     const existingDraft = await entities.revisions.findDraftForArtifact(existingArtifact.id);
@@ -140,7 +145,8 @@ export async function finalizeUploadSessionInEntities(
       size_bytes: session.size_bytes,
       expires_at: session.artifact_expires_at,
       pinned_at: null,
-      created_by_api_key_id: session.created_by_api_key_id,
+      created_by_type: session.created_by_type,
+      created_by_id: session.created_by_id,
       access_link_lockdown_at: null,
       deleted_at: null,
       delete_reason: null,
@@ -149,8 +155,8 @@ export async function finalizeUploadSessionInEntities(
     };
     await entities.artifacts.insert(artifact);
     await entities.operationEvents.insert({
-      actorType: "api_key",
-      actorId: input.actor.id,
+      actorType: operationActor.actorType,
+      actorId: operationActor.actorId,
       action: "artifact.created",
       targetType: "artifact",
       targetId: artifact.id,
@@ -173,7 +179,8 @@ export async function finalizeUploadSessionInEntities(
     bundle_status_updated_at: null,
     bundle_size_bytes: null,
     bytes_purge_enqueued_at: null,
-    created_by_api_key_id: session.created_by_api_key_id,
+    created_by_type: session.created_by_type,
+    created_by_id: session.created_by_id,
     created_at: input.now,
     published_at: null,
   };
@@ -183,8 +190,8 @@ export async function finalizeUploadSessionInEntities(
     await entities.artifactFiles.insert(session.artifact_id, session.revision_id, file, input.now);
   }
   await entities.operationEvents.insert({
-    actorType: "api_key",
-    actorId: input.actor.id,
+    actorType: operationActor.actorType,
+    actorId: operationActor.actorId,
     action: "revision.draft_created",
     targetType: "artifact",
     targetId: session.artifact_id,
