@@ -57,6 +57,7 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
+- `ARTIFACT_BYTES_ENCRYPTION_KEY` (upload, content, and jobs; same value on all three)
 - `API_KEY_PEPPER_V1`
 - `SMOKE_HARNESS_SECRET` (api preview/PR only; not production)
 - `STREAM_INTERNAL_SECRET` (api and stream; stream-to-api live-update authorize)
@@ -74,6 +75,18 @@ node scripts/set-stream-internal-secret.mjs preview --dry-run
 ```
 
 Use this for AP-80 / live-update rollout on existing hosted environments. First-deploy bootstrap can still mint `STREAM_INTERNAL_SECRET`, but operators should prefer this script when other Worker secrets are already present.
+
+### `set-artifact-bytes-encryption-secret.mjs`
+
+Targeted rollout for application-layer artifact-byte encryption only. Sets the same `ARTIFACT_BYTES_ENCRYPTION_KEY` on `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>` without reading or rotating unrelated secrets.
+
+```sh
+node scripts/set-artifact-bytes-encryption-secret.mjs preview
+node scripts/set-artifact-bytes-encryption-secret.mjs production --value <existing-secret>
+node scripts/set-artifact-bytes-encryption-secret.mjs preview --dry-run
+```
+
+Use this for AP-32 rollout on existing hosted environments. First-deploy bootstrap mints the same secret; PR preview derives it from `PR_PREVIEW_SECRET_SEED` in `deploy-pr-preview.mjs`. Operators run this locally with `wrangler`; do not commit secret values.
 
 With `--with-web`, bootstrap also writes:
 

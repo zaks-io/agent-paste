@@ -2,6 +2,14 @@ import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import { USAGE_POLICY } from "@agent-paste/config";
 import { BundleGenerateMessage } from "@agent-paste/contracts";
 import { bundleKeyFor, storageEnvSegment } from "@agent-paste/db";
+import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
+import {
+  bytesFromReadableBody,
+  decryptArtifactBytesWithKeyRing,
+  encryptArtifactBytes,
+  isArtifactBytesEncryptionMetadata,
+  parseRevisionFileObjectKey,
+} from "@agent-paste/storage";
 import { ZodError } from "zod";
 import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
 import { buildRevisionZip } from "../bundle/generate-zip.js";
@@ -21,17 +29,35 @@ type RevisionFileRow = {
 };
 
 type R2ObjectWithBody = {
-  body: ReadableStream | ArrayBuffer | null;
+  body?: ReadableStream | ArrayBuffer | null;
+  customMetadata?: Record<string, string>;
 };
 
-async function readObjectBytes(object: R2ObjectWithBody): Promise<Uint8Array> {
-  if (object.body instanceof ArrayBuffer) {
-    return new Uint8Array(object.body);
+async function readRevisionFileBytes(input: {
+  object: R2ObjectWithBody;
+  objectKey: string;
+  workspaceId: string;
+  encryptionRing: NonNullable<ReturnType<typeof artifactBytesEncryptionRingFromEnv>>;
+}): Promise<Uint8Array> {
+  const ciphertext = await bytesFromReadableBody(input.object.body);
+  if (!isArtifactBytesEncryptionMetadata(input.object.customMetadata)) {
+    throw new Error("artifact_bytes_metadata_missing");
   }
-  if (object.body instanceof ReadableStream) {
-    return new Uint8Array(await new Response(object.body).arrayBuffer());
+  const keyParts = parseRevisionFileObjectKey(input.objectKey);
+  if (!keyParts) {
+    throw new Error("artifact_bytes_invalid_object_key");
   }
-  return new Uint8Array();
+  return decryptArtifactBytesWithKeyRing({
+    ciphertext,
+    ring: input.encryptionRing,
+    metadata: input.object.customMetadata,
+    context: {
+      workspaceId: input.workspaceId,
+      artifactId: keyParts.artifactId,
+      revisionId: keyParts.revisionId,
+      normalizedPath: keyParts.path,
+    },
+  });
 }
 
 export async function handleBundleGenerateBatch(messages: readonly QueueMessage[], env: Env): Promise<void> {
@@ -65,7 +91,8 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
 
       const getObject = env.ARTIFACTS?.get;
       const putObject = env.ARTIFACTS?.put;
-      if (!getObject || !putObject) {
+      const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
+      if (!getObject || !putObject || !encryptionRing) {
         throw new Error("artifacts_bucket_missing");
       }
 
@@ -76,7 +103,15 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         if (!object?.body) {
           throw new Error(`missing_r2_object:${file.path}`);
         }
-        fileBytes.push({ path: file.path, bytes: await readObjectBytes({ body: object.body }) });
+        fileBytes.push({
+          path: file.path,
+          bytes: await readRevisionFileBytes({
+            object,
+            objectKey: file.r2_key,
+            workspaceId: payload.workspace_id,
+            encryptionRing,
+          }),
+        });
       }
 
       const zipBytes = buildRevisionZip(fileBytes);
@@ -97,8 +132,20 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         revisionId: payload.revision_id,
         storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
       });
-      await putObject(bundleKey, zipBytes, {
-        httpMetadata: { contentType: "application/zip" },
+      const encryptedBundle = await encryptArtifactBytes({
+        plaintext: zipBytes,
+        rootSecret: encryptionRing.signingSecret(),
+        kid: encryptionRing.signingKid,
+        context: {
+          workspaceId: payload.workspace_id,
+          artifactId: payload.artifact_id,
+          revisionId: payload.revision_id,
+          normalizedPath: "bundle.zip",
+        },
+      });
+      await putObject(bundleKey, encryptedBundle.ciphertext, {
+        httpMetadata: { contentType: "application/octet-stream" },
+        customMetadata: encryptedBundle.customMetadata,
       });
       await markBundleReady(executor, payload.workspace_id, payload.revision_id, zipBytes.byteLength);
       logOp("queue.bundle_generate.ready", {

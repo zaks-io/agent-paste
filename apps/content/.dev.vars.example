@@ -2,6 +2,7 @@
 # Do not commit real .dev.vars files.
 
 CONTENT_SIGNING_SECRET=dev-content-signing-secret-change-me
+ARTIFACT_BYTES_ENCRYPTION_KEY=dev-artifact-bytes-encryption-key-change-me
 
 # Planned local binding names for Wrangler config.
 R2_BUCKET=agent-paste-artifacts-dev

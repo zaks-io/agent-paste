@@ -4,6 +4,7 @@ import { encodePath } from "./url.js";
 
 export type SignedUploadPayload = {
   sid: string;
+  wid: string;
   path: string;
   key: string;
   size: number;
@@ -18,6 +19,8 @@ export function isValidUploadPayload(value: unknown): value is SignedUploadPaylo
   return (
     typeof payload.sid === "string" &&
     payload.sid.length > 0 &&
+    typeof payload.wid === "string" &&
+    payload.wid.length > 0 &&
     typeof payload.path === "string" &&
     payload.path.length > 0 &&
     typeof payload.key === "string" &&

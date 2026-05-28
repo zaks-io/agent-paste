@@ -1,5 +1,11 @@
+import { encryptArtifactBytes } from "@agent-paste/storage";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest, signContentToken } from "./index.js";
+
+const workspaceId = "00000000-0000-4000-8000-000000000001";
+const artifactBytesEncryptionEnv = {
+  ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+};
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
@@ -118,23 +124,38 @@ describe("content error envelope", () => {
 
   it("200 success response on a signed URL echoes inbound X-Request-Id", async () => {
     const token = await signContentToken(
-      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
       "secret",
     );
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("<h1>ok</h1>"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: {
+        workspaceId,
+        artifactId: "art_1",
+        revisionId: "rev_1",
+        normalizedPath: "index.html",
+      },
+    });
     const env: Env = {
       CONTENT_SIGNING_SECRET: "secret",
+      ...artifactBytesEncryptionEnv,
       DENYLIST: denylistAll(),
       ARTIFACTS: {
-        async get() {
+        async get(key) {
+          expect(key).toBe("artifacts/art_1/revisions/rev_1/files/index.html");
           return {
-            body: new ReadableStream({
-              start(controller) {
-                controller.enqueue(new TextEncoder().encode("<h1>ok</h1>"));
-                controller.close();
-              },
-            }),
+            body: new Blob([encrypted.ciphertext]).stream(),
             httpMetadata: { contentType: "text/html" },
-            size: 11,
+            size: encrypted.ciphertext.byteLength,
+            customMetadata: encrypted.customMetadata,
           };
         },
       },

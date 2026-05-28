@@ -43,6 +43,7 @@ export function toUploadSessionRecord(session: UploadSession, files: StoredFile[
   return {
     session_id: session.id,
     upload_session_id: session.id,
+    workspace_id: session.workspace_id,
     artifact_id: session.artifact_id,
     revision_id: session.revision_id,
     expires_at: session.expires_at,

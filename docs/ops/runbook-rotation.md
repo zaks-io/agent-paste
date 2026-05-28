@@ -6,14 +6,15 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 
 ## Current Inventory
 
-| Secret                   | Bound on             | Rotation impact                                                    |
-| ------------------------ | -------------------- | ------------------------------------------------------------------ |
-| `CONTENT_SIGNING_SECRET` | api, upload, content | Invalidates currently minted content and Agent View URLs.          |
-| `UPLOAD_SIGNING_SECRET`  | upload               | Invalidates in-flight signed upload PUT URLs.                      |
-| `API_KEY_PEPPER_V1`      | api, upload          | Invalidates existing API Keys in the current MVP implementation.   |
-| `WORKOS_API_KEY`         | api, web             | Swaps the WorkOS server-side API credential.                       |
-| `WORKOS_CLIENT_ID`       | api, web             | Project/client swap only; also update Wrangler vars where present. |
-| `WORKOS_COOKIE_PASSWORD` | web                  | Invalidates existing AuthKit sealed web sessions.                  |
+| Secret                          | Bound on              | Rotation impact                                                                                                  |
+| ------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET`        | api, upload, content  | Invalidates currently minted content and Agent View URLs.                                                        |
+| `UPLOAD_SIGNING_SECRET`         | upload                | Invalidates in-flight signed upload PUT URLs.                                                                    |
+| `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
+| `API_KEY_PEPPER_V1`             | api, upload           | Invalidates existing API Keys in the current MVP implementation.                                                 |
+| `WORKOS_API_KEY`                | api, web              | Swaps the WorkOS server-side API credential.                                                                     |
+| `WORKOS_CLIENT_ID`              | api, web              | Project/client swap only; also update Wrangler vars where present.                                               |
+| `WORKOS_COOKIE_PASSWORD`        | web                   | Invalidates existing AuthKit sealed web sessions.                                                                |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.
@@ -25,6 +26,17 @@ Do not create or rotate these names for the CLI-first MVP:
 - `ACCESS_LINK_SIGNING_KEY_V1`: Access Link signed URLs are deferred; the current app does not mint this key.
 - `WEB_SESSION_SEAL_KEY_V1`: removed with the WorkOS AuthKit migration. The current web session seal is WorkOS AuthKit's `WORKOS_COOKIE_PASSWORD`.
 - Auth0 client/session secrets for `apps/web`: superseded by WorkOS AuthKit before a deployed login path existed.
+
+## First-time bind (existing environments)
+
+When `upload`, `content`, or `jobs` were deployed before artifact-byte encryption (AP-32), bind the same root key on all three Workers without re-running bootstrap:
+
+```sh
+pnpm secrets:artifact-bytes:preview -- --dry-run
+pnpm secrets:artifact-bytes:production -- --value <generated-or-captured-secret>
+```
+
+`scripts/set-artifact-bytes-encryption-secret.mjs` writes only `ARTIFACT_BYTES_ENCRYPTION_KEY`. Run it from an operator machine with Wrangler auth; do not store the value in the repo or in Worker code. Objects written before the bind are not retroactively encrypted; they remain in their original R2 format until re-encrypted or lifecycle removes them. New encrypted uploads and reads require the key.
 
 ## Guardrails
 

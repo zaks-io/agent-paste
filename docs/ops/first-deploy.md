@@ -42,8 +42,11 @@ It generates and writes:
 
 - `CONTENT_SIGNING_SECRET`
 - `UPLOAD_SIGNING_SECRET`
+- `ARTIFACT_BYTES_ENCRYPTION_KEY` (same value on `upload`, `content`, and `jobs`)
 - `API_KEY_PEPPER_V1`
 - `SMOKE_HARNESS_SECRET` (preview/production non-prod smoke only; not an operator credential)
+
+Existing environments that were bootstrapped before artifact-byte encryption: run `pnpm secrets:artifact-bytes:preview` or `pnpm secrets:artifact-bytes:production` (see `scripts/set-artifact-bytes-encryption-secret.mjs`) to bind the key on `upload`, `content`, and `jobs` without re-running bootstrap. Use one generated value across all three Workers.
 
 The script prints one-time values for operator custody where applicable. It must refuse to overwrite existing secrets unless `--force` and a typed confirmation are provided. Record generated values in the password manager before closing the terminal. Routine rotation uses the ADR 0045 rotation tooling, not this bootstrap script.
 
@@ -99,7 +102,7 @@ Workers, Hyperdrive config, and Neon branch when the PR closes.
 Required GitHub Actions values:
 
 - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_API_KEY`,
-  `PR_PREVIEW_SECRET_SEED`, `WORKOS_PREVIEW_API_KEY` when PR web previews are
+  `PR_PREVIEW_SECRET_SEED` (derives per-PR signing, pepper, smoke-harness, stream-internal, and `ARTIFACT_BYTES_ENCRYPTION_KEY` secrets for upload/content/jobs), `WORKOS_PREVIEW_API_KEY` when PR web previews are
   enabled, `DATABASE_URL_MIGRATIONS_PRODUCTION`,
   `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`.
 - Variables: `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN=isaac-a46`, `TURBO_TEAM`.

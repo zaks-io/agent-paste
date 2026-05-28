@@ -60,9 +60,17 @@ writeJson(
   files.apiSecrets,
   pickSecrets(["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "SMOKE_HARNESS_SECRET", "STREAM_INTERNAL_SECRET"]),
 );
-writeJson(files.uploadSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"]));
-writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET"]));
-writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET"]));
+writeJson(
+  files.uploadSecrets,
+  pickSecrets([
+    "CONTENT_SIGNING_SECRET",
+    "UPLOAD_SIGNING_SECRET",
+    "API_KEY_PEPPER_V1",
+    "ARTIFACT_BYTES_ENCRYPTION_KEY",
+  ]),
+);
+writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
+writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
 
 await ensurePreviewJobQueues();
 await deploy("api", files.apiConfig, files.apiSecrets);
@@ -109,7 +117,7 @@ async function deploy(app, configPath, secretsPath) {
 // ../client) resolved from the preview env block. We patch only the per-PR fields
 // and deploy that generated config so main/asset resolution stays the plugin's job.
 // Fail-soft: a PR without WORKOS_PREVIEW_API_KEY skips web rather than wedging the
-// whole preview (the api/upload/content/apex secrets are all seed-derived).
+// whole preview (the api/upload/content/jobs secrets are all seed-derived).
 async function deployWeb() {
   const workosApiKey = process.env.WORKOS_PREVIEW_API_KEY;
   if (!workosApiKey) {
@@ -369,6 +377,8 @@ function createPrSecrets() {
   const values = {
     CONTENT_SIGNING_SECRET: process.env.PREVIEW_CONTENT_SIGNING_SECRET ?? prPreviewSecret("content-signing"),
     UPLOAD_SIGNING_SECRET: process.env.PREVIEW_UPLOAD_SIGNING_SECRET ?? prPreviewSecret("upload-signing"),
+    ARTIFACT_BYTES_ENCRYPTION_KEY:
+      process.env.PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY ?? prPreviewSecret("artifact-bytes-encryption"),
     API_KEY_PEPPER_V1: apiKeyPepper,
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
     STREAM_INTERNAL_SECRET: streamInternalSecret,

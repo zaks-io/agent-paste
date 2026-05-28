@@ -3,6 +3,7 @@
 
 UPLOAD_BASE_URL=http://127.0.0.1:8788
 UPLOAD_SIGNING_SECRET=dev-upload-signing-secret-change-me
+ARTIFACT_BYTES_ENCRYPTION_KEY=dev-artifact-bytes-encryption-key-change-me
 UPLOAD_URL_TTL_SECONDS=900
 
 # Planned persistent local services. The current Upload Worker expects AUTH, DB,

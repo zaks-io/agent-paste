@@ -26,8 +26,12 @@ const workerSecrets = [
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
   },
-  { app: "upload", names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1"] },
-  { app: "content", names: ["CONTENT_SIGNING_SECRET"] },
+  {
+    app: "upload",
+    names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ARTIFACT_BYTES_ENCRYPTION_KEY"],
+  },
+  { app: "content", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"] },
+  { app: "jobs", names: ["ARTIFACT_BYTES_ENCRYPTION_KEY"] },
   { app: "stream", names: ["STREAM_INTERNAL_SECRET"] },
   ...(options.includeWeb
     ? [
@@ -149,6 +153,7 @@ function generatedSecrets() {
   return {
     CONTENT_SIGNING_SECRET: secretBytes(),
     UPLOAD_SIGNING_SECRET: secretBytes(),
+    ARTIFACT_BYTES_ENCRYPTION_KEY: secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,
     SMOKE_HARNESS_SECRET: secretBytes(32),
     STREAM_INTERNAL_SECRET: secretBytes(32),
@@ -166,6 +171,7 @@ function plannedSecrets() {
   return {
     CONTENT_SIGNING_SECRET: "<generated>",
     UPLOAD_SIGNING_SECRET: "<generated>",
+    ARTIFACT_BYTES_ENCRYPTION_KEY: "<generated; shared by upload, content, and jobs>",
     API_KEY_PEPPER_V1: "<generated>",
     SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>",
     STREAM_INTERNAL_SECRET: "<generated; shared by api and stream Workers>",
@@ -197,6 +203,7 @@ ${bindingHeader}
 ${workerBindings.map((binding) => `  ${binding.worker}: ${binding.names.join(", ")}`).join("\n")}
 ${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this script. The wrangler.jsonc vars remain non-secret deployment metadata/placeholders and are not modified here.\n" : ""}
 For ${target} live-update rollout after bootstrap, use scripts/set-stream-internal-secret.mjs with the generated STREAM_INTERNAL_SECRET value instead of re-running bootstrap.
+For existing environments that predate artifact-byte encryption, use scripts/set-artifact-bytes-encryption-secret.mjs to bind the same ARTIFACT_BYTES_ENCRYPTION_KEY on upload, content, and jobs without re-running bootstrap.
 `);
 }
 
@@ -257,6 +264,7 @@ Options:
 
 Hosted live-update rollout for an existing environment:
   node scripts/set-stream-internal-secret.mjs <preview|production>
+  node scripts/set-artifact-bytes-encryption-secret.mjs <preview|production>
 `);
   process.exit(1);
 }

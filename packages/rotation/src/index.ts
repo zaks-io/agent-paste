@@ -15,6 +15,7 @@ export {
 } from "./signing.js";
 export {
   accessLinkSigningRingFromEnv,
+  artifactBytesEncryptionRingFromEnv,
   contentSigningRingFromEnv,
   pepperRingFromWorkerEnv,
   pepperRingVerifySecrets,

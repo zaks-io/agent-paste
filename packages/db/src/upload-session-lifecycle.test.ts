@@ -8,6 +8,7 @@ import {
 const session = {
   session_id: "upl_test",
   upload_session_id: "upl_test",
+  workspace_id: "00000000-0000-4000-8000-000000000001",
   artifact_id: "art_test",
   revision_id: "rev_test",
   expires_at: "2026-06-01T00:00:00.000Z",
@@ -62,7 +63,7 @@ describe("upload-session-lifecycle worker orchestration", () => {
 
   it("observes uploaded bytes before finalize", async () => {
     const observation = await observeUploadSessionForFinalize(session, {
-      head: async (key) => (key.endsWith("index.html") ? { size: 128 } : null),
+      head: async (key) => (key.endsWith("index.html") ? { size: 128 + 28 } : null),
     });
 
     expect(observation).toEqual({

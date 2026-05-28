@@ -1,3 +1,28 @@
+export {
+  ARTIFACT_BYTES_AAD_VERSION,
+  ARTIFACT_BYTES_DERIVATION_INFO,
+  ARTIFACT_BYTES_ENCRYPTION_ALG,
+  ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
+  ARTIFACT_BYTES_GCM_IV_BYTES,
+  ARTIFACT_BYTES_GCM_TAG_BYTES,
+  ARTIFACT_BYTES_METADATA_KEYS,
+  type ArtifactBytesAadContext,
+  type ArtifactBytesEncryptionMetadata,
+  type ArtifactBytesKeyRing,
+  bytesFromReadableBody,
+  ciphertextByteLengthForPlaintext,
+  composeArtifactBytesAad,
+  decryptArtifactBytes,
+  decryptArtifactBytesWithKeyRing,
+  type EncryptedArtifactObject,
+  encryptArtifactBytes,
+  encryptionMetadataForKid,
+  isArtifactBytesEncryptionMetadata,
+  parseRevisionFileObjectKey,
+  plaintextByteLengthFromStoredObject,
+  type RevisionFileObjectKeyParts,
+} from "./artifact-bytes-encryption.js";
+
 export const MIME_TYPES_BY_EXTENSION = {
   ".css": "text/css; charset=utf-8",
   ".pdf": "application/pdf",

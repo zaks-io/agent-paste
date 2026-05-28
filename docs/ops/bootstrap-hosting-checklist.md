@@ -106,17 +106,19 @@ pnpm bootstrap:production
 
 The script prints every value to stdout exactly once. Capture before closing the terminal.
 
-| Name                     | Bound on (production Worker)                                                                    | Origin                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `CONTENT_SIGNING_SECRET` | `agent-paste-api-production`, `agent-paste-upload-production`, `agent-paste-content-production` | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url) |
-| `UPLOAD_SIGNING_SECRET`  | `agent-paste-upload-production`                                                                 | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url) |
-| `API_KEY_PEPPER_V1`      | `agent-paste-api-production`, `agent-paste-upload-production`                                   | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url) |
-| `SMOKE_HARNESS_SECRET`   | `agent-paste-api-production` (smoke harness only; not an operator credential)                   | `scripts/bootstrap-secrets.mjs` (random base64url)           |
+| Name                            | Bound on (production Worker)                                                                     | Origin                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET`        | `agent-paste-api-production`, `agent-paste-upload-production`, `agent-paste-content-production`  | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                          |
+| `UPLOAD_SIGNING_SECRET`         | `agent-paste-upload-production`                                                                  | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                          |
+| `ARTIFACT_BYTES_ENCRYPTION_KEY` | `agent-paste-upload-production`, `agent-paste-content-production`, `agent-paste-jobs-production` | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url; one value for all three) |
+| `API_KEY_PEPPER_V1`             | `agent-paste-api-production`, `agent-paste-upload-production`                                    | `scripts/bootstrap-secrets.mjs` (random 48 bytes, base64url)                          |
+| `SMOKE_HARNESS_SECRET`          | `agent-paste-api-production` (smoke harness only; not an operator credential)                    | `scripts/bootstrap-secrets.mjs` (random base64url)                                    |
 
 Bitwarden entry checklist:
 
 - [ ] `agent-paste / production / CONTENT_SIGNING_SECRET`. **Isaac only**.
 - [ ] `agent-paste / production / UPLOAD_SIGNING_SECRET`. **Isaac only**.
+- [ ] `agent-paste / production / ARTIFACT_BYTES_ENCRYPTION_KEY` (same value on upload, content, jobs). **Isaac only**.
 - [ ] `agent-paste / production / API_KEY_PEPPER_V1`. **Isaac only**.
 - [ ] `agent-paste / production / SMOKE_HARNESS_SECRET` (CI/preview smoke; rotate with bootstrap if leaked). **Isaac only**.
 

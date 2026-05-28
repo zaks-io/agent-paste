@@ -48,6 +48,7 @@ describe("upload worker", () => {
   it("creates signed upload targets", async () => {
     const session: UploadSessionRecord = {
       session_id: "upl_1",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
       artifact_id: "art_1",
       revision_id: "rev_1",
       expires_at: "2030-01-01T00:00:00.000Z",
@@ -187,6 +188,7 @@ describe("upload worker", () => {
   it("replays cached idempotent result without consuming rate budget", async () => {
     const session: UploadSessionRecord = {
       session_id: "upl_replay",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
       artifact_id: "art_replay",
       revision_id: "rev_replay",
       expires_at: "2030-01-01T00:00:00.000Z",
@@ -251,6 +253,7 @@ describe("upload worker", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const session: UploadSessionRecord = {
       session_id: "upl_1",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
       artifact_id: "art_1",
       revision_id: "rev_1",
       expires_at: "2030-01-01T00:00:00.000Z",

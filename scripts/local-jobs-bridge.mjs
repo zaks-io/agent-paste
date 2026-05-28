@@ -4,6 +4,15 @@ import { createLocalMvpSqlExecutor } from "../packages/db/dist/index.js";
 
 export function createCountingArtifactsBucket(baseBucket, jobsEnv) {
   return {
+    head(key, options) {
+      return baseBucket.head(key, options);
+    },
+    get(key, options) {
+      return baseBucket.get(key, options);
+    },
+    put(key, value, options) {
+      return baseBucket.put(key, value, options);
+    },
     list(options) {
       return baseBucket.list(options);
     },
@@ -55,10 +64,11 @@ export function createSyncBundleGenerateQueue(jobsEnv) {
   };
 }
 
-export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret }) {
+export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
+    ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
     LOCAL_MVP_REPOSITORY: repo,
     DB: createLocalMvpSqlExecutor({
       workspaces: repo.workspaces,

@@ -1,6 +1,32 @@
+import { encryptArtifactBytes } from "@agent-paste/storage";
 import { describe, expect, it, vi } from "vitest";
 import * as generateZip from "../bundle/generate-zip.js";
 import { handleBundleGenerateBatch, handleBundleGenerateDlqBatch } from "./bundle-generate.js";
+
+const artifactBytesEncryptionEnv = {
+  ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+};
+
+async function encryptedRevisionFile(input: {
+  workspaceId: string;
+  artifactId: string;
+  revisionId: string;
+  path: string;
+  plaintext: string;
+}) {
+  const encrypted = await encryptArtifactBytes({
+    plaintext: new TextEncoder().encode(input.plaintext),
+    rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+    kid: 1,
+    context: {
+      workspaceId: input.workspaceId,
+      artifactId: input.artifactId,
+      revisionId: input.revisionId,
+      normalizedPath: input.path,
+    },
+  });
+  return { body: encrypted.ciphertext, customMetadata: encrypted.customMetadata };
+}
 
 const workspaceId = "00000000-0000-4000-8000-000000000000";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -52,6 +78,7 @@ describe("handleBundleGenerateBatch integration", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         AGENT_PASTE_ENV: "dev",
         DB: makeDb({
           revision: { status: "published", artifact_status: "active", bundle_status: "ready" },
@@ -84,6 +111,7 @@ describe("handleBundleGenerateBatch integration", () => {
           },
         ],
         {
+          ...artifactBytesEncryptionEnv,
           AGENT_PASTE_ENV: "dev",
           DB: {
             query: async (sql: string) => {
@@ -94,7 +122,12 @@ describe("handleBundleGenerateBatch integration", () => {
               }
               if (sql.includes("from artifact_files")) {
                 return {
-                  rows: [{ path: "big.bin", r2_key: "artifacts/art/rev/files/big.bin" }],
+                  rows: [
+                    {
+                      path: "big.bin",
+                      r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
+                    },
+                  ],
                 };
               }
               return { rows: [] };
@@ -115,7 +148,14 @@ describe("handleBundleGenerateBatch integration", () => {
           ARTIFACTS: {
             list: vi.fn(),
             delete: vi.fn(),
-            get: async () => ({ body: new Uint8Array([1, 2, 3]) }),
+            get: async () =>
+              encryptedRevisionFile({
+                workspaceId,
+                artifactId,
+                revisionId,
+                path: "big.bin",
+                plaintext: "\u0001\u0002\u0003",
+              }),
             put: vi.fn(),
           },
         },
@@ -147,6 +187,7 @@ describe("handleBundleGenerateBatch integration", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         AGENT_PASTE_ENV: "dev",
         DB: {
           query: async (sql: string) => {
@@ -177,14 +218,26 @@ describe("handleBundleGenerateBatch integration", () => {
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),
-          get: async () => ({ body: new TextEncoder().encode("<html></html>") }),
+          get: async () =>
+            encryptedRevisionFile({
+              workspaceId,
+              artifactId,
+              revisionId,
+              path: "index.html",
+              plaintext: "<html></html>",
+            }),
           put,
         },
       },
     );
-    expect(put).toHaveBeenCalledWith(bundleKey, expect.any(Uint8Array), {
-      httpMetadata: { contentType: "application/zip" },
-    });
+    expect(put).toHaveBeenCalledWith(
+      bundleKey,
+      expect.any(Uint8Array),
+      expect.objectContaining({
+        httpMetadata: { contentType: "application/octet-stream" },
+        customMetadata: expect.objectContaining({ enc_alg: "aes-256-gcm", enc_kid: "1" }),
+      }),
+    );
     expect(ack).toHaveBeenCalled();
   });
 
@@ -287,7 +340,6 @@ describe("handleBundleGenerateBatch integration", () => {
     const ack = vi.fn();
     const put = vi.fn(async () => {});
     const bundleKey = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
-    const streamBody = new Response("streamed").body;
     await handleBundleGenerateBatch(
       [
         {
@@ -304,22 +356,42 @@ describe("handleBundleGenerateBatch integration", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         AGENT_PASTE_ENV: "production",
         DB: makeDb({
           revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
-          files: [{ path: "index.html", r2_key: "k" }],
+          files: [
+            {
+              path: "index.html",
+              r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/index.html`,
+            },
+          ],
         }),
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),
-          get: async () => ({ body: streamBody }),
+          get: async () => {
+            const encrypted = await encryptedRevisionFile({
+              workspaceId,
+              artifactId,
+              revisionId,
+              path: "index.html",
+              plaintext: "streamed",
+            });
+            return { body: new Blob([encrypted.body]).stream(), customMetadata: encrypted.customMetadata };
+          },
           put,
         },
       },
     );
-    expect(put).toHaveBeenCalledWith(bundleKey, expect.any(Uint8Array), {
-      httpMetadata: { contentType: "application/zip" },
-    });
+    expect(put).toHaveBeenCalledWith(
+      bundleKey,
+      expect.any(Uint8Array),
+      expect.objectContaining({
+        httpMetadata: { contentType: "application/octet-stream" },
+        customMetadata: expect.objectContaining({ enc_alg: "aes-256-gcm" }),
+      }),
+    );
     expect(ack).toHaveBeenCalled();
   });
 });
