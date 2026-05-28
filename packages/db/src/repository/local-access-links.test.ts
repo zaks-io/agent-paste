@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createLocalState } from "./local-state.js";
-import { localEntities } from "./local-entities.js";
 import type { AccessLink, Artifact } from "../types.js";
+import { localEntities } from "./local-entities.js";
+import { createLocalState } from "./local-state.js";
 
 const now = "2026-01-01T00:00:00.000Z";
 
@@ -17,7 +17,8 @@ function createArtifact(overrides: Partial<Artifact> = {}): Artifact {
     size_bytes: 1,
     expires_at: "2099-01-01T00:00:00.000Z",
     pinned_at: null,
-    created_by_api_key_id: "key_1",
+    created_by_type: "api_key",
+    created_by_id: "key_1",
     access_link_lockdown_at: null,
     deleted_at: null,
     delete_reason: null,

@@ -16,45 +16,61 @@ create table if not exists revisions (
   bundle_status text not null default 'disabled' check (bundle_status in ('pending', 'ready', 'failed', 'disabled')),
   bundle_status_updated_at timestamptz,
   bytes_purge_enqueued_at timestamptz,
-  created_by_api_key_id text not null references api_keys(id) on delete restrict,
+  created_by_type text not null check (created_by_type in ('api_key', 'member')),
+  created_by_id text not null,
   created_at timestamptz not null,
   published_at timestamptz
 );
 
 -- Backfill published revisions from existing artifacts before relaxing artifact.revision_id.
-insert into revisions (
-  id,
-  workspace_id,
-  artifact_id,
-  revision_number,
-  status,
-  entrypoint,
-  render_mode,
-  file_count,
-  size_bytes,
-  created_by_api_key_id,
-  created_at,
-  published_at
-)
-select
-  a.revision_id,
-  a.workspace_id,
-  a.id,
-  1,
-  'published',
-  a.entrypoint,
-  'html',
-  a.file_count,
-  a.size_bytes,
-  a.created_by_api_key_id,
-  a.created_at,
-  a.created_at
-from artifacts a
-where a.revision_id is not null
-  and not exists (
-    select 1 from revisions r
-    where r.id = a.revision_id
-  );
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'artifacts'
+      and column_name = 'created_by_api_key_id'
+  ) then
+    execute $sql$
+      insert into revisions (
+        id,
+        workspace_id,
+        artifact_id,
+        revision_number,
+        status,
+        entrypoint,
+        render_mode,
+        file_count,
+        size_bytes,
+        created_by_type,
+        created_by_id,
+        created_at,
+        published_at
+      )
+      select
+        a.revision_id,
+        a.workspace_id,
+        a.id,
+        1,
+        'published',
+        a.entrypoint,
+        'html',
+        a.file_count,
+        a.size_bytes,
+        'api_key',
+        a.created_by_api_key_id,
+        a.created_at,
+        a.created_at
+      from artifacts a
+      where a.revision_id is not null
+        and not exists (
+          select 1 from revisions r
+          where r.id = a.revision_id
+        )
+    $sql$;
+  end if;
+end $$;
 
 -- artifact_files must allow multiple revisions per artifact.
 alter table artifact_files drop constraint if exists artifact_files_pkey;

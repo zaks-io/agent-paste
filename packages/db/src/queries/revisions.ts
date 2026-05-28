@@ -19,7 +19,8 @@ export const revisionQueries = {
       bundleStatusUpdatedAt: row.bundle_status_updated_at ? new Date(row.bundle_status_updated_at) : null,
       bundleSizeBytes: row.bundle_size_bytes,
       bytesPurgeEnqueuedAt: row.bytes_purge_enqueued_at ? new Date(row.bytes_purge_enqueued_at) : null,
-      createdByApiKeyId: row.created_by_api_key_id,
+      createdByType: row.created_by_type,
+      createdById: row.created_by_id,
       createdAt: new Date(row.created_at),
       publishedAt: row.published_at ? new Date(row.published_at) : null,
     });
@@ -61,7 +62,10 @@ export const revisionQueries = {
     return Number(rows[0]?.max ?? 0) + 1;
   },
 
-  async markRetained(db: DrizzleDb, input: { revisionId: string; workspaceId: string; artifactId: string }): Promise<boolean> {
+  async markRetained(
+    db: DrizzleDb,
+    input: { revisionId: string; workspaceId: string; artifactId: string },
+  ): Promise<boolean> {
     const rows = await db
       .update(revisions)
       .set({ status: "retained" })
@@ -117,7 +121,8 @@ function mapRevision(row: typeof revisions.$inferSelect): Revision {
     bundle_status_updated_at: row.bundleStatusUpdatedAt ? row.bundleStatusUpdatedAt.toISOString() : null,
     bundle_size_bytes: row.bundleSizeBytes ?? null,
     bytes_purge_enqueued_at: row.bytesPurgeEnqueuedAt ? row.bytesPurgeEnqueuedAt.toISOString() : null,
-    created_by_api_key_id: row.createdByApiKeyId,
+    created_by_type: row.createdByType as Revision["created_by_type"],
+    created_by_id: row.createdById,
     created_at: row.createdAt.toISOString(),
     published_at: row.publishedAt ? row.publishedAt.toISOString() : null,
   };

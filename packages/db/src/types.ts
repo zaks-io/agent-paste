@@ -94,7 +94,8 @@ export type Revision = {
   bundle_status_updated_at: string | null;
   bundle_size_bytes: number | null;
   bytes_purge_enqueued_at: string | null;
-  created_by_api_key_id: string;
+  created_by_type: PublishCreatedByType;
+  created_by_id: string;
   created_at: string;
   published_at: string | null;
 };
@@ -110,7 +111,8 @@ export type Artifact = {
   size_bytes: number;
   expires_at: string;
   pinned_at: string | null;
-  created_by_api_key_id: string;
+  created_by_type: PublishCreatedByType;
+  created_by_id: string;
   access_link_lockdown_at: string | null;
   deleted_at: string | null;
   delete_reason: string | null;
@@ -121,6 +123,8 @@ export type Artifact = {
 export type AccessLinkType = "share" | "revision";
 
 export type AccessLinkCreatedByType = "api_key" | "member";
+
+export type PublishCreatedByType = AccessLinkCreatedByType;
 
 export type AccessLink = {
   id: string;
@@ -148,7 +152,8 @@ export type UploadSession = {
   artifact_expires_at: string;
   file_count: number;
   size_bytes: number;
-  created_by_api_key_id: string;
+  created_by_type: PublishCreatedByType;
+  created_by_id: string;
   expires_at: string;
   created_at: string;
   finalized_at: string | null;

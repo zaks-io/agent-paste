@@ -13,7 +13,8 @@ const base: Artifact = {
   size_bytes: 1,
   expires_at: "2026-02-01T00:00:00.000Z",
   pinned_at: null,
-  created_by_api_key_id: "key_1",
+  created_by_type: "api_key",
+  created_by_id: "key_1",
   access_link_lockdown_at: null,
   deleted_at: null,
   delete_reason: null,
@@ -32,9 +33,7 @@ describe("web artifact transforms", () => {
       lockdown: false,
       auto_delete_at: null,
     });
-    expect(
-      toWebArtifactRow({ ...base, access_link_lockdown_at: "2026-01-02T00:00:00.000Z" }),
-    ).toMatchObject({
+    expect(toWebArtifactRow({ ...base, access_link_lockdown_at: "2026-01-02T00:00:00.000Z" })).toMatchObject({
       pinned: false,
       lockdown: true,
       auto_delete_at: base.expires_at,

@@ -90,14 +90,16 @@ export const uploadSessions = pgTable(
     artifactExpiresAt: timestamp("artifact_expires_at", { withTimezone: true }).notNull(),
     fileCount: integer("file_count").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
-    createdByApiKeyId: text("created_by_api_key_id")
-      .notNull()
-      .references(() => apiKeys.id, { onDelete: "restrict" }),
+    createdByType: text("created_by_type").notNull(),
+    createdById: text("created_by_id").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
   },
-  (table) => [index("upload_sessions_pending_expiry_idx").on(table.workspaceId, table.expiresAt)],
+  (table) => [
+    index("upload_sessions_pending_expiry_idx").on(table.workspaceId, table.expiresAt),
+    check("upload_sessions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
+  ],
 );
 
 export const uploadSessionFiles = pgTable(
@@ -139,9 +141,8 @@ export const revisions = pgTable(
     bundleStatusUpdatedAt: timestamp("bundle_status_updated_at", { withTimezone: true }),
     bundleSizeBytes: bigint("bundle_size_bytes", { mode: "number" }),
     bytesPurgeEnqueuedAt: timestamp("bytes_purge_enqueued_at", { withTimezone: true }),
-    createdByApiKeyId: text("created_by_api_key_id")
-      .notNull()
-      .references(() => apiKeys.id, { onDelete: "restrict" }),
+    createdByType: text("created_by_type").notNull(),
+    createdById: text("created_by_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
   },
@@ -159,6 +160,7 @@ export const revisions = pgTable(
       sql`${table.renderMode} in ('html', 'markdown', 'text', 'image', 'audio', 'video')`,
     ),
     check("revisions_bundle_status_check", sql`${table.bundleStatus} in ('pending', 'ready', 'failed', 'disabled')`),
+    check("revisions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
   ],
 );
 
@@ -177,9 +179,8 @@ export const artifacts = pgTable(
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     pinnedAt: timestamp("pinned_at", { withTimezone: true }),
-    createdByApiKeyId: text("created_by_api_key_id")
-      .notNull()
-      .references(() => apiKeys.id, { onDelete: "restrict" }),
+    createdByType: text("created_by_type").notNull(),
+    createdById: text("created_by_id").notNull(),
     accessLinkLockdownAt: timestamp("access_link_lockdown_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deleteReason: text("delete_reason"),
@@ -190,6 +191,7 @@ export const artifacts = pgTable(
     index("artifacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
     index("artifacts_active_expiry_idx").on(table.workspaceId, table.expiresAt),
     uniqueIndex("artifacts_workspace_id_unique").on(table.workspaceId, table.id),
+    check("artifacts_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
   ],
 );
 

@@ -22,7 +22,8 @@ function seedPublishedRevision(state: ReturnType<typeof createLocalState>) {
     bundle_status_updated_at: null,
     bundle_size_bytes: null,
     bytes_purge_enqueued_at: null,
-    created_by_api_key_id: "key_1",
+    created_by_type: "api_key",
+    created_by_id: "key_1",
     created_at: "2026-01-01T00:00:00.000Z",
     published_at: "2026-01-01T00:00:01.000Z",
   };

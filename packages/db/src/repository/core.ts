@@ -1,6 +1,7 @@
 import { assertAccessLinkMintable, createAccessLinkRow, mintAccessLinkSignedUrl } from "../access-links.js";
 import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
+import { operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
 import {
   DEFAULT_AUTO_DELETION_DAYS,
@@ -1063,9 +1064,10 @@ export class RepositoryCore implements Repository {
         if (!updatedArtifact) {
           throw new Error("artifact_not_found");
         }
+        const publishActor = operationActorFromApiActor(input.actor);
         await entities.operationEvents.insert({
-          actorType: "api_key",
-          actorId: input.actor.id,
+          actorType: publishActor.actorType,
+          actorId: publishActor.actorId,
           action: "artifact.published",
           targetType: "artifact",
           targetId: artifact.id,
