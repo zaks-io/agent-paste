@@ -1,5 +1,6 @@
 import type { AccessLinkResolveResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
+import { accessLinkProxyHeaders } from "../../../security-headers";
 import { ApiError, apiFetch } from "../../../server/api-client";
 
 export const Route = createFileRoute("/api/access-links/resolve")({
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/access-links/resolve")({
           });
           return Response.json(data, {
             status: 200,
-            headers: { "cache-control": "no-store" },
+            headers: accessLinkProxyHeaders(),
           });
         } catch (error) {
           if (error instanceof ApiError) {
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/api/access-links/resolve")({
                 { error: { code: "rate_limited_artifact", message: error.message } },
                 {
                   status: 429,
-                  headers: { "cache-control": "no-store", "retry-after": "60" },
+                  headers: accessLinkProxyHeaders({ "retry-after": "60" }),
                 },
               );
             }
@@ -53,7 +54,7 @@ function resolveErrorResponse(status: number): Response {
     { error: { code } },
     {
       status,
-      headers: { "cache-control": "no-store" },
+      headers: accessLinkProxyHeaders(),
     },
   );
 }

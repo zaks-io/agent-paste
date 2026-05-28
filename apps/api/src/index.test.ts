@@ -2391,7 +2391,12 @@ describe("api worker", () => {
       generated_at: "2026-01-01T00:00:00.000Z",
       url: expect.stringMatching(/^https:\/\/content\.test\/b\//),
     });
-    const readyToken = decodeURIComponent(readyBody.bundle!.url!.split("/b/")[1] ?? "");
+    const readyBundleUrl = readyBody.bundle?.url;
+    expect(readyBundleUrl).toBeDefined();
+    if (!readyBundleUrl) {
+      throw new Error("Expected a ready agent-view bundle URL");
+    }
+    const readyToken = decodeURIComponent(readyBundleUrl.split("/b/")[1] ?? "");
     const readyPayload = await verifyContentToken(readyToken, "content-secret");
     expect(readyPayload?.key_prefix).toBe(bundleKey);
 

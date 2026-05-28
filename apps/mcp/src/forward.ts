@@ -1,5 +1,10 @@
-import type { ErrorCode } from "@agent-paste/contracts";
-import { type McpMappedToolError, mapApiErrorToMcp, mapMcpProtocolError } from "@agent-paste/contracts";
+import type { ErrorCode, RouteId } from "@agent-paste/contracts";
+import {
+  type McpMappedToolError,
+  mapApiErrorToMcp,
+  mapMcpProtocolError,
+  routeContractById,
+} from "@agent-paste/contracts";
 
 export type ServiceBinding = {
   fetch(request: Request): Promise<Response>;
@@ -10,12 +15,21 @@ export type UploadServiceBinding = ServiceBinding;
 
 export type ForwardToApiInput = {
   api: ApiServiceBinding;
-  method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
+  method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
   path: string;
   bearerToken: string;
   headers?: HeadersInit;
   body?: string;
   idempotencyKey?: string;
+};
+
+export type RoutePathParams = Record<string, string>;
+export type RouteQueryParams = Record<string, string | number | boolean | null | undefined>;
+
+export type ForwardToApiRouteInput = Omit<ForwardToApiInput, "method" | "path"> & {
+  routeId: RouteId;
+  params?: RoutePathParams;
+  query?: RouteQueryParams;
 };
 
 export type ForwardToApiSuccess = {
@@ -30,6 +44,19 @@ export type ForwardToApiFailure = {
 };
 
 export type ForwardToApiResult = ForwardToApiSuccess | ForwardToApiFailure;
+
+export async function forwardToApiRoute(input: ForwardToApiRouteInput): Promise<ForwardToApiResult> {
+  const { routeId, params, query, ...forward } = input;
+  const route = routeContractById(routeId);
+  if (route.app !== "api") {
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  return forwardToApi({
+    ...forward,
+    method: route.method,
+    path: buildRoutePath(route.path, params, query),
+  });
+}
 
 export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToApiResult> {
   const headers = new Headers(input.headers);
@@ -62,6 +89,25 @@ export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToA
 
 export type ForwardToUploadInput = Omit<ForwardToApiInput, "api"> & { upload: UploadServiceBinding };
 
+export type ForwardToUploadRouteInput = Omit<ForwardToUploadInput, "method" | "path"> & {
+  routeId: RouteId;
+  params?: RoutePathParams;
+  query?: RouteQueryParams;
+};
+
+export async function forwardToUploadRoute(input: ForwardToUploadRouteInput): Promise<ForwardToApiResult> {
+  const { routeId, params, query, ...forward } = input;
+  const route = routeContractById(routeId);
+  if (route.app !== "upload") {
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  return forwardToUpload({
+    ...forward,
+    method: route.method,
+    path: buildRoutePath(route.path, params, query),
+  });
+}
+
 export async function forwardToUpload(input: ForwardToUploadInput): Promise<ForwardToApiResult> {
   const headers = new Headers(input.headers);
   headers.set("authorization", `Bearer ${input.bearerToken}`);
@@ -89,6 +135,24 @@ export async function forwardToUpload(input: ForwardToUploadInput): Promise<Forw
   }
 
   return mapForwardResponse(response);
+}
+
+export function buildRoutePath(template: string, params: RoutePathParams = {}, query: RouteQueryParams = {}): string {
+  const path = template.replace(/\{([^}]+)\}/g, (_match, key: string) => {
+    const value = params[key];
+    if (value === undefined) {
+      throw new Error(`Missing route path param: ${key}`);
+    }
+    return encodeURIComponent(value);
+  });
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null) {
+      search.set(key, String(value));
+    }
+  }
+  const encodedQuery = search.toString();
+  return encodedQuery ? `${path}?${encodedQuery}` : path;
 }
 
 export async function putSignedUploadFile(input: {

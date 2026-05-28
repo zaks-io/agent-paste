@@ -1,12 +1,5 @@
 import { AgentView } from "./agentView.js";
-import {
-  AccessLinkId,
-  ArtifactId,
-  IsoDateTime,
-  PlainTextTitle,
-  RevisionId,
-  UrlString,
-} from "./primitives.js";
+import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
@@ -70,9 +63,6 @@ export const CreateAccessLinkResponse = z
   })
   .strict();
 export type CreateAccessLinkResponse = z.infer<typeof CreateAccessLinkResponse>;
-
-export const MintAccessLinkRequest = z.object({}).strict();
-export type MintAccessLinkRequest = z.infer<typeof MintAccessLinkRequest>;
 
 export const UpdateDisplayMetadataRequest = z
   .object({

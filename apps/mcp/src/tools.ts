@@ -29,7 +29,12 @@ import {
   mcpToolInputSchemas,
 } from "@agent-paste/contracts";
 import type { McpAuthContext } from "./auth.js";
-import { type ApiServiceBinding, forwardToApi, type UploadServiceBinding } from "./forward.js";
+import {
+  type ApiServiceBinding,
+  type ForwardToApiResult,
+  forwardToApiRoute,
+  type UploadServiceBinding,
+} from "./forward.js";
 import { runTextPublishChain } from "./publish-chain.js";
 
 export type McpToolDeps = {
@@ -83,9 +88,9 @@ export async function callMcpTool(
     case "update_display_metadata":
       return callUpdateDisplayMetadata(inputParsed.data as McpUpdateDisplayMetadataInput, deps);
     case "create_share_link":
-      return callCreateShareLink(inputParsed.data as McpCreateShareLinkInput, deps);
+      return callCreateShareLink(inputParsed.data as McpCreateShareLinkInput, auth, deps);
     case "create_revision_link":
-      return callCreateRevisionLink(inputParsed.data as McpCreateRevisionLinkInput, deps);
+      return callCreateRevisionLink(inputParsed.data as McpCreateRevisionLinkInput, auth, deps);
     case "list_access_links":
       return callListAccessLinks(inputParsed.data as McpListAccessLinksInput, deps);
     case "revoke_access_link":
@@ -122,10 +127,9 @@ function resolveIdempotencyKey(
 }
 
 async function callWhoami(deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "GET",
-    path: "/v1/mcp/whoami",
+    routeId: "mcp.whoami",
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpWhoamiResponse);
@@ -162,42 +166,41 @@ async function callAddRevision(
 }
 
 async function callListArtifacts(input: McpListArtifactsInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const query = input.cursor ? `?cursor=${encodeURIComponent(input.cursor)}` : "";
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "GET",
-    path: `/v1/artifacts${query}`,
+    routeId: "artifacts.list",
+    query: { cursor: input.cursor },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpListArtifactsOutput);
 }
 
 async function callReadArtifact(input: McpReadArtifactInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "GET",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/agent-view`,
+    routeId: "agentView.getLatest",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, AgentView);
 }
 
 async function callListRevisions(input: McpListRevisionsInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const query = input.cursor ? `?cursor=${encodeURIComponent(input.cursor)}` : "";
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "GET",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/revisions${query}`,
+    routeId: "revisions.list",
+    params: { artifact_id: input.artifact_id },
+    query: { cursor: input.cursor },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpListRevisionsOutput);
 }
 
 async function callDeleteArtifact(input: McpDeleteArtifactInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "DELETE",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}`,
+    routeId: "artifacts.delete",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, DeleteArtifactResponse);
@@ -207,22 +210,28 @@ async function callUpdateDisplayMetadata(
   input: McpUpdateDisplayMetadataInput,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "PATCH",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/display-metadata`,
+    routeId: "artifacts.updateDisplayMetadata",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
     body: JSON.stringify({ title: input.title }),
   });
   return parseForwardResult(forwarded, DisplayMetadata);
 }
 
-async function callCreateShareLink(input: McpCreateShareLinkInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const created = await forwardToApi({
+async function callCreateShareLink(
+  input: McpCreateShareLinkInput,
+  auth: McpAuthContext,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
+  const idempotencyKey = resolveIdempotencyKey("create_share_link", auth, deps);
+  const created = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/access-links`,
+    routeId: "accessLinks.create",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
+    idempotencyKey,
     body: JSON.stringify({ type: "share" }),
   });
   if (!created.ok) {
@@ -235,22 +244,27 @@ async function callCreateShareLink(input: McpCreateShareLinkInput, deps: McpTool
   if (!linkId) {
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
-  const minted = await forwardToApi({
+  const minted = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/access-links/${encodeURIComponent(linkId)}/mint`,
+    routeId: "accessLinks.mint",
+    params: { access_link_id: linkId },
     bearerToken: deps.bearerToken,
-    idempotencyKey: `mcp-share:${linkId}`,
   });
   return parseForwardResult(minted, AccessLinkSignedUrl);
 }
 
-async function callCreateRevisionLink(input: McpCreateRevisionLinkInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const created = await forwardToApi({
+async function callCreateRevisionLink(
+  input: McpCreateRevisionLinkInput,
+  auth: McpAuthContext,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
+  const idempotencyKey = resolveIdempotencyKey("create_revision_link", auth, deps);
+  const created = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/access-links`,
+    routeId: "accessLinks.create",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
+    idempotencyKey,
     body: JSON.stringify({ type: "revision", revision_id: input.revision_id }),
   });
   if (!created.ok) {
@@ -263,38 +277,37 @@ async function callCreateRevisionLink(input: McpCreateRevisionLinkInput, deps: M
   if (!linkId) {
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
-  const minted = await forwardToApi({
+  const minted = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/access-links/${encodeURIComponent(linkId)}/mint`,
+    routeId: "accessLinks.mint",
+    params: { access_link_id: linkId },
     bearerToken: deps.bearerToken,
-    idempotencyKey: `mcp-revision:${linkId}`,
   });
   return parseForwardResult(minted, AccessLinkSignedUrl);
 }
 
 async function callListAccessLinks(input: McpListAccessLinksInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "GET",
-    path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/access-links`,
+    routeId: "accessLinks.list",
+    params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpListAccessLinksOutput);
 }
 
 async function callRevokeAccessLink(input: McpRevokeAccessLinkInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApi({
+  const forwarded = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/access-links/${encodeURIComponent(input.access_link_id)}/revoke`,
+    routeId: "accessLinks.revoke",
+    params: { access_link_id: input.access_link_id },
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpRevokeAccessLinkOutput);
 }
 
 function parseForwardResult<T>(
-  forwarded: Awaited<ReturnType<typeof forwardToApi>>,
+  forwarded: ForwardToApiResult,
   schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
 ): McpToolResult {
   if (!forwarded.ok) {

@@ -274,6 +274,7 @@ export type Repository = {
   }): Promise<{ title: string; description: string | null }>;
   createMemberAccessLink(input: {
     actor: ApiActor;
+    idempotencyKey: string;
     artifactId: string;
     type: AccessLinkType;
     revisionId?: string | null;

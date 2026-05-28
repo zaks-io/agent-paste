@@ -1,9 +1,4 @@
-import {
-  AccessLinkResolveRequest,
-  CreateAccessLinkRequest,
-  MintAccessLinkRequest,
-  UpdateDisplayMetadataRequest,
-} from "./accessLinks.js";
+import { AccessLinkResolveRequest, CreateAccessLinkRequest, UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import { CreateApiKeyRequest } from "./apiKeys.js";
 import type { ErrorCode } from "./common.js";
 import type { Scope } from "./enums.js";
@@ -32,7 +27,6 @@ export const requestSchemas = {
   CreateAccessLinkRequest,
   CreateApiKeyRequest,
   CreateUploadSessionRequest,
-  MintAccessLinkRequest,
   SetLockdownRequest,
   UpdateDisplayMetadataRequest,
   UpdateWebSettingsRequest,
@@ -208,7 +202,7 @@ export const routeContracts = [
     path: "/v1/artifacts/{artifact_id}/access-links",
     auth: "mcp_oauth",
     scopes: ["admin"],
-    idempotency: "none",
+    idempotency: "required",
     rateLimit: "actor",
     requestSchema: "CreateAccessLinkRequest",
     responseSchema: "CreateAccessLinkResponse",
@@ -221,11 +215,10 @@ export const routeContracts = [
     path: "/v1/access-links/{access_link_id}/mint",
     auth: "mcp_oauth",
     scopes: ["admin"],
-    idempotency: "required",
+    idempotency: "none",
     rateLimit: "actor",
-    requestSchema: "MintAccessLinkRequest",
     responseSchema: "AccessLinkSignedUrl",
-    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "invalid_request"],
+    errors: [...apiKeyReadErrors, "forbidden", "not_found"],
   },
   {
     id: "accessLinks.list",
@@ -610,3 +603,14 @@ export const routeContracts = [
     errors: ["not_found", "rate_limited_artifact"],
   },
 ] as const satisfies readonly RouteContract[];
+
+export type RouteId = (typeof routeContracts)[number]["id"];
+export type RouteContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
+
+export function routeContractById<Id extends RouteId>(id: Id): RouteContractById<Id> {
+  const contract = routeContracts.find((route) => route.id === id);
+  if (!contract) {
+    throw new Error(`Unknown route contract: ${id}`);
+  }
+  return contract as RouteContractById<Id>;
+}

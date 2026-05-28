@@ -1,9 +1,36 @@
 import { describe, expect, it, vi } from "vitest";
-import { forwardToApi, forwardToUpload, putSignedUploadFile } from "./forward.js";
+import {
+  buildRoutePath,
+  forwardToApi,
+  forwardToApiRoute,
+  forwardToUpload,
+  forwardToUploadRoute,
+  putSignedUploadFile,
+} from "./forward.js";
 
 const bearer = "mcp-test-token";
 
 describe("forwardToApi", () => {
+  it("resolves method and path from route contracts", async () => {
+    const api = {
+      fetch: vi.fn(async () => Response.json({ ok: true })),
+    };
+
+    await forwardToApiRoute({
+      api,
+      routeId: "revisions.list",
+      params: { artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+      query: { cursor: "next cursor" },
+      bearerToken: bearer,
+    });
+
+    const request = api.fetch.mock.calls[0]?.[0] as Request;
+    expect(request.method).toBe("GET");
+    expect(request.url).toBe(
+      "https://agent-paste.internal/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions?cursor=next+cursor",
+    );
+  });
+
   it("forwards idempotency keys on mutating requests", async () => {
     const api = {
       fetch: vi.fn(async () => Response.json({ ok: true })),
@@ -183,6 +210,25 @@ describe("forwardToApi", () => {
 });
 
 describe("forwardToUpload", () => {
+  it("resolves upload method and path from route contracts", async () => {
+    const upload = {
+      fetch: vi.fn(async () => Response.json({ ok: true })),
+    };
+
+    await forwardToUploadRoute({
+      upload,
+      routeId: "uploadSessions.finalize",
+      params: { upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+      bearerToken: bearer,
+      idempotencyKey: "idem-finalize",
+    });
+
+    const request = upload.fetch.mock.calls[0]?.[0] as Request;
+    expect(request.method).toBe("POST");
+    expect(request.url).toBe("https://agent-paste.internal/v1/upload-sessions/upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/finalize");
+    expect(request.headers.get("idempotency-key")).toBe("idem-finalize");
+  });
+
   it("maps upload fetch failures to database_unavailable", async () => {
     const upload = { fetch: vi.fn(async () => Promise.reject(new Error("network"))) };
     const result = await forwardToUpload({
@@ -213,6 +259,24 @@ describe("forwardToUpload", () => {
     const request = upload.fetch.mock.calls[0]?.[0] as Request;
     expect(request.url).toBe("https://agent-paste.internal/v1/upload-sessions");
     expect(request.headers.get("idempotency-key")).toBe("idem-1");
+  });
+});
+
+describe("buildRoutePath", () => {
+  it("encodes path params and query params", () => {
+    expect(
+      buildRoutePath("/v1/artifacts/{artifact_id}/revisions/{revision_id}", {
+        artifact_id: "art with spaces",
+        revision_id: "rev/with/slashes",
+      }),
+    ).toBe("/v1/artifacts/art%20with%20spaces/revisions/rev%2Fwith%2Fslashes");
+    expect(buildRoutePath("/v1/artifacts", {}, { cursor: "next cursor", empty: undefined })).toBe(
+      "/v1/artifacts?cursor=next+cursor",
+    );
+  });
+
+  it("rejects missing path params", () => {
+    expect(() => buildRoutePath("/v1/artifacts/{artifact_id}", {})).toThrow("Missing route path param: artifact_id");
   });
 });
 

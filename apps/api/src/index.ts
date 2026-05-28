@@ -588,11 +588,13 @@ async function createAccessLinkRoute(
     return errorResponse(context, "not_authenticated");
   }
   const body = guard.body;
+  const idempotencyKey = guard.idempotencyKey;
   try {
     return jsonResponse(
       context,
       await db.createMemberAccessLink({
         actor,
+        idempotencyKey,
         artifactId: context.req.param("artifact_id") ?? "",
         type: body.type,
         revisionId: body.revision_id ?? null,
@@ -771,14 +773,14 @@ async function publishRevision(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"revisions.publish">,
   params: RouteParams,
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const idempotencyKey = guard.idempotencyKey ?? "";
+  const idempotencyKey = guard.idempotencyKey;
   return runIdempotent(context, async () => {
     try {
       const now = new Date().toISOString();
@@ -1039,7 +1041,7 @@ async function webPinArtifact(
     return errorResponse(context, "database_unavailable");
   }
   const pinWebArtifact = db.pinWebArtifact.bind(db);
-  const idempotencyKey = guard.idempotencyKey as string;
+  const idempotencyKey = guard.idempotencyKey;
   return runIdempotent(context, async () => {
     try {
       return await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
@@ -1068,7 +1070,7 @@ async function webUnpinArtifact(
     return errorResponse(context, "database_unavailable");
   }
   const unpinWebArtifact = db.unpinWebArtifact.bind(db);
-  const idempotencyKey = guard.idempotencyKey as string;
+  const idempotencyKey = guard.idempotencyKey;
   return runIdempotent(context, async () => {
     try {
       return await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
@@ -1172,7 +1174,7 @@ async function webCreateApiKey(
   if (!actor) {
     return errorResponse(context, "forbidden");
   }
-  const idempotencyKey = guard.idempotencyKey as string;
+  const idempotencyKey = guard.idempotencyKey;
   if (!db.createWebApiKey) {
     return errorResponse(context, "database_unavailable");
   }
@@ -1196,14 +1198,14 @@ async function webRevokeApiKey(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"web.apiKeys.revoke">,
   params: RouteParams,
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
     return errorResponse(context, "forbidden");
   }
-  const idempotencyKey = guard.idempotencyKey ?? "";
+  const idempotencyKey = guard.idempotencyKey;
   if (!db.revokeWebApiKey) {
     return errorResponse(context, "database_unavailable");
   }
@@ -1261,7 +1263,7 @@ async function webUpdateSettings(
   if (!actor) {
     return errorResponse(context, "forbidden");
   }
-  const idempotencyKey = guard.idempotencyKey as string;
+  const idempotencyKey = guard.idempotencyKey;
   if (!db.updateWebSettings) {
     return errorResponse(context, "database_unavailable");
   }
@@ -1354,7 +1356,7 @@ async function webAdminSetLockdown(
     async () => {
       const detail = await setLockdown({
         actor,
-        idempotencyKey: guard.idempotencyKey as string,
+        idempotencyKey: guard.idempotencyKey,
         scope: body.scope,
         targetId: body.target_id,
         reasonCode: body.reason_code,
@@ -1384,7 +1386,7 @@ async function webAdminLiftLockdown(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"web.admin.lockdown.lift">,
   params: { scope: string; targetId: string },
 ): Promise<Response> {
   const actor = platformActor(principal);
@@ -1405,7 +1407,7 @@ async function webAdminLiftLockdown(
     return await runIdempotent(context, async () => {
       const detail = await liftLockdown({
         actor,
-        idempotencyKey: guard.idempotencyKey as string,
+        idempotencyKey: guard.idempotencyKey,
         scope,
         targetId: params.targetId,
         requestId: getRequestId(context),

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { accessLinkProxyHeaders } from "../../../../security-headers";
 import { getWebEnv } from "../../../../server/runtime";
 
 export const Route = createFileRoute("/api/live/access-links/$publicId")({
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/live/access-links/$publicId")({
 });
 
 function upstreamHeaders(headers: Headers): Headers {
-  const next = new Headers();
+  const next = accessLinkProxyHeaders();
   const contentType = headers.get("content-type");
   if (contentType) {
     next.set("content-type", contentType);

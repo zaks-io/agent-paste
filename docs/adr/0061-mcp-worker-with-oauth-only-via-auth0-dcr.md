@@ -75,7 +75,7 @@ Twelve tools, named in snake_case to match common MCP convention. File-bearing o
 - **Default.** The MCP server derives the per-call idempotency key from `(token_sub, json_rpc_request_id, tool_name)` and threads it to `api`. Host-transparent retries within a JSON-RPC session collapse to one underlying operation.
 - **Explicit override.** `publish_artifact` and `add_revision` accept an optional `idempotency_key` string. When set, the MCP forwards it verbatim instead of deriving one. Agents that need cross-session dedup (e.g., resuming a task by its own task id) use this.
 - **Naturally idempotent tools** (`delete_artifact`, `update_display_metadata`, `revoke_access_link`, all reads) do not take or thread idempotency keys.
-- **Publish chain.** As with the CLI per [ADR 0037](./0037-internal-api-client-package-powers-cli.md), one user-visible publish key threads through `upload.session.create`, `upload.session.finalize`, and `api.publish` — three idempotency records, one operation.
+- **Publish chain.** As with the CLI per [ADR 0037](./0037-internal-api-client-package-powers-cli.md), one user-visible publish key threads through `upload.session.create`, `upload.session.finalize`, `api.publish`, and optional `access_link.create` when `share` is requested. Records are distinguished by operation while still representing one user-visible operation.
 
 ### Auth gap behavior
 

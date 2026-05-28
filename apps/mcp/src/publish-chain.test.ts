@@ -7,8 +7,8 @@ vi.mock("./forward.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./forward.js")>();
   return {
     ...actual,
-    forwardToUpload: vi.fn(),
-    forwardToApi: vi.fn(),
+    forwardToUploadRoute: vi.fn(),
+    forwardToApiRoute: vi.fn(),
     putSignedUploadFile: vi.fn(),
   };
 });
@@ -31,7 +31,7 @@ describe("runTextPublishChain", () => {
   });
 
   it("runs create, upload put, finalize, and publish for markdown", async () => {
-    vi.mocked(forward.forwardToUpload)
+    vi.mocked(forward.forwardToUploadRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -66,7 +66,7 @@ describe("runTextPublishChain", () => {
         },
       });
     vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
-    vi.mocked(forward.forwardToApi).mockResolvedValue({
+    vi.mocked(forward.forwardToApiRoute).mockResolvedValue({
       ok: true,
       status: 200,
       body: {
@@ -98,7 +98,7 @@ describe("runTextPublishChain", () => {
   });
 
   it("mints a share link when share is true", async () => {
-    vi.mocked(forward.forwardToUpload)
+    vi.mocked(forward.forwardToUploadRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -133,7 +133,7 @@ describe("runTextPublishChain", () => {
         },
       });
     vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
-    vi.mocked(forward.forwardToApi)
+    vi.mocked(forward.forwardToApiRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -151,7 +151,7 @@ describe("runTextPublishChain", () => {
         ok: true,
         status: 201,
         body: {
-          id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          id: "al_test_share_link",
           type: "share",
           artifact_id: artifactId,
           revision_id: null,
@@ -166,10 +166,21 @@ describe("runTextPublishChain", () => {
     if (result.ok) {
       expect(result.body).toMatchObject({ share_link_url: "https://share.example/al_01" });
     }
+    const createLinkCall = vi.mocked(forward.forwardToApiRoute).mock.calls[1]?.[0];
+    expect(createLinkCall).toMatchObject({
+      routeId: "accessLinks.create",
+      idempotencyKey: deps.idempotencyKey,
+    });
+    const mintCall = vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0];
+    expect(mintCall).toMatchObject({
+      routeId: "accessLinks.mint",
+      params: { access_link_id: "al_test_share_link" },
+    });
+    expect(mintCall).not.toHaveProperty("idempotencyKey");
   });
 
   it("returns internal_error when share mint response is missing a url", async () => {
-    vi.mocked(forward.forwardToUpload)
+    vi.mocked(forward.forwardToUploadRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -204,7 +215,7 @@ describe("runTextPublishChain", () => {
         },
       });
     vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
-    vi.mocked(forward.forwardToApi)
+    vi.mocked(forward.forwardToApiRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -229,7 +240,7 @@ describe("runTextPublishChain", () => {
   });
 
   it("uses html content type for html render mode", async () => {
-    vi.mocked(forward.forwardToUpload)
+    vi.mocked(forward.forwardToUploadRoute)
       .mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -264,7 +275,7 @@ describe("runTextPublishChain", () => {
         },
       });
     vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
-    vi.mocked(forward.forwardToApi).mockResolvedValue({
+    vi.mocked(forward.forwardToApiRoute).mockResolvedValue({
       ok: true,
       status: 200,
       body: {
@@ -285,7 +296,7 @@ describe("runTextPublishChain", () => {
   });
 
   it("returns upload failures without calling publish", async () => {
-    vi.mocked(forward.forwardToUpload).mockResolvedValue({
+    vi.mocked(forward.forwardToUploadRoute).mockResolvedValue({
       ok: false,
       error: { code: "rate_limited_actor", message: "rate_limited_actor", jsonRpcCode: -32000, httpStatus: 429 },
     });

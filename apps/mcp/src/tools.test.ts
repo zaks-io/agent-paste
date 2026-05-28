@@ -1,3 +1,4 @@
+import { deriveMcpIdempotencyKey } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import * as publishChain from "./publish-chain.js";
 import { callMcpTool } from "./tools.js";
@@ -182,6 +183,18 @@ describe("callMcpTool", () => {
     if (result.ok) {
       expect(result.result).toMatchObject({ url: "https://share.example/al" });
     }
+    const createRequest = api.fetch.mock.calls[0]?.[0] as Request;
+    expect(createRequest.headers.get("idempotency-key")).toBe(
+      deriveMcpIdempotencyKey({
+        tokenSub: "user_01",
+        jsonRpcId: 7,
+        toolName: "create_share_link",
+      }),
+    );
+    const mintRequest = api.fetch.mock.calls[1]?.[0] as Request;
+    expect(mintRequest.url).toBe("https://agent-paste.internal/v1/access-links/al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/mint");
+    expect(mintRequest.headers.get("idempotency-key")).toBeNull();
+    await expect(mintRequest.text()).resolves.toBe("");
   });
 
   it("delegates add_revision to the text publish chain", async () => {
@@ -235,6 +248,18 @@ describe("callMcpTool", () => {
     if (result.ok) {
       expect(result.result).toMatchObject({ url: "https://share.example/rev" });
     }
+    const createRequest = api.fetch.mock.calls[0]?.[0] as Request;
+    expect(createRequest.headers.get("idempotency-key")).toBe(
+      deriveMcpIdempotencyKey({
+        tokenSub: "user_01",
+        jsonRpcId: 8,
+        toolName: "create_revision_link",
+      }),
+    );
+    const mintRequest = api.fetch.mock.calls[1]?.[0] as Request;
+    expect(mintRequest.url).toBe("https://agent-paste.internal/v1/access-links/al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0/mint");
+    expect(mintRequest.headers.get("idempotency-key")).toBeNull();
+    await expect(mintRequest.text()).resolves.toBe("");
   });
 
   it("lists and revokes access links", async () => {

@@ -49,6 +49,7 @@ WORKOS_REDIRECT_URI=http://localhost:5173/api/auth/callback
 WORKOS_COOKIE_PASSWORD=...        # at least 32 chars
 WORKOS_COOKIE_NAME=__agp_session
 WEB_BASE_URL=http://localhost:5173
+CONTENT_BASE_URL=http://127.0.0.1:8789
 ```
 
 Without a WorkOS project provisioned, `/api/auth/sign-in` still redirects to the AuthKit hosted flow; the callback fails. Dashboard chrome and `EmptyState` rendering work without secrets.

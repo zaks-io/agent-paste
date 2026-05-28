@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import {
   buildMcpToolList,
   deriveMcpIdempotencyKey,
   McpPublishArtifactInput,
-  McpUpdateDisplayMetadataInput,
   McpToolName,
+  McpUpdateDisplayMetadataInput,
   mapApiErrorToMcp,
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
@@ -16,10 +17,11 @@ import {
   mcpToolContractByName,
   mcpToolContracts,
   parseMcpScopeClaim,
+  resolveMcpForwardedCall,
   toMcpJsonRpcError,
 } from "./mcp.js";
-import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import { IdempotencyKey } from "./primitives.js";
+import { routeContractById } from "./routes.js";
 
 describe("MCP tool registry", () => {
   it("registers the twelve ADR 0061 tools in snake_case", () => {
@@ -67,6 +69,30 @@ describe("MCP tool registry", () => {
     expect(
       publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
     ).toBe(true);
+  });
+
+  it("resolves forwarded method, path, app, and idempotency from route contracts", () => {
+    for (const tool of mcpToolContracts) {
+      for (const call of tool.forwardedCalls) {
+        const route = routeContractById(call.routeId);
+        const resolved = resolveMcpForwardedCall(call);
+
+        expect(resolved.app, `${tool.name}:${call.routeId}`).toBe(route.app);
+        expect(resolved.method, `${tool.name}:${call.routeId}`).toBe(route.method);
+        expect(resolved.path, `${tool.name}:${call.routeId}`).toBe(route.path);
+        expect(resolved.idempotency, `${tool.name}:${call.routeId}`).toBe(route.idempotency);
+        expect("app" in call, `${tool.name}:${call.routeId}`).toBe(false);
+        expect("method" in call, `${tool.name}:${call.routeId}`).toBe(false);
+        expect("path" in call, `${tool.name}:${call.routeId}`).toBe(false);
+
+        const idempotencyKeySource = "idempotencyKey" in call ? call.idempotencyKey : undefined;
+        if (route.idempotency === "required") {
+          expect(idempotencyKeySource, `${tool.name}:${call.routeId}`).toBeDefined();
+        } else {
+          expect(idempotencyKeySource, `${tool.name}:${call.routeId}`).toBeUndefined();
+        }
+      }
+    }
   });
 
   it("requires title-only UpdateDisplayMetadataRequest bodies", () => {

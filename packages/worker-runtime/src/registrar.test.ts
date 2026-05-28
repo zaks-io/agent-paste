@@ -155,7 +155,8 @@ describe("contract-driven registrar", () => {
         },
       },
     }).mount({ ...baseContract, method: "POST", idempotency: "required" }, async (_context, _principal, guard) => {
-      seenKeys.push(guard.idempotencyKey ?? "");
+      const key: string = guard.idempotencyKey;
+      seenKeys.push(key);
       return jsonOk({ ok: true });
     });
 
@@ -170,6 +171,29 @@ describe("contract-driven registrar", () => {
     await expect(whitespace.json()).resolves.toMatchObject({ error: { code: "invalid_idempotency_key" } });
     expect(accepted.status).toBe(200);
     expect(seenKeys).toEqual(["idem-1"]);
+  });
+
+  it("does not expose an idempotency key for routes that do not require one", async () => {
+    let seenKey: string | undefined = "unset";
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal();
+        },
+      },
+    }).mount(baseContract, async (_context, _principal, guard) => {
+      seenKey = guard.idempotencyKey;
+      return jsonOk({ ok: true });
+    });
+
+    const response = await app.fetch(
+      new Request("https://worker.test/test", { headers: { "idempotency-key": "ignored" } }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(seenKey).toBeUndefined();
   });
 
   it("converts in-flight idempotency collisions to 409 envelopes", async () => {

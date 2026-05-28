@@ -1,6 +1,8 @@
 import { assertAccessLinkMintable, createAccessLinkRow, mintAccessLinkSignedUrl } from "../access-links.js";
 import { buildAgentView, buildPublishResult } from "../agent-view.js";
 import { parseApiKey, verifyApiKeySecret } from "../api-keys.js";
+import { redactAuditDetails } from "../audit/change-summary.js";
+import { resolveLockdownAuditWorkspaceId } from "../audit/lockdown-audit.js";
 import { operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
 import {
@@ -26,8 +28,6 @@ import type {
   WorkspaceMember,
 } from "../types.js";
 import type { Repository } from "./interface.js";
-import { redactAuditDetails } from "../audit/change-summary.js";
-import { resolveLockdownAuditWorkspaceId } from "../audit/lockdown-audit.js";
 import { type OperatorEventFilters, resolveOperatorEventActions } from "./operator-event-filters.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
@@ -1263,12 +1263,7 @@ export class RepositoryCore implements Repository {
     );
   }
 
-  async updateArtifactDisplayMetadata(input: {
-    actor: ApiActor;
-    artifactId: string;
-    title: string;
-    now?: Date;
-  }) {
+  async updateArtifactDisplayMetadata(input: { actor: ApiActor; artifactId: string; title: string; now?: Date }) {
     const now = nowIso(input.now);
     return this.uow.command(
       {
@@ -1298,6 +1293,7 @@ export class RepositoryCore implements Repository {
 
   async createMemberAccessLink(input: {
     actor: ApiActor;
+    idempotencyKey: string;
     artifactId: string;
     type: import("../types.js").AccessLink["type"];
     revisionId?: string | null;
@@ -1308,7 +1304,7 @@ export class RepositoryCore implements Repository {
       {
         actor: workspaceCommandActor(input.actor),
         operation: "access_link.create",
-        idempotencyKey: `access-link:create:${input.artifactId}:${input.type}:${input.revisionId ?? "latest"}:${now}`,
+        idempotencyKey: input.idempotencyKey,
         scope: workspaceScope(input.actor.workspace_id),
         now,
       },

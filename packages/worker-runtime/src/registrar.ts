@@ -18,11 +18,17 @@ export type AuthResolver<P extends Principal = Principal> = (
 ) => Promise<AuthResult<P>>;
 export type AuthResolvers = Partial<Record<AuthRequirement, AuthResolver>>;
 
-export type HeaderGuardState = {
-  idempotencyKey?: string;
-};
+type RequiredIdempotencyContract = { idempotency: "required" };
+type NoIdempotencyContract = { idempotency: "none" };
 
-export type GuardState<Contract extends RouteContract = RouteContract> = HeaderGuardState & {
+export type HeaderGuardState<Contract extends Pick<RouteContract, "idempotency"> = RouteContract> =
+  Contract extends RequiredIdempotencyContract
+    ? { idempotencyKey: string }
+    : Contract extends NoIdempotencyContract
+      ? { idempotencyKey?: undefined }
+      : { idempotencyKey?: string | undefined };
+
+export type GuardState<Contract extends RouteContract = RouteContract> = HeaderGuardState<Contract> & {
   body: RequestBodyFor<Contract>;
   params: Record<string, string>;
 };
@@ -182,19 +188,19 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
   };
 }
 
-function idempotencyGuard(
+function idempotencyGuard<Contract extends RouteContract>(
   context: Context,
-  contract: RouteContract,
-): { ok: true; state: HeaderGuardState } | { ok: false; code: ErrorCode } {
+  contract: Contract,
+): { ok: true; state: HeaderGuardState<Contract> } | { ok: false; code: ErrorCode } {
   if (contract.idempotency === "none") {
-    return { ok: true, state: {} };
+    return { ok: true, state: {} as HeaderGuardState<Contract> };
   }
   const idempotencyKey = context.req.raw.headers.get("idempotency-key");
   const normalized = idempotencyKey?.trim();
   if (!normalized) {
     return { ok: false, code: "invalid_idempotency_key" };
   }
-  return { ok: true, state: { idempotencyKey: normalized } };
+  return { ok: true, state: { idempotencyKey: normalized } as HeaderGuardState<Contract> };
 }
 
 async function parseRequestBody<Contract extends RouteContract>(

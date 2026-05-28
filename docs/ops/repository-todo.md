@@ -76,9 +76,10 @@ lives in the Worker on purpose: `runCleanup` likewise always reports `deleted_r2
 and leaves object deletion to the jobs path. Reconciling that is a behavior change to delete
 semantics, deliberately out of scope for the behavior-preserving unification.
 
-- [ ] Decide where the authoritative R2 purge count lives: either compute it inside the
-      idempotent command (persist it on the operation event / command result so replays return
-      the same number), or document that `deleted_r2_objects` is best-effort and not replay-stable.
+- [x] Decide where the authoritative R2 purge count lives: keep
+      `deleted_r2_objects` best-effort and not replay-stable for now. Make it
+      replay-stable only if a future product need justifies persisting purge
+      counts inside the idempotent command result.
 - [ ] If it becomes replay-stable, add a test that issues the same delete idempotency key twice
       and asserts identical `deleted_r2_objects` across both responses.
 - [x] When the jobs worker takes over byte purge, deepen deletion/invalidation into an API-side

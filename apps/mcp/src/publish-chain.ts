@@ -14,8 +14,8 @@ import type { ApiServiceBinding } from "./forward.js";
 import {
   type ForwardToApiFailure,
   type ForwardToApiResult,
-  forwardToApi,
-  forwardToUpload,
+  forwardToApiRoute,
+  forwardToUploadRoute,
   putSignedUploadFile,
   type UploadServiceBinding,
 } from "./forward.js";
@@ -53,10 +53,9 @@ export async function runTextPublishChain(
     files: [{ path: entrypoint, size_bytes: bodyBytes.byteLength }],
   });
 
-  const sessionCreated = await forwardToUpload({
+  const sessionCreated = await forwardToUploadRoute({
     upload: deps.upload,
-    method: "POST",
-    path: "/v1/upload-sessions",
+    routeId: "uploadSessions.create",
     bearerToken: deps.bearerToken,
     body: JSON.stringify(createBody),
     idempotencyKey: deps.idempotencyKey,
@@ -85,10 +84,10 @@ export async function runTextPublishChain(
     return uploaded;
   }
 
-  const finalized = await forwardToUpload({
+  const finalized = await forwardToUploadRoute({
     upload: deps.upload,
-    method: "POST",
-    path: `/v1/upload-sessions/${encodeURIComponent(session.data.upload_session_id)}/finalize`,
+    routeId: "uploadSessions.finalize",
+    params: { upload_session_id: session.data.upload_session_id },
     bearerToken: deps.bearerToken,
     idempotencyKey: deps.idempotencyKey,
   });
@@ -101,10 +100,10 @@ export async function runTextPublishChain(
     return { ok: false, error: mapInternal() };
   }
 
-  const published = await forwardToApi({
+  const published = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/artifacts/${encodeURIComponent(finalizeBody.data.artifact_id)}/revisions/${encodeURIComponent(finalizeBody.data.revision_id)}/publish`,
+    routeId: "revisions.publish",
+    params: { artifact_id: finalizeBody.data.artifact_id, revision_id: finalizeBody.data.revision_id },
     bearerToken: deps.bearerToken,
     idempotencyKey: deps.idempotencyKey,
   });
@@ -141,11 +140,12 @@ async function mintShareLinkForArtifact(
   deps: PublishChainDeps,
   artifactId: string,
 ): Promise<{ ok: true; url: string } | ForwardToApiFailure> {
-  const created = await forwardToApi({
+  const created = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
+    routeId: "accessLinks.create",
+    params: { artifact_id: artifactId },
     bearerToken: deps.bearerToken,
+    idempotencyKey: deps.idempotencyKey,
     body: JSON.stringify({ type: "share" }),
   });
   if (!created.ok) {
@@ -159,12 +159,11 @@ async function mintShareLinkForArtifact(
     return { ok: false, error: mapInternal() };
   }
 
-  const minted = await forwardToApi({
+  const minted = await forwardToApiRoute({
     api: deps.api,
-    method: "POST",
-    path: `/v1/access-links/${encodeURIComponent(linkId)}/mint`,
+    routeId: "accessLinks.mint",
+    params: { access_link_id: linkId },
     bearerToken: deps.bearerToken,
-    idempotencyKey: `${deps.idempotencyKey}:mint`,
   });
   if (!minted.ok) {
     return minted;

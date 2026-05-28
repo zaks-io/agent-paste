@@ -63,11 +63,19 @@ describe("member MCP repository operations", () => {
 
     const share = await repo.createMemberAccessLink({
       actor: member,
+      idempotencyKey: "idem-access-link",
       artifactId,
       type: "share",
     });
+    const replayedShare = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: "idem-access-link",
+      artifactId,
+      type: "share",
+    });
+    expect(replayedShare.id).toBe(share.id);
     const links = await repo.listMemberAccessLinks(member, artifactId);
-    expect(links?.items.some((link) => link.id === share.id)).toBe(true);
+    expect(links?.items.filter((link) => link.id === share.id)).toHaveLength(1);
 
     const minted = await repo.mintMemberAccessLink({
       actor: member,

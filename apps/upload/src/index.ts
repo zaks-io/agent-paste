@@ -258,7 +258,7 @@ async function createUploadSession(
   if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const idempotencyKey = guard.idempotencyKey ?? "";
+  const idempotencyKey = guard.idempotencyKey;
   const body: CreateUploadSessionRequest = guard.body;
   const createRequest = {
     title: body.title,
@@ -334,14 +334,14 @@ async function finalizeUploadSession(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"uploadSessions.finalize">,
 ): Promise<Response> {
   const env = context.env;
   const actor = uploadSessionActor(principal);
   if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  const idempotencyKey = guard.idempotencyKey ?? "";
+  const idempotencyKey = guard.idempotencyKey;
   const sessionId = context.req.param("upload_session_id") ?? "";
 
   if (!env.ARTIFACTS) {

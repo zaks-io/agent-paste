@@ -15,6 +15,13 @@ import {
   UrlString,
 } from "./primitives.js";
 import { RevisionListResponse } from "./revisions.js";
+import {
+  type AppSurface,
+  type HttpMethod,
+  type IdempotencyRequirement,
+  type RouteId,
+  routeContractById,
+} from "./routes.js";
 import { PublishResult } from "./uploadSessions.js";
 import { WorkspaceMemberId } from "./web.js";
 import { WorkspaceSummary } from "./workspace.js";
@@ -249,16 +256,20 @@ export type McpToolErrorCode = z.infer<typeof McpToolErrorCode>;
 
 export type McpForwardedAuth = "mcp_bearer" | "signed_upload_url";
 
-export type McpForwardedIdempotency = "none" | "required" | "same_as_tool";
+export type McpForwardedIdempotencyKey = "same_as_tool";
 
 export type McpForwardedCall = {
-  routeId: string;
-  app: "api" | "upload";
-  method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
-  path: string;
+  routeId: RouteId;
   auth: McpForwardedAuth;
-  idempotency: McpForwardedIdempotency;
+  idempotencyKey?: McpForwardedIdempotencyKey;
   optional?: boolean;
+};
+
+export type McpResolvedForwardedCall = McpForwardedCall & {
+  app: AppSurface;
+  method: HttpMethod;
+  path: string;
+  idempotency: IdempotencyRequirement;
 };
 
 export type McpToolIdempotency = "none" | "derived" | "optional_override";
@@ -384,52 +395,32 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "uploadSessions.create",
-        app: "upload",
-        method: "POST",
-        path: "/v1/upload-sessions",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "uploadSessions.putFile",
-        app: "upload",
-        method: "PUT",
-        path: "/v1/upload-sessions/{upload_session_id}/files/{path}",
         auth: "signed_upload_url",
-        idempotency: "none",
       },
       {
         routeId: "uploadSessions.finalize",
-        app: "upload",
-        method: "POST",
-        path: "/v1/upload-sessions/{upload_session_id}/finalize",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "revisions.publish",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "accessLinks.create",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/access-links",
         auth: "mcp_bearer",
-        idempotency: "none",
+        idempotencyKey: "same_as_tool",
         optional: true,
       },
       {
         routeId: "accessLinks.mint",
-        app: "api",
-        method: "POST",
-        path: "/v1/access-links/{access_link_id}/mint",
         auth: "mcp_bearer",
-        idempotency: "required",
         optional: true,
       },
     ],
@@ -446,52 +437,32 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "uploadSessions.create",
-        app: "upload",
-        method: "POST",
-        path: "/v1/upload-sessions",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "uploadSessions.putFile",
-        app: "upload",
-        method: "PUT",
-        path: "/v1/upload-sessions/{upload_session_id}/files/{path}",
         auth: "signed_upload_url",
-        idempotency: "none",
       },
       {
         routeId: "uploadSessions.finalize",
-        app: "upload",
-        method: "POST",
-        path: "/v1/upload-sessions/{upload_session_id}/finalize",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "revisions.publish",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish",
         auth: "mcp_bearer",
-        idempotency: "same_as_tool",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "accessLinks.create",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/access-links",
         auth: "mcp_bearer",
-        idempotency: "none",
+        idempotencyKey: "same_as_tool",
         optional: true,
       },
       {
         routeId: "accessLinks.mint",
-        app: "api",
-        method: "POST",
-        path: "/v1/access-links/{access_link_id}/mint",
         auth: "mcp_bearer",
-        idempotency: "required",
         optional: true,
       },
     ],
@@ -508,11 +479,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.list",
-        app: "api",
-        method: "GET",
-        path: "/v1/artifacts",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: readErrors,
@@ -528,11 +495,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "agentView.getLatest",
-        app: "api",
-        method: "GET",
-        path: "/v1/artifacts/{artifact_id}/agent-view",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: readErrors,
@@ -548,11 +511,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "revisions.list",
-        app: "api",
-        method: "GET",
-        path: "/v1/artifacts/{artifact_id}/revisions",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: readErrors,
@@ -568,11 +527,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.delete",
-        app: "api",
-        method: "DELETE",
-        path: "/v1/artifacts/{artifact_id}",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: ["forbidden", "not_found", "artifact_not_found", "database_unavailable"] as const,
@@ -588,11 +543,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.updateDisplayMetadata",
-        app: "api",
-        method: "PATCH",
-        path: "/v1/artifacts/{artifact_id}/display-metadata",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: ["forbidden", "invalid_request", "not_found", "artifact_not_found", "database_unavailable"] as const,
@@ -602,25 +553,18 @@ export const mcpToolContracts = [
     description: "Create and mint a Share Link for the latest published revision.",
     auth: "mcp_oauth",
     requiredScopes: ["read", "share"],
-    idempotency: "none",
+    idempotency: "derived",
     inputSchema: "create_share_link",
     outputSchema: "create_share_link",
     forwardedCalls: [
       {
         routeId: "accessLinks.create",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/access-links",
         auth: "mcp_bearer",
-        idempotency: "none",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "accessLinks.mint",
-        app: "api",
-        method: "POST",
-        path: "/v1/access-links/{access_link_id}/mint",
         auth: "mcp_bearer",
-        idempotency: "required",
       },
     ],
     errors: shareLinkErrors,
@@ -630,25 +574,18 @@ export const mcpToolContracts = [
     description: "Create and mint a Revision Link for a specific revision.",
     auth: "mcp_oauth",
     requiredScopes: ["read", "share"],
-    idempotency: "none",
+    idempotency: "derived",
     inputSchema: "create_revision_link",
     outputSchema: "create_revision_link",
     forwardedCalls: [
       {
         routeId: "accessLinks.create",
-        app: "api",
-        method: "POST",
-        path: "/v1/artifacts/{artifact_id}/access-links",
         auth: "mcp_bearer",
-        idempotency: "none",
+        idempotencyKey: "same_as_tool",
       },
       {
         routeId: "accessLinks.mint",
-        app: "api",
-        method: "POST",
-        path: "/v1/access-links/{access_link_id}/mint",
         auth: "mcp_bearer",
-        idempotency: "required",
       },
     ],
     errors: shareLinkErrors,
@@ -664,11 +601,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "accessLinks.list",
-        app: "api",
-        method: "GET",
-        path: "/v1/artifacts/{artifact_id}/access-links",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: shareLinkErrors,
@@ -684,11 +617,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "accessLinks.revoke",
-        app: "api",
-        method: "POST",
-        path: "/v1/access-links/{access_link_id}/revoke",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: shareLinkErrors,
@@ -704,16 +633,27 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "mcp.whoami",
-        app: "api",
-        method: "GET",
-        path: "/v1/mcp/whoami",
         auth: "mcp_bearer",
-        idempotency: "none",
       },
     ],
     errors: ["database_unavailable"] as const,
   },
 ] as const satisfies readonly McpToolContract[];
+
+export function resolveMcpForwardedCall(call: McpForwardedCall): McpResolvedForwardedCall {
+  const route = routeContractById(call.routeId);
+  return {
+    ...call,
+    app: route.app,
+    method: route.method,
+    path: route.path,
+    idempotency: route.idempotency,
+  };
+}
+
+export function resolveMcpForwardedCalls(tool: McpToolContract): McpResolvedForwardedCall[] {
+  return tool.forwardedCalls.map(resolveMcpForwardedCall);
+}
 
 export const MCP_API_ERROR_HTTP_STATUS: Partial<Record<ErrorCode, number>> = {
   not_authenticated: 401,
