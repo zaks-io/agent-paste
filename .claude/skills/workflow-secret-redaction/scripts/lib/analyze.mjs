@@ -2,8 +2,7 @@ import { createHmac } from "node:crypto";
 
 export const validTypeNote = "Hey, this is a valid type of key.";
 
-export const lineCount = (value) =>
-  value.length === 0 ? 0 : (value.match(/\r\n|\r|\n/g) ?? []).length + 1;
+export const lineCount = (value) => (value.length === 0 ? 0 : (value.match(/\r\n|\r|\n/g) ?? []).length + 1);
 
 export const unquoteEnvValue = (value) => {
   const trimmed = value.trim();
@@ -12,13 +11,10 @@ export const unquoteEnvValue = (value) => {
   }
 
   const quote = trimmed[0];
-  return (quote === `"` || quote === `'`) && trimmed.at(-1) === quote
-    ? trimmed.slice(1, -1)
-    : trimmed;
+  return (quote === `"` || quote === `'`) && trimmed.at(-1) === quote ? trimmed.slice(1, -1) : trimmed;
 };
 
-export const createFingerprint = (key) => (value) =>
-  createHmac("sha256", key).update(value).digest("hex").slice(0, 16);
+export const createFingerprint = (key) => (value) => createHmac("sha256", key).update(value).digest("hex").slice(0, 16);
 
 const keyIncludes = (key, terms) => {
   const normalized = key.toUpperCase();
@@ -59,55 +55,32 @@ const secretFormats = [
   ["AWS access key ID", ({ value }) => /^(?:AKIA|ASIA)[A-Z0-9]{16}$/.test(value)],
   [
     "AWS secret access key",
-    ({ key, value }) =>
-      keyIncludes(key, ["AWS_SECRET_ACCESS_KEY", "AWS_SECRET"]) &&
-      /^[A-Za-z0-9/+=]{40}$/.test(value),
+    ({ key, value }) => keyIncludes(key, ["AWS_SECRET_ACCESS_KEY", "AWS_SECRET"]) && /^[A-Za-z0-9/+=]{40}$/.test(value),
   ],
-  [
-    "GitHub token",
-    ({ value }) => /^(?:gh[opusr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})$/.test(value),
-  ],
+  ["GitHub token", ({ value }) => /^(?:gh[opusr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})$/.test(value)],
   ["GitLab personal access token", ({ value }) => /^glpat-[A-Za-z0-9_-]{20,}$/.test(value)],
-  [
-    "Slack token",
-    ({ value }) =>
-      /^(?:xox[baprs]-[A-Za-z0-9-]{10,}|xapp-\d-[A-Z0-9-]+-\d+-[a-f0-9]+)$/.test(value),
-  ],
+  ["Slack token", ({ value }) => /^(?:xox[baprs]-[A-Za-z0-9-]{10,}|xapp-\d-[A-Z0-9-]+-\d+-[a-f0-9]+)$/.test(value)],
   ["Stripe webhook secret", ({ value }) => /^whsec_[A-Za-z0-9]{10,}$/.test(value)],
   ["Stripe restricted key", ({ value }) => /^rk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value)],
   [
     "Stripe secret key",
-    ({ key, value }) =>
-      keyIncludes(key, ["STRIPE"]) && /^sk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value),
+    ({ key, value }) => keyIncludes(key, ["STRIPE"]) && /^sk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value),
   ],
   [
     "Clerk secret key",
-    ({ key, value }) =>
-      keyIncludes(key, ["CLERK"]) && /^sk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value),
+    ({ key, value }) => keyIncludes(key, ["CLERK"]) && /^sk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value),
   ],
   ["test/live secret key", ({ value }) => /^sk_(?:test|live)_[A-Za-z0-9]{10,}$/.test(value)],
   ["Google API key", ({ value }) => /^AIza[0-9A-Za-z_-]{35}$/.test(value)],
-  [
-    "Google OAuth client ID",
-    ({ value }) => /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(value),
-  ],
+  ["Google OAuth client ID", ({ value }) => /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(value)],
   ["SendGrid API key", ({ value }) => /^SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(value)],
   ["Hugging Face token", ({ value }) => /^hf_[A-Za-z0-9]{20,}$/.test(value)],
   ["Linear API key", ({ value }) => /^lin_api_[A-Za-z0-9]{20,}$/.test(value)],
   ["npm access token", ({ value }) => /^npm_[A-Za-z0-9]{36}$/.test(value)],
   ["Twilio account SID", ({ value }) => /^AC[0-9a-fA-F]{32}$/.test(value)],
-  [
-    "Twilio auth token",
-    ({ key, value }) => keyIncludes(key, ["TWILIO"]) && /^[0-9a-fA-F]{32}$/.test(value),
-  ],
-  [
-    "Datadog API key",
-    ({ key, value }) => keyIncludes(key, ["DATADOG", "DD_"]) && /^[0-9a-f]{32}$/i.test(value),
-  ],
-  [
-    "Mailgun API key",
-    ({ key, value }) => keyIncludes(key, ["MAILGUN"]) && /^key-[0-9a-f]{32}$/i.test(value),
-  ],
+  ["Twilio auth token", ({ key, value }) => keyIncludes(key, ["TWILIO"]) && /^[0-9a-fA-F]{32}$/.test(value)],
+  ["Datadog API key", ({ key, value }) => keyIncludes(key, ["DATADOG", "DD_"]) && /^[0-9a-f]{32}$/i.test(value)],
+  ["Mailgun API key", ({ key, value }) => keyIncludes(key, ["MAILGUN"]) && /^key-[0-9a-f]{32}$/i.test(value)],
   ["JWT", ({ value }) => isJwt(value)],
   ["credential URL", ({ value }) => isCredentialUrl(value)],
 ];

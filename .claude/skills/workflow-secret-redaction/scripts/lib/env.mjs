@@ -92,9 +92,7 @@ export const checkExpectations = (sources, expectedKeys, schemaEntries = []) => 
 };
 
 export const strictFailures = ({ checks = [], mode, sources = [] }) => {
-  const failures = checks
-    .filter((check) => !check.ok)
-    .map((check) => `${check.key}:${check.status}`);
+  const failures = checks.filter((check) => !check.ok).map((check) => `${check.key}:${check.status}`);
   if (mode !== "env") return failures;
 
   for (const source of sources) {
@@ -106,8 +104,7 @@ export const strictFailures = ({ checks = [], mode, sources = [] }) => {
   return [...new Set(failures)];
 };
 
-const indexAssignments = (source) =>
-  new Map(source.env.assignments.map((entry) => [entry.key, entry]));
+const indexAssignments = (source) => new Map(source.env.assignments.map((entry) => [entry.key, entry]));
 
 export const diffSources = (left, right, { hideKeys = false } = {}) => {
   const leftByKey = indexAssignments(left);

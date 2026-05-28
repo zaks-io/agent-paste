@@ -4,13 +4,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { analyzeSecret, createFingerprint } from "./lib/analyze.mjs";
-import {
-  checkExpectations,
-  diffSources,
-  parseEnv,
-  parseSchema,
-  strictFailures,
-} from "./lib/env.mjs";
+import { checkExpectations, diffSources, parseEnv, parseSchema, strictFailures } from "./lib/env.mjs";
 import {
   renderChecks,
   renderDiff,
@@ -92,8 +86,7 @@ const parseArgs = (argv) => {
     } else if (arg === "--expect") {
       const value = argv[++index] ?? fail("--expect requires a key list");
       options.expect.push(...splitKeys(value));
-    } else if (arg === "--schema")
-      options.schema = argv[++index] ?? fail("--schema requires a file");
+    } else if (arg === "--schema") options.schema = argv[++index] ?? fail("--schema requires a file");
     else if (arg === "--fingerprint-key-env") {
       options.fingerprintKeyEnv = argv[++index] ?? fail("--fingerprint-key-env requires a name");
     } else if (arg === "--diff") {
@@ -137,9 +130,7 @@ const renderPayload = ({ checks, diffs, failures, options, sources }) => {
   if (diffs) return `${renderDiff(diffs)}\n`;
   const showLabels = sources.length > 1;
   const body = sources
-    .map((source) =>
-      source.kind === "text" ? renderTextSource(source) : renderEnvSource(source, showLabels),
-    )
+    .map((source) => (source.kind === "text" ? renderTextSource(source) : renderEnvSource(source, showLabels)))
     .join("\n");
   const checkOutput = renderChecks(checks);
   const failureOutput = renderFailures(failures);
@@ -147,8 +138,7 @@ const renderPayload = ({ checks, diffs, failures, options, sources }) => {
 };
 
 const { files, options } = parseArgs(process.argv.slice(2));
-if (options.diff && (files.length > 0 || options.stdin))
-  fail("--diff cannot be combined with files or stdin");
+if (options.diff && (files.length > 0 || options.stdin)) fail("--diff cannot be combined with files or stdin");
 if (!options.diff && !options.stdin && files.length === 0) fail(usage);
 if ((options.expect.length > 0 || options.schema) && options.mode !== "env") {
   fail("--expect and --schema require env mode");
@@ -161,20 +151,11 @@ const sourceSpecs = options.diff
   ? options.diff.map((file) => ({ label: file, mode: "env", text: readText(file) }))
   : [
       ...files.map((file) => ({ label: file, mode: options.mode, text: readText(file) })),
-      ...(options.stdin
-        ? [{ label: "stdin", mode: options.mode, text: readFileSync(0, "utf8") }]
-        : []),
+      ...(options.stdin ? [{ label: "stdin", mode: options.mode, text: readFileSync(0, "utf8") }] : []),
     ];
-const sources = sourceSpecs.map((source) =>
-  buildSource({ ...source, fingerprint, hideKeys: options.hideKeys }),
-);
-const checks =
-  options.diff || options.mode !== "env"
-    ? []
-    : checkExpectations(sources, options.expect, schemaEntries);
-const diffs = options.diff
-  ? diffSources(sources[0], sources[1], { hideKeys: options.hideKeys })
-  : null;
+const sources = sourceSpecs.map((source) => buildSource({ ...source, fingerprint, hideKeys: options.hideKeys }));
+const checks = options.diff || options.mode !== "env" ? [] : checkExpectations(sources, options.expect, schemaEntries);
+const diffs = options.diff ? diffSources(sources[0], sources[1], { hideKeys: options.hideKeys }) : null;
 const failures = options.strict ? strictFailures({ checks, mode: options.mode, sources }) : [];
 
 process.stdout.write(renderPayload({ checks, diffs, failures, options, sources }));

@@ -18,11 +18,8 @@ export const renderEnvSource = (source, showLabel = false) => {
     .map((line) => {
       if (line.kind === "blank") return "";
       if (line.kind === "comment") return "# <comment redacted>";
-      if (line.kind === "unparsed")
-        return `<unparsed-line ${renderToken(line.analysis).slice(1, -1)}>`;
-      return `${line.leading}${line.exportPrefix}${line.visibleKey}${line.separator}${renderToken(
-        line.analysis,
-      )}`;
+      if (line.kind === "unparsed") return `<unparsed-line ${renderToken(line.analysis).slice(1, -1)}>`;
+      return `${line.leading}${line.exportPrefix}${line.visibleKey}${line.separator}${renderToken(line.analysis)}`;
     })
     .join("\n");
   return showLabel ? `# source: ${source.label}\n${body}` : body;
