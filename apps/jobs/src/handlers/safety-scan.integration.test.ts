@@ -4,8 +4,97 @@ import { handleSafetyScanBatch } from "./safety-scan.js";
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const encoder = new TextEncoder();
+const awsAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
+const privateKeyMarker = "-----BEGIN " + "PRIVATE KEY-----";
+
+function safetyScanBody() {
+  return {
+    type: "safety.scan.v1",
+    workspace_id: workspaceId,
+    artifact_id: artifactId,
+    revision_id: revisionId,
+    scanner_id: "builtin_content",
+    scanner_version: "1",
+    requested_at: "2026-05-20T00:00:00.000Z",
+  };
+}
 
 describe("handleSafetyScanBatch", () => {
+  it("fails before reading messages when the database binding is missing", async () => {
+    await expect(handleSafetyScanBatch([], {})).rejects.toThrow("database_unavailable");
+  });
+
+  it("acks messages for revisions that no longer exist", async () => {
+    const ack = vi.fn();
+    const retry = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      DB: {
+        query: vi.fn(async () => ({ rows: [] })),
+        transaction: vi.fn(),
+      },
+    });
+
+    expect(ack).toHaveBeenCalledOnce();
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("retries active revisions when the artifact bucket binding is missing", async () => {
+    const ack = vi.fn();
+    const retry = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      DB: {
+        query: vi.fn(async () => ({ rows: [{ status: "published", artifact_status: "active" }] })),
+        transaction: vi.fn(),
+      },
+    });
+
+    expect(ack).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("acks retained or deleted revisions without scanning R2", async () => {
+    const ack = vi.fn();
+    const get = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry: vi.fn() }], {
+      DB: {
+        query: vi.fn(async () => ({ rows: [{ status: "retained", artifact_status: "active" }] })),
+        transaction: vi.fn(),
+      },
+      ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get },
+    });
+
+    expect(ack).toHaveBeenCalledOnce();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("retries when a revision file is missing from R2", async () => {
+    const retry = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
+      DB: {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("from revisions r")) {
+            return { rows: [{ status: "published", artifact_status: "active" }] };
+          }
+          if (sql.includes("from artifact_files")) {
+            return {
+              rows: [{ path: "missing.txt", r2_key: "objects/missing.txt", served_content_type: "text/plain" }],
+            };
+          }
+          return { rows: [] };
+        }),
+        transaction: vi.fn(),
+      },
+      ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(async () => null) },
+    });
+
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it("runs the built-in scanner and replaces warnings through runCommand", async () => {
     const warningInserts: unknown[][] = [];
     const auditInserts: unknown[][] = [];
@@ -53,13 +142,7 @@ describe("handleSafetyScanBatch", () => {
       [
         {
           body: {
-            type: "safety.scan.v1",
-            workspace_id: workspaceId,
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            scanner_id: "builtin_content",
-            scanner_version: "1",
-            requested_at: "2026-05-20T00:00:00.000Z",
+            ...safetyScanBody(),
           },
           ack,
           retry: vi.fn(),
@@ -92,5 +175,150 @@ describe("handleSafetyScanBatch", () => {
     );
     expect(auditInserts).toHaveLength(1);
     expect(auditInserts[0]?.[4]).toBe("safety_warnings.replaced");
+  });
+
+  it("tracks added, removed, and unchanged warning deltas across R2 body shapes", async () => {
+    const warningInserts: unknown[][] = [];
+    const auditInserts: unknown[][] = [];
+    const tx = {
+      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: workspaceId }] };
+        }
+        if (sql.includes("from safety_warnings")) {
+          return {
+            rows: [
+              {
+                code: "cloud_secret_identifier",
+                severity: "warning",
+                scope: "file",
+                file_path: "aws.txt",
+                message: "This revision appears to include a cloud credential identifier.",
+              },
+              {
+                code: "obsolete_warning",
+                severity: "info",
+                scope: "file",
+                file_path: "old.txt",
+                message: "Old warning.",
+              },
+            ],
+          };
+        }
+        if (sql.includes("insert into safety_warnings")) {
+          warningInserts.push(params ?? []);
+        }
+        if (sql.includes("insert into operation_events")) {
+          auditInserts.push(params ?? []);
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(),
+    };
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("from revisions r")) {
+          return { rows: [{ status: "published", artifact_status: "active" }] };
+        }
+        if (sql.includes("from artifact_files")) {
+          return {
+            rows: [
+              { path: "aws.txt", r2_key: "objects/aws.txt", served_content_type: "text/plain" },
+              { path: "key.txt", r2_key: "objects/key.txt", served_content_type: "text/plain" },
+              { path: "empty.txt", r2_key: "objects/empty.txt", served_content_type: "text/plain" },
+              { path: "stream.txt", r2_key: "objects/stream.txt", served_content_type: "text/plain" },
+            ],
+          };
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(async (run) => run(tx)),
+    };
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      DB: db,
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(async (key: string) => {
+          if (key.endsWith("aws.txt")) {
+            return {
+              body: encoder.encode("ignored"),
+              arrayBuffer: async () => encoder.encode(awsAccessKeyId).buffer,
+            };
+          }
+          if (key.endsWith("key.txt")) {
+            return { body: encoder.encode(privateKeyMarker).buffer };
+          }
+          if (key.endsWith("stream.txt")) {
+            return { body: new Response("no warnings here").body };
+          }
+          return { body: {} as ReadableStream };
+        }),
+      },
+    });
+
+    expect(warningInserts).toHaveLength(2);
+    expect(auditInserts).toHaveLength(1);
+    expect(JSON.parse(String(auditInserts[0]?.[7]))).toEqual(
+      expect.objectContaining({
+        warning_count: 2,
+        added: 1,
+        removed: 1,
+        unchanged: 1,
+      }),
+    );
+  });
+
+  it("does not write audit events when replacement leaves warnings unchanged", async () => {
+    const auditInserts: unknown[][] = [];
+    const tx = {
+      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: workspaceId }] };
+        }
+        if (sql.includes("from safety_warnings")) {
+          return {
+            rows: [
+              {
+                code: "cloud_secret_identifier",
+                severity: "warning",
+                scope: "file",
+                file_path: "aws.txt",
+                message: "This revision appears to include a cloud credential identifier.",
+              },
+            ],
+          };
+        }
+        if (sql.includes("insert into operation_events")) {
+          auditInserts.push(params ?? []);
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(),
+    };
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("from revisions r")) {
+          return { rows: [{ status: "published", artifact_status: "active" }] };
+        }
+        if (sql.includes("from artifact_files")) {
+          return { rows: [{ path: "aws.txt", r2_key: "objects/aws.txt", served_content_type: "text/plain" }] };
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(async (run) => run(tx)),
+    };
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      DB: db,
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(async () => ({ body: encoder.encode(awsAccessKeyId) })),
+      },
+    });
+
+    expect(auditInserts).toHaveLength(0);
   });
 });
