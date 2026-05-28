@@ -16,6 +16,9 @@ Agent-ready work must be:
 - scoped to one PR
 - backed by enough acceptance criteria to verify completion
 - free of unresolved product, security, credential, provider, or ADR decisions
+- explicit about cross-layer invariants when the work touches auth, deletion,
+  idempotency, Access Links, Live Updates, migrations, background jobs, or
+  public contracts
 
 Cursor work must also be labeled `remote-cursor`.
 
@@ -37,6 +40,9 @@ On each run:
 6. Choose the executor from `docs/agents/environment-adapters.md`.
 7. Build a worker prompt package with the issue, linked docs, required checks,
    branch expectation, and explicit stop conditions.
+   For risky cross-layer work, include the governing ADR/spec lines, accepted
+   principals, replay expectations, post-commit invalidation order, and the
+   focused retry/destructive-path tests the worker must add or preserve.
 8. Record delegation in Linear when a worker is assigned.
 9. Watch for PRs, failed checks, stale branches, blockers, and review comments.
 10. Update Linear using the state contract below.

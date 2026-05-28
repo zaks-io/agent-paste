@@ -36,6 +36,13 @@ Work moves through six stages plus one sidecar review loop.
    worker claims the issue, moves it to `In Progress`, implements only the
    stated scope, and runs ticket-specific checks.
 
+   For auth, deletion, idempotency, Access Link, Live Update, migration,
+   background-job, and public contract work, the issue body should name the
+   cross-layer invariants the worker must preserve. Do not rely on local unit
+   shape alone. Spell out the affected ADRs/specs, accepted principals, replay
+   behavior, post-commit invalidation, docs, and focused retry/destructive-path
+   tests.
+
 3. Pre-PR local review
 
    Use `agent-paste-local-code-review` before opening a PR. This catches scope
@@ -71,6 +78,13 @@ Work moves through six stages plus one sidecar review loop.
    this loop must still satisfy the normal Linear contract before they receive
    `ready-for-agent`; otherwise they stay in a non-agent-ready backlog state
    with the appropriate readiness label.
+
+   This loop must explicitly inspect cross-layer contract drift. Recent misses
+   have clustered around workflows where each local package looked reasonable
+   but the combined behavior violated an ADR or runtime contract: idempotency
+   replay before rate limiting for every accepted principal, publish/link
+   side effects inside one retry boundary, and deletion/revocation invalidation
+   visible to `content`.
 
 ## Queue-Moving Review Loop
 
@@ -108,6 +122,13 @@ Implementation and review have different defaults. Fast worker models are fine
 for well-scoped implementation. PR review should use the strongest available
 review tier, especially for auth, authorization, secrets, schemas, background
 jobs, cross-package contracts, and destructive data paths.
+
+Composer 2.5 can be used as an implementation workhorse for isolated,
+well-specified tickets. Before scaling it across risky work, make the ticket
+acceptance criteria concrete enough to force cross-layer verification and keep
+an independent review gate on auth, authorization, deletion, idempotency,
+Access Link, Live Update, migration, background-job, and public contract
+changes.
 
 ## Status Contract
 
