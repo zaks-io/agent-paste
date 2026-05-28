@@ -25,20 +25,12 @@ export function LockdownForm({ onSuccess, prefill }: Props) {
   const [reasonCode, setReasonCode] = useState(prefill?.reason_code ?? "");
   const [pending, setPending] = useState(false);
 
+  // Mirror route triage search exactly so stale target/reason are not left armed after navigation.
   useEffect(() => {
-    if (!prefill) {
-      return;
-    }
-    if (prefill.scope) {
-      setScope(prefill.scope);
-    }
-    if (prefill.target_id) {
-      setTargetId(prefill.target_id);
-    }
-    if (prefill.reason_code) {
-      setReasonCode(prefill.reason_code);
-    }
-  }, [prefill]);
+    setScope(prefill?.scope ?? "artifact");
+    setTargetId(prefill?.target_id ?? "");
+    setReasonCode(prefill?.reason_code ?? "");
+  }, [prefill?.scope, prefill?.target_id, prefill?.reason_code]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

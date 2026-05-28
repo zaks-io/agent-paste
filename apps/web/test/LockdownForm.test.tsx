@@ -112,6 +112,51 @@ describe("LockdownForm", () => {
     expect(screen.getByLabelText("Reason code")).toHaveValue("phishing_report");
   });
 
+  it("clears stale triage values when prefill is removed from the route search", () => {
+    const { rerender } = render(
+      <ToastProvider>
+        <LockdownForm
+          onSuccess={vi.fn()}
+          prefill={{ scope: "workspace", target_id: "ws_abc", reason_code: "phishing_report" }}
+        />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByLabelText("Target ID")).toHaveValue("ws_abc");
+    expect(screen.getByLabelText("Reason code")).toHaveValue("phishing_report");
+
+    rerender(
+      <ToastProvider>
+        <LockdownForm onSuccess={vi.fn()} prefill={{}} />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByLabelText("Target ID")).toHaveValue("");
+    expect(screen.getByLabelText("Reason code")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Artifact" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("preserves only triage fields still present in prefill", () => {
+    const { rerender } = render(
+      <ToastProvider>
+        <LockdownForm
+          onSuccess={vi.fn()}
+          prefill={{ scope: "workspace", target_id: "ws_abc", reason_code: "abuse" }}
+        />
+      </ToastProvider>,
+    );
+
+    rerender(
+      <ToastProvider>
+        <LockdownForm onSuccess={vi.fn()} prefill={{ scope: "artifact" }} />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Artifact" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Target ID")).toHaveValue("");
+    expect(screen.getByLabelText("Reason code")).toHaveValue("");
+  });
+
   it("shows an error toast when the mutation throws", async () => {
     setLockdownFn.mockRejectedValue(new Error("Connection reset."));
     const onSuccess = vi.fn();
