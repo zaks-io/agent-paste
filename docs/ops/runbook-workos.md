@@ -96,8 +96,8 @@ active session.
 | `WORKOS_REDIRECT_URI` | `web`                  | `https://app.preview.agent-paste.sh/api/auth/callback`                     | `https://app.agent-paste.sh/api/auth/callback`                             |
 | `WORKOS_ISSUER`       | `api`                  | `https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB` | `https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ` |
 | `WORKOS_CLI_AUDIENCE` | `api`                  | `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`                                        | `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`                                        |
-| `WORKOS_CLI_JWKS_URL` | `api`                  | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
-| `WORKOS_CLI_ISSUER`   | `api`                  | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
+| `WORKOS_CLI_JWKS_URL` | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
+| `WORKOS_CLI_ISSUER`   | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
 | `WORKOS_MCP_JWKS_URL` | `api`, `upload`, `mcp` | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
 | `WORKOS_MCP_ISSUER`   | `api`, `upload`, `mcp` | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
 | `WORKOS_COOKIE_NAME`  | `web`                  | `__agp_session`                                                            | `__agp_session`                                                            |
