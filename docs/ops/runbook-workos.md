@@ -90,18 +90,20 @@ active session.
 
 ### Vars (public deployment metadata in `wrangler.jsonc`)
 
-| Name                  | Bound on     | Preview                                                                    | Production                                                                 |
-| --------------------- | ------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `WORKOS_CLIENT_ID`    | `api`, `web` | `client_01KSAJTF1EX1YZCCXJS9B0GJ46`                                        | `client_01KSED0F1X2MZ0WCKNNQR6FY2X`                                        |
-| `WORKOS_REDIRECT_URI` | `web`        | `https://app.preview.agent-paste.sh/api/auth/callback`                     | `https://app.agent-paste.sh/api/auth/callback`                             |
-| `WORKOS_ISSUER`       | `api`        | `https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB` | `https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ` |
-| `WORKOS_CLI_AUDIENCE` | `api`        | `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`                                        | `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`                                        |
-| `WORKOS_CLI_JWKS_URL` | `api`        | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
-| `WORKOS_CLI_ISSUER`   | `api`        | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
-| `WORKOS_COOKIE_NAME`  | `web`        | `__agp_session`                                                            | `__agp_session`                                                            |
-| `WEB_BASE_URL`        | `web`        | `https://app.preview.agent-paste.sh`                                       | `https://app.agent-paste.sh`                                               |
+| Name                  | Bound on               | Preview                                                                    | Production                                                                 |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `WORKOS_CLIENT_ID`    | `api`, `web`           | `client_01KSAJTF1EX1YZCCXJS9B0GJ46`                                        | `client_01KSED0F1X2MZ0WCKNNQR6FY2X`                                        |
+| `WORKOS_REDIRECT_URI` | `web`                  | `https://app.preview.agent-paste.sh/api/auth/callback`                     | `https://app.agent-paste.sh/api/auth/callback`                             |
+| `WORKOS_ISSUER`       | `api`                  | `https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB` | `https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ` |
+| `WORKOS_CLI_AUDIENCE` | `api`                  | `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`                                        | `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`                                        |
+| `WORKOS_CLI_JWKS_URL` | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
+| `WORKOS_CLI_ISSUER`   | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
+| `WORKOS_MCP_JWKS_URL` | `api`, `upload`, `mcp` | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
+| `WORKOS_MCP_ISSUER`   | `api`, `upload`, `mcp` | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
+| `WORKOS_COOKIE_NAME`  | `web`                  | `__agp_session`                                                            | `__agp_session`                                                            |
+| `WEB_BASE_URL`        | `web`                  | `https://app.preview.agent-paste.sh`                                       | `https://app.agent-paste.sh`                                               |
 
-Dashboard session tokens are issued by `https://api.workos.com/user_management/{env default client}` — that path is `WORKOS_ISSUER`, **not** the AuthKit subdomain and **not** `WORKOS_CLIENT_ID`. CLI Connect tokens use `WORKOS_CLI_ISSUER` and `WORKOS_CLI_JWKS_URL`.
+Dashboard session tokens are issued by `https://api.workos.com/user_management/{env default client}` — that path is `WORKOS_ISSUER`, **not** the AuthKit subdomain and **not** `WORKOS_CLIENT_ID`. CLI Connect tokens use `WORKOS_CLI_ISSUER` and `WORKOS_CLI_JWKS_URL`. The `upload` Worker repeats the MCP/CLI AuthKit issuer and JWKS vars so member MCP bearer tokens verify on the upload leg of `publish_artifact` / `add_revision`; `packages/repo-lint/src/upload-workos-wrangler-config.mjs` fails CI when those values drift from `api`.
 
 JWKS for dashboard verification: `https://api.workos.com/sso/jwks/{WORKOS_CLIENT_ID}` (built in `apps/api/src/workos.ts` unless `WORKOS_JWKS_URL` overrides).
 

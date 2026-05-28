@@ -6,7 +6,7 @@
   "scripts": {
     "biome:lint": "biome lint ../../.github ../../docs ../../scripts ../../*.json ../../*.yaml ../../*.yml ../../*.md",
     "check": "pnpm lint",
-    "lint": "pnpm biome:lint && node src/monorepo-policy.mjs"
+    "lint": "pnpm biome:lint && node src/monorepo-policy.mjs && node src/upload-workos-wrangler-config.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:"
