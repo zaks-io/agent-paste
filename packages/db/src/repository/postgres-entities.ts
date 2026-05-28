@@ -7,6 +7,7 @@ import {
   operationEventQueries,
   platformLockdownQueries,
   revisionQueries,
+  safetyWarningQueries,
   uploadSessionFileQueries,
   uploadSessionQueries,
   workspaceMemberQueries,
@@ -109,6 +110,10 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       insert: (artifactId, revisionId, file, fallbackUploadedAt) =>
         artifactFileQueries.insert(drizzle, artifactId, revisionId, file, fallbackUploadedAt),
       listForArtifact: (artifactId, revisionId) => artifactFileQueries.listForArtifact(drizzle, artifactId, revisionId),
+    },
+    safetyWarnings: {
+      listForRevision: (workspaceId, revisionId) =>
+        safetyWarningQueries.listForRevision(drizzle, workspaceId, revisionId),
     },
     uploadSessions: {
       insert: (session) => uploadSessionQueries.insert(drizzle, session),

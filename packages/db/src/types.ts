@@ -80,6 +80,10 @@ export type BundleStatus = "pending" | "ready" | "failed" | "disabled";
 /** Bundle status set when a revision is first published (not replayed terminal states). */
 export type PublishBundleStatus = "pending" | "disabled";
 
+export type SafetyWarningSeverity = "info" | "warning";
+
+export type SafetyWarningScope = "artifact" | "revision" | "file";
+
 export type Revision = {
   id: string;
   workspace_id: string;
@@ -170,6 +174,21 @@ export type StoredFile = {
   r2_key: string;
   uploaded_at: string | null;
   put_url_expires_at?: string;
+};
+
+export type SafetyWarning = {
+  id: string;
+  workspace_id: string;
+  artifact_id: string;
+  revision_id: string;
+  scanner_id: string;
+  scanner_version: string;
+  code: string;
+  severity: SafetyWarningSeverity;
+  scope: SafetyWarningScope;
+  file_path: string | null;
+  message: string;
+  created_at: string;
 };
 
 export type PlatformLockdown = {

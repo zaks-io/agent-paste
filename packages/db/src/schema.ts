@@ -216,6 +216,42 @@ export const artifactFiles = pgTable(
   (table) => [primaryKey({ columns: [table.artifactId, table.revisionId, table.path] })],
 );
 
+export const safetyWarnings = pgTable(
+  "safety_warnings",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    artifactId: text("artifact_id").notNull(),
+    revisionId: text("revision_id").notNull(),
+    scannerId: text("scanner_id").notNull(),
+    scannerVersion: text("scanner_version").notNull(),
+    code: text("code").notNull(),
+    severity: text("severity").notNull(),
+    scope: text("scope").notNull(),
+    filePath: text("file_path"),
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("safety_warnings_revision_idx").on(table.workspaceId, table.revisionId),
+    index("safety_warnings_scanner_idx").on(table.workspaceId, table.revisionId, table.scannerId),
+    check("safety_warnings_severity_check", sql`${table.severity} in ('info', 'warning')`),
+    check("safety_warnings_scope_check", sql`${table.scope} in ('artifact', 'revision', 'file')`),
+    check(
+      "safety_warnings_file_scope_check",
+      sql`(${table.scope} = 'file' and ${table.filePath} is not null) or (${table.scope} <> 'file' and ${table.filePath} is null)`,
+    ),
+    check("safety_warnings_code_check", sql`${table.code} ~ '^[a-z0-9_]+$'`),
+    foreignKey({
+      name: "safety_warnings_revision_fk",
+      columns: [table.workspaceId, table.artifactId, table.revisionId],
+      foreignColumns: [revisions.workspaceId, revisions.artifactId, revisions.id],
+    }).onDelete("cascade"),
+  ],
+);
+
 export const operationEvents = pgTable(
   "operation_events",
   {

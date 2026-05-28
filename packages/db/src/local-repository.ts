@@ -9,6 +9,7 @@ import type {
   PlatformLockdown,
   RepositoryOptions,
   Revision,
+  SafetyWarning,
   StoredFile,
   UploadSession,
   Workspace,
@@ -30,6 +31,7 @@ export class LocalRepository extends RepositoryCore {
   readonly operationEvents: Map<string, OperationEvent>;
   readonly platformLockdowns: Map<string, PlatformLockdown>;
   readonly accessLinks: Map<string, AccessLink>;
+  readonly safetyWarnings: Map<string, SafetyWarning>;
 
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
@@ -45,6 +47,7 @@ export class LocalRepository extends RepositoryCore {
     this.operationEvents = state.operationEvents;
     this.platformLockdowns = state.platformLockdowns;
     this.accessLinks = state.accessLinks;
+    this.safetyWarnings = state.safetyWarnings;
   }
 }
 

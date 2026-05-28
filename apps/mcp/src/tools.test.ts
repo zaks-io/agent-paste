@@ -110,6 +110,7 @@ describe("callMcpTool", () => {
           url: "https://content.example/index.md",
         },
       ],
+      safety_warnings: [],
       bundle: { status: "pending", retry_after_seconds: 30 },
     };
     const api = { fetch: vi.fn(async () => Response.json(agentView)) };

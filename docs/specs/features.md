@@ -76,5 +76,5 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Bundle generation/download       |        Phase 4 | Useful once artifacts become larger or multi-revision.        |
 | MCP server                       |        Phase 5 | OAuth-only hosted agent integration after core API is stable. |
 | App-layer encryption             |        Phase 6 | Adds key management and rotation after usage proves need.     |
-| Real safety scanner              |        Phase 6 | Replaces lightweight warnings with scanner lifecycle.         |
+| Built-in safety scanner          |        Phase 6 | Implemented with scanner lifecycle and replaceable warnings.  |
 | Billing and usage tiers          |       Phase 6+ | Add only when external usage or cost pressure requires it.    |

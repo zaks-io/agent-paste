@@ -1,5 +1,5 @@
 import type { LocalState } from "./repository/local-state.js";
-import type { SqlExecutor, SqlQueryResult, SqlValue } from "./types.js";
+import type { OperationEvent, SafetyWarning, SqlExecutor, SqlQueryResult, SqlValue } from "./types.js";
 
 type IdempotencyRecord = {
   workspace_id: string | null;
@@ -24,7 +24,9 @@ function idempotencyKey(record: {
   operation: string;
   idempotencyKey: string;
 }): string {
-  return [record.workspaceId ?? "", record.actorType, record.actorId, record.operation, record.idempotencyKey].join("\0");
+  return [record.workspaceId ?? "", record.actorType, record.actorId, record.operation, record.idempotencyKey].join(
+    "\0",
+  );
 }
 
 function parseIdempotencyInsert(params: readonly SqlValue[]): IdempotencyRecord | null {
@@ -41,6 +43,44 @@ function parseIdempotencyInsert(params: readonly SqlValue[]): IdempotencyRecord 
     result_json: null,
     created_at: String(params[5]),
     completed_at: null,
+  };
+}
+
+function parseSafetyWarningInsert(params: readonly SqlValue[]): SafetyWarning | null {
+  if (params.length < 12) {
+    return null;
+  }
+  return {
+    id: String(params[0]),
+    workspace_id: String(params[1]),
+    artifact_id: String(params[2]),
+    revision_id: String(params[3]),
+    scanner_id: String(params[4]),
+    scanner_version: String(params[5]),
+    code: String(params[6]),
+    severity: String(params[7]) as SafetyWarning["severity"],
+    scope: String(params[8]) as SafetyWarning["scope"],
+    file_path: params[9] === null ? null : String(params[9]),
+    message: String(params[10]),
+    created_at: String(params[11]),
+  };
+}
+
+function parseOperationEventInsert(params: readonly SqlValue[]): OperationEvent | null {
+  if (params.length < 10) {
+    return null;
+  }
+  return {
+    id: String(params[0]),
+    workspace_id: params[1] === null ? null : String(params[1]),
+    actor_type: String(params[2]) as OperationEvent["actor_type"],
+    actor_id: params[3] === null ? null : String(params[3]),
+    action: String(params[4]),
+    target_type: String(params[5]),
+    target_id: String(params[6]),
+    details: typeof params[7] === "string" ? (JSON.parse(params[7]) as Record<string, unknown>) : {},
+    request_id: params[8] === null ? null : String(params[8]),
+    occurred_at: String(params[9]),
   };
 }
 
@@ -137,6 +177,67 @@ export function createLocalMvpSqlExecutor(state: LocalState): SqlExecutor {
       return { rows: [] as Row[] };
     }
 
+    if (normalized.startsWith("select") && normalized.includes("from safety_warnings")) {
+      const workspaceId = String(params[0]);
+      const revisionId = String(params[1]);
+      const scannerId = String(params[2]);
+      const rows = [...state.safetyWarnings.values()]
+        .filter(
+          (warning) =>
+            warning.workspace_id === workspaceId &&
+            warning.revision_id === revisionId &&
+            warning.scanner_id === scannerId,
+        )
+        .sort((left, right) => {
+          const scope = left.scope.localeCompare(right.scope);
+          if (scope !== 0) {
+            return scope;
+          }
+          const filePath = (left.file_path ?? "").localeCompare(right.file_path ?? "");
+          return filePath === 0 ? left.code.localeCompare(right.code) : filePath;
+        })
+        .map((warning) => ({
+          code: warning.code,
+          severity: warning.severity,
+          scope: warning.scope,
+          file_path: warning.file_path,
+          message: warning.message,
+        }));
+      return { rows: rows as Row[] };
+    }
+
+    if (normalized.startsWith("delete from safety_warnings")) {
+      const workspaceId = String(params[0]);
+      const revisionId = String(params[1]);
+      const scannerId = String(params[2]);
+      for (const [key, warning] of state.safetyWarnings) {
+        if (
+          warning.workspace_id === workspaceId &&
+          warning.revision_id === revisionId &&
+          warning.scanner_id === scannerId
+        ) {
+          state.safetyWarnings.delete(key);
+        }
+      }
+      return { rows: [] as Row[] };
+    }
+
+    if (normalized.startsWith("insert into safety_warnings")) {
+      const warning = parseSafetyWarningInsert(params);
+      if (warning) {
+        state.safetyWarnings.set(warning.id, warning);
+      }
+      return { rows: [] as Row[] };
+    }
+
+    if (normalized.startsWith("insert into operation_events")) {
+      const event = parseOperationEventInsert(params);
+      if (event) {
+        state.operationEvents.set(event.id, event);
+      }
+      return { rows: [] as Row[] };
+    }
+
     if (normalized.includes("from revisions r") && normalized.includes("inner join artifacts a")) {
       const workspaceId = String(params[0]);
       const revisionId = String(params[1]);
@@ -165,7 +266,7 @@ export function createLocalMvpSqlExecutor(state: LocalState): SqlExecutor {
       const rows = [...state.artifactFiles.values()]
         .filter((file) => file.artifact_id === artifactId && file.revision_id === revisionId)
         .sort((left, right) => left.path.localeCompare(right.path))
-        .map((file) => ({ path: file.path, r2_key: file.r2_key }));
+        .map((file) => ({ path: file.path, r2_key: file.r2_key, served_content_type: file.content_type }));
       return { rows: rows as Row[] };
     }
 
@@ -218,10 +319,7 @@ export function createLocalMvpSqlExecutor(state: LocalState): SqlExecutor {
       };
     }
 
-    if (
-      normalized.includes("from artifacts a") &&
-      normalized.includes("bytes_purge_enqueued_at is null")
-    ) {
+    if (normalized.includes("from artifacts a") && normalized.includes("bytes_purge_enqueued_at is null")) {
       const limit = Number(params[0] ?? 0);
       const rows = [...state.artifacts.values()]
         .filter((artifact) => {

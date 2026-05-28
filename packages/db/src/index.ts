@@ -23,8 +23,8 @@ export {
   enqueueArtifactBytePurge,
   writeArtifactDenylist,
 } from "./artifact-invalidation.js";
-export { createLocalServices, LocalRepository } from "./local-repository.js";
 export { createLocalMvpSqlExecutor } from "./local-mvp-sql-executor.js";
+export { createLocalServices, LocalRepository } from "./local-repository.js";
 export { DEFAULT_UPLOAD_SESSION_TTL_MS, MAX_ARTIFACT_BYTES, USAGE_POLICY } from "./policy.js";
 export type { DrizzleConnection, DrizzleDb } from "./postgres/drizzle.js";
 export { createDrizzleConnection, createHyperdriveConnection } from "./postgres/drizzle.js";
@@ -59,6 +59,9 @@ export type {
   OperationEvent,
   PlatformActor,
   RepositoryOptions,
+  SafetyWarning,
+  SafetyWarningScope,
+  SafetyWarningSeverity,
   SqlExecutor,
   SqlQueryResult,
   SqlValue,

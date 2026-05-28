@@ -64,6 +64,26 @@ export function createSyncBundleGenerateQueue(jobsEnv) {
   };
 }
 
+export function createSyncSafetyScanQueue(jobsEnv) {
+  return {
+    async send(message) {
+      const ack = () => {};
+      await handleQueueBatch(
+        {
+          queue: "safety-scan",
+          messages: [{ body: message, ack, retry: () => {} }],
+        },
+        jobsEnv,
+      );
+    },
+    async sendBatch(messages) {
+      for (const message of messages) {
+        await this.send(message.body ?? message);
+      }
+    },
+  };
+}
+
 export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",
@@ -82,6 +102,7 @@ export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, a
       operationEvents: repo.operationEvents,
       platformLockdowns: repo.platformLockdowns,
       accessLinks: repo.accessLinks,
+      safetyWarnings: repo.safetyWarnings,
     }),
     DENYLIST: denylist,
     SYNC_BYTE_PURGE_DELETED_OBJECTS: 0,
@@ -89,5 +110,6 @@ export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, a
   jobsEnv.ARTIFACTS = createCountingArtifactsBucket(artifacts, jobsEnv);
   jobsEnv.BYTE_PURGE_QUEUE = createSyncBytePurgeQueue(jobsEnv);
   jobsEnv.BUNDLE_GENERATE_QUEUE = createSyncBundleGenerateQueue(jobsEnv);
+  jobsEnv.SAFETY_SCAN_QUEUE = createSyncSafetyScanQueue(jobsEnv);
   return jobsEnv;
 }

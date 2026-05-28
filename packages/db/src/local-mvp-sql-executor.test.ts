@@ -84,7 +84,11 @@ describe("createLocalMvpSqlExecutor", () => {
       [artifactId, revisionId],
     );
     expect(files.rows).toEqual([
-      { path: "index.html", r2_key: `artifacts/${artifactId}/revisions/${revisionId}/index.html` },
+      {
+        path: "index.html",
+        r2_key: `artifacts/${artifactId}/revisions/${revisionId}/index.html`,
+        served_content_type: "text/html",
+      },
     ]);
   });
 

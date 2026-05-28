@@ -562,7 +562,15 @@ export class RepositoryCore implements Repository {
       const revision = await entities.revisions.findById(revisionId, workspaceId);
       if (revision && revision.status === "published") {
         const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-        const agentView = buildAgentView(artifact, revisionId, files, this.options.contentBaseUrl ?? "", revision);
+        const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
+        const agentView = buildAgentView(
+          artifact,
+          revisionId,
+          files,
+          this.options.contentBaseUrl ?? "",
+          revision,
+          warnings,
+        );
         viewer = {
           iframe_src: agentView.view_url,
           render_mode: revision.render_mode,
@@ -1131,7 +1139,8 @@ export class RepositoryCore implements Repository {
       const viewArtifact =
         revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
       const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
+      const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
     });
   }
 
@@ -1152,7 +1161,8 @@ export class RepositoryCore implements Repository {
       const viewArtifact =
         revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
       const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
+      const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
+      return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
     });
   }
 

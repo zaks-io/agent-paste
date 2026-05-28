@@ -319,6 +319,7 @@ const apiEnv = {
   AUTH: auth,
   DB: apiDb,
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
+  SAFETY_SCAN_QUEUE: jobsEnv.SAFETY_SCAN_QUEUE,
   BYTE_PURGE_QUEUE: jobsEnv.BYTE_PURGE_QUEUE,
   LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
   ARTIFACTS: artifacts,

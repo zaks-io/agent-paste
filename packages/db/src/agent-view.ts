@@ -1,4 +1,4 @@
-import type { Artifact, BundleStatus, RepositoryOptions, StoredFile } from "./types.js";
+import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
 
@@ -42,6 +42,7 @@ export function buildAgentView(
     bundle_status_updated_at: string | null;
     bundle_size_bytes: number | null;
   },
+  warnings: SafetyWarning[] = [],
 ) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
@@ -60,7 +61,19 @@ export function buildAgentView(
       content_type: file.content_type,
       url: `${prefix}/${encodePath(file.path)}`,
     })),
+    safety_warnings: warnings.map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
+  };
+}
+
+function toAgentViewSafetyWarning(warning: SafetyWarning) {
+  return {
+    code: warning.code,
+    severity: warning.severity,
+    scope: warning.scope,
+    ...(warning.file_path ? { file_path: warning.file_path } : {}),
+    message: warning.message,
+    detected_at: warning.created_at,
   };
 }
 

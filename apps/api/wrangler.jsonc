@@ -152,7 +152,10 @@
         }
       ],
       "queues": {
-        "producers": [{ "queue": "bundle-generate-preview", "binding": "BUNDLE_GENERATE_QUEUE" }]
+        "producers": [
+          { "queue": "bundle-generate-preview", "binding": "BUNDLE_GENERATE_QUEUE" },
+          { "queue": "safety-scan-preview", "binding": "SAFETY_SCAN_QUEUE" }
+        ]
       },
       "durable_objects": {
         "bindings": [
@@ -253,7 +256,10 @@
         }
       ],
       "queues": {
-        "producers": [{ "queue": "bundle-generate-production", "binding": "BUNDLE_GENERATE_QUEUE" }]
+        "producers": [
+          { "queue": "bundle-generate-production", "binding": "BUNDLE_GENERATE_QUEUE" },
+          { "queue": "safety-scan-production", "binding": "SAFETY_SCAN_QUEUE" }
+        ]
       },
       "durable_objects": {
         "bindings": [

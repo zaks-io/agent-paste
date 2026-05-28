@@ -78,6 +78,27 @@ No artifact can be created without `expires_at`.
 
 Primary key `(artifact_id, path)`. Unique normalized paths per artifact.
 
+### `safety_warnings`
+
+| Column            | Type                   | Notes                                                      |
+| ----------------- | ---------------------- | ---------------------------------------------------------- |
+| `id`              | `TEXT PRIMARY KEY`     | `warn_...`.                                                |
+| `workspace_id`    | `UUID NOT NULL`        | Tenant id.                                                 |
+| `artifact_id`     | `TEXT NOT NULL`        | Parent Artifact.                                           |
+| `revision_id`     | `TEXT NOT NULL`        | Parent Revision.                                           |
+| `scanner_id`      | `TEXT NOT NULL`        | Scanner namespace, for example `builtin_content`.          |
+| `scanner_version` | `TEXT NOT NULL`        | Scanner rule/version string used for idempotent re-scans.  |
+| `code`            | `TEXT NOT NULL`        | Stable snake_case warning code.                            |
+| `severity`        | `TEXT NOT NULL`        | `info` or `warning`.                                       |
+| `scope`           | `TEXT NOT NULL`        | `artifact`, `revision`, or `file`.                         |
+| `file_path`       | `TEXT NULL`            | Required for file-scoped warnings; null for broader scope. |
+| `message`         | `TEXT NOT NULL`        | Sanitized plain-text message.                              |
+| `created_at`      | `TIMESTAMPTZ NOT NULL` | Detection timestamp surfaced as `detected_at`.             |
+
+The async scanner replaces all rows within `(revision_id, scanner_id)` inside a
+single `runCommand` transaction. Agent View merges current warnings without
+exposing scanner internals.
+
 ### `upload_sessions`
 
 | Column                | Type                                      | Notes                                           |
@@ -165,6 +186,8 @@ KV values do not contain token material.
 - `artifacts(workspace_id, expires_at) WHERE status = 'active'`
 - `artifacts(revision_id) UNIQUE`
 - `artifact_files(artifact_id, path) UNIQUE`
+- `safety_warnings(revision_id)`
+- `safety_warnings(revision_id, scanner_id)`
 - `upload_sessions(workspace_id, expires_at) WHERE status = 'pending'`
 - `upload_session_files(upload_session_id, path) UNIQUE`
 - `operation_events(workspace_id, occurred_at DESC)`

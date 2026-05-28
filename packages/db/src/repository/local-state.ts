@@ -5,6 +5,7 @@ import type {
   OperationEvent,
   PlatformLockdown,
   Revision,
+  SafetyWarning,
   StoredFile,
   UploadSession,
   Workspace,
@@ -25,6 +26,7 @@ export type LocalState = {
   operationEvents: Map<string, OperationEvent>;
   platformLockdowns: Map<string, PlatformLockdown>;
   accessLinks: Map<string, AccessLink>;
+  safetyWarnings: Map<string, SafetyWarning>;
 };
 
 export function createLocalState(): LocalState {
@@ -40,5 +42,6 @@ export function createLocalState(): LocalState {
     operationEvents: new Map(),
     platformLockdowns: new Map(),
     accessLinks: new Map(),
+    safetyWarnings: new Map(),
   };
 }

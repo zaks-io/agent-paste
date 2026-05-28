@@ -364,6 +364,20 @@ export function localEntities(state: LocalState): Entities {
         );
       },
     },
+    safetyWarnings: {
+      async listForRevision(workspaceId, revisionId) {
+        return [...state.safetyWarnings.values()]
+          .filter((warning) => warning.workspace_id === workspaceId && warning.revision_id === revisionId)
+          .sort((left, right) => {
+            const scope = left.scope.localeCompare(right.scope);
+            if (scope !== 0) {
+              return scope;
+            }
+            const filePath = (left.file_path ?? "").localeCompare(right.file_path ?? "");
+            return filePath === 0 ? left.code.localeCompare(right.code) : filePath;
+          });
+      },
+    },
     uploadSessions: {
       async insert(session) {
         state.uploadSessions.set(session.id, session);

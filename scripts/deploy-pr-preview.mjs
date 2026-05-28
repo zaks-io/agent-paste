@@ -179,7 +179,10 @@ function apiConfig() {
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
     ],
     queues: {
-      producers: [{ queue: jobQueues.bundleGenerate, binding: "BUNDLE_GENERATE_QUEUE" }],
+      producers: [
+        { queue: jobQueues.bundleGenerate, binding: "BUNDLE_GENERATE_QUEUE" },
+        { queue: jobQueues.safetyScan, binding: "SAFETY_SCAN_QUEUE" },
+      ],
     },
   });
 }
