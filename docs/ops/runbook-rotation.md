@@ -4,6 +4,39 @@ Operator runbook for rotating deployed Worker secrets in `preview` or `productio
 
 Use this runbook for emergency or planned manual rotation. Do not use `scripts/bootstrap-secrets.mjs` for routine rotation; bootstrap is first-deploy only and refuses to overwrite existing secrets unless forced.
 
+## Automated overlap tooling
+
+Operator scripts implement the ADR 0045 staging → flip → drain → drop sequence. They never read secret values back from Cloudflare; capture generated or dashboard material in a password manager before closing the terminal.
+
+| Profile                  | Script entrypoint                                                              | Workers touched             |
+| ------------------------ | ------------------------------------------------------------------------------ | --------------------------- |
+| Content signing          | `node scripts/rotate-versioned-secret.mjs content-signing <env> --step <step>` | `api`, `upload`, `content`  |
+| Upload signing           | `node scripts/rotate-versioned-secret.mjs upload-signing <env> --step <step>`  | `upload`                    |
+| API Key pepper           | `node scripts/rotate-versioned-secret.mjs api-key-pepper <env> --step <step>`  | `api`, `upload`             |
+| Artifact-byte encryption | `node scripts/rotate-versioned-secret.mjs artifact-bytes-encryption <env> ...` | `upload`, `content`, `jobs` |
+| WorkOS API key           | `node scripts/rotate-workos-secrets.mjs workos-api-key <env> --value <secret>` | `api`, then `web`           |
+| WorkOS cookie password   | `node scripts/rotate-workos-secrets.mjs workos-cookie-password <env> ...`      | `web`                       |
+
+Convenience aliases (append `--step stage|flip|drain|drop` and `--dry-run` as needed):
+
+```sh
+pnpm secrets:rotate:content-signing:preview -- --step stage --dry-run
+pnpm secrets:rotate:api-key-pepper:preview -- --step flip
+pnpm secrets:rotate:workos-api-key:preview -- --dry-run --value <from-workos-dashboard>
+```
+
+Steps:
+
+1. **`--step stage`** — `wrangler secret put` the `*_V2` binding on every Worker in the profile. Keep the active kid var at `v1`.
+2. **`--step flip`** — `wrangler deploy --var <KID_VAR>:v2` on each Worker so new mints use kid `2`.
+3. **`--step drain`** — plan-only wait guidance (no wrangler writes). Follow the profile-specific TTL notes below.
+4. **`--step drop`** — promote the staged value into the primary secret, deploy `--var <KID_VAR>:v1`, then `wrangler secret delete` the `_V2` name. Requires `--value <promoted-secret>` because wrangler cannot read secrets back.
+5. **`--step emergency`** — single-step cutover (invalidates overlap). Requires `--value` and `--force` with typed confirmation when overwriting an existing primary.
+
+Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The default machine identity is `rotation-agent@platform` per ADR 0046.
+
+`@agent-paste/rotation` tests exercise overlap and promotion collapse in CI (`packages/rotation/src/automation.test.ts`). Do not run hosted smokes or live secret writes unless the Linear ticket explicitly approves credentials.
+
 ## Current Inventory
 
 | Secret                          | Bound on              | Rotation impact                                                                                                  |

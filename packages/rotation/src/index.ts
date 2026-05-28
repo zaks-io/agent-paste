@@ -1,3 +1,22 @@
+export {
+  applyKeyRingRotationStep,
+  applyPepperRotationStep,
+  buildRotationPlan,
+  collapseKeyRingAfterPromotion,
+  inferSnapshotFromListedSecrets,
+  keyRingFromProfileEnv,
+  pepperRingFromProfileEnv,
+  profileBindingsForTarget,
+  ROTATION_AGENT_OPERATOR_ID,
+  type RotationPlan,
+  VERSIONED_SECRET_PROFILES,
+  type VersionedSecretEnvSnapshot,
+  type VersionedSecretProfile,
+  type VersionedSecretProfileId,
+  type VersionedSecretRotationStep,
+  type WranglerSecretAction,
+  workerNameForTarget,
+} from "./automation.js";
 export { createKeyRingFromVersionedEnv, KeyRing, type KeyRingEntry, type VersionedSecretEnv } from "./key-ring.js";
 export { parseKidLabel } from "./kid.js";
 export { PepperRing } from "./pepper-ring.js";

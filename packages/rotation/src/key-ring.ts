@@ -99,6 +99,15 @@ export class KeyRing {
     return this.verifyKidSet.size;
   }
 
+  /** Emergency cutover: single active kid with a new secret (no overlap). */
+  replaceSigningSecret(secret: string, kid = 1): void {
+    this.signingKidValue = kid;
+    this.verifyKidSet = new Set([kid]);
+    this.secrets.clear();
+    this.secrets.set(kid, secret);
+    this.assertConsistent();
+  }
+
   private assertConsistent(): void {
     if (!this.secrets.has(this.signingKidValue)) {
       throw new Error(`key_ring_inconsistent_signing_kid:${this.signingKidValue}`);
