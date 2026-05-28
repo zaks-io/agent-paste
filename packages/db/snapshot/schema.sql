@@ -180,6 +180,22 @@ CREATE TABLE "upload_sessions" (
 	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member'))
 );
 
+CREATE TABLE "workspace_billing" (
+	"workspace_id" uuid PRIMARY KEY NOT NULL,
+	"stripe_customer_id" text,
+	"stripe_subscription_id" text,
+	"subscription_status" text,
+	"current_period_end" timestamp with time zone,
+	"price_interval" text,
+	"synced_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "workspace_billing_price_interval_check" CHECK ("workspace_billing"."price_interval" is null or "workspace_billing"."price_interval" in ('month', 'year')),
+	CONSTRAINT "workspace_billing_subscription_status_check" CHECK ("workspace_billing"."subscription_status" is null or "workspace_billing"."subscription_status" in (
+        'active', 'trialing', 'past_due', 'canceled', 'unpaid',
+        'incomplete', 'incomplete_expired', 'paused'
+      ))
+);
+
 CREATE TABLE "workspace_members" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -194,11 +210,14 @@ CREATE TABLE "workspaces" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"contact_email" text,
+	"plan" text DEFAULT 'free' NOT NULL,
+	"plan_operator_override_at" timestamp with time zone,
 	"auto_deletion_days" integer DEFAULT 30 NOT NULL,
 	"plan" text DEFAULT 'free' NOT NULL,
 	"revision_retention_days" integer,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "workspaces_plan_check" CHECK ("workspaces"."plan" in ('free', 'pro')),
 	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90),
 	CONSTRAINT "workspaces_plan_check" CHECK ("workspaces"."plan" in ('free', 'pro')),
 	CONSTRAINT "workspaces_revision_retention_days_check" CHECK ("workspaces"."revision_retention_days" is null or "workspaces"."revision_retention_days" >= 1)
@@ -220,6 +239,7 @@ ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_revision_fk" FOREI
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "workspace_billing" ADD CONSTRAINT "workspace_billing_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 CREATE UNIQUE INDEX "access_links_public_id_unique" ON "access_links" USING btree ("public_id");
 CREATE INDEX "access_links_artifact_created_idx" ON "access_links" USING btree ("artifact_id","created_at");
@@ -239,5 +259,7 @@ CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btre
 CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
 CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
+CREATE UNIQUE INDEX "workspace_billing_stripe_subscription_id_unique" ON "workspace_billing" USING btree ("stripe_subscription_id") WHERE "workspace_billing"."stripe_subscription_id" is not null;
+CREATE INDEX "workspace_billing_stripe_customer_idx" ON "workspace_billing" USING btree ("stripe_customer_id") WHERE "workspace_billing"."stripe_customer_id" is not null;
 CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "workspace_members_workos_user_unique" ON "workspace_members" USING btree ("workos_user_id");

@@ -87,6 +87,7 @@ describe("postgresEntities", () => {
       name: "Demo",
       contact_email: "user@example.com",
       plan: "free",
+      plan_operator_override_at: null,
       auto_deletion_days: 30,
       revision_retention_days: null,
       created_at: now,

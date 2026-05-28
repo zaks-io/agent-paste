@@ -16,12 +16,29 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export const workspacePlans = ["free", "pro"] as const;
+export type WorkspacePlan = (typeof workspacePlans)[number];
+
+export const subscriptionStatuses = [
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
+  "unpaid",
+  "incomplete",
+  "incomplete_expired",
+  "paused",
+] as const;
+export type SubscriptionStatus = (typeof subscriptionStatuses)[number];
+
 export const workspaces = pgTable(
   "workspaces",
   {
     id: uuid("id").primaryKey(),
     name: text("name").notNull(),
     contactEmail: text("contact_email"),
+    plan: text("plan").$type<WorkspacePlan>().notNull().default("free"),
+    planOperatorOverrideAt: timestamp("plan_operator_override_at", { withTimezone: true }),
     autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
     plan: text("plan").notNull().default("free"),
     revisionRetentionDays: integer("revision_retention_days"),
@@ -29,12 +46,48 @@ export const workspaces = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`),
     check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check(
       "workspaces_revision_retention_days_check",
       sql`${table.revisionRetentionDays} is null or ${table.revisionRetentionDays} >= 1`,
     ),
+  ],
+);
+
+export const workspaceBilling = pgTable(
+  "workspace_billing",
+  {
+    workspaceId: uuid("workspace_id")
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    subscriptionStatus: text("subscription_status").$type<SubscriptionStatus | null>(),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    priceInterval: text("price_interval").$type<"month" | "year" | null>(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "workspace_billing_price_interval_check",
+      sql`${table.priceInterval} is null or ${table.priceInterval} in ('month', 'year')`,
+    ),
+    check(
+      "workspace_billing_subscription_status_check",
+      sql`${table.subscriptionStatus} is null or ${table.subscriptionStatus} in (
+        'active', 'trialing', 'past_due', 'canceled', 'unpaid',
+        'incomplete', 'incomplete_expired', 'paused'
+      )`,
+    ),
+    uniqueIndex("workspace_billing_stripe_subscription_id_unique")
+      .on(table.stripeSubscriptionId)
+      .where(sql`${table.stripeSubscriptionId} is not null`),
+    index("workspace_billing_stripe_customer_idx")
+      .on(table.stripeCustomerId)
+      .where(sql`${table.stripeCustomerId} is not null`),
   ],
 );
 
