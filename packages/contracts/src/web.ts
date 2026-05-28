@@ -5,7 +5,7 @@ import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
 import { LiveUpdatePointer } from "./liveUpdates.js";
 import { ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
-import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
+import { UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
