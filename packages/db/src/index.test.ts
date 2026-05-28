@@ -602,6 +602,62 @@ describe("LocalRepository", () => {
     );
   });
 
+  it("attributes artifact lockdown audit events to the artifact workspace", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-art-lockdown",
+      email: "art-lockdown@example.com",
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    const key = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key-art-lockdown",
+      workspaceId: workspace.id,
+      name: "publish",
+    });
+    const actor = await repo.verifyApiKey(key.secret);
+    if (!actor) {
+      throw new Error("expected actor");
+    }
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-art-lockdown",
+      request: { entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-art-lockdown",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    await repo.publishRevision({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      idempotencyKey: "idem-publish-art-lockdown",
+      now: "2026-01-01T00:00:03.000Z",
+    });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+    await repo.setLockdown({
+      actor: operator,
+      idempotencyKey: "idem-art-lockdown",
+      scope: "artifact",
+      targetId: session.artifact_id,
+      reasonCode: "malware_signal",
+      now: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    const setEvent = [...repo.operationEvents.values()].find((event) => event.action === "platform.lockdown.set");
+    expect(setEvent?.workspace_id).toBe(workspace.id);
+    expect(
+      (await repo.listOperatorEvents(operator, { workspaceId: workspace.id, action: "platform.lockdown.set" }))
+        .items[0]?.change_summary,
+    ).toBe("Platform lockdown set on artifact (reason: malware_signal)");
+  });
+
   it("returns not_found when lifting a lockdown that does not exist", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     await expect(

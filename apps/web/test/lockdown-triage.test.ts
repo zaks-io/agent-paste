@@ -34,6 +34,31 @@ describe("lockdown-triage", () => {
     });
   });
 
+  it("ignores invalid triage search and event shapes", () => {
+    expect(parseLockdownTriageSearch({ triage_scope: "invalid" })).toEqual({});
+    expect(
+      lockdownTriageFromEvent({
+        target_type: "api_key",
+        target: "api_key:key_1",
+        change_summary: "",
+      }),
+    ).toBeNull();
+    expect(
+      lockdownTriageFromEvent({
+        target_type: "workspace",
+        target: "workspace:",
+        change_summary: "Platform lockdown set on workspace",
+      }),
+    ).toBeNull();
+    expect(
+      lockdownTriageFromEvent({
+        target_type: "artifact",
+        target: "artifact:art_1",
+        change_summary: "Artifact published",
+      }),
+    ).toEqual({ scope: "artifact", target_id: "art_1" });
+  });
+
   it("derives lockdown prefill from operator event rows", () => {
     expect(
       lockdownTriageFromEvent({

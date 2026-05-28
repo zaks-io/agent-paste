@@ -86,6 +86,31 @@ describe("OperatorEventsPanel", () => {
     expect(screen.getAllByText("\u2014").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("renders change summaries and lockdown triage links for workspace events", () => {
+    render(
+      <OperatorEventsPanel
+        events={{
+          items: [
+            {
+              ...row,
+              actor_type: "platform",
+              action: "platform.lockdown.set",
+              target: "workspace:ws_abc",
+              target_type: "workspace",
+              change_summary: "Platform lockdown set on workspace (reason: abuse)",
+            },
+          ],
+          page_info: { next_cursor: null, has_more: false },
+        }}
+        error={null}
+        search={{}}
+      />,
+    );
+
+    expect(screen.getByText("Platform lockdown set on workspace (reason: abuse)")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Lock down" })).toHaveAttribute("href", "/mock-audit");
+  });
+
   it("submits, changes, and clears filters through route search", () => {
     render(
       <OperatorEventsPanel

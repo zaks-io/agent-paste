@@ -97,6 +97,21 @@ describe("LockdownForm", () => {
     expect(screen.getByLabelText("Reason code")).toHaveValue("abuse");
   });
 
+  it("applies triage prefill values to the form fields", () => {
+    render(
+      <ToastProvider>
+        <LockdownForm
+          onSuccess={vi.fn()}
+          prefill={{ scope: "workspace", target_id: "ws_abc", reason_code: "phishing_report" }}
+        />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Workspace" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Target ID")).toHaveValue("ws_abc");
+    expect(screen.getByLabelText("Reason code")).toHaveValue("phishing_report");
+  });
+
   it("shows an error toast when the mutation throws", async () => {
     setLockdownFn.mockRejectedValue(new Error("Connection reset."));
     const onSuccess = vi.fn();
