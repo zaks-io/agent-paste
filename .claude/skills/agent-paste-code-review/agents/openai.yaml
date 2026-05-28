@@ -1,4 +1,0 @@
-interface:
-  display_name: "Agent Paste Code Review"
-  short_description: "agent-paste pre-PR bug review workflow"
-  default_prompt: "Use $agent-paste-code-review to review my current diff before PR."

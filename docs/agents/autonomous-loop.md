@@ -33,7 +33,7 @@ On each run:
    `Changes Requested`, and `Ready to Merge`.
 3. Check PR state for active work before starting new work.
 4. Include agent-ready issues filed by
-   `agent-paste-goal-review-main-and-queue-fixes` in the same implementation
+   `workflow-agent-review` in the same implementation
    queue as other `Todo` + `ready-for-agent` work.
 5. Select the next issue by milestone order, priority, dependency state, risk,
    and file/package contention.
@@ -58,7 +58,7 @@ Workers should:
    name when the queue-moving loop did not assign a branch.
 5. Implement only the stated scope.
 6. Run ticket-specific checks first, then broader checks as needed.
-7. Run or request `agent-paste-local-code-review` before PR handoff.
+7. Run or request `workflow-code-review` before PR handoff.
 8. Open a ready-for-review PR, link the Linear issue, and move the issue to
    `In Review`.
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Agent Paste PR Review"
-  short_description: "Review an AP PR against Linear"
-  default_prompt: "Use $agent-paste-review-pr to review this PR against its Linear issue and repo invariants."
