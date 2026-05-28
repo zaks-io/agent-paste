@@ -1,3 +1,4 @@
+import { IdempotencyKey, mcpPublishAccessLinkIdempotencyKey } from "@agent-paste/contracts";
 import { describe, expect, it } from "vitest";
 import { LocalRepository } from "./local-repository.js";
 
@@ -95,6 +96,30 @@ describe("member MCP repository operations", () => {
     expect(finalizeReplay).toMatchObject({
       result: expect.objectContaining({ artifact_id: upload.artifact_id }),
     });
+  });
+
+  it("replays share link creation when reusing the publish-chain share idempotency key", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const { member, artifactId } = await memberWithPublishedArtifact(repo);
+    const toolKey = IdempotencyKey.parse("mcp:user_01:7:publish_artifact");
+    const publishChainShareKey = mcpPublishAccessLinkIdempotencyKey(toolKey, "share");
+
+    const share = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: publishChainShareKey,
+      artifactId,
+      type: "share",
+    });
+    const replayedShare = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: publishChainShareKey,
+      artifactId,
+      type: "share",
+    });
+
+    expect(replayedShare.id).toBe(share.id);
+    const links = await repo.listMemberAccessLinks(member, artifactId);
+    expect(links?.items.filter((link) => link.type === "share")).toHaveLength(1);
   });
 
   it("lists, updates title, deletes artifacts, and manages access links for a member", async () => {
