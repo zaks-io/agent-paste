@@ -46,6 +46,57 @@ async function memberWithPublishedArtifact(repo: LocalRepository) {
 }
 
 describe("member MCP repository operations", () => {
+  it("peekIdempotentReplay resolves upload session commands for member actors", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "mcp-member@example.com",
+      idempotencyKey: "workos-jti:peek-member",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const member = await repo.getWebMemberByWorkOsUserId({ workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ" });
+    if (!member) {
+      throw new Error("expected member actor");
+    }
+    const upload = await repo.createUploadSession({
+      actor: member,
+      idempotencyKey: "idem-member-peek-create",
+      request: {
+        title: "MCP upload",
+        entrypoint: "index.md",
+        files: [{ path: "index.md", size_bytes: 5 }],
+      },
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    const file = upload.files[0];
+    if (!file) {
+      throw new Error("expected upload file");
+    }
+    await repo.finalizeUploadSession({
+      actor: member,
+      idempotencyKey: "idem-member-peek-finalize",
+      sessionId: upload.upload_session_id,
+      observedFiles: [{ path: "index.md", objectKey: file.object_key, sizeBytes: 5 }],
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    const createReplay = await repo.peekIdempotentReplay({
+      actor: member,
+      operation: "upload.session.create",
+      idempotencyKey: "idem-member-peek-create",
+    });
+    expect(createReplay).toMatchObject({
+      result: expect.objectContaining({ upload_session_id: upload.upload_session_id }),
+    });
+    const finalizeReplay = await repo.peekIdempotentReplay({
+      actor: member,
+      operation: "upload.session.finalize",
+      idempotencyKey: "idem-member-peek-finalize",
+    });
+    expect(finalizeReplay).toMatchObject({
+      result: expect.objectContaining({ artifact_id: upload.artifact_id }),
+    });
+  });
+
   it("lists, updates title, deletes artifacts, and manages access links for a member", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);

@@ -1509,9 +1509,9 @@ export class RepositoryCore implements Repository {
     );
   }
 
-  async peekIdempotentReplay(input: { actor: ApiKeyActor; operation: string; idempotencyKey: string }) {
+  async peekIdempotentReplay(input: { actor: ApiActor; operation: string; idempotencyKey: string }) {
     return this.uow.peekReplay<unknown>({
-      actor: apiCommandActor(input.actor),
+      actor: workspaceCommandActor(input.actor),
       operation: input.operation,
       idempotencyKey: input.idempotencyKey,
       scope: workspaceScope(input.actor.workspace_id),

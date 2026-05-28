@@ -453,7 +453,7 @@ function uploadDatabase(env: Env): Repository | undefined {
 
 async function peekUploadReplay<T>(
   db: Repository,
-  actor: Extract<UploadActor, { type: "api_key" }>,
+  actor: UploadActor,
   operation: string,
   idempotencyKey: string,
 ): Promise<T | null> {
@@ -468,11 +468,14 @@ async function uploadReplay(input: {
   db: Repository;
   guard: HeaderGuardState;
 }): Promise<Response | null> {
-  if (input.principal.kind !== "api_key" || !input.guard.idempotencyKey) {
+  if (!input.guard.idempotencyKey) {
+    return null;
+  }
+  const actor = uploadSessionActor(input.principal);
+  if (!actor) {
     return null;
   }
   const context = input.context as AppContext;
-  const actor = input.principal.actor as Extract<UploadActor, { type: "api_key" }>;
   if (input.contract.id === "uploadSessions.create") {
     const replay = await peekUploadReplay<UploadSessionRecord>(
       input.db,
