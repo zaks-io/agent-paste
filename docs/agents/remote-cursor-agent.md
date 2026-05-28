@@ -64,7 +64,7 @@ Operational notes from the Background Agents docs:
   be present when the Linear issue explicitly requires them.
 - Do not assume the `coderabbit` CLI is available inside Cursor's remote agent
   environment. CodeRabbit is on-demand only and should be reserved for the
-  high-risk cases described in the repo-local `agent-paste-code-review` skill.
+  high-risk cases described in the repo-local `workflow-code-review` skill.
 - Cursor Composer 2.5 is the preferred implementation workhorse for ready,
   well-scoped AP issues that can be verified locally or in CI. The queue-moving
   loop remains responsible for review, CI watching, and escalation.
@@ -75,23 +75,20 @@ This repo is Claude-first for repo-local skills. Canonical skill files live
 under `.claude/skills`, and `.agents/skills` links to those directories for
 Codex-style runtimes. Remote environments should preserve those links.
 
-- `.claude/skills/agent-paste-implement-issue`
-- `.claude/skills/agent-paste-local-code-review`
-- `.claude/skills/agent-paste-next-pr`
+- `.claude/skills/workflow-agent-implement`
+- `.claude/skills/workflow-code-review`
+- `.claude/skills/workflow-agent-queue`
 - `.claude/skills/agent-paste-neon-postgres`
-- `.claude/skills/agent-paste-goal-keep-agent-queue-moving`
-- `.claude/skills/agent-paste-goal-review-main-and-queue-fixes`
-- `.claude/skills/agent-paste-review-pr`
-- `.claude/skills/agent-paste-create-pr`
-- `.claude/skills/agent-paste-code-review`
+- `.claude/skills/workflow-agent-review`
+- `.claude/skills/workflow-create-pr`
 
-The linked `.agents/skills/agent-paste-*` paths should resolve to the same
-skill files after clone. If a runtime cannot follow symlinks, read the matching
-`.claude/skills/agent-paste-*` path directly.
+The linked `.agents/skills/*` paths should resolve to the same skill files
+after clone. If a runtime cannot follow symlinks, read the matching
+`.claude/skills/*` path directly.
 
-Use `agent-paste-implement-issue` for the implementation flow. Before opening a
-PR, run `agent-paste-local-code-review` as a read-only review pass. Use
-CodeRabbit only when the local review or `agent-paste-code-review` skill
+Use `workflow-agent-implement` for the implementation flow. Before opening a
+PR, run `workflow-code-review` as a read-only review pass. Use
+CodeRabbit only when the local review or `workflow-code-review` skill
 recommends escalation or the change is high risk: auth, authorization, secrets,
 migrations, destructive data changes, background jobs, concurrency, generated
 artifacts, public API/CLI contracts, or broad refactors.
@@ -184,7 +181,7 @@ Create GitHub pull requests **ready for review** (`draft: false`). Do not open
 draft PRs unless the Linear issue explicitly asks for a draft.
 
 This repo does not rely on automatic CodeRabbit review for every PR. Run the
-repo-local `agent-paste-local-code-review` skill first. If it recommends
+repo-local `workflow-code-review` skill first. If it recommends
 CodeRabbit, request CodeRabbit explicitly with a PR comment after the PR exists
 and address only high-priority actionable findings.
 

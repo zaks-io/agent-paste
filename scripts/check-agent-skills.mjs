@@ -7,7 +7,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const claudeSkillsDir = path.join(root, ".claude", "skills");
 const agentSkillsDir = path.join(root, ".agents", "skills");
 const skillsLockPath = path.join(root, "skills-lock.json");
-const skillPrefix = "agent-paste-";
+const skillPrefixes = ["agent-paste-", "workflow-"];
+const hasAllowedPrefix = (name) => skillPrefixes.some((prefix) => name.startsWith(prefix));
+const prefixList = skillPrefixes.join(" or ");
 
 const errors = [];
 
@@ -91,8 +93,8 @@ const claudeSkillNames = listDirNames(claudeSkillsDir)
   .sort();
 
 for (const name of claudeSkillNames) {
-  if (!name.startsWith(skillPrefix)) {
-    fail(`${relative(path.join(claudeSkillsDir, name))} must start with ${skillPrefix}`);
+  if (!hasAllowedPrefix(name)) {
+    fail(`${relative(path.join(claudeSkillsDir, name))} must start with ${prefixList}`);
     continue;
   }
 
@@ -123,8 +125,8 @@ for (const name of agentEntries) {
     continue;
   }
 
-  if (!name.startsWith(skillPrefix)) {
-    fail(`${relative(agentPath)} must start with ${skillPrefix}`);
+  if (!hasAllowedPrefix(name)) {
+    fail(`${relative(agentPath)} must start with ${prefixList}`);
   }
 
   if (!stats.isSymbolicLink()) {
@@ -162,21 +164,17 @@ if (lockText) {
   try {
     const lock = JSON.parse(lockText);
     for (const [name, entry] of Object.entries(lock.skills ?? {})) {
-      if (!name.startsWith(skillPrefix)) {
+      if (!hasAllowedPrefix(name)) {
         fail(`${relative(skillsLockPath)} contains unprefixed skill key ${name}`);
       }
 
-      if (!entry.skillPath?.startsWith(`.claude/skills/${skillPrefix}`)) {
-        fail(`${relative(skillsLockPath)} entry ${name} must point at canonical .claude/skills`);
+      const canonicalPath = `.claude/skills/${name}/SKILL.md`;
+      if (entry.skillPath !== canonicalPath) {
+        fail(`${relative(skillsLockPath)} entry ${name} must point at ${canonicalPath}`);
         continue;
       }
 
       const lockedSkillFile = path.join(root, entry.skillPath);
-      const lockedSkillName = path.basename(path.dirname(lockedSkillFile));
-      if (lockedSkillName !== name) {
-        fail(`${relative(skillsLockPath)} entry ${name} points at ${entry.skillPath}`);
-      }
-
       if (entry.computedHash) {
         const actualHash = sha256(lockedSkillFile);
         if (actualHash && actualHash !== entry.computedHash) {
