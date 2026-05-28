@@ -340,7 +340,6 @@ describe("handleBundleGenerateBatch integration", () => {
     const ack = vi.fn();
     const put = vi.fn(async () => {});
     const bundleKey = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
-    const streamBody = new Response("streamed").body;
     await handleBundleGenerateBatch(
       [
         {

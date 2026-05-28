@@ -101,6 +101,23 @@ describe("artifact-bytes encryption", () => {
     ).rejects.toThrow(/unknown_kid/u);
   });
 
+  it("rejects invalid encryption metadata", () => {
+    expect(isArtifactBytesEncryptionMetadata(undefined)).toBe(false);
+    expect(
+      isArtifactBytesEncryptionMetadata({
+        enc_kid: "1",
+        enc_alg: "aes-256-gcm",
+      }),
+    ).toBe(false);
+    expect(
+      isArtifactBytesEncryptionMetadata({
+        enc_kid: "1",
+        enc_alg: "chacha20",
+        enc_aad_v: "v1",
+      }),
+    ).toBe(false);
+  });
+
   it("parses revision file object keys and stored plaintext sizes", () => {
     expect(parseRevisionFileObjectKey("artifacts/art_a/revisions/rev_b/files/dir/file.txt")).toEqual({
       artifactId: "art_a",
@@ -109,6 +126,7 @@ describe("artifact-bytes encryption", () => {
     });
     expect(parseRevisionFileObjectKey("env/dev/workspaces/ws/artifacts/art/revisions/rev/bundle.zip")).toBeNull();
     expect(plaintextByteLengthFromStoredObject(ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES + 4)).toBe(4);
+    expect(() => plaintextByteLengthFromStoredObject(4)).toThrow(/too_short/u);
     expect(composeArtifactBytesAad(context)).toEqual(
       new TextEncoder().encode("v1|00000000-0000-4000-8000-000000000001|art_test|rev_test|index.html"),
     );
