@@ -117,10 +117,10 @@
         "UPLOAD_URL_TTL_SECONDS": "900",
         "DOCS_BASE_URL": "",
         "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
-        "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
-        "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
-        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
-        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app"
+        "WORKOS_MCP_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
+        "WORKOS_MCP_ISSUER": "https://soulful-path-50.authkit.app",
+        "WORKOS_CLI_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
+        "WORKOS_CLI_ISSUER": "https://soulful-path-50.authkit.app"
       },
       "hyperdrive": [
         {
