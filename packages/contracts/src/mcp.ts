@@ -10,7 +10,6 @@ import {
   Cursor,
   type FilePath,
   IdempotencyKey,
-  PlainTextDescription,
   PlainTextTitle,
   RevisionId,
   UrlString,
@@ -95,13 +94,9 @@ export type McpDeleteArtifactInput = z.infer<typeof McpDeleteArtifactInput>;
 export const McpUpdateDisplayMetadataInput = z
   .object({
     artifact_id: ArtifactId,
-    title: PlainTextTitle.optional(),
-    description: PlainTextDescription.nullable().optional(),
+    title: PlainTextTitle,
   })
-  .strict()
-  .refine((value) => value.title !== undefined || value.description !== undefined, {
-    message: "At least one of title or description is required",
-  });
+  .strict();
 export type McpUpdateDisplayMetadataInput = z.infer<typeof McpUpdateDisplayMetadataInput>;
 
 export const McpCreateShareLinkInput = z.object({ artifact_id: ArtifactId }).strict();
@@ -584,7 +579,7 @@ export const mcpToolContracts = [
   },
   {
     name: "update_display_metadata",
-    description: "Update artifact display metadata.",
+    description: "Update artifact display title (description updates are not supported in this phase).",
     auth: "mcp_oauth",
     requiredScopes: ["write"],
     idempotency: "none",

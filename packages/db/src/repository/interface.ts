@@ -267,8 +267,7 @@ export type Repository = {
   updateArtifactDisplayMetadata(input: {
     actor: ApiActor;
     artifactId: string;
-    title?: string;
-    description?: string | null;
+    title: string;
     now?: Date;
   }): Promise<{ title: string; description: string | null }>;
   createMemberAccessLink(input: {

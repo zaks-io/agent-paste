@@ -61,15 +61,6 @@ describe("member MCP repository operations", () => {
     });
     expect(updated).toEqual({ title: "Renamed", description: null });
 
-    await expect(
-      repo.updateArtifactDisplayMetadata({
-        actor: member,
-        artifactId,
-        description: "not stored yet",
-        now: new Date("2026-01-02T00:00:01.000Z"),
-      }),
-    ).rejects.toThrow("invalid_request");
-
     const share = await repo.createMemberAccessLink({
       actor: member,
       artifactId,

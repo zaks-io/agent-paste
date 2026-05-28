@@ -3,7 +3,6 @@ import {
   AccessLinkId,
   ArtifactId,
   IsoDateTime,
-  PlainTextDescription,
   PlainTextTitle,
   RevisionId,
   UrlString,
@@ -77,13 +76,9 @@ export type MintAccessLinkRequest = z.infer<typeof MintAccessLinkRequest>;
 
 export const UpdateDisplayMetadataRequest = z
   .object({
-    title: PlainTextTitle.optional(),
-    description: PlainTextDescription.nullable().optional(),
+    title: PlainTextTitle,
   })
-  .strict()
-  .refine((value) => value.title !== undefined || value.description !== undefined, {
-    message: "At least one of title or description is required",
-  });
+  .strict();
 export type UpdateDisplayMetadataRequest = z.infer<typeof UpdateDisplayMetadataRequest>;
 
 export const AccessLinkResolveRequest = z.object({

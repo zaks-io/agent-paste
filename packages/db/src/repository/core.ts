@@ -1258,8 +1258,7 @@ export class RepositoryCore implements Repository {
   async updateArtifactDisplayMetadata(input: {
     actor: ApiActor;
     artifactId: string;
-    title?: string;
-    description?: string | null;
+    title: string;
     now?: Date;
   }) {
     const now = nowIso(input.now);
@@ -1276,15 +1275,7 @@ export class RepositoryCore implements Repository {
         if (!artifact || artifact.status !== "active") {
           throw new Error("artifact_not_found");
         }
-        if (input.title === undefined && input.description === undefined) {
-          throw new Error("invalid_request");
-        }
-        if (input.description !== undefined) {
-          throw new Error("invalid_request");
-        }
-        if (input.title !== undefined) {
-          await entities.artifacts.updateTitle(artifact.id, input.actor.workspace_id, input.title, now);
-        }
+        await entities.artifacts.updateTitle(artifact.id, input.actor.workspace_id, input.title, now);
         const updated = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
         if (!updated) {
           throw new Error("artifact_not_found");
