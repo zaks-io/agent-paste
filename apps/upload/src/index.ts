@@ -20,6 +20,7 @@ import {
   createHyperdriveExecutor,
   createPostgresServices,
   type HyperdriveBinding,
+  isBillingEnabled,
   observeUploadSessionForFinalize,
   type Repository,
   resolveSessionObjectKey,
@@ -106,6 +107,7 @@ export type Env = {
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   DOCS_BASE_URL?: string;
+  BILLING_ENABLED?: string;
   AGENT_PASTE_ENV?: string;
   SENTRY_DSN?: string;
   WORKOS_API_KEY?: string;
@@ -512,6 +514,7 @@ function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | unde
     apiKeyPepper: env.API_KEY_PEPPER_V1,
     ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
+    billingEnabled: isBillingEnabled(env.BILLING_ENABLED),
   };
   if (env.API_BASE_URL) {
     options.apiBaseUrl = env.API_BASE_URL;

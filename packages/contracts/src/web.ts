@@ -1,3 +1,4 @@
+import { resolveUsagePolicy } from "@agent-paste/config";
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
@@ -8,8 +9,9 @@ import { mvpUsagePolicy, UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
-const MIN_AUTO_DELETION_DAYS = Math.floor(mvpUsagePolicy.min_ttl_seconds / SECONDS_PER_DAY);
-const MAX_AUTO_DELETION_DAYS = Math.floor(mvpUsagePolicy.max_ttl_seconds / SECONDS_PER_DAY);
+const PLATFORM_USAGE_POLICY = resolveUsagePolicy({ billingEnabled: false });
+const MIN_AUTO_DELETION_DAYS = Math.floor(PLATFORM_USAGE_POLICY.min_ttl_seconds / SECONDS_PER_DAY);
+const MAX_AUTO_DELETION_DAYS = Math.floor(PLATFORM_USAGE_POLICY.max_ttl_seconds / SECONDS_PER_DAY);
 
 export const WorkspaceMemberId = z
   .string()

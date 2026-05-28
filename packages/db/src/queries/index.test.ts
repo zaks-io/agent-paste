@@ -471,6 +471,7 @@ function workspaceEntity() {
     id: "workspace_1",
     name: "Demo",
     contact_email: "user@example.com",
+    plan: "free",
     auto_deletion_days: 14,
     revision_retention_days: null,
     created_at: "2026-01-01T00:00:00.000Z",

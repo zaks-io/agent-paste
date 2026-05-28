@@ -37,11 +37,14 @@ export type HyperdriveBinding = {
   connectionString: string;
 };
 
+export type WorkspacePlan = "free" | "pro";
+
 export type Workspace = {
   id: string;
   name: string;
   contact_email: string | null;
   auto_deletion_days: number;
+  plan: WorkspacePlan;
   revision_retention_days: number | null;
   created_at: string;
   updated_at: string;
@@ -224,4 +227,6 @@ export type RepositoryOptions = {
   apiKeyEnv?: "preview" | "production";
   apiBaseUrl?: string;
   contentBaseUrl?: string;
+  /** When false (default), `workspaces.plan` is ignored and caps default to `pro`. */
+  billingEnabled?: boolean;
 };

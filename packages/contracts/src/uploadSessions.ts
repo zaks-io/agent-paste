@@ -14,7 +14,7 @@ import { z } from "./zod.js";
 
 export const UploadSessionFileInput = z.object({
   path: FilePath,
-  size_bytes: z.number().int().nonnegative().max(Mebibytes.ten),
+  size_bytes: z.number().int().nonnegative().max(Mebibytes.twentyFive),
 });
 export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 

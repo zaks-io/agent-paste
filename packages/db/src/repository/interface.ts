@@ -141,6 +141,7 @@ export type Repository = {
   }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
   verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null>;
   getWhoami(actor: ApiKeyActor): Promise<Whoami>;
+  getUsagePolicy(actor: ApiKeyActor): Promise<unknown>;
   resolveWebMember(input: {
     workosUserId: string;
     email: string;

@@ -228,7 +228,7 @@ describe("MVP schemas", () => {
         title: "too large",
         ttl_seconds: 24 * 60 * 60,
         entrypoint: "index.html",
-        files: [{ path: "index.html", size_bytes: 10 * 1024 * 1024 + 1 }],
+        files: [{ path: "index.html", size_bytes: 25 * 1024 * 1024 + 1 }],
       }).success,
     ).toBe(false);
   });

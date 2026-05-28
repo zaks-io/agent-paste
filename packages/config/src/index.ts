@@ -14,20 +14,80 @@ export const SECONDS_PER_DAY = 24 * 60 * 60;
 /** Platform cap for pinned artifacts per workspace (ADR 0048 / 0056). */
 export const PINNED_ARTIFACT_CAP = 50;
 
-export const USAGE_POLICY = {
-  file_size_cap_bytes: 10 * 1024 * 1024,
-  artifact_size_cap_bytes: MAX_ARTIFACT_BYTES,
-  bundle_size_cap_bytes: MAX_ARTIFACT_BYTES,
+export type WorkspacePlan = "free" | "pro";
+
+export const WORKSPACE_PLANS = ["free", "pro"] as const satisfies readonly WorkspacePlan[];
+
+const MB = 1024 * 1024;
+
+/** Shared caps that do not vary by Plan (rate limits are abuse ceilings, not Plan levers). */
+const SHARED_USAGE_POLICY = {
   bundles_enabled: true,
   file_count_cap: 100,
   actor_rate_limit_per_minute: 60,
   workspace_burst_cap_per_minute: 300,
   upload_session_ttl_seconds: DEFAULT_UPLOAD_SESSION_TTL_MS / 1000,
-  default_ttl_seconds: 30 * SECONDS_PER_DAY,
   min_ttl_seconds: SECONDS_PER_DAY,
-  max_ttl_seconds: 90 * SECONDS_PER_DAY,
 } as const;
-export type UsagePolicyConfig = typeof USAGE_POLICY;
+
+const FREE_PLAN_OVERRIDES = {
+  file_size_cap_bytes: 10 * MB,
+  artifact_size_cap_bytes: 25 * MB,
+  bundle_size_cap_bytes: 25 * MB,
+  default_ttl_seconds: 3 * SECONDS_PER_DAY,
+  max_ttl_seconds: 7 * SECONDS_PER_DAY,
+  live_artifacts_cap: 50,
+  live_update_enabled: false,
+} as const;
+
+const PRO_PLAN_OVERRIDES = {
+  file_size_cap_bytes: 25 * MB,
+  artifact_size_cap_bytes: 100 * MB,
+  bundle_size_cap_bytes: 100 * MB,
+  default_ttl_seconds: 30 * SECONDS_PER_DAY,
+  max_ttl_seconds: 90 * SECONDS_PER_DAY,
+  live_artifacts_cap: 1_000,
+  live_update_enabled: true,
+} as const;
+
+function buildPlanUsagePolicy(plan: WorkspacePlan) {
+  const tier = plan === "pro" ? PRO_PLAN_OVERRIDES : FREE_PLAN_OVERRIDES;
+  return { ...SHARED_USAGE_POLICY, ...tier };
+}
+
+/**
+ * CLI-first MVP contract defaults (ADR 0066). Matches the `free` Plan tier when billing is on.
+ * Runtime enforcement and `GET /v1/usage-policy` use {@link resolveUsagePolicy} instead.
+ */
+export const USAGE_POLICY = buildPlanUsagePolicy("free");
+export type UsagePolicyConfig = ReturnType<typeof buildPlanUsagePolicy>;
+
+export function isBillingEnabled(value?: string | boolean | null): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value === undefined || value === null || value === "") {
+    return false;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+/**
+ * Resolves the effective Usage Policy for a Workspace.
+ * When billing is off, `plan` is ignored and every Workspace gets the operator-default `pro` cap set.
+ */
+export function resolveUsagePolicy(input: {
+  plan?: WorkspacePlan | null;
+  billingEnabled?: boolean;
+}): UsagePolicyConfig {
+  const billingEnabled = input.billingEnabled ?? false;
+  if (!billingEnabled) {
+    return buildPlanUsagePolicy("pro");
+  }
+  const plan = input.plan ?? "free";
+  return buildPlanUsagePolicy(plan === "pro" ? "pro" : "free");
+}
 
 export type NormalizedPath = {
   path: string;

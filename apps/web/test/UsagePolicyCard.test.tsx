@@ -15,6 +15,8 @@ const policy: UsagePolicy = {
   default_ttl_seconds: 30 * 86400,
   min_ttl_seconds: 86400,
   max_ttl_seconds: 90 * 86400,
+  live_artifacts_cap: 50,
+  live_update_enabled: false,
 };
 
 describe("UsagePolicyCard", () => {

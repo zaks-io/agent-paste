@@ -367,6 +367,13 @@
               "max_ttl_seconds": {
                 "type": "integer",
                 "exclusiveMinimum": 0
+              },
+              "live_artifacts_cap": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "live_update_enabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -380,7 +387,9 @@
               "upload_session_ttl_seconds",
               "default_ttl_seconds",
               "min_ttl_seconds",
-              "max_ttl_seconds"
+              "max_ttl_seconds",
+              "live_artifacts_cap",
+              "live_update_enabled"
             ]
           }
         },
@@ -498,6 +507,13 @@
           "max_ttl_seconds": {
             "type": "integer",
             "exclusiveMinimum": 0
+          },
+          "live_artifacts_cap": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "live_update_enabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -511,7 +527,9 @@
           "upload_session_ttl_seconds",
           "default_ttl_seconds",
           "min_ttl_seconds",
-          "max_ttl_seconds"
+          "max_ttl_seconds",
+          "live_artifacts_cap",
+          "live_update_enabled"
         ]
       },
       "AgentView": {
@@ -1694,6 +1712,13 @@
               "max_ttl_seconds": {
                 "type": "integer",
                 "exclusiveMinimum": 0
+              },
+              "live_artifacts_cap": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "live_update_enabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -1707,7 +1732,9 @@
               "upload_session_ttl_seconds",
               "default_ttl_seconds",
               "min_ttl_seconds",
-              "max_ttl_seconds"
+              "max_ttl_seconds",
+              "live_artifacts_cap",
+              "live_update_enabled"
             ]
           },
           "default_key_first_run": {
