@@ -3,6 +3,7 @@ import type { HyperdriveBinding, SqlExecutor } from "@agent-paste/db";
 export type R2ObjectBody = {
   body?: ReadableStream | ArrayBuffer | null;
   size?: number;
+  customMetadata?: Record<string, string>;
 };
 
 export type R2Bucket = {

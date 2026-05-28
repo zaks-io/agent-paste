@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import {
-  findSecretCollisions,
-  listWorkerSecrets,
-  putWorkerSecret,
-  workerName,
-} from "./wrangler-secrets.mjs";
+import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, workerName } from "./wrangler-secrets.mjs";
 
 const SECRET_NAME = "ARTIFACT_BYTES_ENCRYPTION_KEY";
 const TARGET_APPS = ["upload", "content", "jobs"];
@@ -14,7 +9,6 @@ const TARGET_APPS = ["upload", "content", "jobs"];
 const target = parseTarget(process.argv.slice(2));
 const options = parseOptions(process.argv.slice(2));
 const generatedAt = new Date().toISOString();
-const secretValue = options.value ?? (options.dryRun ? "<generated>" : secretBytes(48));
 
 const bindings = TARGET_APPS.map((app) => ({
   app,
@@ -22,8 +16,9 @@ const bindings = TARGET_APPS.map((app) => ({
   names: [SECRET_NAME],
 }));
 
+const secretValue = await resolveSecretValue();
+
 if (!options.printOnly && !options.dryRun) {
-  await assertSafeToWrite();
   for (const binding of bindings) {
     await putWorkerSecret(binding.worker, SECRET_NAME, secretValue);
   }
@@ -53,6 +48,16 @@ function parseOptions(argv) {
   return { force, printOnly, dryRun, value };
 }
 
+async function resolveSecretValue() {
+  if (options.dryRun) {
+    return "<generated>";
+  }
+  if (!options.printOnly) {
+    await assertSafeToWrite();
+  }
+  return options.value ?? secretBytes(48);
+}
+
 async function assertSafeToWrite() {
   const existingByWorker = new Map();
   for (const binding of bindings) {
@@ -65,13 +70,25 @@ async function assertSafeToWrite() {
     return;
   }
 
+  if (options.value === undefined) {
+    throw new Error(
+      [
+        `Existing ${SECRET_NAME} bindings found:`,
+        ...collisions.map((name) => `  - ${name}`),
+        "",
+        "Re-run with --value <current-secret> to finish a rollout or use the versioned rotation flow.",
+        "This script will not generate a replacement for an existing active key.",
+      ].join("\n"),
+    );
+  }
+
   if (!options.force) {
     throw new Error(
       [
         `Refusing to overwrite existing ${SECRET_NAME} bindings:`,
         ...collisions.map((name) => `  - ${name}`),
         "",
-        "Re-run with --force and type the confirmation if this is an intentional rotation.",
+        "Re-run with --force and type the confirmation if this is an intentional rebind/recovery.",
       ].join("\n"),
     );
   }
@@ -131,14 +148,15 @@ function usage(message) {
 Usage:
   node scripts/set-artifact-bytes-encryption-secret.mjs preview
   node scripts/set-artifact-bytes-encryption-secret.mjs production --value <existing-secret>
+  node scripts/set-artifact-bytes-encryption-secret.mjs production --value <existing-secret> --force
   node scripts/set-artifact-bytes-encryption-secret.mjs preview --dry-run
 
 Sets the same ${SECRET_NAME} on agent-paste-upload-<target>, agent-paste-content-<target>, and agent-paste-jobs-<target>.
 Does not read or rotate any other Worker secrets. Operators run this locally; do not commit secret values.
 
 Options:
-  --value       Use an existing secret value instead of generating a new one.
-  --force       Allow overwriting an existing ${SECRET_NAME} after typed confirmation.
+  --value       Use an existing secret value instead of generating a new one. Required when the binding already exists.
+  --force       Allow overwriting an existing ${SECRET_NAME} after typed confirmation. Requires --value.
   --dry-run     Print the rollout plan without calling wrangler.
   --print-only  Generate and print a value without calling wrangler.
 `);

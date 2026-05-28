@@ -143,23 +143,25 @@ describe("artifact-bytes encryption", () => {
       }),
     ).rejects.toThrow(/too_short/u);
 
-    await expect(
-      decryptArtifactBytes({
-        ciphertext: encrypted.ciphertext,
-        rootSecret: "root-secret-v1",
-        metadata: { ...encrypted.customMetadata, enc_kid: "not-a-number" },
-        context,
-      }),
-    ).rejects.toThrow(/invalid_kid/u);
+    for (const encKid of ["not-a-number", "1abc", "1.5"]) {
+      await expect(
+        decryptArtifactBytes({
+          ciphertext: encrypted.ciphertext,
+          rootSecret: "root-secret-v1",
+          metadata: { ...encrypted.customMetadata, enc_kid: encKid },
+          context,
+        }),
+      ).rejects.toThrow(/invalid_kid/u);
 
-    await expect(
-      decryptArtifactBytesWithKeyRing({
-        ciphertext: encrypted.ciphertext,
-        ring: { secretForKid: () => "root-secret-v1" },
-        metadata: { ...encrypted.customMetadata, enc_kid: "not-a-number" },
-        context,
-      }),
-    ).rejects.toThrow(/invalid_kid/u);
+      await expect(
+        decryptArtifactBytesWithKeyRing({
+          ciphertext: encrypted.ciphertext,
+          ring: { secretForKid: () => "root-secret-v1" },
+          metadata: { ...encrypted.customMetadata, enc_kid: encKid },
+          context,
+        }),
+      ).rejects.toThrow(/invalid_kid/u);
+    }
   });
 
   it("reads upload bodies from common ReadableStream shapes", async () => {

@@ -36,7 +36,7 @@ pnpm secrets:artifact-bytes:preview -- --dry-run
 pnpm secrets:artifact-bytes:production -- --value <generated-or-captured-secret>
 ```
 
-`scripts/set-artifact-bytes-encryption-secret.mjs` writes only `ARTIFACT_BYTES_ENCRYPTION_KEY`. Run it from an operator machine with Wrangler auth; do not store the value in the repo or in Worker code. Objects written before the bind remain ciphertext until lifecycle removes them; new uploads and reads require the key.
+`scripts/set-artifact-bytes-encryption-secret.mjs` writes only `ARTIFACT_BYTES_ENCRYPTION_KEY`. Run it from an operator machine with Wrangler auth; do not store the value in the repo or in Worker code. Objects written before the bind are not retroactively encrypted; they remain in their original R2 format until re-encrypted or lifecycle removes them. New encrypted uploads and reads require the key.
 
 ## Guardrails
 

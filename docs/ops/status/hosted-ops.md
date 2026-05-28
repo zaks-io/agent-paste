@@ -32,19 +32,18 @@ an existing environment, use targeted scripts instead of re-running bootstrap:
 - `scripts/set-stream-internal-secret.mjs` — `STREAM_INTERNAL_SECRET` on `api` and `stream`
 - `scripts/set-artifact-bytes-encryption-secret.mjs` — `ARTIFACT_BYTES_ENCRYPTION_KEY` on `upload`, `content`, and `jobs`
 
-| Secret                          | Bound on              | Notes                                                                                             |
-| ------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------- |
-| `CONTENT_SIGNING_SECRET`        | api, upload, content  | Active content-token and Agent View signing secret.                                               |
-| `UPLOAD_SIGNING_SECRET`         | upload                | Active upload PUT token signing secret.                                                           |
-| `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Root key for per-workspace artifact-byte AES-256-GCM (ADR 0063). Same value on all three Workers. |
-| `API_KEY_PEPPER_V1`             | api, upload           | Active API-key HMAC pepper.                                                                       |
-| `SMOKE_HARNESS_SECRET`          | api (preview/PR)      | Non-production smoke harness only; never set on production.                                       |
-| `STREAM_INTERNAL_SECRET`        | api, stream           | Shared secret for stream Worker calls to `api` live-update authorize.                             |
-| `WORKOS_API_KEY`                | api, web              | WorkOS server-side API credential.                                                                |
-| `WORKOS_CLIENT_ID`              | api, web              | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                        |
-| `WORKOS_COOKIE_PASSWORD`        | web                   | WorkOS AuthKit sealed-session password.                                                           |
-| `WORKOS_CLI_AUDIENCE`           | api                   | WorkOS User Management audience used to verify CLI/login and dashboard session issuer details.    |
-| `WORKOS_API_KEY`                | mcp (preview/prod)    | WorkOS API credential for MCP JWT verification (written by `bootstrap:* --with-web`).             |
+| Secret                          | Bound on              | Notes                                                                                              |
+| ------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET`        | api, upload, content  | Active content-token and Agent View signing secret.                                                |
+| `UPLOAD_SIGNING_SECRET`         | upload                | Active upload PUT token signing secret.                                                            |
+| `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Root key for per-workspace artifact-byte AES-256-GCM (ADR 0063). Same value on all three Workers.  |
+| `API_KEY_PEPPER_V1`             | api, upload           | Active API-key HMAC pepper.                                                                        |
+| `SMOKE_HARNESS_SECRET`          | api (preview/PR)      | Non-production smoke harness only; never set on production.                                        |
+| `STREAM_INTERNAL_SECRET`        | api, stream           | Shared secret for stream Worker calls to `api` live-update authorize.                              |
+| `WORKOS_API_KEY`                | api, web, mcp         | WorkOS server-side API credential. Same target WorkOS project; `bootstrap:* --with-web` writes it. |
+| `WORKOS_CLIENT_ID`              | api, web              | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                         |
+| `WORKOS_COOKIE_PASSWORD`        | web                   | WorkOS AuthKit sealed-session password.                                                            |
+| `WORKOS_CLI_AUDIENCE`           | api                   | WorkOS User Management audience used to verify CLI/login and dashboard session issuer details.     |
 
 Deferred secrets not created for the current app:
 

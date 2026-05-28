@@ -276,7 +276,7 @@ async function prepareEncryptedObjectResponse(input: {
       },
     });
     return {
-      body: new Blob([Uint8Array.from(plaintext)]).stream(),
+      body: new Blob([plaintext as BlobPart]).stream(),
       plaintextSize,
     };
   } catch {

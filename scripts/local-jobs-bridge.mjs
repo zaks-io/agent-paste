@@ -4,6 +4,15 @@ import { createLocalMvpSqlExecutor } from "../packages/db/dist/index.js";
 
 export function createCountingArtifactsBucket(baseBucket, jobsEnv) {
   return {
+    head(key, options) {
+      return baseBucket.head(key, options);
+    },
+    get(key, options) {
+      return baseBucket.get(key, options);
+    },
+    put(key, value, options) {
+      return baseBucket.put(key, value, options);
+    },
     list(options) {
       return baseBucket.list(options);
     },

@@ -40,6 +40,7 @@ export type RevisionFileObjectKeyParts = {
 };
 
 const revisionFileKeyPattern = /^artifacts\/([^/]+)\/revisions\/([^/]+)\/files\/(.+)$/u;
+const kidPattern = /^[1-9]\d*$/u;
 
 export function ciphertextByteLengthForPlaintext(plaintextBytes: number): number {
   return ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES + plaintextBytes;
@@ -64,12 +65,6 @@ export function isArtifactBytesEncryptionMetadata(
   );
 }
 
-function asBufferSource(bytes: Uint8Array): ArrayBuffer {
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return copy.buffer;
-}
-
 export function parseRevisionFileObjectKey(key: string): RevisionFileObjectKeyParts | null {
   const match = revisionFileKeyPattern.exec(key);
   if (!match) {
@@ -80,6 +75,24 @@ export function parseRevisionFileObjectKey(key: string): RevisionFileObjectKeyPa
     return null;
   }
   return { artifactId, revisionId, path };
+}
+
+function parseArtifactBytesKid(value: string): number {
+  if (!kidPattern.test(value)) {
+    throw new Error("artifact_bytes_invalid_kid");
+  }
+  const kid = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(kid)) {
+    throw new Error("artifact_bytes_invalid_kid");
+  }
+  return kid;
+}
+
+function asBufferSource(bytes: Uint8Array): BufferSource {
+  if (bytes.buffer instanceof ArrayBuffer) {
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  return Uint8Array.from(bytes);
 }
 
 export function composeArtifactBytesAad(context: ArtifactBytesAadContext): Uint8Array {
@@ -160,13 +173,10 @@ export async function decryptArtifactBytes(input: {
   if (input.ciphertext.byteLength < ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES) {
     throw new Error("artifact_bytes_ciphertext_too_short");
   }
-  const kid = Number.parseInt(input.metadata.enc_kid, 10);
-  if (!Number.isFinite(kid)) {
-    throw new Error("artifact_bytes_invalid_kid");
-  }
+  parseArtifactBytesKid(input.metadata.enc_kid);
   const dek = await deriveWorkspaceDek(input.rootSecret, input.context.workspaceId);
-  const iv = input.ciphertext.slice(0, ARTIFACT_BYTES_GCM_IV_BYTES);
-  const encrypted = input.ciphertext.slice(ARTIFACT_BYTES_GCM_IV_BYTES);
+  const iv = input.ciphertext.subarray(0, ARTIFACT_BYTES_GCM_IV_BYTES);
+  const encrypted = input.ciphertext.subarray(ARTIFACT_BYTES_GCM_IV_BYTES);
   const additionalData = composeArtifactBytesAad(input.context);
   return new Uint8Array(
     await crypto.subtle.decrypt(
@@ -183,10 +193,7 @@ export async function decryptArtifactBytesWithKeyRing(input: {
   metadata: ArtifactBytesEncryptionMetadata;
   context: ArtifactBytesAadContext;
 }): Promise<Uint8Array> {
-  const kid = Number.parseInt(input.metadata.enc_kid, 10);
-  if (!Number.isFinite(kid)) {
-    throw new Error("artifact_bytes_invalid_kid");
-  }
+  const kid = parseArtifactBytesKid(input.metadata.enc_kid);
   const rootSecret = input.ring.secretForKid(kid);
   if (!rootSecret) {
     throw new Error("artifact_bytes_unknown_kid");
