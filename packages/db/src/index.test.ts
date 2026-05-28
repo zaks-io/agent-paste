@@ -567,6 +567,7 @@ describe("LocalRepository", () => {
       actor: adminActor,
       idempotencyKey: "idem-ws-lockdown-audit",
       email: "lockdown-audit@example.com",
+      now: new Date("2026-01-01T00:00:00.000Z"),
     });
     const operator = { type: "platform" as const, id: "operator@example.com" };
 
@@ -577,6 +578,7 @@ describe("LocalRepository", () => {
       targetId: workspace.id,
       reasonCode: "phishing_report",
       requestId: "req_lockdown_1",
+      now: new Date("2026-01-02T00:00:00.000Z"),
     });
 
     const setEvent = [...repo.operationEvents.values()].find((event) => event.action === "platform.lockdown.set");
@@ -586,8 +588,17 @@ describe("LocalRepository", () => {
     });
 
     const operatorView = await repo.listOperatorEvents(operator, { workspaceId: workspace.id });
-    expect(operatorView.items[0]?.change_summary).toBe(
+    expect(operatorView.items.map((item) => item.action)).toEqual([
+      "platform.lockdown.set",
+      "workspace.created",
+    ]);
+
+    const lockdownRow = operatorView.items.find((item) => item.action === "platform.lockdown.set");
+    expect(lockdownRow?.change_summary).toBe(
       "Platform lockdown set on workspace (reason: phishing_report)",
+    );
+    expect(operatorView.items.find((item) => item.action === "workspace.created")?.change_summary).toBe(
+      "Workspace created",
     );
   });
 
