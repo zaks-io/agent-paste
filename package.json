@@ -12,6 +12,8 @@
     "bootstrap:production": "node scripts/bootstrap-secrets.mjs production",
     "secrets:stream-internal:preview": "node scripts/set-stream-internal-secret.mjs preview",
     "secrets:stream-internal:production": "node scripts/set-stream-internal-secret.mjs production",
+    "secrets:artifact-bytes:preview": "node scripts/set-artifact-bytes-encryption-secret.mjs preview",
+    "secrets:artifact-bytes:production": "node scripts/set-artifact-bytes-encryption-secret.mjs production",
     "bootstrap:live": "pnpm bootstrap:production",
     "ci:check": "pnpm verify",
     "cli:test": "pnpm --filter agent-paste test",
