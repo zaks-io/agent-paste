@@ -55,10 +55,11 @@ export function createSyncBundleGenerateQueue(jobsEnv) {
   };
 }
 
-export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret }) {
+export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
+    ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
     LOCAL_MVP_REPOSITORY: repo,
     DB: createLocalMvpSqlExecutor({
       workspaces: repo.workspaces,

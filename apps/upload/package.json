@@ -28,6 +28,7 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "@agent-paste/rotation": "workspace:*",
+    "@agent-paste/storage": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.53.1",

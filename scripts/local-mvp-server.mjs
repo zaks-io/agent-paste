@@ -7,6 +7,7 @@ import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
 import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
+import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
@@ -21,6 +22,8 @@ const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
 const contentSecret = process.env.AGENT_PASTE_CONTENT_SIGNING_SECRET ?? "local-content-secret";
 const accessLinkSigningKey = process.env.AGENT_PASTE_ACCESS_LINK_SIGNING_KEY ?? "access-link-secret";
+const artifactBytesEncryptionKey =
+  process.env.AGENT_PASTE_ARTIFACT_BYTES_ENCRYPTION_KEY ?? "local-artifact-bytes-encryption-key";
 
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
@@ -178,6 +181,7 @@ class MemoryR2Bucket {
       httpMetadata: {
         contentType: options.httpMetadata?.contentType,
       },
+      customMetadata: options.customMetadata,
     });
     return {};
   }
@@ -215,6 +219,7 @@ class MemoryR2Bucket {
     return {
       body: new Blob([object.bytes]).stream(),
       size: object.bytes.byteLength,
+      customMetadata: object.customMetadata,
       httpMetadata: object.httpMetadata,
       writeHttpMetadata(headers) {
         if (object.httpMetadata.contentType) {
@@ -305,6 +310,7 @@ const jobsEnv = createJobsEnv({
   artifacts,
   denylist,
   smokeHarnessSecret,
+  artifactBytesEncryptionKey,
 });
 const apiDb = createApiDatabase(services.apiDb);
 
@@ -360,6 +366,7 @@ const uploadEnv = {
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
   UPLOAD_SIGNING_SECRET: uploadSecret,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
   UPLOAD_BASE_URL: uploadBaseUrl,
   UPLOAD_URL_TTL_SECONDS: "900",
   WORKOS_API_KEY: process.env.WORKOS_API_KEY,
@@ -374,6 +381,7 @@ const contentEnv = {
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   CONTENT_SIGNING_SECRET: contentSecret,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
 };
 const streamEnv = {
   API: {
@@ -485,6 +493,20 @@ async function seedProofArtifacts(repo, bucket) {
       r2_key: r2Key,
       uploaded_at: now,
     });
-    await bucket.put(r2Key, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } });
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode(html),
+      rootSecret: artifactBytesEncryptionKey,
+      kid: 1,
+      context: {
+        workspaceId: workspace.id,
+        artifactId,
+        revisionId,
+        normalizedPath: "index.html",
+      },
+    });
+    await bucket.put(r2Key, encrypted.ciphertext, {
+      httpMetadata: { contentType: "application/octet-stream" },
+      customMetadata: encrypted.customMetadata,
+    });
   }
 }

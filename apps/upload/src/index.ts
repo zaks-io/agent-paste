@@ -25,7 +25,13 @@ import {
   resolveSessionObjectKey,
   type UploadSessionRecord,
 } from "@agent-paste/db";
-import { pepperRingFromWorkerEnv, uploadSigningRingFromEnv, verifyUploadTokenWithKeyRing } from "@agent-paste/rotation";
+import {
+  artifactBytesEncryptionRingFromEnv,
+  pepperRingFromWorkerEnv,
+  uploadSigningRingFromEnv,
+  verifyUploadTokenWithKeyRing,
+} from "@agent-paste/rotation";
+import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
 import {
   mintUploadUrl,
   type SignedUploadPayload,
@@ -67,8 +73,8 @@ export type R2Object = {
 export type R2Bucket = {
   put(
     key: string,
-    value: ReadableStream | ArrayBuffer | string | null,
-    options?: { httpMetadata?: Record<string, string> },
+    value: ReadableStream | ArrayBuffer | Uint8Array | string | null,
+    options?: { httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> },
   ): Promise<unknown>;
   head(key: string): Promise<R2Object | null>;
 };
@@ -92,6 +98,9 @@ export type Env = {
   UPLOAD_SIGNING_SECRET?: string;
   UPLOAD_SIGNING_SECRET_V2?: string;
   UPLOAD_SIGNING_KID?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
   UPLOAD_BASE_URL?: string;
   UPLOAD_URL_TTL_SECONDS?: string;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
@@ -315,8 +324,29 @@ async function putUploadFile(
     return errorResponse(context, "invalid_request", "content-length does not match signed upload");
   }
 
-  await env.ARTIFACTS.put(payload.key, request.body, {
-    httpMetadata: { contentType: request.headers.get("content-type") ?? "application/octet-stream" },
+  const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
+  if (!encryptionRing) {
+    return errorResponse(context, "storage_unavailable");
+  }
+  const keyParts = parseRevisionFileObjectKey(payload.key);
+  if (!keyParts || keyParts.path !== payload.path) {
+    return errorResponse(context, "invalid_request", "upload object key does not match signed path");
+  }
+  const plaintext = await bytesFromReadableBody(request.body);
+  const encrypted = await encryptArtifactBytes({
+    plaintext,
+    rootSecret: encryptionRing.signingSecret(),
+    kid: encryptionRing.signingKid,
+    context: {
+      workspaceId: payload.wid,
+      artifactId: keyParts.artifactId,
+      revisionId: keyParts.revisionId,
+      normalizedPath: keyParts.path,
+    },
+  });
+  await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
+    httpMetadata: { contentType: "application/octet-stream" },
+    customMetadata: encrypted.customMetadata,
   });
 
   await uploadDatabase(env)?.recordUploadedFile({
@@ -519,6 +549,7 @@ async function signUploadUrl(
     secret: signingRing?.signingSecret() ?? env.UPLOAD_SIGNING_SECRET,
     payload: {
       sid: session.session_id,
+      wid: session.workspace_id,
       path: file.path,
       key: resolveSessionObjectKey(session, file.path, file.object_key),
       size: file.size_bytes,

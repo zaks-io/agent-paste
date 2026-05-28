@@ -16,7 +16,7 @@ export type R2Bucket = {
   put?(
     key: string,
     value: ArrayBuffer | Uint8Array | ReadableStream,
-    options?: { httpMetadata?: { contentType?: string } },
+    options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> },
   ): Promise<void>;
 };
 
@@ -38,6 +38,9 @@ export type Env = {
   SENTRY_DSN?: string;
   DB?: HyperdriveBinding | SqlExecutor;
   ARTIFACTS?: R2Bucket;
+  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
   DENYLIST?: { put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void> };
   BYTE_PURGE_QUEUE?: QueueBinding;
   SAFETY_SCAN_QUEUE?: QueueBinding;

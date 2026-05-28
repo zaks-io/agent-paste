@@ -1,3 +1,4 @@
+import { ciphertextByteLengthForPlaintext } from "@agent-paste/storage";
 import type { ObservedUploadFile } from "./repository/upload-session-lifecycle.js";
 import type { toUploadSessionRecord } from "./transforms.js";
 import { objectKeyFor } from "./validation.js";
@@ -63,10 +64,11 @@ export async function observeUploadSessionForFinalize(
   for (const file of session.files) {
     const objectKey = resolveSessionObjectKey(session, file.path, file.object_key);
     const object = await storage.head(objectKey);
-    if (!object || object.size !== file.size_bytes) {
+    const expectedSize = ciphertextByteLengthForPlaintext(file.size_bytes);
+    if (!object || object.size !== expectedSize) {
       return { incompletePath: file.path };
     }
-    observedFiles.push({ path: file.path, objectKey, sizeBytes: object.size });
+    observedFiles.push({ path: file.path, objectKey, sizeBytes: file.size_bytes });
   }
   return { observedFiles };
 }

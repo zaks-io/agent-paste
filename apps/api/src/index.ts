@@ -811,7 +811,7 @@ async function publishRevision(
           });
         }
       }
-      const signed = await signPublishResult(result, context.env);
+      const signed = await signPublishResult(result, context.env, { workspaceId: actor.workspace_id });
       if (result && typeof result === "object" && "artifact_id" in result) {
         const publish = result as { artifact_id: string; title?: string };
         const entrypoint =
@@ -2145,7 +2145,7 @@ function entrypointPathFromViewUrl(viewUrl: string) {
   return decodeURIComponent(match?.[1] ?? "index.html");
 }
 
-async function signPublishResult(result: unknown, env: Env): Promise<unknown> {
+async function signPublishResult(result: unknown, env: Env, auth?: { workspaceId?: string }): Promise<unknown> {
   if (!result || typeof result !== "object") {
     return result;
   }
@@ -2162,9 +2162,10 @@ async function signPublishResult(result: unknown, env: Env): Promise<unknown> {
   const entrypointPath = typeof data.view_url === "string" ? entrypointPathFromViewUrl(data.view_url) : "index.html";
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const secret = agentViewSigningSecret(env);
+  const contentAuth = auth?.workspaceId ? { workspaceId: auth.workspaceId } : undefined;
   return {
     ...data,
-    view_url: await signedContentUrl(env, data.artifact_id, data.revision_id, entrypointPath, expiresAt),
+    view_url: await signedContentUrl(env, data.artifact_id, data.revision_id, entrypointPath, expiresAt, contentAuth),
     agent_view_url: secret
       ? await mintAgentViewUrl({
           baseUrl: apiBaseUrl(env),

@@ -49,6 +49,21 @@ export function uploadSigningRingFromEnv(env: {
   });
 }
 
+export function artifactBytesEncryptionRingFromEnv(env: {
+  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
+}): KeyRing | undefined {
+  if (!env.ARTIFACT_BYTES_ENCRYPTION_KEY) {
+    return undefined;
+  }
+  return createKeyRingFromVersionedEnv({
+    baseName: "ARTIFACT_BYTES_ENCRYPTION_KEY",
+    kidVarName: "ARTIFACT_BYTES_ENCRYPTION_KID",
+    env: env as Record<string, string | undefined>,
+  });
+}
+
 export function accessLinkSigningRingFromEnv(env: {
   ACCESS_LINK_SIGNING_KEY_V1?: string;
   ACCESS_LINK_SIGNING_KEY_V2?: string;

@@ -4,7 +4,14 @@ import { isValidUploadPayload, mintUploadToken, mintUploadUrl, verifyUploadToken
 
 const fixedClock = (seconds: number): Clock => ({ now: () => seconds * 1000 });
 const SECRET = "upload-secret";
-const base = { sid: "us_1", path: "dir/file.txt", key: "ws_1/art_1/file.txt", size: 1024, exp: 2000 };
+const base = {
+  sid: "us_1",
+  wid: "00000000-0000-4000-8000-000000000001",
+  path: "dir/file.txt",
+  key: "ws_1/art_1/file.txt",
+  size: 1024,
+  exp: 2000,
+};
 
 describe("isValidUploadPayload", () => {
   it("accepts a minimal payload", () => {
@@ -14,6 +21,7 @@ describe("isValidUploadPayload", () => {
   it.each([
     { label: "non-number size", value: { ...base, size: "big" } },
     { label: "empty sid", value: { ...base, sid: "" } },
+    { label: "empty wid", value: { ...base, wid: "" } },
     { label: "empty path", value: { ...base, path: "" } },
     { label: "non-integer exp", value: { ...base, exp: 1.5 } },
     { label: "null", value: null },

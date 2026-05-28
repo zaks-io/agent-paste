@@ -93,7 +93,14 @@ describe("signing key overlap verification", () => {
   it("verifies upload tokens across upload signing key overlap", async () => {
     const ring = KeyRing.single("upload-v1", 1);
     const exp = Math.floor(Date.now() / 1000) + 3600;
-    const payload = { sid: "usess_test", path: "a.txt", key: "k", size: 1, exp };
+    const payload = {
+      sid: "usess_test",
+      wid: "00000000-0000-4000-8000-000000000001",
+      path: "a.txt",
+      key: "k",
+      size: 1,
+      exp,
+    };
     const legacyToken = await mintUploadToken(payload, "upload-v1");
 
     ring.stageVerifyKey(2, "upload-v2");

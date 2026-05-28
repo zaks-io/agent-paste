@@ -1,7 +1,20 @@
 import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
-import { contentSigningRingFromEnv, verifyContentTokenWithKeyRing } from "@agent-paste/rotation";
-import { attachmentFilename, CONTENT_SECURITY_HEADERS, servedContentForPath } from "@agent-paste/storage";
+import {
+  artifactBytesEncryptionRingFromEnv,
+  contentSigningRingFromEnv,
+  verifyContentTokenWithKeyRing,
+} from "@agent-paste/rotation";
+import {
+  attachmentFilename,
+  bytesFromReadableBody,
+  CONTENT_SECURITY_HEADERS,
+  decryptArtifactBytesWithKeyRing,
+  isArtifactBytesEncryptionMetadata,
+  parseRevisionFileObjectKey,
+  plaintextByteLengthFromStoredObject,
+  servedContentForPath,
+} from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
 import {
   type AppErrorCode,
@@ -19,6 +32,7 @@ export { mintContentToken as signContentToken };
 export type R2ObjectBody = {
   body: ReadableStream | null;
   size: number;
+  customMetadata?: Record<string, string>;
   httpMetadata?: {
     contentType?: string;
   };
@@ -45,6 +59,9 @@ export type Env = {
   CONTENT_SIGNING_SECRET: string;
   CONTENT_SIGNING_SECRET_V2?: string;
   CONTENT_SIGNING_KID?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
   CONTENT_BASE_URL?: string;
   DOCS_BASE_URL?: string;
   AGENT_PASTE_ENV?: string;
@@ -169,10 +186,22 @@ async function serveSignedBundle(context: AppContext, payload: ContentTokenPaylo
     return errorResponse(context, "not_found");
   }
 
-  const headers = bundleResponseHeaders(object.size, payload.exp);
+  const served = await prepareEncryptedObjectResponse({
+    env,
+    payload,
+    object,
+    path: BUNDLE_FILENAME,
+    objectKey: key,
+    method: request.method,
+  });
+  if (!served) {
+    return errorResponse(context, "not_found");
+  }
+
+  const headers = bundleResponseHeaders(served.plaintextSize, payload.exp);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
+  return new Response(served.body, { status: 200, headers });
 }
 
 async function serveSignedObject(context: AppContext, payload: ContentTokenPayload, path: string): Promise<Response> {
@@ -186,10 +215,73 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
     return errorResponse(context, "not_found");
   }
 
-  const headers = responseHeadersForPath(path, object.size, payload.exp);
+  const served = await prepareEncryptedObjectResponse({
+    env,
+    payload,
+    object,
+    path,
+    objectKey: key,
+    method: request.method,
+  });
+  if (!served) {
+    return errorResponse(context, "not_found");
+  }
+
+  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers });
+  return new Response(served.body, { status: 200, headers });
+}
+
+async function prepareEncryptedObjectResponse(input: {
+  env: Env;
+  payload: ContentTokenPayload;
+  object: R2ObjectBody;
+  path: string;
+  objectKey: string;
+  method: string;
+}): Promise<{ body: ReadableStream | null; plaintextSize: number } | null> {
+  const encryptionRing = artifactBytesEncryptionRingFromEnv(input.env);
+  if (!encryptionRing || !isArtifactBytesEncryptionMetadata(input.object.customMetadata)) {
+    return null;
+  }
+  const workspaceId = input.payload.workspace_id;
+  if (!workspaceId) {
+    return null;
+  }
+  const normalizedPath = input.path.length > 0 ? input.path : BUNDLE_FILENAME;
+  const keyParts = normalizedPath === BUNDLE_FILENAME ? null : parseRevisionFileObjectKey(input.objectKey);
+  const artifactId = keyParts?.artifactId ?? input.payload.artifact_id;
+  const revisionId = keyParts?.revisionId ?? input.payload.revision_id;
+  let plaintextSize: number;
+  try {
+    plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
+  } catch {
+    return null;
+  }
+  if (input.method === "HEAD") {
+    return { body: null, plaintextSize };
+  }
+  const ciphertext = await bytesFromReadableBody(input.object.body);
+  try {
+    const plaintext = await decryptArtifactBytesWithKeyRing({
+      ciphertext,
+      ring: encryptionRing,
+      metadata: input.object.customMetadata,
+      context: {
+        workspaceId,
+        artifactId,
+        revisionId,
+        normalizedPath,
+      },
+    });
+    return {
+      body: new Blob([Uint8Array.from(plaintext)]).stream(),
+      plaintextSize,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function denylistKeysForPayload(payload: ContentTokenPayload): string[] {

@@ -1,27 +1,40 @@
+import { mintContentUrl } from "@agent-paste/tokens/content";
 import { describe, expect, it } from "vitest";
 import contentWorker from "../../content/src/index.js";
 import uploadWorker from "../../upload/src/index.js";
 import apiWorker from "./index.js";
 
+const artifactBytesEncryptionEnv = {
+  ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+};
+
 class MemoryR2 {
-  readonly objects = new Map<string, { bytes: Uint8Array; contentType?: string }>();
+  readonly objects = new Map<
+    string,
+    { bytes: Uint8Array; contentType?: string; customMetadata?: Record<string, string> }
+  >();
 
   async put(
     key: string,
-    value: ReadableStream | ArrayBuffer | string | null,
-    options?: { httpMetadata?: Record<string, string> },
+    value: ReadableStream | ArrayBuffer | Uint8Array | string | null,
+    options?: { httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> },
   ) {
     const bytes =
       typeof value === "string"
         ? new TextEncoder().encode(value)
-        : value instanceof ArrayBuffer
-          ? new Uint8Array(value)
-          : value
-            ? new Uint8Array(await new Response(value).arrayBuffer())
-            : new Uint8Array();
-    const record: { bytes: Uint8Array; contentType?: string } = { bytes };
+        : value instanceof Uint8Array
+          ? value
+          : value instanceof ArrayBuffer
+            ? new Uint8Array(value)
+            : value
+              ? new Uint8Array(await new Response(value).arrayBuffer())
+              : new Uint8Array();
+    const record: { bytes: Uint8Array; contentType?: string; customMetadata?: Record<string, string> } = { bytes };
     if (options?.httpMetadata?.contentType) {
       record.contentType = options.httpMetadata.contentType;
+    }
+    if (options?.customMetadata) {
+      record.customMetadata = options.customMetadata;
     }
     this.objects.set(key, record);
   }
@@ -41,9 +54,10 @@ class MemoryR2 {
       httpMetadata.contentType = object.contentType;
     }
     return {
-      body: new Response(new TextDecoder().decode(object.bytes)).body,
+      body: new Blob([object.bytes]).stream(),
       size: object.bytes.byteLength,
       httpMetadata,
+      customMetadata: object.customMetadata,
     };
   }
 }
@@ -68,6 +82,7 @@ class MemoryDb {
   session:
     | {
         upload_session_id: string;
+        workspace_id: string;
         artifact_id: string;
         revision_id: string;
         title: string;
@@ -131,6 +146,7 @@ class MemoryDb {
       upload_session_id: input.request.artifact_id
         ? "upl_00000000000000000000000001"
         : "upl_00000000000000000000000000",
+      workspace_id: this.workspace.id,
       artifact_id: artifactId,
       revision_id: revisionId,
       title: input.request.title ?? "demo",
@@ -180,11 +196,23 @@ class MemoryDb {
       file_count: session.files.length,
       size_bytes: session.files.reduce((sum, file) => sum + file.size_bytes, 0),
     });
+    const view_url = await mintContentUrl({
+      baseUrl: "http://content.local",
+      secret: "content-secret",
+      payload: {
+        workspace_id: session.workspace_id,
+        artifact_id: session.artifact_id,
+        revision_id: session.revision_id,
+        paths: session.files.map((file) => file.path),
+        exp: Math.floor(Date.parse("2030-01-02T00:00:00.000Z") / 1000),
+      },
+      path: session.entrypoint,
+    });
     return {
       artifact_id: session.artifact_id,
       revision_id: session.revision_id,
       title: session.title,
-      view_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
+      view_url,
       agent_view_url: `http://api.local/v1/public/agent-view/${session.artifact_id}.${session.revision_id}`,
       expires_at: "2030-01-02T00:00:00.000Z",
     };
@@ -287,6 +315,7 @@ describe("local MVP vertical slice", () => {
         DB: db,
         ARTIFACTS: artifacts,
         UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
         CONTENT_BASE_URL: "http://content.local",
@@ -305,7 +334,13 @@ describe("local MVP vertical slice", () => {
         headers: { "content-length": "12", "content-type": "text/html; charset=utf-8" },
         body: "hello world!",
       }),
-      { AUTH: auth, DB: db, ARTIFACTS: artifacts, UPLOAD_SIGNING_SECRET: "upload-secret" },
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
+      },
     );
     expect(putResponse.status).toBe(204);
 
@@ -319,6 +354,7 @@ describe("local MVP vertical slice", () => {
         DB: db,
         ARTIFACTS: artifacts,
         UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
         CONTENT_BASE_URL: "http://content.local",
@@ -360,6 +396,7 @@ describe("local MVP vertical slice", () => {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
       CONTENT_SIGNING_SECRET: "content-secret",
+      ...artifactBytesEncryptionEnv,
     });
     expect(contentResponse.status).toBe(200);
     await expect(contentResponse.text()).resolves.toBe("hello world!");
@@ -397,6 +434,7 @@ describe("local MVP vertical slice", () => {
         DB: db,
         ARTIFACTS: artifacts,
         UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
         CONTENT_BASE_URL: "http://content.local",
@@ -420,7 +458,13 @@ describe("local MVP vertical slice", () => {
         headers: { "content-length": "13", "content-type": "text/html; charset=utf-8" },
         body: "hello world!!",
       }),
-      { AUTH: auth, DB: db, ARTIFACTS: artifacts, UPLOAD_SIGNING_SECRET: "upload-secret" },
+      {
+        AUTH: auth,
+        DB: db,
+        ARTIFACTS: artifacts,
+        UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
+      },
     );
 
     const updateFinalizeResponse = await uploadWorker.fetch(
@@ -433,6 +477,7 @@ describe("local MVP vertical slice", () => {
         DB: db,
         ARTIFACTS: artifacts,
         UPLOAD_SIGNING_SECRET: "upload-secret",
+        ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
         CONTENT_BASE_URL: "http://content.local",
