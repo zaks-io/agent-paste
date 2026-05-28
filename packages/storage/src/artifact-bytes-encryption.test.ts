@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
+  bytesFromReadableBody,
   ciphertextByteLengthForPlaintext,
   composeArtifactBytesAad,
   decryptArtifactBytes,
@@ -116,6 +117,69 @@ describe("artifact-bytes encryption", () => {
         enc_aad_v: "v1",
       }),
     ).toBe(false);
+    expect(
+      isArtifactBytesEncryptionMetadata({
+        enc_kid: "",
+        enc_alg: "aes-256-gcm",
+        enc_aad_v: "v1",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects decrypt when ciphertext is too short or kid is invalid", async () => {
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("x"),
+      rootSecret: "root-secret-v1",
+      kid: 1,
+      context,
+    });
+
+    await expect(
+      decryptArtifactBytes({
+        ciphertext: new Uint8Array(4),
+        rootSecret: "root-secret-v1",
+        metadata: encrypted.customMetadata,
+        context,
+      }),
+    ).rejects.toThrow(/too_short/u);
+
+    await expect(
+      decryptArtifactBytes({
+        ciphertext: encrypted.ciphertext,
+        rootSecret: "root-secret-v1",
+        metadata: { ...encrypted.customMetadata, enc_kid: "not-a-number" },
+        context,
+      }),
+    ).rejects.toThrow(/invalid_kid/u);
+
+    await expect(
+      decryptArtifactBytesWithKeyRing({
+        ciphertext: encrypted.ciphertext,
+        ring: { secretForKid: () => "root-secret-v1" },
+        metadata: { ...encrypted.customMetadata, enc_kid: "not-a-number" },
+        context,
+      }),
+    ).rejects.toThrow(/invalid_kid/u);
+  });
+
+  it("reads upload bodies from common ReadableStream shapes", async () => {
+    expect(await bytesFromReadableBody(null)).toEqual(new Uint8Array());
+    expect(await bytesFromReadableBody(undefined)).toEqual(new Uint8Array());
+    expect(await bytesFromReadableBody("plain-text")).toEqual(new TextEncoder().encode("plain-text"));
+
+    const arrayBuffer = new TextEncoder().encode("from-buffer").buffer;
+    expect(await bytesFromReadableBody(arrayBuffer)).toEqual(new Uint8Array(arrayBuffer));
+
+    const uint8 = new TextEncoder().encode("from-uint8");
+    expect(await bytesFromReadableBody(uint8)).toBe(uint8);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("from-stream"));
+        controller.close();
+      },
+    });
+    expect(await bytesFromReadableBody(stream)).toEqual(new TextEncoder().encode("from-stream"));
   });
 
   it("parses revision file object keys and stored plaintext sizes", () => {
