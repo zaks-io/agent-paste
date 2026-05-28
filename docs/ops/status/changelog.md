@@ -3,6 +3,18 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-05-28
+
+### Stronger audit semantics and operator abuse workflows (AP-34)
+
+- Added tenant-safe Change Summary formatting with sensitive-field redaction and
+  action-specific summaries for security-relevant lifecycle events.
+- Platform lockdown audit events now attribute to the affected workspace and
+  record request IDs from operator API calls.
+- Extended operator security-event filters and added `/admin` abuse triage
+  guidance, suggested reason codes, change-summary columns, and lockdown prefill
+  from platform events.
+
 ## 2026-05-27
 
 ### CLI credential hardening (AP-77)

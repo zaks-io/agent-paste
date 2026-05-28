@@ -13,23 +13,23 @@ Status legend:
 
 ## Spec Coverage
 
-| Spec                              | Status  | Notes                                                                                                                                                      |
-| --------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/specs/README.md`            | Done    | Reading-order index.                                                                                                                                       |
-| `docs/specs/mvp.md`               | Done    | CLI-first MVP is implemented; Phase 3 additions intentionally extend beyond this MVP spec.                                                                 |
-| `docs/specs/phases.md`            | Partial | Phase 1 complete, Phase 3 active close-out, Phases 4-6/post-launch mostly unimplemented.                                                                   |
-| `docs/specs/features.md`          | Drift   | Still marks some now-built Phase 3 work as future/Phase 6. Use `phase-backlog.md` for current ordering.                                                    |
-| `docs/specs/api.md`               | Done    | MVP REST routes implemented; later dashboard routes live in contracts/API but the spec still reads MVP-first.                                              |
-| `docs/specs/data-model.md`        | Partial | Current schema/RLS plus `revisions` implemented; Phase 4 Access Link/bundle/scanner and billing tables absent.                                             |
-| `docs/specs/content-rendering.md` | Done    | Signed content tokens, MIME, CSP, denylist, cache, and artifact read throttling are implemented.                                                           |
-| `docs/specs/admin.md`             | Partial | Repo-local admin path is retired; WorkOS operator lockdown UI and richer operator event browsing are live. Stronger abuse workflows remain future.         |
-| `docs/specs/acceptance.md`        | Done    | MVP acceptance covered by local/hosted smoke and worker tests; later phases are explicit non-goals there.                                                  |
-| `docs/specs/contracts.md`         | Done    | Current REST contracts are canonical; future MCP/Access Link/bundle schemas remain out of current contracts.                                               |
-| `docs/specs/local-dev.md`         | Done    | `pnpm dev:all`, local harness, and local smoke are present for the MVP surface.                                                                            |
-| `docs/specs/product-judgment.md`  | Done    | Philosophy doc.                                                                                                                                            |
-| `docs/specs/style-guide.md`       | Partial | Web applies tokens/components; per-route titles remain.                                                                                                    |
-| `docs/specs/jobs.md`              | Partial | Phase 4 jobs worker: queue topology and lifecycle byte purge/retention are implemented; bundle generation remains follow-up.                               |
-| `docs/specs/web.md`               | Partial | WorkOS AuthKit dashboard auth/read/mutation basics and operator lockdown UI are live; Access Link viewer is a placeholder; per-route titles polish remain. |
+| Spec                              | Status  | Notes                                                                                                                                                            |
+| --------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/specs/README.md`            | Done    | Reading-order index.                                                                                                                                             |
+| `docs/specs/mvp.md`               | Done    | CLI-first MVP is implemented; Phase 3 additions intentionally extend beyond this MVP spec.                                                                       |
+| `docs/specs/phases.md`            | Partial | Phase 1 complete, Phase 3 active close-out, Phases 4-6/post-launch mostly unimplemented.                                                                         |
+| `docs/specs/features.md`          | Drift   | Still marks some now-built Phase 3 work as future/Phase 6. Use `phase-backlog.md` for current ordering.                                                          |
+| `docs/specs/api.md`               | Done    | MVP REST routes implemented; later dashboard routes live in contracts/API but the spec still reads MVP-first.                                                    |
+| `docs/specs/data-model.md`        | Partial | Current schema/RLS plus `revisions` implemented; Phase 4 Access Link/bundle/scanner and billing tables absent.                                                   |
+| `docs/specs/content-rendering.md` | Done    | Signed content tokens, MIME, CSP, denylist, cache, and artifact read throttling are implemented.                                                                 |
+| `docs/specs/admin.md`             | Partial | Repo-local admin path is retired; WorkOS operator lockdown UI, operator event browsing (AP-16), and abuse triage plus stronger audit summaries (AP-34) are live. |
+| `docs/specs/acceptance.md`        | Done    | MVP acceptance covered by local/hosted smoke and worker tests; later phases are explicit non-goals there.                                                        |
+| `docs/specs/contracts.md`         | Done    | Current REST contracts are canonical; future MCP/Access Link/bundle schemas remain out of current contracts.                                                     |
+| `docs/specs/local-dev.md`         | Done    | `pnpm dev:all`, local harness, and local smoke are present for the MVP surface.                                                                                  |
+| `docs/specs/product-judgment.md`  | Done    | Philosophy doc.                                                                                                                                                  |
+| `docs/specs/style-guide.md`       | Partial | Web applies tokens/components; per-route titles remain.                                                                                                          |
+| `docs/specs/jobs.md`              | Partial | Phase 4 jobs worker: queue topology and lifecycle byte purge/retention are implemented; bundle generation remains follow-up.                                     |
+| `docs/specs/web.md`               | Partial | WorkOS AuthKit dashboard auth/read/mutation basics and operator lockdown UI are live; Access Link viewer is a placeholder; per-route titles polish remain.       |
 
 ## ADR Coverage
 

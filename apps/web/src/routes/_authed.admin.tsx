@@ -4,11 +4,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { LockdownForm } from "../components/admin/LockdownForm";
 import { LockdownList } from "../components/admin/LockdownList";
+import { AbuseTriageGuide } from "../components/admin/AbuseTriageGuide";
 import {
   type OperatorEventSearch,
   OperatorEventsPanel,
   operatorEventsQueryString,
 } from "../components/admin/OperatorEventsPanel";
+import { type LockdownTriagePrefill, parseLockdownTriageSearch } from "../components/admin/lockdown-triage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
@@ -57,14 +59,31 @@ function parseOperatorEventSearch(search: Record<string, unknown>): OperatorEven
   return next;
 }
 
+export type AdminRouteSearch = OperatorEventSearch & LockdownTriagePrefill;
+
+function parseAdminSearch(search: Record<string, unknown>): AdminRouteSearch {
+  return { ...parseOperatorEventSearch(search), ...parseLockdownTriageSearch(search) };
+}
+
 export const Route = createFileRoute("/_authed/admin")({
-  validateSearch: (search: Record<string, unknown>): OperatorEventSearch => parseOperatorEventSearch(search),
+  validateSearch: (search: Record<string, unknown>): AdminRouteSearch => parseAdminSearch(search),
   loader: async ({ location }) => {
     const ok = await checkOperatorFn();
     if (!ok) throw redirect({ to: "/dashboard" });
-    const eventSearch = parseOperatorEventSearch(location.search as Record<string, unknown>);
+    const adminSearch = parseAdminSearch(location.search as Record<string, unknown>);
+    const eventSearch: OperatorEventSearch = parseOperatorEventSearch(location.search as Record<string, unknown>);
     const [lockdowns, events] = await Promise.all([loadLockdownsFn(), loadOperatorEventsFn({ data: eventSearch })]);
-    return { lockdowns, events, eventSearch };
+    const lockdownPrefill: LockdownTriagePrefill = {};
+    if (adminSearch.scope) {
+      lockdownPrefill.scope = adminSearch.scope;
+    }
+    if (adminSearch.target_id) {
+      lockdownPrefill.target_id = adminSearch.target_id;
+    }
+    if (adminSearch.reason_code) {
+      lockdownPrefill.reason_code = adminSearch.reason_code;
+    }
+    return { lockdowns, events, eventSearch, lockdownPrefill };
   },
   head: ({ matches }) =>
     dashboardPageMeta(
@@ -78,7 +97,7 @@ export const Route = createFileRoute("/_authed/admin")({
 
 function AdminPage() {
   const router = useRouter();
-  const { lockdowns, events, eventSearch } = Route.useLoaderData();
+  const { lockdowns, events, eventSearch, lockdownPrefill } = Route.useLoaderData();
 
   async function handleSuccess() {
     await router.invalidate();
@@ -91,7 +110,8 @@ function AdminPage() {
         description="Platform lockdowns and cross-workspace security or lifecycle event browsing."
       />
       <div className="grid gap-6">
-        <LockdownForm onSuccess={handleSuccess} />
+        <AbuseTriageGuide />
+        <LockdownForm onSuccess={handleSuccess} prefill={lockdownPrefill} />
         <LockdownList lockdowns={lockdowns.data?.items ?? []} error={lockdowns.error} onLift={handleSuccess} />
         <OperatorEventsPanel events={events.data} error={events.error} search={eventSearch} />
       </div>

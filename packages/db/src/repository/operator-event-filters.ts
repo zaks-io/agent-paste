@@ -3,6 +3,7 @@ export const OPERATOR_SECURITY_EVENT_ACTIONS = [
   "platform.lockdown.lifted",
   "api_key.revoked",
   "admin.destructive_operation",
+  "artifact.deleted",
 ] as const;
 
 export const OPERATOR_LIFECYCLE_EVENT_ACTIONS = [
@@ -15,7 +16,8 @@ export const OPERATOR_LIFECYCLE_EVENT_ACTIONS = [
   "upload_session.failed",
   "artifact.created",
   "artifact.published",
-  "artifact.deleted",
+  "artifact.pinned",
+  "artifact.unpinned",
   "artifact.expired",
   "revision.draft_created",
   "cleanup.run",

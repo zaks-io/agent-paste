@@ -1,6 +1,8 @@
+import { PLATFORM_LOCKDOWN_REASON_CODES } from "@agent-paste/contracts";
 import { FileWarning, ShieldBan } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { setLockdownFn } from "../../server/web-mutations";
+import type { LockdownTriagePrefill } from "./lockdown-triage";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
@@ -8,6 +10,7 @@ import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {
   onSuccess: () => void;
+  prefill?: LockdownTriagePrefill;
 };
 
 const scopes = [
@@ -15,12 +18,19 @@ const scopes = [
   { value: "workspace", label: "Workspace", Icon: ShieldBan },
 ] as const;
 
-export function LockdownForm({ onSuccess }: Props) {
+export function LockdownForm({ onSuccess, prefill }: Props) {
   const { push } = useToast();
-  const [scope, setScope] = useState<"artifact" | "workspace">("artifact");
-  const [targetId, setTargetId] = useState("");
-  const [reasonCode, setReasonCode] = useState("");
+  const [scope, setScope] = useState<"artifact" | "workspace">(prefill?.scope ?? "artifact");
+  const [targetId, setTargetId] = useState(prefill?.target_id ?? "");
+  const [reasonCode, setReasonCode] = useState(prefill?.reason_code ?? "");
   const [pending, setPending] = useState(false);
+
+  // Mirror route triage search exactly so stale target/reason are not left armed after navigation.
+  useEffect(() => {
+    setScope(prefill?.scope ?? "artifact");
+    setTargetId(prefill?.target_id ?? "");
+    setReasonCode(prefill?.reason_code ?? "");
+  }, [prefill?.scope, prefill?.target_id, prefill?.reason_code]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,12 +110,18 @@ export function LockdownForm({ onSuccess }: Props) {
           <span className="text-[12px] text-[hsl(var(--muted))]">Reason code</span>
           <Input
             id="reason-code"
+            list="platform-lockdown-reason-codes"
             value={reasonCode}
             onChange={(event) => setReasonCode(event.target.value)}
-            placeholder="e.g., phishing_report, abuse_complaint"
+            placeholder="e.g., phishing_report"
             maxLength={120}
             disabled={pending}
           />
+          <datalist id="platform-lockdown-reason-codes">
+            {PLATFORM_LOCKDOWN_REASON_CODES.map((code) => (
+              <option key={code} value={code} />
+            ))}
+          </datalist>
         </label>
         <div>
           <Button type="submit" size="sm" loading={pending} disabled={!targetId.trim() || !reasonCode.trim()}>

@@ -156,5 +156,6 @@ MVP operator actions:
 - Apply Workspace Platform Lockdown.
 - Lift Platform Lockdown.
 - Browse cross-workspace audit and operation events with filters (`focus`, workspace, actor type, action, target type, request id).
+- Follow the abuse triage guide on `/admin` (suggested reason codes, security-event filters, and lockdown prefill from event rows).
 
 API Keys are rejected on operator routes before scope checks.

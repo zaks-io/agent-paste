@@ -477,7 +477,7 @@ export function localEntities(state: LocalState): Entities {
           target_type: input.targetType,
           target_id: input.targetId,
           details: input.details,
-          request_id: null,
+          request_id: input.requestId ?? null,
           occurred_at: input.occurredAt,
         };
         state.operationEvents.set(event.id, event);

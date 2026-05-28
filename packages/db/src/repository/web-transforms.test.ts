@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Artifact } from "../types.js";
-import { toWebArtifactRow, webArtifactStatus } from "./web-transforms.js";
+import type { Artifact, OperationEvent } from "../types.js";
+import { toWebArtifactRow, toWebAuditRow, webArtifactStatus } from "./web-transforms.js";
 
 const base: Artifact = {
   id: "art_1",
@@ -41,6 +41,31 @@ describe("web artifact transforms", () => {
     expect(toWebArtifactRow({ ...base, status: "deleted" })).toMatchObject({
       status: "Deleted",
       auto_delete_at: null,
+    });
+  });
+});
+
+describe("web audit transforms", () => {
+  const event: OperationEvent = {
+    id: "evt_1",
+    workspace_id: "ws_1",
+    actor_type: "platform",
+    actor_id: "operator@example.com",
+    action: "platform.lockdown.set",
+    target_type: "workspace",
+    target_id: "ws_1",
+    details: { scope: "workspace", reason_code: "phishing_report" },
+    request_id: "req_1",
+    occurred_at: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("maps operation events to tenant-safe audit rows", () => {
+    expect(toWebAuditRow(event)).toMatchObject({
+      actor: "platform:operator@example.com",
+      action: "platform.lockdown.set",
+      target: "workspace:ws_1",
+      change_summary: "Platform lockdown set on workspace (reason: phishing_report)",
+      request_id: "req_1",
     });
   });
 });

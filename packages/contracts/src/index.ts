@@ -10,6 +10,7 @@ export * from "./jobs.js";
 export * from "./liveUpdates.js";
 export * from "./lockdown.js";
 export * from "./mcp.js";
+export * from "./operator.js";
 export * from "./openapi/index.js";
 export * from "./primitives.js";
 export * from "./revisions.js";

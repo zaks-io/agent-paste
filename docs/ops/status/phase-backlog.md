@@ -152,7 +152,7 @@ usage.
 
 1. [ ] Application-layer encryption for artifact bytes.
 2. [ ] Real safety scanner integration behind the scanner interface.
-3. [ ] Stronger audit semantics and operator abuse workflows.
+3. [x] Stronger audit semantics and operator abuse workflows.
 4. [ ] Automated signing-key, content-key, API-pepper, and WorkOS rotation with
        overlap windows.
 5. [ ] Public SDK and standalone CLI binaries only if product demand warrants

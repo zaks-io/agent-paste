@@ -323,7 +323,7 @@ describe("web routes", () => {
               target: "workspace:w_1",
               target_type: "workspace",
               workspace_id: "w_1",
-              change_summary: "reason_code=phishing_report",
+              change_summary: "Platform lockdown set on workspace (reason: phishing_report)",
               request_id: "req_1",
             },
           ],

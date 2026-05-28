@@ -16,6 +16,7 @@ export const operationEventQueries = {
       workspaceId: string | null;
       details: Record<string, unknown>;
       occurredAt: string;
+      requestId?: string | null;
     },
   ) {
     await db.insert(operationEvents).values({
@@ -27,7 +28,7 @@ export const operationEventQueries = {
       targetType: input.targetType,
       targetId: input.targetId,
       details: input.details,
-      requestId: null,
+      requestId: input.requestId ?? null,
       occurredAt: new Date(input.occurredAt),
     });
   },
