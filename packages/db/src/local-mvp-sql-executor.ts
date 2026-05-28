@@ -78,7 +78,12 @@ function parseOperationEventInsert(params: readonly SqlValue[]): OperationEvent 
     action: String(params[4]),
     target_type: String(params[5]),
     target_id: String(params[6]),
-    details: typeof params[7] === "string" ? (JSON.parse(params[7]) as Record<string, unknown>) : {},
+    details:
+      typeof params[7] === "string"
+        ? (JSON.parse(params[7]) as Record<string, unknown>)
+        : params[7] && typeof params[7] === "object" && !Array.isArray(params[7])
+          ? (params[7] as Record<string, unknown>)
+          : {},
     request_id: params[8] === null ? null : String(params[8]),
     occurred_at: String(params[9]),
   };

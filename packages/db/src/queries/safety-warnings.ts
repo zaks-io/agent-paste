@@ -9,7 +9,13 @@ export const safetyWarningQueries = {
       .select()
       .from(safetyWarnings)
       .where(and(eq(safetyWarnings.workspaceId, workspaceId), eq(safetyWarnings.revisionId, revisionId)))
-      .orderBy(asc(safetyWarnings.scope), asc(safetyWarnings.filePath), asc(safetyWarnings.code));
+      .orderBy(
+        asc(safetyWarnings.scope),
+        asc(safetyWarnings.filePath),
+        asc(safetyWarnings.code),
+        asc(safetyWarnings.scannerId),
+        asc(safetyWarnings.id),
+      );
     return rows.map(mapSafetyWarning);
   },
 };

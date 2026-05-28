@@ -186,8 +186,8 @@ KV values do not contain token material.
 - `artifacts(workspace_id, expires_at) WHERE status = 'active'`
 - `artifacts(revision_id) UNIQUE`
 - `artifact_files(artifact_id, path) UNIQUE`
-- `safety_warnings(revision_id)`
-- `safety_warnings(revision_id, scanner_id)`
+- `safety_warnings(workspace_id, revision_id)`
+- `safety_warnings(workspace_id, revision_id, scanner_id)`
 - `upload_sessions(workspace_id, expires_at) WHERE status = 'pending'`
 - `upload_session_files(upload_session_id, path) UNIQUE`
 - `operation_events(workspace_id, occurred_at DESC)`

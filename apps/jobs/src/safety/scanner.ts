@@ -84,7 +84,7 @@ export function createBuiltInSafetyScanner(): SafetyScanner {
 }
 
 function isHtml(file: SafetyScannerFile): boolean {
-  return file.contentType.includes("html") || /\.(?:html?|xhtml)$/i.test(file.path);
+  return file.contentType.toLowerCase().includes("html") || /\.(?:html?|xhtml)$/i.test(file.path);
 }
 
 function decodeScannableText(file: SafetyScannerFile): string | null {

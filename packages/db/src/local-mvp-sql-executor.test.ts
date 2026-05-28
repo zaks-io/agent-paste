@@ -135,6 +135,31 @@ describe("createLocalMvpSqlExecutor", () => {
     expect(state.revisions.get(revisionId)?.bundle_size_bytes).toBe(128);
   });
 
+  it("preserves object-valued operation event details", async () => {
+    const state = createLocalState();
+    const executor = createLocalMvpSqlExecutor(state);
+
+    await executor.query(
+      `insert into operation_events
+         (id, workspace_id, actor_type, actor_id, action, target_type, target_id, details, request_id, occurred_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)`,
+      [
+        "evt_1",
+        workspaceId,
+        "system",
+        "safety_scan",
+        "safety_warnings.replaced",
+        "revision",
+        revisionId,
+        { warning_count: 2 },
+        null,
+        "2026-01-01T00:00:02.000Z",
+      ],
+    );
+
+    expect(state.operationEvents.get("evt_1")?.details).toEqual({ warning_count: 2 });
+  });
+
   it("supports purge recovery discovery and artifact inspection queries", async () => {
     const state = createLocalState();
     seedPublishedRevision(state);

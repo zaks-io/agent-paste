@@ -374,7 +374,15 @@ export function localEntities(state: LocalState): Entities {
               return scope;
             }
             const filePath = (left.file_path ?? "").localeCompare(right.file_path ?? "");
-            return filePath === 0 ? left.code.localeCompare(right.code) : filePath;
+            if (filePath !== 0) {
+              return filePath;
+            }
+            const code = left.code.localeCompare(right.code);
+            if (code !== 0) {
+              return code;
+            }
+            const scannerId = left.scanner_id.localeCompare(right.scanner_id);
+            return scannerId === 0 ? left.id.localeCompare(right.id) : scannerId;
           });
       },
     },

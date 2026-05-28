@@ -95,6 +95,30 @@ describe("handleSafetyScanBatch", () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
+  it("retries when an R2 object body shape is unsupported", async () => {
+    const retry = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
+      DB: {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("from revisions r")) {
+            return { rows: [{ status: "published", artifact_status: "active" }] };
+          }
+          if (sql.includes("from artifact_files")) {
+            return {
+              rows: [{ path: "unknown.txt", r2_key: "objects/unknown.txt", served_content_type: "text/plain" }],
+            };
+          }
+          return { rows: [] };
+        }),
+        transaction: vi.fn(),
+      },
+      ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(async () => ({ body: {} as ReadableStream })) },
+    });
+
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it("runs the built-in scanner and replaces warnings through runCommand", async () => {
     const warningInserts: unknown[][] = [];
     const auditInserts: unknown[][] = [];
@@ -253,7 +277,7 @@ describe("handleSafetyScanBatch", () => {
           if (key.endsWith("stream.txt")) {
             return { body: new Response("no warnings here").body };
           }
-          return { body: {} as ReadableStream };
+          return { body: new Uint8Array() };
         }),
       },
     });

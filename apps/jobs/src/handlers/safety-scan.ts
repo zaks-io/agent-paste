@@ -149,7 +149,16 @@ async function readObjectBytes(object: R2ObjectWithBody): Promise<Uint8Array> {
   if (object.body instanceof ReadableStream) {
     return new Uint8Array(await new Response(object.body).arrayBuffer());
   }
-  return new Uint8Array();
+  const unsupportedBody: unknown = object.body;
+  const bodyType =
+    unsupportedBody === null
+      ? "null"
+      : unsupportedBody === undefined
+        ? "undefined"
+        : unsupportedBody instanceof Object
+          ? unsupportedBody.constructor.name
+          : typeof unsupportedBody;
+  throw new Error(`unsupported_r2_object_body:${bodyType}`);
 }
 
 async function replaceSafetyWarnings(

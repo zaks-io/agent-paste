@@ -102,6 +102,28 @@ describe("built-in safety scanner", () => {
     ]);
   });
 
+  it("detects HTML password forms with mixed-case content types", async () => {
+    const scanner = createBuiltInSafetyScanner();
+
+    await expect(
+      scanner.scan([
+        {
+          path: "signin",
+          contentType: "Text/HTML; charset=utf-8",
+          bytes: encoder.encode(`<form><input type=password></form>`),
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        code: "credential_collection_form",
+        severity: "warning",
+        scope: "file",
+        file_path: "signin",
+        message: "This revision contains an HTML password form.",
+      },
+    ]);
+  });
+
   it("sorts multiple warnings for the same file by code", async () => {
     const scanner = createBuiltInSafetyScanner();
     const warnings = await scanner.scan([

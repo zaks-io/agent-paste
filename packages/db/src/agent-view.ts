@@ -61,7 +61,7 @@ export function buildAgentView(
       content_type: file.content_type,
       url: `${prefix}/${encodePath(file.path)}`,
     })),
-    safety_warnings: warnings.map(toAgentViewSafetyWarning),
+    safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
   };
 }
