@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (AP-77 CLI credential hardening, rebased after AP-25).
+Last updated: 2026-05-28 (AP-33 safety scanner warning persistence).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,14 +9,16 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `1ad2436 fix: provision hosted job queues before preview/production deploy (AP-23) (#102)`.
+  `76a88a9 chore: add codex repo agent links`.
 - AP-24 (pinning + non-current revision retention) is implemented on
   [PR #104](https://github.com/zaks-io/agent-paste/pull/104), pending merge.
-- `pnpm verify` passed on 2026-05-27 on the AP-24 branch (76 Turbo tasks).
+- `pnpm verify` passed on 2026-05-28 on the AP-33 branch (80 Turbo tasks).
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
-- `apps/jobs` has queue/cron/DLQ topology and bundle zip generation (AP-21/AP-23); `apps/mcp` remains a scaffold for Phase 5.
-- `packages/billing` and scanner persistence do not exist yet. `apps/stream` implements ADR 0069 Live Updates (AP-25).
+- `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
+  zip generation, and built-in safety warning replacement (AP-21/AP-23/AP-33).
+- `packages/billing` does not exist yet. `apps/stream` implements ADR 0069 Live
+  Updates (AP-25), and scanner persistence now exists in `packages/db`.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
@@ -68,10 +70,7 @@ and deep-link return paths are implemented.
 Highest-signal gaps:
 
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
-- Phase 5: OAuth-only MCP transport, auth verification, API forwarding, and MCP
-  tools.
-- Phase 6: app-layer byte encryption, real safety scanner, stronger audit/abuse
-  operations beyond the current operator event browsing baseline; rotation
+- Phase 6: app-layer byte encryption and hosted rotation automation. Rotation
   overlap rings and tests ship in `@agent-paste/rotation` (hosted wrangler
   automation still manual).
 - Parked ops/security hardening: optional dedicated admin hostname decision.
@@ -83,13 +82,14 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 
 ## Current Implementation Reality
 
-- Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`,
-  `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`, `api-client`,
-  `commands`, `storage`, and repo guardrail packages.
-- Partial: `jobs` (queue topology, lifecycle byte purge/retention, bundle zip generation).
-- Scaffolded only: `mcp`.
+- Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`, `mcp`,
+  `stream`, `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`,
+  `api-client`, `commands`, `storage`, and repo guardrail packages.
+- Partial: `jobs` only where future hardening adds new queue families beyond
+  the current lifecycle/bundle/safety-scan set.
+- Scaffolded only: none in the active app set.
 - Placeholder UI: `web` Access Links.
-- Absent: `stream`, `billing`, safety-warning storage, app-layer encryption.
+- Absent: `billing` and app-layer encryption.
 
 Full component map:
 [implementation.md](./status/implementation.md#components).

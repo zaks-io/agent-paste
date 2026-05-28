@@ -1,6 +1,6 @@
 # Coverage Ledger
 
-Last updated: 2026-05-27.
+Last updated: 2026-05-28.
 
 Status legend:
 
@@ -20,7 +20,7 @@ Status legend:
 | `docs/specs/phases.md`            | Partial | Phase 1 complete, Phase 3 active close-out, Phases 4-6/post-launch mostly unimplemented.                                                                         |
 | `docs/specs/features.md`          | Drift   | Still marks some now-built Phase 3 work as future/Phase 6. Use `phase-backlog.md` for current ordering.                                                          |
 | `docs/specs/api.md`               | Done    | MVP REST routes implemented; later dashboard routes live in contracts/API but the spec still reads MVP-first.                                                    |
-| `docs/specs/data-model.md`        | Partial | Current schema/RLS plus `revisions` implemented; Phase 4 Access Link/bundle/scanner and billing tables absent.                                                   |
+| `docs/specs/data-model.md`        | Partial | Current schema/RLS plus `revisions`, Access Links, bundle fields, and Safety Warnings are implemented; billing tables remain absent.                             |
 | `docs/specs/content-rendering.md` | Done    | Signed content tokens, MIME, CSP, denylist, cache, and artifact read throttling are implemented.                                                                 |
 | `docs/specs/admin.md`             | Partial | Repo-local admin path is retired; WorkOS operator lockdown UI, operator event browsing (AP-16), and abuse triage plus stronger audit summaries (AP-34) are live. |
 | `docs/specs/acceptance.md`        | Done    | MVP acceptance covered by local/hosted smoke and worker tests; later phases are explicit non-goals there.                                                        |
@@ -28,7 +28,7 @@ Status legend:
 | `docs/specs/local-dev.md`         | Done    | `pnpm dev:all`, local harness, and local smoke are present for the MVP surface.                                                                                  |
 | `docs/specs/product-judgment.md`  | Done    | Philosophy doc.                                                                                                                                                  |
 | `docs/specs/style-guide.md`       | Partial | Web applies tokens/components; per-route titles remain.                                                                                                          |
-| `docs/specs/jobs.md`              | Partial | Phase 4 jobs worker: queue topology and lifecycle byte purge/retention are implemented; bundle generation remains follow-up.                                     |
+| `docs/specs/jobs.md`              | Done    | Current jobs worker owns queue topology, lifecycle byte purge/retention, bundle generation, and safety scan warning replacement.                                 |
 | `docs/specs/web.md`               | Partial | WorkOS AuthKit dashboard auth/read/mutation basics and operator lockdown UI are live; Access Link viewer is a placeholder; per-route titles polish remain.       |
 
 ## ADR Coverage
@@ -58,7 +58,7 @@ Status legend:
 | 0021 R2 object key layout             | Done                 | Current object keys follow ID-based layout.                                                                                                                                                                                         |
 | 0022 idempotent mutations             | Done                 | Current mutation routes use durable idempotency.                                                                                                                                                                                    |
 | 0023 versioned REST APIs              | Done                 | Public routes are under `/v1`; WorkOS operator APIs are under `/v1/web/admin/*`, with the web `/admin` route as the operator UI.                                                                                                    |
-| 0024 untrusted agent data             | Partial              | Main safety baseline implemented; future scanner/renderer surfaces remain.                                                                                                                                                          |
+| 0024 untrusted agent data             | Partial              | Main safety baseline and built-in Safety Warnings are implemented; future renderer surfaces remain.                                                                                                                                 |
 | 0025 Biome/Lefthook/Vitest            | Done                 | Configured and passing.                                                                                                                                                                                                             |
 | 0026 Turbo remote cache               | Done                 | Signed remote cache configured.                                                                                                                                                                                                     |
 | 0027 upload write path                | Done for current app | Upload finalize creates draft revisions; `api` owns publish. App-layer encryption piece deferred by ADR 0063/0066.                                                                                                                  |
@@ -85,10 +85,10 @@ Status legend:
 | 0048 transient artifacts              | Done (AP-24 PR)      | TTL/deletion/read throttling, pinned-artifact cap, auto-deletion exempting pins, and jobs retention for non-current revisions (PR #104).                                                                                            |
 | 0049 jobs handlers                    | Deferred             | Phase 4.                                                                                                                                                                                                                            |
 | 0050 bundle availability/DLQ          | Deferred             | Phase 4.                                                                                                                                                                                                                            |
-| 0051 safety scanner lifecycle         | Deferred             | Phase 4 stub/Phase 6 real scanner.                                                                                                                                                                                                  |
+| 0051 safety scanner lifecycle         | Done                 | AP-33 implements replaceable built-in scanner integration, scanner versioning, warning replacement, audit summaries, and Agent View surfacing.                                                                                      |
 | 0052 Agent View from Access Link      | Deferred             | Phase 4 Access Link resolve/discovery.                                                                                                                                                                                              |
 | 0053 manifest shape                   | Partial              | `revisions` stores `revision_number` and `render_mode`; full Agent View manifest expansion (creator, bundle sibling fields) remains Phase 4+.                                                                                       |
-| 0054 Agent View envelope              | Done                 | Current public Agent View shape implemented.                                                                                                                                                                                        |
+| 0054 Agent View envelope              | Done                 | Current public Agent View shape implemented, including bundle availability and Safety Warnings.                                                                                                                                     |
 | 0055 signup auto-provision            | Done                 | Dashboard and CLI login provision Personal Workspace/member/default or minted key.                                                                                                                                                  |
 | 0056 MVP usage policy                 | Done                 | Current caps align with MVP defaults.                                                                                                                                                                                               |
 | 0057 KV denylist keys                 | Done for current app | Artifact/workspace/platform denylist keys implemented for current surfaces.                                                                                                                                                         |

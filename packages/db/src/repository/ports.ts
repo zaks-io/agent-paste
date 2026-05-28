@@ -6,6 +6,7 @@ import type {
   PlatformLockdown,
   PublishBundleStatus,
   Revision,
+  SafetyWarning,
   StoredFile,
   UploadSession,
   Workspace,
@@ -124,6 +125,9 @@ export type Entities = {
   artifactFiles: {
     insert(artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string): Promise<void>;
     listForArtifact(artifactId: string, revisionId?: string): Promise<StoredFile[]>;
+  };
+  safetyWarnings: {
+    listForRevision(workspaceId: string, revisionId: string): Promise<SafetyWarning[]>;
   };
   uploadSessions: {
     insert(session: UploadSession): Promise<void>;

@@ -6,7 +6,7 @@ import {
   buildPublishResult,
   inferRenderMode,
 } from "./agent-view.js";
-import type { Artifact, StoredFile } from "./types.js";
+import type { Artifact, SafetyWarning, StoredFile } from "./types.js";
 
 const artifact: Artifact = {
   id: "art_1",
@@ -97,6 +97,38 @@ describe("agent-view helpers", () => {
       file_count: 1,
       size_bytes: 12,
     });
+  });
+
+  it("caps safety warnings to the Agent View contract limit", () => {
+    const warnings: SafetyWarning[] = Array.from({ length: 101 }, (_, index) => ({
+      id: `warn_${index}`,
+      workspace_id: artifact.workspace_id,
+      artifact_id: artifact.id,
+      revision_id: artifact.revision_id ?? "rev_1",
+      scanner_id: "builtin_content",
+      scanner_version: "1",
+      code: `warning_${index}`,
+      severity: "info",
+      scope: "file",
+      file_path: file.path,
+      message: "Warning.",
+      created_at: "2026-01-01T00:00:00.000Z",
+    }));
+
+    const view = buildAgentView(
+      artifact,
+      "rev_1",
+      [file],
+      "https://content.test",
+      {
+        bundle_status: "pending",
+        bundle_status_updated_at: null,
+        bundle_size_bytes: null,
+      },
+      warnings,
+    );
+
+    expect(view.safety_warnings).toHaveLength(100);
   });
 
   it("builds bundle availability for each terminal state", () => {

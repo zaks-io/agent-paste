@@ -9,6 +9,7 @@ import {
   mvpUsagePolicy,
   PublishResult,
   routeContracts,
+  SafetyWarning,
 } from "./index.js";
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -259,6 +260,28 @@ describe("MVP schemas", () => {
         manifest: {},
         content_prefix: "https://usercontent.agent-paste.sh/v/token/",
         files: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("enforces Safety Warning scope and file path invariants", () => {
+    expect(
+      SafetyWarning.safeParse({
+        code: "credential_collection_form",
+        severity: "warning",
+        scope: "file",
+        message: "This revision contains an HTML password form.",
+        detected_at: isoDate,
+      }).success,
+    ).toBe(false);
+    expect(
+      SafetyWarning.safeParse({
+        code: "artifact_notice",
+        severity: "info",
+        scope: "artifact",
+        file_path: "index.html",
+        message: "Artifact-level warning.",
+        detected_at: isoDate,
       }).success,
     ).toBe(false);
   });

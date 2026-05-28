@@ -52,6 +52,7 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Scheduled cleanup  | API Worker scheduled handler expires artifacts and upload sessions, then deletes R2 bytes. | System        |
 | Manual cleanup     | Admin CLI can trigger cleanup.                                                             | Operator      |
 | Artifact read cap  | Unauthenticated content reads are throttled per Artifact as an abuse ceiling.              | System        |
+| Built-in scanner   | Async non-blocking Safety Warnings surface through Agent View.                             | System        |
 | Operation events   | Lightweight event log for workspace, key, upload, artifact, cleanup, and admin actions.    | Operator      |
 
 ### Operator (web)
@@ -76,5 +77,4 @@ This index separates the actual CLI-first MVP from later platform phases. If ano
 | Bundle generation/download       |        Phase 4 | Useful once artifacts become larger or multi-revision.        |
 | MCP server                       |        Phase 5 | OAuth-only hosted agent integration after core API is stable. |
 | App-layer encryption             |        Phase 6 | Adds key management and rotation after usage proves need.     |
-| Real safety scanner              |        Phase 6 | Replaces lightweight warnings with scanner lifecycle.         |
 | Billing and usage tiers          |       Phase 6+ | Add only when external usage or cost pressure requires it.    |

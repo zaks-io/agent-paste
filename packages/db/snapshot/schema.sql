@@ -130,6 +130,25 @@ CREATE TABLE "revisions" (
 	CONSTRAINT "revisions_created_by_type_check" CHECK ("revisions"."created_by_type" in ('api_key', 'member'))
 );
 
+CREATE TABLE "safety_warnings" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"artifact_id" text NOT NULL,
+	"revision_id" text NOT NULL,
+	"scanner_id" text NOT NULL,
+	"scanner_version" text NOT NULL,
+	"code" text NOT NULL,
+	"severity" text NOT NULL,
+	"scope" text NOT NULL,
+	"file_path" text,
+	"message" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "safety_warnings_severity_check" CHECK ("safety_warnings"."severity" in ('info', 'warning')),
+	CONSTRAINT "safety_warnings_scope_check" CHECK ("safety_warnings"."scope" in ('artifact', 'revision', 'file')),
+	CONSTRAINT "safety_warnings_file_scope_check" CHECK (("safety_warnings"."scope" = 'file' and "safety_warnings"."file_path" is not null) or ("safety_warnings"."scope" <> 'file' and "safety_warnings"."file_path" is null)),
+	CONSTRAINT "safety_warnings_code_check" CHECK ("safety_warnings"."code" ~ '^[a-z0-9_]+$')
+);
+
 CREATE TABLE "upload_session_files" (
 	"workspace_id" uuid NOT NULL,
 	"upload_session_id" text NOT NULL,
@@ -194,6 +213,8 @@ ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk"
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_revision_fk" FOREIGN KEY ("workspace_id","artifact_id","revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
@@ -213,6 +234,8 @@ CREATE INDEX "revisions_workspace_idx" ON "revisions" USING btree ("workspace_id
 CREATE UNIQUE INDEX "revisions_workspace_artifact_id_unique" ON "revisions" USING btree ("workspace_id","artifact_id","id");
 CREATE UNIQUE INDEX "revisions_artifact_number_unique" ON "revisions" USING btree ("artifact_id","revision_number") WHERE "revisions"."revision_number" is not null;
 CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btree ("artifact_id") WHERE "revisions"."status" = 'draft';
+CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
+CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE INDEX "workspace_members_workspace_idx" ON "workspace_members" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "workspace_members_workos_user_unique" ON "workspace_members" USING btree ("workos_user_id");

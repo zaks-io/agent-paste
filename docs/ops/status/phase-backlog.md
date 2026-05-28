@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-05-27 (AP-24 pinning and non-current revision retention).
+Last updated: 2026-05-28 (AP-33 safety scanner warning persistence).
 remaining work. When asked to "implement the next step", start at the first
 unchecked item in the active phase below unless the user says otherwise.
 
@@ -151,7 +151,10 @@ Goal: security, abuse, and enterprise-shaped controls once the core product has
 usage.
 
 1. [ ] Application-layer encryption for artifact bytes.
-2. [ ] Real safety scanner integration behind the scanner interface.
+2. [x] Real safety scanner integration behind the scanner interface.
+       Publishes enqueue `safety-scan`, the jobs worker runs the replaceable
+       built-in content scanner, and warnings are stored with scanner
+       versioning for Agent View reads.
 3. [x] Stronger audit semantics and operator abuse workflows.
 4. [ ] Automated signing-key, content-key, API-pepper, and WorkOS rotation with
        overlap windows.

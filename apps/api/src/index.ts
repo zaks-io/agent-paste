@@ -136,6 +136,7 @@ export type Env = {
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
+  SAFETY_SCAN_QUEUE?: { send(message: unknown): Promise<unknown> };
   BYTE_PURGE_QUEUE?: { send(message: unknown): Promise<unknown> };
   SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
   LOCAL_MVP_REPOSITORY?: {
@@ -795,23 +796,21 @@ async function publishRevision(
         result && typeof result === "object" && "bundle" in result
           ? (result as { bundle: { status: string } }).bundle.status
           : "disabled";
-      if (bundleStatus === "pending") {
-        try {
-          await enqueuePostPublishJobs(context.env as Env, {
-            workspaceId: actor.workspace_id,
-            artifactId: params.artifactId ?? "",
-            revisionId: params.revisionId ?? "",
-            bundleStatus: "pending",
-            requestedAt: now,
-          });
-        } catch (error) {
-          console.warn("Bundle generate enqueue failed after publish; revision remains published.", {
-            artifactId: params.artifactId ?? "",
-            revisionId: params.revisionId ?? "",
-            bundleStatus,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+      try {
+        await enqueuePostPublishJobs(context.env as Env, {
+          workspaceId: actor.workspace_id,
+          artifactId: params.artifactId ?? "",
+          revisionId: params.revisionId ?? "",
+          bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
+          requestedAt: now,
+        });
+      } catch (error) {
+        console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
+          artifactId: params.artifactId ?? "",
+          revisionId: params.revisionId ?? "",
+          bundleStatus,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
       const signed = await signPublishResult(result, context.env, { workspaceId: actor.workspace_id });
       if (result && typeof result === "object" && "artifact_id" in result) {

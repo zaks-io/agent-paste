@@ -588,6 +588,56 @@
             "minItems": 1,
             "maxItems": 100
           },
+          "safety_warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+$"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "info",
+                    "warning"
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "artifact",
+                    "revision",
+                    "file"
+                  ]
+                },
+                "file_path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "detected_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "code",
+                "severity",
+                "scope",
+                "message",
+                "detected_at"
+              ]
+            },
+            "maxItems": 100,
+            "default": []
+          },
           "bundle": {
             "oneOf": [
               {

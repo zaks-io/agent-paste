@@ -26,6 +26,9 @@ export const SafetyScanMessage = z.object({
 });
 export type SafetyScanMessage = z.infer<typeof SafetyScanMessage>;
 
+export const DEFAULT_SAFETY_SCANNER_ID = "builtin_content";
+export const DEFAULT_SAFETY_SCANNER_VERSION = "1";
+
 export const BundleGenerateReason = z.enum(["publish"]);
 export type BundleGenerateReason = z.infer<typeof BundleGenerateReason>;
 

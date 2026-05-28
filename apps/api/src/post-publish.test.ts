@@ -32,4 +32,19 @@ describe("enqueuePostPublishJobs", () => {
       }),
     );
   });
+
+  it("enqueues safety.scan.v1 after publish", async () => {
+    const send = vi.fn(async () => ({}));
+    await enqueuePostPublishJobs({ SAFETY_SCAN_QUEUE: { send } }, { ...input, bundleStatus: "disabled" });
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "safety.scan.v1",
+        workspace_id: input.workspaceId,
+        artifact_id: input.artifactId,
+        revision_id: input.revisionId,
+        scanner_id: "builtin_content",
+        scanner_version: "1",
+      }),
+    );
+  });
 });

@@ -9,7 +9,7 @@ The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports
 | Queue             | Consumer | Batch | DLQ                   | DLQ Consumer | Purpose                                                          |
 | ----------------- | -------- | ----: | --------------------- | ------------ | ---------------------------------------------------------------- |
 | `byte-purge`      | `jobs`   |    50 | `byte-purge-dlq`      | none         | Delete R2 prefixes after Deletion, Retention, or Upload Cleanup. |
-| `safety-scan`     | `jobs`   |     1 | `safety-scan-dlq`     | none         | Run async scanner stub and replace warnings.                     |
+| `safety-scan`     | `jobs`   |     1 | `safety-scan-dlq`     | none         | Run async scanner and replace warnings.                          |
 | `bundle-generate` | `jobs`   |     1 | `bundle-generate-dlq` | yes          | Generate revision bundle zip.                                    |
 
 Only `bundle-generate-dlq` has a consumer because terminal bundle failure must update public product state to `failed`.
@@ -59,7 +59,7 @@ Handler behavior:
   "workspace_id": "00000000-0000-0000-0000-000000000000",
   "artifact_id": "art_...",
   "revision_id": "rev_...",
-  "scanner_id": "stub_v1",
+  "scanner_id": "builtin_content",
   "scanner_version": "1",
   "requested_at": "2026-05-20T00:00:00.000Z"
 }
@@ -68,9 +68,12 @@ Handler behavior:
 Handler behavior:
 
 - Return idempotently if Revision is retained or Artifact is deleted.
-- Run the stub scanner over `revision_files`.
+- Run the replaceable built-in content scanner over `revision_files`.
 - Replace all warnings in `(revision_id, scanner_id)` inside `runCommand`.
-- Create an Audit Event when warnings change.
+- Include `scanner_version` in the idempotency key so rule changes can re-scan
+  the same Revision.
+- Create an Audit Event with added/removed/unchanged counts when warnings
+  change.
 - DLQ has no consumer; alerts drive operator triage.
 
 ### `byte-purge`
