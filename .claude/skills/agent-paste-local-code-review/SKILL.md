@@ -58,6 +58,16 @@ Check:
 - Authorization uses documented scopes and repository seams.
 - Tests cover risky behavior, tenant boundaries, and security boundaries for the
   slice.
+- Cross-layer invariants hold for every touched workflow:
+  - accepted auth principals match route contracts, replay hooks, rate limits,
+    repository actors, audit events, and RLS expectations
+  - idempotency covers completed retries, in-flight retries, and optional side
+    effects such as Access Link creation, minting, queue sends, and notifications
+  - deletion, revocation, retention, and lockdown paths write the required
+    denylist keys before byte-purge enqueueing when content URLs must stop
+    resolving
+  - ADR/spec/tool contracts, forwarded-call metadata, schemas, implementation,
+    docs, and tests describe the same behavior
 - Docs changed only when the contract changed or the issue required it.
 - The diff has no leftover TODOs, debug output, commented dead code, unrelated
   cleanup, or broad refactors outside the issue scope.

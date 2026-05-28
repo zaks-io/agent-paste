@@ -74,6 +74,15 @@ Check:
   context is visible
 - security invariant violations from repo docs, ADRs, and changed package
   context
+- cross-layer invariant drift where the local change passes tests but the
+  merged workflow violates a spec or ADR, especially:
+  - idempotency replay before rate limiting for every principal accepted by a
+    route contract
+  - optional side effects outside the caller-visible idempotency boundary
+  - deletion, revocation, retention, or lockdown state changes without denylist
+    invalidation and byte-purge enqueueing when content URLs must stop resolving
+  - MCP tool contracts that disagree with forwarded-call metadata, output
+    schemas, implementation behavior, host docs, or ADR 0061
 - API Key secrets, Access Link fragment payloads, content-gateway tokens,
   signed URLs, or other credentials leaking into code, tests, docs, logs,
   screenshots, examples, or Linear prose

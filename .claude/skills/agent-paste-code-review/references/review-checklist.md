@@ -50,6 +50,8 @@ Confidence guide:
 - Schema migration is not compatible with the code path being shipped.
 - Retention, cleanup, or queue code can delete current or pinned data.
 - New persisted fields are not validated, normalized, or bounded.
+- Deletion, retention, revocation, or lockdown commits durable state without the required post-commit invalidation path: KV denylist write first, then byte-purge enqueue when bytes must be removed.
+- A new caller path reuses an existing destructive repository method but does not return or resolve the workspace/revision metadata needed for invalidation, audit, live updates, and purge recovery.
 
 ### SQL and query construction
 
@@ -63,6 +65,8 @@ Confidence guide:
 - Queue handlers assume one worker, one delivery, or no retry.
 - Cron jobs or delayed work can overlap and double-apply effects.
 - Async work continues after request context, transaction, or cancellation scope ends.
+- Idempotent workflows cover the primary write but leave optional side effects outside the key, such as Access Link creation, minting, notifications, or enqueueing.
+- Replay hooks work for one principal type but skip another principal accepted by the route contract; completed retries should replay before rate limiting for every accepted actor.
 
 ### API and contract compatibility
 
@@ -70,6 +74,8 @@ Confidence guide:
 - New enum/status/type value is not handled in every switch, serializer, parser, renderer, and CLI output path.
 - Error shape, status code, retry behavior, or pagination semantics changed accidentally.
 - Generated artifacts are stale.
+- Tool/API implementation diverges from the governing ADR, spec, Linear issue, or runbook. Either implement the documented contract or update the source of truth in the same change.
+- Forwarded-call metadata, route contracts, output schemas, implementation behavior, docs, and tests disagree about required side effects or returned fields.
 
 ### LLM and untrusted output
 
@@ -111,6 +117,30 @@ Confidence guide:
 - Tests assert implementation details while missing user-visible behavior.
 - Tests pass only in local order or share state across cases.
 - Smoke or integration checks are skipped where the changed path is cross-package or runtime-dependent.
+- Idempotency tests only cover first success, not completed retry, in-flight retry, retry after optional side effects, and retry under rate-limit pressure.
+- Destructive or revocation tests assert database state but not the externally visible content/API behavior after invalidation, such as old signed URLs returning `not_found`.
+
+## Agent-Paste Cross-Layer Hotspots
+
+These are recurring high-risk seams in this repo. Check them explicitly when the
+diff touches the named surface, even if the local code is clean.
+
+- **Publish chains:** upload-session create, signed file PUT, finalize,
+  revision publish, Access Link creation/minting, bundle jobs, and returned URLs
+  must agree on idempotency, actor type, and output contract.
+- **Deletion and revocation:** `api` and `jobs` state changes must follow the
+  ADR 0057/0049 order: commit through `runCommand`, write the denylist key, then
+  enqueue purge if bytes are affected. `content` does not consult Postgres.
+- **MCP/member callers:** every route that accepts `mcp_oauth` or
+  `api_key_or_mcp_oauth` needs review for both API-key and member actors:
+  scopes, rate limits, idempotency replay, audit actor, RLS, and repository
+  return shape.
+- **Access Links and signed URLs:** distinguish direct signed content URLs,
+  Agent View signed URLs, Share Links, and Revision Links. If docs say a link is
+  durable Access Link state, verify an `access_links` row is created or update
+  the docs.
+- **Live Updates:** published/revoked/deleted notifications must be scoped to
+  each viewer authorization context and must not replace durable invalidation.
 
 ## CodeRabbit Escalation Rubric
 
