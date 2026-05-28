@@ -563,8 +563,7 @@ async function updateDisplayMetadataRoute(
       await db.updateArtifactDisplayMetadata({
         actor,
         artifactId: context.req.param("artifact_id") ?? "",
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.description !== undefined ? { description: body.description } : {}),
+        title: body.title,
       }),
     );
   } catch (error) {

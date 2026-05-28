@@ -3,6 +3,7 @@ import {
   buildMcpToolList,
   deriveMcpIdempotencyKey,
   McpPublishArtifactInput,
+  McpUpdateDisplayMetadataInput,
   McpToolName,
   mapApiErrorToMcp,
   mapMcpProtocolError,
@@ -17,6 +18,7 @@ import {
   parseMcpScopeClaim,
   toMcpJsonRpcError,
 } from "./mcp.js";
+import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import { IdempotencyKey } from "./primitives.js";
 
 describe("MCP tool registry", () => {
@@ -65,6 +67,41 @@ describe("MCP tool registry", () => {
     expect(
       publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
     ).toBe(true);
+  });
+
+  it("requires title-only UpdateDisplayMetadataRequest bodies", () => {
+    expect(UpdateDisplayMetadataRequest.safeParse({ title: "Renamed" }).success).toBe(true);
+    expect(UpdateDisplayMetadataRequest.safeParse({ description: "not supported" }).success).toBe(false);
+    expect(UpdateDisplayMetadataRequest.safeParse({}).success).toBe(false);
+  });
+
+  it("requires artifact_id and title for update_display_metadata", () => {
+    expect(
+      McpUpdateDisplayMetadataInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        title: "Renamed",
+      }).success,
+    ).toBe(true);
+    expect(
+      McpUpdateDisplayMetadataInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        description: "not supported",
+      }).success,
+    ).toBe(false);
+    expect(
+      McpUpdateDisplayMetadataInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("omits description from update_display_metadata tools/list schema", () => {
+    const tool = buildMcpToolList().tools.find((entry) => entry.name === "update_display_metadata");
+    expect(tool).toBeDefined();
+    const properties = (tool?.inputSchema.properties ?? {}) as Record<string, unknown>;
+    expect(properties).toHaveProperty("artifact_id");
+    expect(properties).toHaveProperty("title");
+    expect(properties).not.toHaveProperty("description");
   });
 
   it("accepts only text render modes for publish tools", () => {

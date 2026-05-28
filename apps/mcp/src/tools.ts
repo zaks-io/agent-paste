@@ -212,10 +212,7 @@ async function callUpdateDisplayMetadata(
     method: "PATCH",
     path: `/v1/artifacts/${encodeURIComponent(input.artifact_id)}/display-metadata`,
     bearerToken: deps.bearerToken,
-    body: JSON.stringify({
-      ...(input.title !== undefined ? { title: input.title } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-    }),
+    body: JSON.stringify({ title: input.title }),
   });
   return parseForwardResult(forwarded, DisplayMetadata);
 }

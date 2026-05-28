@@ -277,6 +277,22 @@ describe("callMcpTool", () => {
     expect(revokeResult.ok).toBe(true);
   });
 
+  it("rejects update_display_metadata calls that include description", async () => {
+    const result = await callMcpTool(
+      "update_display_metadata",
+      {
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        description: "not supported",
+      },
+      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
+      { api: { fetch: vi.fn() }, upload, bearerToken: "token-write" },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("invalid_params");
+    }
+  });
+
   it("updates display metadata through the API binding", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const metadata = { title: "Renamed", description: null };
