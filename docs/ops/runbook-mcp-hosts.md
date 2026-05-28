@@ -167,6 +167,10 @@ Text-only artifact operations per ADR 0061:
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
 
+`publish_artifact` and `add_revision` always return `revision_link_id` and
+`revision_link_url` for the published revision. Set `share: true` to also mint an
+optional `share_link_url`; `share` does not gate the required Revision Link.
+
 ## Smoke commands
 
 Run from the repo root after `pnpm build`.

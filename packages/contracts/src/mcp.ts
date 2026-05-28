@@ -127,9 +127,27 @@ export const McpWhoamiInput = z.object({}).strict();
 export type McpWhoamiInput = z.infer<typeof McpWhoamiInput>;
 
 export const McpPublishArtifactOutput = PublishResult.extend({
+  revision_link_id: AccessLinkId,
+  revision_link_url: UrlString,
   share_link_url: UrlString.optional(),
 }).strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;
+
+/** Suffix for publish-chain revision-link idempotency records (distinct from share-link). */
+export const MCP_PUBLISH_REVISION_LINK_IDEMPOTENCY_SUFFIX = ":revision-link" as const;
+
+/** Suffix for publish-chain share-link idempotency records (distinct from revision-link). */
+export const MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX = ":share-link" as const;
+
+/** Derives an access-link create idempotency key from the publish tool key (ADR 0061, AP-84 seam). */
+export function mcpPublishAccessLinkIdempotencyKey(
+  toolIdempotencyKey: IdempotencyKey,
+  kind: "revision" | "share",
+): IdempotencyKey {
+  const suffix =
+    kind === "revision" ? MCP_PUBLISH_REVISION_LINK_IDEMPOTENCY_SUFFIX : MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX;
+  return IdempotencyKey.parse(`${toolIdempotencyKey}${suffix}`);
+}
 
 export const McpListArtifactsOutput = ArtifactListResponse;
 export type McpListArtifactsOutput = z.infer<typeof McpListArtifactsOutput>;
@@ -386,7 +404,8 @@ const shareLinkErrors = [
 export const mcpToolContracts = [
   {
     name: "publish_artifact",
-    description: "Publish a new text-only artifact and optionally mint a Share Link.",
+    description:
+      "Publish a new text-only artifact, mint the required Revision Link, and optionally mint a Share Link when share is true.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read", "share"],
     idempotency: "optional_override",
@@ -416,6 +435,15 @@ export const mcpToolContracts = [
         routeId: "accessLinks.create",
         auth: "mcp_bearer",
         idempotencyKey: "same_as_tool",
+      },
+      {
+        routeId: "accessLinks.mint",
+        auth: "mcp_bearer",
+      },
+      {
+        routeId: "accessLinks.create",
+        auth: "mcp_bearer",
+        idempotencyKey: "same_as_tool",
         optional: true,
       },
       {
@@ -428,7 +456,8 @@ export const mcpToolContracts = [
   },
   {
     name: "add_revision",
-    description: "Add and publish a text-only revision on an existing artifact.",
+    description:
+      "Add and publish a text-only revision, mint the required Revision Link, and optionally mint a Share Link when share is true.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read", "share"],
     idempotency: "optional_override",
@@ -453,6 +482,15 @@ export const mcpToolContracts = [
         routeId: "revisions.publish",
         auth: "mcp_bearer",
         idempotencyKey: "same_as_tool",
+      },
+      {
+        routeId: "accessLinks.create",
+        auth: "mcp_bearer",
+        idempotencyKey: "same_as_tool",
+      },
+      {
+        routeId: "accessLinks.mint",
+        auth: "mcp_bearer",
       },
       {
         routeId: "accessLinks.create",
