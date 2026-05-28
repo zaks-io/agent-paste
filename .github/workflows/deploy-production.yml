@@ -77,3 +77,6 @@ jobs:
         env:
           AGENT_PASTE_PRODUCTION_SMOKE_API_KEY: ${{ secrets.AGENT_PASTE_PRODUCTION_SMOKE_API_KEY }}
         run: pnpm smoke:production
+
+      - name: Smoke production MCP (unauthenticated)
+        run: pnpm smoke:mcp:production

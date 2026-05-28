@@ -108,7 +108,10 @@ Deferred secrets not created for the current app:
    workflow gates on `/healthz` readiness and local dashboard Lighthouse only;
    full hosted smoke is manual for PRs and automatic after `main` deploy.
 8. Production deploy only with explicit Isaac approval:
-   `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production`
+   `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production &&
+pnpm smoke:mcp:production`. The production GitHub deploy workflow runs the
+   unauthenticated MCP smoke automatically; authenticated MCP tool checks stay
+   manual via `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN`.
 
 ## Database credential boundaries
 
