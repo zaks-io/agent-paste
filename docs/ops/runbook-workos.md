@@ -11,7 +11,7 @@ Scope:
 
 Out of scope:
 
-- MCP OAuth (Phase 5; provider decided as WorkOS AuthKit/Connect in ADR 0061; CIMD primary with DCR enabled for compatibility).
+- MCP host onboarding and smoke — see [`runbook-mcp-hosts.md`](./runbook-mcp-hosts.md).
 - Auth0 paths (retired before first login; see ADR 0068).
 
 Related docs:

@@ -22,6 +22,7 @@ const apps = [
   { name: "upload", package: "@agent-paste/upload" },
   { name: "content", package: "@agent-paste/content" },
   { name: "jobs", package: "@agent-paste/jobs" },
+  { name: "mcp", package: "@agent-paste/mcp" },
   { name: "apex", package: "@agent-paste/apex" },
   { name: "web", package: "@agent-paste/web" },
 ];
@@ -32,7 +33,7 @@ for (const app of apps) {
 }
 
 process.stdout.write(
-  `${target} deploy completed in order: stream -> api -> upload -> content -> jobs -> apex -> web\n`,
+  `${target} deploy completed in order: stream -> api -> upload -> content -> jobs -> mcp -> apex -> web\n`,
 );
 
 function run(command, args) {

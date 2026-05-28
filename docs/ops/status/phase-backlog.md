@@ -140,10 +140,10 @@ Recommended order:
        `WWW-Authenticate` challenges.
 4. [x] Verify OAuth tokens and forward to `api` over a service binding. API keys
        must not authenticate to MCP.
-5. [ ] Implement the initial tool surface from ADR 0061: text-only publish,
+5. [x] Implement the initial tool surface from ADR 0061: text-only publish,
        add revision, list/read artifacts, list revisions, delete/update
        metadata, Access Link create/list/revoke, and `whoami`.
-6. [ ] Add MCP hosted smoke and host onboarding docs.
+6. [x] Add MCP hosted smoke and host onboarding docs.
 
 ## Phase 6: Platform Hardening
 

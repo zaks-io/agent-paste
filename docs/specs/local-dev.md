@@ -55,8 +55,10 @@ Do not commit real `.env` or `.dev.vars` files.
 | `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                       |
 | `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                    |
 | `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                              |
+| `pnpm --filter @agent-paste/mcp test`                                                      | Run MCP Worker unit tests (transport, auth, tools).                                                |
+| `pnpm smoke:mcp`                                                                           | Build and run local MCP smoke (OAuth + publish/read/delete through MCP tools).                     |
 
-Future commands for `jobs`, `web`, and `mcp` should be added only when those phases begin.
+See [`docs/ops/runbook-mcp-hosts.md`](../ops/runbook-mcp-hosts.md) for hosted MCP URLs, host onboarding, and preview/production smoke commands.
 
 ## Local MVP Test
 
