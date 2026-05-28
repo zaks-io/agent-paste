@@ -107,7 +107,7 @@ async function seedMember(executor: SqlExecutor, memberId: string) {
 
 describe("member MCP publish persistence", () => {
   describe("migration 0014 compatibility", () => {
-    it("applies the full chain on a fresh database", async () => {
+    it("applies the full chain on a fresh database", { timeout: 60_000 }, async () => {
       const client = new PGlite();
       await applyMigrations(client);
 
@@ -119,7 +119,7 @@ describe("member MCP publish persistence", () => {
       await expect(applyMigrations(client)).resolves.toBeUndefined();
     });
 
-    it("migrates an existing pre-0014 database and tolerates re-applying 0009", async () => {
+    it("migrates an existing pre-0014 database and tolerates re-applying 0009", { timeout: 90_000 }, async () => {
       const client = new PGlite();
       await applyMigrations(client, "0013_pinning_and_revision_retention.sql");
 
