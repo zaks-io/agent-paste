@@ -1,6 +1,7 @@
 import { peekIdempotentReplay } from "@agent-paste/commands";
 import {
   type AdminActor,
+  type ApiActor,
   type ArtifactBytePurgeHooks,
   type ArtifactInvalidationEnv,
   applyArtifactPurgeSideEffects,
@@ -13,6 +14,7 @@ import {
 } from "@agent-paste/db";
 
 const ADMIN_ARTIFACT_DELETE_OPERATION = "admin.artifact.delete";
+export const MEMBER_ARTIFACT_DELETE_OPERATION = "artifact.delete";
 
 export type DeletionInvalidationEnv = ArtifactInvalidationEnv & {
   DB?: Repository | HyperdriveBinding;
@@ -23,7 +25,7 @@ export type DeletionInvalidationEnv = ArtifactInvalidationEnv & {
 };
 
 export type PostCommitArtifactDeletionInput = {
-  actor: AdminActor;
+  actor: AdminActor | ApiActor;
   idempotencyKey: string;
   workspaceId: string;
   artifactId: string;
@@ -60,6 +62,19 @@ export async function peekAdminArtifactDeleteReplay(
     executor: rlsExecutor(executor, { kind: "workspace", workspaceId: input.workspaceId }),
     actor: { type: input.actor.type, id: input.actor.id, workspaceId: input.workspaceId },
     operation: ADMIN_ARTIFACT_DELETE_OPERATION,
+    idempotencyKey: input.idempotencyKey,
+  });
+  return replay !== null;
+}
+
+export async function peekMemberArtifactDeleteReplay(
+  executor: SqlExecutor,
+  input: { actor: ApiActor; workspaceId: string; idempotencyKey: string },
+): Promise<boolean> {
+  const replay = await peekIdempotentReplay<unknown>({
+    executor: rlsExecutor(executor, { kind: "workspace", workspaceId: input.workspaceId }),
+    actor: { type: input.actor.type, id: input.actor.id, workspaceId: input.workspaceId },
+    operation: MEMBER_ARTIFACT_DELETE_OPERATION,
     idempotencyKey: input.idempotencyKey,
   });
   return replay !== null;

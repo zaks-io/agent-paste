@@ -58,7 +58,10 @@ import {
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import {
+  isHyperdriveDb,
+  MEMBER_ARTIFACT_DELETE_OPERATION,
   peekAdminArtifactDeleteReplay,
+  peekMemberArtifactDeleteReplay,
   resolveDeletionInvalidationExecutor,
   runPostCommitArtifactDeletionInvalidation,
 } from "./deletion-invalidation.js";
@@ -537,12 +540,41 @@ async function deleteMemberArtifactRoute(
   const idempotencyKey = guard.idempotencyKey ?? `mcp-delete:${artifactId}`;
   const env = context.env;
   return runIdempotent(context, async () => {
+    const executor = resolveDeletionInvalidationExecutor(env);
+    let isReplay = false;
+    if (executor && isHyperdriveDb(env.DB)) {
+      isReplay = await peekMemberArtifactDeleteReplay(executor, {
+        actor,
+        workspaceId: actor.workspace_id,
+        idempotencyKey,
+      });
+    } else {
+      const replay = await db.peekWorkspaceCommandReplay({
+        actor,
+        operation: MEMBER_ARTIFACT_DELETE_OPERATION,
+        idempotencyKey,
+      });
+      isReplay = replay !== null && "result" in replay;
+    }
     const result = await db.deleteMemberArtifact({ actor, idempotencyKey, artifactId });
-    await notifyLiveUpdateDisconnect(env, {
-      artifactId,
-      audiences: ["share", "dashboard"],
-      reason: "deletion",
-    });
+    const invalidation = await runPostCommitArtifactDeletionInvalidation(
+      env,
+      {
+        actor,
+        idempotencyKey,
+        workspaceId: result.workspace_id,
+        artifactId: result.artifact_id,
+        revisionId: result.revision_id,
+      },
+      { isReplay },
+    );
+    if (!invalidation.replaySkipped) {
+      await notifyLiveUpdateDisconnect(env, {
+        artifactId,
+        audiences: ["share", "dashboard"],
+        reason: "deletion",
+      });
+    }
     return result;
   });
 }

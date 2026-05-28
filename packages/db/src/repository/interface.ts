@@ -265,7 +265,12 @@ export type Repository = {
     idempotencyKey: string;
     artifactId: string;
     now?: Date;
-  }): Promise<{ artifact_id: string; deleted_at: string }>;
+  }): Promise<{
+    artifact_id: string;
+    workspace_id: string;
+    revision_id: string | null;
+    deleted_at: string;
+  }>;
   updateArtifactDisplayMetadata(input: {
     actor: ApiActor;
     artifactId: string;
@@ -367,6 +372,11 @@ export type Repository = {
   }): Promise<{ artifact_id: string; expires_at: string } | null>;
   peekIdempotentReplay(input: {
     actor: ApiKeyActor;
+    operation: string;
+    idempotencyKey: string;
+  }): Promise<{ result: unknown } | { inFlight: true } | null>;
+  peekWorkspaceCommandReplay(input: {
+    actor: ApiActor;
     operation: string;
     idempotencyKey: string;
   }): Promise<{ result: unknown } | { inFlight: true } | null>;
