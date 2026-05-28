@@ -160,6 +160,7 @@ export type Entities = {
       workspaceId: string | null;
       details: Record<string, unknown>;
       occurredAt: string;
+      requestId?: string | null;
     }): Promise<void>;
     listAll(): Promise<OperationEvent[]>;
     listForWorkspace(workspaceId: string): Promise<OperationEvent[]>;

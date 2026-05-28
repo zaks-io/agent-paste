@@ -211,6 +211,7 @@ export type Repository = {
     scope: LockdownScope;
     targetId: string;
     reasonCode: string;
+    requestId?: string;
     now?: Date;
   }): Promise<LockdownDetail>;
   liftLockdown(input: {
@@ -218,6 +219,7 @@ export type Repository = {
     idempotencyKey: string;
     scope: LockdownScope;
     targetId: string;
+    requestId?: string;
     now?: Date;
   }): Promise<LockdownDetail>;
   createUploadSession(input: {

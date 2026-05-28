@@ -540,7 +540,11 @@ describe("LocalRepository", () => {
       (event) => event.action === "platform.lockdown.lifted",
     );
     expect(setEvents).toHaveLength(1);
-    expect(setEvents[0]).toMatchObject({ actor_type: "platform", actor_id: "operator@example.com" });
+    expect(setEvents[0]).toMatchObject({
+      actor_type: "platform",
+      actor_id: "operator@example.com",
+      workspace_id: null,
+    });
     expect(liftEvents).toHaveLength(1);
     expect(liftEvents[0]).toMatchObject({ actor_type: "platform", actor_id: "operator@example.com" });
 
@@ -555,6 +559,36 @@ describe("LocalRepository", () => {
     });
     expect(relock.lifted_at).toBeNull();
     expect(repo.platformLockdowns.size).toBe(2);
+  });
+
+  it("attributes platform lockdown audit events to the affected workspace", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const workspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-lockdown-audit",
+      email: "lockdown-audit@example.com",
+    });
+    const operator = { type: "platform" as const, id: "operator@example.com" };
+
+    await repo.setLockdown({
+      actor: operator,
+      idempotencyKey: "idem-set-ws",
+      scope: "workspace",
+      targetId: workspace.id,
+      reasonCode: "phishing_report",
+      requestId: "req_lockdown_1",
+    });
+
+    const setEvent = [...repo.operationEvents.values()].find((event) => event.action === "platform.lockdown.set");
+    expect(setEvent).toMatchObject({
+      workspace_id: workspace.id,
+      request_id: "req_lockdown_1",
+    });
+
+    const operatorView = await repo.listOperatorEvents(operator, { workspaceId: workspace.id });
+    expect(operatorView.items[0]?.change_summary).toBe(
+      "Platform lockdown set on workspace (reason: phishing_report)",
+    );
   });
 
   it("returns not_found when lifting a lockdown that does not exist", async () => {

@@ -1,5 +1,6 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { lockdownTriageFromEvent, lockdownTriageQueryString } from "./lockdown-triage";
 import { type FormEvent, useRef } from "react";
 import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
@@ -167,8 +168,10 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
               <TH>Workspace</TH>
               <TH>Actor</TH>
               <TH>Action</TH>
+              <TH>Change summary</TH>
               <TH>Target</TH>
               <TH>Request ID</TH>
+              <TH className="w-[120px]">Triage</TH>
             </TR>
           </THead>
           <TBody>
@@ -185,6 +188,9 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
                   <span className="ml-1 text-[hsl(var(--muted))]">{row.actor.split(":")[1] ?? row.actor}</span>
                 </TD>
                 <TD className="font-medium text-[13px]">{row.action}</TD>
+                <TD className="max-w-[240px] text-[13px] text-[hsl(var(--muted))]">
+                  {row.change_summary || "—"}
+                </TD>
                 <TD className="text-[13px] text-[hsl(var(--muted))]">{row.target}</TD>
                 <TD>
                   {row.request_id ? (
@@ -198,6 +204,27 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
                   ) : (
                     <span className="text-[13px] text-[hsl(var(--muted))]">—</span>
                   )}
+                </TD>
+                <TD>
+                  {(() => {
+                    const triage = lockdownTriageFromEvent({
+                      target_type: row.target_type,
+                      target: row.target,
+                      change_summary: row.change_summary,
+                    });
+                    if (!triage) {
+                      return <span className="text-[13px] text-[hsl(var(--muted))]">—</span>;
+                    }
+                    return (
+                      <Link
+                        to="/admin"
+                        search={{ ...search, ...lockdownTriageQueryString(triage) }}
+                        className="text-[12px] font-medium text-[hsl(var(--accent))] hover:underline"
+                      >
+                        Lock down
+                      </Link>
+                    );
+                  })()}
                 </TD>
               </TR>
             ))}

@@ -1,3 +1,4 @@
+import { formatChangeSummary } from "../audit/change-summary.js";
 import type { Artifact, OperationEvent, PlatformLockdown } from "../types.js";
 
 // Unified cursor shape for both backends. The wire format is unchanged:
@@ -49,7 +50,7 @@ export function toWebAuditRow(event: OperationEvent) {
     actor: `${event.actor_type}:${event.actor_id ?? "unknown"}`,
     action: event.action,
     target: `${event.target_type}:${event.target_id}`,
-    change_summary: summarizeEventDetails(event.details),
+    change_summary: formatChangeSummary(event.action, event.details),
     request_id: event.request_id ?? "",
   };
 }
@@ -61,17 +62,6 @@ export function toWebOperatorEventRow(event: OperationEvent) {
     actor_type: event.actor_type,
     target_type: event.target_type,
   };
-}
-
-export function summarizeEventDetails(details: Record<string, unknown>): string {
-  const keys = Object.keys(details);
-  if (keys.length === 0) {
-    return "";
-  }
-  return keys
-    .sort()
-    .map((key) => `${key}=${String(details[key])}`)
-    .join(", ");
 }
 
 export function encodeWebArtifactCursor(artifact: Artifact): string {

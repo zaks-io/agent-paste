@@ -61,6 +61,7 @@ function AuditPage() {
               <TH>Time</TH>
               <TH>Actor</TH>
               <TH>Action</TH>
+              <TH>Change summary</TH>
               <TH>Target</TH>
               <TH>Request ID</TH>
             </TR>
@@ -78,6 +79,9 @@ function AuditPage() {
                 </TD>
                 <TD className="text-[13px]">{row.actor}</TD>
                 <TD className="font-medium">{row.action}</TD>
+                <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">
+                  {row.change_summary || "—"}
+                </TD>
                 <TD className="text-[hsl(var(--muted))]">{row.target}</TD>
                 <TD>
                   <Identifier value={row.request_id} />

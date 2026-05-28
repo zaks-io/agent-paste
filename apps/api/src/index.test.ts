@@ -1878,7 +1878,7 @@ describe("api worker", () => {
                 target: "workspace:w_1",
                 target_type: "workspace",
                 workspace_id: "3f13401f-1fdc-4bb7-85ff-9c73e357b16a",
-                change_summary: "reason_code=abuse",
+                change_summary: "Platform lockdown set on workspace (reason: abuse)",
                 request_id: "req_1",
               },
             ],

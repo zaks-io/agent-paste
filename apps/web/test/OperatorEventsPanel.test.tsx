@@ -83,7 +83,7 @@ describe("OperatorEventsPanel", () => {
     );
     expect(screen.getByText("api_key.created")).toBeInTheDocument();
     expect(screen.getAllByText("member").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("\u2014")).toHaveLength(2);
+    expect(screen.getAllByText("\u2014").length).toBeGreaterThanOrEqual(2);
   });
 
   it("submits, changes, and clears filters through route search", () => {

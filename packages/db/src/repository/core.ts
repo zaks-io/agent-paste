@@ -26,6 +26,8 @@ import type {
   WorkspaceMember,
 } from "../types.js";
 import type { Repository } from "./interface.js";
+import { redactAuditDetails } from "../audit/change-summary.js";
+import { resolveLockdownAuditWorkspaceId } from "../audit/lockdown-audit.js";
 import { type OperatorEventFilters, resolveOperatorEventActions } from "./operator-event-filters.js";
 import type { CommandActor, Entities, RunScope, UnitOfWork } from "./ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, toWorkspaceMemberSummary, webAuthResponse } from "./shared.js";
@@ -825,6 +827,7 @@ export class RepositoryCore implements Repository {
     scope: "workspace" | "artifact";
     targetId: string;
     reasonCode: string;
+    requestId?: string;
     now?: Date;
   }) {
     const now = nowIso(input.now);
@@ -864,15 +867,17 @@ export class RepositoryCore implements Repository {
           // state we must not paper over with a misleading audit event.
           throw new Error("lockdown_insert_conflict");
         }
+        const auditWorkspaceId = await resolveLockdownAuditWorkspaceId(entities, input.scope, input.targetId);
         await entities.operationEvents.insert({
           actorType: "platform",
           actorId: input.actor.id,
           action: "platform.lockdown.set",
           targetType: input.scope,
           targetId: input.targetId,
-          workspaceId: null,
-          details: { scope: input.scope, reason_code: input.reasonCode },
+          workspaceId: auditWorkspaceId,
+          details: redactAuditDetails({ scope: input.scope, reason_code: input.reasonCode }),
           occurredAt: now,
+          requestId: input.requestId ?? null,
         });
         return toLockdownDetail(lockdown);
       },
@@ -884,6 +889,7 @@ export class RepositoryCore implements Repository {
     idempotencyKey: string;
     scope: "workspace" | "artifact";
     targetId: string;
+    requestId?: string;
     now?: Date;
   }) {
     const now = nowIso(input.now);
@@ -909,15 +915,17 @@ export class RepositoryCore implements Repository {
         if (!lifted) {
           throw new Error("not_found");
         }
+        const auditWorkspaceId = await resolveLockdownAuditWorkspaceId(entities, input.scope, input.targetId);
         await entities.operationEvents.insert({
           actorType: "platform",
           actorId: input.actor.id,
           action: "platform.lockdown.lifted",
           targetType: input.scope,
           targetId: input.targetId,
-          workspaceId: null,
-          details: { scope: input.scope, reason_code: existing.reason_code },
+          workspaceId: auditWorkspaceId,
+          details: redactAuditDetails({ scope: input.scope, reason_code: existing.reason_code }),
           occurredAt: now,
+          requestId: input.requestId ?? null,
         });
         return toLockdownDetail({ ...existing, lifted_at: now, lifted_by: input.actor.id });
       },

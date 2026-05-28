@@ -1358,6 +1358,7 @@ async function webAdminSetLockdown(
         scope: body.scope,
         targetId: body.target_id,
         reasonCode: body.reason_code,
+        requestId: getRequestId(context),
       });
       await writeDenylistEntry(env, body.scope, body.target_id);
       if (body.scope === "artifact") {
@@ -1407,6 +1408,7 @@ async function webAdminLiftLockdown(
         idempotencyKey: guard.idempotencyKey as string,
         scope,
         targetId: params.targetId,
+        requestId: getRequestId(context),
       });
       await deleteDenylistEntry(env, scope, params.targetId);
       return detail;
