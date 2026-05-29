@@ -327,9 +327,6 @@ importers:
       '@agent-paste/commands':
         specifier: workspace:*
         version: link:../../packages/commands
-      '@agent-paste/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
