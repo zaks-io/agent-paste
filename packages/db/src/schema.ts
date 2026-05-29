@@ -40,7 +40,6 @@ export const workspaces = pgTable(
     plan: text("plan").$type<WorkspacePlan>().notNull().default("free"),
     planOperatorOverrideAt: timestamp("plan_operator_override_at", { withTimezone: true }),
     autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
-    plan: text("plan").notNull().default("free"),
     revisionRetentionDays: integer("revision_retention_days"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -48,7 +47,6 @@ export const workspaces = pgTable(
   (table) => [
     check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`),
-    check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check(
       "workspaces_revision_retention_days_check",
       sql`${table.revisionRetentionDays} is null or ${table.revisionRetentionDays} >= 1`,

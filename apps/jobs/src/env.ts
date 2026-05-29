@@ -51,7 +51,6 @@ export type Env = {
   SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
   /** When true, smoke harness enqueue paths drain byte purge immediately after send. */
   SMOKE_SYNC_BYTE_PURGE?: string;
-  BILLING_ENABLED?: string;
   STRIPE_SECRET_KEY?: string;
   LOCAL_MVP_REPOSITORY?: {
     runCleanup(input: {

@@ -56,7 +56,6 @@ export type Workspace = {
   plan: WorkspacePlan;
   plan_operator_override_at: string | null;
   auto_deletion_days: number;
-  plan: WorkspacePlan;
   revision_retention_days: number | null;
   created_at: string;
   updated_at: string;

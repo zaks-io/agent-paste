@@ -213,13 +213,11 @@ CREATE TABLE "workspaces" (
 	"plan" text DEFAULT 'free' NOT NULL,
 	"plan_operator_override_at" timestamp with time zone,
 	"auto_deletion_days" integer DEFAULT 30 NOT NULL,
-	"plan" text DEFAULT 'free' NOT NULL,
 	"revision_retention_days" integer,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "workspaces_plan_check" CHECK ("workspaces"."plan" in ('free', 'pro')),
 	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90),
-	CONSTRAINT "workspaces_plan_check" CHECK ("workspaces"."plan" in ('free', 'pro')),
 	CONSTRAINT "workspaces_revision_retention_days_check" CHECK ("workspaces"."revision_retention_days" is null or "workspaces"."revision_retention_days" >= 1)
 );
 
