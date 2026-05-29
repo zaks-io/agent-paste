@@ -18,7 +18,11 @@ pre-commit:
 
 pre-push:
   commands:
-    knip:
-      run: pnpm knip
-    test:
+    # Mirror the CI Validate job (.github/workflows/ci.yml): run the full gate
+    # locally so lint/repo-lint/openapi/db:check failures surface before push,
+    # not in CI. `pnpm verify` covers lint, typecheck, test, knip, openapi:check,
+    # db:check, and docs formatting; test:coverage matches CI's separate step.
+    verify:
+      run: pnpm verify
+    test-coverage:
       run: pnpm test:coverage
