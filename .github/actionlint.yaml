@@ -1,0 +1,5 @@
+# actionlint config. Registers the Blacksmith custom runner label so actionlint
+# does not flag it as unknown. See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+self-hosted-runner:
+  labels:
+    - blacksmith-2vcpu-ubuntu-2404
