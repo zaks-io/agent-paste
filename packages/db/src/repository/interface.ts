@@ -366,7 +366,7 @@ export type Repository = {
     expiresAt: string;
   }): Promise<{ artifact_id: string; expires_at: string } | null>;
   peekIdempotentReplay(input: {
-    actor: ApiKeyActor;
+    actor: ApiActor;
     operation: string;
     idempotencyKey: string;
   }): Promise<{ result: unknown } | { inFlight: true } | null>;
