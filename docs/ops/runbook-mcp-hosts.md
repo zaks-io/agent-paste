@@ -171,6 +171,16 @@ remain CLI/REST/dashboard territory.
 `revision_link_url` for the published revision. Set `share: true` to also mint an
 optional `share_link_url`; `share` does not gate the required Revision Link.
 
+### Publish retries and share-link idempotency
+
+`publish_artifact` and `add_revision` accept an optional tool idempotency key.
+The Worker threads that key through upload, publish, and access-link creates.
+Revision and share links use derived keys (`:revision-link` and `:share-link`
+suffixes) so a retried publish does not mint duplicate links or cross-replay
+cached rows between link types. See [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
+Regression coverage: `apps/mcp/src/publish-chain.test.ts` (key forwarding) and
+`packages/db/src/member-mcp-operations.test.ts` (repository dedup).
+
 ## Smoke commands
 
 Run from the repo root after `pnpm build`.

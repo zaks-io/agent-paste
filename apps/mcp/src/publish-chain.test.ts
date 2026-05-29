@@ -130,6 +130,252 @@ describe("runTextPublishChain", () => {
     });
   });
 
+  it("forwards derived share idempotency keys when publish with share is retried", async () => {
+    // Mocks return a fresh access-link row on every create; this file only asserts key
+    // propagation on the share create forward. Duplicate-row prevention is covered in
+    // packages/db/src/member-mcp-operations.test.ts.
+    const shareUrl = "https://share.example/al_01";
+    const revisionUrl = "https://revision.example/al_01";
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share");
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision");
+    let shareCreateInvocations = 0;
+
+    vi.mocked(forward.forwardToUploadRoute).mockImplementation(async (input) => {
+      if (input.routeId === "uploadSessions.create") {
+        return {
+          ok: true,
+          status: 201,
+          body: {
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "pending",
+            expires_at: expiresAt,
+            files: [
+              {
+                path: "content.txt",
+                put_url: "https://signed/put",
+                required_headers: {},
+                expires_at: expiresAt,
+              },
+            ],
+          },
+        };
+      }
+      if (input.routeId === "uploadSessions.finalize") {
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "draft",
+            title: "Note",
+            entrypoint: "content.txt",
+            file_count: 1,
+            size_bytes: 5,
+          },
+        };
+      }
+      return {
+        ok: false,
+        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
+      };
+    });
+    vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
+    vi.mocked(forward.forwardToApiRoute).mockImplementation(async (input) => {
+      if (input.routeId === "revisions.publish") {
+        return { ok: true, status: 200, body: publishBody };
+      }
+      if (input.routeId === "accessLinks.create") {
+        if (input.idempotencyKey === revisionKey) {
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: revisionLinkId,
+              type: "revision",
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              created_at: expiresAt,
+            },
+          };
+        }
+        if (input.idempotencyKey === shareKey) {
+          shareCreateInvocations += 1;
+          expect(JSON.parse(input.body as string)).toEqual({ type: "share" });
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: shareLinkId,
+              type: "share",
+              artifact_id: artifactId,
+              revision_id: null,
+              created_at: expiresAt,
+            },
+          };
+        }
+      }
+      if (input.routeId === "accessLinks.mint") {
+        const linkId = input.params?.access_link_id;
+        return {
+          ok: true,
+          status: 200,
+          body: { url: linkId === revisionLinkId ? revisionUrl : shareUrl },
+        };
+      }
+      return {
+        ok: false,
+        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
+      };
+    });
+
+    const input = { title: "Note", body: "hello", render_mode: "text" as const, share: true };
+    const first = await runTextPublishChain(input, deps);
+    const second = await runTextPublishChain(input, deps);
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.body).toMatchObject({
+        revision_link_url: revisionUrl,
+        share_link_url: shareUrl,
+      });
+      expect(second.body).toMatchObject({
+        revision_link_url: revisionUrl,
+        share_link_url: shareUrl,
+      });
+    }
+    expect(shareCreateInvocations).toBe(2);
+  });
+
+  it("forwards derived share idempotency keys when add_revision with share is retried", async () => {
+    const shareUrl = "https://share.example/al_01";
+    const revisionUrl = "https://revision.example/al_01";
+    const addRevisionDeps = {
+      ...deps,
+      idempotencyKey: IdempotencyKey.parse("mcp:user:1:add_revision"),
+    };
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey, "share");
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey, "revision");
+    let shareCreateInvocations = 0;
+
+    vi.mocked(forward.forwardToUploadRoute).mockImplementation(async (input) => {
+      if (input.routeId === "uploadSessions.create") {
+        return {
+          ok: true,
+          status: 201,
+          body: {
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "pending",
+            expires_at: expiresAt,
+            files: [
+              {
+                path: "content.txt",
+                put_url: "https://signed/put",
+                required_headers: {},
+                expires_at: expiresAt,
+              },
+            ],
+          },
+        };
+      }
+      if (input.routeId === "uploadSessions.finalize") {
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "draft",
+            title: "Revision",
+            entrypoint: "content.txt",
+            file_count: 1,
+            size_bytes: 7,
+          },
+        };
+      }
+      return {
+        ok: false,
+        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
+      };
+    });
+    vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
+    vi.mocked(forward.forwardToApiRoute).mockImplementation(async (input) => {
+      if (input.routeId === "revisions.publish") {
+        return {
+          ok: true,
+          status: 200,
+          body: { ...publishBody, title: "Revision" },
+        };
+      }
+      if (input.routeId === "accessLinks.create") {
+        if (input.idempotencyKey === revisionKey) {
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: revisionLinkId,
+              type: "revision",
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              created_at: expiresAt,
+            },
+          };
+        }
+        if (input.idempotencyKey === shareKey) {
+          shareCreateInvocations += 1;
+          expect(JSON.parse(input.body as string)).toEqual({ type: "share" });
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: shareLinkId,
+              type: "share",
+              artifact_id: artifactId,
+              revision_id: null,
+              created_at: expiresAt,
+            },
+          };
+        }
+      }
+      if (input.routeId === "accessLinks.mint") {
+        const linkId = input.params?.access_link_id;
+        return {
+          ok: true,
+          status: 200,
+          body: { url: linkId === revisionLinkId ? revisionUrl : shareUrl },
+        };
+      }
+      return {
+        ok: false,
+        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
+      };
+    });
+
+    const input = {
+      artifact_id: artifactId,
+      body: "updated",
+      render_mode: "text" as const,
+      share: true,
+    };
+    const first = await runTextPublishChain(input, addRevisionDeps);
+    const second = await runTextPublishChain(input, addRevisionDeps);
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.body).toMatchObject({ share_link_url: shareUrl });
+      expect(second.body).toMatchObject({ share_link_url: shareUrl });
+    }
+    expect(shareCreateInvocations).toBe(2);
+  });
+
   it("mints a share link when share is true", async () => {
     mockUploadChain("content.txt", 5);
     vi.mocked(forward.forwardToApiRoute)
