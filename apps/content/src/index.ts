@@ -1,10 +1,6 @@
 import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
-import {
-  artifactBytesEncryptionRingFromEnv,
-  contentSigningRingFromEnv,
-  verifyContentTokenWithKeyRing,
-} from "@agent-paste/rotation";
+import { artifactBytesEncryptionRingFromEnv, resolveContentTokenSigner } from "@agent-paste/rotation";
 import {
   attachmentFilename,
   bytesFromReadableBody,
@@ -15,7 +11,7 @@ import {
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
 } from "@agent-paste/storage";
-import { type ContentTokenPayload, mintContentToken, verifyContentToken } from "@agent-paste/tokens/content";
+import { type ContentTokenPayload, mintContentToken } from "@agent-paste/tokens/content";
 import {
   type AppErrorCode,
   createRegistrar,
@@ -92,10 +88,8 @@ const contentRegistrar = createRegistrar({
       const path = contentPath(appContext);
       const env = context.env as Env;
       const token = contentTokenFromRequest(appContext);
-      const signingRing = contentSigningRingFromEnv(env);
-      const payload = signingRing
-        ? await verifyContentTokenWithKeyRing(token, signingRing)
-        : await verifyContentToken(token, env.CONTENT_SIGNING_SECRET);
+      const signer = resolveContentTokenSigner(env);
+      const payload = signer ? await signer.verify(token) : null;
       if (!payload || !isAllowedPath(path, payload)) {
         return { ok: false, code: "not_found" };
       }
