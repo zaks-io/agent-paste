@@ -94,6 +94,93 @@ describe("handleBundleGenerateBatch integration", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("marks ready when zip is above the legacy 25MB cap but within pro caps with billing off", async () => {
+    const ack = vi.fn();
+    const readyUpdates: string[] = [];
+    const failedUpdates: string[] = [];
+    const overLegacyCapZip = vi
+      .spyOn(generateZip, "buildRevisionZip")
+      .mockReturnValue(new Uint8Array(26 * 1024 * 1024));
+    try {
+      await handleBundleGenerateBatch(
+        [
+          {
+            body: {
+              type: "bundle.generate.v1",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              requested_at: "2026-05-20T00:00:00.000Z",
+              reason: "publish",
+            },
+            ack,
+            retry: vi.fn(),
+          },
+        ],
+        {
+          ...artifactBytesEncryptionEnv,
+          AGENT_PASTE_ENV: "dev",
+          DB: {
+            query: async (sql: string) => {
+              if (sql.includes("from workspaces")) {
+                return { rows: [{ plan: "free" }] };
+              }
+              if (sql.includes("from revisions r")) {
+                return {
+                  rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
+                };
+              }
+              if (sql.includes("from artifact_files")) {
+                return {
+                  rows: [
+                    {
+                      path: "big.bin",
+                      r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
+                    },
+                  ],
+                };
+              }
+              return { rows: [] };
+            },
+            transaction: async (fn) =>
+              fn({
+                query: async (sql: string) => {
+                  if (sql.includes("bundle_status = 'ready'")) {
+                    readyUpdates.push(sql);
+                  }
+                  if (sql.includes("bundle_status = 'failed'")) {
+                    failedUpdates.push(sql);
+                  }
+                  if (sql.includes("insert into idempotency_records")) {
+                    return { rows: [{ workspace_id: workspaceId }] };
+                  }
+                  return { rows: [] };
+                },
+              }),
+          },
+          ARTIFACTS: {
+            list: vi.fn(),
+            delete: vi.fn(),
+            get: async () =>
+              encryptedRevisionFile({
+                workspaceId,
+                artifactId,
+                revisionId,
+                path: "big.bin",
+                plaintext: "\u0001\u0002\u0003",
+              }),
+            put: vi.fn(async () => {}),
+          },
+        },
+      );
+      expect(ack).toHaveBeenCalled();
+      expect(readyUpdates.some((sql) => sql.includes("bundle_status = 'ready'"))).toBe(true);
+      expect(failedUpdates).toHaveLength(0);
+    } finally {
+      overLegacyCapZip.mockRestore();
+    }
+  });
+
   it("marks failed when zip exceeds bundle size cap", async () => {
     const ack = vi.fn();
     const updates: string[] = [];

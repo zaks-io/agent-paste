@@ -2141,6 +2141,8 @@ function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: str
       return { code: "draft_revision_conflict" };
     case "pinned_artifact_cap_exceeded":
       return { code: "pinned_artifact_cap_exceeded" };
+    case "invalid_ttl_seconds":
+      return { code: "invalid_request" };
     default:
       return null;
   }
