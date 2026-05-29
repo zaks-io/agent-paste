@@ -3,7 +3,7 @@ import { LocalRepository } from "@agent-paste/db";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import contentWorker from "../../content/src/index.js";
-import { handleRequest, type Env } from "./index.js";
+import { type Env, handleRequest } from "./index.js";
 import * as mcpAuth from "./mcp-auth.js";
 
 const artifactBytesEncryptionEnv = {
@@ -56,7 +56,7 @@ async function memberWithPublishedArtifact(repo: LocalRepository) {
     observedFiles: [{ path: "index.md", objectKey: file.object_key, sizeBytes: 5 }],
     now: "2026-01-01T00:00:02.000Z",
   });
-  const published = await repo.publishRevision({
+  await repo.publishRevision({
     actor: apiActor,
     idempotencyKey: "idem-publish",
     artifactId: finalized.artifact_id,
@@ -137,7 +137,11 @@ describe("member MCP artifact delete invalidation", () => {
     const afterDelete = await contentWorker.fetch(new Request(viewUrl), {
       DENYLIST: denylist,
       CONTENT_SIGNING_SECRET: "content-secret",
-      ARTIFACTS: { async get() { throw new Error("denylisted content must not reach storage"); } },
+      ARTIFACTS: {
+        async get() {
+          throw new Error("denylisted content must not reach storage");
+        },
+      },
       ...artifactBytesEncryptionEnv,
     });
     expect(afterDelete.status).toBe(404);
