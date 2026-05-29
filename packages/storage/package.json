@@ -9,6 +9,11 @@
       "import": "./dist/index.js"
     }
   },
+  "devDependencies": {
+    "@agent-paste/rotation": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck && pnpm test",

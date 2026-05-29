@@ -31,11 +31,23 @@ describe("rotate-versioned-secret.mjs", () => {
     expect(result.stdout).toContain("pnpm smoke:production");
   });
 
-  it("rejects drop without --value", () => {
+  it("rejects signing-profile drop without --value", () => {
     const result = spawnSync(process.execPath, [scriptPath, "upload-signing", "preview", "--step", "drop"], {
       encoding: "utf8",
     });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("--value");
+  });
+
+  it("prints kid-1 drop plan for api-key pepper without requiring --value", () => {
+    const result = spawnSync(
+      process.execPath,
+      [scriptPath, "api-key-pepper", "preview", "--step", "drop", "--dry-run"],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Drop kid 1");
+    expect(result.stdout).toContain("secret delete API_KEY_PEPPER_V1");
+    expect(result.stdout).not.toContain("reset kid to v1");
   });
 });

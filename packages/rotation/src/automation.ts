@@ -49,6 +49,11 @@ export type RotationPlan = {
 
 export const ROTATION_AGENT_OPERATOR_ID = "rotation-agent@platform";
 
+/** Profiles that persist kid into stored records (DB rows, R2 metadata). */
+export function profilePersistsKidInRecords(profileId: VersionedSecretProfileId): boolean {
+  return profileId === "api-key-pepper" || profileId === "artifact-bytes-encryption";
+}
+
 export const VERSIONED_SECRET_PROFILES: Record<VersionedSecretProfileId, VersionedSecretProfile> = {
   "content-signing": {
     id: "content-signing",
@@ -178,7 +183,7 @@ export function applyKeyRingRotationStep(ring: KeyRing, step: VersionedSecretRot
     case "drain":
       return;
     case "drop":
-      throw new Error("rotation_drop_use_collapseKeyRingAfterPromotion");
+      throw new Error("rotation_drop_use_finalizeKeyRingAfterDrop");
     case "emergency":
       ring.replaceSigningSecret(nextSecret, 1);
       return;
@@ -261,30 +266,51 @@ export function buildRotationPlan(input: {
     }
     case "drop": {
       if (!input.snapshot.secondaryBound) {
-        notes.push(`${input.profile.secondarySecretName} must stay bound until promotion completes.`);
+        notes.push(`${input.profile.secondarySecretName} must stay bound until drop completes.`);
       }
-      for (const binding of bindings) {
-        actions.push({
-          type: "put",
-          worker: binding.worker,
-          name: input.profile.baseSecretName,
-          valuePlaceholder: `<promoted-${input.profile.secondarySecretName}>`,
-        });
-        actions.push({
-          type: "deploy-var",
-          worker: binding.worker,
-          cwd: `apps/${binding.app}`,
-          envName: input.target,
-          varName: input.profile.kidVarName,
-          varValue: "v1",
-        });
-        actions.push({
-          type: "delete",
-          worker: binding.worker,
-          name: input.profile.secondarySecretName,
-        });
+      if (profilePersistsKidInRecords(input.profile.id)) {
+        for (const binding of bindings) {
+          actions.push({
+            type: "delete",
+            worker: binding.worker,
+            name: input.profile.baseSecretName,
+          });
+          actions.push({
+            type: "deploy-var",
+            worker: binding.worker,
+            cwd: `apps/${binding.app}`,
+            envName: input.target,
+            varName: input.profile.kidVarName,
+            varValue: "v2",
+          });
+        }
+        notes.push(
+          "Drop kid 1 only: delete the primary (kid 1) secret, keep _V2 and active kid v2. Stored pepper_kid / enc_kid values are not relabeled.",
+        );
+      } else {
+        for (const binding of bindings) {
+          actions.push({
+            type: "put",
+            worker: binding.worker,
+            name: input.profile.baseSecretName,
+            valuePlaceholder: `<promoted-${input.profile.secondarySecretName}>`,
+          });
+          actions.push({
+            type: "deploy-var",
+            worker: binding.worker,
+            cwd: `apps/${binding.app}`,
+            envName: input.target,
+            varName: input.profile.kidVarName,
+            varValue: "v1",
+          });
+          actions.push({
+            type: "delete",
+            worker: binding.worker,
+            name: input.profile.secondarySecretName,
+          });
+        }
+        notes.push("Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.");
       }
-      notes.push("Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.");
       break;
     }
     case "emergency": {
@@ -355,8 +381,22 @@ function simulatedRingFromSnapshot(profile: VersionedSecretProfile, snapshot: Ve
   return keyRingFromProfileEnv(profile, env);
 }
 
-/** Final wrangler drop step: single primary secret at kid 1 with the promoted value. */
+/** Signing-key drop: single primary secret at kid 1 with the promoted value (TTL-bound tokens only). */
 export function collapseKeyRingAfterPromotion(ring: KeyRing): KeyRing {
   const promoted = ring.signingSecret();
   return KeyRingClass.single(promoted, 1);
+}
+
+/** Kid-persisting drop: retire kid 1 while mint/verify stay on kid 2 (ADR 0045). */
+export function dropRetiredKidAfterPromotion(ring: KeyRing): KeyRing {
+  const finalized = KeyRingClass.fromEntries(ring.signingKid, ring.verifyEntries());
+  finalized.dropKid(1);
+  return finalized;
+}
+
+export function finalizeKeyRingAfterDrop(ring: KeyRing, profileId: VersionedSecretProfileId): KeyRing {
+  if (profilePersistsKidInRecords(profileId)) {
+    return dropRetiredKidAfterPromotion(ring);
+  }
+  return collapseKeyRingAfterPromotion(ring);
 }

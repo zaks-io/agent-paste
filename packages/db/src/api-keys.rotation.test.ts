@@ -1,4 +1,4 @@
-import { collapseKeyRingAfterPromotion, PepperRing } from "@agent-paste/rotation";
+import { finalizeKeyRingAfterDrop, PepperRing } from "@agent-paste/rotation";
 import { describe, expect, it } from "vitest";
 import { generateApiKey, verifyApiKeySecret } from "./api-keys.js";
 import { LocalRepository } from "./local-repository.js";
@@ -46,7 +46,7 @@ describe("API key pepper rotation (ADR 0045)", () => {
     expect(await repo.verifyApiKey(rotated.secret)).not.toBeNull();
   });
 
-  it("fails overlap-era keys after wrangler-style promotion collapse to a single pepper", async () => {
+  it("keeps overlap-era keys valid after drop retires kid 1 (ADR 0045)", async () => {
     const ring = PepperRing.fromEnv({
       API_KEY_PEPPER_V1: "pepper-v1",
       API_KEY_PEPPER_CURRENT_KID: "v1",
@@ -72,31 +72,21 @@ describe("API key pepper rotation (ADR 0045)", () => {
       name: "overlap-fresh",
       idempotencyKey: "idem-fresh-promote",
     });
-    const overlap = ring;
 
-    const legacyRow = Array.from(repo.apiKeys.values()).find((row) => row.id === legacy.api_key.id);
-    const overlapFreshRow = Array.from(repo.apiKeys.values()).find((row) => row.id === overlapFresh.api_key.id);
-    expect(legacyRow?.secret_hmac).toBeDefined();
-    expect(overlapFreshRow?.secret_hmac).toBeDefined();
+    const finalizedRing = finalizeKeyRingAfterDrop(ring.asKeyRing(), "api-key-pepper");
+    ring.dropPepper(1);
 
-    const collapsedRing = PepperRing.fromKeyRing(collapseKeyRingAfterPromotion(overlap.asKeyRing()));
-    const promotedPepper = collapsedRing.currentPepper();
-
-    expect(await repo.verifyApiKey(legacy.secret)).not.toBeNull();
     expect(await repo.verifyApiKey(overlapFresh.secret)).not.toBeNull();
-    expect(
-      await verifyApiKeySecret(legacy.secret, legacy.api_key.public_id, legacyRow?.secret_hmac ?? "", promotedPepper),
-    ).toBe(false);
-    expect(
-      await verifyApiKeySecret(
-        overlapFresh.secret,
-        overlapFresh.api_key.public_id,
-        overlapFreshRow?.secret_hmac ?? "",
-        "pepper-v2",
-      ),
-    ).toBe(true);
-    expect(overlapFreshRow?.pepper_kid).toBe(2);
-    expect(collapsedRing.verifyKids).toEqual([1]);
+    expect(await repo.verifyApiKey(legacy.secret)).toBeNull();
+    expect(ring.verifyKids).toEqual([2]);
+    expect(ring.currentKid).toBe(2);
+    expect(finalizedRing.verifyKids).toEqual([2]);
+
+    const postDropEnvRing = PepperRing.fromEnv({
+      API_KEY_PEPPER_V2: "pepper-v2",
+      API_KEY_PEPPER_CURRENT_KID: "v2",
+    });
+    expect(postDropEnvRing.verifyKids).toEqual(ring.verifyKids);
   });
 
   it("verifyApiKeySecret fails when the wrong pepper is supplied for a row", async () => {

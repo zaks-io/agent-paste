@@ -1,7 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, run, workerName } from "../wrangler-secrets.mjs";
-import { ROTATION_AGENT_OPERATOR_ID, VERSIONED_SECRET_PROFILES } from "./rotation-profiles.mjs";
+import { appendRotationAuditRecord } from "./rotation-audit.mjs";
+import {
+  profilePersistsKidInRecords,
+  ROTATION_AGENT_OPERATOR_ID,
+  VERSIONED_SECRET_PROFILES,
+} from "./rotation-profiles.mjs";
 
 export function parseProfileId(value) {
   const profile = VERSIONED_SECRET_PROFILES[value];
@@ -15,9 +20,6 @@ export function parseProfileId(value) {
 
 export function parseTarget(argv) {
   const value = argv.find((arg) => !arg.startsWith("--"));
-  if (value === "live") {
-    return "production";
-  }
   if (value !== "preview" && value !== "production") {
     throw new Error("Target environment must be preview or production.");
   }
@@ -125,18 +127,34 @@ export function formatPlan(profile, target, step, snapshot, operator, valuePlace
   }
 
   if (step === "drop") {
-    lines.push("Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.");
-    lines.push("");
-    for (const binding of profile.bindings) {
-      const worker = workerName(binding.app, target);
-      lines.push(`  wrangler secret put ${profile.baseSecretName} --name ${worker}  # promoted v2 value`);
+    if (profilePersistsKidInRecords(profile.id)) {
       lines.push(
-        `  wrangler deploy --cwd apps/${binding.app} --env ${target} --var ${profile.kidVarName}:v1 --name ${worker}`,
+        "Drop kid 1 only: delete the primary (kid 1) secret, keep _V2 bound, and leave the active kid var at v2.",
       );
-      lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
+      lines.push("");
+      for (const binding of profile.bindings) {
+        const worker = workerName(binding.app, target);
+        lines.push(`  wrangler secret delete ${profile.baseSecretName} --name ${worker}`);
+        lines.push(
+          `  wrangler deploy --cwd apps/${binding.app} --env ${target} --var ${profile.kidVarName}:v2 --name ${worker}`,
+        );
+      }
+      lines.push("");
+      lines.push("No --value required: wrangler deletes kid 1 material; kid 2 objects/rows keep verifying.");
+    } else {
+      lines.push("Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.");
+      lines.push("");
+      for (const binding of profile.bindings) {
+        const worker = workerName(binding.app, target);
+        lines.push(`  wrangler secret put ${profile.baseSecretName} --name ${worker}  # promoted v2 value`);
+        lines.push(
+          `  wrangler deploy --cwd apps/${binding.app} --env ${target} --var ${profile.kidVarName}:v1 --name ${worker}`,
+        );
+        lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
+      }
+      lines.push("");
+      lines.push(`Use --value <promoted-${profile.secondarySecretName}> when reusing the staged v2 material.`);
     }
-    lines.push("");
-    lines.push(`Use --value <promoted-${profile.secondarySecretName}> when reusing the staged v2 material.`);
     return `${lines.join("\n")}\n`;
   }
 
@@ -185,6 +203,13 @@ export async function executeStep(profile, target, options, snapshot) {
           worker,
         ]);
       }
+      appendRotationAuditRecord({
+        at: new Date().toISOString(),
+        operator: options.operator,
+        profile: profile.id,
+        target,
+        step: "flip",
+      });
     }
     return;
   }
@@ -194,9 +219,11 @@ export async function executeStep(profile, target, options, snapshot) {
     names:
       options.step === "stage"
         ? [profile.secondarySecretName]
-        : options.step === "drop"
-          ? [profile.baseSecretName]
-          : [profile.baseSecretName],
+        : options.step === "drop" && profilePersistsKidInRecords(profile.id)
+          ? []
+          : options.step === "drop"
+            ? [profile.baseSecretName]
+            : [profile.baseSecretName],
   }));
 
   if (!options.dryRun && !options.printOnly && options.step !== "flip") {
@@ -208,6 +235,42 @@ export async function executeStep(profile, target, options, snapshot) {
       for (const binding of bindings) {
         await putWorkerSecret(binding.worker, profile.secondarySecretName, secondaryValue);
       }
+      appendRotationAuditRecord({
+        at: new Date().toISOString(),
+        operator: options.operator,
+        profile: profile.id,
+        target,
+        step: "stage",
+      });
+    }
+    return;
+  }
+
+  if (options.step === "drop" && profilePersistsKidInRecords(profile.id)) {
+    if (!options.dryRun && !options.printOnly) {
+      for (const binding of profile.bindings) {
+        const worker = workerName(binding.app, target);
+        await run("wrangler", ["secret", "delete", profile.baseSecretName, "--name", worker]);
+        await run("wrangler", [
+          "deploy",
+          "--cwd",
+          `apps/${binding.app}`,
+          "--env",
+          target,
+          "--var",
+          `${profile.kidVarName}:v2`,
+          "--name",
+          worker,
+        ]);
+      }
+      appendRotationAuditRecord({
+        at: new Date().toISOString(),
+        operator: options.operator,
+        profile: profile.id,
+        target,
+        step: "drop",
+        action: "drop_kid_1",
+      });
     }
     return;
   }
@@ -233,6 +296,14 @@ export async function executeStep(profile, target, options, snapshot) {
           await run("wrangler", ["secret", "delete", profile.secondarySecretName, "--name", worker]);
         }
       }
+      appendRotationAuditRecord({
+        at: new Date().toISOString(),
+        operator: options.operator,
+        profile: profile.id,
+        target,
+        step: options.step,
+        action: options.step === "emergency" ? "emergency_cutover" : "promote_collapse",
+      });
     }
   }
 }
@@ -252,7 +323,7 @@ async function assertSafeToWrite(profile, target, options, bindings, snapshot) {
     );
   }
 
-  if (options.step === "drop" && options.value === undefined) {
+  if (options.step === "drop" && !profilePersistsKidInRecords(profile.id) && options.value === undefined) {
     throw new Error(
       [
         "Drop requires --value <promoted-secret> (normally the staged v2 material).",

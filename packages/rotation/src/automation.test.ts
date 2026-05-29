@@ -5,12 +5,15 @@ import {
   applyKeyRingRotationStep,
   buildRotationPlan,
   collapseKeyRingAfterPromotion,
+  finalizeKeyRingAfterDrop,
   inferSnapshotFromListedSecrets,
   keyRingFromProfileEnv,
+  pepperRingFromProfileEnv,
   profileBindingsForTarget,
   VERSIONED_SECRET_PROFILES,
 } from "./automation.js";
 import { KeyRing } from "./key-ring.js";
+import { PepperRing } from "./pepper-ring.js";
 import { describeKeyRingState } from "./playbook.js";
 import { verifyContentTokenWithKeyRing, verifyUploadTokenWithKeyRing } from "./signing.js";
 
@@ -44,8 +47,25 @@ describe("rotation automation plans", () => {
       step: "drop",
       snapshot: { primaryBound: true, secondaryBound: true, signingKidLabel: "v2" },
     });
+    expect(dropPlan.actions.filter((action) => action.type === "put")).toHaveLength(3);
     expect(dropPlan.actions.filter((action) => action.type === "delete")).toHaveLength(3);
     expect(dropPlan.notes.some((note) => note.includes("rotation-agent@platform"))).toBe(true);
+  });
+
+  it("plans kid-1 drop (not promote-to-v1) for api-key pepper and artifact-byte encryption", () => {
+    for (const profileId of ["api-key-pepper", "artifact-bytes-encryption"] as const) {
+      const profile = VERSIONED_SECRET_PROFILES[profileId];
+      const dropPlan = buildRotationPlan({
+        profile,
+        target: "preview",
+        step: "drop",
+        snapshot: { primaryBound: true, secondaryBound: true, signingKidLabel: "v2" },
+      });
+      expect(dropPlan.actions.some((action) => action.type === "put")).toBe(false);
+      expect(dropPlan.actions.filter((action) => action.type === "delete")).toHaveLength(profile.bindings.length);
+      expect(dropPlan.actions.every((action) => action.type !== "deploy-var" || action.varValue === "v2")).toBe(true);
+      expect(dropPlan.notes.join("\n")).toContain("Drop kid 1");
+    }
   });
 
   it("plans emergency cutover actions", () => {
@@ -150,6 +170,44 @@ describe("versioned secret rotation E2E (overlap → promotion)", () => {
 
   it("rejects drop step on in-memory key ring", () => {
     const ring = KeyRing.single("only", 1);
-    expect(() => applyKeyRingRotationStep(ring, "drop", "next")).toThrow(/collapseKeyRingAfterPromotion/);
+    expect(() => applyKeyRingRotationStep(ring, "drop", "next")).toThrow(/finalizeKeyRingAfterDrop/);
+  });
+
+  it("runs api-key pepper overlap then drop kid 1 without invalidating kid-2 keys", () => {
+    const profile = VERSIONED_SECRET_PROFILES["api-key-pepper"];
+    const overlapRing = pepperRingFromProfileEnv(profile, {
+      API_KEY_PEPPER_V1: "pepper-v1",
+      API_KEY_PEPPER_V2: "pepper-v2",
+      API_KEY_PEPPER_CURRENT_KID: "v2",
+    });
+    const droppedRing = PepperRing.fromKeyRing(finalizeKeyRingAfterDrop(overlapRing.asKeyRing(), profile.id));
+    expect(droppedRing.verifyKids).toEqual([2]);
+    expect(droppedRing.pepperForKid(2)).toBe("pepper-v2");
+
+    const postDropEnvRing = PepperRing.fromEnv({
+      API_KEY_PEPPER_V2: "pepper-v2",
+      API_KEY_PEPPER_CURRENT_KID: "v2",
+    });
+    expect(postDropEnvRing.verifyKids).toEqual(droppedRing.verifyKids);
+  });
+
+  it("runs artifact-byte encryption overlap then drop kid 1 while kid 2 stays bound", () => {
+    const profile = VERSIONED_SECRET_PROFILES["artifact-bytes-encryption"];
+    const overlapRing = keyRingFromProfileEnv(profile, {
+      ARTIFACT_BYTES_ENCRYPTION_KEY: "root-v1",
+      ARTIFACT_BYTES_ENCRYPTION_KEY_V2: "root-v2",
+      ARTIFACT_BYTES_ENCRYPTION_KID: "v2",
+    });
+    const droppedRing = finalizeKeyRingAfterDrop(overlapRing, profile.id);
+    expect(droppedRing.verifyKids).toEqual([2]);
+    expect(droppedRing.signingKid).toBe(2);
+    expect(droppedRing.secretForKid(2)).toBe("root-v2");
+    expect(droppedRing.secretForKid(1)).toBeUndefined();
+
+    const postDropRing = keyRingFromProfileEnv(profile, {
+      ARTIFACT_BYTES_ENCRYPTION_KEY_V2: "root-v2",
+      ARTIFACT_BYTES_ENCRYPTION_KID: "v2",
+    });
+    expect(postDropRing.verifyKids).toEqual(droppedRing.verifyKids);
   });
 });

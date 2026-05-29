@@ -50,3 +50,8 @@ export const VERSIONED_SECRET_PROFILES = {
 export const ROTATION_AGENT_OPERATOR_ID = "rotation-agent@platform";
 
 export const PROFILE_IDS = Object.keys(VERSIONED_SECRET_PROFILES);
+
+/** Profiles that persist kid into stored records (must not relabel kid 2 → 1 on drop). */
+export function profilePersistsKidInRecords(profileId) {
+  return profileId === "api-key-pepper" || profileId === "artifact-bytes-encryption";
+}

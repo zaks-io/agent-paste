@@ -1,3 +1,4 @@
+import { dropRetiredKidAfterPromotion, keyRingFromProfileEnv, VERSIONED_SECRET_PROFILES } from "@agent-paste/rotation";
 import { describe, expect, it } from "vitest";
 import {
   ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
@@ -59,6 +60,29 @@ describe("artifact-bytes encryption", () => {
         context: { ...context, normalizedPath: "other.html" },
       }),
     ).rejects.toThrow();
+  });
+
+  it("decrypts overlap-era enc_kid=2 ciphertext after drop retires kid 1", async () => {
+    const profile = VERSIONED_SECRET_PROFILES["artifact-bytes-encryption"];
+    const overlapRing = keyRingFromProfileEnv(profile, {
+      ARTIFACT_BYTES_ENCRYPTION_KEY: "root-secret-v1",
+      ARTIFACT_BYTES_ENCRYPTION_KEY_V2: "root-secret-v2",
+      ARTIFACT_BYTES_ENCRYPTION_KID: "v2",
+    });
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("overlap ciphertext"),
+      rootSecret: "root-secret-v2",
+      kid: 2,
+      context,
+    });
+    const droppedRing = dropRetiredKidAfterPromotion(overlapRing);
+    const decrypted = await decryptArtifactBytesWithKeyRing({
+      ciphertext: encrypted.ciphertext,
+      ring: droppedRing,
+      metadata: encrypted.customMetadata,
+      context,
+    });
+    expect(new TextDecoder().decode(decrypted)).toBe("overlap ciphertext");
   });
 
   it("decrypts with the matching kid from a key ring", async () => {

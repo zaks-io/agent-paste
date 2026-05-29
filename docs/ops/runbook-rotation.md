@@ -30,10 +30,10 @@ Steps:
 1. **`--step stage`** — `wrangler secret put` the `*_V2` binding on every Worker in the profile. Keep the active kid var at `v1`.
 2. **`--step flip`** — `wrangler deploy --var <KID_VAR>:v2` on each Worker so new mints use kid `2`.
 3. **`--step drain`** — plan-only wait guidance (no wrangler writes). Follow the profile-specific TTL notes below.
-4. **`--step drop`** — promote the staged value into the primary secret, deploy `--var <KID_VAR>:v1`, then `wrangler secret delete` the `_V2` name. Requires `--value <promoted-secret>` because wrangler cannot read secrets back.
+4. **`--step drop`** — signing profiles: promote the staged value into the primary secret, deploy `--var <KID_VAR>:v1`, then `wrangler secret delete` the `_V2` name (requires `--value <promoted-secret>`). Kid-persisting profiles (`api-key-pepper`, `artifact-bytes-encryption`): delete the primary (kid 1) secret, keep `_V2`, leave `<KID_VAR>` at `v2` (no `--value`).
 5. **`--step emergency`** — single-step cutover (invalidates overlap). Requires `--value` and `--force` with typed confirmation when overwriting an existing primary.
 
-Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The default machine identity is `rotation-agent@platform` per ADR 0046.
+Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The default machine identity is `rotation-agent@platform` per ADR 0046. Mutating steps append a JSON line to `var/ops/rotation-audit.jsonl` (gitignored) with operator, profile, target, and step.
 
 `@agent-paste/rotation` tests exercise overlap and promotion collapse in CI (`packages/rotation/src/automation.test.ts`). Do not run hosted smokes or live secret writes unless the Linear ticket explicitly approves credentials.
 
@@ -168,7 +168,7 @@ Procedure (non-disruptive overlap):
 
 3. **Flip minting:** set `API_KEY_PEPPER_CURRENT_KID` to `v2` in Wrangler vars for `api` and `upload`, then deploy. New API Keys persist `pepper_kid = 2`. Do not set `API_KEY_PEPPER_CURRENT_KID` to `v2` until `API_KEY_PEPPER_V2` is bound on both Workers.
 4. **Drain:** wait for operational confidence that no API Keys under `pepper_kid = 1` are still needed (or reissue long-lived keys).
-5. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, promote the v2 pepper into `API_KEY_PEPPER_V1` on `api` and `upload`, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, deploy both Workers, verify runtime consistency, and only then delete `API_KEY_PEPPER_V2`. Do not remove or unbind `API_KEY_PEPPER_V1` while `API_KEY_PEPPER_CURRENT_KID` still points at `v2`.
+5. **Drop kid `1`:** after legacy keys under `pepper_kid = 1` are retired, `wrangler secret delete API_KEY_PEPPER_V1` on `api` and `upload`, keep `API_KEY_PEPPER_V2` bound, leave `API_KEY_PEPPER_CURRENT_KID` at `v2`, and deploy. Rows with `pepper_kid = 2` keep verifying; do not relabel stored `pepper_kid` values to `1`.
 6. Run hosted smoke.
 
 Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V1` on both Workers, leave `API_KEY_PEPPER_V2` unset, reset `API_KEY_PEPPER_CURRENT_KID` to `v1`, and reissue keys.

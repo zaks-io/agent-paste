@@ -125,9 +125,6 @@ async function assertSafeToWrite(config, target, options, bindings) {
 
 function parseTarget(argv) {
   const value = argv.find((arg) => !arg.startsWith("--"));
-  if (value === "live") {
-    return "production";
-  }
   if (value !== "preview" && value !== "production") {
     throw new Error("Target environment must be preview or production.");
   }
