@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./policy.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./policy.js")>();
-  return { ...actual, PINNED_ARTIFACT_CAP: 1 };
+  return {
+    ...actual,
+    usagePolicyForWorkspace: (workspace: { plan: string }) => ({
+      ...actual.usagePolicyForWorkspace(workspace),
+      live_artifacts_cap: 1,
+    }),
+  };
 });
 
 import { LocalRepository } from "./local-repository.js";

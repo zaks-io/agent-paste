@@ -1,8 +1,8 @@
-import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
+import { resolveUsagePolicy } from "@agent-paste/config";
 import { BytePurgeMessage, type BytePurgeMessage as BytePurgePayload } from "@agent-paste/contracts";
 import type { SqlExecutor } from "./types.js";
 
-const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
+const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
 const MAX_DENYLIST_ATTEMPTS = 3;
 
 export type DenylistBinding = {

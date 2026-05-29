@@ -280,7 +280,7 @@
                 "size_bytes": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 10485760
+                  "maximum": 26214400
                 }
               },
               "required": [
@@ -835,7 +835,7 @@
                         "size_bytes": {
                           "type": "integer",
                           "minimum": 0,
-                          "maximum": 10485760
+                          "maximum": 26214400
                         }
                       },
                       "required": [

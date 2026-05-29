@@ -86,6 +86,7 @@ describe("postgresEntities", () => {
       id: "workspace",
       name: "Demo",
       contact_email: "user@example.com",
+      plan: "free",
       auto_deletion_days: 30,
       revision_retention_days: null,
       created_at: now,

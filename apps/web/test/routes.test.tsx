@@ -640,6 +640,8 @@ function workspace() {
       default_ttl_seconds: 2_592_000,
       min_ttl_seconds: 86_400,
       max_ttl_seconds: 7_776_000,
+      live_artifacts_cap: 50,
+      live_update_enabled: false,
     },
     default_key_first_run: false,
   };

@@ -7,7 +7,7 @@ import {
   requestIdMiddleware,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
+import { isBillingEnabled, resolveUsagePolicy, USAGE_POLICY as usagePolicy } from "@agent-paste/config";
 import {
   ActorType,
   buildApiOpenApiDocument,
@@ -168,6 +168,7 @@ export type Env = {
   WORKOS_MCP_AUDIENCE?: string;
   WORKOS_MCP_JWKS_URL?: string;
   WORKOS_MCP_ISSUER?: string;
+  BILLING_ENABLED?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
   SENTRY_DSN?: string;
@@ -180,7 +181,8 @@ type RouteId = (typeof routeContracts)[number]["id"];
 type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
 type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
-const DENYLIST_EXPIRATION_TTL_SECONDS = usagePolicy.max_ttl_seconds;
+/** Denylist TTL must cover the longest possible content token; use platform pro max, not plan-tiered caps. */
+const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
 const AUTH_CACHE_TTL_SECONDS = 60;
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
@@ -276,15 +278,6 @@ const apiDbRegistrar = createRegistrar<Repository>({
     mountedRouteIds.add(contract.id);
   },
 });
-const apiNoDbRegistrar = createRegistrar({
-  app,
-  auth: apiAuthResolvers,
-  rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
-  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
-  onMount: (contract) => {
-    mountedRouteIds.add(contract.id);
-  },
-});
 apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) =>
   whoami(context as AppContext, principal, db),
 );
@@ -312,7 +305,9 @@ apiDbRegistrar.mount(contractById("accessLinks.list"), async (context, principal
 apiDbRegistrar.mount(contractById("accessLinks.revoke"), async (context, principal, db) =>
   revokeAccessLinkRoute(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("usagePolicy.get"), async (context) => getUsagePolicy(context as AppContext));
+apiDbRegistrar.mount(contractById("usagePolicy.get"), async (context, principal, db) =>
+  getUsagePolicy(context as AppContext, principal, db),
+);
 apiDbRegistrar.mount(contractById("apiKeys.revokeCurrent"), async (context, principal, db) =>
   revokeCurrentApiKey(context as AppContext, principal, db),
 );
@@ -697,8 +692,15 @@ async function mcpWhoami(context: AppContext, principal: Principal, db: Reposito
   });
 }
 
-async function getUsagePolicy(context: AppContext): Promise<Response> {
-  return jsonResponse(context, usagePolicy);
+async function getUsagePolicy(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = apiKeyActor(principal);
+  if (!actor) {
+    return errorResponse(context, "not_authenticated");
+  }
+  if (!db.getUsagePolicy) {
+    return errorResponse(context, "database_unavailable");
+  }
+  return jsonResponse(context, await db.getUsagePolicy(actor));
 }
 
 async function revokeCurrentApiKey(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -1716,6 +1718,7 @@ function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | unde
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
     apiBaseUrl: apiBaseUrl(env),
     contentBaseUrl: contentBaseUrl(env),
+    billingEnabled: isBillingEnabled(env.BILLING_ENABLED),
   });
   return { auth: services.auth, db: services.apiDb };
 }

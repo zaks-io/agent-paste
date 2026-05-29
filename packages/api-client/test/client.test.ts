@@ -13,6 +13,8 @@ const usagePolicy = {
   default_ttl_seconds: 2592000,
   min_ttl_seconds: 86400,
   max_ttl_seconds: 7776000,
+  live_artifacts_cap: 50,
+  live_update_enabled: false,
 };
 
 const pageInfo = { next_cursor: null, has_more: false };

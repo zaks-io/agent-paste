@@ -23,12 +23,14 @@ export const workspaces = pgTable(
     name: text("name").notNull(),
     contactEmail: text("contact_email"),
     autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
+    plan: text("plan").notNull().default("free"),
     revisionRetentionDays: integer("revision_retention_days"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
     check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`),
+    check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check(
       "workspaces_revision_retention_days_check",
       sql`${table.revisionRetentionDays} is null or ${table.revisionRetentionDays} >= 1`,

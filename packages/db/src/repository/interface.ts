@@ -1,4 +1,5 @@
 import type { buildAgentView, buildFinalizeResult, buildPublishResult } from "../agent-view.js";
+import type { UsagePolicyConfig } from "../policy.js";
 import type {
   toApiKeySummary,
   toArtifactSummary,
@@ -141,6 +142,7 @@ export type Repository = {
   }): Promise<{ api_key: ApiKeySummary; revoked_at: string }>;
   verifyApiKey(apiKeySecret: string): Promise<ApiKeyActor | null>;
   getWhoami(actor: ApiKeyActor): Promise<Whoami>;
+  getUsagePolicy(actor: ApiKeyActor): Promise<UsagePolicyConfig>;
   resolveWebMember(input: {
     workosUserId: string;
     email: string;

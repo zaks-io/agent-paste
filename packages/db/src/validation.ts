@@ -1,18 +1,22 @@
 import { contentTypeForPath as servedContentTypeForPath } from "@agent-paste/storage";
-import { USAGE_POLICY } from "./policy.js";
+import type { UsagePolicyConfig } from "./policy.js";
 
-export function validateUpload(files: Array<{ path: string; size_bytes: number }>, entrypoint = "index.html") {
-  if (files.length === 0 || files.length > USAGE_POLICY.file_count_cap) {
+export function validateUpload(
+  files: Array<{ path: string; size_bytes: number }>,
+  usagePolicy: Pick<UsagePolicyConfig, "file_count_cap" | "file_size_cap_bytes" | "artifact_size_cap_bytes">,
+  entrypoint = "index.html",
+) {
+  if (files.length === 0 || files.length > usagePolicy.file_count_cap) {
     throw new Error("file_count_cap_exceeded");
   }
   let total = 0;
   for (const file of files) {
-    if (file.size_bytes > USAGE_POLICY.file_size_cap_bytes) {
+    if (file.size_bytes > usagePolicy.file_size_cap_bytes) {
       throw new Error("file_size_cap_exceeded");
     }
     total += file.size_bytes;
   }
-  if (total > USAGE_POLICY.artifact_size_cap_bytes) {
+  if (total > usagePolicy.artifact_size_cap_bytes) {
     throw new Error("revision_size_cap_exceeded");
   }
   if (!files.some((file) => file.path === entrypoint)) {

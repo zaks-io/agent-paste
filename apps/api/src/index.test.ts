@@ -486,6 +486,8 @@ describe("api worker", () => {
               default_ttl_seconds: 30 * 24 * 60 * 60,
               min_ttl_seconds: 24 * 60 * 60,
               max_ttl_seconds: 90 * 24 * 60 * 60,
+              live_artifacts_cap: 50,
+              live_update_enabled: false,
             },
             default_key_first_run: false,
           };
@@ -2100,6 +2102,25 @@ describe("api worker", () => {
             return { type: "api_key", id: "key_1", workspace_id: "w_1" };
           },
         },
+        DB: operatorDbForTests({
+          async getUsagePolicy() {
+            return {
+              file_size_cap_bytes: 25 * 1024 * 1024,
+              artifact_size_cap_bytes: 100 * 1024 * 1024,
+              bundle_size_cap_bytes: 100 * 1024 * 1024,
+              bundles_enabled: true,
+              file_count_cap: 100,
+              actor_rate_limit_per_minute: 60,
+              workspace_burst_cap_per_minute: 300,
+              upload_session_ttl_seconds: 86_400,
+              default_ttl_seconds: 30 * 24 * 60 * 60,
+              min_ttl_seconds: 24 * 60 * 60,
+              max_ttl_seconds: 90 * 24 * 60 * 60,
+              live_artifacts_cap: 1_000,
+              live_update_enabled: true,
+            };
+          },
+        }),
       },
     );
 
@@ -2108,6 +2129,7 @@ describe("api worker", () => {
       file_count_cap: 100,
       actor_rate_limit_per_minute: 60,
       workspace_burst_cap_per_minute: 300,
+      live_artifacts_cap: 1_000,
     });
   });
 

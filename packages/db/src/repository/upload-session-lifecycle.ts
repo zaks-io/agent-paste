@@ -1,7 +1,7 @@
 import { buildFinalizeResult, inferRenderMode } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
-import { DEFAULT_UPLOAD_SESSION_TTL_MS, USAGE_POLICY } from "../policy.js";
+import { artifactTtlSecondsForUpload, DEFAULT_UPLOAD_SESSION_TTL_MS, type UsagePolicyConfig } from "../policy.js";
 import { toUploadSessionRecord } from "../transforms.js";
 import type { ApiActor, Artifact, Revision, StoredFile, UploadSession } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
@@ -23,6 +23,7 @@ export async function createUploadSessionInEntities(
     actor: ApiActor;
     request: CreateUploadSessionRequest;
     now: string;
+    usagePolicy: UsagePolicyConfig;
   },
 ) {
   const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
@@ -43,7 +44,8 @@ export async function createUploadSessionInEntities(
     }
   }
   const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
-  validateUpload(files, entrypoint);
+  validateUpload(files, input.usagePolicy, entrypoint);
+  const artifactTtlSeconds = artifactTtlSecondsForUpload(input.request.ttl_seconds, input.usagePolicy);
   const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
   const updateArtifactId = input.request.artifact_id;
   const createdBy = createdByFromActor(input.actor);
@@ -55,9 +57,7 @@ export async function createUploadSessionInEntities(
     status: "pending",
     title: input.request.title ?? baseArtifact?.title ?? "untitled",
     entrypoint,
-    artifact_expires_at: new Date(
-      new Date(input.now).getTime() + (input.request.ttl_seconds ?? USAGE_POLICY.default_ttl_seconds) * 1000,
-    ).toISOString(),
+    artifact_expires_at: new Date(new Date(input.now).getTime() + artifactTtlSeconds * 1000).toISOString(),
     file_count: files.length,
     size_bytes: totalSize,
     created_by_type: createdBy.created_by_type,

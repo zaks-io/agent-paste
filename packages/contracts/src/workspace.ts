@@ -15,6 +15,8 @@ export const UsagePolicy = z.object({
   default_ttl_seconds: z.number().int().positive(),
   min_ttl_seconds: z.number().int().positive(),
   max_ttl_seconds: z.number().int().positive(),
+  live_artifacts_cap: z.number().int().positive(),
+  live_update_enabled: z.boolean(),
 });
 export type UsagePolicy = z.infer<typeof UsagePolicy>;
 

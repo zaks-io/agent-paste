@@ -6,11 +6,10 @@ import { resolveLockdownAuditWorkspaceId } from "../audit/lockdown-audit.js";
 import { operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
 import {
-  DEFAULT_AUTO_DELETION_DAYS,
-  MAX_AUTO_DELETION_DAYS,
-  MIN_AUTO_DELETION_DAYS,
-  PINNED_ARTIFACT_CAP,
-  USAGE_POLICY,
+  autoDeletionBoundsForWorkspace,
+  defaultAutoDeletionDaysForWorkspace,
+  type UsagePolicyConfig,
+  usagePolicyForWorkspace,
 } from "../policy.js";
 import { toRevisionSummary } from "../queries/revisions.js";
 import { resolveAccessLinkFromEntities } from "../resolve-access-link.js";
@@ -113,11 +112,11 @@ function nowIso(value?: Date): string {
   return (value ?? new Date()).toISOString();
 }
 
-function toWebSettings(workspace: Workspace) {
+function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig) {
   return {
     workspace_name: workspace.name,
     auto_deletion_days: workspace.auto_deletion_days,
-    usage_policy: { artifacts_per_day: 0, bytes_per_day: USAGE_POLICY.artifact_size_cap_bytes },
+    usage_policy: { artifacts_per_day: 0, bytes_per_day: usagePolicy.artifact_size_cap_bytes },
   };
 }
 
@@ -137,6 +136,14 @@ export class RepositoryCore implements Repository {
     return pepperKid === 1 ? this.options.apiKeyPepper : undefined;
   }
 
+  private billingEnabled(): boolean {
+    return this.options.billingEnabled ?? false;
+  }
+
+  private usagePolicyFor(workspace: Pick<Workspace, "plan">): UsagePolicyConfig {
+    return usagePolicyForWorkspace(workspace, this.billingEnabled());
+  }
+
   async createWorkspace(input: {
     actor: AdminActor;
     idempotencyKey: string;
@@ -149,7 +156,8 @@ export class RepositoryCore implements Repository {
       id: crypto.randomUUID(),
       name: input.name ?? input.email.split("@")[0] ?? "workspace",
       contact_email: input.email,
-      auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
+      plan: "free",
+      auto_deletion_days: defaultAutoDeletionDaysForWorkspace({ plan: "free" }, this.billingEnabled()),
       revision_retention_days: null,
       created_at: now,
       updated_at: now,
@@ -291,8 +299,15 @@ export class RepositoryCore implements Repository {
         actor: { type: "api_key", id: apiKey.id, name: apiKey.name },
         workspace: toWorkspaceSummary(workspace),
         scopes: apiKey.scopes,
-        usage_policy: USAGE_POLICY,
+        usage_policy: this.usagePolicyFor(workspace),
       };
+    });
+  }
+
+  async getUsagePolicy(actor: ApiKeyActor): Promise<UsagePolicyConfig> {
+    return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
+      const workspace = await this.mustWorkspace(entities, actor.workspace_id);
+      return this.usagePolicyFor(workspace);
     });
   }
 
@@ -326,7 +341,8 @@ export class RepositoryCore implements Repository {
       id: crypto.randomUUID(),
       name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
       contact_email: input.email,
-      auto_deletion_days: DEFAULT_AUTO_DELETION_DAYS,
+      plan: "free",
+      auto_deletion_days: defaultAutoDeletionDaysForWorkspace({ plan: "free" }, this.billingEnabled()),
       revision_retention_days: null,
       created_at: now,
       updated_at: now,
@@ -423,7 +439,7 @@ export class RepositoryCore implements Repository {
       return {
         workspace: toWorkspaceSummary(workspace),
         workspace_member: toWorkspaceMemberSummary(member),
-        usage_policy: USAGE_POLICY,
+        usage_policy: this.usagePolicyFor(workspace),
         default_key_first_run: false,
       };
     });
@@ -481,12 +497,13 @@ export class RepositoryCore implements Repository {
         if (artifact.pinned_at) {
           return this.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
         }
+        const workspace = await this.mustWorkspace(entities, member.workspace_id);
         const pinResult = await entities.artifacts.tryPinUnderCap(
           member.workspace_id,
           artifact.id,
           now,
           now,
-          PINNED_ARTIFACT_CAP,
+          this.usagePolicyFor(workspace).live_artifacts_cap,
         );
         if (pinResult === "cap_exceeded") {
           throw new Error("pinned_artifact_cap_exceeded");
@@ -731,7 +748,7 @@ export class RepositoryCore implements Repository {
   async getWebSettings(actor: ApiActor) {
     return this.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
       const workspace = await this.mustWorkspace(entities, actor.workspace_id);
-      return toWebSettings(workspace);
+      return toWebSettings(workspace, this.usagePolicyFor(workspace));
     });
   }
 
@@ -747,9 +764,6 @@ export class RepositoryCore implements Repository {
     }
     // Fail closed in the core: the local adapter has no DB CHECK constraint, so a
     // direct repository call must not persist a value Postgres would reject.
-    if (input.autoDeletionDays < MIN_AUTO_DELETION_DAYS || input.autoDeletionDays > MAX_AUTO_DELETION_DAYS) {
-      throw new Error("invalid_auto_deletion_days");
-    }
     const now = nowIso(input.now);
     return this.uow.command(
       {
@@ -761,6 +775,11 @@ export class RepositoryCore implements Repository {
       },
       async (entities) => {
         const member = await this.mustMember(entities, input.actor.id);
+        const workspace = await this.mustWorkspace(entities, member.workspace_id);
+        const { min, max } = autoDeletionBoundsForWorkspace(workspace, this.billingEnabled());
+        if (input.autoDeletionDays < min || input.autoDeletionDays > max) {
+          throw new Error("invalid_auto_deletion_days");
+        }
         await entities.workspaces.update(member.workspace_id, {
           name: input.workspaceName,
           autoDeletionDays: input.autoDeletionDays,
@@ -776,8 +795,8 @@ export class RepositoryCore implements Repository {
           details: { workspace_name: input.workspaceName, auto_deletion_days: input.autoDeletionDays },
           occurredAt: now,
         });
-        const workspace = await this.mustWorkspace(entities, member.workspace_id);
-        return toWebSettings(workspace);
+        const updatedWorkspace = await this.mustWorkspace(entities, member.workspace_id);
+        return toWebSettings(updatedWorkspace, this.usagePolicyFor(updatedWorkspace));
       },
     );
   }
@@ -960,12 +979,15 @@ export class RepositoryCore implements Repository {
         scope: workspaceScope(input.actor.workspace_id),
         now: input.now,
       },
-      (entities) =>
-        createUploadSessionInEntities(entities, {
+      async (entities) => {
+        const workspace = await this.mustWorkspace(entities, input.actor.workspace_id);
+        return createUploadSessionInEntities(entities, {
           actor: input.actor,
           request: input.request,
           now: input.now,
-        }),
+          usagePolicy: this.usagePolicyFor(workspace),
+        });
+      },
     );
   }
 
@@ -1056,7 +1078,10 @@ export class RepositoryCore implements Repository {
           throw new Error("entrypoint_not_in_revision");
         }
         const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
-        const bundleStatus = USAGE_POLICY.bundles_enabled ? ("pending" as const) : ("disabled" as const);
+        const workspace = await this.mustWorkspace(entities, input.actor.workspace_id);
+        const bundleStatus = this.usagePolicyFor(workspace).bundles_enabled
+          ? ("pending" as const)
+          : ("disabled" as const);
         const published = await entities.revisions.publish({
           revisionId: revision.id,
           revisionNumber,

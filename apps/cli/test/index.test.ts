@@ -17,6 +17,8 @@ const usagePolicy = {
   default_ttl_seconds: 2_592_000,
   min_ttl_seconds: 86_400,
   max_ttl_seconds: 7_776_000,
+  live_artifacts_cap: 50,
+  live_update_enabled: false,
 };
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";

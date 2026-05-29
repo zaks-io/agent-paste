@@ -79,6 +79,8 @@ describe("local publish helpers", () => {
         upload_session_ttl_seconds: 24 * 60 * 60,
         actor_rate_limit_per_minute: 60,
         workspace_burst_cap_per_minute: 300,
+        live_artifacts_cap: 50,
+        live_update_enabled: false,
       }),
     ).not.toThrow();
 
@@ -97,6 +99,8 @@ describe("local publish helpers", () => {
           upload_session_ttl_seconds: 24 * 60 * 60,
           actor_rate_limit_per_minute: 60,
           workspace_burst_cap_per_minute: 300,
+          live_artifacts_cap: 50,
+          live_update_enabled: false,
         },
       ),
     ).toThrow(/exceeds cap/);
