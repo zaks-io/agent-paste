@@ -1,6 +1,6 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
@@ -96,7 +96,7 @@ function AccessLinkViewer() {
 
   const liveUpdatesEnabled = state.kind === "resolved";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!liveUpdatesEnabled) {
       return;
     }
