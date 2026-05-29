@@ -1,5 +1,5 @@
 import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
-import { USAGE_POLICY } from "@agent-paste/config";
+import { isBillingEnabled, resolveUsagePolicy, type WorkspacePlan } from "@agent-paste/config";
 import { BundleGenerateMessage } from "@agent-paste/contracts";
 import { bundleKeyFor, storageEnvSegment } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
@@ -114,13 +114,14 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         });
       }
 
+      const usagePolicy = await loadWorkspaceUsagePolicy(executor, payload.workspace_id, env);
       const zipBytes = buildRevisionZip(fileBytes);
-      if (zipBytes.byteLength > USAGE_POLICY.bundle_size_cap_bytes) {
+      if (zipBytes.byteLength > usagePolicy.bundle_size_cap_bytes) {
         await markBundleFailed(executor, payload.workspace_id, payload.revision_id);
         logOpError("queue.bundle_generate.size_cap_exceeded", {
           revision_id: payload.revision_id,
           bundle_size_bytes: zipBytes.byteLength,
-          bundle_size_cap_bytes: USAGE_POLICY.bundle_size_cap_bytes,
+          bundle_size_cap_bytes: usagePolicy.bundle_size_cap_bytes,
         });
         message.ack();
         continue;
@@ -192,6 +193,18 @@ export async function handleBundleGenerateDlqBatch(messages: readonly QueueMessa
       message.retry();
     }
   }
+}
+
+async function loadWorkspaceUsagePolicy(
+  executor: NonNullable<Awaited<ReturnType<typeof resolveSqlExecutor>>>,
+  workspaceId: string,
+  env: Env,
+) {
+  const result = await executor.query<{ plan: WorkspacePlan }>(`select plan from workspaces where id = $1`, [
+    workspaceId,
+  ]);
+  const plan = result.rows[0]?.plan ?? "free";
+  return resolveUsagePolicy({ plan, billingEnabled: isBillingEnabled(env.BILLING_ENABLED) });
 }
 
 async function loadRevisionState(

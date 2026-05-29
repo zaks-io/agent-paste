@@ -34,6 +34,7 @@ export type QueueMessage = {
 
 export type Env = {
   AGENT_PASTE_ENV?: string;
+  BILLING_ENABLED?: string;
   JOBS_ENABLED?: string;
   SMOKE_HARNESS_SECRET?: string;
   SENTRY_DSN?: string;

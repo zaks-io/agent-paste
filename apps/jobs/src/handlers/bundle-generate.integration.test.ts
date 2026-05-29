@@ -35,9 +35,13 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 function makeDb(overrides: {
   revision?: { status: string; artifact_status: string; bundle_status: string } | null;
   files?: Array<{ path: string; r2_key: string }>;
+  plan?: "free" | "pro";
 }) {
   return {
     query: async (sql: string) => {
+      if (sql.includes("from workspaces")) {
+        return { rows: [{ plan: overrides.plan ?? "free" }] };
+      }
       if (sql.includes("from revisions r")) {
         return { rows: overrides.revision ? [overrides.revision] : [] };
       }
@@ -113,8 +117,12 @@ describe("handleBundleGenerateBatch integration", () => {
         {
           ...artifactBytesEncryptionEnv,
           AGENT_PASTE_ENV: "dev",
+          BILLING_ENABLED: "true",
           DB: {
             query: async (sql: string) => {
+              if (sql.includes("from workspaces")) {
+                return { rows: [{ plan: "free" }] };
+              }
               if (sql.includes("from revisions r")) {
                 return {
                   rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
@@ -189,32 +197,10 @@ describe("handleBundleGenerateBatch integration", () => {
       {
         ...artifactBytesEncryptionEnv,
         AGENT_PASTE_ENV: "dev",
-        DB: {
-          query: async (sql: string) => {
-            if (sql.includes("from revisions r")) {
-              return {
-                rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
-              };
-            }
-            if (sql.includes("from artifact_files")) {
-              return {
-                rows: [
-                  { path: "index.html", r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/index.html` },
-                ],
-              };
-            }
-            return { rows: [] };
-          },
-          transaction: async (fn) =>
-            fn({
-              query: async (sql: string) => {
-                if (sql.includes("insert into idempotency_records")) {
-                  return { rows: [{ workspace_id: workspaceId }] };
-                }
-                return { rows: [] };
-              },
-            }),
-        },
+        DB: makeDb({
+          revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
+          files: [{ path: "index.html", r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/index.html` }],
+        }),
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),

@@ -43,3 +43,14 @@ export function defaultAutoDeletionDaysForWorkspace(
 ): number {
   return Math.floor(usagePolicyForWorkspace(workspace, billingEnabled).default_ttl_seconds / SECONDS_PER_DAY);
 }
+
+export function artifactTtlSecondsForUpload(
+  requestedTtlSeconds: number | undefined,
+  policy: Pick<UsagePolicyConfig, "default_ttl_seconds" | "min_ttl_seconds" | "max_ttl_seconds">,
+): number {
+  const ttlSeconds = requestedTtlSeconds ?? policy.default_ttl_seconds;
+  if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > policy.max_ttl_seconds) {
+    throw new Error("invalid_ttl_seconds");
+  }
+  return ttlSeconds;
+}
