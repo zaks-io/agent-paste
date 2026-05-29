@@ -1,4 +1,5 @@
 import {
+  CreateAccessLinkRequest,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   FinalizeUploadSessionResponse,
@@ -164,10 +165,11 @@ async function mintAccessLink(
   deps: PublishChainDeps,
   input: MintAccessLinkInput,
 ): Promise<{ ok: true; id: string; url: string } | ForwardToApiFailure> {
-  const createBody =
+  const createBody = CreateAccessLinkRequest.parse(
     input.type === "revision"
       ? { type: "revision" as const, revision_id: input.revisionId }
-      : { type: "share" as const };
+      : { type: "share" as const },
+  );
 
   const created = await forwardToApiRoute({
     api: deps.api,

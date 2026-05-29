@@ -274,7 +274,7 @@ export type McpToolErrorCode = z.infer<typeof McpToolErrorCode>;
 
 export type McpForwardedAuth = "mcp_bearer" | "signed_upload_url";
 
-export type McpForwardedIdempotencyKey = "same_as_tool";
+export type McpForwardedIdempotencyKey = "same_as_tool" | "derived_revision_link" | "derived_share_link";
 
 export type McpForwardedCall = {
   routeId: RouteId;
@@ -434,7 +434,7 @@ export const mcpToolContracts = [
       {
         routeId: "accessLinks.create",
         auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
+        idempotencyKey: "derived_revision_link",
       },
       {
         routeId: "accessLinks.mint",
@@ -443,7 +443,7 @@ export const mcpToolContracts = [
       {
         routeId: "accessLinks.create",
         auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
+        idempotencyKey: "derived_share_link",
         optional: true,
       },
       {
@@ -486,7 +486,7 @@ export const mcpToolContracts = [
       {
         routeId: "accessLinks.create",
         auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
+        idempotencyKey: "derived_revision_link",
       },
       {
         routeId: "accessLinks.mint",
@@ -495,7 +495,7 @@ export const mcpToolContracts = [
       {
         routeId: "accessLinks.create",
         auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
+        idempotencyKey: "derived_share_link",
         optional: true,
       },
       {

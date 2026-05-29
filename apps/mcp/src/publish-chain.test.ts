@@ -123,6 +123,7 @@ describe("runTextPublishChain", () => {
       routeId: "accessLinks.create",
       idempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision"),
     });
+    expect(revisionCreateCall?.idempotencyKey).not.toBe(deps.idempotencyKey);
     expect(JSON.parse(revisionCreateCall?.body as string)).toEqual({
       type: "revision",
       revision_id: revisionId,
@@ -172,6 +173,7 @@ describe("runTextPublishChain", () => {
       routeId: "accessLinks.create",
       idempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share"),
     });
+    expect(shareCreateCall?.idempotencyKey).not.toBe(deps.idempotencyKey);
     expect(JSON.parse(shareCreateCall?.body as string)).toEqual({ type: "share" });
     const shareMintCall = vi.mocked(forward.forwardToApiRoute).mock.calls[4]?.[0];
     expect(shareMintCall).toMatchObject({

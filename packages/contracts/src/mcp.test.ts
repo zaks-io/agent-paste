@@ -77,6 +77,17 @@ describe("MCP tool registry", () => {
     ).toBe(true);
   });
 
+  it("labels publish-chain access-link creates with derived idempotency keys, not same_as_tool", () => {
+    for (const toolName of ["publish_artifact", "add_revision"] as const) {
+      const tool = mcpToolContractByName(toolName);
+      const accessLinkCreates = tool.forwardedCalls.filter((call) => call.routeId === "accessLinks.create");
+      expect(accessLinkCreates).toHaveLength(2);
+      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_revision_link");
+      expect(accessLinkCreates[1]?.idempotencyKey).toBe("derived_share_link");
+      expect(accessLinkCreates.every((call) => call.idempotencyKey !== "same_as_tool")).toBe(true);
+    }
+  });
+
   it("resolves forwarded method, path, app, and idempotency from route contracts", () => {
     for (const tool of mcpToolContracts) {
       for (const call of tool.forwardedCalls) {
