@@ -39,14 +39,36 @@ export type HyperdriveBinding = {
 
 export type WorkspacePlan = "free" | "pro";
 
+export type SubscriptionStatus =
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete"
+  | "incomplete_expired"
+  | "paused";
+
 export type Workspace = {
   id: string;
   name: string;
   contact_email: string | null;
-  auto_deletion_days: number;
   plan: WorkspacePlan;
+  plan_operator_override_at: string | null;
+  auto_deletion_days: number;
   revision_retention_days: number | null;
   created_at: string;
+  updated_at: string;
+};
+
+export type WorkspaceBilling = {
+  workspace_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: SubscriptionStatus | null;
+  current_period_end: string | null;
+  price_interval: "month" | "year" | null;
+  synced_at: string;
   updated_at: string;
 };
 

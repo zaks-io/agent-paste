@@ -173,7 +173,7 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        no-op adapter.
 3. [ ] Add Stripe Checkout, synchronous activation, idempotent webhooks, and
        Customer Portal routes mounted in `api` only when billing is enabled.
-4. [ ] Add `workspace_billing` and daily jobs reconciliation so local
+4. [x] Add `workspace_billing` and daily jobs reconciliation so local
        entitlements converge even if webhooks are delayed or disabled.
 5. [ ] Add hosted web billing UI and operator plan override.
 

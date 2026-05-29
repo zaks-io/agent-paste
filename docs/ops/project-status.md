@@ -17,7 +17,8 @@ and points to the smaller ledgers that own detail.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
   zip generation, and built-in safety warning replacement (AP-21/AP-23/AP-33).
-- `packages/billing` does not exist yet. `apps/stream` implements ADR 0069 Live
+- `packages/billing` has the reconciliation backstop and schema; Checkout/webhooks
+  remain for AP-5. `apps/stream` implements ADR 0069 Live
   Updates (AP-25), and scanner persistence now exists in `packages/db`.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side

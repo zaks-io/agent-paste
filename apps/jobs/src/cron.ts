@@ -1,7 +1,8 @@
 import type { SqlExecutor } from "@agent-paste/db";
-import { CRON_HOURLY_DISCOVERY, CRON_UPLOAD_CLEANUP } from "./constants.js";
+import { CRON_BILLING_RECONCILE, CRON_HOURLY_DISCOVERY, CRON_UPLOAD_CLEANUP } from "./constants.js";
 import { resolveSqlExecutor } from "./db.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
+import { runBillingReconcileDiscovery } from "./discovery/billing-reconcile.js";
 import { runMaintenanceGc } from "./discovery/maintenance-gc.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import { runRetentionDiscovery } from "./discovery/retention.js";
@@ -39,6 +40,11 @@ export async function runScheduledJobs(event: ScheduledEvent, env: Env): Promise
 
   if (event.cron === CRON_HOURLY_DISCOVERY) {
     await runHourlyDiscovery(executor, env, now);
+    return;
+  }
+
+  if (event.cron === CRON_BILLING_RECONCILE) {
+    await runBillingReconcileDiscovery(executor, env, now);
     return;
   }
 

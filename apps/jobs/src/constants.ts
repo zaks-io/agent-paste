@@ -14,6 +14,8 @@ export const IDEMPOTENCY_RETENTION_DAYS = 30;
 
 export const CRON_UPLOAD_CLEANUP = "*/15 * * * *";
 export const CRON_HOURLY_DISCOVERY = "0 * * * *";
+/** Daily Stripe billing reconciliation (ADR 0074). */
+export const CRON_BILLING_RECONCILE = "0 6 * * *";
 
 export const QUEUE_BYTE_PURGE = "byte-purge";
 export const QUEUE_SAFETY_SCAN = "safety-scan";
