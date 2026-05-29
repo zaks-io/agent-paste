@@ -31,15 +31,10 @@ import {
   hasApiKeyPepperBinding,
   pepperRingFromWorkerEnv,
   resolveApiKeyPepperMaterial,
-  uploadSigningRingFromEnv,
-  verifyUploadTokenWithKeyRing,
+  resolveUploadTokenSigner,
 } from "@agent-paste/rotation";
 import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
-import {
-  mintUploadUrl,
-  type SignedUploadPayload,
-  verifyUploadToken as verifyUploadTokenSignature,
-} from "@agent-paste/tokens/upload-url";
+import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
   type AppErrorCode,
   createRegistrar,
@@ -548,14 +543,13 @@ async function signUploadUrl(
   session: UploadSessionRecord,
   file: UploadFileInput & { object_key?: string },
 ): Promise<string> {
-  if (!env.UPLOAD_SIGNING_SECRET) {
+  const signer = resolveUploadTokenSigner(env);
+  if (!signer) {
     throw new Error("UPLOAD_SIGNING_SECRET is required");
   }
-
-  const signingRing = uploadSigningRingFromEnv(env);
   return mintUploadUrl({
     baseUrl: env.UPLOAD_BASE_URL ?? new URL(request.url).origin,
-    secret: signingRing?.signingSecret() ?? env.UPLOAD_SIGNING_SECRET,
+    secret: signer.signingSecret,
     payload: {
       sid: session.session_id,
       wid: session.workspace_id,
@@ -568,15 +562,11 @@ async function signUploadUrl(
 }
 
 async function verifyUploadToken(token: string | null, env: Env): Promise<SignedUploadPayload | null> {
-  if (!token || !env.UPLOAD_SIGNING_SECRET) {
+  if (!token) {
     return null;
   }
-
-  const signingRing = uploadSigningRingFromEnv(env);
-  if (signingRing) {
-    return verifyUploadTokenWithKeyRing(token, signingRing);
-  }
-  return verifyUploadTokenSignature(token, env.UPLOAD_SIGNING_SECRET);
+  const signer = resolveUploadTokenSigner(env);
+  return signer ? signer.verify(token) : null;
 }
 
 function bearerToken(request: Request): string | null {

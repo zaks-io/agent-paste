@@ -30,6 +30,16 @@ export {
   type RotationStage,
 } from "./playbook.js";
 export {
+  type AccessLinkSigner,
+  type AgentViewTokenSigner,
+  type ContentTokenSigner,
+  resolveAccessLinkSigner,
+  resolveAgentViewTokenSigner,
+  resolveContentTokenSigner,
+  resolveUploadTokenSigner,
+  type UploadTokenSigner,
+} from "./signers.js";
+export {
   verifyAccessLinkBlobWithKeyRing,
   verifyAgentViewTokenWithKeyRing,
   verifyContentTokenWithKeyRing,

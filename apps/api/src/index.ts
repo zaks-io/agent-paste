@@ -36,15 +36,14 @@ import {
   storageEnvSegment,
 } from "@agent-paste/db";
 import {
-  accessLinkSigningRingFromEnv,
-  contentSigningRingFromEnv,
   hasApiKeyPepperBinding,
   pepperRingFromWorkerEnv,
+  resolveAccessLinkSigner,
+  resolveAgentViewTokenSigner,
   resolveApiKeyPepperMaterial,
-  verifyAccessLinkBlobWithKeyRing,
-  verifyAgentViewTokenWithKeyRing,
+  resolveContentTokenSigner,
 } from "@agent-paste/rotation";
-import { type AgentViewTokenPayload, mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
+import { type AgentViewTokenPayload, mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
 import { mintBundleUrl, mintContentUrl } from "@agent-paste/tokens/content";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
@@ -497,11 +496,11 @@ function webBaseUrl(env: Env): string {
 }
 
 function accessLinkSigningSecret(env: Env): { secret: string; kid: number } | null {
-  const ring = accessLinkSigningRingFromEnv(env);
-  if (!ring) {
+  const signer = resolveAccessLinkSigner(env);
+  if (!signer) {
     return null;
   }
-  return { secret: ring.signingSecret(), kid: ring.signingKid };
+  return { secret: signer.signingSecret, kid: signer.signingKid };
 }
 
 async function listMemberArtifactsRoute(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -902,25 +901,11 @@ async function resolveAccessLinkRoute(
 ): Promise<Response> {
   const env = context.env as Env;
   const body = guard.body;
-  const accessLinkSigningEnv: {
-    ACCESS_LINK_SIGNING_KEY_V1?: string;
-    ACCESS_LINK_SIGNING_KEY_V2?: string;
-    ACCESS_LINK_SIGNING_KID?: string;
-  } = {};
-  if (env.ACCESS_LINK_SIGNING_KEY_V1) {
-    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KEY_V1 = env.ACCESS_LINK_SIGNING_KEY_V1;
-  }
-  if (env.ACCESS_LINK_SIGNING_KEY_V2) {
-    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KEY_V2 = env.ACCESS_LINK_SIGNING_KEY_V2;
-  }
-  if (env.ACCESS_LINK_SIGNING_KID) {
-    accessLinkSigningEnv.ACCESS_LINK_SIGNING_KID = env.ACCESS_LINK_SIGNING_KID;
-  }
-  const ring = accessLinkSigningRingFromEnv(accessLinkSigningEnv);
-  if (!ring) {
+  const signer = resolveAccessLinkSigner(env);
+  if (!signer) {
     return errorResponse(context, "not_found");
   }
-  const verified = await verifyAccessLinkBlobWithKeyRing({ publicId: body.public_id, blob: body.blob }, ring);
+  const verified = await signer.verify({ publicId: body.public_id, blob: body.blob });
   if (!verified) {
     return errorResponse(context, "not_found");
   }
@@ -1955,23 +1940,19 @@ function apiBaseUrl(env: Env): string {
   return env.API_BASE_URL ?? "https://api.agent-paste.sh";
 }
 
+/** Signing secret for Content-Gateway Tokens (file and bundle content URLs). */
+function contentSigningSecret(env: Env): string | undefined {
+  return resolveContentTokenSigner(env)?.signingSecret;
+}
+
+/** Signing secret for Agent-View Tokens; shares content material unless `AGENT_VIEW_SIGNING_SECRET` is set. */
 function agentViewSigningSecret(env: Env): string | undefined {
-  if (env.AGENT_VIEW_SIGNING_SECRET) {
-    return env.AGENT_VIEW_SIGNING_SECRET;
-  }
-  const signingRing = contentSigningRingFromEnv(env);
-  return signingRing?.signingSecret() ?? env.CONTENT_SIGNING_SECRET;
+  return resolveAgentViewTokenSigner(env)?.signingSecret;
 }
 
 async function verifyAgentViewTokenForEnv(token: string, env: Env) {
-  if (env.AGENT_VIEW_SIGNING_SECRET) {
-    return verifyAgentViewToken(token, env.AGENT_VIEW_SIGNING_SECRET);
-  }
-  const signingRing = contentSigningRingFromEnv(env);
-  if (signingRing) {
-    return verifyAgentViewTokenWithKeyRing(token, signingRing);
-  }
-  return env.CONTENT_SIGNING_SECRET ? verifyAgentViewToken(token, env.CONTENT_SIGNING_SECRET) : null;
+  const signer = resolveAgentViewTokenSigner(env);
+  return signer ? signer.verify(token) : null;
 }
 
 async function signAgentViewContentUrls(
@@ -1995,7 +1976,7 @@ async function signAgentViewContentUrls(
   };
   const { workspace_id: internalWorkspaceId, ...publicFields } = data;
 
-  const signingSecret = agentViewSigningSecret(env);
+  const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
     return publicFields;
   }
@@ -2066,7 +2047,7 @@ async function signedBundleUrl(
   expiresAt?: string,
   auth?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<string | undefined> {
-  const signingSecret = agentViewSigningSecret(env);
+  const signingSecret = contentSigningSecret(env);
   const workspaceId = auth?.workspaceId;
   if (!signingSecret || !workspaceId) {
     return undefined;
@@ -2098,7 +2079,7 @@ async function signedContentUrl(
   expiresAt?: string,
   auth?: { accessLinkId?: string; workspaceId?: string },
 ): Promise<string> {
-  const signingSecret = agentViewSigningSecret(env);
+  const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }

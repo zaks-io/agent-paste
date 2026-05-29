@@ -9,7 +9,7 @@ import {
   LiveUpdateRevisionNotice,
 } from "@agent-paste/contracts";
 import { type ApiActor, inferRenderMode, type Repository } from "@agent-paste/db";
-import { accessLinkSigningRingFromEnv, verifyAccessLinkBlobWithKeyRing } from "@agent-paste/rotation";
+import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import { isAuthorizedStreamInternalRequest } from "@agent-paste/worker-runtime";
 import type { Env } from "./index.js";
 
@@ -82,11 +82,11 @@ async function authorizeAccessLink(
   db: Repository,
   input: { public_id: string; blob: string },
 ): Promise<LiveUpdateAuthorizeResponse | null> {
-  const ring = accessLinkSigningRingFromEnv(env);
-  if (!ring) {
+  const signer = resolveAccessLinkSigner(env);
+  if (!signer) {
     return null;
   }
-  const verified = await verifyAccessLinkBlobWithKeyRing({ publicId: input.public_id, blob: input.blob }, ring);
+  const verified = await signer.verify({ publicId: input.public_id, blob: input.blob });
   if (!verified) {
     return null;
   }
