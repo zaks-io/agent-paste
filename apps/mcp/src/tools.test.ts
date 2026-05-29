@@ -131,6 +131,8 @@ describe("callMcpTool", () => {
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },
+      revision_link_id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_link_url: "https://revision.example/al",
     };
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool(
@@ -207,6 +209,8 @@ describe("callMcpTool", () => {
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },
+      revision_link_id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_link_url: "https://revision.example/al",
     };
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool(

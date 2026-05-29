@@ -10,6 +10,7 @@ import {
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
   mcpIdempotencySegment,
+  mcpPublishAccessLinkIdempotencyKey,
   mcpProtectedResourceMetadata,
   mcpScopeClaimIncludesMemberOnlyScopes,
   mcpScopesToApiScopes,
@@ -56,7 +57,7 @@ describe("MCP tool registry", () => {
     expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read", "share"]);
   });
 
-  it("threads publish chains through upload and api routes", () => {
+  it("threads publish chains through upload, publish, and access-link routes", () => {
     const publish = mcpToolContractByName("publish_artifact");
     expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual([
       "uploadSessions.create",
@@ -65,10 +66,26 @@ describe("MCP tool registry", () => {
       "revisions.publish",
       "accessLinks.create",
       "accessLinks.mint",
+      "accessLinks.create",
+      "accessLinks.mint",
     ]);
+    const requiredAccessLinkCalls = publish.forwardedCalls.filter((call) => !("optional" in call && call.optional));
+    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.create")).toHaveLength(1);
+    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.mint")).toHaveLength(1);
     expect(
       publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
     ).toBe(true);
+  });
+
+  it("labels publish-chain access-link creates with derived idempotency keys, not same_as_tool", () => {
+    for (const toolName of ["publish_artifact", "add_revision"] as const) {
+      const tool = mcpToolContractByName(toolName);
+      const accessLinkCreates = tool.forwardedCalls.filter((call) => call.routeId === "accessLinks.create");
+      expect(accessLinkCreates).toHaveLength(2);
+      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_revision_link");
+      expect(accessLinkCreates[1]?.idempotencyKey).toBe("derived_share_link");
+      expect(accessLinkCreates.every((call) => call.idempotencyKey !== "same_as_tool")).toBe(true);
+    }
   });
 
   it("resolves forwarded method, path, app, and idempotency from route contracts", () => {
@@ -183,6 +200,12 @@ describe("MCP auth and idempotency helpers", () => {
   it("maps delegated MCP scopes to API route scopes", () => {
     expect(mcpScopesToApiScopes(["write", "read", "share"])).toEqual(["publish", "read", "admin"]);
     expect(mcpScopesToApiScopes(["read"])).toEqual(["read"]);
+  });
+
+  it("derives distinct publish access-link idempotency keys from the tool key", () => {
+    const toolKey = IdempotencyKey.parse("mcp:user_01:42:publish_artifact");
+    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "revision")).toBe("mcp:user_01:42:publish_artifact:revision-link");
+    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "share")).toBe("mcp:user_01:42:publish_artifact:share-link");
   });
 
   it("derives idempotency keys from token sub, json rpc id, and tool name", () => {

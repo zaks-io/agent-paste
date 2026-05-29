@@ -1,4 +1,5 @@
 import {
+  CreateAccessLinkRequest,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   FinalizeUploadSessionResponse,
@@ -8,6 +9,7 @@ import {
   McpPublishArtifactOutput,
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
+  mcpPublishAccessLinkIdempotencyKey,
   PublishResult,
 } from "@agent-paste/contracts";
 import type { ApiServiceBinding } from "./forward.js";
@@ -116,9 +118,23 @@ export async function runTextPublishChain(
     return { ok: false, error: mapInternal() };
   }
 
+  const revisionLinkMinted = await mintAccessLink(deps, {
+    artifactId: finalizeBody.data.artifact_id,
+    type: "revision",
+    revisionId: publishResult.data.revision_id,
+    createIdempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision"),
+  });
+  if (!revisionLinkMinted.ok) {
+    return revisionLinkMinted;
+  }
+
   let shareLinkUrl: string | undefined;
   if (input.share) {
-    const shareMinted = await mintShareLinkForArtifact(deps, finalizeBody.data.artifact_id);
+    const shareMinted = await mintAccessLink(deps, {
+      artifactId: finalizeBody.data.artifact_id,
+      type: "share",
+      createIdempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share"),
+    });
     if (!shareMinted.ok) {
       return shareMinted;
     }
@@ -127,6 +143,8 @@ export async function runTextPublishChain(
 
   const output = McpPublishArtifactOutput.safeParse({
     ...publishResult.data,
+    revision_link_id: revisionLinkMinted.id,
+    revision_link_url: revisionLinkMinted.url,
     ...(shareLinkUrl ? { share_link_url: shareLinkUrl } : {}),
   });
   if (!output.success) {
@@ -136,17 +154,30 @@ export async function runTextPublishChain(
   return { ok: true, status: 200, body: output.data };
 }
 
-async function mintShareLinkForArtifact(
+type MintAccessLinkInput = {
+  artifactId: string;
+  type: "share" | "revision";
+  revisionId?: string;
+  createIdempotencyKey: IdempotencyKey;
+};
+
+async function mintAccessLink(
   deps: PublishChainDeps,
-  artifactId: string,
-): Promise<{ ok: true; url: string } | ForwardToApiFailure> {
+  input: MintAccessLinkInput,
+): Promise<{ ok: true; id: string; url: string } | ForwardToApiFailure> {
+  const createBody = CreateAccessLinkRequest.parse(
+    input.type === "revision"
+      ? { type: "revision" as const, revision_id: input.revisionId }
+      : { type: "share" as const },
+  );
+
   const created = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.create",
-    params: { artifact_id: artifactId },
+    params: { artifact_id: input.artifactId },
     bearerToken: deps.bearerToken,
-    idempotencyKey: deps.idempotencyKey,
-    body: JSON.stringify({ type: "share" }),
+    idempotencyKey: input.createIdempotencyKey,
+    body: JSON.stringify(createBody),
   });
   if (!created.ok) {
     return created;
@@ -175,7 +206,7 @@ async function mintShareLinkForArtifact(
   if (!url) {
     return { ok: false, error: mapInternal() };
   }
-  return { ok: true, url };
+  return { ok: true, id: linkId, url };
 }
 
 function mapInternal() {

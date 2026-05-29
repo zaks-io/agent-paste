@@ -107,7 +107,7 @@ describe("viewer live-update revocation", () => {
     render(<Route.component />);
 
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
-    expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function");
+    await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));
 
     liveUpdates.lastInput?.onRevoked?.();
 
@@ -123,7 +123,7 @@ describe("viewer live-update revocation", () => {
     render(<Route.component />);
 
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
-    expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function");
+    await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));
 
     liveUpdates.lastInput?.onRevoked?.();
 
