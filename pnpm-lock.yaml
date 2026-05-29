@@ -480,13 +480,13 @@ importers:
       '@agent-paste/commands':
         specifier: workspace:*
         version: link:../commands
-      '@agent-paste/db':
-        specifier: workspace:*
-        version: link:../db
     devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.4.5
         version: 0.4.5
+      '@types/node':
+        specifier: ^24.12.4
+        version: 24.12.4
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
