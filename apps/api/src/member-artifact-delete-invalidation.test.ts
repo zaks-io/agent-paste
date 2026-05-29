@@ -1,3 +1,4 @@
+import { DeleteArtifactResponse } from "@agent-paste/contracts";
 import { LocalRepository } from "@agent-paste/db";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -122,6 +123,14 @@ describe("member MCP artifact delete invalidation", () => {
       env,
     );
     expect(deleteResponse.status).toBe(200);
+    const deleteJson = await deleteResponse.json();
+    expect(deleteJson).not.toHaveProperty("workspace_id");
+    expect(deleteJson).not.toHaveProperty("revision_id");
+    const deleteBody = DeleteArtifactResponse.parse(deleteJson);
+    expect(deleteBody).toEqual({
+      artifact_id: artifactId,
+      deleted_at: expect.any(String),
+    });
     expect(denylist.values.get(`ad:${artifactId}`)).toEqual(expect.any(String));
     expect(purgeSend).toHaveBeenCalledTimes(1);
 

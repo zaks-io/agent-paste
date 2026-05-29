@@ -575,7 +575,10 @@ async function deleteMemberArtifactRoute(
         reason: "deletion",
       });
     }
-    return result;
+    return {
+      artifact_id: result.artifact_id,
+      deleted_at: result.deleted_at,
+    };
   });
 }
 
