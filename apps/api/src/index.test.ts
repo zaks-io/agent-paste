@@ -1432,6 +1432,30 @@ describe("api worker", () => {
     expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({ reason: "deletion", at: expect.any(String) });
   });
 
+  it("rejects malformed JSON in smoke harness helpers", async () => {
+    const env: Env = {
+      AGENT_PASTE_ENV: "preview",
+      SMOKE_HARNESS_SECRET: "harness",
+      DB: operatorDbForTests({
+        async forceExpireArtifact() {
+          throw new Error("force expire should not run for malformed JSON");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/__test__/force-expire", {
+        method: "POST",
+        headers: { authorization: "Bearer harness", "content-type": "application/json" },
+        body: "{",
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+  });
+
   it("renders public Agent View as HTML for browsers", async () => {
     const env: Env = {
       AGENT_VIEW_SIGNING_SECRET: "test-secret",

@@ -11,7 +11,7 @@ import {
 import { type ApiActor, inferRenderMode, type Repository } from "@agent-paste/db";
 import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import { isAuthorizedStreamInternalRequest } from "@agent-paste/worker-runtime";
-import type { Env } from "./index.js";
+import type { Env } from "./env.js";
 
 export type ArtifactLiveBinding = {
   idFromName(name: string): DurableObjectId;

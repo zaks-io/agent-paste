@@ -19,6 +19,17 @@ export default defineConfig({
         "apps/web/src/routes/**",
         "apps/web/src/server/runtime.ts",
         "apps/web/src/components/theme-provider.tsx",
+        // API Worker routing is exercised through apps/api/src/index.test.ts;
+        // these files are the former index.ts entrypoint internals split out.
+        "apps/api/src/agent-view-html.ts",
+        "apps/api/src/agent-view.ts",
+        "apps/api/src/auth.ts",
+        "apps/api/src/pagination.ts",
+        "apps/api/src/principals.ts",
+        "apps/api/src/responses.ts",
+        "apps/api/src/route-contracts.ts",
+        "apps/api/src/routes/**",
+        "apps/api/src/runtime.ts",
         "apps/api/src/index.ts",
         "apps/upload/src/index.ts",
         "apps/upload/src/workos.ts",
