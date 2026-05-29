@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Command-line interface for publishing shareable Artifacts to Agent Paste.",
+  "license": "UNLICENSED",
   "homepage": "https://agent-paste.sh",
   "repository": {
     "type": "git",
@@ -24,7 +25,7 @@
     "check": "pnpm typecheck",
     "dev": "pnpm build && node dist/index.js",
     "lint": "biome lint .",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "node scripts/prepublish-guard.mjs",
     "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
