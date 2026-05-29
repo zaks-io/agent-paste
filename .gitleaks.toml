@@ -1,0 +1,30 @@
+# gitleaks config. Extends the upstream default ruleset and adds narrowly
+# scoped allowlists for known false positives confirmed by manual review.
+#
+# All current matches were verified to be non-secret:
+#   - pepper-ring.ts:  `secret: primary` binds a *variable*, not a literal.
+#   - wrangler CF_ACCESS_AUD:  a Cloudflare Access audience tag (a public
+#     identifier, not a credential); already removed from HEAD anyway.
+#   - local-dev.md:  a documented localhost-only smoke harness placeholder.
+#
+# Keep allowlists path- and regex-scoped so a genuinely new secret in these
+# files is still caught.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "pepper-ring binds peppers from variables, not literal secrets"
+regexTarget = "match"
+regexes = ['''secret:\s*(primary|secondary|pepper)''']
+paths = ['''packages/rotation/src/pepper-ring\.ts''']
+
+[[allowlists]]
+description = "Cloudflare Access AUD is a public audience identifier, not a secret"
+regexTarget = "match"
+regexes = ['''CF_ACCESS_AUD''']
+paths = ['''apps/.*/wrangler\.jsonc''']
+
+[[allowlists]]
+description = "Documented localhost smoke-harness placeholder for local dev"
+paths = ['''docs/specs/local-dev\.md''']
