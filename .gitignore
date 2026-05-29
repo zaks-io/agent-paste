@@ -11,6 +11,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .agent-out/
+var/ops/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .codex/worktrees/

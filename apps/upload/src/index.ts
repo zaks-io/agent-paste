@@ -28,7 +28,9 @@ import {
 } from "@agent-paste/db";
 import {
   artifactBytesEncryptionRingFromEnv,
+  hasApiKeyPepperBinding,
   pepperRingFromWorkerEnv,
+  resolveApiKeyPepperMaterial,
   uploadSigningRingFromEnv,
   verifyUploadTokenWithKeyRing,
 } from "@agent-paste/rotation";
@@ -508,13 +510,14 @@ async function uploadReplay(input: {
 }
 
 function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
-  if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
+  const apiKeyPepper = resolveApiKeyPepperMaterial(env);
+  if (!isHyperdriveBinding(env.DB) || !hasApiKeyPepperBinding(env) || !apiKeyPepper) {
     return undefined;
   }
   const pepperRing = pepperRingFromWorkerEnv(env);
   const options: Parameters<typeof createPostgresServices>[0] = {
     executor: createHyperdriveExecutor(env.DB),
-    apiKeyPepper: env.API_KEY_PEPPER_V1,
+    apiKeyPepper,
     ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
     billingEnabled: isBillingEnabled(env.BILLING_ENABLED),

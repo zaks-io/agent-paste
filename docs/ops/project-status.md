@@ -70,9 +70,9 @@ and deep-link return paths are implemented.
 Highest-signal gaps:
 
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
-- Phase 6: app-layer byte encryption and hosted rotation automation. Rotation
-  overlap rings and tests ship in `@agent-paste/rotation` (hosted wrangler
-  automation still manual).
+- Phase 6: app-layer byte encryption. Hosted rotation overlap automation ships in
+  `scripts/rotate-*.mjs` and `@agent-paste/rotation`; live secret writes and
+  smokes remain operator-approved per ticket.
 - Parked ops/security hardening: optional dedicated admin hostname decision.
 - Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
   reconciliation.

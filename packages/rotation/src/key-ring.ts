@@ -99,6 +99,15 @@ export class KeyRing {
     return this.verifyKidSet.size;
   }
 
+  /** Emergency cutover: single active kid with a new secret (no overlap). */
+  replaceSigningSecret(secret: string, kid = 1): void {
+    this.signingKidValue = kid;
+    this.verifyKidSet = new Set([kid]);
+    this.secrets.clear();
+    this.secrets.set(kid, secret);
+    this.assertConsistent();
+  }
+
   private assertConsistent(): void {
     if (!this.secrets.has(this.signingKidValue)) {
       throw new Error(`key_ring_inconsistent_signing_kid:${this.signingKidValue}`);
@@ -124,12 +133,15 @@ export function createKeyRingFromVersionedEnv(input: {
   defaultSigningKid?: number;
 }): KeyRing {
   const primary = input.env[input.baseName];
+  const secondary = input.env[`${input.baseName}_V2`];
+  const signingKid = parseKidLabel(input.env[input.kidVarName], input.defaultSigningKid ?? 1);
   if (!primary) {
+    if (secondary && signingKid === 2) {
+      return KeyRing.single(secondary, 2);
+    }
     throw new Error(`key_ring_missing_env:${input.baseName}`);
   }
-  const signingKid = parseKidLabel(input.env[input.kidVarName], input.defaultSigningKid ?? 1);
   const entries: KeyRingEntry[] = [{ kid: 1, secret: primary }];
-  const secondary = input.env[`${input.baseName}_V2`];
   if (secondary) {
     entries.push({ kid: 2, secret: secondary });
   }

@@ -156,8 +156,10 @@ usage.
        built-in content scanner, and warnings are stored with scanner
        versioning for Agent View reads.
 3. [x] Stronger audit semantics and operator abuse workflows.
-4. [ ] Automated signing-key, content-key, API-pepper, and WorkOS rotation with
-       overlap windows.
+4. [x] Automated signing-key, content-key, API-pepper, and WorkOS rotation with
+       overlap windows (`scripts/rotate-versioned-secret.mjs`,
+       `scripts/rotate-workos-secrets.mjs`, `@agent-paste/rotation` automation
+       tests).
 5. [ ] Public SDK and standalone CLI binaries only if product demand warrants
        them.
 

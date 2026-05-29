@@ -23,13 +23,17 @@ export class PepperRing {
     API_KEY_PEPPER_CURRENT_KID?: string;
   }): PepperRing {
     const primary = env.API_KEY_PEPPER_V1;
+    const secondary = env.API_KEY_PEPPER_V2;
+    const signingKid = parseKidLabel(env.API_KEY_PEPPER_CURRENT_KID, 1);
     if (!primary) {
+      if (secondary && signingKid === 2) {
+        return new PepperRing(KeyRing.single(secondary, 2));
+      }
       throw new Error("pepper_ring_missing_env:API_KEY_PEPPER_V1");
     }
-    const signingKid = parseKidLabel(env.API_KEY_PEPPER_CURRENT_KID, 1);
     const entries = [{ kid: 1, secret: primary }];
-    if (env.API_KEY_PEPPER_V2) {
-      entries.push({ kid: 2, secret: env.API_KEY_PEPPER_V2 });
+    if (secondary) {
+      entries.push({ kid: 2, secret: secondary });
     }
     return new PepperRing(KeyRing.fromEntries(signingKid, entries));
   }

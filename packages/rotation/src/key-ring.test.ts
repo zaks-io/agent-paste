@@ -30,6 +30,20 @@ describe("KeyRing rotation playbook", () => {
     expect(() => ring.dropKid(2)).toThrow(/cannot_drop_active_signing/);
   });
 
+  it("parses secondary-only env after kid-1 drop when signing kid is v2", () => {
+    const ring = createKeyRingFromVersionedEnv({
+      baseName: "ARTIFACT_BYTES_ENCRYPTION_KEY",
+      kidVarName: "ARTIFACT_BYTES_ENCRYPTION_KID",
+      env: {
+        ARTIFACT_BYTES_ENCRYPTION_KEY_V2: "root-v2",
+        ARTIFACT_BYTES_ENCRYPTION_KID: "v2",
+      },
+    });
+    expect(ring.signingKid).toBe(2);
+    expect(ring.verifyKids).toEqual([2]);
+    expect(ring.secretForKid(2)).toBe("root-v2");
+  });
+
   it("parses versioned Worker env bindings", () => {
     const ring = createKeyRingFromVersionedEnv({
       baseName: "CONTENT_SIGNING_SECRET",

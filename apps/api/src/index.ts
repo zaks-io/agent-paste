@@ -38,7 +38,9 @@ import {
 import {
   accessLinkSigningRingFromEnv,
   contentSigningRingFromEnv,
+  hasApiKeyPepperBinding,
   pepperRingFromWorkerEnv,
+  resolveApiKeyPepperMaterial,
   verifyAccessLinkBlobWithKeyRing,
   verifyAgentViewTokenWithKeyRing,
 } from "@agent-paste/rotation";
@@ -1707,13 +1709,14 @@ function apiDatabase(env: Env): Repository | undefined {
 }
 
 function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
-  if (!isHyperdriveBinding(env.DB) || !env.API_KEY_PEPPER_V1) {
+  const apiKeyPepper = resolveApiKeyPepperMaterial(env);
+  if (!isHyperdriveBinding(env.DB) || !hasApiKeyPepperBinding(env) || !apiKeyPepper) {
     return undefined;
   }
   const pepperRing = pepperRingFromWorkerEnv(env);
   const services = createPostgresServices({
     executor: createHyperdriveExecutor(env.DB),
-    apiKeyPepper: env.API_KEY_PEPPER_V1,
+    apiKeyPepper,
     ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
     apiBaseUrl: apiBaseUrl(env),

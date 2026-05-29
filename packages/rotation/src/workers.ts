@@ -2,15 +2,31 @@ import { createKeyRingFromVersionedEnv, KeyRing, type KeyRingEntry } from "./key
 import { parseKidLabel } from "./kid.js";
 import { PepperRing } from "./pepper-ring.js";
 
+export function hasApiKeyPepperBinding(env: { API_KEY_PEPPER_V1?: string; API_KEY_PEPPER_V2?: string }): boolean {
+  return Boolean(env.API_KEY_PEPPER_V1 || env.API_KEY_PEPPER_V2);
+}
+
 export function pepperRingFromWorkerEnv(env: {
   API_KEY_PEPPER_V1?: string;
   API_KEY_PEPPER_V2?: string;
   API_KEY_PEPPER_CURRENT_KID?: string;
 }): PepperRing | undefined {
-  if (!env.API_KEY_PEPPER_V1) {
+  if (!hasApiKeyPepperBinding(env)) {
     return undefined;
   }
   return PepperRing.fromEnv(env);
+}
+
+export function resolveApiKeyPepperMaterial(env: {
+  API_KEY_PEPPER_V1?: string;
+  API_KEY_PEPPER_V2?: string;
+  API_KEY_PEPPER_CURRENT_KID?: string;
+}): string | undefined {
+  const ring = pepperRingFromWorkerEnv(env);
+  if (ring) {
+    return ring.currentPepper();
+  }
+  return env.API_KEY_PEPPER_V1;
 }
 
 export function pepperRingVerifySecrets(ring: PepperRing): string[] {
@@ -49,12 +65,19 @@ export function uploadSigningRingFromEnv(env: {
   });
 }
 
+export function hasArtifactBytesEncryptionBinding(env: {
+  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
+  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
+}): boolean {
+  return Boolean(env.ARTIFACT_BYTES_ENCRYPTION_KEY || env.ARTIFACT_BYTES_ENCRYPTION_KEY_V2);
+}
+
 export function artifactBytesEncryptionRingFromEnv(env: {
   ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
   ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
   ARTIFACT_BYTES_ENCRYPTION_KID?: string;
 }): KeyRing | undefined {
-  if (!env.ARTIFACT_BYTES_ENCRYPTION_KEY) {
+  if (!hasArtifactBytesEncryptionBinding(env)) {
     return undefined;
   }
   return createKeyRingFromVersionedEnv({

@@ -148,6 +148,9 @@ use `git log` for commit-level detail.
 ### Operator lockdown APIs
 
 - Added operator-only set/lift/list lockdown endpoints.
+- AP-35: versioned-secret and WorkOS rotation operator scripts with ADR 0045
+  stage/flip/drain/drop plans, `@agent-paste/rotation` overlap E2E tests, and
+  runbook automation section (no live production rotation in implementation).
 - Operator auth accepts WorkOS operator sessions or the rotation-agent Access
   service-token identity and rejects API keys.
 - Lockdowns persist in `platform_lockdowns` and write/clear KV denylist keys.
