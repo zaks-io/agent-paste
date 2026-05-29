@@ -22,8 +22,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Install: `pnpm install --frozen-lockfile --strict-peer-dependencies`
 - Full local gate: `pnpm verify` (CI also runs `pnpm test:coverage`)
 - Focused checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`,
-  `pnpm openapi:check`, `pnpm --filter @agent-paste/db db:check`,
-  `pnpm agent-skills:check`, `pnpm knip`
+  `pnpm openapi:check`, `pnpm --filter @agent-paste/db db:check`, `pnpm knip`
 - Build: `pnpm build`
 - Generated artifacts: OpenAPI (`pnpm openapi:write`), DB introspection
   (`db:check`); regenerate, never hand-edit

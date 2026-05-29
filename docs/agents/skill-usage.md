@@ -40,12 +40,9 @@ Do not create runtime-specific copies of the workflow logic. Update
 
 ## Maintenance Guard
 
-Run `pnpm agent-skills:check` after editing repo-local skills. It verifies that
-`.claude/skills` stays canonical, `.agents/skills` stays symlink-only, skill
-names start with `agent-paste-` or `workflow-`, UI prompts reference the
-matching skill name, and
-`skills-lock.json` points at canonical `.claude/skills` paths. `pnpm verify`
-runs this guard after markdown formatting.
+When editing repo-local skills, keep `.claude/skills` canonical and
+`.agents/skills` as symlinks to it. Skill layout is validated by the central
+skills repository's CI, not by a local guard in `pnpm verify`.
 
 ## Status Vocabulary
 
