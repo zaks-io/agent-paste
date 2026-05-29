@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-28 (AP-33 safety scanner warning persistence).
+Last updated: 2026-05-29 (gitleaks CI gate + CLI publish guard; Wave 4-6 catch-up).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,17 +9,27 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `76a88a9 chore: add codex repo agent links`.
-- AP-24 (pinning + non-current revision retention) is implemented on
-  [PR #104](https://github.com/zaks-io/agent-paste/pull/104), pending merge.
-- `pnpm verify` passed on 2026-05-28 on the AP-33 branch (80 Turbo tasks).
+  `687e33c chore(cli): make CLI publishable as @zaks-io/agent-paste (#142)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
   zip generation, and built-in safety warning replacement (AP-21/AP-23/AP-33).
-- `packages/billing` has the reconciliation backstop and schema; Checkout/webhooks
-  remain for AP-5. `apps/stream` implements ADR 0069 Live
-  Updates (AP-25), and scanner persistence now exists in `packages/db`.
+- App-layer encryption for Artifact bytes ships in
+  `packages/storage/src/artifact-bytes-encryption.ts`. Secret-rotation
+  automation (signing/content/pepper/WorkOS, with overlap windows) ships in
+  `packages/rotation` + `scripts/rotate-*.mjs` (AP-35); live secret writes stay
+  operator-approved per ticket.
+- `packages/billing` has plan tiers, the daily reconciliation backstop,
+  drift logging, and plan-derived usage caps (AP-4/AP-6); Checkout/webhooks
+  remain for AP-5 and stay post-launch. `apps/stream` implements ADR 0069 Live
+  Updates (AP-25), and scanner persistence exists in `packages/db`.
+- MCP publish chain mints a durable Revision Link per ADR 0061 and is
+  replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
+  runs the content-invalidation boundary (AP-87).
+- Signed-token key resolution is consolidated into one rotation seam in
+  `packages/rotation/src/signers.ts` (AP-90).
+- CI runs a full-history gitleaks secret scan (`.gitleaks.toml`, `Secret scan`
+  job). History verified clean on 2026-05-29.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
@@ -71,12 +81,21 @@ and deep-link return paths are implemented.
 Highest-signal gaps:
 
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
-- Phase 6: app-layer byte encryption. Hosted rotation overlap automation ships in
-  `scripts/rotate-*.mjs` and `@agent-paste/rotation`; live secret writes and
-  smokes remain operator-approved per ticket.
 - Parked ops/security hardening: optional dedicated admin hostname decision.
-- Post-launch: open-core billing, plan tiers, Stripe sync, billing UI, and jobs
-  reconciliation.
+- Post-launch: Stripe Checkout + webhooks (AP-5) and billing UI. Plan tiers,
+  reconciliation, and plan-derived caps already landed (AP-4/AP-6).
+
+## Publish / open-source gate
+
+The `@zaks-io/agent-paste` CLI is `license: "UNLICENSED"` and intentionally
+NOT publishable. `apps/cli/scripts/prepublish-guard.mjs` (wired as
+`prepublishOnly`) hard-blocks `npm publish` while unlicensed and also asserts
+the bundle is self-contained (no `@agent-paste/*` leak), the only runtime dep
+is `@napi-rs/keyring`, and `files` ships exactly `dist` + `README.md`.
+
+To publish later: land the open-core licensing decision (ADR 0073 leans
+Apache-2.0), add a real OSI `license` field + `LICENSE` file, then the guard
+unblocks. Full git history is gitleaks-clean as of 2026-05-29.
 
 See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 [coverage.md](./status/coverage.md) for the spec/ADR ledger.
@@ -86,11 +105,13 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 - Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`, `mcp`,
   `stream`, `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`,
   `api-client`, `commands`, `storage`, and repo guardrail packages.
+- Implemented: `billing` (plan tiers, reconciliation, drift, plan-derived caps;
+  Checkout/webhooks pending AP-5) and app-layer Artifact-bytes encryption in
+  `packages/storage`.
 - Partial: `jobs` only where future hardening adds new queue families beyond
   the current lifecycle/bundle/safety-scan set.
 - Scaffolded only: none in the active app set.
 - Placeholder UI: `web` Access Links.
-- Absent: `billing` and app-layer encryption.
 
 Full component map:
 [implementation.md](./status/implementation.md#components).
@@ -101,7 +122,9 @@ Full component map:
   [runbook-logpush.md](./runbook-logpush.md).
 - Production deploy gate/wait-timer/vault posture remains parked in
   [hosted-ops.md](./status/hosted-ops.md#open-ops-items).
-- Billing ADRs 0073/0074 are accepted but intentionally post-launch.
+- Stripe Checkout + webhooks (AP-5, ADRs 0073/0074) are intentionally
+  post-launch; the local source of truth and reconciliation backstop already
+  exist.
 
 ## Maintenance Rules
 
