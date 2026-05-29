@@ -313,7 +313,7 @@ Transient by default. Revocable on demand.
   style-guide.md section 6.2.
 - **The `.sh` is part of the identity.** It signals command-line native, where
   agents and developers already live. Lean into it.
-- **CLI command:** `agent-paste`, run as `npx agent-paste` or installed from
+- **CLI command:** `agent-paste`, run as `npx @zaks-io/agent-paste` or installed from
   `@zaks-io/agent-paste`. The installed command is always `agent-paste`.
 - **Domain terms** (Artifact, Revision, Access Link, Workspace, Agent View,
   Publish, and the rest) are proper nouns from CONTEXT.md. Capitalize them and
@@ -364,8 +364,8 @@ It is corrected here.)
 
 On-brand set pieces. Each one shows the thesis instead of asserting it.
 
-- **The one-command transcript.** `npx agent-paste login` then
-  `npx agent-paste publish ./report`, returning an Artifact ID. The hero already
+- **The one-command transcript.** `npx @zaks-io/agent-paste login` then
+  `npx @zaks-io/agent-paste publish ./report`, returning an Artifact ID. The hero already
   uses this. It is the single most persuasive object we have. Keep it real,
   keep it copyable, never animate it.
 - **A live artifact that updates itself.** A shared link open in a browser that

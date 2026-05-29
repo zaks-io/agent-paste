@@ -45,7 +45,7 @@ function ArtifactsListPage() {
         <EmptyState
           title="No artifacts yet."
           body="Publish your first one from the CLI:"
-          code="npx agent-paste publish ./report"
+          code="npx @zaks-io/agent-paste publish ./report"
         />
       ) : (
         <Table>

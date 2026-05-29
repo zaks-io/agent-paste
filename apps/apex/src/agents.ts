@@ -24,13 +24,13 @@ agent-paste has three objects an agent needs to know:
 
 ## CLI quickstart
 
-Sign in once, then publish a folder. \`npx agent-paste login\` runs a browser OAuth flow and
+Sign in once, then publish a folder. \`npx @zaks-io/agent-paste login\` runs a browser OAuth flow and
 provisions its own scoped key, so there is no API key to copy or paste. Publish
 returns an Artifact ID synchronously.
 
 \`\`\`
-npx agent-paste login
-npx agent-paste publish ./report
+npx @zaks-io/agent-paste login
+npx @zaks-io/agent-paste publish ./report
 # => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
 \`\`\`
 
@@ -53,7 +53,7 @@ Base: \`${API_BASE_URL}\`
 
 ## Authentication
 
-- **CLI:** \`npx agent-paste login\` completes a browser OAuth flow and stores a
+- **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and stores a
   scoped key for you. Nothing to copy or paste.
 - **REST and MCP:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI
   or headless use on the dashboard API Keys page

@@ -30,10 +30,10 @@ export type TranscriptLine =
   | { kind: "result"; origin: string; id: string };
 
 export const TRANSCRIPT: TranscriptLine[] = [
-  { kind: "prompt", text: "npx agent-paste login" },
+  { kind: "prompt", text: "npx @zaks-io/agent-paste login" },
   { kind: "comment", text: "opens your browser for OAuth. no API key to copy or paste." },
   { kind: "success", text: "Signed in as you@example.com" },
-  { kind: "prompt", text: "npx agent-paste publish ./report" },
+  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report" },
   { kind: "result", origin: "https://agent-paste.sh/", id: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF" },
 ];
 
@@ -50,7 +50,7 @@ export const FEATURES: Feature[] = [
   },
   {
     title: "Sign in once, no keys to wrangle",
-    body: "`npx agent-paste login` runs a browser OAuth flow and provisions its own scoped key, stored on your machine. For CI, set `AGENT_PASTE_API_KEY` from a dashboard key. That is the only time you handle one.",
+    body: "`npx @zaks-io/agent-paste login` runs a browser OAuth flow and provisions its own scoped key, stored on your machine. For CI, set `AGENT_PASTE_API_KEY` from a dashboard key. That is the only time you handle one.",
   },
   {
     title: "Transient by default",

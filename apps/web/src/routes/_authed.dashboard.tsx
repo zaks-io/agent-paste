@@ -77,7 +77,7 @@ function DashboardPage() {
         <EmptyState
           title="Nothing here yet."
           body="Sign in from the CLI, then publish your first artifact. It will show up here."
-          code={"npx agent-paste login\nnpx agent-paste publish ./report"}
+          code={"npx @zaks-io/agent-paste login\nnpx @zaks-io/agent-paste publish ./report"}
         />
       ) : (
         <div className="grid gap-6">
