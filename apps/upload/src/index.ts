@@ -600,6 +600,8 @@ function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: str
       return { code: "upload_incomplete" };
     case "entrypoint_not_in_revision":
       return { code: "entrypoint_not_in_revision" };
+    case "invalid_ttl_seconds":
+      return { code: "invalid_request" };
     default:
       return null;
   }

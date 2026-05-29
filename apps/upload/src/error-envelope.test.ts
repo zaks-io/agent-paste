@@ -235,6 +235,43 @@ describe("upload error envelope", () => {
     expect(body.error.request_id).not.toBe("bad id");
   });
 
+  it("400 invalid_request when upload session ttl exceeds the workspace plan max", async () => {
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      AUTH: workspaceAuth(),
+      DB: {
+        async createUploadSession() {
+          throw new Error("invalid_ttl_seconds");
+        },
+        async getUploadSession() {
+          return null;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer ok",
+          "idempotency-key": "k",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(createUploadRequestBody()),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expectEnvelope(response, "invalid_request");
+  });
+
   it("200 idempotent replay on upload-session create echoes X-Request-Id", async () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
