@@ -130,10 +130,15 @@ describe("runTextPublishChain", () => {
     });
   });
 
-  it("replays share link creation when the publish chain is retried after publish succeeds", async () => {
-    const shareLinkId = "al_test_share_link";
+  it("forwards derived share idempotency keys when publish with share is retried", async () => {
+    // Mocks return a fresh access-link row on every create; this file only asserts key
+    // propagation on the share create forward. Duplicate-row prevention is covered in
+    // packages/db/src/member-mcp-operations.test.ts.
     const shareUrl = "https://share.example/al_01";
-    let createInvocations = 0;
+    const revisionUrl = "https://revision.example/al_01";
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share");
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision");
+    let shareCreateInvocations = 0;
 
     vi.mocked(forward.forwardToUploadRoute).mockImplementation(async (input) => {
       if (input.routeId === "uploadSessions.create") {
@@ -181,37 +186,45 @@ describe("runTextPublishChain", () => {
     vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
     vi.mocked(forward.forwardToApiRoute).mockImplementation(async (input) => {
       if (input.routeId === "revisions.publish") {
+        return { ok: true, status: 200, body: publishBody };
+      }
+      if (input.routeId === "accessLinks.create") {
+        if (input.idempotencyKey === revisionKey) {
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: revisionLinkId,
+              type: "revision",
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              created_at: expiresAt,
+            },
+          };
+        }
+        if (input.idempotencyKey === shareKey) {
+          shareCreateInvocations += 1;
+          expect(JSON.parse(input.body as string)).toEqual({ type: "share" });
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: shareLinkId,
+              type: "share",
+              artifact_id: artifactId,
+              revision_id: null,
+              created_at: expiresAt,
+            },
+          };
+        }
+      }
+      if (input.routeId === "accessLinks.mint") {
+        const linkId = input.params?.access_link_id;
         return {
           ok: true,
           status: 200,
-          body: {
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            title: "Note",
-            view_url: "https://view.example",
-            agent_view_url: "https://agent-view.example",
-            expires_at: expiresAt,
-            bundle: { status: "pending", retry_after_seconds: 30 },
-          },
+          body: { url: linkId === revisionLinkId ? revisionUrl : shareUrl },
         };
-      }
-      if (input.routeId === "accessLinks.create") {
-        createInvocations += 1;
-        expect(input.idempotencyKey).toBe(deps.idempotencyKey);
-        return {
-          ok: true,
-          status: 201,
-          body: {
-            id: shareLinkId,
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: expiresAt,
-          },
-        };
-      }
-      if (input.routeId === "accessLinks.mint") {
-        return { ok: true, status: 200, body: { url: shareUrl } };
       }
       return {
         ok: false,
@@ -226,20 +239,28 @@ describe("runTextPublishChain", () => {
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     if (first.ok && second.ok) {
-      expect(first.body).toMatchObject({ share_link_url: shareUrl });
-      expect(second.body).toMatchObject({ share_link_url: shareUrl });
+      expect(first.body).toMatchObject({
+        revision_link_url: revisionUrl,
+        share_link_url: shareUrl,
+      });
+      expect(second.body).toMatchObject({
+        revision_link_url: revisionUrl,
+        share_link_url: shareUrl,
+      });
     }
-    expect(createInvocations).toBe(2);
+    expect(shareCreateInvocations).toBe(2);
   });
 
-  it("replays share link creation when add_revision with share is retried", async () => {
-    const shareLinkId = "al_test_share_link";
+  it("forwards derived share idempotency keys when add_revision with share is retried", async () => {
     const shareUrl = "https://share.example/al_01";
+    const revisionUrl = "https://revision.example/al_01";
     const addRevisionDeps = {
       ...deps,
       idempotencyKey: IdempotencyKey.parse("mcp:user:1:add_revision"),
     };
-    let createInvocations = 0;
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey, "share");
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey, "revision");
+    let shareCreateInvocations = 0;
 
     vi.mocked(forward.forwardToUploadRoute).mockImplementation(async (input) => {
       if (input.routeId === "uploadSessions.create") {
@@ -290,34 +311,46 @@ describe("runTextPublishChain", () => {
         return {
           ok: true,
           status: 200,
-          body: {
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            title: "Revision",
-            view_url: "https://view.example",
-            agent_view_url: "https://agent-view.example",
-            expires_at: expiresAt,
-            bundle: { status: "pending", retry_after_seconds: 30 },
-          },
+          body: { ...publishBody, title: "Revision" },
         };
       }
       if (input.routeId === "accessLinks.create") {
-        createInvocations += 1;
-        expect(input.idempotencyKey).toBe(addRevisionDeps.idempotencyKey);
-        return {
-          ok: true,
-          status: 201,
-          body: {
-            id: shareLinkId,
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: expiresAt,
-          },
-        };
+        if (input.idempotencyKey === revisionKey) {
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: revisionLinkId,
+              type: "revision",
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              created_at: expiresAt,
+            },
+          };
+        }
+        if (input.idempotencyKey === shareKey) {
+          shareCreateInvocations += 1;
+          expect(JSON.parse(input.body as string)).toEqual({ type: "share" });
+          return {
+            ok: true,
+            status: 201,
+            body: {
+              id: shareLinkId,
+              type: "share",
+              artifact_id: artifactId,
+              revision_id: null,
+              created_at: expiresAt,
+            },
+          };
+        }
       }
       if (input.routeId === "accessLinks.mint") {
-        return { ok: true, status: 200, body: { url: shareUrl } };
+        const linkId = input.params?.access_link_id;
+        return {
+          ok: true,
+          status: 200,
+          body: { url: linkId === revisionLinkId ? revisionUrl : shareUrl },
+        };
       }
       return {
         ok: false,
@@ -340,7 +373,7 @@ describe("runTextPublishChain", () => {
       expect(first.body).toMatchObject({ share_link_url: shareUrl });
       expect(second.body).toMatchObject({ share_link_url: shareUrl });
     }
-    expect(createInvocations).toBe(2);
+    expect(shareCreateInvocations).toBe(2);
   });
 
   it("mints a share link when share is true", async () => {

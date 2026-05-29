@@ -101,6 +101,8 @@ describe("member MCP repository operations", () => {
   it("replays share link creation when reusing the publish-chain share idempotency key", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);
+    // Opaque string matching MCP publish_artifact key shape; dedup is scoped by operation
+    // plus key, not by deriveMcpIdempotencyKey formatting.
     const toolKey = IdempotencyKey.parse("mcp:user_01:7:publish_artifact");
     const publishChainShareKey = mcpPublishAccessLinkIdempotencyKey(toolKey, "share");
 

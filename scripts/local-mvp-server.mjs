@@ -295,6 +295,10 @@ function createApiDatabase(repo) {
     listWebAuditEvents: repo.listWebAuditEvents.bind(repo),
     getWebSettings: repo.getWebSettings.bind(repo),
     deleteArtifact: repo.deleteArtifact.bind(repo),
+    createMemberAccessLink: repo.createMemberAccessLink.bind(repo),
+    mintMemberAccessLink: repo.mintMemberAccessLink.bind(repo),
+    listMemberAccessLinks: repo.listMemberAccessLinks.bind(repo),
+    revokeMemberAccessLink: repo.revokeMemberAccessLink.bind(repo),
   };
 }
 
