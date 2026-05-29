@@ -1293,7 +1293,12 @@ export class RepositoryCore implements Repository {
           details: {},
           occurredAt: deletedAt,
         });
-        return { artifact_id: artifact.id, deleted_at: deletedAt };
+        return {
+          artifact_id: artifact.id,
+          workspace_id: artifact.workspace_id,
+          revision_id: artifact.revision_id,
+          deleted_at: deletedAt,
+        };
       },
     );
   }
@@ -1535,6 +1540,15 @@ export class RepositoryCore implements Repository {
   }
 
   async peekIdempotentReplay(input: { actor: ApiActor; operation: string; idempotencyKey: string }) {
+    return this.uow.peekReplay<unknown>({
+      actor: workspaceCommandActor(input.actor),
+      operation: input.operation,
+      idempotencyKey: input.idempotencyKey,
+      scope: workspaceScope(input.actor.workspace_id),
+    });
+  }
+
+  async peekWorkspaceCommandReplay(input: { actor: ApiActor; operation: string; idempotencyKey: string }) {
     return this.uow.peekReplay<unknown>({
       actor: workspaceCommandActor(input.actor),
       operation: input.operation,

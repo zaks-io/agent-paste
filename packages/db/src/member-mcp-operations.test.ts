@@ -175,8 +175,22 @@ describe("member MCP repository operations", () => {
       }),
     ).rejects.toThrow();
 
-    const deleted = await repo.deleteMemberArtifact({ actor: member, artifactId });
-    expect(deleted.artifact_id).toBe(artifactId);
+    const deleted = await repo.deleteMemberArtifact({
+      actor: member,
+      idempotencyKey: "idem-delete",
+      artifactId,
+    });
+    expect(deleted).toMatchObject({
+      artifact_id: artifactId,
+      workspace_id: member.workspace_id,
+      revision_id: expect.any(String),
+    });
+    const replayed = await repo.deleteMemberArtifact({
+      actor: member,
+      idempotencyKey: "idem-delete",
+      artifactId,
+    });
+    expect(replayed).toEqual(deleted);
     await expect(repo.listMemberArtifacts(member, { limit: 10 })).resolves.toMatchObject({
       data: [],
     });

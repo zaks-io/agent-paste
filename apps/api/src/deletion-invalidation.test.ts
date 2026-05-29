@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { peekAdminArtifactDeleteReplay, runPostCommitArtifactDeletionInvalidation } from "./deletion-invalidation.js";
+import {
+  peekAdminArtifactDeleteReplay,
+  peekMemberArtifactDeleteReplay,
+  runPostCommitArtifactDeletionInvalidation,
+} from "./deletion-invalidation.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -64,6 +68,25 @@ describe("API deletion invalidation boundary", () => {
     expect(puts[0]?.key).toBe(`ad:${artifactId}`);
     expect(send).toHaveBeenCalled();
     expect(revisions.get(revisionId)?.bytes_purge_enqueued_at).toEqual(expect.any(String));
+  });
+
+  it("detects completed member delete replays via peek", async () => {
+    const executor = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("from idempotency_records")) {
+          return { rows: [{ status: "completed", result_json: {}, created_at: "2026-01-01T00:00:00.000Z" }] };
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(async (run) => run(executor)),
+    };
+    await expect(
+      peekMemberArtifactDeleteReplay(executor, {
+        actor: { type: "member", id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ", workspace_id: workspaceId },
+        workspaceId,
+        idempotencyKey: "mcp-delete:art",
+      }),
+    ).resolves.toBe(true);
   });
 
   it("detects completed admin delete replays via peek", async () => {
