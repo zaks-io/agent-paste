@@ -1,5 +1,4 @@
 import { getRequestId } from "@agent-paste/auth";
-import { resolveUsagePolicy } from "@agent-paste/config";
 import {
   ActorType,
   LockdownScope,
@@ -26,8 +25,6 @@ type OperatorEventFilterInput = {
   requestId?: string;
   focus?: "all" | "security" | "lifecycle";
 };
-
-const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
 
 export async function webAdminListLockdowns(
   context: AppContext,
@@ -246,7 +243,6 @@ async function writeDenylistEntry(env: Env, scope: LockdownScope, targetId: stri
     await env.DENYLIST.put(
       denylistKey(scope, targetId),
       JSON.stringify({ reason: `platform_lockdown_${scope}`, at: new Date().toISOString() }),
-      { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS },
     );
   } catch (error) {
     console.warn(`Denylist write failed for ${scope} lockdown ${targetId}; lockdown persisted.`, error);

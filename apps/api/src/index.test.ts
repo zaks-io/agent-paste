@@ -106,6 +106,31 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
   });
 
+  it("rejects API key actors with malformed expiry", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "bad-expiry"
+            ? { type: "api_key", id: "key_1", workspace_id: "w_1", expires_at: "not-a-date" }
+            : null;
+        },
+      },
+      DB: {
+        async getWhoami() {
+          throw new Error("malformed key expiry should not reach db");
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/whoami", { headers: { authorization: "Bearer bad-expiry" } }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+  });
+
   it("revokes the current API key", async () => {
     const env: Env = {
       AUTH: {
@@ -1658,7 +1683,8 @@ describe("api worker", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({ scope: "workspace", target_id: "w_123" });
     expect(puts).toHaveLength(1);
-    expect(puts[0]).toMatchObject({ key: "wsd:w_123", expirationTtl: 90 * 24 * 60 * 60 });
+    expect(puts[0]).toMatchObject({ key: "wsd:w_123" });
+    expect(puts[0]?.expirationTtl).toBeUndefined();
     expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({
       reason: "platform_lockdown_workspace",
       at: expect.any(String),
@@ -2297,6 +2323,33 @@ describe("api worker", () => {
       },
     );
     expect(entrypointResponse.status).toBe(422);
+
+    const bundleSend = vi.fn(async () => ({}));
+    const malformedBundleResponse = await handleRequest(
+      new Request(
+        "https://api.test/v1/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/revisions/rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/publish",
+        { method: "POST", headers: { authorization: "Bearer ok", "idempotency-key": "idem-bundle" } },
+      ),
+      {
+        ...env,
+        BUNDLE_GENERATE_QUEUE: { send: bundleSend },
+        DB: operatorDbForTests({
+          async publishRevision(input) {
+            return {
+              artifact_id: input.artifactId,
+              revision_id: input.revisionId,
+              title: "Demo",
+              view_url: "https://content.test/v/art.rev/index.html",
+              agent_view_url: "https://api.test/v1/public/agent-view/art.rev",
+              expires_at: "2026-02-01T00:00:00.000Z",
+              bundle: null,
+            } as never;
+          },
+        }),
+      },
+    );
+    expect(malformedBundleResponse.status).toBe(200);
+    expect(bundleSend).not.toHaveBeenCalled();
   });
 
   it("returns authenticated latest and revision Agent View with signed content URLs", async () => {

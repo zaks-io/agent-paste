@@ -81,7 +81,7 @@ export async function deleteMemberArtifactRoute(
     );
     if (!invalidation.replaySkipped) {
       await notifyLiveUpdateDisconnect(env, {
-        artifactId,
+        artifactId: result.artifact_id,
         audiences: ["share", "dashboard"],
         reason: "deletion",
       });

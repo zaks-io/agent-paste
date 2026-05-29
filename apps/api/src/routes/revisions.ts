@@ -84,10 +84,7 @@ export async function publishRevision(
         revisionId: params.revisionId ?? "",
         now,
       });
-      const bundleStatus =
-        result && typeof result === "object" && "bundle" in result
-          ? (result as { bundle: { status: string } }).bundle.status
-          : "disabled";
+      const bundleStatus = bundleStatusFromPublishResult(result);
       try {
         await enqueuePostPublishJobs(context.env, {
           workspaceId: actor.workspace_id,
@@ -136,6 +133,18 @@ export async function publishRevision(
       throw error;
     }
   });
+}
+
+function bundleStatusFromPublishResult(result: unknown): string {
+  if (!result || typeof result !== "object" || !("bundle" in result)) {
+    return "disabled";
+  }
+  const bundle = (result as { bundle?: unknown }).bundle;
+  if (!bundle || typeof bundle !== "object") {
+    return "disabled";
+  }
+  const status = (bundle as { status?: unknown }).status;
+  return typeof status === "string" ? status : "disabled";
 }
 
 export async function publicAgentView(context: AppContext, principal: Principal, db: Repository): Promise<Response> {

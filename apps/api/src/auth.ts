@@ -186,7 +186,11 @@ function validApiKeyActor(actor: ApiKeyActor | null): ApiKeyActor | null {
   if (!actor?.expires_at) {
     return actor;
   }
-  return Date.parse(actor.expires_at) <= Date.now() ? null : actor;
+  const expiresAtMs = Date.parse(actor.expires_at);
+  if (Number.isNaN(expiresAtMs)) {
+    return null;
+  }
+  return expiresAtMs <= Date.now() ? null : actor;
 }
 
 async function authenticateMcpPrincipal(context: Context) {

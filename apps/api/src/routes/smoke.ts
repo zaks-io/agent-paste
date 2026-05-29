@@ -1,7 +1,6 @@
 import type { AdminActor } from "@agent-paste/db";
 import { authenticateSmokeHarness, isNonProductionEnv } from "../auth.js";
 import {
-  isHyperdriveDb,
   peekAdminArtifactDeleteReplay,
   resolveDeletionInvalidationExecutor,
   runPostCommitArtifactDeletionInvalidation,
@@ -67,7 +66,7 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
   const executor = resolveDeletionInvalidationExecutor(env);
   let isReplay = false;
   const detail = await db.getArtifactDetail(artifactId);
-  if (executor && isHyperdriveDb(env.DB) && detail) {
+  if (executor && detail) {
     isReplay = await peekAdminArtifactDeleteReplay(executor, {
       actor: smokeHarnessActor,
       workspaceId: detail.workspace_id,
@@ -91,11 +90,15 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
     { isReplay },
   );
   if (!invalidation.replaySkipped) {
-    await notifyLiveUpdateDisconnect(env, {
-      artifactId,
-      audiences: ["share", "dashboard"],
-      reason: "deletion",
-    });
+    try {
+      await notifyLiveUpdateDisconnect(env, {
+        artifactId: result.artifact_id,
+        audiences: ["share", "dashboard"],
+        reason: "deletion",
+      });
+    } catch (error) {
+      console.warn(`Live update disconnect failed for deleted artifact ${result.artifact_id}.`, error);
+    }
   }
   return jsonResponse(context, {
     artifact_id: result.artifact_id,

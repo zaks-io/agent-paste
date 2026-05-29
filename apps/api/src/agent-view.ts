@@ -135,7 +135,12 @@ export async function signPublishResult(result: unknown, env: Env, auth?: { work
 
 export function entrypointPathFromViewUrl(viewUrl: string): string {
   const match = viewUrl.match(/\/v\/[^/]+\/([^?#]+)$/);
-  return decodeURIComponent(match?.[1] ?? "index.html");
+  const raw = match?.[1] ?? "index.html";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw || "index.html";
+  }
 }
 
 function contentSigningSecret(env: Env): string | undefined {
