@@ -14,7 +14,7 @@ import {
 
 loadDotenv();
 const root = new URL("..", import.meta.url);
-const cliEntry = new URL("../apps/cli/dist/src/index.js", import.meta.url).pathname;
+const cliEntry = new URL("../apps/cli/dist/index.js", import.meta.url).pathname;
 const target = normalizeTarget(process.argv[2] ?? "preview");
 const config = smokeConfig(target);
 const smokePath = process.env.AGENT_PASTE_SMOKE_PATH ?? "examples/local-harness/site";

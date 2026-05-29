@@ -26,7 +26,7 @@ describe("apex worker", () => {
     expect(body).toContain("<!doctype html>");
     expect(body).toContain("Where agents publish");
     expect(body).toContain('<span class="wordmark-tld">.sh</span>');
-    expect(body).toContain("npx agent-paste publish ./report");
+    expect(body).toContain("npx @zaks-io/agent-paste publish ./report");
     expect(body).toContain("/fonts/HankenGrotesk-Variable.woff2");
     expect(body).toContain("/fonts/JetBrainsMono-Regular.woff2");
     expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
@@ -41,8 +41,8 @@ describe("apex worker", () => {
     const body = await response.text();
     // The CLI signs in over OAuth and provisions its own key; the marketing
     // surface must not tell people to fetch one by hand.
-    expect(body).toContain("npx agent-paste login");
-    expect(body).toContain('data-clipboard="npx agent-paste login"');
+    expect(body).toContain("npx @zaks-io/agent-paste login");
+    expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
     expect(body).not.toContain("Get an API key");
     expect(body).toContain("Open the dashboard");
     expect(body).toContain("One ID, every surface");
@@ -66,7 +66,7 @@ describe("apex worker", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
     const body = await response.text();
     expect(body).toContain("# agent-paste");
-    expect(body).toContain("npx agent-paste publish");
+    expect(body).toContain("npx @zaks-io/agent-paste publish");
     expect(body).toContain("agent-paste login");
   });
 
@@ -77,7 +77,7 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("# agent-paste for agents");
     expect(body).toContain("Mental model");
-    expect(body).toContain("npx agent-paste login");
+    expect(body).toContain("npx @zaks-io/agent-paste login");
     expect(body).toContain("AGENT_PASTE_API_KEY");
   });
 

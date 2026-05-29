@@ -25,7 +25,7 @@ const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
 const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 const harnessSecret = smokeHarnessSecretFromEnv();
-const cliEntry = new URL("../apps/cli/dist/src/index.js", import.meta.url).pathname;
+const cliEntry = new URL("../apps/cli/dist/index.js", import.meta.url).pathname;
 const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
 
 const server = spawn(process.execPath, [serverEntry], {

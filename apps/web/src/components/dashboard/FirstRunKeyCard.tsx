@@ -16,8 +16,8 @@ export function FirstRunKeyCard({ secret }: Props) {
         subtitle={
           <>
             Created with your workspace for CI and headless use. The CLI provisions its own key when you run{" "}
-            <code className="font-mono text-[12px]">npx agent-paste login</code>. Copy it now, since the secret is shown
-            only once.
+            <code className="font-mono text-[12px]">npx @zaks-io/agent-paste login</code>. Copy it now, since the secret
+            is shown only once.
           </>
         }
       />

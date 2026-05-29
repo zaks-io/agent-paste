@@ -10,6 +10,10 @@ const requiredCodeScripts = ["build", "lint", "test", "typecheck", "check"];
 const requiredWorkerScripts = ["dev", "deploy:preview", "deploy:production", "deploy:live", "typegen"];
 const requiredMetadataScripts = ["lint", "check"];
 
+// Packages intentionally published to npm, exempt from the private-by-default rule.
+// The CLI is the only artifact meant to ship; everything else stays workspace-internal.
+const publishablePackages = new Set(["@zaks-io/agent-paste"]);
+
 const errors = [];
 
 function main() {
@@ -67,7 +71,7 @@ function validateWorkspacePackages(workspacePackages) {
       }
       names.set(manifest.name, pkg.packageJsonPath);
     }
-    if (manifest.private !== true) {
+    if (manifest.private !== true && !publishablePackages.has(manifest.name)) {
       errors.push(`${pkg.packageJsonPath}: workspace packages must be private`);
     }
     if (manifest.type !== "module") {

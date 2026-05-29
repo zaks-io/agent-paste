@@ -13,8 +13,8 @@ another platform — without translation tables.
 
 ## What you can do here
 
-- Sign in once with \`npx agent-paste login\` (browser OAuth, no API key to
-  copy), then publish: \`npx agent-paste publish ./path\` returns an Artifact ID
+- Sign in once with \`npx @zaks-io/agent-paste login\` (browser OAuth, no API key to
+  copy), then publish: \`npx @zaks-io/agent-paste publish ./path\` returns an Artifact ID
   synchronously, idempotent on retry.
 - Address an artifact from any surface: \`${API_BASE_URL}/v1/artifacts/{id}\`,
   \`${MCP_BASE_URL}\` (MCP tool \`agent_paste.get\`), or the dashboard at
@@ -24,12 +24,12 @@ another platform — without translation tables.
 
 ## Entry points
 
-- CLI: \`npx agent-paste publish <path>\` — primary publish path
+- CLI: \`npx @zaks-io/agent-paste publish <path>\` — primary publish path
 - REST API: ${API_BASE_URL}
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
 
-Auth: \`npx agent-paste login\` signs the CLI in over OAuth and stores its own key.
+Auth: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores its own key.
 REST and MCP take \`Authorization: Bearer <api-key>\` (a dashboard key or
 \`AGENT_PASTE_API_KEY\`).
 
