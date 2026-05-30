@@ -30,6 +30,7 @@ export async function cleanupStalePrPreviews(options, dependencies = {}) {
   }
 
   const classified = await classifyPrNumbers(candidates, options.github, fetchFn);
+  assertNoUnknownClassifications(classified);
   const stale = classified
     .filter((item) => item.state === "closed" || item.state === "missing")
     .map((item) => item.prNumber);
@@ -158,7 +159,7 @@ async function classifyPrNumbers(prNumbers, github, fetchFn) {
   for (const prNumber of prNumbers) {
     results.push({
       prNumber,
-      state: await fetchPullRequestState(fetchFn, github.apiUrl, github.token, owner, repo, prNumber),
+      ...(await fetchPullRequestState(fetchFn, github.apiUrl, github.token, owner, repo, prNumber)),
     });
   }
   return results;
@@ -174,13 +175,30 @@ async function fetchPullRequestState(fetchFn, apiUrl, token, owner, repo, prNumb
     },
   });
   if (response.status === 404) {
-    return "missing";
+    return { state: "missing" };
   }
   if (!response.ok) {
-    return "unknown";
+    const body = await response.text();
+    return {
+      state: "unknown",
+      detail: `GitHub API returned ${response.status}${body.trim() ? `: ${truncate(body.trim())}` : ""}`,
+    };
   }
   const pullRequest = await response.json();
-  return pullRequest.state === "closed" ? "closed" : "open";
+  return { state: pullRequest.state === "closed" ? "closed" : "open" };
+}
+
+function assertNoUnknownClassifications(classified) {
+  const unknown = classified.filter((item) => item.state === "unknown");
+  if (unknown.length === 0) {
+    return;
+  }
+  const details = unknown.map((item) => `PR #${item.prNumber}${item.detail ? ` (${item.detail})` : ""}`).join(", ");
+  throw new Error(`GitHub PR state could not be classified for ${details}.`);
+}
+
+function truncate(value, maxLength = 200) {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength)}...`;
 }
 
 async function maybeDeleteNeonPrBranch(prNumber, neon, deleteNeonBranch, fetchFn, log) {

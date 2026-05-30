@@ -165,7 +165,7 @@ describe("cleanupStalePrPreviews", () => {
     expect(deleteNeonBranch).toHaveBeenCalledWith("137", neon, expect.objectContaining({ fetch }));
   });
 
-  it("does not clean previews when GitHub PR state cannot be classified", async () => {
+  it("fails when GitHub PR state cannot be classified", async () => {
     const run = vi.fn(async (_command, args) => {
       if (args.join(" ") === "exec wrangler hyperdrive list") {
         return { code: 0, stdout: hyperdriveList(["agent-paste-db-pr-137"]), stderr: "" };
@@ -189,12 +189,7 @@ describe("cleanupStalePrPreviews", () => {
         { github, cloudflare: {}, neon },
         { run, fetch, cleanupPreview, deleteNeonBranch, log: () => {} },
       ),
-    ).resolves.toEqual({
-      discovered: ["137"],
-      stale: [],
-      cleaned: [],
-      dryRun: false,
-    });
+    ).rejects.toThrow("GitHub PR state could not be classified for PR #137 (GitHub API returned 500: server error).");
 
     expect(cleanupPreview).not.toHaveBeenCalled();
     expect(deleteNeonBranch).not.toHaveBeenCalled();
