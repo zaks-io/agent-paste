@@ -76,6 +76,7 @@ describe("cleanupStalePrPreviews", () => {
     expect(cleanupPreview).toHaveBeenNthCalledWith(2, "138", expect.objectContaining({ run }));
     expect(deleteNeonBranch).toHaveBeenCalledTimes(2);
     expect(deleteNeonBranch).toHaveBeenNthCalledWith(1, "137", neon, expect.objectContaining({ fetch }));
+    expect(deleteNeonBranch).toHaveBeenNthCalledWith(2, "138", neon, expect.objectContaining({ fetch }));
   });
 
   it("supports dry runs without deleting resources", async () => {
@@ -129,6 +130,37 @@ describe("cleanupStalePrPreviews", () => {
         { run, fetch, cleanupPreview, deleteNeonBranch, log: () => {} },
       ),
     ).rejects.toThrow("Cloudflare cleanup failed: worker delete failed");
+
+    expect(deleteNeonBranch).toHaveBeenCalledWith("137", neon, expect.objectContaining({ fetch }));
+  });
+
+  it("reports Neon branch cleanup failures", async () => {
+    const run = vi.fn(async (_command, args) => {
+      if (args.join(" ") === "exec wrangler hyperdrive list") {
+        return { code: 0, stdout: hyperdriveList(["agent-paste-db-pr-137"]), stderr: "" };
+      }
+      if (args.join(" ") === "exec wrangler queues list") {
+        return { code: 0, stdout: "", stderr: "" };
+      }
+      throw new Error(`Unexpected command ${args.join(" ")}`);
+    });
+    const fetch = vi.fn(async (url) => {
+      if (String(url).endsWith("/pulls/137")) {
+        return jsonResponse({ state: "closed" });
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    const cleanupPreview = vi.fn(async () => {});
+    const deleteNeonBranch = vi.fn(async () => {
+      throw new Error("branch delete failed");
+    });
+
+    await expect(
+      cleanupStalePrPreviews(
+        { github, cloudflare: {}, neon },
+        { run, fetch, cleanupPreview, deleteNeonBranch, log: () => {} },
+      ),
+    ).rejects.toThrow("Neon cleanup failed: branch delete failed");
 
     expect(deleteNeonBranch).toHaveBeenCalledWith("137", neon, expect.objectContaining({ fetch }));
   });
