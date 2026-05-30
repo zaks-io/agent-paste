@@ -256,7 +256,7 @@ function runCommand(command, args, options = {}) {
       stderr += chunk.toString();
     });
     child.on("error", reject);
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
       const result = { code: code ?? 1, stdout, stderr };
       if (result.code === 0 || options.allowFailure) {
         if (!options.quiet && stdout.trim()) {

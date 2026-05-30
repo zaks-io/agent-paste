@@ -133,6 +133,41 @@ describe("cleanupStalePrPreviews", () => {
     expect(deleteNeonBranch).toHaveBeenCalledWith("137", neon, expect.objectContaining({ fetch }));
   });
 
+  it("does not clean previews when GitHub PR state cannot be classified", async () => {
+    const run = vi.fn(async (_command, args) => {
+      if (args.join(" ") === "exec wrangler hyperdrive list") {
+        return { code: 0, stdout: hyperdriveList(["agent-paste-db-pr-137"]), stderr: "" };
+      }
+      if (args.join(" ") === "exec wrangler queues list") {
+        return { code: 0, stdout: "", stderr: "" };
+      }
+      throw new Error(`Unexpected command ${args.join(" ")}`);
+    });
+    const fetch = vi.fn(async (url) => {
+      if (String(url).endsWith("/pulls/137")) {
+        return textResponse("server error", { status: 500 });
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    const cleanupPreview = vi.fn(async () => {});
+    const deleteNeonBranch = vi.fn(async () => {});
+
+    await expect(
+      cleanupStalePrPreviews(
+        { github, cloudflare: {}, neon },
+        { run, fetch, cleanupPreview, deleteNeonBranch, log: () => {} },
+      ),
+    ).resolves.toEqual({
+      discovered: ["137"],
+      stale: [],
+      cleaned: [],
+      dryRun: false,
+    });
+
+    expect(cleanupPreview).not.toHaveBeenCalled();
+    expect(deleteNeonBranch).not.toHaveBeenCalled();
+  });
+
   it("fails when GitHub context is missing", async () => {
     const run = vi.fn(async (_command, args) => {
       if (args.join(" ") === "exec wrangler hyperdrive list") {
