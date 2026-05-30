@@ -192,7 +192,7 @@ default PR cycle; run `pnpm smoke:pr` manually when diagnosing a preview.
 
 ## PR Preview Helpers
 
-`check-pr-preview-capacity.mjs`, `create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, `delete-neon-pr-branch.mjs`, `delete-github-pr-preview-environment.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. `check-pr-preview-capacity.mjs` runs before Neon branch creation and fails early when the account is already at the PR-preview Hyperdrive limit, so a quota problem does not leave a new orphaned Neon branch behind. After PR migrations run, `resolve-neon-role-url.mjs` prefers a Neon API `app_role` direct URL when Neon returns one with a password; for SQL-provisioned roles it falls back to building the URL from the workflow-provided `DATABASE_RUNTIME_ROLE_PASSWORD` and the owner/bootstrap host. `create-hyperdrive.mjs` receives that runtime URL only (for example `PR_DATABASE_URL`) and creates or updates the PR-scoped Hyperdrive config so reruns stay aligned with the current `app_role` password. Each same-repo PR gets:
+`check-pr-preview-capacity.mjs`, `cleanup-stale-pr-previews.mjs`, `create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, `delete-neon-pr-branch.mjs`, `delete-github-pr-preview-environment.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. `cleanup-stale-pr-previews.mjs` discovers PR-scoped Workers, Queues, and Hyperdrive configs, checks the owning GitHub PR state, and deletes closed or missing PR previews before new preview creation and from the scheduled cleanup workflow. `check-pr-preview-capacity.mjs` then runs before Neon branch creation and fails early when the account is already at the PR-preview Hyperdrive limit, so a quota problem does not leave a new orphaned Neon branch behind. After PR migrations run, `resolve-neon-role-url.mjs` prefers a Neon API `app_role` direct URL when Neon returns one with a password; for SQL-provisioned roles it falls back to building the URL from the workflow-provided `DATABASE_RUNTIME_ROLE_PASSWORD` and the owner/bootstrap host. `create-hyperdrive.mjs` receives that runtime URL only (for example `PR_DATABASE_URL`) and creates or updates the PR-scoped Hyperdrive config so reruns stay aligned with the current `app_role` password. Each same-repo PR gets:
 
 - a Neon branch named `preview/pr-<number>`
 - PR-scoped Workers named `agent-paste-{api,upload,content,jobs,apex,web}-pr-<number>`
@@ -206,6 +206,11 @@ If the WorkOS preview API key is missing, `deploy-pr-preview.mjs` skips the per-
 The GitHub Actions job uses the shared `Preview` GitHub Environment so preview
 secrets and variables are assigned once, even though Cloudflare, Neon,
 Hyperdrive, and queue resources stay PR-scoped.
+
+The cleanup workflow still reacts to `pull_request.closed`, but it also runs a
+six-hour reconciliation pass and supports manual `workflow_dispatch` without a
+PR number to catch missed close events or duplicate PRs created from reused
+branches.
 
 Older workflow revisions created one GitHub Environment per PR using
 `pr-preview-<number>`. Cleanup deletes those legacy records when

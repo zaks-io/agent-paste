@@ -58,6 +58,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
+      - name: Reconcile stale PR preview resources
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: node scripts/cleanup-stale-pr-previews.mjs --exclude-pr "$PR_NUMBER"
+
       - name: Check PR preview resource capacity
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}

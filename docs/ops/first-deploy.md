@@ -97,7 +97,9 @@ creates a PR-scoped Hyperdrive config, deploys
 Lighthouse accessibility gate, and comments the URLs on the PR. It does not run
 the full hosted smoke on every PR; `pnpm smoke:pr` remains available for manual
 diagnosis when needed. `.github/workflows/pr-preview-cleanup.yml` deletes the
-Workers, Hyperdrive config, and Neon branch when the PR closes.
+Workers, Hyperdrive config, and Neon branch when the PR closes. It also runs a
+scheduled stale-resource reconciliation pass so missed close events do not leave
+PR-scoped resources behind.
 
 Required GitHub Actions values:
 
