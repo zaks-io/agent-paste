@@ -231,6 +231,19 @@ describe("discoverPrPreviewNumbers", () => {
 
     await expect(discoverPrPreviewNumbers(cloudflare, { run, fetch })).resolves.toEqual(new Set(["137", "138", "139"]));
   });
+
+  it("fails when Wrangler cannot list preview resources", async () => {
+    const run = vi.fn(async (_command, args) => {
+      if (args.join(" ") === "exec wrangler hyperdrive list") {
+        return { code: 1, stdout: "", stderr: "hyperdrive unavailable" };
+      }
+      throw new Error(`Unexpected command ${args.join(" ")}`);
+    });
+    const fetch = vi.fn();
+
+    await expect(discoverPrPreviewNumbers(cloudflare, { run, fetch })).rejects.toThrow("hyperdrive unavailable");
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("parseQueuePrPreviewNumbers", () => {
