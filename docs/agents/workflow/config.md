@@ -40,6 +40,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   execution-wave milestones `Wave 0`–`Wave 7` (see `docs/agents/issue-tracker.md`)
 - Routing label: `ready-for-agent`
 - Triage scope: AP team; see `docs/agents/triage-labels.md`
+- Friction-log ticket: `AP-98` (parked in `Backlog`, no readiness labels, out of
+  the work queue); orchestrator appends retrospective metadata-only comments here
 - Orphan policy: route only when project/team/parent/label is directly
   evidenced; leave ambiguous orphans in triage with `needs-info` /
   `ready-for-human`; never cancel solely for staleness
@@ -80,7 +82,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Review authority: Agent Review (`workflow-agent-review` /
   `workflow-code-review`)
 - Merge authority: human / Agent Queue when explicitly delegated; `main` ruleset
-  requires 1 approval + green CI, so solo merges need `--admin`
+  (verified live 2026-06-01) requires 0 approvals and only the `Validate` check
+  green, so solo merges use plain `gh pr merge --squash` (no `--admin`)
 - Claim record: Linear assignment + `In Progress` state
 - Queue local state: scratch only; refresh Linear/GitHub before acting
 - Handoff format: see `.claude/skills/workflow-setup/references/handoff.md`
