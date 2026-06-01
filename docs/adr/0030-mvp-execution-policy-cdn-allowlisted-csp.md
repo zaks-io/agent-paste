@@ -1,5 +1,7 @@
 # MVP Execution Policy: CDN-Allowlisted CSP for Untrusted Content
 
+Status: Accepted. Refined post-MVP by [ADR 0075](./0075-agent-first-ephemeral-publish-and-write-gated-monetization.md), which adds a second, script-disabled **Execution Policy** for the ephemeral trust tier; `content` selects between the two from a content-gateway token bit. The policy below remains the policy for claimed tenants.
+
 The single MVP **Execution Policy** allows uploaded HTML to load scripts, styles, and fonts from a small allowlist of common CDNs so agents can build rich interactive visualizations, while keeping every data-egress channel — `connect-src`, `img-src`, `media-src`, `form-action`, `frame-src` — locked to the content origin, `data:`, or `blob:`. The hosting iframe on `web` uses `sandbox="allow-scripts allow-popups"` (no `allow-top-navigation`, no `allow-same-origin`) so artifact JavaScript cannot nav-exfil through the top frame.
 
 ## Considered Options

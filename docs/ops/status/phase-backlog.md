@@ -176,6 +176,16 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
 4. [x] Add `workspace_billing` and daily jobs reconciliation so local
        entitlements converge even if webhooks are delayed or disabled.
 5. [ ] Add hosted web billing UI and operator plan override.
+6. [ ] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
+       `docs/specs/ephemeral-publish.md`). Self-provisioned Ephemeral Workspace
+       behind proof-of-work, daily new-artifact write allowance as the gate
+       (reads stay free), one-time Claim Token promotion to a claimed `free`
+       workspace, and ephemeral-tier scanning (Llama Guard 3 / URL Scanner)
+       through the existing safety-scanner seam. Executable JS requires a claimed
+       tier: ephemeral content serves a script-disabled Execution Policy selected
+       by a content-gateway token bit (ADR 0030 refined), so the platform only
+       runs agent code behind an auditable identity. Depends on Phase 3 auth and
+       the billing flag above.
 
 ## Codebase Follow-Ups
 

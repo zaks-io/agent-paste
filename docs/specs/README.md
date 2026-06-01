@@ -19,6 +19,7 @@ Future-facing specs remain useful but are not MVP build gates:
 - [`web.md`](./web.md): future dashboard/viewer route contract. MVP has no web dashboard or Access Link viewer.
 - [`style-guide.md`](./style-guide.md): visual and interaction standard for future human-facing surfaces and renderer pages.
 - [`contracts.md`](./contracts.md): implementation contract source-of-truth rules and ID formats.
+- [`ephemeral-publish.md`](./ephemeral-publish.md): agent-first ephemeral publish, claim/promote flow, write-gated tiers, and anti-abuse stack ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). Post-MVP; lands with or after Phase 3.
 
 Use [`CONTEXT.md`](../../CONTEXT.md) for domain language. Use [`docs/adr/`](../adr/) for architectural decisions, trade-offs, and implementation-facing detail. Some ADRs still describe the broader future platform; when implementation starts, either narrow those ADRs or create superseding ADRs for the MVP.
 

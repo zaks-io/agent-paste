@@ -86,11 +86,13 @@ Goal: graduate from standalone publishes to managed artifacts.
 - Fragment-based Access Link Signed URLs.
 - Access Link Lockdown.
 - Bundle generation/download.
+- Agent-first ephemeral publish: self-provisioned **Ephemeral Workspace** + proof-of-work, write-gated tiers, and **Claim Token** promotion ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md), [`ephemeral-publish.md`](./ephemeral-publish.md)). Depends on Phase 3 auth + billing; can slip to a later phase if lifecycle work crowds it out.
 
 Exit criteria:
 
 - The platform supports both "this exact thing" and "the latest thing" link semantics.
 - Link lifecycle is manageable without leaking credentials into server logs.
+- An agent can publish with no human in the loop and the resulting link works immediately; its operator can later claim and upgrade the tenant.
 
 ## Phase 5: MCP Integration
 

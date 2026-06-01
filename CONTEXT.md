@@ -69,6 +69,21 @@ _Avoid_: Account, organization, project
 The default **Workspace** created for an individual human user.
 _Avoid_: Personal account, user workspace
 
+<a id="ephemeral-workspace"></a>
+**Ephemeral Workspace**:
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **API Key**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy**, so script executes only after the tenant is claimed.
+_Avoid_: Anonymous account, agent account, guest workspace
+
+<a id="ephemeral-publish"></a>
+**Ephemeral Publish**:
+A **Publish** performed against an **Ephemeral Workspace** with no human in the loop, gated by proof-of-work and the lowest trust-tier caps.
+_Avoid_: Anonymous publish, guest publish
+
+<a id="claim-token"></a>
+**Claim Token**:
+A one-time secret returned only to the caller that provisioned an **Ephemeral Workspace**, redeemed by an authenticated **Workspace Member** to take ownership of that tenant. Never embedded in an **Access Link Signed URL**.
+_Avoid_: Upgrade code, ownership token
+
 <a id="workspace-member"></a>
 **Workspace Member**:
 A human user with authenticated access to a **Workspace**.
