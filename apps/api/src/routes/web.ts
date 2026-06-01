@@ -1,3 +1,4 @@
+import type { WebCallbackIdentity, WorkOsIdentity } from "@agent-paste/auth";
 import type { CreateApiKeyRequest, UpdateWebSettingsRequest } from "@agent-paste/contracts";
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
@@ -7,7 +8,6 @@ import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
 import { errorResponse, jsonResponse, mapRepositoryError, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
-import type { WebCallbackIdentity, WorkOsIdentity } from "../workos.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
 export async function webAuthCallback(context: AppContext, principal: Principal, db: Repository): Promise<Response> {

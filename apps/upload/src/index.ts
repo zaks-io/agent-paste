@@ -1,10 +1,12 @@
 import {
+  authenticateMcpBearer,
   cachedNegativeLookup,
   cacheKeyForSecret,
   getRequestId,
   REQUEST_ID_HEADER,
   type RequestIdVariables,
   requestIdMiddleware,
+  resolveMcpMemberActor,
 } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import {
@@ -48,7 +50,6 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
-import { authenticateMcpBearer, resolveMcpMemberActor } from "./mcp-auth.js";
 
 export type UploadActor = ApiActor;
 

@@ -17,7 +17,14 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
-    "hono": "^4.12.21"
+    "hono": "^4.12.21",
+    "jose": "^6.2.3"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
