@@ -25,9 +25,6 @@ Use this when writing or refreshing `docs/agents/workflow/config.md`.
   work; its default goal is to make all Todo tickets ready for agents and keep
   tracker state truthful. It does not review backlog unless asked. When something
   is unclear, it asks the user or leaves exact human next actions.
-- Spec-conformance: a separate loop that audits the spec set against delivered
-  work and files gap tickets for under-delivery or drift. It does not touch code
-  or active work.
 
 ## Ticket Kinds
 
@@ -37,6 +34,15 @@ when the tracker label group does not.
 - `kind-spec`, `kind-epic`: containers. Decompose input. Never dispatched.
 - `kind-slice`: a one-PR ticket. The only kind a worker runs. Only `kind-slice`
   is startable; the orchestrator hard-refuses to dispatch a container.
+
+## Agent Suitability
+
+Agent delegation should follow task type, risk, and verification quality. Good
+default agent work includes docs, tests, build or CI updates, small local
+refactors, scoped bugs with reproduction, and isolated UI changes with target
+states. Human planning stays in front of auth, secrets, PII, payments,
+production, destructive data, broad refactors, cross-repo changes, unclear
+domain behavior, and performance work without benchmarks.
 
 ## Flow
 
@@ -53,15 +59,21 @@ when the tracker label group does not.
    its own PR via `workflow-create-pr`.
 6. Agent Orchestrator calls Agent Review as a step.
 7. Agent Review runs `workflow-code-review` in a clean context and reports
-   findings without modifying product code or moving issue state.
-8. Agent Orchestrator routes findings back to the worker, or calls the integrate
+   findings, CodeRabbit recommendation, PR readiness, and reviewed head SHA
+   without modifying product code or moving issue state.
+8. Agent Orchestrator routes findings back to the worker, marks a clean draft PR
+   ready-for-review when allowed, requests CodeRabbit when the current diff
+   needs it, applies or removes `Code review passed`, or calls the integrate
    step to merge on green and move the issue to the done state.
-9. Spec-conformance audits coverage on its own cadence and files gap tickets.
 
-## Two Loops
+## Loop Model
 
 - Agent Orchestrator drives work forward, one stateless tick at a time.
-- Spec-conformance audits coverage on its own cadence.
+- The loop is self-scheduling: it runs on the runtime's own recurring mechanism
+  (schedule, `/loop`, or wake-up timer; Codex scheduled task or automation) and
+  never needs a human to re-trigger a pass. Each tick wakes light, rebuilds the
+  queue from systems of record, acts on a bounded slice, persists only the ledger
+  and checkpoint, and sleeps.
 - Review and integrate are steps the orchestrator calls inside a tick, not loops.
   Decompose and triage are front-loaded steps the user runs before orchestration.
 
@@ -75,11 +87,19 @@ acceptance criteria; a vague spec dead-ends at the user by design.
 ## Orchestration
 
 Agent Orchestrator owns orchestration, not implementation. It chooses the next
-action needed to get tickets handled safely: delegate a `kind-slice` to a worker,
-nudge an existing worker, call the review step, call the integrate step, rerun
-checks, route review feedback, heal or repair tracker metadata, log friction,
-mark tickets for human review or missing information, move active workflow state,
-or stop on a real blocker.
+action needed to get tickets handled safely: delegate a `kind-slice` to a
+worker, nudge an existing worker, call the review step, call the integrate step,
+rerun checks, route review feedback, request CodeRabbit escalation when the
+review gate recommends it, mark draft PRs ready-for-review after review gates
+pass, heal or repair tracker metadata, apply or remove review-evidence labels,
+log friction, mark tickets for human review or missing information, move active
+workflow state, or stop on a real blocker.
+
+It can be invoked for explicit tickets, a tracker filter, a project, a
+milestone, a label, one pass, or an `until clear` target. `Clear` means every
+issue in scope has a truthful next state and owner: implemented, delegated,
+ready for review, ready to merge, blocked, needs human input, or terminal. It
+does not mean implementing vague future work without triage.
 
 Config should name the worker delegation paths this repo supports:
 
@@ -101,7 +121,8 @@ For issue-assigned delegation:
 - The config should record only project-specific details that are annoying to
   rediscover, such as supported worker delegation paths, routing labels, routing
   fields, readiness label policy, worker environment label policy, startable work
-  criteria, or non-default continuation comment rules.
+  criteria, direct-agent reply targets, or non-default continuation comment
+  rules.
 - Worker environment labels, such as `remote-worker` or `remote-cursor`, are
   approval metadata. Apply or preserve them when the issue route and environment
   approval criteria are verified. Do not require dependencies to be clear just to
@@ -109,13 +130,38 @@ For issue-assigned delegation:
   state during requested intake cleanup.
 - The issue needs the repo routing label or metadata the integration uses to
   choose the preconfigured environment, when the repo requires one.
+- The issue needs the configured repo-route label (such as `<org>/<repo>`) so the
+  assigned agent can resolve which repository to clone. A missing repo-route
+  label is a hard block on delegation: heal it inline when the tracker team maps
+  unambiguously to one repo, otherwise escalate `needs-info`.
 - Agent Orchestrator starts work by assigning the selected tracker-exposed agent.
 - The assigned agent executes the ticket in its configured environment and
   returns a PR.
 - Agent Orchestrator sends review fixes, failed-check details, or PR process
-  problems back by replying where the tracker integration continues the same
-  assigned-agent session, usually the same issue comments unless config says
-  otherwise.
+  problems back by replying into the assigned agent's session thread, using the
+  thread-root comment's `parentId`. For remote Cursor agents, a top-level issue
+  comment does not continue the session; record the session handle (such as the
+  `cursor.com/agents/bc-<id>` URL) in the ledger.
+- PR draft state lives in the code host. After clean review and passing required
+  checks, Agent Orchestrator should mark a draft PR ready-for-review unless the
+  user or repo config explicitly says to keep it draft, then refresh the PR state
+  and verify it is non-draft. If it stays draft, it is pre-review, not
+  ready-for-review.
+- CodeRabbit escalation follows the `workflow-code-review` recommendation. It
+  is required only for high-risk or genuinely complex diffs, or when the user
+  asks for it.
+- `Code review passed` is a review-evidence label, not workflow state. Apply it
+  only with PR URL and reviewed head SHA evidence. Remove it when the PR head
+  changes, blocking findings appear, the linked PR changes, or evidence is
+  missing.
+
+For local agent runtimes, keep the orchestrator parent thread small and delegate
+large context loads to isolated workers when available. Claude Code uses plugin
+subagents such as `workflow-triage`, `workflow-implementer`, and
+`workflow-reviewer`. Codex and other Agent Skills runtimes should use matching
+skill names such as `$workflow-issue-triage`, `$workflow-agent-implement`,
+`$workflow-agent-review`, and `$workflow-code-review` inside isolated sessions,
+branches, worktrees, or subagents when available.
 
 ## State Authority
 
@@ -128,6 +174,8 @@ and writes the systems of record:
 - issue workflow state: configured issue tracker
 - claim records: configured issue tracker fields, assignments, labels, and
   comments
+- review evidence labels: configured issue tracker labels plus adjacent comments
+  or fields that record PR URL and reviewed head SHA
 - branch and PR state: configured code host
 - check and preview state: CI, preview, or hosted check provider
 - deployment state: deployment provider
@@ -137,6 +185,12 @@ scratch state. They can speed up polling or avoid duplicate work, but agents mus
 refresh the systems of record before acting. The friction log is retrospective,
 not state: append-only comments on a parked ticket, never read back to decide
 anything.
+
+Create PR can mark the PR ready-for-review when its local gates pass and verify
+the code-host PR is non-draft. Orchestrator repairs draft PRs that should already
+be ready-for-review after Agent Review and required checks are clean, verifies
+the code-host PR is non-draft, and applies or removes `Code review passed` based
+on current PR head SHA evidence.
 
 ## Adapter Minimum
 

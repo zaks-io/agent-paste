@@ -41,7 +41,8 @@ Confirm these config values before mutating the issue tracker:
 
 - provider location, project, team, roadmap, and routing label
 - status names and mappings
-- readiness, risk, type, area, ownership, and worker environment labels
+- readiness, risk, review evidence, type, area, ownership, and worker
+  environment labels
 - readiness label policy, worker environment label policy, and startable work
   criteria
 - priority policy, dependency policy, and orphan policy
@@ -133,6 +134,9 @@ Apply obvious mechanical updates in batches:
 - apply configured review, merge-ready, or blocked states only when the repo
   config gives Issue Triage that authority and current external evidence is
   direct
+- remove stale `Code review passed` when the linked PR head changed, blocking
+  findings exist, the linked PR changed, or reviewed head SHA evidence is
+  missing
 - mark duplicates only when the duplicate relationship is clear and preserve the
   canonical issue
 
@@ -179,6 +183,7 @@ Required body content:
 
 - outcome
 - context docs
+- likely files, packages, or artifacts
 - in scope
 - out of scope
 - acceptance criteria
@@ -189,6 +194,14 @@ Required body content:
 If any required field is unknowable, add the missing heading, ask the specific
 question when the user is available, label the issue `needs-info` or
 `ready-for-human`, and do not mark it ready.
+
+When deciding whether a ticket should become agent-ready, consider the work type
+and risk. Docs, tests, build or CI updates, small local refactors, scoped bugs
+with reproduction, and isolated UI changes are good default agent work.
+Production, auth, authorization, PII, secrets, payments, destructive data, broad
+refactors, cross-repo changes, performance work without benchmarks, and unclear
+domain behavior should stay with human planning unless the ticket contains a
+clear verification path and config grants the worker environment.
 
 ## Human Clarification
 

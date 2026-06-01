@@ -5,43 +5,43 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-agent-implement/SKILL.md",
-      "computedHash": "8e9f3af175a0e88a9f507ba82cbb2f9a7e1b3909d11449a698d200ed1edc0c35"
+      "computedHash": "0b40dee9fcd2b5e7cb12d7c9353b2ea6cafdb53517092e156aa4d8fff6d58701"
     },
     "workflow-agent-orchestrator": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-agent-orchestrator/SKILL.md",
-      "computedHash": "3390f9568b0ff3dfd016c4041ddc08108d282b5d81f7c8592dfb6401ddb525a3"
+      "computedHash": "c7ef9f94908939ae553f921e7399ea5f1d22b21ea3093bec61d5c9189b1de14b"
     },
     "workflow-agent-review": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-agent-review/SKILL.md",
-      "computedHash": "7d29a5acdca256697ed8266125661811ae9efce67e21893f475d3f2b2ff2f2ae"
+      "computedHash": "86d048702e4ecfb6fc0e2ca7ff62fe4b0dab856d4fcc676a801bb01a846dd01f"
     },
     "workflow-code-review": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-code-review/SKILL.md",
-      "computedHash": "393f642e23d7c320c48c47e2ea4f15855c885a38256876127dba3e12997b737c"
+      "computedHash": "3abd0b39a2dcb452b21d1df2354d98508e5cacc841c08eed3e7458949227d10e"
     },
     "workflow-create-pr": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-create-pr/SKILL.md",
-      "computedHash": "659f637de6fa0e34c08973663c04dfbdbe1932a26ff5ef16c3b43404ea8f8ccf"
+      "computedHash": "e74c825e1c2a5196f0d241aa58e01f7d5f1a45ddade133360d68cff816a676e7"
     },
     "workflow-decompose": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-decompose/SKILL.md",
-      "computedHash": "654adff18e97b0e2126c673e0e6df02054e094e84ed9e6f78842da98642587f2"
+      "computedHash": "bb1cced8d30a54b9041ea7c9b4061ab356ca895f9dca2e7a728162921285d403"
     },
     "workflow-issue-triage": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-issue-triage/SKILL.md",
-      "computedHash": "41b2ed78096e10f645888f19a2fb38b2f08f395f8390a7c077add4b02a70a5ab"
+      "computedHash": "8ae8c818c02211ec27d04a59f2098e197429b79bbd0f87ae9dec2d87a0a18fae"
     },
     "workflow-secret-redaction": {
       "source": "zaks-io/skills",
@@ -53,7 +53,7 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/workflow-setup/SKILL.md",
-      "computedHash": "bcb7f16fcb430e67b37974f9c337d230d5eae44eb9d817b9707a586b4ad05ff4"
+      "computedHash": "0d35b1a3f9d5664347186ce3b379a6090c3a55d0daaba80bf1f6fd04afad6cf0"
     }
   }
 }

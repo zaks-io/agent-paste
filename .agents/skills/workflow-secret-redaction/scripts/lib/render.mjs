@@ -13,7 +13,8 @@ export const renderToken = (analysis) => {
   return `<redacted bytes=${analysis.bytes} chars=${analysis.chars} lines=${analysis.lines}${format}${hint}${fp}>`;
 };
 
-const safeTextAttribute = (value) => value.replace(/[^A-Za-z0-9./_-]+/g, "_").replace(/^_+|_+$/g, "");
+const safeTextAttribute = (value) =>
+  value.replace(/[^A-Za-z0-9./_-]+/g, "_").replace(/^_+|_+$/g, "");
 
 const renderTextToken = (analysis) => {
   if (analysis.empty) return "<empty>";
@@ -31,8 +32,11 @@ export const renderEnvSource = (source, showLabel = false) => {
     .map((line) => {
       if (line.kind === "blank") return "";
       if (line.kind === "comment") return "# <comment redacted>";
-      if (line.kind === "unparsed") return `<unparsed-line ${renderToken(line.analysis).slice(1, -1)}>`;
-      return `${line.leading}${line.exportPrefix}${line.visibleKey}${line.separator}${renderToken(line.analysis)}`;
+      if (line.kind === "unparsed")
+        return `<unparsed-line ${renderToken(line.analysis).slice(1, -1)}>`;
+      return `${line.leading}${line.exportPrefix}${line.visibleKey}${line.separator}${renderToken(
+        line.analysis,
+      )}`;
     })
     .join("\n");
   return showLabel ? `# source: ${source.label}\n${body}` : body;
@@ -42,7 +46,9 @@ export const renderTextSource = (source) => {
   if (source.text.kind === "whole") return renderTextToken(source.text.analysis);
 
   return source.text.segments
-    .map((segment) => (segment.kind === "redaction" ? renderTextToken(segment.analysis) : segment.text))
+    .map((segment) =>
+      segment.kind === "redaction" ? renderTextToken(segment.analysis) : segment.text,
+    )
     .join("");
 };
 

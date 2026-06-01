@@ -1,7 +1,7 @@
 ---
 name: workflow-agent-orchestrator
-description: Use for Agent Orchestrator, the short-loop agent that orchestrates issue-tracked implementation work by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording a friction log, updating the tracker, and stopping when human input is needed.
-argument-hint: "[loop-budget-or-filter]"
+description: Use for Agent Orchestrator, the lightweight control loop that orchestrates a specific ticket set, filter, project, or backlog-until-clear run by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording a friction log, updating the tracker, and stopping when human input is needed.
+argument-hint: "[ticket-ids|filter|project|until-clear]"
 disable-model-invocation: true
 ---
 
@@ -15,8 +15,97 @@ inlined.
 ## Inputs
 
 - Repo path and configured issue tracker location.
-- Optional loop budget, project, milestone, label, or issue filter.
+- Optional explicit ticket IDs or URLs.
+- Optional loop budget, project, milestone, label, status, backlog, or issue
+  filter.
+- Optional completion target such as `until clear`, `until backlog clear`,
+  `until no startable work remains`, or `one pass`.
 - Current tracker and PR state for the configured workflow.
+
+## Invocation Modes
+
+Resolve the user's requested scope before taking action. If the scope is
+ambiguous and a safe read-only query can disambiguate it, run that query and
+continue. Ask only when multiple real scopes remain plausible.
+
+- Explicit tickets: work exactly the listed issue IDs or URLs. Include linked
+  blockers, PRs, and child issues only when they affect whether those tickets
+  can move.
+- Filtered queue: work the configured tracker query, project, milestone, label,
+  status, assignee, or roadmap the user named.
+- Current-work loop: when no scope is named, work configured ready and active
+  issues only.
+- Backlog or intake clear: when the user explicitly says backlog, intake, or
+  "until backlog is clear", first run triage with backlog or intake scope
+  included, then orchestrate all newly ready or active work in that scope.
+- Until clear: continue passes until every issue in the requested scope is done,
+  delegated and waiting, blocked, waiting on human input, ready for merge but
+  lacking merge authority, or otherwise has no safe next action.
+- One pass or budgeted loop: stop after the requested pass count, worker count,
+  ticket count, time budget, or first meaningful state change.
+
+Do not interpret "clear the backlog" as permission to implement vague future
+work. Clear means every issue in scope has a truthful next state and owner:
+implemented, delegated, ready for review, ready to merge, blocked, needs-info,
+ready-for-human, or explicitly out of scope.
+
+## Loop Entry Point
+
+The orchestrator is meant to run as a self-driving recurring loop, not a manual
+one-shot. Use the runtime's own recurring mechanism (a schedule, a `/loop`, or a
+wake-up timer in Claude Code; a scheduled task or automation in Codex) so it
+wakes itself. Never require a human to re-trigger each pass. If the runtime has no
+recurring primitive, run one pass and report the exact command to schedule.
+
+Each wake-up is one tick: wake light, rebuild the queue from systems of record,
+act on a bounded slice of work, persist only the ledger and checkpoint, then
+sleep. A long-running loop must stay as light as a first run; do not loop
+in-context until the backlog empties. See
+[references/loop-contract.md](references/loop-contract.md) for the tick contract,
+light-context budget, and cadence.
+
+## Lightweight Control Loop
+
+Keep the orchestrator's own context small. Load enough state to choose and track
+the next action, then delegate context-heavy work.
+
+In the main orchestration context, keep only:
+
+- repo config path and relevant verified config values
+- scope query, pass budget, and completion target
+- compact issue queue with ID, title, state, readiness, blockers, PR, owner, and
+  next action
+- compact worker ledger with issue, branch or PR, agent path, started time,
+  latest status, and next check
+- blocker and human-question list
+
+Do not load full issue histories, long logs, full diffs, full PR reviews, or
+test output into the main context unless they are needed to choose the next
+orchestration action.
+
+For runtimes with subagents or worker threads, delegate these context-heavy
+pieces to the runtime's isolated-worker equivalent:
+
+- Triage worker for tracker inventory, backlog or intake cleanup, readiness
+  repair, dependency cleanup, and stale-state reconciliation
+- Implementation worker for one issue's implementation, verification, review
+  feedback, and PR handoff
+- Review worker for PR review, branch or range review, and main-drift review
+
+Use runtime-native names when they exist:
+
+- Claude Code plugin: `zaks-io-skills:workflow-triage`,
+  `zaks-io-skills:workflow-implementer`, and
+  `zaks-io-skills:workflow-reviewer`
+- Codex or Agent Skills runtimes: `$workflow-issue-triage`,
+  `$workflow-agent-implement`, `$workflow-agent-review`, and
+  `$workflow-code-review`, preferably in isolated subagents, sessions, branches,
+  or worktrees when available
+
+Worker prompts should include only repo path, scope or issue ID, branch or PR,
+acceptance criteria, required checks, hard constraints, and expected output.
+After each worker returns, reduce its result into the compact queue and worker
+ledger before continuing.
 
 ## Context
 
@@ -43,8 +132,6 @@ diffs or source.
   worktree. Orchestrator never reads the diff to review it itself.
 - Merge is a called step: the integrate gate below. It is the only action that
   writes to the default branch.
-- Spec-conformance is a separate loop on its own cadence. Orchestrator does not
-  audit spec coverage; it only triggers conformance when configured to.
 
 ## State Authority
 
@@ -57,10 +144,15 @@ Refresh the systems of record before acting:
 - branch and PR state from the configured code host
 - check and preview state from CI, preview, or hosted check providers
 - deploy state from the deployment provider
+- local Git refs, worktrees, HEAD, and `git status --short --branch` from the
+  repo when a local checkout is in play
 
 Orchestrator may keep local scratch state only for polling, checkpoints, or
 duplicate suppression. The next action must be valid against the refreshed
-external state.
+external state. Local Git is an observation, not the authority, but stale local
+refs are not enough to dispatch, review, integrate, or reason about file
+contention. Update local Git state as the tick advances, especially after worker,
+PR, or default-branch changes.
 
 ## Dispatch Ledger
 
@@ -150,21 +242,47 @@ Use the worker delegation paths supported by `docs/agents/workflow/config.md`:
 Orchestrator may use both paths when config allows it, choosing the safest path
 for the issue. Orchestrator does not become the implementer or reviewer.
 
+## Scope Clearing
+
+At the start of each pass, classify every issue in scope:
+
+- `needs-triage`: missing body contract, labels, route, dependencies, or stale
+  state repair
+- `startable`: ready for agent, unblocked, complete enough to verify, and not
+  already claimed
+- `active`: delegated, in progress, in review, changes requested, ready to
+  merge, or linked to an open PR
+- `blocked`: blocked by tracker relationship, body blocker, credentials,
+  provider, product, security, ADR, customer input, or production approval
+- `human`: needs human judgment or lacks authority for the next state
+- `done`: verified merged, closed, canceled, or otherwise terminal according to
+  config
+
+For an `until clear` run, continue until no issue remains in `needs-triage`,
+`startable`, or active states that have a safe next action. If new issues enter
+scope during the run through triage repair, include them unless the user set a
+fixed ticket list or fixed count.
+
+For explicit ticket sets, do not silently expand to unrelated backlog work. For
+backlog clear runs, do not skip the triage pass; otherwise the orchestrator will
+start from stale or vague issue state.
+
 ## Loop
 
 Each tick is stateless against external state. On each pass:
 
 1. Refresh code host and issue tracker state for the configured locations using
-   the configured tracker tool/MCP and verified IDs. Note the current default
-   branch HEAD.
+   the configured tracker tool/MCP and verified IDs. Refresh local Git refs and
+   status for the repo, including relevant branches and worktrees, then note the
+   current default branch HEAD.
 2. Reconcile the dispatch ledger against refreshed state. For each in-flight
    dispatch with no branch, PR, or worker signal past the configured stuck
-   timeout, treat the worker as stuck: re-dispatch on the same issue thread or
-   escalate, and record a `stuck-worker` friction entry.
+   timeout, treat the worker as stuck: reply directly to the assigned agent's
+   continuation target or escalate, and record a `stuck-worker` friction entry.
 3. Find active work: `In Progress`, `Blocked`, `In Review`,
    `Changes Requested`, and `Ready to Merge`. Prefer advancing active work over
    starting new work.
-4. Advance returned PRs through the PR Review And Integrate Loop below.
+4. Advance returned PRs through the PR Review And Integrate process below.
 5. Find startable work: `kind-slice` plus `Todo` plus `ready-for-agent`,
    unblocked, with a complete agent-ready body. `ready-for-agent` means no
    further human refinement is needed before agent handoff; it can be present on
@@ -176,14 +294,23 @@ Each tick is stateless against external state. On each pass:
    file/package contention. Do not dispatch a ticket whose predicted files
    collide with an in-flight dispatch; defer it and record a `file-collision`
    friction entry.
-7. Respect the configured concurrency cap. Dispatch new work only up to
+7. Respect the configured concurrency cap. Default to 3 concurrent in-flight
+   workers when config names no cap. Dispatch new work only up to
    `cap - in-flight`. If the cap is reached, advance existing work only.
 8. Choose the next orchestration action:
-   - local Agent Implement subagent or worktree for `local-worktree`
+   - isolated implementation worker, such as Claude Code
+     `workflow-implementer`, Codex `$workflow-agent-implement`, or local
+     worktree for `local-worktree`
    - tracker-exposed assigned agent for `issue-assigned`
-   - `workflow-agent-review` for independent PR review and main-branch drift
+   - isolated review worker, such as Claude Code `workflow-reviewer` or Codex
+     `$workflow-agent-review`, for independent PR review and main-branch drift
+     review
+   - isolated triage worker, such as Claude Code `workflow-triage` or Codex
+     `$workflow-issue-triage`, for issue metadata cleanup
+   - additional code review, CodeRabbit escalation, or check rerun when the PR
+     state needs evidence
    - integrate for a reviewed, green PR
-   - worker nudge or feedback reply when the original worker can continue
+   - direct worker nudge or feedback reply when the original worker can continue
    - human-review marker when the next step needs human judgment
    - local Codex for orchestration repair, metadata updates, and small
      coordination fixes
@@ -192,29 +319,84 @@ Each tick is stateless against external state. On each pass:
    issue body, linked docs, required checks, branch/worktree, and
    `workflow-agent-implement`. Record the dispatch in the ledger and tracker with
    an idempotency key.
-10. Trigger `workflow-spec-conformance` when the configured cadence is reached,
-    such as every N merges or per configured timer. Do not inline conformance.
-11. Append friction entries for this tick (see Friction Log) and continue until
+10. Append friction entries for this tick (see Friction Log) and continue until
     no safe action remains or the user-specified loop budget ends.
+
+## Worker Prompts
+
+Build short, self-contained prompts. The worker should fetch details itself from
+the repo, tracker, branch, or PR.
+
+Implementation worker prompt:
+
+```text
+Use the isolated implementation worker for this runtime.
+Claude Code: zaks-io-skills:workflow-implementer.
+Codex or Agent Skills: $workflow-agent-implement.
+Repo: <path>
+Issue: <id-or-url>
+Branch/worktree: <branch-or-create-policy>
+Scope: <one sentence from issue>
+Required checks: <commands or config reference>
+Constraints: preserve unrelated changes; no production deploy; no secrets.
+Return the workflow handoff only.
+```
+
+Review worker prompt:
+
+```text
+Use the isolated review worker for this runtime.
+Claude Code: zaks-io-skills:workflow-reviewer.
+Codex or Agent Skills: $workflow-agent-review or $workflow-code-review.
+Repo: <path>
+PR/branch/range: <target>
+Base: <base branch or range>
+Intent source: <issue or PR URL>
+Required checks: <commands or config reference>
+Return the review report and no code changes.
+```
+
+Triage worker prompt:
+
+```text
+Use the isolated triage worker for this runtime.
+Claude Code: zaks-io-skills:workflow-triage.
+Codex or Agent Skills: $workflow-issue-triage.
+Repo: <path>
+Scope: <ticket list, query, project, backlog, or intake scope>
+Goal: <make ready/current work truthful/until backlog clear>
+Authority: <config mutation authority summary>
+Return changed issues, newly startable issues, blockers, and questions.
+```
 
 ## Issue-Assigned Agents
 
 Use issue-assigned agents only when the issue tracker currently exposes an
 assignable agent for the ticket. The agent might be Cursor, Codex, or another
 configured worker. This is issue-tracker assignment, not a local CLI invocation.
-Use config only for project-specific routing or continuation comment details
-that are not obvious from the tracker.
+Use config only for project-specific routing, direct-agent reply targets, or
+continuation comment details that are not obvious from the tracker.
 
 Before starting issue-assigned work, run a read-only preflight:
 
 - resolve the issue by configured tracker ID, not only by a human-friendly team
   or project name
 - verify status, readiness labels, routing labels, priority, and issue body
+- verify the configured repo-route label (such as `<org>/<repo>`) is present.
+  The assigned agent needs it to resolve which repository to clone, so it is a
+  hard precondition for delegation, not optional metadata. If the route is
+  missing but the tracker team maps unambiguously to one repo, heal it inline and
+  log a `config-gap`; if the target repo is ambiguous, escalate `needs-info` and
+  do not delegate.
 - verify blockers and dependencies from provider relationships and body text
 - verify the requested agent is exposed by the tracker or the config has a
   previously verified delegation tool, field, or agent ID
 - verify the issue is not already claimed, delegated, linked to an open PR, or
   waiting on review feedback
+
+See [../../workflow-setup/references/operating-profile.md](../../workflow-setup/references/operating-profile.md)
+for the full delegation preflight table, the agent-session continuation
+mechanic, the concurrency default, and the merge-safety decision table.
 
 Configured worker environment labels or fields, such as `remote-cursor`, are
 environment approval metadata. Apply or preserve them when the issue identity,
@@ -240,31 +422,79 @@ To start issue-assigned work:
 
 The assigned agent owns the configured environment, implementation run, code
 review, and PR return path. If Orchestrator needs to reach that same session,
-reply on the original issue comments unless config names a different continuation
-comment location. Do not start a new assignment for PR fixes while the original
+reply directly to the assigned agent's continuation target, such as the latest
+agent comment thread or the config-named reply location. For remote Cursor
+agents, do not post a top-level issue comment unless config verifies that
+top-level comments continue the assigned-agent session. If no direct reply target
+can be found, stop with the missing continuation path instead of assuming the
+agent will see it. Do not start a new assignment for PR fixes while the original
 session can continue.
 
-For Linear issue-assigned agents, use the Linear tool/MCP delegation mechanism
-when it exists, such as a `delegate` field or verified agent ID. Do not confuse a
-human assignee with an issue-assigned coding agent. Record the returned
-delegation metadata when the tool provides it.
+For Linear issue-assigned agents, delegate by setting the issue `delegate` field
+to the configured agent user (for Cursor, the `Cursor` agent user); the human
+stays assignee. Do not confuse a human assignee with an issue-assigned coding
+agent. Continue an existing session by replying into the agent-session thread
+(the integration's thread-root comment) using its `parentId`; a top-level issue
+comment does not reach the session. Record the returned session handle, such as
+the `cursor.com/agents/bc-<id>` URL, in the ledger. See the operating profile
+referenced above for the verified mechanic.
 
-## PR Review And Integrate Loop
+## PR Review And Integrate
 
 For each returned PR, review and integrate are called steps, not inlined work:
 
-1. Confirm the worker ran `workflow-code-review` when feasible.
-2. Call `workflow-agent-review` to run `workflow-code-review` in a clean subagent
-   or disposable worktree. Orchestrator does not read the diff itself.
-3. Post actionable findings as PR review comments when configured.
-4. On blocking findings, move the issue to `Changes Requested`, route feedback to
-   the same worker session, and keep fixes on the same branch and PR. Record a
-   `review-thrash` friction entry when a ticket returns to review more than the
-   configured number of times.
-5. After fixes, call `workflow-agent-review` again to rerun review and required
-   checks.
-6. Move to `Ready to Merge` only when review is clean and required checks pass.
-7. Call integrate when the auto-merge gate is satisfied.
+1. Refresh PR draft status, branch head, required checks, review comments, and
+   linked issue state from the code host and tracker.
+2. Confirm code review happened when feasible and covers the current PR head. If
+   it does not, request Agent Review before changing draft state.
+3. Ask Agent Review to run `workflow-code-review` in a subagent or disposable
+   worktree.
+4. Read the review verdict and CodeRabbit recommendation from the review
+   artifact.
+5. If the PR head changed since `Code review passed` was applied, or the label
+   lacks reviewed head SHA evidence, remove the label before continuing.
+6. If the latest review has blocking findings, remove `Code review passed` and
+   post actionable findings as PR review comments when configured.
+7. Move the issue to `Changes Requested` when author fixes are needed.
+8. Send feedback as a direct reply to Agent Implement or the original worker's
+   continuation target when available. Do not use a top-level issue comment for a
+   remote Cursor agent unless config verifies that route. Record a `review-thrash`
+   friction entry when a ticket returns to review more than the configured number
+   of times.
+9. Keep fixes on the same branch and PR.
+10. After fixes, ask Agent Review to rerun review and required checks.
+11. When Agent Review is clean for the current PR head, apply
+    `Code review passed` to the issue and record the PR URL, reviewed head SHA,
+    review artifact, and reviewer path in a tracker comment or configured
+    evidence field.
+12. Before applying `Code review passed`, changing draft state, moving tracker
+    state to `Ready to Merge`, or calling integrate, refresh local Git refs and
+    code-host PR state. Verify the local branch or worktree HEAD, PR head SHA,
+    and default branch HEAD still match the review and check evidence. If they
+    do not match, rerun review and checks for the current head instead of
+    approving or merging from stale local state.
+13. If review is clean, required checks pass or are not required, and the PR is
+    still draft, move the PR to ready-for-review unless the user or repo config
+    explicitly says to keep it draft. Then refresh the code-host PR state and
+    verify it is non-draft. This is a code-host PR state change, separate from
+    tracker status. A kept-draft PR is pre-review; do not call it
+    ready-for-review.
+14. If CodeRabbit is recommended for the current diff, request the configured
+    CodeRabbit path after local review is clean. Treat missing auth, rate
+    limits, or credits as a recorded skip unless the user explicitly required
+    CodeRabbit.
+15. Act only on high-priority CodeRabbit findings: P0/P1, security, data loss,
+    correctness regression, production blocker, or a user-requested finding.
+16. Move to `Ready to Merge` only when Agent Review is clean, required checks
+    pass, the PR is non-draft and ready-for-review, `Code review passed` is
+    current for the PR head, and required CodeRabbit escalation is complete or
+    recorded as skipped by policy.
+17. Call integrate when the auto-merge gate is satisfied.
+
+Do not leave a PR in draft after review gates pass just because the
+implementation worker opened it as draft. If Orchestrator lacks permission to
+mark it ready-for-review, stop with the exact required code-host action.
+Ready-for-review means non-draft.
 
 ### Integrate Gate
 
@@ -282,16 +512,23 @@ with the PR ready for human merge and mark it for the human-attention queue.
 
 When the gate passes:
 
-1. If the default branch moved since the PR branch last updated, rebase or update
+1. Refresh local Git refs and code-host PR state immediately before merging.
+   Verify the local observation of the PR head, default branch HEAD, merge base,
+   required checks, review verdict, and draft state matches the code host. If
+   any value is stale or missing, update the local checkout and rerun the
+   affected gate instead of merging.
+2. If the default branch moved since the PR branch last updated, rebase or update
    the branch, then rerun required checks and `workflow-agent-review`. Do not
    merge a stale branch on the assumption it still applies. Record a
    `merge-conflict` friction entry if the rebase needed manual resolution and
    escalate instead of guessing on a real conflict.
-2. Merge through the configured mechanism.
-3. Run a post-merge check on the default branch when config names one. Mergeable
+3. Merge through the configured mechanism.
+4. Refresh local Git refs and update the local default branch to the merged head
+   before any post-merge check, next PR decision, or issue `Done` transition.
+5. Run a post-merge check on the default branch when config names one. Mergeable
    does not prove correct after merge. Record a `post-merge-break` friction entry
    and escalate if the post-merge check fails.
-4. Move the issue to `Done` only after the merge and post-merge check succeed.
+6. Move the issue to `Done` only after the merge and post-merge check succeed.
 
 Never merge or deploy production without explicit approval. A label alone is
 never permission to merge.
@@ -308,11 +545,11 @@ work queue. Append only; do not read the whole thread. If config names no
 friction-log ticket, create one once in the configured location, parked out of
 the work queue, and record its ID in config during the next setup refresh.
 
-Write an entry at the loop's existing give-up, retry, and stop points: every
-escalation, every re-dispatch, every stop condition, every deferral for
-contention, and every ticket that bounces review. Also post one per-tick rollup
-comment so repeated struggle on the same ticket across ticks is visible even when
-no single tick escalated.
+Write entries at the loop's existing give-up, retry, and stop points: every
+escalation, every re-dispatch, every deferral for contention, and every ticket
+that bounces review. At the end of a bounded run, post one compact rollup with
+counts by category. Do not post a rollup every tick unless the run is explicitly
+unattended and config asks for that visibility.
 
 Each entry is one compact comment, metadata only:
 
@@ -323,6 +560,21 @@ category: ambiguous-ticket | dependency-wrong | file-collision | stuck-worker | 
 what: <one line>
 cost: <ticks, retries, or wall-clock burned>
 signal: <what would have prevented it, and which upstream skill it points at>
+```
+
+Rollup comments use the same metadata style:
+
+```text
+run: <id or timestamp>
+scope: <ticket IDs, query, project, or filter>
+started: <count>
+merged: <count>
+waiting: <count>
+blocked: <count>
+first-pass-checks: <passed/total or "unknown">
+review-rework: <tickets returned for fixes>
+friction: <category=count, category=count>
+agent-cost: <tokens, credits, or "unknown">
 ```
 
 Categories map to the upstream skill to fix: `ambiguous-ticket` and
@@ -352,8 +604,8 @@ Stop and report when:
 - a thrash circuit breaker trips, such as one ticket exceeding the configured
   attempt cap across implement and review
 
-When all in-flight work is done, the ready frontier is empty, and conformance is
-clean or not configured, report the backlog as delivered with a summary.
+When all in-flight work is done and the ready frontier is empty, report the
+backlog as delivered with a summary.
 
 ## Guardrails
 
@@ -385,8 +637,12 @@ Report:
 
 - issues started, nudged, reviewed, integrated, blocked, or moved
 - PRs checked, reviewed, merged, and their state
-- workers launched or messaged, and any stuck workers re-dispatched
+- draft PRs marked ready-for-review or left draft/pre-review with exact reason
+- `Code review passed` labels applied, preserved, or removed with reviewed head
+  SHA evidence
+- CodeRabbit escalations requested, completed, skipped, or still required
+- workers launched or messaged, direct reply targets used, and any stuck workers
+  re-dispatched or escalated
 - issue updates made
-- friction entries logged this run, grouped by category
-- whether spec-conformance was triggered
+- friction entries and delivery metrics logged this run, grouped by category
 - remaining blockers and next safe action, or a delivered-backlog summary

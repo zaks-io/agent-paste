@@ -48,6 +48,11 @@ Load these references when writing the config:
   responsibilities and adapter minimums
 - [references/issue-tracker-contract.md](references/issue-tracker-contract.md)
   for tracker states, labels, readiness, and issue body shape
+- [references/operating-profile.md](references/operating-profile.md) for the
+  concurrency default, the issue-assigned delegation and continuation mechanic,
+  the repo-route precondition, and the merge-safety decision table
+- [references/linear-cursor-example.md](references/linear-cursor-example.md) for
+  a worked Linear + Cursor config to copy when the repo uses that stack
 - [references/handoff.md](references/handoff.md) for cross-agent handoff shape
 
 ## Refresh Existing Config
@@ -140,6 +145,7 @@ Record:
   readiness label policy, worker environment label policy when present, startable
   work criteria (including `kind-slice` only), priority policy, dependency policy,
   dependency graph mechanism, file footprint convention, issue body contract,
+  agent-suitability policy for work types and risk,
   Issue Triage verified-state reconciliation authority, requested intake-to-ready
   authority, and which workflow role owns active status transitions
 - tracker tool query contract: exact provider IDs, query-safe names, status
@@ -151,8 +157,7 @@ Record:
 - autonomous-loop controls when the repo runs the orchestrator unattended:
   concurrency cap, stuck-worker timeout, attempt cap before the thrash circuit
   breaker, required checks that define green for the integrate gate, auto-merge
-  risk tiers, post-merge check, friction-log ticket ID, and spec-conformance
-  cadence
+  risk tiers, post-merge check, friction-log ticket ID, and delivery metrics
 - label source of truth: the live tracker metadata, tracker workflow settings,
   existing repo docs, or explicit user instruction used to verify label names
 - label documentation policy: whether repo-local label docs exist, and whether
@@ -165,7 +170,8 @@ Record:
   repo-approved worker
 - issue-assigned agent notes when available: project-specific environment labels
   or fields, worker environment approval labels, delegation tool or field,
-  verified agent IDs, continuation comment rules, and no-mutation probe policy
+  verified agent IDs, direct-agent reply targets, continuation comment rules, and
+  no-mutation probe policy
 - Claude Code compatibility: the target repo's Claude Code integration source
   of truth, the agent markdown it imports, the repo-local agent, command, or
   skill paths symlinked there, and how those links were verified
@@ -226,6 +232,18 @@ Risk:
 - `risk-schema`
 - `risk-cross-cutting`
 
+These risk labels are dimensions, not severity levels. Add repo-specific risk
+labels only when they change routing, checks, approvals, or reviewer assignment.
+
+Review evidence:
+
+- `Code review passed`
+
+By default, `Code review passed` means the latest linked PR head SHA has passed
+the configured code review gate for the ticket. Record the PR URL and reviewed
+head SHA when applying it. Remove it when the PR head changes, blocking findings
+appear, the linked PR changes, or the evidence is missing.
+
 Type:
 
 - `Bug`
@@ -263,8 +281,8 @@ runs can use it without probing.
 
 If `docs/agents/triage-labels.md` or a similar label doc exists, update it to
 match the config or replace its contents with a pointer to the config. Do not
-leave it as a stale partial list. It must cover readiness, risk, type, and any
-configured area or ownership labels.
+leave it as a stale partial list. It must cover readiness, risk, review
+evidence, type, and any configured area or ownership labels.
 
 ## Adapter Update
 

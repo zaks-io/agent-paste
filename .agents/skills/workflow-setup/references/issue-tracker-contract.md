@@ -45,6 +45,10 @@ Risk:
 - `risk-schema`
 - `risk-cross-cutting`
 
+Review evidence:
+
+- `Code review passed`
+
 Type:
 
 - `Bug`
@@ -61,6 +65,7 @@ contains:
 
 - outcome
 - context docs
+- likely files, packages, or artifacts
 - in scope
 - out of scope
 - acceptance criteria
@@ -91,6 +96,11 @@ contains:
 - Issue-assigned agent work, when supported by the repo, uses the repo-configured
   worker environment label, routing field, or metadata the tracker integration
   needs to select the environment.
+- Issue-assigned delegation also requires the configured repo-route label (such
+  as `<org>/<repo>`) so the assigned agent can resolve which repository to clone.
+  Treat a missing repo-route label as a hard block on delegation: heal it inline
+  when the tracker team maps unambiguously to one repo, otherwise escalate
+  `needs-info`.
 - When the user explicitly chooses an issue-assigned worker path, Orchestrator or
   Issue Triage may add the configured worker environment label or field after
   verifying the issue identity, repo route, and environment approval criteria. Do
@@ -102,6 +112,11 @@ contains:
   verified stale-state reconciliation, such as marking linked merged PR work
   `Done`. Agent Orchestrator owns active workflow state unless the user
   explicitly says otherwise.
+- `Code review passed` means the latest linked PR head SHA has passed the
+  configured code review gate for this ticket. Apply it only with adjacent
+  review evidence that names the PR URL and reviewed head SHA. Remove it when
+  the PR head changes, blocking review findings appear, the linked PR changes,
+  or the review evidence is missing or stale.
 - Blocked work can keep `ready-for-agent`. Blocker relationships, body blockers,
   or workflow state stop scheduling; they do not redefine readiness metadata.
 - Worker environment labels are approval and routing metadata. They do not say
@@ -114,11 +129,36 @@ contains:
 - Parent or workstream issues are containers unless explicitly marked
   executable. `kind-spec` and `kind-epic` are containers: they are decompose
   input and must never be dispatched to a worker or marked `ready-for-agent`.
-  Only `kind-slice` tickets are startable implementation work. `kind-spec` and `kind-epic` are containers: they are decompose
-  input and must never be dispatched to a worker or marked `ready-for-agent`.
   Only `kind-slice` tickets are startable implementation work.
 - Backlog review is opt-in. Do not scan, rewrite, promote, or reprioritize
   backlog issues during default issue triage.
+
+## Agent Suitability
+
+Use task type and risk to decide whether a `kind-slice` should be delegated to
+an implementation agent.
+
+Good default agent work:
+
+- documentation
+- tests
+- build, CI, and lint updates
+- small refactors with clear local checks
+- scoped bug fixes with reproduction steps or acceptance checks
+- isolated UI changes with screenshots, target states, or exact copy
+
+Default human-planning work:
+
+- auth, authorization, PII, secrets, payments, or destructive data
+- production incidents or production deploy decisions
+- broad refactors and cross-repo changes
+- deep domain behavior without clear acceptance criteria
+- performance work without a benchmark
+- tasks where learning, design judgment, or product ambiguity is central
+
+External APIs, credentials, production access, or unclear domain behavior should
+move a ticket to `needs-info` or `ready-for-human` unless the ticket states the
+verification path clearly enough for an implementation worker.
 
 ## Tracker Metadata Verification
 
@@ -164,5 +204,6 @@ When turning roadmaps, specs, ADRs, or plans into issues:
 - apply repo routing, type, risk, area, and readiness labels from config
 - leave vague ideas un-ticketed until scope is clear
 
-Do not invent product scope, create new label taxonomies, or paste secrets,
-customer data, signed URLs, credentials, or private logs into the tracker.
+Do not invent product scope, create new risk levels or label taxonomies, or
+paste secrets, customer data, signed URLs, credentials, or private logs into the
+tracker.

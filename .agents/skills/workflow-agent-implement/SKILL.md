@@ -40,6 +40,8 @@ Start only when the issue:
 - has `ready-for-agent`
 - has any project-configured worker environment label or field required for the
   selected delegation path
+- has the configured repo-route label (such as `<org>/<repo>`) when the
+  delegation path needs it to resolve the target repository
 - has enough acceptance criteria and required checks to verify
 
 For issue-assigned agents, the claim should come from the configured issue
@@ -84,7 +86,7 @@ Treat implementation, code review, and PR creation as one pipeline:
    blocker that needs human input.
 7. Run `workflow-create-pr` to commit, push, create or update the PR, and update
    the issue tracker. Tell Create PR whether the latest code review covers the
-   current diff.
+   current diff and whether any CodeRabbit escalation remains.
 
 Do not hand off after code changes alone. A completed Agent Implement run should
 end with a PR or a clear reason the PR could not be created.
@@ -104,12 +106,18 @@ Use `workflow-code-review` as the implementation quality gate. Then use
 review, but Agent Implement should still run it before PR creation so review
 feedback is handled while the implementation context is fresh.
 
+Do not leave the PR in draft after checks and code review pass unless the user
+or repo config explicitly asks for a draft handoff. If a draft handoff remains,
+report it as pre-review and state exactly what must happen before Agent
+Orchestrator can mark it ready-for-review. Ready-for-review means non-draft.
+
 Remote workers should not create another worktree. Continue on the assigned
 branch and PR for review fixes.
 
-Issue-assigned agents should receive fixes and PR process feedback where the
-tracker integration continues the same session, usually the same issue comments
-unless config says otherwise.
+Issue-assigned agents should receive fixes and PR process feedback as direct
+replies to the assigned agent's continuation target. For remote Cursor agents, do
+not rely on top-level issue comments unless config verifies that they continue
+the assigned-agent session.
 
 ## Changes Requested
 
@@ -131,5 +139,8 @@ Report:
 - checks run and result
 - code review verdict
 - whether code review covers the current diff
+- PR draft or ready-for-review state
+- `Code review passed` recommendation with reviewed head SHA
+- CodeRabbit decision or remaining escalation
 - tracker comments and status handoff
 - blockers or follow-up issues
