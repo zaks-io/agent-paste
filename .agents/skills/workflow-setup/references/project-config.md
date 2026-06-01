@@ -46,13 +46,14 @@ Last updated: YYYY-MM-DD
 - Label docs:
 - Project, board, repo, milestone, or roadmap:
 - Routing label:
-- Triage scope:
+- Triage scope: Todo and active or PR-linked current issues by default; backlog only when explicitly requested
 - Orphan policy:
 - Issue key examples:
 - Ready state: Todo
+- Intake states: Triage, Backlog
 - Active states: In Progress, Blocked, In Review, Changes Requested, Ready to Merge
 - Done state: Done
-- Status transition owner: Agent Orchestrator
+- Status transition owner: Issue Triage may reconcile verified stale states and move requested intake cleanup to ready state; Agent Orchestrator owns active workflow transitions
 - Readiness labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix
 - Readiness label policy:
   - ready-for-agent: no further human refinement is needed before agent handoff; does not mean unblocked or startable
@@ -61,12 +62,15 @@ Last updated: YYYY-MM-DD
 - Worker environment labels:
 - Worker environment label policy:
   - remote-cursor: approved to run in the remote Cursor environment; does not mean unblocked or startable
-- Startable work criteria: ready state, ready-for-agent, complete body, no active blockers, no active claim or open PR
+- Startable work criteria: kind-slice, ready state, ready-for-agent, complete body, no active blockers, no active claim or open PR
+- Kind labels: kind-spec, kind-epic, kind-slice (single-select; skills enforce exclusivity; only kind-slice is dispatchable)
 - Risk labels: risk-normal, risk-security-sensitive, risk-schema, risk-cross-cutting
 - Type labels: Bug, Feature, Improvement, Tech Debt, Spike, Hotfix
 - Area labels:
 - Priority policy:
 - Dependency policy:
+- Dependency graph mechanism: tracker relationship/blocker field, or configured body shape
+- File footprint convention: where decompose records predicted files/packages per slice
 - Agent-ready issue body:
 - Labels are signals, not authority:
 
@@ -75,16 +79,25 @@ Last updated: YYYY-MM-DD
 - Worker delegation paths: local-worktree, issue-assigned, or both
 - Default worker path:
 - Parallelism policy:
+- Concurrency cap: max workers dispatched at once
+- Stuck-worker timeout: ticks or wall-clock with no branch/PR/worker signal before re-dispatch or escalation
+- Attempt cap: implement+review attempts on one ticket before the thrash circuit breaker escalates
+- Required checks for merge: the CI checks that define green for the integrate gate
+- Auto-merge risk tiers: which risk tiers Orchestrator may auto-merge vs route to human merge
+- Post-merge check: command or signal that confirms the default branch is healthy after merge, if any
 - Authoritative issue state:
 - Authoritative PR state:
 - Authoritative check state:
 - Authoritative deploy state:
 - Orchestrator mutation authority:
+- Issue Triage mutation authority:
 - Implement authority:
 - Review authority:
 - Merge authority:
 - Claim record:
 - Orchestrator local state:
+- Friction-log ticket: dedicated ticket ID, parked out of the work queue, for orchestrator friction comments
+- Spec-conformance cadence: when Orchestrator triggers workflow-spec-conformance, such as every N merges or a timer
 - Handoff format:
 
 ## Agent Access
@@ -148,6 +161,12 @@ Provider locations must be query-safe. Store the exact ID, key, or display name
 accepted by the tracker tool, plus the read-only query that verified it. Do not
 store only a repo slug when the provider requires a different team, project, or
 board name.
+
+Triage scope should describe current work, not the whole backlog. By default,
+Issue Triage reviews Todo and active or PR-linked issues, verifies their labels,
+body contracts, blockers, and external state, and marks proven merged work done.
+Backlog, roadmap, someday, or future-work states are reviewed only when the user
+explicitly asks for backlog review or first-run backlog backfill.
 
 If a repo keeps separate label docs such as `docs/agents/triage-labels.md`, make
 those docs mirror this config or point back here. Do not leave separate docs with
