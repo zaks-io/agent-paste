@@ -86,7 +86,7 @@ const shouldRedactStructuredValue = (key, value) => {
 
 const singleValueText = (value) => {
   if (value.includes("\n") || value.includes("\r")) return false;
-  if (/^\s*[{\[]/.test(value)) return false;
+  if (/^\s*[{[]/.test(value)) return false;
   if (/\b[A-Za-z_][A-Za-z0-9_.-]*\s*[:=]\s*/.test(value)) return false;
   return true;
 };
@@ -157,9 +157,7 @@ const collectKeyValueReplacements = (input, replacements, { fingerprint }) => {
 };
 
 const buildSegments = (input, replacements) => {
-  const sorted = [...replacements].sort(
-    (left, right) => left.start - right.start || right.end - left.end,
-  );
+  const sorted = [...replacements].sort((left, right) => left.start - right.start || right.end - left.end);
   const segments = [];
   let cursor = 0;
   let coveredUntil = 0;
