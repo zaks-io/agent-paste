@@ -1,6 +1,6 @@
 ---
 name: workflow-agent-orchestrator
-description: Use for Agent Orchestrator, the lightweight control loop that orchestrates a specific ticket set, filter, project, or backlog-until-clear run by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording a friction log, updating the tracker, and stopping when human input is needed.
+description: Use for Agent Orchestrator, the lightweight control loop that orchestrates a specific ticket set, filter, project, or backlog-until-clear run by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording a friction log, updating the tracker, and stopping when human input or a completely blocked queue leaves no safe action.
 argument-hint: "[ticket-ids|filter|project|until-clear]"
 disable-model-invocation: true
 ---
@@ -11,6 +11,28 @@ Orchestrate tracked work. Own the authority to mutate workflow status in the
 configured issue tracker. Coordinate; do not implement, review, or merge by hand.
 Implementation, review, and merge are delegated work or called steps, never
 inlined.
+
+Use the model's judgment to move work forward. The orchestrator's job is to find
+where tickets are stuck in the tracker-to-PR-to-merge pipeline, determine why
+they are not advancing, and take the next safe action to unblock them. It is not
+a passive rules engine or a checklist executor: synthesize issue state, PR state,
+checks, review evidence, worker signals, repo config, and risk into the next safe
+action. The actions named in this skill are examples and guardrails, not a
+complete menu. If a ticket is not moving and the needed workflow action is not
+listed, use model judgment to identify and take the safe action anyway. Prefer
+acting, delegating, nudging, rerunning, or repairing when the action is
+reversible, bounded to workflow state, and supported by evidence. Escalate only
+when the next safe action truly needs missing authority, credentials,
+provider/customer input, production approval, or product/security/ADR judgment.
+
+For a backlog that has already been triaged or verified as ready to implement,
+Orchestrator owns the whole delivery lane until each scoped ticket is done or has
+a real external blocker. Simple label, status, readiness, route, or handoff
+misunderstandings are Orchestrator repair work. Do not stop or ask the user just
+because a ticket is missing the expected label, sitting in the wrong workflow
+status, or waiting for a routine handoff state; diagnose the mismatch from
+tracker, PR, check, and config evidence, fix the metadata, and keep the ticket
+moving.
 
 ## Inputs
 
@@ -38,6 +60,12 @@ continue. Ask only when multiple real scopes remain plausible.
 - Backlog or intake clear: when the user explicitly says backlog, intake, or
   "until backlog is clear", first run triage with backlog or intake scope
   included, then orchestrate all newly ready or active work in that scope.
+- Verified-ready backlog: when the user gives a large set of tickets that have
+  already been reviewed for implementation readiness, treat the set as a delivery
+  lane. Do not send routine label/status mismatches back to the user. Repair
+  readiness labels, workflow status, repo-route metadata, environment metadata,
+  review evidence labels, and handoff state when current evidence and config make
+  the intended state clear.
 - Until clear: continue passes until every issue in the requested scope is done,
   delegated and waiting, blocked, waiting on human input, ready for merge but
   lacking merge authority, or otherwise has no safe next action.
@@ -58,9 +86,11 @@ wakes itself. Never require a human to re-trigger each pass. If the runtime has 
 recurring primitive, run one pass and report the exact command to schedule.
 
 Each wake-up is one tick: wake light, rebuild the queue from systems of record,
-act on a bounded slice of work, persist only the ledger and checkpoint, then
-sleep. A long-running loop must stay as light as a first run; do not loop
-in-context until the backlog empties. See
+act on a bounded slice of work, persist only the ledger and checkpoint, then sleep
+only when future external signal can still arrive. If the scoped queue is
+completely blocked, stop the recurring loop for that scope instead. A long-running
+loop must stay as light as a first run; do not loop in-context until the backlog
+empties. See
 [references/loop-contract.md](references/loop-contract.md) for the tick contract,
 light-context budget, and cadence.
 
@@ -207,13 +237,15 @@ carries `ready-for-agent`. Treat a dispatchable container as a decompose miss,
 heal it inline when the correct kind is unambiguous (see Self-Healing below), and
 log a `config-gap` friction entry.
 
-When a ticket does not add up, heal unambiguous mechanical mistakes, escalate
-intent, never skip a ticket silently, and record every fix. For the orchestrator
-specifically:
+When a ticket does not add up, use model judgment over refreshed evidence to
+choose the next safe action. Repair stale or inconsistent workflow state when
+the evidence is enough, escalate missing intent or authority, never skip a
+ticket silently, and record every fix. For the orchestrator specifically:
 
-- Heal inline when there is one correct answer from direct evidence, for example
-  two `kind-*` labels, a typo'd label that resolves to a verified ID, or a status
-  contradicted by a merged PR.
+- Heal or repair inline when evidence supports a safe action, for example two
+  `kind-*` labels, a typo'd label that resolves to a verified ID, a status
+  contradicted by a merged PR, a stalled draft PR with no remaining draft
+  blocker, or a worker session that needs a direct nudge.
 - Escalate intent-level gaps with `needs-info` or `ready-for-human`; do not guess
   scope, priority, or security posture.
 - Never leave a ticket in a silent dead end. Every ticket produces a heal, an
@@ -223,11 +255,24 @@ specifically:
 
 ## Orchestration
 
-Orchestrator chooses the next action needed to get tickets handled safely.
-Depending on tracker and PR state, that can mean assigning implementation work,
-nudging an existing worker, calling review, calling integrate, routing review
-feedback, marking a ticket for human review or missing information, repairing
-tracker metadata, moving workflow state, or stopping on a real blocker.
+Orchestrator chooses the next action needed to get tickets handled safely by
+reasoning over tracker state, PR state, checks, review evidence, worker signals,
+repo config, and risk. The examples below are not exhaustive. Depending on the
+evidence, it can assign implementation work, nudge an existing worker, call
+review, call integrate, route review feedback, mark a ticket for human review or
+missing information, repair tracker metadata, move workflow state, or stop on a
+real blocker.
+
+When a previously verified-ready ticket is not moving through the expected
+workflow state, first ask "what fact would make this ticket eligible for the next
+pipeline step?" Then verify that fact against systems of record and repair the
+workflow metadata when evidence is clear. Examples: add or restore
+`ready-for-agent`, move a ready ticket back to the configured ready status, set a
+missing repo-route or worker environment value, clear stale review evidence,
+change a draft PR to ready-for-review, move a reviewed PR to `Ready to Merge`, or
+move merged work to `Done` and clear readiness. Escalate only when the missing
+fact is product intent, authority, credentials, provider/customer input,
+production approval, or a judgment the orchestrator cannot safely make.
 
 Use the worker delegation paths supported by `docs/agents/workflow/config.md`:
 
@@ -254,7 +299,8 @@ At the start of each pass, classify every issue in scope:
   merge, or linked to an open PR
 - `blocked`: blocked by tracker relationship, body blocker, credentials,
   provider, product, security, ADR, customer input, or production approval
-- `human`: needs human judgment or lacks authority for the next state
+- `human`: model judgment cannot safely resolve the next step from evidence, or
+  Orchestrator lacks authority for the next state
 - `done`: verified merged, closed, canceled, or otherwise terminal according to
   config
 
@@ -282,14 +328,17 @@ Each tick is stateless against external state. On each pass:
 3. Find active work: `In Progress`, `Blocked`, `In Review`,
    `Changes Requested`, and `Ready to Merge`. Prefer advancing active work over
    starting new work.
-4. Advance returned PRs through the PR Review And Integrate process below.
+4. Advance returned PRs, including draft PRs with no clear next action, through
+   the PR Review And Integrate process below.
 5. Find startable work: `kind-slice` plus `Todo` plus `ready-for-agent`,
    unblocked, with a complete agent-ready body. `ready-for-agent` means no
    further human refinement is needed before agent handoff; it can be present on
    blocked issues. Never treat a `kind-spec` or `kind-epic` container as
    startable. Check provider blocker relationships and explicit body blockers
    before starting or delegating work. Treat labels as signals and statuses as
-   the workflow state.
+   the workflow state. For verified-ready backlog work, if the only gap is a
+   routine label or status mismatch and the correct state is clear from evidence,
+   repair it and continue instead of skipping the ticket.
 6. Select new work by dependency order, milestone/project priority, risk, and
    file/package contention. Do not dispatch a ticket whose predicted files
    collide with an in-flight dispatch; defer it and record a `file-collision`
@@ -297,7 +346,9 @@ Each tick is stateless against external state. On each pass:
 7. Respect the configured concurrency cap. Default to 3 concurrent in-flight
    workers when config names no cap. Dispatch new work only up to
    `cap - in-flight`. If the cap is reached, advance existing work only.
-8. Choose the next orchestration action:
+8. Choose the next orchestration action. The following actions are examples, not
+   limits; use model judgment to handle any other evidence-backed workflow action
+   needed to keep the ticket moving:
    - isolated implementation worker, such as Claude Code
      `workflow-implementer`, Codex `$workflow-agent-implement`, or local
      worktree for `local-worktree`
@@ -307,11 +358,12 @@ Each tick is stateless against external state. On each pass:
      review
    - isolated triage worker, such as Claude Code `workflow-triage` or Codex
      `$workflow-issue-triage`, for issue metadata cleanup
-   - additional code review, CodeRabbit escalation, or check rerun when the PR
-     state needs evidence
+   - draft-state repair, additional code review, CodeRabbit escalation, or check
+     rerun when the PR state needs evidence
    - integrate for a reviewed, green PR
    - direct worker nudge or feedback reply when the original worker can continue
-   - human-review marker when the next step needs human judgment
+   - human-review marker only when model judgment cannot safely resolve the next
+     step from evidence and config
    - local Codex for orchestration repair, metadata updates, and small
      coordination fixes
    - planning agent for ambiguous product, security, or architecture
@@ -319,8 +371,10 @@ Each tick is stateless against external state. On each pass:
    issue body, linked docs, required checks, branch/worktree, and
    `workflow-agent-implement`. Record the dispatch in the ledger and tracker with
    an idempotency key.
-10. Append friction entries for this tick (see Friction Log) and continue until
-    no safe action remains or the user-specified loop budget ends.
+10. Append friction entries for this tick (see Friction Log). Continue only while
+    safe actions remain and the user-specified loop budget allows it. If no safe
+    action remains because the scoped queue is completely blocked, stop the
+    recurring loop for that scope.
 
 ## Worker Prompts
 
@@ -441,58 +495,74 @@ referenced above for the verified mechanic.
 
 ## PR Review And Integrate
 
-For each returned PR, review and integrate are called steps, not inlined work:
+For each returned PR, Orchestrator owns the state machine. Review and integrate
+are called steps, not inlined work:
 
 1. Refresh PR draft status, branch head, required checks, review comments, and
    linked issue state from the code host and tracker.
-2. Confirm code review happened when feasible and covers the current PR head. If
-   it does not, request Agent Review before changing draft state.
-3. Ask Agent Review to run `workflow-code-review` in a subagent or disposable
-   worktree.
-4. Read the review verdict and CodeRabbit recommendation from the review
-   artifact.
-5. If the PR head changed since `Code review passed` was applied, or the label
+2. If the PR is draft, diagnose draft state before asking for review: inspect
+   repo draft policy, PR body, check state, unresolved review comments, linked
+   issue state, handoff notes, `Code review passed` evidence, and the original
+   worker session. A draft-only stall is an orchestration repair, not a code
+   review request.
+3. For a draft PR, identify the exact blocker. If checks are still running or
+   failing, rerun or route the check failure. If author fixes, missing metadata,
+   or human prep are required, reply to the original worker's continuation target
+   or mark the ticket for human attention. If no explicit draft blocker remains,
+   mark the PR ready-for-review and verify it is non-draft.
+4. Confirm code review happened when feasible and covers the current PR head
+   before applying `Code review passed`, moving to `Ready to Merge`, or calling
+   integrate. Request Agent Review only when review evidence is the actual
+   blocker, not merely because the PR is draft.
+5. When the next action requires review evidence, ask Agent Review to run
+   `workflow-code-review` in a subagent or disposable worktree.
+6. If Agent Review ran, read the review verdict and CodeRabbit recommendation
+   from the review artifact.
+7. If the PR head changed since `Code review passed` was applied, or the label
    lacks reviewed head SHA evidence, remove the label before continuing.
-6. If the latest review has blocking findings, remove `Code review passed` and
+8. If the latest review has blocking findings, remove `Code review passed` and
    post actionable findings as PR review comments when configured.
-7. Move the issue to `Changes Requested` when author fixes are needed.
-8. Send feedback as a direct reply to Agent Implement or the original worker's
-   continuation target when available. Do not use a top-level issue comment for a
-   remote Cursor agent unless config verifies that route. Record a `review-thrash`
-   friction entry when a ticket returns to review more than the configured number
-   of times.
-9. Keep fixes on the same branch and PR.
-10. After fixes, ask Agent Review to rerun review and required checks.
-11. When Agent Review is clean for the current PR head, apply
+9. Move the issue to `Changes Requested` when author fixes are needed.
+10. Send feedback as a direct reply to Agent Implement or the original worker's
+    continuation target when available. Do not use a top-level issue comment for a
+    remote Cursor agent unless config verifies that route. Record a `review-thrash`
+    friction entry when a ticket returns to review more than the configured number
+    of times.
+11. Keep fixes on the same branch and PR.
+12. After fixes, ask Agent Review to rerun review and required checks.
+13. When Agent Review is clean for the current PR head, apply
     `Code review passed` to the issue and record the PR URL, reviewed head SHA,
     review artifact, and reviewer path in a tracker comment or configured
     evidence field.
-12. Before applying `Code review passed`, changing draft state, moving tracker
-    state to `Ready to Merge`, or calling integrate, refresh local Git refs and
-    code-host PR state. Verify the local branch or worktree HEAD, PR head SHA,
-    and default branch HEAD still match the review and check evidence. If they
-    do not match, rerun review and checks for the current head instead of
-    approving or merging from stale local state.
-13. If review is clean, required checks pass or are not required, and the PR is
+14. Before changing draft state, refresh code-host PR state and the current PR
+    head. Before applying `Code review passed`, moving tracker state to
+    `Ready to Merge`, or calling integrate, refresh local Git refs and code-host
+    PR state. Verify the local branch or worktree HEAD, PR head SHA, and default
+    branch HEAD still match the review and check evidence. If they do not match,
+    rerun review and checks for the current head instead of approving or merging
+    from stale local state.
+15. If review is clean, required checks pass or are not required, and the PR is
     still draft, move the PR to ready-for-review unless the user or repo config
     explicitly says to keep it draft. Then refresh the code-host PR state and
     verify it is non-draft. This is a code-host PR state change, separate from
     tracker status. A kept-draft PR is pre-review; do not call it
     ready-for-review.
-14. If CodeRabbit is recommended for the current diff, request the configured
+16. If CodeRabbit is recommended for the current diff, request the configured
     CodeRabbit path after local review is clean. Treat missing auth, rate
     limits, or credits as a recorded skip unless the user explicitly required
     CodeRabbit.
-15. Act only on high-priority CodeRabbit findings: P0/P1, security, data loss,
+17. Act only on high-priority CodeRabbit findings: P0/P1, security, data loss,
     correctness regression, production blocker, or a user-requested finding.
-16. Move to `Ready to Merge` only when Agent Review is clean, required checks
+18. Move to `Ready to Merge` only when Agent Review is clean, required checks
     pass, the PR is non-draft and ready-for-review, `Code review passed` is
     current for the PR head, and required CodeRabbit escalation is complete or
     recorded as skipped by policy.
-17. Call integrate when the auto-merge gate is satisfied.
+19. Call integrate when the auto-merge gate is satisfied.
 
-Do not leave a PR in draft after review gates pass just because the
-implementation worker opened it as draft. If Orchestrator lacks permission to
+Do not leave a PR in draft just because the implementation worker opened it as
+draft or because no one asked Orchestrator to unstick it. Orchestrator owns
+finding the draft blocker, taking the safe next action, and moving the PR to
+ready-for-review when no blocker remains. If Orchestrator lacks permission to
 mark it ready-for-review, stop with the exact required code-host action.
 Ready-for-review means non-draft.
 
@@ -529,6 +599,9 @@ When the gate passes:
    does not prove correct after merge. Record a `post-merge-break` friction entry
    and escalate if the post-merge check fails.
 6. Move the issue to `Done` only after the merge and post-merge check succeed.
+   In the same tracker update, remove `ready-for-agent` or the repo-configured
+   readiness label from the done ticket. Done work is no longer waiting for agent
+   handoff.
 
 Never merge or deploy production without explicit approval. A label alone is
 never permission to merge.
@@ -594,9 +667,10 @@ friction log. One line of metadata, IDs, and counts only.
 
 Stop and report when:
 
-- no startable work exists
+- no startable work exists and no active work can be advanced
 - all active work is waiting on humans, credentials, providers, production
-  access, customer input, or merge authority
+  access, customer input, or merge authority after every evidence-backed unblock
+  path has been tried
 - the next action needs a product, security, ADR, or scope decision
 - issue tracker, code host, or required worker tooling is unavailable
 - checks fail for a reason the orchestrator cannot safely fix
@@ -604,8 +678,20 @@ Stop and report when:
 - a thrash circuit breaker trips, such as one ticket exceeding the configured
   attempt cap across implement and review
 
-When all in-flight work is done and the ready frontier is empty, report the
-backlog as delivered with a summary.
+Completely blocked means the refreshed scope has no startable tickets, returned
+PRs to advance, stuck workers to nudge, failed checks to rerun or route, stale
+metadata to repair, or in-flight work that can still produce signal. Every
+non-terminal ticket is waiting on an explicit external blocker, missing authority,
+human/provider/customer input, credentials, merge authority, or a decision the
+orchestrator cannot safely make. When the queue is completely blocked, stop the
+recurring loop or schedule for that scope; do not keep sleeping and waking to
+rediscover the same blocked state. Report the blocker list, next owner, and exact
+condition that would make the scope runnable again.
+
+When all in-flight work is done, the ready frontier is empty, and no scoped
+ticket remains blocked or waiting on outside input, report the backlog as
+delivered with a summary. Otherwise report the scope as blocked and stop the
+loop.
 
 ## Guardrails
 
@@ -620,7 +706,8 @@ backlog as delivered with a summary.
   state.
 - Mark issues `ready-for-human`, `needs-info`, `Blocked`, or the configured
   equivalent when human review, approval, credentials, product input, or security
-  judgment is the next owner.
+  judgment is the next owner after evidence-backed workflow actions have been
+  tried.
 - Never start a new worker for review fixes when the original worker can
   continue.
 - Never merge a stale branch without rerunning checks and review after updating
@@ -637,12 +724,17 @@ Report:
 
 - issues started, nudged, reviewed, integrated, blocked, or moved
 - PRs checked, reviewed, merged, and their state
-- draft PRs marked ready-for-review or left draft/pre-review with exact reason
+- draft PRs diagnosed, marked ready-for-review, or left draft/pre-review with
+  exact reason
 - `Code review passed` labels applied, preserved, or removed with reviewed head
   SHA evidence
+- `ready-for-agent` or repo-configured readiness labels removed from tickets
+  moved to `Done`
 - CodeRabbit escalations requested, completed, skipped, or still required
 - workers launched or messaged, direct reply targets used, and any stuck workers
   re-dispatched or escalated
 - issue updates made
+- whether the recurring loop continues or stopped because the scoped queue is
+  completely blocked
 - friction entries and delivery metrics logged this run, grouped by category
 - remaining blockers and next safe action, or a delivered-backlog summary
