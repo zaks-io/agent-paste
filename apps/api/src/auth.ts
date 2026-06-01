@@ -1,4 +1,14 @@
-import { cachedNegativeLookup, cacheKeyForSecret } from "@agent-paste/auth";
+import {
+  authenticateMcpBearer,
+  cachedNegativeLookup,
+  cacheKeyForSecret,
+  DEFAULT_WORKOS_ISSUER,
+  resolveMcpMemberActor,
+  resolveWorkOsIdentity,
+  type WorkOsIdentity,
+  type WorkOsRejectReason,
+  type WorkOsVerificationOptions,
+} from "@agent-paste/auth";
 import type { RouteContract } from "@agent-paste/contracts";
 import type { ApiKeyActor } from "@agent-paste/db";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
@@ -6,17 +16,9 @@ import type { AuthResolvers } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 import { verifyAgentViewTokenForEnv } from "./agent-view.js";
 import type { Env } from "./env.js";
-import { authenticateMcpBearer, resolveMcpMemberActor } from "./mcp-auth.js";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import type { RouteId } from "./route-contracts.js";
 import { apiDatabase, postgresRuntime } from "./runtime.js";
-import {
-  DEFAULT_WORKOS_ISSUER,
-  resolveWorkOsIdentity,
-  type WorkOsIdentity,
-  type WorkOsRejectReason,
-  type WorkOsVerificationOptions,
-} from "./workos.js";
 
 const AUTH_CACHE_TTL_SECONDS = 60;
 const CLI_KEY_MINT_ROUTE_ID: RouteId = "web.apiKeys.create";

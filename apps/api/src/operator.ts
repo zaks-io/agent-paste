@@ -1,5 +1,5 @@
+import type { WorkOsIdentity } from "@agent-paste/auth";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import type { WorkOsIdentity } from "./workos.js";
 
 export const OPERATOR_ROLE_SLUG = "admin";
 

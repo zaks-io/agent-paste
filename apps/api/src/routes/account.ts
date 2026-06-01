@@ -1,10 +1,10 @@
+import type { WorkOsIdentity } from "@agent-paste/auth";
 import { Seconds } from "@agent-paste/contracts";
 import type { ApiActor, ApiKeyActor, Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
 import { apiKeyActor } from "../principals.js";
 import { errorResponse, jsonResponse } from "../responses.js";
-import type { WorkOsIdentity } from "../workos.js";
 
 export const CLI_API_KEY_TTL_SECONDS = Seconds.ninetyDays;
 

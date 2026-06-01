@@ -1,10 +1,10 @@
+import * as mcpAuth from "@agent-paste/auth";
 import { DeleteArtifactResponse } from "@agent-paste/contracts";
 import { LocalRepository } from "@agent-paste/db";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import contentWorker from "../../content/src/index.js";
 import { type Env, handleRequest } from "./index.js";
-import * as mcpAuth from "./mcp-auth.js";
 
 const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",

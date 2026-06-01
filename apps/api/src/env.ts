@@ -1,7 +1,6 @@
-import type { RequestIdVariables } from "@agent-paste/auth";
+import type { RequestIdVariables, WebCallbackIdentity } from "@agent-paste/auth";
 import type { ApiKeyActor, HyperdriveBinding, Repository } from "@agent-paste/db";
 import type { Context } from "hono";
-import type { WebCallbackIdentity } from "./workos.js";
 
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;

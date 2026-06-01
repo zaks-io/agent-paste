@@ -1,4 +1,12 @@
 export {
+  audienceMatchesMcpResource,
+  authenticateMcpBearer,
+  type McpAuthEnv,
+  type McpAuthenticatedPrincipal,
+  mcpVerifyOptions,
+  resolveMcpMemberActor,
+} from "./mcp-auth.js";
+export {
   buildErrorBody,
   type DocCode,
   docsUrlFor,
@@ -10,6 +18,17 @@ export {
   requestIdMiddleware,
   resolveRequestId,
 } from "./request-id.js";
+
+export {
+  DEFAULT_WORKOS_ISSUER,
+  fetchWorkOsUser,
+  resolveWorkOsIdentity,
+  verifyWorkOsAccessToken,
+  type WebCallbackIdentity,
+  type WorkOsIdentity,
+  type WorkOsRejectReason,
+  type WorkOsVerificationOptions,
+} from "./workos.js";
 
 import { base64UrlEncode } from "@agent-paste/tokens/crypto";
 

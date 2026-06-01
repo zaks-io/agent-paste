@@ -1,6 +1,6 @@
 # auth
 
-Shared request, admin-token, and cached-lookup primitives.
+Shared request, admin-token, cached-lookup, WorkOS, and MCP bearer primitives.
 
 Responsibilities:
 
@@ -8,5 +8,7 @@ Responsibilities:
 - Admin bearer token HMAC hashing and constant-time verification.
 - Secret cache key derivation.
 - Two-layer cached lookups using isolate memory plus `caches.default`.
+- WorkOS JWT/JWKS verification, user fetch, and identity resolution.
+- MCP OAuth bearer verification and member actor resolution helpers.
 
 This package must not make authentication ambient. Each app explicitly wires only the auth modes it accepts.
