@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CommandPaletteProvider, CommandPaletteTrigger } from "../src/components/chrome/CommandPalette";
+import { CommandPaletteProvider } from "../src/components/chrome/command-palette/CommandPaletteProvider";
+import { CommandPaletteTrigger } from "../src/components/chrome/command-palette/CommandPaletteTrigger";
 
 const navigate = vi.fn();
 const setPreference = vi.fn();

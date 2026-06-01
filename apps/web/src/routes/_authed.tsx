@@ -2,7 +2,7 @@ import type { WebAuthCallbackResponse } from "@agent-paste/contracts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
-import { CommandPaletteProvider } from "../components/chrome/CommandPalette";
+import { CommandPaletteProvider } from "../components/chrome/command-palette/CommandPaletteProvider";
 import { Sidebar } from "../components/chrome/Sidebar";
 import { Topbar } from "../components/chrome/Topbar";
 import { ErrorBanner } from "../components/ui/ErrorBanner";

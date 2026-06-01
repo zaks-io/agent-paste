@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Building2, UserRound } from "lucide-react";
-import { CommandPaletteTrigger } from "./CommandPalette";
+import { CommandPaletteTrigger } from "./command-palette/CommandPaletteTrigger";
 import { SignOutForm } from "./SignOutForm";
 import { Wordmark } from "./Wordmark";
 
