@@ -79,9 +79,12 @@ semantics, deliberately out of scope for the behavior-preserving unification.
 - [x] Decide where the authoritative R2 purge count lives: keep
       `deleted_r2_objects` best-effort and not replay-stable for now. Make it
       replay-stable only if a future product need justifies persisting purge
-      counts inside the idempotent command result.
+      counts inside the idempotent command result. **(AP-39 closed 2026-06-01:
+      decision is best-effort. The contract field now documents this in
+      `packages/contracts/src/admin.ts` via `.describe()`.)**
 - [ ] If it becomes replay-stable, add a test that issues the same delete idempotency key twice
       and asserts identical `deleted_r2_objects` across both responses.
+      (Not applicable while best-effort; revisit only if the decision changes.)
 - [x] When the jobs worker takes over byte purge, deepen deletion/invalidation into an API-side
       module that owns denylist writes, purge job enqueueing, and replay accounting as one
       explicit side-effect boundary (AP-40).

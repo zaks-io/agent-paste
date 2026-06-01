@@ -38,7 +38,13 @@ export const CleanupRunResponse = z.object({
   dry_run: z.boolean(),
   expired_artifacts: z.number().int().nonnegative(),
   expired_upload_sessions: z.number().int().nonnegative(),
-  deleted_r2_objects: z.number().int().nonnegative(),
+  deleted_r2_objects: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe(
+      "Best-effort count of R2 objects purged by this call; computed outside the idempotent command boundary, so it is NOT replay-stable. A retried idempotency key replays the durable DB result but returns 0 here. See ADR 0035 and docs/ops/repository-todo.md (AP-39).",
+    ),
   occurred_at: IsoDateTime,
 });
 export type CleanupRunResponse = z.infer<typeof CleanupRunResponse>;
