@@ -17,10 +17,12 @@ another platform — without translation tables.
   copy), then publish: \`npx @zaks-io/agent-paste publish ./path\` returns an Artifact ID
   synchronously, idempotent on retry.
 - Address an artifact from any surface: \`${API_BASE_URL}/v1/artifacts/{id}\`,
-  \`${MCP_BASE_URL}\` (MCP tool \`agent_paste.get\`), or the dashboard at
+  \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard at
   \`${APP_BASE_URL}/artifacts/{id}\`.
-- Share an artifact with a revocable link (\`/r/{token}\`) or a stable
-  workspace-scoped link the workspace owner can rotate.
+- Share an artifact with a revocable Access Link. A human opens it at
+  \`${APP_BASE_URL}/al/{public_id}\`; an agent reads the same link through
+  \`${API_BASE_URL}/v1/public/agent-view/{token}\`. Revoke it without deleting
+  the underlying Artifact.
 
 ## Entry points
 
@@ -29,18 +31,21 @@ another platform — without translation tables.
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
 
-Auth: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores its own key.
-REST and MCP take \`Authorization: Bearer <api-key>\` (a dashboard key or
-\`AGENT_PASTE_API_KEY\`).
+Auth: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores
+its own API key. The REST API takes \`Authorization: Bearer <api-key>\` (a
+dashboard key or \`AGENT_PASTE_API_KEY\`). The MCP server is OAuth-only: it
+takes a WorkOS-issued bearer token, not an API key.
 
 ## Mental model
 
 - Artifact — addressable, named container (folder).
 - Revision — immutable saved state. New publishes append a new Revision.
-- Access Link — revocable, signed URL pointing at an Artifact or Revision.
+- Access Link — revocable, signed URL pointing at an Artifact or Revision;
+  opened at \`/al/{public_id}\` by a human or via the public agent-view token
+  by an agent.
 
 ## Longer agent guide
 
 See /agents.md for the full guide: object model, CLI examples, REST shape,
-and MCP tool signatures.
+auth model, and the twelve MCP tools.
 `;

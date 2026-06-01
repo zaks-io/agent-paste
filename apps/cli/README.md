@@ -95,7 +95,7 @@ Published artifact art_01H... revision rev_01H...
 
   Title:      report
   View:       https://usercontent.agent-paste.sh/v/...
-  Agent View: https://api.agent-paste.sh/v1/artifacts/art_01H.../agent-view
+  Agent View: https://api.agent-paste.sh/v1/public/agent-view/...
   Expires:    2026-06-20T00:00:00.000Z
 ```
 
@@ -106,11 +106,14 @@ With `--json`, stdout is exactly the publish result:
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "title": "report",
-  "view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
+  "view_url": "https://usercontent.agent-paste.sh/v/...",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
   "expires_at": "2026-06-20T00:00:00.000Z"
 }
 ```
+
+`view_url` is served from the isolated content origin (`usercontent.agent-paste.sh`);
+`agent_view_url` is the Agent View JSON on the API origin.
 
 ## Inference
 
@@ -146,7 +149,7 @@ With `--json`, errors are structured on stderr:
 {
   "error": {
     "code": "insufficient_scope",
-    "message": "Actor has scopes [write], needs [write, read, share]"
+    "message": "Actor has scopes [read], needs [publish, read]"
   }
 }
 ```

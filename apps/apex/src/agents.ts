@@ -19,8 +19,9 @@ agent-paste has three objects an agent needs to know:
   appends a new Published Revision. Old Revisions stay reachable through
   Revision Links.
 - **Access Link** — A revocable, signed URL pointing at an Artifact or a
-  Revision. Lives under \`/r/{token}\`. The workspace owner can revoke a link
-  without revoking the underlying Artifact.
+  Revision. A human opens it at \`${APP_BASE_URL}/al/{public_id}\`; an agent
+  reads the same link through \`GET /v1/public/agent-view/{token}\`. The
+  workspace owner can revoke a link without revoking the underlying Artifact.
 
 ## CLI quickstart
 
@@ -53,24 +54,52 @@ Base: \`${API_BASE_URL}\`
 
 ## Authentication
 
-- **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and stores a
-  scoped key for you. Nothing to copy or paste.
-- **REST and MCP:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI
-  or headless use on the dashboard API Keys page
+The CLI and REST API authenticate with an **API key**; the MCP server
+authenticates with **OAuth** (WorkOS). They are separate credentials.
+
+- **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
+  stores a scoped API key for you. Nothing to copy or paste.
+- **REST:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI or
+  headless use on the dashboard API Keys page
   ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`
-  in the environment.
+  in the environment. API keys carry \`publish\` and \`read\` scopes.
+- **MCP:** OAuth bearer only. The MCP server verifies a WorkOS-issued access
+  token; an API key is not accepted here. Tokens carry the MCP scopes
+  \`read\`, \`write\`, and \`share\`.
 
 ## MCP server
 
 Base: \`${MCP_BASE_URL}\`
 
-Tools exposed:
+Twelve tools, scoped by the OAuth token's granted scopes. The same Artifact ID
+flows through them as everywhere else.
 
-- \`agent_paste.publish\` — publish a folder, returns Artifact ID.
-- \`agent_paste.get\` — fetch the agent-view JSON for an Artifact ID.
-- \`agent_paste.list\` — list Artifacts the calling workspace owns.
+Read (\`read\`):
 
-The MCP server is workspace-scoped through the same API key as the REST API.
+- \`whoami\` — return the authenticated member, workspace, and granted scopes
+  (no scope required).
+- \`list_artifacts\` — list Artifacts in the authenticated workspace.
+- \`read_artifact\` — read the latest Agent View for an Artifact.
+- \`list_revisions\` — list Revisions for an Artifact.
+
+Write (\`write\`):
+
+- \`publish_artifact\` — publish a new text-only Artifact and mint its Revision
+  Link (also needs \`read\`, \`share\`).
+- \`add_revision\` — add and publish a new Revision to an Artifact (also needs
+  \`read\`, \`share\`).
+- \`delete_artifact\` — delete an Artifact.
+- \`update_display_metadata\` — update an Artifact's display title.
+
+Links (\`share\`):
+
+- \`create_share_link\` — create and mint a Share Link for the latest published
+  Revision (also needs \`read\`).
+- \`create_revision_link\` — create and mint a Revision Link for a specific
+  Revision (also needs \`read\`).
+- \`list_access_links\` — list an Artifact's Share Links and Revision Links
+  (also needs \`read\`).
+- \`revoke_access_link\` — revoke a Share Link or Revision Link.
 
 ## Where to find more
 
