@@ -26,15 +26,17 @@ Future phases may add Access Link REST route registry entries, dashboard/auth sc
 
 ## ID Formats
 
-| Identifier         | Shape                             | Notes                                     |
-| ------------------ | --------------------------------- | ----------------------------------------- |
-| `WorkspaceId`      | UUID                              | Tenant boundary and Postgres RLS setting. |
-| `ArtifactId`       | `art_{26-char ULID}`              | Public, non-secret.                       |
-| `RevisionId`       | `rev_{26-char ULID}`              | Public, non-secret.                       |
-| `UploadSessionId`  | `upl_{26-char ULID}`              | Public, non-secret.                       |
-| `ApiKeyId`         | `key_{26-char ULID}`              | Public row id, not the bearer secret.     |
-| `OperationEventId` | `evt_{26-char ULID}`              | Internal operations record id.            |
-| `API Key bearer`   | `ap_pk_{env}_{publicId}_{secret}` | Secret-bearing credential.                |
+| Identifier           | Shape                             | Notes                                                                                                                                                                                          |
+| -------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkspaceId`        | UUID                              | Tenant boundary and Postgres RLS setting.                                                                                                                                                      |
+| `ArtifactId`         | `art_{26-char ULID}`              | Public, non-secret.                                                                                                                                                                            |
+| `RevisionId`         | `rev_{26-char ULID}`              | Public, non-secret.                                                                                                                                                                            |
+| `UploadSessionId`    | `upl_{26-char ULID}`              | Public, non-secret.                                                                                                                                                                            |
+| `ApiKeyId`           | `key_{26-char ULID}`              | Public row id, not the bearer secret.                                                                                                                                                          |
+| `OperationEventId`   | `evt_{26-char ULID}`              | Internal operations record id.                                                                                                                                                                 |
+| `ClaimTokenId`       | `ct_{26-char ULID}`               | Public `claim_tokens` row id, not the secret. Ephemeral-publish ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)).                                       |
+| `API Key bearer`     | `ap_pk_{env}_{publicId}_{secret}` | Secret-bearing credential.                                                                                                                                                                     |
+| `Claim Token bearer` | `ap_ct_{env}_{publicId}_{secret}` | Secret-bearing one-time claim credential, returned once to the provisioning caller. Ephemeral-publish ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). |
 
 ULID text is uppercase Crockford base32 excluding ambiguous characters.
 

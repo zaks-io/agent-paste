@@ -16,13 +16,30 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 
 ### `workspaces`
 
-| Column          | Type                   | Notes                                                                  |
-| --------------- | ---------------------- | ---------------------------------------------------------------------- |
-| `id`            | `UUID PRIMARY KEY`     | Tenant id.                                                             |
-| `name`          | `TEXT NOT NULL`        | Operator supplied or inferred from email.                              |
-| `contact_email` | `TEXT NULL`            | Operator-supplied MVP contact. Public OAuth membership is future work. |
-| `created_at`    | `TIMESTAMPTZ NOT NULL` |                                                                        |
-| `updated_at`    | `TIMESTAMPTZ NOT NULL` |                                                                        |
+| Column          | Type                   | Notes                                                                                                                                                                                                                                                               |
+| --------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | `UUID PRIMARY KEY`     | Tenant id.                                                                                                                                                                                                                                                          |
+| `name`          | `TEXT NOT NULL`        | Operator supplied or inferred from email.                                                                                                                                                                                                                           |
+| `contact_email` | `TEXT NULL`            | Operator-supplied MVP contact. Public OAuth membership is future work.                                                                                                                                                                                              |
+| `claimed_at`    | `TIMESTAMPTZ NULL`     | Ephemeral-publish ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)): `NULL` while the tenant is unclaimed/ephemeral (ephemeral cap set); non-null marks it consumed by a claim. The timestamp is the state — no separate boolean. |
+| `created_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
+| `updated_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
+
+A `workspaces` row with `claimed_at IS NULL` is an **Ephemeral Workspace**: a real RLS-scoped tenant owned by a reserved system actor with no **Workspace Member**, provisioned by the ephemeral-publish flow ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)).
+
+### `claim_tokens`
+
+One-time tokens that promote an **Ephemeral Workspace** ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). RLS-scoped on `workspace_id` like every tenant table; the secret is stored hashed, never plaintext (parallels `api_keys.secret_hmac`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)).
+
+| Column         | Type                                      | Notes                                                        |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| `id`           | `TEXT PRIMARY KEY`                        | `ct_...` (see [`contracts.md`](./contracts.md)).             |
+| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | The Ephemeral Workspace this token claims. RLS scope.        |
+| `token_hash`   | `BYTEA NOT NULL`                          | HMAC of the claim-token secret with pepper. Never plaintext. |
+| `pepper_kid`   | `SMALLINT NOT NULL`                       | Current pepper generation.                                   |
+| `expires_at`   | `TIMESTAMPTZ NOT NULL`                    | Single-use and short-lived.                                  |
+| `redeemed_at`  | `TIMESTAMPTZ NULL`                        | Set once on successful claim; a second redeem fails closed.  |
+| `created_at`   | `TIMESTAMPTZ NOT NULL`                    |                                                              |
 
 ### `api_keys`
 

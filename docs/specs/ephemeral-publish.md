@@ -57,18 +57,18 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 1. An authenticated **Workspace Member** calls `POST /v1/ephemeral/claim` with `{ claim_token }`.
 2. `api` verifies the token is valid, unredeemed, and not expired.
-3. Under `runCommand`: flips the **Workspace** from ephemeral to claimed, attaches the member as first `admin`, raises the tier to `free` defaults, marks the **Claim Token** redeemed, emits an **Audit Event**.
+3. Under `runCommand`: **reparents** the ephemeral tenant's **Artifacts** into the claiming member's existing **Personal Workspace** (single-workspace-per-member is preserved — claim does not create a standalone tenant the member must juggle in a multi-workspace dashboard the product does not yet have), raises the surviving content to the destination workspace's `free` tier, marks the source **Ephemeral Workspace** consumed, marks the **Claim Token** redeemed, emits an **Audit Event**. The reparent is the single-core write ([ADR 0070](../adr/0070-repository-core-ports-and-adapters.md)) and re-stamps `workspace_id` so RLS continues to hold against the destination tenant.
 4. A redeemed or expired token fails closed as not-found ([ADR 0036](../adr/0036-error-envelope-and-generic-404-boundary.md)). No retained **Claim Token** means the **Artifact** cannot be promoted and reaches **Auto Deletion**; it must be re-published to gain an owner.
 
 ## Write Allowance and Tiers
 
-The gate is the **daily new-Artifact write allowance**. A new **Artifact** counts; a new **Revision** of an existing one does not, bounded by a per-**Artifact** lifetime **Revision** ceiling so a refinement loop cannot become a free-write firehose. Concrete numbers are platform-controlled values that belong in the usage-policy ledger ([ADR 0056](../adr/0056-mvp-usage-policy-defaults-and-platform-caps.md)); placeholders for review:
+The gate is the **daily new-Artifact write allowance**. A new **Artifact** counts; a new **Revision** of an existing one does not, bounded by a per-**Artifact** lifetime **Revision** ceiling (100 / **Artifact**) so a refinement loop cannot become a free-write firehose. Concrete numbers are platform-controlled values that live in the usage-policy ledger ([ADR 0056](../adr/0056-mvp-usage-policy-defaults-and-platform-caps.md)); pinned for build (operator-tunable, never platform-secret per ADR 0056):
 
 | Tier                  | Identity                                                                                                     | Daily new Artifacts | Auto Deletion          | Indexing  | Raisable |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------- | --------- | -------- |
-| Ephemeral (unclaimed) | **API Key** on **Ephemeral Workspace**                                                                       | low (e.g. 10)       | shortest (hours)       | `noindex` | No       |
-| Claimed `free`        | **Workspace Member** + **API Key**s                                                                          | higher (e.g. 50)    | platform default (30d) | default   | No       |
-| `pro`                 | claimed + Stripe ([ADR 0073](../adr/0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) | fair-use ceiling    | up to 90d              | default   | Yes      |
+| Ephemeral (unclaimed) | **API Key** on **Ephemeral Workspace**                                                                       | 20                  | 24h                    | `noindex` | No       |
+| Claimed `free`        | **Workspace Member** + **API Key**s                                                                          | 100                 | platform default (30d) | default   | No       |
+| `pro`                 | claimed + Stripe ([ADR 0073](../adr/0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) | 2000 (fair-use)     | up to 90d              | default   | Yes      |
 
 Reads are gated only by the existing **Artifact Rate Limit** abuse ceiling ([ADR 0048](../adr/0048-transient-artifacts-by-default.md)), unchanged.
 
@@ -102,11 +102,11 @@ Executable JavaScript requires a claimed tenant, so the platform only runs agent
 
 ## Data-Model Deltas
 
-Sketch; field-level shape lands in [`data-model.md`](./data-model.md) and the contracts source ([`contracts.md`](./contracts.md)) before implementation.
+Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts source ([`contracts.md`](./contracts.md)) before implementation. Resolved shape:
 
-- `workspaces`: an ephemeral flag (or claimed-state column) + nullable claimed-at timestamp. Ephemeral defaults select the ephemeral cap set.
-- A `claim_tokens` concept: hashed token, target `workspace_id`, single-use redeemed-at, **Expiration**. May be folded onto the workspace row if one token per **Ephemeral Workspace** is sufficient.
-- No new tenant table escapes RLS ([ADR 0044](../adr/0044-workspace-isolation-via-postgres-rls.md)); ephemeral tenants are ordinary RLS-scoped **Workspaces**.
+- `workspaces`: add a `claimed_at TIMESTAMPTZ NULL` column. `claimed_at IS NULL` means the tenant is still ephemeral and selects the ephemeral cap set; a non-null value marks it consumed by a claim. No separate boolean flag — the timestamp is the state.
+- `claim_tokens` is a **separate RLS-scoped table** (not folded onto the workspace row): `id` (`ap_ct_…`), `workspace_id` (FK, RLS scope), `token_hash` (HMAC, never plaintext), `expires_at`, `redeemed_at NULL`, `created_at`. A separate table keeps audit clean and leaves room to re-issue without nullable-column sprawl on `workspaces`.
+- No new tenant table escapes RLS ([ADR 0044](../adr/0044-workspace-isolation-via-postgres-rls.md)); ephemeral tenants and `claim_tokens` are ordinary `workspace_id`-scoped rows.
 
 ## Acceptance Criteria
 
