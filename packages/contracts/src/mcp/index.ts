@@ -7,7 +7,6 @@ export {
   McpProtocolErrorCode,
   McpToolErrorCode,
 } from "./error-codes.js";
-export type { McpProtocolErrorCode, McpToolErrorCode } from "./error-codes.js";
 export * from "./jsonrpc.js";
 export * from "./error-mapping.js";
 export * from "./scopes.js";
