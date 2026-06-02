@@ -11,15 +11,7 @@ export default defineConfig({
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
-    tanstackStart({
-      importProtection: {
-        behavior: "mock",
-        mockAccess: "off",
-        client: {
-          files: ["**/src/server/**"],
-        },
-      },
-    }),
+    tanstackStart(),
     viteReact(),
     // Sentry must be the last plugin. Uploads source maps (hidden, deleted after
     // upload) only when a token is present, so local/PR builds skip upload.

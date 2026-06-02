@@ -13,7 +13,8 @@ import {
   consumePendingClaimToken,
 } from "../lib/claim-redemption";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { claimEphemeralFn, LOCAL_TURNSTILE_BYPASS_TOKEN } from "../server/web-mutations";
+import { LOCAL_TURNSTILE_BYPASS_TOKEN } from "../lib/turnstile-constants";
+import { claimEphemeralFn } from "../server/web-mutations";
 
 const loadClaimPageFn = createServerFn({ method: "GET" }).handler(async () => {
   const { turnstileSiteKey } = await import("../server/turnstile");
