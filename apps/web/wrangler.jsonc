@@ -52,7 +52,7 @@
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
         "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
-        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwTR9FFmnKY9lL"
       },
       "services": [
         {
@@ -80,7 +80,7 @@
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
         "WEB_BASE_URL": "https://app.agent-paste.sh",
-        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwQJT2MNI2Fcve"
       },
       "services": [
         {
