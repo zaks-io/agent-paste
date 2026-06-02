@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
-import { type AgentPasteAuth, AgentPasteError, ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
+import {
+  type AgentPasteAuth,
+  AgentPasteError,
+  ApiClient,
+  createIdempotencyKey,
+  type EphemeralProvisionOptions,
+} from "@agent-paste/api-client";
+import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
 import { CreateUploadSessionRequest } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
@@ -50,6 +57,9 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
     case "whoami":
       return output(await client.whoami(), parsed.global);
     case "publish":
+      if (booleanFlag(parsed, "ephemeral", false)) {
+        return publishEphemeral(parsed);
+      }
       return publish(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
@@ -128,7 +138,58 @@ export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
   );
 }
 
+export type EphemeralPublishDeps = {
+  provision?: (options?: EphemeralProvisionOptions) => Promise<EphemeralProvisionResponse>;
+  createPublishClient?: (apiKeySecret: string, bases: { apiBaseUrl: string; uploadBaseUrl: string }) => ApiClient;
+};
+
+export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
+  await noteEphemeralCredentialPrecedence();
+  const provisionClient = unauthenticatedClient();
+  const provisioned = await (deps.provision ?? ((options) => provisionClient.ephemeral.provision(options)))();
+  const publishClient =
+    deps.createPublishClient?.(provisioned.api_key_secret, {
+      apiBaseUrl: provisionClient.apiBaseUrl,
+      uploadBaseUrl: provisionClient.uploadBaseUrl,
+    }) ??
+    new ApiClient({
+      apiBaseUrl: provisionClient.apiBaseUrl,
+      uploadBaseUrl: provisionClient.uploadBaseUrl,
+      auth: { type: "api_key", apiKey: provisioned.api_key_secret },
+    });
+  const result = await runPublish(parsed, publishClient, { ephemeral: true });
+  const payload = {
+    ...result,
+    claim_token: provisioned.claim_token,
+    workspace_id: provisioned.workspace_id,
+    api_key_id: provisioned.api_key_id,
+    claim_token_id: provisioned.claim_token_id,
+  };
+  return output(payload, parsed.global, formatEphemeralPublishResult(result, provisioned.claim_token));
+}
+
+async function noteEphemeralCredentialPrecedence() {
+  if (process.env.AGENT_PASTE_API_KEY) {
+    process.stderr.write("agent-paste: --ephemeral ignores AGENT_PASTE_API_KEY.\n");
+  }
+  const stored = await loadCredential();
+  if (stored && !isCredentialExpired(stored)) {
+    process.stderr.write("agent-paste: --ephemeral ignores the stored login credential.\n");
+  }
+}
+
+function unauthenticatedClient() {
+  return new ApiClient();
+}
+
 async function publish(parsed: Parsed, client: ApiClient) {
+  const result = await runPublish(parsed, client);
+  return output(result, parsed.global, formatPublishResult(result));
+}
+
+const EPHEMERAL_MAX_TTL_SECONDS = 86_400;
+
+async function runPublish(parsed: Parsed, client: ApiClient, options: { ephemeral?: boolean } = {}) {
   const inputPath = requiredArg(parsed, 0, "path");
   const files = await walkLocalPath(inputPath);
   const policy = await client.usagePolicy();
@@ -149,7 +210,7 @@ async function publish(parsed: Parsed, client: ApiClient) {
   const createSessionRequest = CreateUploadSessionRequest.parse({
     ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
     title: inferred.title,
-    ttl_seconds: ttlSecondsForPublish(parsed, policy),
+    ttl_seconds: ttlSecondsForPublish(parsed, policy, options),
     entrypoint: inferred.entrypoint,
     files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes })),
   });
@@ -166,8 +227,7 @@ async function publish(parsed: Parsed, client: ApiClient) {
   }
 
   const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
-  const result = await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
-  return output(result, parsed.global, formatPublishResult(result));
+  return client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
 }
 
 export function parseArgs(argv: string[]): Parsed {
@@ -248,14 +308,16 @@ function output(value: unknown, global: GlobalFlags, human = JSON.stringify(valu
   }
 }
 
-function formatPublishResult(result: {
+type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
   view_url: string;
   agent_view_url: string;
   expires_at: string;
-}) {
+};
+
+function formatPublishResult(result: PublishResultShape) {
   return [
     `Published artifact ${result.artifact_id} revision ${result.revision_id}`,
     "",
@@ -266,6 +328,22 @@ function formatPublishResult(result: {
   ].join("\n");
 }
 
+function formatEphemeralPublishResult(result: PublishResultShape, claimToken: string) {
+  assertClaimTokenNotInPublicUrls(result, claimToken);
+  return [
+    formatPublishResult(result),
+    "",
+    "Save this Claim Token to take ownership later. It is not part of the public share URL.",
+    `  Claim Token: ${claimToken}`,
+  ].join("\n");
+}
+
+function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimToken: string) {
+  if (result.view_url.includes(claimToken) || result.agent_view_url.includes(claimToken)) {
+    throw new Error("Claim Token must not appear in public share URLs");
+  }
+}
+
 function printHelp() {
   process.stdout.write(`agent-paste
 
@@ -273,12 +351,30 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--ephemeral] [--json]
 `);
 }
 
-function ttlSecondsForPublish(parsed: Parsed, policy: Awaited<ReturnType<ApiClient["usagePolicy"]>>) {
+function ttlSecondsForPublish(
+  parsed: Parsed,
+  policy: Awaited<ReturnType<ApiClient["usagePolicy"]>>,
+  options: { ephemeral?: boolean } = {},
+) {
   const ttl = stringFlag(parsed, "ttl");
+  if (options.ephemeral) {
+    if (!ttl) {
+      return EPHEMERAL_MAX_TTL_SECONDS;
+    }
+    const seconds = parseTtlSeconds(ttl);
+    if (seconds > EPHEMERAL_MAX_TTL_SECONDS) {
+      throw new Error(`TTL exceeds ephemeral maximum of ${EPHEMERAL_MAX_TTL_SECONDS} seconds (1d)`);
+    }
+    expiresAtFromTtl(ttl, new Date(), EPHEMERAL_MAX_TTL_SECONDS / 86_400);
+    if (seconds < policy.min_ttl_seconds) {
+      throw new Error(`TTL is below workspace minimum of ${policy.min_ttl_seconds} seconds`);
+    }
+    return seconds;
+  }
   if (!ttl) {
     return policy.default_ttl_seconds;
   }

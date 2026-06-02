@@ -464,6 +464,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@agent-paste/tokens':
+        specifier: workspace:*
+        version: link:../tokens
     devDependencies:
       typescript:
         specifier: 'catalog:'

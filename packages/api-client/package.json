@@ -13,11 +13,12 @@
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck",
     "lint": "biome lint .",
-    "test": "vitest run test/client.test.ts",
+    "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-paste/contracts": "workspace:*"
+    "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/tokens": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",
