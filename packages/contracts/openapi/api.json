@@ -602,6 +602,17 @@
             "minLength": 1,
             "maxLength": 4096
           },
+          "render_mode": {
+            "type": "string",
+            "enum": [
+              "html",
+              "markdown",
+              "text",
+              "image",
+              "audio",
+              "video"
+            ]
+          },
           "view_url": {
             "type": "string",
             "format": "uri"
@@ -781,6 +792,7 @@
           "created_at",
           "expires_at",
           "entrypoint",
+          "render_mode",
           "view_url",
           "files",
           "bundle"

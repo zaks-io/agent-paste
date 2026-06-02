@@ -42,6 +42,8 @@ assert(published.agent_view_url?.startsWith(config.apiBaseUrl), `publish returne
 
 const agentViewJson = await fetchJson(published.agent_view_url);
 assert(agentViewJson.artifact_id === published.artifact_id, "Agent View JSON artifact id matches");
+assert(agentViewJson.title === published.title, "Agent View JSON title matches publish result");
+assert(agentViewJson.render_mode === "html", "Agent View JSON render_mode is html for index.html");
 assert(
   Array.isArray(agentViewJson.files) && agentViewJson.files.some((file) => file.path === "index.html"),
   "Agent View JSON lists index.html",

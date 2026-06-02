@@ -588,15 +588,10 @@ describe("LocalRepository", () => {
     });
 
     const operatorView = await repo.listOperatorEvents(operator, { workspaceId: workspace.id });
-    expect(operatorView.items.map((item) => item.action)).toEqual([
-      "platform.lockdown.set",
-      "workspace.created",
-    ]);
+    expect(operatorView.items.map((item) => item.action)).toEqual(["platform.lockdown.set", "workspace.created"]);
 
     const lockdownRow = operatorView.items.find((item) => item.action === "platform.lockdown.set");
-    expect(lockdownRow?.change_summary).toBe(
-      "Platform lockdown set on workspace (reason: phishing_report)",
-    );
+    expect(lockdownRow?.change_summary).toBe("Platform lockdown set on workspace (reason: phishing_report)");
     expect(operatorView.items.find((item) => item.action === "workspace.created")?.change_summary).toBe(
       "Workspace created",
     );
@@ -653,8 +648,8 @@ describe("LocalRepository", () => {
     const setEvent = [...repo.operationEvents.values()].find((event) => event.action === "platform.lockdown.set");
     expect(setEvent?.workspace_id).toBe(workspace.id);
     expect(
-      (await repo.listOperatorEvents(operator, { workspaceId: workspace.id, action: "platform.lockdown.set" }))
-        .items[0]?.change_summary,
+      (await repo.listOperatorEvents(operator, { workspaceId: workspace.id, action: "platform.lockdown.set" })).items[0]
+        ?.change_summary,
     ).toBe("Platform lockdown set on artifact (reason: malware_signal)");
   });
 
@@ -1664,6 +1659,20 @@ describe("LocalRepository", () => {
         contentBaseUrl: "https://content.test",
       }),
     ).resolves.toBeNull();
+  });
+
+  it("returns publish title and render_mode from public agent view", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "Cloud E2E retry", "2030-01-01T00:00:01.000Z");
+    const view = await repo.getPublicAgentView({
+      token: `${published.artifact_id}.${published.revision_id}`,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(view).toMatchObject({
+      title: "Cloud E2E retry",
+      render_mode: "html",
+      entrypoint: "index.html",
+    });
   });
 
   it("pins public agent views to the requested published revision", async () => {

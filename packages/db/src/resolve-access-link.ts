@@ -1,6 +1,6 @@
 import { ACCESS_LINK_SCOPE } from "@agent-paste/tokens/access-link";
 import { isAccessLinkRowExpired, isArtifactAccessLinkLocked } from "./access-links.js";
-import { buildAgentView } from "./agent-view.js";
+import { buildAgentView, inferRenderMode } from "./agent-view.js";
 import { isEphemeralWorkspace } from "./policy.js";
 import type { Entities } from "./repository/ports.js";
 import type { AccessLink, Artifact, Revision } from "./types.js";
@@ -62,7 +62,7 @@ export async function resolveAccessLinkFromEntities(
     access_link_type: link.type,
     workspace_id: artifact.workspace_id,
     agent_view: agentView,
-    render_mode: revision.render_mode,
+    render_mode: revision.render_mode ?? inferRenderMode(revision.entrypoint),
     title: agentView.title,
     iframe_src: agentView.view_url,
   };

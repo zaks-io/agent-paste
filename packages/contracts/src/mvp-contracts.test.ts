@@ -249,6 +249,7 @@ describe("MVP schemas", () => {
         created_at: isoDate,
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
+        render_mode: "html",
         view_url: "https://usercontent.agent-paste.sh/v/token/index.html",
         files: [
           {

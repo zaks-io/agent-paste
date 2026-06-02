@@ -101,6 +101,7 @@ describe("callMcpTool", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.md",
+      render_mode: "markdown",
       view_url: "https://view.example",
       files: [
         {

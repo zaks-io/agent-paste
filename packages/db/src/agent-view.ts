@@ -1,4 +1,4 @@
-import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
+import type { Artifact, BundleStatus, RenderMode, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
 
@@ -32,30 +32,38 @@ function encodePath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
+type AgentViewRevision = {
+  entrypoint?: string;
+  render_mode?: RenderMode;
+  bundle_status: BundleStatus;
+  bundle_status_updated_at: string | null;
+  bundle_size_bytes: number | null;
+};
+
 export function buildAgentView(
   artifact: Artifact,
   revisionId: string,
   files: StoredFile[],
   contentBaseUrl: string,
-  revision: {
-    bundle_status: BundleStatus;
-    bundle_status_updated_at: string | null;
-    bundle_size_bytes: number | null;
-  },
+  revision: AgentViewRevision,
   warnings: SafetyWarning[] = [],
   options?: { ephemeral_tier?: boolean },
 ) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
+  const entrypoint = revision.entrypoint ?? artifact.entrypoint;
+  const title = artifact.title.trim() || "Untitled";
+  const render_mode = revision.render_mode ?? inferRenderMode(entrypoint);
   return {
     workspace_id: artifact.workspace_id,
     artifact_id: artifact.id,
     revision_id: revisionId,
-    title: artifact.title,
+    title,
     created_at: artifact.created_at,
     expires_at: artifact.expires_at,
-    entrypoint: artifact.entrypoint,
-    view_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
+    entrypoint,
+    render_mode,
+    view_url: `${prefix}/${encodePath(entrypoint)}`,
     files: files.map((file) => ({
       path: file.path,
       size_bytes: file.size_bytes,

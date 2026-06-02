@@ -8,6 +8,7 @@ import {
   RevisionId,
   UrlString,
 } from "./primitives.js";
+import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
 export const DisplayMetadata = z.object({
@@ -59,6 +60,7 @@ export const AgentView = z.object({
   created_at: IsoDateTime,
   expires_at: IsoDateTime,
   entrypoint: FilePath,
+  render_mode: RenderMode,
   view_url: UrlString,
   files: z.array(AgentViewFile).min(1).max(100),
   safety_warnings: z.array(SafetyWarning).max(100).default([]),

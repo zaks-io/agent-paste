@@ -42,11 +42,14 @@ const file: StoredFile = {
 describe("agent-view helpers", () => {
   it("builds agent view and publish URLs with encoded paths", () => {
     const view = buildAgentView(artifact, "rev_2", [file], "https://content.test/", {
+      entrypoint: artifact.entrypoint,
+      render_mode: "markdown",
       bundle_status: "pending",
       bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
       bundle_size_bytes: null,
     });
     expect(view.revision_id).toBe("rev_2");
+    expect(view.render_mode).toBe("markdown");
     expect(view.bundle).toEqual({ status: "pending", retry_after_seconds: 5 });
     expect(view.view_url).toBe("https://content.test/v/art_1.rev_2/docs/read%20me.md");
     expect(view.files[0]?.url).toContain("read%20me.md");
