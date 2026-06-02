@@ -1,4 +1,5 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { RepositoryError, repositoryErrorToAppError } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   entrypointPathFromViewUrl,
@@ -11,7 +12,7 @@ import { authenticateSmokeHarness, bearerToken, createApiAuthResolvers, isNonPro
 import type { Env } from "../src/env.js";
 import { parsePagination } from "../src/pagination.js";
 import { apiKeyActor, platformActor, webMemberActor, workspaceApiActor } from "../src/principals.js";
-import { mapRepositoryError, RepositoryRouteError, readJsonObject, runIdempotent } from "../src/responses.js";
+import { RepositoryRouteError, readJsonObject, runIdempotent } from "../src/responses.js";
 import { contractById } from "../src/route-contracts.js";
 import {
   apiBaseUrl,
@@ -102,10 +103,10 @@ describe("AP-91 shared API route helpers", () => {
   });
 
   it("maps known repository errors and preserves unknown failures", () => {
-    expect(mapRepositoryError(new Error("artifact_not_found"))).toEqual({ code: "artifact_not_found" });
-    expect(mapRepositoryError(new Error("invalid_ttl_seconds"))).toEqual({ code: "invalid_request" });
-    expect(mapRepositoryError(new Error("unknown"))).toBeNull();
-    expect(mapRepositoryError("artifact_not_found")).toBeNull();
+    expect(repositoryErrorToAppError(new RepositoryError("artifact_not_found"))).toBe("artifact_not_found");
+    expect(repositoryErrorToAppError(new RepositoryError("invalid_ttl_seconds"))).toBe("invalid_request");
+    expect(repositoryErrorToAppError(new Error("unknown"))).toBeNull();
+    expect(repositoryErrorToAppError("artifact_not_found")).toBeNull();
   });
 
   it("finds route contracts by id and fails loudly for missing ids", () => {

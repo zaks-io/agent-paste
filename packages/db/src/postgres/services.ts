@@ -1,3 +1,4 @@
+import { repositoryError } from "../repository-error.js";
 import type { HyperdriveBinding, RepositoryOptions, SqlExecutor } from "../types.js";
 import { createHyperdriveConnection, type DrizzleConnection } from "./drizzle.js";
 import { PostgresRepository } from "./repository.js";
@@ -30,5 +31,5 @@ function resolveConnectionOrExecutor(options: ServicesOptions): SqlExecutor | Dr
   if (options.executor) {
     return options.executor;
   }
-  throw new Error("createPostgresServices_missing_connection_or_executor");
+  repositoryError("create_postgres_services_missing_connection_or_executor");
 }

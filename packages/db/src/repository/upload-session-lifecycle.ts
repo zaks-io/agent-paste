@@ -8,6 +8,7 @@ import {
   isEphemeralWorkspace,
   type UsagePolicyConfig,
 } from "../policy.js";
+import { repositoryError } from "../repository-error.js";
 import { toUploadSessionRecord } from "../transforms.js";
 import type { ApiActor, Artifact, Revision, StoredFile, UploadSession, Workspace } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
@@ -39,15 +40,15 @@ export async function createUploadSessionInEntities(
   if (isUpdate) {
     const artifactId = input.request.artifact_id;
     if (!artifactId) {
-      throw new Error("artifact_not_found");
+      repositoryError("artifact_not_found");
     }
     baseArtifact = await entities.artifacts.findById(artifactId, input.actor.workspace_id);
     if (!baseArtifact || baseArtifact.status !== "active") {
-      throw new Error("artifact_not_found");
+      repositoryError("artifact_not_found");
     }
     const existingDraft = await entities.revisions.findDraftForArtifact(baseArtifact.id);
     if (existingDraft) {
-      throw new Error("draft_revision_conflict");
+      repositoryError("draft_revision_conflict");
     }
   }
   const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
@@ -126,13 +127,13 @@ export async function finalizeUploadSessionInEntities(
 ) {
   const session = await entities.uploadSessions.findById(input.sessionId, input.actor.workspace_id);
   if (!session) {
-    throw new Error("upload_session_not_found");
+    repositoryError("upload_session_not_found");
   }
   const files = await entities.uploadSessionFiles.listForSession(session.id);
   const observed = new Set(input.observedFiles.map((file) => `${file.path}:${file.objectKey}:${file.sizeBytes}`));
   for (const file of files) {
     if (!observed.has(`${file.path}:${file.r2_key}:${file.size_bytes}`)) {
-      throw new Error("upload_incomplete");
+      repositoryError("upload_incomplete");
     }
   }
   const operationActor = operationActorFromApiActor(input.actor);
@@ -140,7 +141,7 @@ export async function finalizeUploadSessionInEntities(
   if (existingArtifact) {
     const existingDraft = await entities.revisions.findDraftForArtifact(existingArtifact.id);
     if (existingDraft && existingDraft.id !== session.revision_id) {
-      throw new Error("draft_revision_conflict");
+      repositoryError("draft_revision_conflict");
     }
   } else {
     const artifact: Artifact = {

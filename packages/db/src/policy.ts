@@ -11,6 +11,7 @@ import {
   type UsagePolicyConfig,
   type WorkspacePlan,
 } from "@agent-paste/config";
+import { repositoryError } from "./repository-error.js";
 import type { Workspace } from "./types.js";
 
 export function isEphemeralWorkspace(workspace: Pick<Workspace, "claimed_at">): boolean {
@@ -31,7 +32,7 @@ export function ephemeralArtifactTtlSeconds(
   const ephemeralCap = EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY;
   const ttlSeconds = requestedTtlSeconds ?? Math.min(policy.default_ttl_seconds, ephemeralCap);
   if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > ephemeralCap) {
-    throw new Error("invalid_ttl_seconds");
+    repositoryError("invalid_ttl_seconds");
   }
   return ttlSeconds;
 }
@@ -86,7 +87,7 @@ export function artifactTtlSecondsForUpload(
 ): number {
   const ttlSeconds = requestedTtlSeconds ?? policy.default_ttl_seconds;
   if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > policy.max_ttl_seconds) {
-    throw new Error("invalid_ttl_seconds");
+    repositoryError("invalid_ttl_seconds");
   }
   return ttlSeconds;
 }

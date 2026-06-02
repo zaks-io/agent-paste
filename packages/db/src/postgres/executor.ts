@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
+import { repositoryError } from "../repository-error.js";
 import * as schema from "../schema.js";
 import type { HyperdriveBinding, SqlExecutor, SqlValue } from "../types.js";
 import { bindDrizzleToExecutor, DEFAULT_POSTGRES_OPTIONS, type DrizzleDb } from "./drizzle.js";
@@ -58,13 +59,13 @@ export function createPostgresHttpExecutor(options: {
         body: JSON.stringify({ sql, params }),
       });
       if (!response.ok) {
-        throw new Error(`postgres_http_error:${response.status}`);
+        repositoryError("postgres_http_error");
       }
       const body = (await response.json()) as { rows?: Row[] };
       return { rows: body.rows ?? [] };
     },
     async transaction<T>(_run: (tx: SqlExecutor) => Promise<T>): Promise<T> {
-      throw new Error("postgres_http_executor_no_transactions");
+      repositoryError("postgres_http_executor_no_transactions");
     },
   };
 }

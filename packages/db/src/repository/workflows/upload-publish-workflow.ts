@@ -2,6 +2,7 @@ import { buildAgentView, buildPublishResult } from "../../agent-view.js";
 import { operationActorFromApiActor } from "../../created-by.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
+import { repositoryError } from "../../repository-error.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
@@ -159,14 +160,14 @@ export async function publishRevision(
       const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
       if (!artifact || artifact.status !== "active") {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
       if (!revision || revision.artifact_id !== artifact.id) {
-        throw new Error("revision_unpublished");
+        repositoryError("revision_unpublished");
       }
       if (revision.status === "retained") {
-        throw new Error("revision_retained");
+        repositoryError("revision_retained");
       }
       if (revision.status === "published") {
         return buildPublishResult(
@@ -178,16 +179,16 @@ export async function publishRevision(
         );
       }
       if (revision.status !== "draft") {
-        throw new Error("revision_unpublished");
+        repositoryError("revision_unpublished");
       }
       const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
       if (!revisionFiles.some((file) => file.path === revision.entrypoint)) {
-        throw new Error("entrypoint_not_in_revision");
+        repositoryError("entrypoint_not_in_revision");
       }
       const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
       const policy = ctx.usagePolicyFor(workspace);
       if (revisionNumber > policy.lifetime_revision_ceiling) {
-        throw new Error("revision_ceiling_exceeded");
+        repositoryError("revision_ceiling_exceeded");
       }
       const bundleStatus = policy.bundles_enabled ? ("pending" as const) : ("disabled" as const);
       const published = await entities.revisions.publish({
@@ -197,7 +198,7 @@ export async function publishRevision(
         bundleStatus,
       });
       if (!published) {
-        throw new Error("revision_unpublished");
+        repositoryError("revision_unpublished");
       }
       const sourceSession = await entities.uploadSessions.findByRevisionId(revision.id, input.actor.workspace_id);
       const expiresAt = isEphemeralWorkspace(workspace)
@@ -214,7 +215,7 @@ export async function publishRevision(
       });
       const updatedArtifact = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
       if (!updatedArtifact) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       const publishActor = operationActorFromApiActor(input.actor);
       await entities.operationEvents.insert({
@@ -229,7 +230,7 @@ export async function publishRevision(
       });
       const publishedRevision = await entities.revisions.findById(revision.id, input.actor.workspace_id);
       if (!publishedRevision) {
-        throw new Error("revision_unpublished");
+        repositoryError("revision_unpublished");
       }
       return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
         ephemeral_tier: isEphemeralWorkspace(workspace),

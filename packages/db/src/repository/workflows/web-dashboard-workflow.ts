@@ -1,17 +1,9 @@
-import {
-  autoDeletionBoundsForWorkspace,
-  type UsagePolicyConfig,
-} from "../../policy.js";
+import { autoDeletionBoundsForWorkspace, type UsagePolicyConfig } from "../../policy.js";
+import { repositoryError } from "../../repository-error.js";
 import { toApiKeySummary, toWorkspaceSummary } from "../../transforms.js";
 import type { ApiActor, ApiKeyActor, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
-import {
-  apiCommandActor,
-  expiresAtFromSeconds,
-  memberCommandActor,
-  nowIso,
-  workspaceScope,
-} from "../core-helpers.js";
+import { apiCommandActor, expiresAtFromSeconds, memberCommandActor, nowIso, workspaceScope } from "../core-helpers.js";
 import { buildApiKey, toWorkspaceMemberSummary } from "../shared.js";
 import {
   decodeWebArtifactCursor,
@@ -34,7 +26,7 @@ function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig) {
 
 export async function getWebWorkspace(ctx: RepositoryCoreContext, actor: ApiActor) {
   if (actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   return ctx.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
     const member = await ctx.mustMember(entities, actor.id);
@@ -87,7 +79,7 @@ export async function pinWebArtifact(
   input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date },
 ) {
   if (input.actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   const now = nowIso(input.now);
   return ctx.uow.command(
@@ -102,7 +94,7 @@ export async function pinWebArtifact(
       const member = await ctx.mustMember(entities, input.actor.id);
       const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
       if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       if (artifact.pinned_at) {
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
@@ -116,10 +108,10 @@ export async function pinWebArtifact(
         ctx.usagePolicyFor(workspace).live_artifacts_cap,
       );
       if (pinResult === "cap_exceeded") {
-        throw new Error("pinned_artifact_cap_exceeded");
+        repositoryError("pinned_artifact_cap_exceeded");
       }
       if (pinResult === "not_found") {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       await entities.operationEvents.insert({
         actorType: "member",
@@ -133,7 +125,7 @@ export async function pinWebArtifact(
       });
       const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);
       if (!updated) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       return ctx.webArtifactDetailFromArtifact(entities, updated, member.workspace_id);
     },
@@ -145,7 +137,7 @@ export async function unpinWebArtifact(
   input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date },
 ) {
   if (input.actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   const now = nowIso(input.now);
   return ctx.uow.command(
@@ -160,7 +152,7 @@ export async function unpinWebArtifact(
       const member = await ctx.mustMember(entities, input.actor.id);
       const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
       if (!artifact || artifact.status !== "active") {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       if (!artifact.pinned_at) {
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
@@ -178,7 +170,7 @@ export async function unpinWebArtifact(
       });
       const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);
       if (!updated) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       return ctx.webArtifactDetailFromArtifact(entities, updated, member.workspace_id);
     },
@@ -209,7 +201,7 @@ export async function createWebApiKey(
   },
 ) {
   if (input.actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   const now = nowIso(input.now);
   return ctx.uow.command(
@@ -257,7 +249,7 @@ export async function revokeCurrentApiKey(ctx: RepositoryCoreContext, input: { a
     async (entities) => {
       const apiKey = await entities.apiKeys.findById(input.actor.id);
       if (!apiKey || apiKey.workspace_id !== input.actor.workspace_id) {
-        throw new Error("api_key_not_found");
+        repositoryError("current_api_key_not_found");
       }
       await entities.apiKeys.updateRevokedAt(apiKey.id, revokedAt);
       await entities.operationEvents.insert({
@@ -280,7 +272,7 @@ export async function revokeWebApiKey(
   input: { actor: ApiActor; idempotencyKey: string; apiKeyId: string; now?: Date },
 ) {
   if (input.actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   const revokedAt = nowIso(input.now);
   return ctx.uow.command(
@@ -295,7 +287,7 @@ export async function revokeWebApiKey(
       const member = await ctx.mustMember(entities, input.actor.id);
       const apiKey = await entities.apiKeys.findById(input.apiKeyId);
       if (!apiKey || apiKey.workspace_id !== member.workspace_id) {
-        throw new Error("api_key_not_found");
+        repositoryError("not_found");
       }
       await entities.apiKeys.updateRevokedAt(input.apiKeyId, revokedAt);
       await entities.operationEvents.insert({
@@ -355,7 +347,7 @@ export async function updateWebSettings(
   },
 ) {
   if (input.actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${input.actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   const now = nowIso(input.now);
   return ctx.uow.command(
@@ -371,7 +363,7 @@ export async function updateWebSettings(
       const workspace = await ctx.mustWorkspace(entities, member.workspace_id);
       const { min, max } = autoDeletionBoundsForWorkspace(workspace, ctx.billingEnabled());
       if (input.autoDeletionDays < min || input.autoDeletionDays > max) {
-        throw new Error("invalid_auto_deletion_days");
+        repositoryError("invalid_auto_deletion_days");
       }
       await entities.workspaces.update(member.workspace_id, {
         name: input.workspaceName,

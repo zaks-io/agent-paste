@@ -1,3 +1,4 @@
+import { RepositoryError } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   webApiKeys,
@@ -72,7 +73,7 @@ describe("AP-91 web route modules", () => {
     const noAuditDb = await webAudit(contextFor(), memberPrincipal(), {} as never);
     expect(noAuditDb.status).toBe(503);
 
-    db.listWebAuditEvents.mockRejectedValueOnce(new Error("invalid_cursor"));
+    db.listWebAuditEvents.mockRejectedValueOnce(new RepositoryError("invalid_cursor"));
     const badAuditCursor = await webAudit(contextFor(), memberPrincipal(), db as never);
     expect(badAuditCursor.status).toBe(400);
   });
@@ -112,7 +113,7 @@ describe("AP-91 web route modules", () => {
     expect(noPinDb.status).toBe(503);
 
     const pinWebArtifact = vi.fn(async () => {
-      throw new Error("pinned_artifact_cap_exceeded");
+      throw new RepositoryError("pinned_artifact_cap_exceeded");
     });
     const pinMapped = await webPinArtifact(contextFor(), memberPrincipal(), { pinWebArtifact } as never, guardFor(), {
       artifactId: "art_1",
@@ -121,7 +122,7 @@ describe("AP-91 web route modules", () => {
     await expect(responseJson(pinMapped)).resolves.toMatchObject({ error: { code: "pinned_artifact_cap_exceeded" } });
 
     const unpinWebArtifact = vi.fn(async () => {
-      throw new Error("artifact_not_found");
+      throw new RepositoryError("artifact_not_found");
     });
     const unpinMapped = await webUnpinArtifact(
       contextFor(),
@@ -157,7 +158,7 @@ describe("AP-91 web route modules", () => {
     expect(noCreateDb.status).toBe(503);
 
     const revokeWebApiKey = vi.fn(async () => {
-      throw new Error("api_key_not_found");
+      throw new RepositoryError("not_found");
     });
     const missing = await webRevokeApiKey(contextFor(), memberPrincipal(), { revokeWebApiKey } as never, guardFor(), {
       apiKeyId: "key_missing",

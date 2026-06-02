@@ -325,14 +325,14 @@ describe("LocalRepository", () => {
 
     await expect(
       repo.revokeWebApiKey({ actor: firstActor, idempotencyKey: "idem-missing", apiKeyId: "key_missing" }),
-    ).rejects.toThrow("api_key_not_found");
+    ).rejects.toThrow("not_found");
     await expect(
       repo.revokeWebApiKey({
         actor: firstActor,
         idempotencyKey: "idem-cross",
         apiKeyId: secondKey.api_key.id,
       }),
-    ).rejects.toThrow("api_key_not_found");
+    ).rejects.toThrow("not_found");
     expect(firstKey.api_key.workspace_id).toBe(firstSession.workspace.id);
     expect(secondKey.api_key.workspace_id).toBe(secondSession.workspace.id);
   });
@@ -458,7 +458,7 @@ describe("LocalRepository", () => {
         workspaceName: "ws",
         autoDeletionDays: 30,
       }),
-    ).rejects.toThrow("unexpected_actor_type:api_key");
+    ).rejects.toThrow("unexpected_actor_type");
   });
 
   it("rejects out-of-range auto_deletion_days in the repository core", async () => {
@@ -588,15 +588,10 @@ describe("LocalRepository", () => {
     });
 
     const operatorView = await repo.listOperatorEvents(operator, { workspaceId: workspace.id });
-    expect(operatorView.items.map((item) => item.action)).toEqual([
-      "platform.lockdown.set",
-      "workspace.created",
-    ]);
+    expect(operatorView.items.map((item) => item.action)).toEqual(["platform.lockdown.set", "workspace.created"]);
 
     const lockdownRow = operatorView.items.find((item) => item.action === "platform.lockdown.set");
-    expect(lockdownRow?.change_summary).toBe(
-      "Platform lockdown set on workspace (reason: phishing_report)",
-    );
+    expect(lockdownRow?.change_summary).toBe("Platform lockdown set on workspace (reason: phishing_report)");
     expect(operatorView.items.find((item) => item.action === "workspace.created")?.change_summary).toBe(
       "Workspace created",
     );
@@ -653,8 +648,8 @@ describe("LocalRepository", () => {
     const setEvent = [...repo.operationEvents.values()].find((event) => event.action === "platform.lockdown.set");
     expect(setEvent?.workspace_id).toBe(workspace.id);
     expect(
-      (await repo.listOperatorEvents(operator, { workspaceId: workspace.id, action: "platform.lockdown.set" }))
-        .items[0]?.change_summary,
+      (await repo.listOperatorEvents(operator, { workspaceId: workspace.id, action: "platform.lockdown.set" })).items[0]
+        ?.change_summary,
     ).toBe("Platform lockdown set on artifact (reason: malware_signal)");
   });
 
@@ -784,7 +779,7 @@ describe("LocalRepository", () => {
       throw new Error("expected actor");
     }
 
-    await expect(repo.getWebWorkspace(actor)).rejects.toThrow("unexpected_actor_type:api_key");
+    await expect(repo.getWebWorkspace(actor)).rejects.toThrow("unexpected_actor_type");
   });
 
   it("cursor-paginates web artifacts inside the member workspace", async () => {
@@ -1209,14 +1204,14 @@ describe("LocalRepository", () => {
         idempotencyKey: "idem-pin-api-key",
         artifactId: published.artifact_id,
       }),
-    ).rejects.toThrow("unexpected_actor_type:api_key");
+    ).rejects.toThrow("unexpected_actor_type");
     await expect(
       repo.unpinWebArtifact({
         actor: apiActor,
         idempotencyKey: "idem-unpin-api-key",
         artifactId: published.artifact_id,
       }),
-    ).rejects.toThrow("unexpected_actor_type:api_key");
+    ).rejects.toThrow("unexpected_actor_type");
   });
 
   it("pin and unpin are idempotent when state is already satisfied", async () => {

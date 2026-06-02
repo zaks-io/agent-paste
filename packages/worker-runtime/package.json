@@ -17,6 +17,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@agent-paste/db": "workspace:*",
     "@agent-paste/auth": "workspace:*",
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/contracts": "workspace:*",

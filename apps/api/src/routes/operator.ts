@@ -14,7 +14,7 @@ import type { AppContext, Env } from "../env.js";
 import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { platformActor } from "../principals.js";
-import { errorResponse, jsonResponse, runIdempotent } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 type OperatorEventFilterInput = {
@@ -43,14 +43,7 @@ export async function webAdminListLockdowns(
     return errorResponse(context, pagination.code);
   }
   const listLockdowns = db.listLockdowns.bind(db);
-  try {
-    return jsonResponse(context, await listLockdowns(actor, pagination.value));
-  } catch (error) {
-    if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () => listLockdowns(actor, pagination.value));
 }
 
 export async function webAdminListEvents(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -70,20 +63,12 @@ export async function webAdminListEvents(context: AppContext, principal: Princip
     return errorResponse(context, filters.code);
   }
   const listOperatorEvents = db.listOperatorEvents.bind(db);
-  try {
-    return jsonResponse(
-      context,
-      await listOperatorEvents(actor, {
-        ...pagination.value,
-        ...filters.value,
-      }),
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () =>
+    listOperatorEvents(actor, {
+      ...pagination.value,
+      ...filters.value,
+    }),
+  );
 }
 
 export async function webAdminSetLockdown(
@@ -161,24 +146,17 @@ export async function webAdminLiftLockdown(
   }
   const scope = scopeResult.data;
   const env = context.env;
-  try {
-    return await runIdempotent(context, async () => {
-      const detail = await liftLockdown({
-        actor,
-        idempotencyKey: guard.idempotencyKey,
-        scope,
-        targetId: params.targetId,
-        requestId: getRequestId(context),
-      });
-      await deleteDenylistEntry(env, scope, params.targetId);
-      return detail;
+  return runIdempotent(context, async () => {
+    const detail = await liftLockdown({
+      actor,
+      idempotencyKey: guard.idempotencyKey,
+      scope,
+      targetId: params.targetId,
+      requestId: getRequestId(context),
     });
-  } catch (error) {
-    if (error instanceof Error && error.message === "not_found") {
-      return errorResponse(context, "not_found");
-    }
-    throw error;
-  }
+    await deleteDenylistEntry(env, scope, params.targetId);
+    return detail;
+  });
 }
 
 function parseOperatorEventFilters(

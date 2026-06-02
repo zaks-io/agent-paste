@@ -1,3 +1,4 @@
+import { RepositoryError } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "../src/routes/account.js";
 import {
@@ -64,7 +65,7 @@ describe("AP-91 account route modules", () => {
     expect(unavailable.status).toBe(503);
 
     const revokeCurrentApiKeyFn = vi.fn(async () => {
-      throw new Error("api_key_not_found");
+      throw new RepositoryError("current_api_key_not_found");
     });
     const missing = await revokeCurrentApiKey(contextFor(), apiPrincipal(), {
       revokeCurrentApiKey: revokeCurrentApiKeyFn,
@@ -100,7 +101,7 @@ describe("AP-91 member artifact route modules", () => {
     expect(ok.status).toBe(200);
     expect(listMemberArtifacts).toHaveBeenCalledWith(apiActor, { limit: 2, cursor: "next" });
 
-    listMemberArtifacts.mockRejectedValueOnce(new Error("invalid_cursor"));
+    listMemberArtifacts.mockRejectedValueOnce(new RepositoryError("invalid_cursor"));
     const invalidCursor = await listMemberArtifactsRoute(contextFor(), apiPrincipal(), {
       listMemberArtifacts,
     } as never);
@@ -155,7 +156,7 @@ describe("AP-91 member artifact route modules", () => {
       expect.objectContaining({ artifactId: "art_1", title: "New" }),
     );
 
-    updateArtifactDisplayMetadata.mockRejectedValueOnce(new Error("artifact_not_found"));
+    updateArtifactDisplayMetadata.mockRejectedValueOnce(new RepositoryError("artifact_not_found"));
     const missing = await updateDisplayMetadataRoute(
       contextFor(),
       apiPrincipal(),
@@ -164,7 +165,7 @@ describe("AP-91 member artifact route modules", () => {
     );
     expect(missing.status).toBe(404);
 
-    updateArtifactDisplayMetadata.mockRejectedValueOnce(new Error("invalid_request"));
+    updateArtifactDisplayMetadata.mockRejectedValueOnce(new RepositoryError("invalid_request"));
     const invalid = await updateDisplayMetadataRoute(
       contextFor(),
       apiPrincipal(),

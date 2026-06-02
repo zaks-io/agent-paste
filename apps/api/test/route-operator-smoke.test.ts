@@ -1,3 +1,4 @@
+import { RepositoryError } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   webAdminLiftLockdown,
@@ -55,7 +56,7 @@ describe("AP-91 operator route modules", () => {
       }),
     );
 
-    listOperatorEvents.mockRejectedValueOnce(new Error("invalid_cursor"));
+    listOperatorEvents.mockRejectedValueOnce(new RepositoryError("invalid_cursor"));
     const badCursor = await webAdminListEvents(contextFor(), operatorPrincipal(), { listOperatorEvents } as never);
     expect(badCursor.status).toBe(400);
   });
@@ -103,7 +104,7 @@ describe("AP-91 operator route modules", () => {
     expect(lifted.status).toBe(200);
     expect(deleteKey).toHaveBeenCalledWith("ad:art_1");
 
-    db.liftLockdown.mockRejectedValueOnce(new Error("not_found"));
+    db.liftLockdown.mockRejectedValueOnce(new RepositoryError("not_found"));
     const missing = await webAdminLiftLockdown(contextFor(), operatorPrincipal(), db as never, guardFor(), {
       scope: "artifact",
       targetId: "missing",

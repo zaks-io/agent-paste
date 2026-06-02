@@ -1,12 +1,9 @@
+import { repositoryError } from "../../repository-error.js";
 import { toArtifactSummary } from "../../transforms.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import { nowIso, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
-import {
-  decodeWebArtifactCursor,
-  encodeWebArtifactCursor,
-  normalizeWebArtifactLimit,
-} from "../web-transforms.js";
+import { decodeWebArtifactCursor, encodeWebArtifactCursor, normalizeWebArtifactLimit } from "../web-transforms.js";
 
 export async function listMemberArtifacts(
   ctx: RepositoryCoreContext,
@@ -49,7 +46,7 @@ export async function deleteMemberArtifact(
     async (entities) => {
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
       if (!artifact || artifact.status !== "active") {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       await entities.artifacts.markDeleted(artifact.id, deletedAt);
       await entities.operationEvents.insert({
@@ -88,12 +85,12 @@ export async function updateArtifactDisplayMetadata(
     async (entities) => {
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
       if (!artifact || artifact.status !== "active") {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       await entities.artifacts.updateTitle(artifact.id, input.actor.workspace_id, input.title, now);
       const updated = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
       if (!updated) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       return {
         title: updated.title,

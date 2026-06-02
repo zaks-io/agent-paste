@@ -1,7 +1,5 @@
 export { IdempotencyInFlightError } from "@agent-paste/commands";
 export {
-  AccessLinkInactiveError,
-  AccessLinkLockdownError,
   assertAccessLinkMintable,
   computeAccessLinkUrlExpMs,
   createAccessLinkRow,
@@ -55,6 +53,13 @@ export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
 export { EPHEMERAL_PROVISION_SYSTEM_ACTOR } from "./repository/core-helpers.js";
 export type { Repository } from "./repository/interface.js";
+export {
+  isRepositoryError,
+  RepositoryError,
+  type RepositoryErrorCode,
+  repositoryError,
+  repositoryErrorToAppError,
+} from "./repository-error.js";
 export {
   applyRevisionPurgeSideEffects,
   enqueueRevisionBytePurge,
