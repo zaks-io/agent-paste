@@ -16,6 +16,8 @@ describe("claim tokens", () => {
     const generated = await generateClaimToken("production", pepper);
     expect(parseClaimToken("ap_pk_preview_ABCDEFGHJKLMNP12_secret")).toBeNull();
     expect(parseClaimToken("ap_ct_live_ABCDEFGHJKLMNP12_secret")).toBeNull();
+    expect(parseClaimToken("ap_ct_preview_ABCDEFGHJKLMNP12")).toBeNull();
+    await expect(verifyClaimTokenSecret("ap_ct_not-a-token", generated.tokenHash, pepper)).resolves.toBe(false);
     await expect(verifyClaimTokenSecret(generated.secret, generated.tokenHash, "other-pepper")).resolves.toBe(false);
     await expect(verifyClaimTokenSecret(generated.secret, new Uint8Array([0]), pepper)).resolves.toBe(false);
   });

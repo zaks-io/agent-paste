@@ -202,6 +202,11 @@ describe("postgres query adapters", () => {
     ]);
 
     await claimTokenQueries.insert(db, claimTokenEntity());
+    await claimTokenQueries.insert(db, {
+      ...claimTokenEntity(),
+      id: "ct_00000000000000000000000002",
+      redeemed_at: "2026-01-02T00:00:00.000Z",
+    });
     await expect(claimTokenQueries.findById(db, "ct_00000000000000000000000001")).resolves.toMatchObject({
       id: "ct_00000000000000000000000001",
       redeemed_at: null,

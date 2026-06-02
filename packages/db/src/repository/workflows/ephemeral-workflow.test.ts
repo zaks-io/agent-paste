@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { PepperRing } from "@agent-paste/rotation";
+import { describe, expect, it, vi } from "vitest";
 import { verifyClaimTokenSecret } from "../../claim-tokens.js";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
+import * as coreHelpers from "../core-helpers.js";
+import { localClaimTokens } from "../local-entities/claim-tokens.js";
+import { createLocalState } from "../local-state.js";
 
 describe("createEphemeralWorkspace", () => {
   it("creates an unclaimed workspace and hashed claim token through runCommand", async () => {
@@ -22,6 +26,28 @@ describe("createEphemeralWorkspace", () => {
     ).resolves.toBe(true);
   });
 
+  it("uses command now when ttl conversion returns null", async () => {
+    const spy = vi.spyOn(coreHelpers, "expiresAtFromSeconds").mockReturnValue(null);
+    const now = new Date("2026-06-01T12:00:00.000Z");
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-null-ttl", now });
+    expect(result.claim_token.expires_at).toBe(now.toISOString());
+    expect(result.api_key.expires_at).toBe(now.toISOString());
+    spy.mockRestore();
+  });
+
+  it("uses configured pepper ring and api key env when provided", async () => {
+    const pepperRing = PepperRing.single("ring-pepper", 1);
+    const { repo } = createLocalServices({
+      apiKeyPepper: "ignored",
+      apiKeyEnv: "production",
+      pepperRing,
+    });
+    const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-ring" });
+    expect(result.claim_token_secret).toMatch(/^ap_ct_production_/);
+    expect(result.claim_token.pepper_kid).toBe(1);
+  });
+
   it("honors a custom claim-token TTL", async () => {
     const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
     const now = new Date("2026-06-01T12:00:00.000Z");
@@ -32,6 +58,28 @@ describe("createEphemeralWorkspace", () => {
     });
     expect(result.claim_token.expires_at).toBe("2026-06-01T13:00:00.000Z");
     expect(result.api_key.expires_at).toBe("2026-06-01T13:00:00.000Z");
+  });
+
+  it("scopes local claim token lookups to workspace", async () => {
+    const state = createLocalState();
+    const claimTokens = localClaimTokens(state);
+    await claimTokens.insert({
+      id: "ct_00000000000000000000000001",
+      workspace_id: "workspace-a",
+      token_hash: new Uint8Array([1]),
+      pepper_kid: 1,
+      expires_at: "2026-01-01T00:00:00.000Z",
+      redeemed_at: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+    });
+    await expect(claimTokens.findById("ct_00000000000000000000000001")).resolves.toMatchObject({
+      workspace_id: "workspace-a",
+    });
+    await expect(claimTokens.findById("ct_00000000000000000000000001", "workspace-a")).resolves.toMatchObject({
+      workspace_id: "workspace-a",
+    });
+    await expect(claimTokens.findById("ct_00000000000000000000000001", "workspace-b")).resolves.toBeNull();
+    await expect(claimTokens.findById("ct_missing")).resolves.toBeNull();
   });
 
   it("isolates claim token rows per workspace in local state", async () => {
