@@ -96,7 +96,7 @@ describe("createEphemeralWorkspace", () => {
       actor,
       idempotencyKey: "ephemeral-upload",
       request: { entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
-      now: "2026-06-01T00:00:00.000Z",
+      now: "2099-06-01T00:00:00.000Z",
     });
     const uploadedFile = session.files[0];
     if (!uploadedFile) {
@@ -107,14 +107,14 @@ describe("createEphemeralWorkspace", () => {
       idempotencyKey: "ephemeral-finalize",
       sessionId: session.upload_session_id,
       observedFiles: [{ path: "index.html", objectKey: uploadedFile.object_key, sizeBytes: 12 }],
-      now: "2026-06-01T00:00:01.000Z",
+      now: "2099-06-01T00:00:01.000Z",
     });
     const published = await repo.publishRevision({
       actor,
       artifactId: session.artifact_id,
       revisionId: session.revision_id,
       idempotencyKey: "ephemeral-publish",
-      now: "2026-06-01T12:00:00.000Z",
+      now: "2099-06-01T12:00:00.000Z",
     });
     expect(published).toMatchObject({ ephemeral_tier: true });
     const agentView = await repo.getAgentView({
@@ -128,7 +128,7 @@ describe("createEphemeralWorkspace", () => {
     const artifact = localRepo.artifacts.get(session.artifact_id);
     expect(artifact?.expires_at).toBe(
       new Date(
-        Date.parse("2026-06-01T12:00:00.000Z") + EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY * 1000,
+        Date.parse("2099-06-01T12:00:00.000Z") + EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY * 1000,
       ).toISOString(),
     );
     expect(provisioned.workspace.auto_deletion_days).toBe(EPHEMERAL_AUTO_DELETION_DAYS);

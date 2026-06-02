@@ -775,7 +775,7 @@ describe("CSP header per content type", () => {
   it("pins the script-disabled HTML CSP for ephemeral-tier tokens", async () => {
     const response = await fetchServedFile("index.html", "ok", { script_disabled: true, noindex: true });
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
-      `"default-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
+      `"default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
     );
   });
 

@@ -3,10 +3,27 @@ import {
   BASE_CONTENT_SECURITY_POLICY,
   CONTENT_SECURITY_HEADERS,
   contentTypeForPath,
-  responseHeadersForPath,
+  deriveScriptDisabledContentSecurityPolicy,
   SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
   servedContentForPath,
 } from "./index";
+
+function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
+  const directives = new Map<string, string>();
+  for (const segment of csp.split(";")) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const spaceIndex = trimmed.search(/\s/u);
+    if (spaceIndex === -1) {
+      directives.set(trimmed, "");
+      continue;
+    }
+    directives.set(trimmed.slice(0, spaceIndex), trimmed.slice(spaceIndex + 1).trim());
+  }
+  return directives;
+}
 
 describe("storage helpers", () => {
   it("maps known extensions to MIME types", () => {
@@ -27,26 +44,38 @@ describe("storage helpers", () => {
     expect(contentTypeForPath("archive.bin")).toBe("application/octet-stream");
   });
 
-  it("adds defensive response headers", () => {
-    expect(responseHeadersForPath("app.js")).toMatchObject({
-      "Content-Type": "application/javascript; charset=utf-8",
-      "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Resource-Policy": "cross-origin",
-      "Permissions-Policy": CONTENT_SECURITY_HEADERS["Permissions-Policy"],
-      "Referrer-Policy": "no-referrer",
-      "X-Content-Type-Options": "nosniff",
+  it("serves defensive content metadata for known and unknown extensions", () => {
+    expect(servedContentForPath("app.js")).toMatchObject({
+      contentType: "application/javascript; charset=utf-8",
+      disposition: "inline",
+      csp: BASE_CONTENT_SECURITY_POLICY,
     });
-    expect(responseHeadersForPath("payload.bin")).toMatchObject({
-      "Content-Type": "application/octet-stream",
-      "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
-      "Content-Disposition": 'attachment; filename="payload.bin"',
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Resource-Policy": "cross-origin",
-      "Permissions-Policy": CONTENT_SECURITY_HEADERS["Permissions-Policy"],
-      "Referrer-Policy": "no-referrer",
-      "X-Content-Type-Options": "nosniff",
+    expect(servedContentForPath("payload.bin")).toMatchObject({
+      contentType: "application/octet-stream",
+      disposition: "attachment",
+      csp: BASE_CONTENT_SECURITY_POLICY,
     });
+    expect(CONTENT_SECURITY_HEADERS["Content-Security-Policy"]).toBe(BASE_CONTENT_SECURITY_POLICY);
+  });
+
+  it("derives script-disabled CSP from base by transforming only script-src", () => {
+    expect(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY).toBe(
+      deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY),
+    );
+
+    const baseDirectives = parseContentSecurityPolicyDirectives(BASE_CONTENT_SECURITY_POLICY);
+    const disabledDirectives = parseContentSecurityPolicyDirectives(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
+
+    expect([...disabledDirectives.keys()]).toEqual([...baseDirectives.keys()]);
+    for (const [name, value] of baseDirectives) {
+      if (name === "script-src") {
+        expect(disabledDirectives.get(name)).toBe("'none'");
+        expect(value).toContain("'unsafe-inline'");
+        expect(value).toContain("'unsafe-eval'");
+      } else {
+        expect(disabledDirectives.get(name)).toBe(value);
+      }
+    }
   });
 
   it("uses the script-disabled policy when requested", () => {

@@ -67,17 +67,56 @@ export const BASE_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-/** Base CDN-allowlisted policy with script execution removed (ephemeral tier). */
-export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY = [
-  "default-src 'none'",
-  "img-src 'self' data: blob:",
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "script-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'none'",
-].join("; ");
+function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
+  const directives = new Map<string, string>();
+  for (const segment of csp.split(";")) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const spaceIndex = trimmed.search(/\s/u);
+    if (spaceIndex === -1) {
+      directives.set(trimmed, "");
+      continue;
+    }
+    directives.set(trimmed.slice(0, spaceIndex), trimmed.slice(spaceIndex + 1).trim());
+  }
+  return directives;
+}
+
+function contentSecurityPolicyDirectiveOrder(csp: string): string[] {
+  const order: string[] = [];
+  for (const segment of csp.split(";")) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const name = trimmed.split(/\s+/u)[0];
+    if (name) {
+      order.push(name);
+    }
+  }
+  return order;
+}
+
+/** Derives the ephemeral script-disabled policy from the base policy by disabling script execution only. */
+export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): string {
+  const directives = parseContentSecurityPolicyDirectives(baseCsp);
+  directives.set("script-src", "'none'");
+  return contentSecurityPolicyDirectiveOrder(baseCsp)
+    .map((name) => {
+      const value = directives.get(name);
+      if (value === undefined) {
+        return null;
+      }
+      return value.length > 0 ? `${name} ${value}` : name;
+    })
+    .filter((segment): segment is string => segment !== null)
+    .join("; ");
+}
+
+export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY =
+  deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY);
 
 export const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
 
@@ -125,17 +164,4 @@ export function servedContentForPath(path: string, options?: { scriptDisabled?: 
 export function attachmentFilename(path: string): string {
   const basename = path.split("/").at(-1) || "download";
   return basename.replaceAll(/["\\\r\n]/gu, "_");
-}
-
-export function responseHeadersForPath(path: string, extra: Record<string, string> = {}): Record<string, string> {
-  const served = servedContentForPath(path);
-  return {
-    ...CONTENT_SECURITY_HEADERS,
-    "Content-Type": served.contentType,
-    "Content-Security-Policy": served.csp,
-    ...(served.disposition === "attachment"
-      ? { "Content-Disposition": `attachment; filename="${attachmentFilename(path)}"` }
-      : {}),
-    ...extra,
-  };
 }
