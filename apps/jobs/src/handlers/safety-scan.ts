@@ -1,6 +1,9 @@
 import { runCommand, shouldSkipRevisionQueueWork } from "@agent-paste/commands";
+import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
 import { SafetyScanMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
+import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
+import { mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { resolveSqlExecutor } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
@@ -13,7 +16,6 @@ import { scanPublishedUrlMalicious } from "../safety/url-scanner.js";
 type RevisionRow = {
   status: string;
   artifact_status: string;
-  entrypoint: string;
 };
 
 type RevisionFileRow = {
@@ -98,7 +100,6 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
           workspaceId: payload.workspace_id,
           artifactId: payload.artifact_id,
           revisionId: payload.revision_id,
-          entrypoint: state.entrypoint,
           requestedAt: payload.requested_at,
         });
       }
@@ -127,7 +128,7 @@ async function loadRevisionState(
   revisionId: string,
 ): Promise<RevisionRow | null> {
   const result = await executor.query<RevisionRow>(
-    `select r.status, r.entrypoint, a.status as artifact_status
+    `select r.status, a.status as artifact_status
      from revisions r
      inner join artifacts a on a.id = r.artifact_id
      where r.workspace_id = $1 and r.id = $2`,
@@ -303,15 +304,28 @@ async function runEphemeralUrlScanner(
     workspaceId: string;
     artifactId: string;
     revisionId: string;
-    entrypoint: string;
     requestedAt: string;
   },
 ): Promise<void> {
   const apiBase = env.API_BASE_URL?.replace(/\/+$/, "");
-  if (!apiBase) {
+  const signer = resolveAgentViewTokenSigner(env);
+  if (!apiBase || !signer) {
     return;
   }
-  const publishedUrl = `${apiBase}/v1/public/agent-view/${input.artifactId}.${input.revisionId}`;
+  const expiresAt = await loadArtifactExpiresAt(executor, input.workspaceId, input.artifactId);
+  const publishedUrl = await mintAgentViewUrl({
+    baseUrl: apiBase,
+    secret: signer.signingSecret,
+    payload: {
+      artifact_id: input.artifactId,
+      revision_id: input.revisionId,
+      exp: agentViewTokenExpiration(expiresAt),
+    },
+  });
+  const token = publishedUrl.split("/v1/public/agent-view/")[1];
+  if (!token || !(await verifyAgentViewToken(decodeURIComponent(token), signer.signingSecret))) {
+    return;
+  }
   const verdict = await scanPublishedUrlMalicious({
     url: publishedUrl,
     ...(env.CLOUDFLARE_ACCOUNT_ID ? { accountId: env.CLOUDFLARE_ACCOUNT_ID } : {}),
@@ -326,4 +340,21 @@ async function runEphemeralUrlScanner(
     revisionId: input.revisionId,
     now: input.requestedAt,
   });
+}
+
+async function loadArtifactExpiresAt(
+  executor: SqlExecutor,
+  workspaceId: string,
+  artifactId: string,
+): Promise<string | undefined> {
+  const result = await executor.query<{ expires_at: string }>(
+    `select expires_at from artifacts where workspace_id = $1 and id = $2`,
+    [workspaceId, artifactId],
+  );
+  return result.rows[0]?.expires_at;
+}
+
+function agentViewTokenExpiration(expiresAt: string | undefined): number {
+  const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + usagePolicy.default_ttl_seconds;
 }

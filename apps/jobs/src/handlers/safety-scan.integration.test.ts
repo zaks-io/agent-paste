@@ -1,3 +1,4 @@
+import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
 import { handleSafetyScanBatch } from "./safety-scan.js";
 
@@ -347,6 +348,7 @@ describe("handleSafetyScanBatch", () => {
   });
 
   it("locks down ephemeral artifacts when URL Scanner reports malicious", async () => {
+    const agentViewSigningSecret = "ephemeral-url-scan-secret";
     const denylistPut = vi.fn(async () => {});
     const fetchMock = vi
       .fn()
@@ -388,8 +390,11 @@ describe("handleSafetyScanBatch", () => {
       query: vi.fn(async (sql: string) => {
         if (sql.includes("from revisions r")) {
           return {
-            rows: [{ status: "published", artifact_status: "active", entrypoint: "index.html" }],
+            rows: [{ status: "published", artifact_status: "active" }],
           };
+        }
+        if (sql.includes("select expires_at from artifacts")) {
+          return { rows: [{ expires_at: "2030-01-01T00:00:00.000Z" }] };
         }
         if (sql.includes("from artifact_files")) {
           return {
@@ -416,6 +421,7 @@ describe("handleSafetyScanBatch", () => {
       {
         DB: db,
         API_BASE_URL: "https://api.test",
+        AGENT_VIEW_SIGNING_SECRET: agentViewSigningSecret,
         CLOUDFLARE_ACCOUNT_ID: "acct",
         URL_SCANNER_API_TOKEN: "token",
         DENYLIST: { put: denylistPut },
@@ -429,6 +435,18 @@ describe("handleSafetyScanBatch", () => {
     );
 
     expect(fetchMock).toHaveBeenCalled();
+    const submitCall = fetchMock.mock.calls.find((call) => String(call[0]).includes("urlscanner/v2/scan"));
+    expect(submitCall).toBeDefined();
+    const submitBody = JSON.parse(String((submitCall?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
+      url?: string;
+    };
+    const publishedUrl = submitBody.url ?? "";
+    expect(publishedUrl).not.toContain(`${artifactId}.${revisionId}`);
+    const scanToken = decodeURIComponent(publishedUrl.split("/v1/public/agent-view/")[1] ?? "");
+    await expect(verifyAgentViewToken(scanToken, agentViewSigningSecret)).resolves.toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
     expect(denylistPut).toHaveBeenCalledWith(
       `ad:${artifactId}`,
       expect.any(String),

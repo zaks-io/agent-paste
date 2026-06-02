@@ -45,10 +45,11 @@ export async function signAgentViewContentUrls(
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const workspaceId =
     options?.workspaceId ?? (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
+  const ephemeralTier = options?.ephemeralTier === true || ("ephemeral_tier" in data && data.ephemeral_tier === true);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    ...(options?.ephemeralTier ? { noindex: true as const } : {}),
+    ...(ephemeralTier ? { noindex: true as const } : {}),
   };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(

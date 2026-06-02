@@ -12,13 +12,16 @@ export function htmlAgentViewResponse(context: AppContext, view: unknown): Respo
     revision_id?: string;
     title?: string;
     view_url?: string;
+    ephemeral_tier?: boolean;
     files?: Array<{ path?: string; url?: string; content_type?: string; size_bytes?: number }>;
   };
+  const noindex = data.ephemeral_tier === true;
   const files = Array.isArray(data.files) ? data.files : [];
   const body = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    ${noindex ? '<meta name="robots" content="noindex,nofollow">' : ""}
     <title>${escapeHtml(data.title ?? "Agent View")}</title>
     <style>
       body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; color: #111827; }
@@ -48,17 +51,18 @@ export function htmlAgentViewResponse(context: AppContext, view: unknown): Respo
   </body>
 </html>`;
 
-  return new Response(body, {
-    headers: {
-      "cache-control": "no-store",
-      "content-security-policy":
-        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
-      "content-type": "text/html; charset=utf-8",
-      "referrer-policy": "no-referrer",
-      "x-content-type-options": "nosniff",
-      [REQUEST_ID_HEADER]: getRequestId(context),
-    },
-  });
+  const headers: Record<string, string> = {
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+    "content-type": "text/html; charset=utf-8",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    [REQUEST_ID_HEADER]: getRequestId(context),
+  };
+  if (noindex) {
+    headers["x-robots-tag"] = "noindex, nofollow";
+  }
+  return new Response(body, { headers });
 }
 
 function escapeHtml(value: string): string {

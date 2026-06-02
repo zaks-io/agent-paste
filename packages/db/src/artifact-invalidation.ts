@@ -34,12 +34,16 @@ export function artifactPurgePrefix(artifactId: string): string {
   return `artifacts/${artifactId}/`;
 }
 
-export async function writeArtifactDenylist(env: ArtifactInvalidationEnv, artifactId: string): Promise<boolean> {
+export async function writeArtifactDenylist(
+  env: ArtifactInvalidationEnv,
+  artifactId: string,
+  options?: { reason?: string },
+): Promise<boolean> {
   if (!artifactId || !env.DENYLIST) {
     return false;
   }
 
-  const value = JSON.stringify({ reason: "deletion", at: new Date().toISOString() });
+  const value = JSON.stringify({ reason: options?.reason ?? "deletion", at: new Date().toISOString() });
   for (let attempt = 1; attempt <= MAX_DENYLIST_ATTEMPTS; attempt += 1) {
     try {
       await env.DENYLIST.put(`ad:${artifactId}`, value, { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });

@@ -55,7 +55,7 @@ export async function applyMaliciousUrlLockdown(
       return { result: { lockdown_id: effectiveId, created: inserted.rows.length > 0 } };
     },
   });
-  const denylistWritten = await writeArtifactDenylist(env, input.artifactId);
+  const denylistWritten = await writeArtifactDenylist(env, input.artifactId, { reason: "platform_lockdown" });
   logOp("queue.safety_scan.lockdown", {
     artifact_id: input.artifactId,
     revision_id: input.revisionId,

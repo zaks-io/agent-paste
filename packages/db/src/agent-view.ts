@@ -43,6 +43,7 @@ export function buildAgentView(
     bundle_size_bytes: number | null;
   },
   warnings: SafetyWarning[] = [],
+  options?: { ephemeral_tier?: boolean },
 ) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
@@ -63,6 +64,7 @@ export function buildAgentView(
     })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
+    ...(options?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
   };
 }
 

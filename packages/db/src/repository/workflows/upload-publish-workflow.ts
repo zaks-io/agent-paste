@@ -230,7 +230,16 @@ export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { to
       revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
     const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
     const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
+    const workspace = await entities.workspaces.findById(artifact.workspace_id);
+    return buildAgentView(
+      viewArtifact,
+      revisionId,
+      files,
+      input.contentBaseUrl,
+      revision,
+      warnings,
+      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+    );
   });
 }
 
@@ -255,6 +264,15 @@ export async function getAgentView(
       revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
     const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
     const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
+    const workspace = await entities.workspaces.findById(input.actor.workspace_id);
+    return buildAgentView(
+      viewArtifact,
+      revisionId,
+      files,
+      input.contentBaseUrl,
+      revision,
+      warnings,
+      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+    );
   });
 }

@@ -39,5 +39,6 @@ Ephemeral-tier `safety-scan` messages use `scanner_id=ephemeral_tier` and requir
 - Workers AI binding `AI` (configured in `wrangler.jsonc`) for Llama Guard 3 text moderation.
 - `URL_SCANNER_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` runtime secrets for async URL Scanner verdicts (`wrangler secret put`, never committed).
 - `API_BASE_URL` var so URL Scanner can scan the public agent-view URL.
+- `AGENT_VIEW_SIGNING_SECRET` (or `CONTENT_SIGNING_SECRET` when agent-view shares content rotation) so the scanner can mint a valid signed public agent-view URL for the scan target.
 
 Malicious URL Scanner verdicts create an artifact-scoped Platform Lockdown and write the content denylist. Scanner failures stay quiet per ADR 0051.
