@@ -206,6 +206,16 @@ jobs:
           wait_for_healthz "$APEX_URL"
           if [ -n "$WEB_SMOKE_URL" ]; then wait_for_healthz "$WEB_SMOKE_URL"; fi
 
+      - name: Hosted ephemeral publish smoke
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
+          AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
+          AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          AGENT_PASTE_PR_SMOKE_HARNESS_SECRET: ${{ steps.deploy.outputs.smoke_harness_secret }}
+          AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN: ${{ secrets.AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN }}
+        run: node scripts/smoke-hosted-ephemeral.mjs pr
+
       - name: Lighthouse dashboard accessibility gate
         env:
           # Override in workflow_dispatch or forked test runs if the style-guide threshold changes.

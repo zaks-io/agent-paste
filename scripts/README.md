@@ -160,6 +160,33 @@ It ensures shared preview/production Cloudflare Queues exist (DLQs first), then 
 
 Queue provisioning runs before `api` because the API and jobs Workers bind `bundle-generate-*` producers/consumers. The web deploy runs last because its service binding targets the deployed API Worker. `apps/web` builds with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific deploy config.
 
+### `smoke-hosted-ephemeral.mjs`
+
+Hosted ephemeral publish smoke:
+
+```sh
+pnpm smoke:preview:ephemeral
+pnpm smoke:pr:ephemeral
+AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN=... pnpm smoke:production:ephemeral
+```
+
+Targets: `preview`, `pr`, `production` (alias `live`). The script probes
+`POST /v1/ephemeral/provision` for a `pow_required` challenge before running.
+When `EPHEMERAL_POW_SECRET` is not configured on the API Worker, it exits **0**
+with a skip message.
+
+Assertions:
+
+- proof-of-work provision and ephemeral daily write allowance via API
+- CLI `publish --ephemeral` on `examples/local-harness/ephemeral-site`
+- content `view_url` and Agent View JSON/HTML, including `noindex` and script-disabled CSP
+- Claim Token never appears in public URLs or stderr
+- optional claim redemption when `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` is set
+- preview/PR cleanup via smoke harness `__test__/delete-artifact` when harness secret is present
+
+PR preview runs this automatically in `.github/workflows/pr-preview.yml` after
+Worker readiness.
+
 ### `smoke-hosted.mjs`
 
 Hosted smoke test:
