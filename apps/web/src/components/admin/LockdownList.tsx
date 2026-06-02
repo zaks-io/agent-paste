@@ -1,6 +1,5 @@
 import type { LockdownDetail } from "@agent-paste/contracts";
 import { useState } from "react";
-import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
 import { liftLockdownFn } from "../../server/web-mutations";
 import { Badge } from "../ui/Badge";
@@ -8,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
+import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
@@ -82,8 +82,8 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
                 </TD>
                 <TD className="text-[13px]">{ld.reason_code}</TD>
                 <TD className="text-[13px]">{ld.set_by}</TD>
-                <TD className="font-mono text-[12px]" title={ld.set_at}>
-                  {formatRelativeTime(ld.set_at)}
+                <TD className="font-mono text-[12px]">
+                  <RelativeTime value={ld.set_at} />
                 </TD>
                 <TD className="text-right">
                   <Button

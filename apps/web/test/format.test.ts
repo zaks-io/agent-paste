@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, truncateId } from "../src/lib/format";
+import { formatAbsoluteTime, formatBytes, formatRelativeTime, truncateId } from "../src/lib/format";
 
 describe("truncateId", () => {
   it("returns the original value when short enough to fit", () => {
@@ -34,5 +34,59 @@ describe("formatBytes", () => {
 
   it("clamps sub-byte input to the bytes unit", () => {
     expect(formatBytes(0.5)).toBe("1 B");
+  });
+});
+
+describe("formatAbsoluteTime", () => {
+  // Determinism is the whole point: SSR (UTC server) and client hydration must
+  // produce identical text from the same input, or React aborts hydration (#418)
+  // and the app goes non-interactive.
+  it("is clock-independent and timezone-stable for the same input", () => {
+    const iso = "2026-01-15T09:30:00.000Z";
+    expect(formatAbsoluteTime(iso)).toBe(formatAbsoluteTime(iso));
+    expect(formatAbsoluteTime(iso)).toMatch(/2026/);
+    expect(formatAbsoluteTime(iso)).toMatch(/UTC/);
+  });
+
+  // Byte-lock the exact output so a future runtime-default drift (e.g. hour12
+  // resolving to true on Workers but false in the browser) is caught here rather
+  // than as a React #418 hydration abort in production. hour12:false is pinned in
+  // formatAbsoluteTime precisely so this string is identical across runtimes.
+  it("renders an exact, hour-cycle-pinned UTC string for a morning instant", () => {
+    expect(formatAbsoluteTime("2026-01-15T09:30:00.000Z")).toBe("Jan 15, 2026, 09:30 UTC");
+  });
+
+  it("uses a 24-hour clock so afternoon instants carry no AM/PM marker", () => {
+    expect(formatAbsoluteTime("2026-01-15T14:32:00.000Z")).toBe("Jan 15, 2026, 14:32 UTC");
+  });
+
+  it("returns an empty string for an invalid date", () => {
+    expect(formatAbsoluteTime("not-a-date")).toBe("");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  // The injectable `now` is what lets <RelativeTime> pin a single timestamp so
+  // server and first client paint agree instead of each reading their own clock.
+  it("derives the relative string from the supplied now, not the wall clock", () => {
+    const past = "2026-01-15T09:30:00.000Z";
+    const now = Date.parse("2026-01-15T11:30:00.000Z");
+    // Same (input, now) must always yield the same text — that determinism is
+    // what keeps SSR and client hydration in agreement.
+    const first = formatRelativeTime(past, now);
+    expect(formatRelativeTime(past, now)).toBe(first);
+    // A different now yields a different string, proving the wall clock is unused.
+    const later = Date.parse("2026-02-15T11:30:00.000Z");
+    expect(formatRelativeTime(past, later)).not.toBe(first);
+  });
+
+  it("reports very recent timestamps as just now", () => {
+    const t = "2026-01-15T09:30:00.000Z";
+    expect(formatRelativeTime(t, Date.parse(t) + 1000)).toBe("just now");
+  });
+
+  it("returns an empty string for an unparseable value instead of throwing", () => {
+    // Intl.RelativeTimeFormat throws RangeError on a NaN date; guard against it.
+    expect(formatRelativeTime("not-a-date")).toBe("");
   });
 });

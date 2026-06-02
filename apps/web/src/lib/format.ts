@@ -8,9 +8,10 @@ const UNITS: ReadonlyArray<readonly [number, Intl.RelativeTimeFormatUnit]> = [
   [Number.POSITIVE_INFINITY, "years"],
 ];
 
-export function formatRelativeTime(input: Date | string | number): string {
+export function formatRelativeTime(input: Date | string | number, now: number = Date.now()): string {
   const date = input instanceof Date ? input : new Date(input);
-  const diffSeconds = (Date.now() - date.getTime()) / 1000;
+  if (Number.isNaN(date.getTime())) return "";
+  const diffSeconds = (now - date.getTime()) / 1000;
   const absSeconds = Math.abs(diffSeconds);
 
   if (absSeconds < 5) return "just now";
@@ -26,6 +27,29 @@ export function formatRelativeTime(input: Date | string | number): string {
 
   const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto", style: "narrow" });
   return formatter.format(-Math.round(value), unit);
+}
+
+// Deterministic, clock-independent rendering of a timestamp. Server and client
+// produce identical text from the same input, so it is safe during hydration.
+// Used as the SSR / first-paint value before <RelativeTime> upgrades to a live
+// relative string on the client. See ADR on hydration-safe time rendering.
+export function formatAbsoluteTime(input: Date | string | number): string {
+  const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    // Pin hour12 so the hour format can't vary by runtime default. The Workers
+    // SSR runtime and the browser otherwise resolve it differently for the same
+    // instant ("09:30" vs "09:30 AM"), reintroducing the React #418 mismatch.
+    hour12: false,
+    timeZone: "UTC",
+    // timeZone is forced to UTC, so the "short" label is the stable "UTC" token.
+    timeZoneName: "short",
+  }).format(date);
 }
 
 export function formatBytes(bytes: number, fractionDigits = 1): string {

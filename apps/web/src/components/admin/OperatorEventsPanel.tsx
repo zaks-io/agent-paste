@@ -1,15 +1,15 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { lockdownTriageFromEvent, lockdownTriageQueryString } from "./lockdown-triage";
 import { type FormEvent, useRef } from "react";
-import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
+import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
+import { lockdownTriageFromEvent, lockdownTriageQueryString } from "./lockdown-triage";
 
 export type OperatorEventSearch = {
   focus?: WebOperatorEventFocus;
@@ -177,8 +177,8 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           <TBody>
             {rows.map((row) => (
               <TR key={row.id}>
-                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]" title={row.time}>
-                  {formatRelativeTime(row.time)}
+                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                  <RelativeTime value={row.time} />
                 </TD>
                 <TD>
                   {row.workspace_id ? <Identifier value={row.workspace_id} /> : <span className="text-[13px]">—</span>}
@@ -188,9 +188,7 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
                   <span className="ml-1 text-[hsl(var(--muted))]">{row.actor.split(":")[1] ?? row.actor}</span>
                 </TD>
                 <TD className="font-medium text-[13px]">{row.action}</TD>
-                <TD className="max-w-[240px] text-[13px] text-[hsl(var(--muted))]">
-                  {row.change_summary || "—"}
-                </TD>
+                <TD className="max-w-[240px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
                 <TD className="text-[13px] text-[hsl(var(--muted))]">{row.target}</TD>
                 <TD>
                   {row.request_id ? (

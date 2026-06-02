@@ -1,12 +1,12 @@
 import type { WebArtifactRow } from "@agent-paste/contracts";
 import { Link } from "@tanstack/react-router";
 import { artifactStatusTone } from "../../lib/artifact-status";
-import { formatRelativeTime } from "../../lib/format";
 import type { ApiErrorInfo } from "../../server/api-client";
 import { Badge } from "../ui/Badge";
 import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
+import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 
 type Props = {
@@ -50,7 +50,7 @@ export function RecentArtifacts({ rows, error }: Props) {
                   <Badge tone={artifactStatusTone(row.status)}>{row.status}</Badge>
                 </TD>
                 <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                  {row.last_published_at ? formatRelativeTime(row.last_published_at) : "—"}
+                  {row.last_published_at ? <RelativeTime value={row.last_published_at} /> : "—"}
                 </TD>
               </TR>
             ))}
