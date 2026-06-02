@@ -6,6 +6,7 @@ import type { CommandPaletteDialogProps } from "./types";
 import { useCommandItems } from "./use-command-items";
 import { filterCommandItems, getFocusableElements, groupCommandItems } from "./utils";
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: known offender (124 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 export function CommandPaletteDialog({ open, onOpenChange, isOperator, triggerRef }: CommandPaletteDialogProps) {
   const titleId = useId();
   const listboxId = useId();
@@ -41,6 +42,7 @@ export function CommandPaletteDialog({ open, onOpenChange, isOperator, triggerRe
   useEffect(() => {
     if (!open) return;
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (32), pending ratchet toward 15 — see docs/ops/complexity-todo.md
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();

@@ -74,6 +74,7 @@ export async function collectSnapshot(profile, target) {
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (31), pending ratchet toward 15 — see docs/ops/complexity-todo.md
 export function formatPlan(profile, target, step, snapshot, operator, valuePlaceholder) {
   const lines = [
     `agent-paste ${target} ${profile.id} rotation (${step})`,
@@ -179,6 +180,7 @@ export function formatPlan(profile, target, step, snapshot, operator, valuePlace
   throw new Error(`Unhandled step ${step}`);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (44), pending ratchet toward 15 — see docs/ops/complexity-todo.md
 export async function executeStep(profile, target, options, snapshot) {
   const generated = options.dryRun ? "<generated>" : secretBytes(48);
   const secondaryValue = options.value ?? generated;

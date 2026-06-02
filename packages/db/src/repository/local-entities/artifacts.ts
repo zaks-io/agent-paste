@@ -7,6 +7,7 @@ function compareArtifactsForWeb(left: Artifact, right: Artifact) {
   return created === 0 ? right.id.localeCompare(left.id) : created;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: entity method bag (147 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 export function localArtifacts(state: LocalState): Entities["artifacts"] {
   return {
     async insert(artifact) {
@@ -152,6 +153,7 @@ export function localArtifacts(state: LocalState): Entities["artifacts"] {
       artifact.updated_at = new Date().toISOString();
       return true;
     },
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (39), pending ratchet toward 15 — see docs/ops/complexity-todo.md
     async reparentWorkspace(fromWorkspaceId, toWorkspaceId, minExpiresAt, updatedAt) {
       const artifactIds: string[] = [];
       for (const artifact of state.artifacts.values()) {

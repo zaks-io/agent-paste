@@ -77,6 +77,7 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
         throw new Error(`No auth resolver registered for ${contract.auth} (${contract.id})`);
       }
 
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (41), pending ratchet toward 15 — see docs/ops/complexity-todo.md
       const routeHandler = async (context: Context) => {
         const auth = await resolver(context, contract);
         if (!auth.ok) {

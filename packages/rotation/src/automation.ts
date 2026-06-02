@@ -199,6 +199,7 @@ export function applyPepperRotationStep(ring: PepperRing, step: VersionedSecretR
   applyKeyRingRotationStep(ring.asKeyRing(), step, nextPepper);
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: rotation-plan builder (116 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 export function buildRotationPlan(input: {
   profile: VersionedSecretProfile;
   target: "preview" | "production";

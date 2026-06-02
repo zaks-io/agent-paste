@@ -75,6 +75,7 @@ ${authenticatedSummary}
 `);
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: smoke harness driver (133 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 async function runLocalMcpSmoke() {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const serverEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));

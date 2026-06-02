@@ -93,12 +93,15 @@ function parseOperationEventInsert(params: readonly SqlValue[]): OperationEvent 
  * Minimal SQL executor for the local MVP harness so jobs queue handlers can share the
  * in-memory repository with API/upload workers.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: in-memory SQL dispatcher (192 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 export function createLocalMvpSqlExecutor(state: LocalState): SqlExecutor {
   const idempotencyRecords = new Map<string, IdempotencyRecord>();
 
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: SQL statement dispatcher (183 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
   const query = async <Row = Record<string, unknown>>(
     sql: string,
     params: readonly SqlValue[] = [],
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (102), big SQL branch table, pending ratchet toward 15 — see docs/ops/complexity-todo.md
   ): Promise<SqlQueryResult<Row>> => {
     const normalized = normalizeSql(sql);
 

@@ -85,6 +85,7 @@ export async function publishRevision(
   }
   const isReplay = replay !== null && replay !== undefined && "result" in replay;
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (62), pending ratchet toward 15 — see docs/ops/complexity-todo.md
   return runIdempotent(context, async () => {
     let consumedAllowance = false;
     if (!isReplay && db.peekPublishWriteGate) {
@@ -142,10 +143,7 @@ export async function publishRevision(
         bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
         requestedAt: now,
         ephemeralTier:
-          result !== null &&
-          typeof result === "object" &&
-          "ephemeral_tier" in result &&
-          result.ephemeral_tier === true,
+          result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true,
       });
     } catch (error) {
       console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
