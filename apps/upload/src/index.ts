@@ -1,13 +1,4 @@
-import {
-  authenticateMcpBearer,
-  cachedNegativeLookup,
-  cacheKeyForSecret,
-  getRequestId,
-  REQUEST_ID_HEADER,
-  type RequestIdVariables,
-  requestIdMiddleware,
-  resolveMcpMemberActor,
-} from "@agent-paste/auth";
+import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import {
   buildUploadOpenApiDocument,
@@ -19,26 +10,20 @@ import {
 import {
   type ApiActor,
   buildCreateUploadSessionWireResponse,
-  createHyperdriveExecutor,
-  createPostgresServices,
+  createPostgresRuntime,
   type HyperdriveBinding,
-  isBillingEnabled,
   observeUploadSessionForFinalize,
   type Repository,
   repositoryErrorToAppError,
   resolveSessionObjectKey,
   type UploadSessionRecord,
 } from "@agent-paste/db";
-import {
-  artifactBytesEncryptionRingFromEnv,
-  hasApiKeyPepperBinding,
-  pepperRingFromWorkerEnv,
-  resolveApiKeyPepperMaterial,
-  resolveUploadTokenSigner,
-} from "@agent-paste/rotation";
+import { artifactBytesEncryptionRingFromEnv, resolveUploadTokenSigner } from "@agent-paste/rotation";
 import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
 import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
+  createApiKeyOrMcpOAuthResolver,
+  createAuthenticateApiKey,
   createRegistrar,
   appErrorResponse as errorResponse,
   type GuardState,
@@ -122,8 +107,22 @@ type RouteId = (typeof routeContracts)[number]["id"];
 type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
 type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
-const AUTH_CACHE_TTL_SECONDS = 60;
 const UPLOAD_FILE_PATH_MARKER = "/files/";
+
+const authenticateApiKey = createAuthenticateApiKey({
+  namespace: "upload-api-key-auth-v2",
+  resolvePostgresRuntime: postgresRuntime,
+});
+
+function postgresRuntime(env: Env) {
+  return createPostgresRuntime(env, {
+    pickDb: (services) => services.uploadDb,
+    resolveServiceUrls: (workerEnv) => ({
+      ...(workerEnv.API_BASE_URL ? { apiBaseUrl: workerEnv.API_BASE_URL } : {}),
+      ...(workerEnv.CONTENT_BASE_URL ? { contentBaseUrl: workerEnv.CONTENT_BASE_URL } : {}),
+    }),
+  });
+}
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
@@ -140,33 +139,10 @@ const uploadDbRegistrar = createRegistrar<Repository>({
       const actor = await authenticateApiKey(context.req.raw, context.env as Env);
       return actor ? { ok: true, principal: { kind: "api_key", actor } } : { ok: false, code: "not_authenticated" };
     },
-    async api_key_or_mcp_oauth(context) {
-      const env = context.env as Env;
-      const apiKeyActor = await authenticateApiKey(context.req.raw, env);
-      if (apiKeyActor) {
-        return { ok: true, principal: { kind: "api_key", actor: apiKeyActor } };
-      }
-      const authenticated = await authenticateMcpBearer(context.req.raw, env);
-      if (!authenticated) {
-        return { ok: false, code: "not_authenticated" } as const;
-      }
-      const db = uploadDatabase(env);
-      if (!db) {
-        return { ok: false, code: "database_unavailable" } as const;
-      }
-      const actor = await resolveMcpMemberActor(authenticated, db);
-      if (!actor) {
-        return { ok: false, code: "forbidden" } as const;
-      }
-      return {
-        ok: true,
-        principal: {
-          kind: "workos_access_token",
-          identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
-          actor,
-        },
-      } as const;
-    },
+    api_key_or_mcp_oauth: createApiKeyOrMcpOAuthResolver({
+      authenticateApiKey,
+      resolveDatabase: uploadDatabase,
+    }),
   },
   db: (context) => uploadDatabase(context.env as Env),
   rateLimitBindings: (context) => ({
@@ -416,38 +392,6 @@ async function finalizeUploadSession(
   return jsonResponse(context, FinalizeUploadSessionResponse.parse(result));
 }
 
-async function authenticateApiKey(request: Request, env: Env): Promise<UploadActor | null> {
-  const token = bearerToken(request);
-  if (!token) {
-    return null;
-  }
-
-  if (env.AUTH) {
-    return env.AUTH.verifyApiKey(token);
-  }
-
-  const runtime = postgresRuntime(env);
-  if (!runtime) {
-    return null;
-  }
-
-  return validApiKeyActor(
-    (await cachedNegativeLookup({
-      namespace: "upload-api-key-auth-v2",
-      key: await cacheKeyForSecret(token),
-      ttlSeconds: AUTH_CACHE_TTL_SECONDS,
-      lookup: () => runtime.auth.verifyApiKey(token),
-    })) ?? null,
-  );
-}
-
-function validApiKeyActor(actor: (UploadActor & { expires_at?: string | null }) | null): UploadActor | null {
-  if (!actor?.expires_at) {
-    return actor;
-  }
-  return Date.parse(actor.expires_at) <= Date.now() ? null : actor;
-}
-
 function uploadDatabase(env: Env): Repository | undefined {
   if (isUploadDatabase(env.DB)) {
     return env.DB;
@@ -509,37 +453,8 @@ async function uploadReplay(input: {
   return null;
 }
 
-function postgresRuntime(env: Env): { auth: AuthService; db: Repository } | undefined {
-  const apiKeyPepper = resolveApiKeyPepperMaterial(env);
-  if (!isHyperdriveBinding(env.DB) || !hasApiKeyPepperBinding(env) || !apiKeyPepper) {
-    return undefined;
-  }
-  const pepperRing = pepperRingFromWorkerEnv(env);
-  const options: Parameters<typeof createPostgresServices>[0] = {
-    executor: createHyperdriveExecutor(env.DB),
-    apiKeyPepper,
-    ...(pepperRing ? { pepperRing } : {}),
-    apiKeyEnv: env.API_KEY_ENV ?? "preview",
-    billingEnabled: isBillingEnabled(env.BILLING_ENABLED),
-  };
-  if (env.API_BASE_URL) {
-    options.apiBaseUrl = env.API_BASE_URL;
-  }
-  if (env.CONTENT_BASE_URL) {
-    options.contentBaseUrl = env.CONTENT_BASE_URL;
-  }
-  const services = createPostgresServices(options);
-  return { auth: services.auth, db: services.uploadDb };
-}
-
 function isUploadDatabase(value: Env["DB"]): value is Repository {
   return typeof value === "object" && value !== null && "createUploadSession" in value;
-}
-
-function isHyperdriveBinding(value: Env["DB"]): value is HyperdriveBinding {
-  return (
-    typeof value === "object" && value !== null && typeof (value as HyperdriveBinding).connectionString === "string"
-  );
 }
 
 async function signUploadUrl(
@@ -572,12 +487,6 @@ async function verifyUploadToken(token: string | null, env: Env): Promise<Signed
   }
   const signer = resolveUploadTokenSigner(env);
   return signer ? signer.verify(token) : null;
-}
-
-function bearerToken(request: Request): string | null {
-  const value = request.headers.get("authorization");
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
 }
 
 function ttlSeconds(env: Env): number {

@@ -51,6 +51,14 @@ export {
 export { PostgresRepository } from "./postgres/repository.js";
 export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
+export {
+  type CreatePostgresRuntimeOptions,
+  createPostgresRuntime,
+  type PostgresRuntime,
+  type PostgresRuntimeAuth,
+  type WorkerPostgresEnv,
+  isHyperdriveBinding,
+} from "./postgres/worker-runtime.js";
 export { EPHEMERAL_PROVISION_SYSTEM_ACTOR } from "./repository/core-helpers.js";
 export type { Repository } from "./repository/interface.js";
 export {

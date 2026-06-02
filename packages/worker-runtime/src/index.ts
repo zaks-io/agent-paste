@@ -21,6 +21,15 @@ export type {
   WorkOsAccessTokenPrincipal,
 } from "./principal.js";
 export { applyRateLimit, type RateLimitBinding, type RateLimitBindings } from "./rate-limit.js";
+export { bearerToken } from "./bearer.js";
+export {
+  type ApiKeyAuthEnv,
+  type ApiKeyAuthService,
+  createAuthenticateApiKey,
+  type PostgresApiKeyRuntime,
+  validApiKeyActor,
+} from "./api-key-auth.js";
+export { createApiKeyOrMcpOAuthResolver, createMcpOAuthResolver } from "./auth-resolvers.js";
 export {
   type AuthResolver,
   type AuthResolvers,
