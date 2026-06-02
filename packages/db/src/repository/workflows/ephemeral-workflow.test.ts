@@ -1,6 +1,6 @@
 import { EPHEMERAL_AUTO_DELETION_DAYS, SECONDS_PER_DAY } from "@agent-paste/config";
 import { PepperRing } from "@agent-paste/rotation";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyClaimTokenSecret } from "../../claim-tokens.js";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
 import * as coreHelpers from "../core-helpers.js";
@@ -8,6 +8,10 @@ import { localClaimTokens } from "../local-entities/claim-tokens.js";
 import { createLocalState } from "../local-state.js";
 
 describe("createEphemeralWorkspace", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("creates an unclaimed workspace and hashed claim token through runCommand", async () => {
     const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
     const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-1" });
@@ -109,32 +113,27 @@ describe("createEphemeralWorkspace", () => {
       observedFiles: [{ path: "index.html", objectKey: uploadedFile.object_key, sizeBytes: 12 }],
       now: "2099-06-01T00:00:01.000Z",
     });
+    const publishedAt = "2099-06-01T12:00:00.000Z";
     const published = await repo.publishRevision({
       actor,
       artifactId: session.artifact_id,
       revisionId: session.revision_id,
       idempotencyKey: "ephemeral-publish",
-      now: "2099-06-01T12:00:00.000Z",
+      now: publishedAt,
     });
     expect(published).toMatchObject({ ephemeral_tier: true });
-    vi.useFakeTimers({ now: new Date("2026-06-01T12:00:00.000Z") });
-    try {
-      const agentView = await repo.getAgentView({
-        actor,
-        artifactId: session.artifact_id,
-        revisionId: session.revision_id,
-        contentBaseUrl: "https://content.test",
-      });
-      expect(agentView).toMatchObject({ ephemeral_tier: true });
-    } finally {
-      vi.useRealTimers();
-    }
+    vi.useFakeTimers({ now: new Date(Date.parse(publishedAt) + 30 * 1000) });
+    const agentView = await repo.getAgentView({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(agentView).toMatchObject({ ephemeral_tier: true });
     const localRepo = repo as LocalRepository;
     const artifact = localRepo.artifacts.get(session.artifact_id);
     expect(artifact?.expires_at).toBe(
-      new Date(
-        Date.parse("2099-06-01T12:00:00.000Z") + EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY * 1000,
-      ).toISOString(),
+      new Date(Date.parse(publishedAt) + EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY * 1000).toISOString(),
     );
     expect(provisioned.workspace.auto_deletion_days).toBe(EPHEMERAL_AUTO_DELETION_DAYS);
   });
