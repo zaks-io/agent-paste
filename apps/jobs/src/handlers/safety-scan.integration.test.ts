@@ -364,7 +364,7 @@ describe("handleSafetyScanBatch", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
     const tx = {
-      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+      query: vi.fn(async (sql: string) => {
         if (sql.includes("insert into idempotency_records")) {
           return { rows: [{ workspace_id: workspaceId }] };
         }
