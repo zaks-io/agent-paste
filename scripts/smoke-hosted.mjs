@@ -372,14 +372,14 @@ async function assertArtifactRateLimitFires(contentUrl) {
   const probeStart = Date.now();
   const maxAttempts = RATE_LIMIT_BINDING_CEILING + RATE_LIMIT_PROBE_OVERSHOOT;
   for (let index = 0; index < maxAttempts; index += 1) {
-    const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, index), {
-      method: "HEAD",
-      cache: "no-store",
-    });
+    const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, index), { cache: "no-store" });
     if (response.status === 429) {
-      // HEAD responses have no body (RFC 9110); the worker still sets Retry-After.
+      const payload = await response.json();
+      assert(
+        payload?.error?.code === "rate_limited_artifact",
+        `expected rate_limited_artifact envelope, got ${JSON.stringify(payload)}`,
+      );
       assert(response.headers.get("retry-after") === "60", "content rate-limited response sets Retry-After: 60");
-      await response.body?.cancel?.();
       return;
     }
     await response.body?.cancel?.();
