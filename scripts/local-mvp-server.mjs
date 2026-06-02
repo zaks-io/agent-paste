@@ -255,9 +255,11 @@ async function bytesFromBody(value) {
 function createApiDatabase(repo) {
   return {
     getWhoami: repo.getWhoami.bind(repo),
+    getUsagePolicy: repo.getUsagePolicy.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
     resolveAccessLink: repo.resolveAccessLink.bind(repo),
+    createEphemeralWorkspace: repo.createEphemeralWorkspace.bind(repo),
     getAdminWhoami: repo.getAdminWhoami?.bind(repo),
     createWorkspace: repo.createWorkspace.bind(repo),
     listWorkspaces: repo.listWorkspaces.bind(repo),
@@ -328,6 +330,7 @@ const apiEnv = {
   LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
+  EPHEMERAL_POW_SECRET: process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret",
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,
   STREAM_INTERNAL_SECRET: streamInternalSecret,
   API_BASE_URL: apiBaseUrl,

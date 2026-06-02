@@ -20,3 +20,17 @@ export {
   type SignedUploadPayload,
   verifyUploadToken,
 } from "./upload-url.js";
+export {
+  consumePowNonce,
+  countLeadingZeroBits,
+  DEFAULT_POW_CHALLENGE_TTL_SECONDS,
+  DEFAULT_POW_DIFFICULTY_BITS,
+  issuePowChallenge,
+  type IssuePowChallengeInput,
+  type PowChallenge,
+  type PowNonceStore,
+  type PowSolution,
+  solvePowChallenge,
+  type VerifyPowSolutionInput,
+  verifyPowSolution,
+} from "./pow.js";

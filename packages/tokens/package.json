@@ -31,6 +31,10 @@
     "./crockford": {
       "types": "./src/crockford.ts",
       "import": "./dist/crockford.js"
+    },
+    "./pow": {
+      "types": "./src/pow.ts",
+      "import": "./dist/pow.js"
     }
   },
   "scripts": {

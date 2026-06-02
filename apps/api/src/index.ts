@@ -30,6 +30,7 @@ import {
   webAdminSetLockdown,
 } from "./routes/operator.js";
 import { authenticatedAgentView, listRevisions, publicAgentView, publishRevision } from "./routes/revisions.js";
+import { ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import { deleteSmokeArtifact, forceExpire, getDenylistKey, listR2Prefix, provisionSmoke } from "./routes/smoke.js";
 import {
   webApiKeys,
@@ -120,6 +121,9 @@ apiDbRegistrar.mount(contractById("agentView.public"), async (context, principal
 );
 apiDbRegistrar.mount(contractById("accessLinks.resolve"), async (context, _principal, db, guard) =>
   resolveAccessLinkRoute(context as AppContext, db, guard),
+);
+apiDbRegistrar.mount(contractById("ephemeral.provision"), async (context, _principal, db, guard) =>
+  ephemeralProvisionRoute(context as AppContext, db, guard),
 );
 apiDbRegistrar.mount(contractById("agentView.getLatest"), async (context, principal, db) =>
   authenticatedAgentView(context as AppContext, principal, db, {
