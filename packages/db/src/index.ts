@@ -32,8 +32,11 @@ export {
 export { createLocalMvpSqlExecutor } from "./local-mvp-sql-executor.js";
 export { createLocalServices, LocalRepository } from "./local-repository.js";
 export {
+  artifactExpiresAtFromWorkspace,
   DEFAULT_UPLOAD_SESSION_TTL_MS,
+  ephemeralArtifactTtlSeconds,
   isBillingEnabled,
+  isEphemeralWorkspace,
   MAX_ARTIFACT_BYTES,
   resolveUsagePolicy,
   USAGE_POLICY,

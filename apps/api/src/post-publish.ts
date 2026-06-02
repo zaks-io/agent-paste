@@ -2,6 +2,8 @@ import {
   BundleGenerateMessage,
   DEFAULT_SAFETY_SCANNER_ID,
   DEFAULT_SAFETY_SCANNER_VERSION,
+  EPHEMERAL_SAFETY_SCANNER_ID,
+  EPHEMERAL_SAFETY_SCANNER_VERSION,
   SafetyScanMessage,
 } from "@agent-paste/contracts";
 
@@ -22,6 +24,7 @@ export async function enqueuePostPublishJobs(
     revisionId: string;
     bundleStatus: "pending" | "disabled";
     requestedAt: string;
+    ephemeralTier?: boolean;
   },
 ): Promise<void> {
   const sends: Promise<unknown>[] = [];
@@ -39,13 +42,15 @@ export async function enqueuePostPublishJobs(
   }
   const safetyScanQueue = env.SAFETY_SCAN_QUEUE as QueueBinding | undefined;
   if (safetyScanQueue) {
+    const scanner = input.ephemeralTier
+      ? { scanner_id: EPHEMERAL_SAFETY_SCANNER_ID, scanner_version: EPHEMERAL_SAFETY_SCANNER_VERSION }
+      : { scanner_id: DEFAULT_SAFETY_SCANNER_ID, scanner_version: DEFAULT_SAFETY_SCANNER_VERSION };
     const message = SafetyScanMessage.parse({
       type: "safety.scan.v1",
       workspace_id: input.workspaceId,
       artifact_id: input.artifactId,
       revision_id: input.revisionId,
-      scanner_id: DEFAULT_SAFETY_SCANNER_ID,
-      scanner_version: DEFAULT_SAFETY_SCANNER_VERSION,
+      ...scanner,
       requested_at: input.requestedAt,
     });
     sends.push(safetyScanQueue.send(message));

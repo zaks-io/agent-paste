@@ -67,6 +67,7 @@ export type Env = {
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
 const securityHeaders = CONTENT_SECURITY_HEADERS;
+const NOINDEX_HEADER = "noindex, nofollow";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
@@ -192,7 +193,7 @@ async function serveSignedBundle(context: AppContext, payload: ContentTokenPaylo
     return errorResponse(context, "not_found");
   }
 
-  const headers = bundleResponseHeaders(served.plaintextSize, payload.exp);
+  const headers = bundleResponseHeaders(served.plaintextSize, payload.exp, payload.noindex === true);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(served.body, { status: 200, headers });
@@ -221,10 +222,14 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
     return errorResponse(context, "not_found");
   }
 
-  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp);
+  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload.noindex === true);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(served.body, { status: 200, headers });
+  let body = served.body;
+  if (payload.noindex === true && served.body && request.method !== "HEAD") {
+    body = await maybeInjectNoindexMetaBody(served.body, path);
+  }
+  return new Response(body, { status: 200, headers });
 }
 
 async function prepareEncryptedObjectResponse(input: {
@@ -312,16 +317,19 @@ function objectKeyFor(payload: ContentTokenPayload, path: string): string {
   return `${prefix.replace(/\/+$/, "")}/${path}`;
 }
 
-function bundleResponseHeaders(size: number, tokenExpiresAt: number): Headers {
+function bundleResponseHeaders(size: number, tokenExpiresAt: number, noindex: boolean): Headers {
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
   headers.set("content-length", String(size));
   headers.set("content-type", "application/zip");
   headers.set("content-disposition", `attachment; filename="${BUNDLE_FILENAME}"`);
+  if (noindex) {
+    headers.set("x-robots-tag", NOINDEX_HEADER);
+  }
   return headers;
 }
 
-function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number): Headers {
+function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number, noindex: boolean): Headers {
   const served = servedContentForPath(path);
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
@@ -331,7 +339,35 @@ function responseHeadersForPath(path: string, size: number, tokenExpiresAt: numb
   if (served.disposition === "attachment") {
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }
+  if (noindex) {
+    headers.set("x-robots-tag", NOINDEX_HEADER);
+  }
   return headers;
+}
+
+async function maybeInjectNoindexMetaBody(body: ReadableStream, path: string): Promise<ReadableStream> {
+  if (!isHtmlPath(path)) {
+    return body;
+  }
+  const html = await new Response(body).text();
+  return new Blob([injectNoindexMeta(html)]).stream();
+}
+
+function isHtmlPath(path: string): boolean {
+  return /\.(?:html?|xhtml)$/i.test(path);
+}
+
+function injectNoindexMeta(html: string): string {
+  const tag = '<meta name="robots" content="noindex,nofollow">';
+  if (html.includes(tag)) {
+    return html;
+  }
+  const headMatch = /<head(\b[^>]*)>/i.exec(html);
+  if (headMatch) {
+    const index = headMatch.index + headMatch[0].length;
+    return `${html.slice(0, index)}${tag}${html.slice(index)}`;
+  }
+  return `${tag}${html}`;
 }
 
 function safeDecodeURIComponent(value: string): string | null {

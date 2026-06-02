@@ -1,3 +1,4 @@
+import { EPHEMERAL_AUTO_DELETION_DAYS } from "@agent-paste/config";
 import { PepperRing } from "@agent-paste/rotation";
 import { generateClaimToken } from "../../claim-tokens.js";
 import { createId } from "../../id.js";
@@ -11,9 +12,6 @@ import {
   workspaceScope,
 } from "../core-helpers.js";
 import { buildApiKey } from "../shared.js";
-
-/** Ephemeral tenants use the shortest auto-deletion window (ADR 0056 / ephemeral-publish). */
-const EPHEMERAL_AUTO_DELETION_DAYS = 1;
 
 /** Default claim-token lifetime for a freshly provisioned ephemeral workspace. */
 const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;

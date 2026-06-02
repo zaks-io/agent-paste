@@ -29,6 +29,10 @@ export type SafetyScanMessage = z.infer<typeof SafetyScanMessage>;
 export const DEFAULT_SAFETY_SCANNER_ID = "builtin_content";
 export const DEFAULT_SAFETY_SCANNER_VERSION = "1";
 
+/** Async scanner for unclaimed ephemeral tiers (Llama Guard 3 + URL Scanner). */
+export const EPHEMERAL_SAFETY_SCANNER_ID = "ephemeral_tier";
+export const EPHEMERAL_SAFETY_SCANNER_VERSION = "1";
+
 export const BundleGenerateReason = z.enum(["publish"]);
 export type BundleGenerateReason = z.infer<typeof BundleGenerateReason>;
 

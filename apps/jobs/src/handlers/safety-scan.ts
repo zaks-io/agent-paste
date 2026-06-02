@@ -4,11 +4,16 @@ import type { SqlExecutor } from "@agent-paste/db";
 import { resolveSqlExecutor } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
-import { createBuiltInSafetyScanner, type SafetyScannerWarning } from "../safety/scanner.js";
+import { isEphemeralScannerId } from "../safety/ephemeral-scanner.js";
+import { applyMaliciousUrlLockdown } from "../safety/platform-lockdown.js";
+import { resolveSafetyScanner } from "../safety/resolve-scanner.js";
+import type { SafetyScannerWarning } from "../safety/scanner.js";
+import { scanPublishedUrlMalicious } from "../safety/url-scanner.js";
 
 type RevisionRow = {
   status: string;
   artifact_status: string;
+  entrypoint: string;
 };
 
 type RevisionFileRow = {
@@ -77,7 +82,8 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
         });
       }
 
-      const warnings = await createBuiltInSafetyScanner().scan(scannerFiles);
+      const scanner = resolveSafetyScanner(env, payload.scanner_id);
+      const warnings = await scanner.scan(scannerFiles);
       const result = await replaceSafetyWarnings(executor, {
         workspaceId: payload.workspace_id,
         artifactId: payload.artifact_id,
@@ -87,6 +93,15 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
         warnings,
         now: payload.requested_at,
       });
+      if (isEphemeralScannerId(payload.scanner_id)) {
+        await runEphemeralUrlScanner(executor, env, {
+          workspaceId: payload.workspace_id,
+          artifactId: payload.artifact_id,
+          revisionId: payload.revision_id,
+          entrypoint: state.entrypoint,
+          requestedAt: payload.requested_at,
+        });
+      }
       logOp("queue.safety_scan.completed", {
         revision_id: payload.revision_id,
         scanner_id: payload.scanner_id,
@@ -112,7 +127,7 @@ async function loadRevisionState(
   revisionId: string,
 ): Promise<RevisionRow | null> {
   const result = await executor.query<RevisionRow>(
-    `select r.status, a.status as artifact_status
+    `select r.status, r.entrypoint, a.status as artifact_status
      from revisions r
      inner join artifacts a on a.id = r.artifact_id
      where r.workspace_id = $1 and r.id = $2`,
@@ -279,4 +294,36 @@ function warningDelta(before: Set<string>, after: Set<string>) {
 function createSafetyWarningId(): string {
   const value = crypto.randomUUID();
   return `warn_${value.replaceAll("-", "")}`;
+}
+
+async function runEphemeralUrlScanner(
+  executor: SqlExecutor,
+  env: Env,
+  input: {
+    workspaceId: string;
+    artifactId: string;
+    revisionId: string;
+    entrypoint: string;
+    requestedAt: string;
+  },
+): Promise<void> {
+  const apiBase = env.API_BASE_URL?.replace(/\/+$/, "");
+  if (!apiBase) {
+    return;
+  }
+  const publishedUrl = `${apiBase}/v1/public/agent-view/${input.artifactId}.${input.revisionId}`;
+  const verdict = await scanPublishedUrlMalicious({
+    url: publishedUrl,
+    ...(env.CLOUDFLARE_ACCOUNT_ID ? { accountId: env.CLOUDFLARE_ACCOUNT_ID } : {}),
+    ...(env.URL_SCANNER_API_TOKEN ? { apiToken: env.URL_SCANNER_API_TOKEN } : {}),
+  });
+  if (verdict !== "malicious") {
+    return;
+  }
+  await applyMaliciousUrlLockdown(executor, env, {
+    workspaceId: input.workspaceId,
+    artifactId: input.artifactId,
+    revisionId: input.revisionId,
+    now: input.requestedAt,
+  });
 }

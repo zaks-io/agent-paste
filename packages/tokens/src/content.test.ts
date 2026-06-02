@@ -19,6 +19,7 @@ describe("isValidContentTokenPayload", () => {
         access_link_id: "al_1",
         key_prefix: "art_1/rev_1",
         paths: ["index.html", "style.css"],
+        noindex: true,
       }),
     ).toBe(true);
   });

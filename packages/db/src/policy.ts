@@ -1,5 +1,6 @@
 import {
   DEFAULT_UPLOAD_SESSION_TTL_MS,
+  EPHEMERAL_AUTO_DELETION_DAYS,
   isBillingEnabled,
   MAX_ARTIFACT_BYTES,
   PINNED_ARTIFACT_CAP,
@@ -10,6 +11,29 @@ import {
   type WorkspacePlan,
 } from "@agent-paste/config";
 import type { Workspace } from "./types.js";
+
+export function isEphemeralWorkspace(workspace: Pick<Workspace, "claimed_at">): boolean {
+  return workspace.claimed_at === null;
+}
+
+export function artifactExpiresAtFromWorkspace(
+  workspace: Pick<Workspace, "auto_deletion_days">,
+  publishedAt: string,
+): string {
+  return new Date(Date.parse(publishedAt) + workspace.auto_deletion_days * SECONDS_PER_DAY * 1000).toISOString();
+}
+
+export function ephemeralArtifactTtlSeconds(
+  requestedTtlSeconds: number | undefined,
+  policy: Pick<UsagePolicyConfig, "default_ttl_seconds" | "min_ttl_seconds" | "max_ttl_seconds">,
+): number {
+  const ephemeralCap = EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY;
+  const ttlSeconds = requestedTtlSeconds ?? Math.min(policy.default_ttl_seconds, ephemeralCap);
+  if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > ephemeralCap) {
+    throw new Error("invalid_ttl_seconds");
+  }
+  return ttlSeconds;
+}
 
 export type { UsagePolicyConfig, WorkspacePlan };
 export {

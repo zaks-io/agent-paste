@@ -31,3 +31,13 @@ Handlers are idempotent by target identity (`workspace_id` + `actor_id` + `opera
 - `pnpm --filter @agent-paste/jobs test`
 - `pnpm --filter @agent-paste/jobs typegen` — regenerate `src/worker-configuration.d.ts` after Wrangler binding changes.
 - `pnpm --filter @agent-paste/jobs dev`
+
+## Ephemeral safety scanner secrets
+
+Ephemeral-tier `safety-scan` messages use `scanner_id=ephemeral_tier` and require:
+
+- Workers AI binding `AI` (configured in `wrangler.jsonc`) for Llama Guard 3 text moderation.
+- `URL_SCANNER_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` runtime secrets for async URL Scanner verdicts (`wrangler secret put`, never committed).
+- `API_BASE_URL` var so URL Scanner can scan the public agent-view URL.
+
+Malicious URL Scanner verdicts create an artifact-scoped Platform Lockdown and write the content denylist. Scanner failures stay quiet per ADR 0051.

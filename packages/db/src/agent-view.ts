@@ -108,6 +108,7 @@ export function buildPublishResult(
   },
   uploadSessionId: string | undefined,
   options: RepositoryOptions,
+  publishMeta?: { ephemeral_tier?: boolean },
 ) {
   const contentBaseUrl = trimTrailingSlash(options.contentBaseUrl ?? "http://127.0.0.1:8789");
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
@@ -119,6 +120,7 @@ export function buildPublishResult(
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
     bundle: buildBundleAvailability(revision),
+    ...(publishMeta?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
   };
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;
 }

@@ -92,6 +92,11 @@ export async function publishRevision(
           revisionId: params.revisionId ?? "",
           bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
           requestedAt: now,
+          ephemeralTier:
+            result !== null &&
+            typeof result === "object" &&
+            "ephemeral_tier" in result &&
+            result.ephemeral_tier === true,
         });
       } catch (error) {
         console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
@@ -101,7 +106,11 @@ export async function publishRevision(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-      const signed = await signPublishResult(result, context.env, { workspaceId: actor.workspace_id });
+      const signed = await signPublishResult(result, context.env, {
+        workspaceId: actor.workspace_id,
+        ephemeralTier:
+          result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true,
+      });
       if (result && typeof result === "object" && "artifact_id" in result) {
         const publish = result as { artifact_id: string; title?: string };
         const entrypoint =

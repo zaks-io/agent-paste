@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ACCESS_LINK_SIGNED_URL_DEFAULT_TTL_MS,
+  EPHEMERAL_AUTO_DELETION_DAYS,
   isBillingEnabled,
   isExpired,
   MAX_ARTIFACT_BYTES,
   normalizeStoragePath,
   resolveUsagePolicy,
+  SECONDS_PER_DAY,
   USAGE_POLICY,
 } from "./index.js";
 
@@ -25,6 +27,7 @@ describe("config helpers", () => {
   it("exports MVP caps and TTL helpers", () => {
     expect(MAX_ARTIFACT_BYTES).toBeGreaterThan(0);
     expect(ACCESS_LINK_SIGNED_URL_DEFAULT_TTL_MS).toBe(24 * 60 * 60 * 1000);
+    expect(EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY).toBe(24 * 60 * 60);
     expect(isExpired("2026-01-01T00:00:00.000Z", new Date("2026-01-01T00:00:00.000Z"))).toBe(true);
   });
 });
