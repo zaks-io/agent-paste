@@ -19,6 +19,8 @@ const usagePolicy = {
   max_ttl_seconds: 7_776_000,
   live_artifacts_cap: 50,
   live_update_enabled: false,
+  daily_new_artifact_allowance: 100,
+  lifetime_revision_ceiling: 100,
 };
 
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";

@@ -8,6 +8,7 @@ import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-ar
 import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
+import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
@@ -280,6 +281,8 @@ function createApiDatabase(repo) {
       return result;
     },
     listRevisions: repo.listRevisions.bind(repo),
+    peekPublishWriteGate: repo.peekPublishWriteGate.bind(repo),
+    peekWorkspaceCommandReplay: repo.peekWorkspaceCommandReplay.bind(repo),
     listArtifacts: repo.listArtifacts.bind(repo),
     getArtifactDetail: repo.getArtifactDetail.bind(repo),
     listOperationEvents: repo.listOperationEvents.bind(repo),
@@ -357,6 +360,7 @@ const artifactLive = createMemoryArtifactLiveNamespace({
   streamInternalSecret,
 });
 apiEnv.ARTIFACT_LIVE = artifactLive;
+apiEnv.WRITE_ALLOWANCE = createMemoryWriteAllowanceNamespace();
 Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
   enumerable: true,
   get() {

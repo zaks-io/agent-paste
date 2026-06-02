@@ -48,9 +48,19 @@
         "name": "ARTIFACT_LIVE",
         "class_name": "ArtifactLiveUpdates",
         "script_name": "agent-paste-stream"
+      },
+      {
+        "name": "WRITE_ALLOWANCE",
+        "class_name": "WorkspaceWriteAllowance"
       }
     ]
   },
+  "migrations": [
+    {
+      "tag": "v1-write-allowance",
+      "new_sqlite_classes": ["WorkspaceWriteAllowance"]
+    }
+  ],
   "ratelimits": [
     {
       "name": "ACTOR_RATE_LIMIT",
@@ -203,6 +213,10 @@
             "name": "ARTIFACT_LIVE",
             "class_name": "ArtifactLiveUpdates",
             "script_name": "agent-paste-stream-preview"
+          },
+          {
+            "name": "WRITE_ALLOWANCE",
+            "class_name": "WorkspaceWriteAllowance"
           }
         ]
       }
@@ -323,6 +337,10 @@
             "name": "ARTIFACT_LIVE",
             "class_name": "ArtifactLiveUpdates",
             "script_name": "agent-paste-stream-production"
+          },
+          {
+            "name": "WRITE_ALLOWANCE",
+            "class_name": "WorkspaceWriteAllowance"
           }
         ]
       }

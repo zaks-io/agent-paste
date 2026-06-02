@@ -513,6 +513,8 @@ describe("api worker", () => {
               max_ttl_seconds: 90 * 24 * 60 * 60,
               live_artifacts_cap: 50,
               live_update_enabled: false,
+              daily_new_artifact_allowance: 100,
+              lifetime_revision_ceiling: 100,
             },
             default_key_first_run: false,
           };

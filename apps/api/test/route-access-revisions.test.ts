@@ -1,4 +1,5 @@
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
+import { createMemoryWriteAllowanceNamespace } from "@agent-paste/write-allowance";
 import { describe, expect, it, vi } from "vitest";
 import {
   createAccessLinkRoute,
@@ -234,5 +235,115 @@ describe("AP-91 revision route modules", () => {
     expect(mapped.status).toBe(422);
     await expect(responseJson(mapped)).resolves.toMatchObject({ error: { code: "entrypoint_not_in_revision" } });
     warn.mockRestore();
+  });
+
+  it("returns write_allowance_exceeded with Retry-After for new artifacts over the daily allowance", async () => {
+    const writeAllowance = createMemoryWriteAllowanceNamespace();
+    const publishRevisionFn = vi.fn(async () => ({
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      title: "Published",
+      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      bundle: { status: "disabled" },
+    }));
+    const db = {
+      peekWorkspaceCommandReplay: vi.fn(async () => null),
+      peekPublishWriteGate: vi.fn(async () => ({
+        is_already_published: false,
+        is_new_artifact: true,
+        daily_new_artifact_allowance: 1,
+      })),
+      publishRevision: publishRevisionFn,
+    };
+
+    const allowed = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(allowed.status).toBe(200);
+
+    const blocked = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor({}, "idem-fixture-second-artifact"),
+      { artifactId: "art_2", revisionId: "rev_2" },
+    );
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toMatch(/^\d+$/);
+    await expect(responseJson(blocked)).resolves.toMatchObject({ error: { code: "write_allowance_exceeded" } });
+    expect(publishRevisionFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns idempotency_in_flight before consuming write allowance", async () => {
+    const writeAllowance = createMemoryWriteAllowanceNamespace();
+    const db = {
+      peekWorkspaceCommandReplay: vi.fn(async () => ({ inFlight: true })),
+      peekPublishWriteGate: vi.fn(async () => ({
+        is_already_published: false,
+        is_new_artifact: true,
+        daily_new_artifact_allowance: 1,
+      })),
+      publishRevision: vi.fn(),
+    };
+
+    const response = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(response.status).toBe(409);
+    await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "idempotency_in_flight" } });
+    expect(db.publishRevision).not.toHaveBeenCalled();
+  });
+
+  it("skips write allowance enforcement for idempotent replays and revision publishes", async () => {
+    const writeAllowance = createMemoryWriteAllowanceNamespace();
+    const db = {
+      peekWorkspaceCommandReplay: vi.fn(async () => ({ result: { artifact_id: "art_1" } })),
+      peekPublishWriteGate: vi.fn(async () => ({
+        is_already_published: false,
+        is_new_artifact: true,
+        daily_new_artifact_allowance: 1,
+      })),
+      publishRevision: vi.fn(async () => ({
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        title: "Published",
+        view_url: "https://content.test/v/art_1.rev_1/index.html",
+        bundle: { status: "disabled" },
+      })),
+    };
+
+    const replay = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(replay.status).toBe(200);
+
+    const revisionPublish = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      {
+        peekWorkspaceCommandReplay: vi.fn(async () => null),
+        peekPublishWriteGate: vi.fn(async () => ({
+          is_already_published: false,
+          is_new_artifact: false,
+          daily_new_artifact_allowance: 1,
+        })),
+        publishRevision: db.publishRevision,
+      } as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_2" },
+    );
+    expect(revisionPublish.status).toBe(200);
   });
 });

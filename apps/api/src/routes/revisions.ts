@@ -10,6 +10,7 @@ import { workspaceApiActor } from "../principals.js";
 import { errorResponse, jsonResponse, mapRepositoryError, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { contentBaseUrl } from "../runtime.js";
+import { enforceNewArtifactWriteAllowance } from "../write-allowance.js";
 
 export async function authenticatedAgentView(
   context: AppContext,
@@ -74,6 +75,39 @@ export async function publishRevision(
     return errorResponse(context, "not_authenticated");
   }
   const idempotencyKey = guard.idempotencyKey;
+  const replay = await db.peekWorkspaceCommandReplay?.({
+    actor,
+    operation: "artifact.revision.publish",
+    idempotencyKey,
+  });
+  if (replay && "inFlight" in replay && replay.inFlight) {
+    return errorResponse(context, "idempotency_in_flight");
+  }
+  const isReplay = replay !== null && replay !== undefined && "result" in replay;
+  if (!isReplay && db.peekPublishWriteGate) {
+    const gate = await db.peekPublishWriteGate({
+      actor,
+      artifactId: params.artifactId ?? "",
+      revisionId: params.revisionId ?? "",
+    });
+    if (gate && !gate.is_already_published && gate.is_new_artifact) {
+      const allowance = gate.daily_new_artifact_allowance;
+      if (typeof allowance === "number") {
+        const writeAllowance = await enforceNewArtifactWriteAllowance(
+          context.env.WRITE_ALLOWANCE,
+          actor.workspace_id,
+          allowance,
+          idempotencyKey,
+        );
+        if (!writeAllowance.ok) {
+          return errorResponse(context, "write_allowance_exceeded", undefined, {
+            "Retry-After": writeAllowance.retryAfter,
+          });
+        }
+      }
+    }
+  }
+
   return runIdempotent(context, async () => {
     try {
       const now = new Date().toISOString();

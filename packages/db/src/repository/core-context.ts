@@ -1,8 +1,8 @@
 import { buildAgentView } from "../agent-view.js";
 import { type UsagePolicyConfig, usagePolicyForWorkspace } from "../policy.js";
 import type { Artifact, RepositoryOptions, Revision, Workspace } from "../types.js";
-import { toWebArtifactRow } from "./web-transforms.js";
 import type { Entities, UnitOfWork } from "./ports.js";
+import { toWebArtifactRow } from "./web-transforms.js";
 
 export class RepositoryCoreContext {
   constructor(
@@ -21,7 +21,7 @@ export class RepositoryCoreContext {
     return this.options.billingEnabled ?? false;
   }
 
-  usagePolicyFor(workspace: Pick<Workspace, "plan">): UsagePolicyConfig {
+  usagePolicyFor(workspace: Pick<Workspace, "plan" | "claimed_at">): UsagePolicyConfig {
     return usagePolicyForWorkspace(workspace, this.billingEnabled());
   }
 

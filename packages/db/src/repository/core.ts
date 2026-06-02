@@ -223,6 +223,10 @@ export class RepositoryCore implements Repository {
     return uploadPublishWorkflow.publishRevision(this.ctx, input);
   }
 
+  async peekPublishWriteGate(input: { actor: ApiActor; artifactId: string; revisionId: string }) {
+    return uploadPublishWorkflow.peekPublishWriteGate(this.ctx, input);
+  }
+
   async listRevisions(input: { actor: ApiActor; artifactId: string }) {
     return uploadPublishWorkflow.listRevisions(this.ctx, input);
   }

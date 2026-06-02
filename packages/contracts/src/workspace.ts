@@ -17,6 +17,9 @@ export const UsagePolicy = z.object({
   max_ttl_seconds: z.number().int().positive(),
   live_artifacts_cap: z.number().int().positive(),
   live_update_enabled: z.boolean(),
+  daily_new_artifact_allowance: z.number().int().positive(),
+  lifetime_revision_ceiling: z.number().int().positive(),
+  daily_new_artifacts_remaining: z.number().int().nonnegative().optional(),
 });
 export type UsagePolicy = z.infer<typeof UsagePolicy>;
 

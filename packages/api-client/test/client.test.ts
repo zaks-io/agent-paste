@@ -15,6 +15,8 @@ const usagePolicy = {
   max_ttl_seconds: 7776000,
   live_artifacts_cap: 50,
   live_update_enabled: false,
+  daily_new_artifact_allowance: 100,
+  lifetime_revision_ceiling: 100,
 };
 
 const pageInfo = { next_cursor: null, has_more: false };

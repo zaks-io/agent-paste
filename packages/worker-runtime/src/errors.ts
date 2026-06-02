@@ -31,6 +31,8 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   rate_limited_artifact: 429,
   rate_limited_workspace: 429,
   usage_policy_exceeded: 429,
+  write_allowance_exceeded: 429,
+  revision_ceiling_exceeded: 429,
   ephemeral_provision_rate_limited: 429,
   ephemeral_provision_unavailable: 503,
   pow_required: 401,

@@ -70,6 +70,10 @@ export type Env = {
     idFromName(name: string): DurableObjectId;
     get(id: DurableObjectId): { fetch(request: Request): Promise<Response> };
   };
+  WRITE_ALLOWANCE?: {
+    idFromName(name: string): DurableObjectId;
+    get(id: DurableObjectId): { fetch(request: Request): Promise<Response> };
+  };
   AGENT_PASTE_ENV?: string;
   DOCS_BASE_URL?: string;
   WORKOS_API_KEY?: string;

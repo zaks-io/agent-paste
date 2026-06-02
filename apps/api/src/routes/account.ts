@@ -5,6 +5,7 @@ import type { Principal } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
 import { apiKeyActor } from "../principals.js";
 import { errorResponse, jsonResponse } from "../responses.js";
+import { enrichUsagePolicyWithWriteAllowance } from "../usage-policy-enrichment.js";
 
 export const CLI_API_KEY_TTL_SECONDS = Seconds.ninetyDays;
 
@@ -14,7 +15,17 @@ export async function whoami(context: AppContext, principal: Principal, db: Repo
   }
   const actor = principal.actor as ApiKeyActor;
 
-  return jsonResponse(context, await db.getWhoami(actor));
+  const whoami = await db.getWhoami(actor);
+  const usagePolicy = whoami.usage_policy
+    ? await enrichUsagePolicyWithWriteAllowance(whoami.usage_policy, {
+        workspaceId: actor.workspace_id,
+        writeAllowance: context.env.WRITE_ALLOWANCE,
+      })
+    : whoami.usage_policy;
+  return jsonResponse(context, {
+    ...whoami,
+    usage_policy: usagePolicy,
+  });
 }
 
 export async function mcpWhoami(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -42,7 +53,14 @@ export async function getUsagePolicy(context: AppContext, principal: Principal, 
   if (!db.getUsagePolicy) {
     return errorResponse(context, "database_unavailable");
   }
-  return jsonResponse(context, await db.getUsagePolicy(actor));
+  const policy = await db.getUsagePolicy(actor);
+  return jsonResponse(
+    context,
+    await enrichUsagePolicyWithWriteAllowance(policy, {
+      workspaceId: actor.workspace_id,
+      writeAllowance: context.env.WRITE_ALLOWANCE,
+    }),
+  );
 }
 
 export async function revokeCurrentApiKey(

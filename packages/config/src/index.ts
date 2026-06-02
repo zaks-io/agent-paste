@@ -17,7 +17,20 @@ export const EPHEMERAL_AUTO_DELETION_DAYS = 1;
 /** Platform cap for pinned artifacts per workspace (ADR 0048 / 0056). */
 export const PINNED_ARTIFACT_CAP = 50;
 
+/** Daily new-Artifact write allowance for unclaimed ephemeral workspaces (ADR 0056 row 16). */
+export const DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL = 20;
+
+/** Daily new-Artifact write allowance for claimed `free` workspaces (ADR 0056 row 17). */
+export const DAILY_NEW_ARTIFACT_ALLOWANCE_FREE = 100;
+
+/** Daily new-Artifact write allowance for `pro` workspaces (ADR 0056 row 18). */
+export const DAILY_NEW_ARTIFACT_ALLOWANCE_PRO = 2000;
+
+/** Per-Artifact lifetime published Revision ceiling (ADR 0056 row 19). */
+export const LIFETIME_REVISION_CEILING = 100;
+
 export type WorkspacePlan = "free" | "pro";
+export type WriteAllowanceTier = "ephemeral" | "free" | "pro";
 
 export const WORKSPACE_PLANS = ["free", "pro"] as const satisfies readonly WorkspacePlan[];
 
@@ -31,6 +44,7 @@ const SHARED_USAGE_POLICY = {
   workspace_burst_cap_per_minute: 300,
   upload_session_ttl_seconds: DEFAULT_UPLOAD_SESSION_TTL_MS / 1000,
   min_ttl_seconds: SECONDS_PER_DAY,
+  lifetime_revision_ceiling: LIFETIME_REVISION_CEILING,
 } as const;
 
 const FREE_PLAN_OVERRIDES = {
@@ -55,7 +69,41 @@ const PRO_PLAN_OVERRIDES = {
 
 function buildPlanUsagePolicy(plan: WorkspacePlan) {
   const tier = plan === "pro" ? PRO_PLAN_OVERRIDES : FREE_PLAN_OVERRIDES;
-  return { ...SHARED_USAGE_POLICY, ...tier };
+  return {
+    ...SHARED_USAGE_POLICY,
+    ...tier,
+    daily_new_artifact_allowance: plan === "pro" ? DAILY_NEW_ARTIFACT_ALLOWANCE_PRO : DAILY_NEW_ARTIFACT_ALLOWANCE_FREE,
+  };
+}
+
+export function resolveWriteAllowanceTier(input: {
+  claimedAt: string | null;
+  plan?: WorkspacePlan | null;
+  billingEnabled?: boolean;
+}): WriteAllowanceTier {
+  if (input.claimedAt === null) {
+    return "ephemeral";
+  }
+  const billingEnabled = input.billingEnabled ?? false;
+  if (!billingEnabled) {
+    return "pro";
+  }
+  return input.plan === "pro" ? "pro" : "free";
+}
+
+export function resolveDailyNewArtifactAllowance(input: {
+  claimedAt: string | null;
+  plan?: WorkspacePlan | null;
+  billingEnabled?: boolean;
+}): number {
+  switch (resolveWriteAllowanceTier(input)) {
+    case "ephemeral":
+      return DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL;
+    case "free":
+      return DAILY_NEW_ARTIFACT_ALLOWANCE_FREE;
+    case "pro":
+      return DAILY_NEW_ARTIFACT_ALLOWANCE_PRO;
+  }
 }
 
 /**

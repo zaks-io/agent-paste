@@ -81,6 +81,8 @@ describe("local publish helpers", () => {
         workspace_burst_cap_per_minute: 300,
         live_artifacts_cap: 50,
         live_update_enabled: false,
+        daily_new_artifact_allowance: 100,
+        lifetime_revision_ceiling: 100,
       }),
     ).not.toThrow();
 
@@ -101,6 +103,8 @@ describe("local publish helpers", () => {
           workspace_burst_cap_per_minute: 300,
           live_artifacts_cap: 50,
           live_update_enabled: false,
+          daily_new_artifact_allowance: 100,
+          lifetime_revision_ceiling: 100,
         },
       ),
     ).toThrow(/exceeds cap/);

@@ -88,6 +88,10 @@ export function mapRepositoryError(error: unknown): { code: AppErrorCode; messag
       return { code: "draft_revision_conflict" };
     case "pinned_artifact_cap_exceeded":
       return { code: "pinned_artifact_cap_exceeded" };
+    case "revision_ceiling_exceeded":
+      return { code: "revision_ceiling_exceeded" };
+    case "write_allowance_exceeded":
+      return { code: "write_allowance_exceeded" };
     case "invalid_ttl_seconds":
       return { code: "invalid_request" };
     default:
