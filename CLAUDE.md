@@ -74,8 +74,8 @@ All standard commands are documented in the root `README.md` tables. Highlights 
 ### Local dev server notes
 
 - `pnpm dev:all` runs the in-memory MVP harness (`scripts/local-mvp-server.mjs`) with mocked R2/KV. No Docker or Postgres is needed for the quick dev path.
-- The admin token is `local-admin-token` (from `.env.example`).
-- To interact with the local server: create a workspace (`pnpm cli:dev admin workspace create <email> --name <name>`), create a key (`pnpm cli:dev admin key create <workspace-id> --name <name>`), set `AGENT_PASTE_API_KEY` to the returned secret, then use `pnpm cli:dev whoami` or `pnpm cli:dev publish <absolute-path>`.
+- The harness self-seeds a `local-proof-workspace` and proof artifacts on startup and prints the API/Upload/Content/Jobs/Stream base URLs plus the `AGENT_PASTE_*_URL` exports to copy. The legacy `ADMIN_TOKEN` / `admin workspace create` / `admin key create` flow was removed in AP-12/AP-13 and no longer exists.
+- Follow the harness's own printed guidance to publish: `pnpm cli:dev login`, `pnpm cli:dev whoami`, `pnpm cli:dev publish examples/local-harness/site`.
 - The CLI resolves paths relative to `apps/cli/`, so use absolute paths when calling `pnpm cli:dev publish`.
 
 ### Gotchas
