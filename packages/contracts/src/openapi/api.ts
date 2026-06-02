@@ -155,6 +155,26 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
 
   registry.registerPath({
     method: "post",
+    path: "/v1/ephemeral/claim",
+    operationId: "ephemeral.claim",
+    summary: "Redeem a Claim Token to reparent ephemeral Artifacts into the member's Personal Workspace.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      headers: [requestIdHeader, idempotencyKeyHeader],
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: schemaRef("EphemeralClaimRequest"),
+          },
+        },
+      },
+    },
+    responses: standardJsonResponses(schemaRef("EphemeralClaimResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
     path: "/v1/auth/web/callback",
     operationId: "web.auth.callback",
     summary: "Resolve or provision a Workspace Member from a WorkOS AuthKit session.",

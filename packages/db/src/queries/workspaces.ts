@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { workspaces } from "../schema.js";
 import type { Workspace } from "../types.js";
@@ -35,6 +35,15 @@ export const workspaceQueries = {
       .update(workspaces)
       .set({ name: input.name, autoDeletionDays: input.autoDeletionDays, updatedAt: new Date(input.updatedAt) })
       .where(eq(workspaces.id, id));
+  },
+
+  async markClaimed(db: DrizzleDb, id: string, input: { claimedAt: string; updatedAt: string }) {
+    const rows = await db
+      .update(workspaces)
+      .set({ claimedAt: new Date(input.claimedAt), updatedAt: new Date(input.updatedAt) })
+      .where(and(eq(workspaces.id, id), isNull(workspaces.claimedAt)))
+      .returning({ id: workspaces.id });
+    return rows.length > 0;
   },
 };
 

@@ -152,5 +152,52 @@ export function localArtifacts(state: LocalState): Entities["artifacts"] {
       artifact.updated_at = new Date().toISOString();
       return true;
     },
+    async reparentWorkspace(fromWorkspaceId, toWorkspaceId, minExpiresAt, updatedAt) {
+      const artifactIds: string[] = [];
+      for (const artifact of state.artifacts.values()) {
+        if (artifact.workspace_id !== fromWorkspaceId) {
+          continue;
+        }
+        artifactIds.push(artifact.id);
+        artifact.workspace_id = toWorkspaceId;
+        const currentExpiresAt = Date.parse(artifact.expires_at);
+        const minExpiresAtMs = Date.parse(minExpiresAt);
+        if (!Number.isNaN(currentExpiresAt) && !Number.isNaN(minExpiresAtMs) && minExpiresAtMs > currentExpiresAt) {
+          artifact.expires_at = minExpiresAt;
+        }
+        artifact.updated_at = updatedAt;
+      }
+      for (const revision of state.revisions.values()) {
+        if (revision.workspace_id === fromWorkspaceId) {
+          revision.workspace_id = toWorkspaceId;
+        }
+      }
+      for (const link of state.accessLinks.values()) {
+        if (link.workspace_id === fromWorkspaceId) {
+          link.workspace_id = toWorkspaceId;
+        }
+      }
+      for (const warning of state.safetyWarnings.values()) {
+        if (warning.workspace_id === fromWorkspaceId) {
+          warning.workspace_id = toWorkspaceId;
+        }
+      }
+      for (const session of state.uploadSessions.values()) {
+        if (session.workspace_id === fromWorkspaceId) {
+          session.workspace_id = toWorkspaceId;
+        }
+      }
+      for (const file of state.uploadSessionFiles.values()) {
+        if (file.workspace_id === fromWorkspaceId) {
+          file.workspace_id = toWorkspaceId;
+        }
+      }
+      for (const file of state.artifactFiles.values()) {
+        if (file.workspace_id === fromWorkspaceId) {
+          file.workspace_id = toWorkspaceId;
+        }
+      }
+      return artifactIds;
+    },
   };
 }

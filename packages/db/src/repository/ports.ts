@@ -42,6 +42,7 @@ export type Entities = {
     findById(id: string): Promise<Workspace | null>;
     listAll(): Promise<Workspace[]>;
     update(id: string, input: { name: string; autoDeletionDays: number; updatedAt: string }): Promise<void>;
+    markClaimed(id: string, input: { claimedAt: string; updatedAt: string }): Promise<boolean>;
   };
   apiKeys: {
     insert(apiKey: ApiKey): Promise<void>;
@@ -50,10 +51,13 @@ export type Entities = {
     listForWorkspace(workspaceId: string): Promise<ApiKey[]>;
     updateLastUsedAt(id: string, lastUsedAt: string): Promise<void>;
     updateRevokedAt(id: string, revokedAt: string): Promise<void>;
+    revokeAllForWorkspace(workspaceId: string, revokedAt: string): Promise<void>;
   };
   claimTokens: {
     insert(claimToken: ClaimToken): Promise<void>;
     findById(id: string, workspaceId?: string): Promise<ClaimToken | null>;
+    findByPublicId(publicId: string): Promise<ClaimToken | null>;
+    markRedeemed(id: string, redeemedAt: string): Promise<boolean>;
   };
   members: {
     insert(member: WorkspaceMember): Promise<void>;
@@ -104,6 +108,12 @@ export type Entities = {
     listExpiring(now: string, limit: number): Promise<Array<{ id: string }>>;
     expireBatch(now: string, ids: string[]): Promise<void>;
     setAccessLinkLockdown(artifactId: string, lockdownAt: string | null): Promise<boolean>;
+    reparentWorkspace(
+      fromWorkspaceId: string,
+      toWorkspaceId: string,
+      minExpiresAt: string,
+      updatedAt: string,
+    ): Promise<string[]>;
   };
   accessLinks: {
     insert(link: AccessLink): Promise<void>;

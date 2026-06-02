@@ -20,5 +20,14 @@ export function localWorkspaces(state: LocalState): Entities["workspaces"] {
         workspace.updated_at = input.updatedAt;
       }
     },
+    async markClaimed(id, input) {
+      const workspace = state.workspaces.get(id);
+      if (!workspace || workspace.claimed_at !== null) {
+        return false;
+      }
+      workspace.claimed_at = input.claimedAt;
+      workspace.updated_at = input.updatedAt;
+      return true;
+    },
   };
 }

@@ -4,6 +4,7 @@ export { artifactFileQueries, artifactQueries } from "./artifacts.js";
 export { claimTokenQueries } from "./claim-tokens.js";
 export { operationEventQueries } from "./operation-events.js";
 export { platformLockdownQueries } from "./platform-lockdowns.js";
+export { reparentTenantContent } from "./reparent.js";
 export { revisionQueries, toRevisionSummary } from "./revisions.js";
 export { safetyWarningQueries } from "./safety-warnings.js";
 export { uploadSessionFileQueries, uploadSessionQueries } from "./upload-sessions.js";

@@ -25,8 +25,15 @@ export function localApiKeys(state: LocalState): Entities["apiKeys"] {
     },
     async updateRevokedAt(id, revokedAt) {
       const apiKey = state.apiKeys.get(id);
-      if (apiKey) {
+      if (apiKey && apiKey.revoked_at === null) {
         apiKey.revoked_at = revokedAt;
+      }
+    },
+    async revokeAllForWorkspace(workspaceId, revokedAt) {
+      for (const apiKey of state.apiKeys.values()) {
+        if (apiKey.workspace_id === workspaceId && apiKey.revoked_at === null) {
+          apiKey.revoked_at = revokedAt;
+        }
       }
     },
   };

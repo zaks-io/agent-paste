@@ -130,6 +130,7 @@ export const claimTokens = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
+    publicId: text("public_id"),
     tokenHash: bytea("token_hash").notNull(),
     pepperKid: smallint("pepper_kid").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -138,6 +139,7 @@ export const claimTokens = pgTable(
   },
   (table) => [
     index("claim_tokens_workspace_idx").on(table.workspaceId),
+    uniqueIndex("claim_tokens_public_id_unique").on(table.publicId),
     check("claim_tokens_id_format", sql`${table.id} ~ '^ct_[0-9A-HJKMNP-TV-Z]{26}$'`),
   ],
 );

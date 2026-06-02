@@ -36,8 +36,21 @@ vi.mock("../src/server/api-client", async () => {
   };
 });
 
+vi.mock("../src/server/turnstile", () => ({
+  LOCAL_TURNSTILE_BYPASS_TOKEN: "local-turnstile-bypass",
+  verifyTurnstileToken: vi.fn(async () => true),
+}));
+
 import { ApiError } from "../src/server/api-client";
-import { createKeyFn, liftLockdownFn, revokeKeyFn, saveSettingsFn, setLockdownFn } from "../src/server/web-mutations";
+import { verifyTurnstileToken } from "../src/server/turnstile";
+import {
+  claimEphemeralFn,
+  createKeyFn,
+  liftLockdownFn,
+  revokeKeyFn,
+  saveSettingsFn,
+  setLockdownFn,
+} from "../src/server/web-mutations";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -46,6 +59,8 @@ describe("web server mutations", () => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "access-token" };
     state.requestId = "req_local";
     state.apiFetch.mockReset();
+    vi.mocked(verifyTurnstileToken).mockReset();
+    vi.mocked(verifyTurnstileToken).mockResolvedValue(true);
   });
 
   it("creates keys, revokes keys, saves settings, and mutates lockdowns with bearer access and idempotency", async () => {
@@ -204,5 +219,53 @@ describe("web server mutations", () => {
       data: null,
       error: { status: 0, code: "network_error", message: "request failed", requestId: "req_local" },
     });
+  });
+
+  it("claims ephemeral content after Turnstile verification", async () => {
+    state.apiFetch.mockResolvedValueOnce({
+      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+      source_workspace_id: "00000000-0000-4000-8000-000000000099",
+      artifact_ids: ["art_test"],
+      claim_token_id: "ct_test",
+    });
+
+    await expect(
+      claimEphemeralFn({
+        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" },
+      }),
+    ).resolves.toMatchObject({
+      data: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        artifact_ids: ["art_test"],
+      },
+      error: null,
+    });
+    expect(state.apiFetch).toHaveBeenCalledWith("/v1/ephemeral/claim", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("rejects claim attempts when Turnstile verification fails", async () => {
+    vi.mocked(verifyTurnstileToken).mockResolvedValueOnce(false);
+    await expect(
+      claimEphemeralFn({
+        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "bad" },
+      }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { code: "turnstile_failed" },
+    });
+    expect(state.apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Turnstile tokens before calling the API", async () => {
+    await expect(
+      claimEphemeralFn({
+        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "   " },
+      }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { code: "validation_error", status: 400 },
+    });
+    expect(verifyTurnstileToken).not.toHaveBeenCalled();
+    expect(state.apiFetch).not.toHaveBeenCalled();
   });
 });

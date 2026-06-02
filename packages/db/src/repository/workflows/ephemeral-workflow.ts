@@ -1,14 +1,17 @@
 import { EPHEMERAL_AUTO_DELETION_DAYS } from "@agent-paste/config";
 import { PepperRing } from "@agent-paste/rotation";
-import { generateClaimToken } from "../../claim-tokens.js";
+import { generateClaimToken, parseClaimToken, verifyClaimTokenSecret } from "../../claim-tokens.js";
 import { createId } from "../../id.js";
-import type { ClaimToken, Workspace } from "../../types.js";
+import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
+import type { ApiActor, ClaimToken, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import {
   adminCommandActor,
   EPHEMERAL_PROVISION_SYSTEM_ACTOR,
   expiresAtFromSeconds,
+  memberCommandActor,
   nowIso,
+  PLATFORM_SCOPE,
   workspaceScope,
 } from "../core-helpers.js";
 import { buildApiKey } from "../shared.js";
@@ -73,6 +76,7 @@ export async function createEphemeralWorkspace(
       const claimToken: ClaimToken = {
         id: createId("ct"),
         workspace_id: workspaceId,
+        public_id: generated.publicId,
         token_hash: generated.tokenHash,
         pepper_kid: pepperRing.currentKid,
         expires_at: claimExpiresAt,
@@ -98,6 +102,127 @@ export async function createEphemeralWorkspace(
         api_key_secret: apiKeySecret,
         claim_token: claimToken,
         claim_token_secret: generated.secret,
+      };
+    },
+  );
+}
+
+export type ClaimEphemeralWorkspaceResult = {
+  destination_workspace_id: string;
+  source_workspace_id: string;
+  artifact_ids: string[];
+  claim_token_id: string;
+};
+
+async function resolveClaimTokenRecord(ctx: RepositoryCoreContext, claimTokenSecret: string): Promise<ClaimToken> {
+  const parsed = parseClaimToken(claimTokenSecret);
+  if (!parsed) {
+    throw new Error("not_found");
+  }
+  const record = await ctx.uow.read(PLATFORM_SCOPE, (entities) => entities.claimTokens.findByPublicId(parsed.publicId));
+  if (!record?.public_id) {
+    throw new Error("not_found");
+  }
+  const pepper = ctx.pepperForRecord(record.pepper_kid);
+  if (!pepper) {
+    throw new Error("not_found");
+  }
+  const valid = await verifyClaimTokenSecret(claimTokenSecret, record.token_hash, pepper);
+  if (!valid) {
+    throw new Error("not_found");
+  }
+  return record;
+}
+
+function assertClaimTokenRedeemable(claimToken: ClaimToken, sourceWorkspace: Workspace, now: string) {
+  if (claimToken.redeemed_at !== null) {
+    throw new Error("not_found");
+  }
+  if (Date.parse(claimToken.expires_at) <= Date.parse(now)) {
+    throw new Error("not_found");
+  }
+  if (!isEphemeralWorkspace(sourceWorkspace)) {
+    throw new Error("not_found");
+  }
+}
+
+export async function claimEphemeralWorkspace(
+  ctx: RepositoryCoreContext,
+  input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  },
+): Promise<ClaimEphemeralWorkspaceResult> {
+  if (input.actor.type !== "member") {
+    throw new Error("forbidden");
+  }
+  const now = nowIso(input.now);
+  const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
+  const destinationWorkspaceId = input.actor.workspace_id;
+
+  return ctx.uow.command(
+    {
+      actor: memberCommandActor(input.actor),
+      operation: "ephemeral.workspace.claim",
+      idempotencyKey: input.idempotencyKey,
+      scope: PLATFORM_SCOPE,
+      now,
+    },
+    async (entities) => {
+      const resolvedToken = await entities.claimTokens.findByPublicId(claimToken.public_id);
+      if (!resolvedToken) {
+        throw new Error("not_found");
+      }
+      const sourceWorkspace = await ctx.mustWorkspace(entities, resolvedToken.workspace_id);
+      const destinationWorkspace = await ctx.mustWorkspace(entities, destinationWorkspaceId);
+      assertClaimTokenRedeemable(resolvedToken, sourceWorkspace, now);
+      if (sourceWorkspace.id === destinationWorkspace.id) {
+        throw new Error("not_found");
+      }
+
+      const minArtifactExpiresAt = artifactExpiresAtFromWorkspace(destinationWorkspace, now);
+      const artifactIds = await entities.artifacts.reparentWorkspace(
+        sourceWorkspace.id,
+        destinationWorkspace.id,
+        minArtifactExpiresAt,
+        now,
+      );
+      await entities.apiKeys.revokeAllForWorkspace(sourceWorkspace.id, now);
+      const markedClaimed = await entities.workspaces.markClaimed(sourceWorkspace.id, {
+        claimedAt: now,
+        updatedAt: now,
+      });
+      if (!markedClaimed) {
+        throw new Error("not_found");
+      }
+      const markedRedeemed = await entities.claimTokens.markRedeemed(resolvedToken.id, now);
+      if (!markedRedeemed) {
+        throw new Error("not_found");
+      }
+
+      await entities.operationEvents.insert({
+        actorType: "member",
+        actorId: input.actor.id,
+        action: "ephemeral.workspace.claimed",
+        targetType: "workspace",
+        targetId: sourceWorkspace.id,
+        workspaceId: destinationWorkspace.id,
+        details: {
+          claim_token_id: resolvedToken.id,
+          source_workspace_id: sourceWorkspace.id,
+          destination_workspace_id: destinationWorkspace.id,
+          artifact_ids: artifactIds,
+        },
+        occurredAt: now,
+      });
+
+      return {
+        destination_workspace_id: destinationWorkspace.id,
+        source_workspace_id: sourceWorkspace.id,
+        artifact_ids: artifactIds,
+        claim_token_id: resolvedToken.id,
       };
     },
   );

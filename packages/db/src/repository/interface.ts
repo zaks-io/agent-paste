@@ -18,7 +18,7 @@ import type {
 } from "../types.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
-import type { CreateEphemeralWorkspaceResult } from "./workflows/ephemeral-workflow.js";
+import type { ClaimEphemeralWorkspaceResult, CreateEphemeralWorkspaceResult } from "./workflows/ephemeral-workflow.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
@@ -132,6 +132,12 @@ export type Repository = {
     now?: Date;
     claimTokenExpiresInSeconds?: number;
   }): Promise<CreateEphemeralWorkspaceResult>;
+  claimEphemeralWorkspace(input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  }): Promise<ClaimEphemeralWorkspaceResult>;
   listWorkspaces(): Promise<{ data: ReturnType<typeof toWorkspaceDetail>[]; page_info: PageInfo }>;
   createApiKey(input: {
     actor: AdminActor;

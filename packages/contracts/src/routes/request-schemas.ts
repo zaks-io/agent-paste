@@ -1,6 +1,6 @@
 import { AccessLinkResolveRequest, CreateAccessLinkRequest, UpdateDisplayMetadataRequest } from "../accessLinks.js";
-import { EphemeralProvisionRequest } from "../ephemeral.js";
 import { CreateApiKeyRequest } from "../apiKeys.js";
+import { EphemeralClaimRequest, EphemeralProvisionRequest } from "../ephemeral.js";
 import { SetLockdownRequest } from "../lockdown.js";
 import { CreateUploadSessionRequest } from "../uploadSessions.js";
 import { UpdateWebSettingsRequest } from "../web.js";
@@ -12,6 +12,7 @@ export const requestSchemas = {
   CreateApiKeyRequest,
   CreateUploadSessionRequest,
   EphemeralProvisionRequest,
+  EphemeralClaimRequest,
   SetLockdownRequest,
   UpdateDisplayMetadataRequest,
   UpdateWebSettingsRequest,

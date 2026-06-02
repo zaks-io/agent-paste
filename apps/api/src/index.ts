@@ -18,7 +18,7 @@ import {
   revokeAccessLinkRoute,
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
-import { ephemeralProvisionRoute } from "./routes/ephemeral.js";
+import { ephemeralClaimRoute, ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import {
   deleteMemberArtifactRoute,
   listMemberArtifactsRoute,
@@ -124,6 +124,9 @@ apiDbRegistrar.mount(contractById("accessLinks.resolve"), async (context, _princ
 );
 apiDbRegistrar.mount(contractById("ephemeral.provision"), async (context, _principal, db, guard) =>
   ephemeralProvisionRoute(context as AppContext, db, guard),
+);
+apiDbRegistrar.mount(contractById("ephemeral.claim"), async (context, principal, db, guard) =>
+  ephemeralClaimRoute(context as AppContext, principal, db, guard),
 );
 apiDbRegistrar.mount(contractById("agentView.getLatest"), async (context, principal, db) =>
   authenticatedAgentView(context as AppContext, principal, db, {

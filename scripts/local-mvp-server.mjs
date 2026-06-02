@@ -32,6 +32,10 @@ const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
 const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 const streamBaseUrl = `http://127.0.0.1:${streamPort}`;
 
+const alwaysAllowRateLimit = {
+  limit: async () => ({ success: true }),
+};
+
 function createWorkerServer(name, port, worker, env) {
   return createServer(async (incoming, outgoing) => {
     try {
@@ -261,6 +265,7 @@ function createApiDatabase(repo) {
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
     resolveAccessLink: repo.resolveAccessLink.bind(repo),
     createEphemeralWorkspace: repo.createEphemeralWorkspace.bind(repo),
+    claimEphemeralWorkspace: repo.claimEphemeralWorkspace.bind(repo),
     getAdminWhoami: repo.getAdminWhoami?.bind(repo),
     createWorkspace: repo.createWorkspace.bind(repo),
     listWorkspaces: repo.listWorkspaces.bind(repo),
@@ -334,6 +339,8 @@ const apiEnv = {
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   EPHEMERAL_POW_SECRET: process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret",
+  EPHEMERAL_PROVISION_IP_RATE_LIMIT: alwaysAllowRateLimit,
+  EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: alwaysAllowRateLimit,
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,
   STREAM_INTERNAL_SECRET: streamInternalSecret,
   API_BASE_URL: apiBaseUrl,

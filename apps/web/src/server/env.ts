@@ -9,6 +9,8 @@ export type WebEnv = {
   WORKOS_REDIRECT_URI: string;
   WORKOS_COOKIE_PASSWORD: string;
   WORKOS_COOKIE_NAME?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
   ASSETS: Fetcher;
   API?: Fetcher;
   SENTRY_DSN?: string;

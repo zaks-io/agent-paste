@@ -31,6 +31,7 @@ const ephemeralProvisionErrors = [
   "ephemeral_provision_unavailable",
   "database_unavailable",
 ] as const;
+const ephemeralClaimErrors = [...webIdempotentMutationErrors, "not_found"] as const;
 
 export const routeErrorGroups = {
   apiKeyRead: apiKeyReadErrors,
@@ -42,4 +43,5 @@ export const routeErrorGroups = {
   operatorMutation: operatorMutationErrors,
   operatorRead: operatorReadErrors,
   ephemeralProvision: ephemeralProvisionErrors,
+  ephemeralClaim: ephemeralClaimErrors,
 } as const;

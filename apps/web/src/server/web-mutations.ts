@@ -2,6 +2,8 @@ import {
   ApiKeyId,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
+  EphemeralClaimRequest,
+  type EphemeralClaimResponse,
   LiftLockdownRequest,
   type LockdownDetail,
   type RevokeApiKeyResponse,
@@ -13,6 +15,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { ApiError, type ApiErrorInfo, apiFetch } from "./api-client";
 import { getRequestId } from "./runtime";
+import { LOCAL_TURNSTILE_BYPASS_TOKEN, verifyTurnstileToken } from "./turnstile";
+
+export { LOCAL_TURNSTILE_BYPASS_TOKEN };
 
 export type MutationResult<T> = { data: T; error: null } | { data: null; error: ApiErrorInfo };
 
@@ -170,5 +175,47 @@ export const liftLockdownFn = createServerFn({ method: "POST" })
           headers: { "idempotency-key": crypto.randomUUID() },
         },
       ),
+    );
+  });
+
+export const claimEphemeralFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { claim_token: string; turnstile_token: string }) => input)
+  .handler(async ({ data }) => {
+    const turnstileToken = typeof data.turnstile_token === "string" ? data.turnstile_token.trim() : "";
+    if (!turnstileToken || turnstileToken.length > 2048) {
+      return {
+        data: null,
+        error: {
+          status: 400,
+          code: "validation_error",
+          message: "Invalid Turnstile token.",
+          requestId: undefined,
+        },
+      };
+    }
+
+    const turnstileOk = await verifyTurnstileToken(turnstileToken);
+    if (!turnstileOk) {
+      return {
+        data: null,
+        error: {
+          status: 400,
+          code: "turnstile_failed",
+          message: "Turnstile verification failed.",
+          requestId: undefined,
+        },
+      };
+    }
+
+    const input = parseInput(EphemeralClaimRequest, { claim_token: data.claim_token });
+    if (input.error) return { data: null, error: input.error };
+
+    return runMutation<EphemeralClaimResponse>((accessToken) =>
+      apiFetch<EphemeralClaimResponse>("/v1/ephemeral/claim", {
+        method: "POST",
+        accessToken,
+        headers: { "idempotency-key": crypto.randomUUID() },
+        body: JSON.stringify(input.value),
+      }),
     );
   });

@@ -1,12 +1,5 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { AccessLinkResolveRequest } from "../accessLinks.js";
-import {
-  EphemeralPowRequiredResponse,
-  EphemeralProvisionChallengeResponse,
-  EphemeralProvisionRequest,
-  EphemeralProvisionResponse,
-  PowChallenge,
-} from "../ephemeral.js";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
@@ -19,6 +12,15 @@ import {
   BundleAvailabilityReady,
 } from "../bundle.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
+import {
+  EphemeralClaimRequest,
+  EphemeralClaimResponse,
+  EphemeralPowRequiredResponse,
+  EphemeralProvisionChallengeResponse,
+  EphemeralProvisionRequest,
+  EphemeralProvisionResponse,
+  PowChallenge,
+} from "../ephemeral.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
 import { PlainTextTitle, UrlString } from "../primitives.js";
@@ -72,6 +74,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("EphemeralPowRequiredResponse", EphemeralPowRequiredResponse);
   registry.register("EphemeralProvisionChallengeResponse", EphemeralProvisionChallengeResponse);
   registry.register("EphemeralProvisionResponse", EphemeralProvisionResponse);
+  registry.register("EphemeralClaimRequest", EphemeralClaimRequest);
+  registry.register("EphemeralClaimResponse", EphemeralClaimResponse);
   registry.register(
     "AccessLinkResolveResponse",
     z.object({

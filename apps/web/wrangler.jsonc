@@ -29,7 +29,8 @@
     "WORKOS_REDIRECT_URI": "http://127.0.0.1:5173/api/auth/callback",
     "WORKOS_COOKIE_NAME": "__agp_session",
     "WORKOS_COOKIE_SAME_SITE": "lax",
-    "WEB_BASE_URL": "http://127.0.0.1:5173"
+    "WEB_BASE_URL": "http://127.0.0.1:5173",
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
   },
   "env": {
     "preview": {
@@ -50,7 +51,8 @@
         "WORKOS_REDIRECT_URI": "https://app.preview.agent-paste.sh/api/auth/callback",
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
-        "WEB_BASE_URL": "https://app.preview.agent-paste.sh"
+        "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
       },
       "services": [
         {
@@ -77,7 +79,8 @@
         "WORKOS_REDIRECT_URI": "https://app.agent-paste.sh/api/auth/callback",
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
-        "WEB_BASE_URL": "https://app.agent-paste.sh"
+        "WEB_BASE_URL": "https://app.agent-paste.sh",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
       },
       "services": [
         {

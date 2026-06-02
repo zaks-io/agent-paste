@@ -16,6 +16,7 @@ import { Route as AlPublicIdRouteImport } from './routes/al.$publicId'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
 import { Route as AuthedKeysRouteImport } from './routes/_authed.keys'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed.dashboard'
+import { Route as AuthedClaimRouteImport } from './routes/_authed.claim'
 import { Route as AuthedAuditRouteImport } from './routes/_authed.audit'
 import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
 import { Route as AuthedAccessLinksRouteImport } from './routes/_authed.access-links'
@@ -61,6 +62,11 @@ const AuthedKeysRoute = AuthedKeysRouteImport.update({
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedClaimRoute = AuthedClaimRouteImport.update({
+  id: '/claim',
+  path: '/claim',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAuditRoute = AuthedAuditRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/access-links': typeof AuthedAccessLinksRoute
   '/admin': typeof AuthedAdminRoute
   '/audit': typeof AuthedAuditRoute
+  '/claim': typeof AuthedClaimRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/access-links': typeof AuthedAccessLinksRoute
   '/admin': typeof AuthedAdminRoute
   '/audit': typeof AuthedAuditRoute
+  '/claim': typeof AuthedClaimRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_authed/access-links': typeof AuthedAccessLinksRoute
   '/_authed/admin': typeof AuthedAdminRoute
   '/_authed/audit': typeof AuthedAuditRoute
+  '/_authed/claim': typeof AuthedClaimRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/keys': typeof AuthedKeysRoute
   '/_authed/settings': typeof AuthedSettingsRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/access-links'
     | '/admin'
     | '/audit'
+    | '/claim'
     | '/dashboard'
     | '/keys'
     | '/settings'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/access-links'
     | '/admin'
     | '/audit'
+    | '/claim'
     | '/dashboard'
     | '/keys'
     | '/settings'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/_authed/access-links'
     | '/_authed/admin'
     | '/_authed/audit'
+    | '/_authed/claim'
     | '/_authed/dashboard'
     | '/_authed/keys'
     | '/_authed/settings'
@@ -315,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthedDashboardRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/claim': {
+      id: '/_authed/claim'
+      path: '/claim'
+      fullPath: '/claim'
+      preLoaderRoute: typeof AuthedClaimRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/audit': {
@@ -408,6 +427,7 @@ interface AuthedRouteChildren {
   AuthedAccessLinksRoute: typeof AuthedAccessLinksRoute
   AuthedAdminRoute: typeof AuthedAdminRoute
   AuthedAuditRoute: typeof AuthedAuditRoute
+  AuthedClaimRoute: typeof AuthedClaimRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedKeysRoute: typeof AuthedKeysRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
@@ -419,6 +439,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccessLinksRoute: AuthedAccessLinksRoute,
   AuthedAdminRoute: AuthedAdminRoute,
   AuthedAuditRoute: AuthedAuditRoute,
+  AuthedClaimRoute: AuthedClaimRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedKeysRoute: AuthedKeysRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,

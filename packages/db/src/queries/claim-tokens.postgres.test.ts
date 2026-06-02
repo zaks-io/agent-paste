@@ -34,6 +34,8 @@ describe("claimTokenQueries bytea round-trip", () => {
       "utf8",
     );
     await client.exec(migration);
+    const publicIdMigration = await readFile(resolve(here, "../../migrations/0019_claim_tokens_public_id.sql"), "utf8");
+    await client.exec(publicIdMigration);
     db = drizzle(client, { schema });
     await db.insert(schema.workspaces).values({
       id: workspaceId,
@@ -52,6 +54,7 @@ describe("claimTokenQueries bytea round-trip", () => {
     const row = {
       id: "ct_00000000000000000000000001",
       workspace_id: workspaceId,
+      public_id: "ABCDEFGHJKLMNP12",
       token_hash: tokenHash,
       pepper_kid: 1,
       expires_at: "2026-01-02T00:00:00.000Z",
@@ -61,5 +64,8 @@ describe("claimTokenQueries bytea round-trip", () => {
     await claimTokenQueries.insert(db, row);
     const loaded = await claimTokenQueries.findById(db, row.id);
     expect(loaded?.token_hash).toEqual(tokenHash);
+    await expect(claimTokenQueries.findByPublicId(db, row.public_id)).resolves.toMatchObject({ id: row.id });
+    await expect(claimTokenQueries.markRedeemed(db, row.id, "2026-01-03T00:00:00.000Z")).resolves.toBe(true);
+    await expect(claimTokenQueries.markRedeemed(db, row.id, "2026-01-04T00:00:00.000Z")).resolves.toBe(false);
   });
 });

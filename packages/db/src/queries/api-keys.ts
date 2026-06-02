@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { apiKeys } from "../schema.js";
 import type { ApiKey } from "../types.js";
@@ -52,7 +52,14 @@ export const apiKeyQueries = {
     await db
       .update(apiKeys)
       .set({ revokedAt: new Date(revokedAt) })
-      .where(eq(apiKeys.id, id));
+      .where(and(eq(apiKeys.id, id), isNull(apiKeys.revokedAt)));
+  },
+
+  async revokeAllForWorkspace(db: DrizzleDb, workspaceId: string, revokedAt: string) {
+    await db
+      .update(apiKeys)
+      .set({ revokedAt: new Date(revokedAt) })
+      .where(and(eq(apiKeys.workspaceId, workspaceId), isNull(apiKeys.revokedAt)));
   },
 };
 
