@@ -120,8 +120,18 @@ pnpm hooks:install
 | `pnpm bootstrap:preview`                         | Generate/write preview Worker secrets.                                                          |
 | `pnpm bootstrap:production`                      | Generate/write production Worker secrets.                                                       |
 | `pnpm bootstrap:live`                            | Alias for `pnpm bootstrap:production`.                                                          |
+| `pnpm secrets:content-signing:preview`           | Set `CONTENT_SIGNING_SECRET` on preview `api`, `upload`, `content`, and `jobs` Workers.         |
+| `pnpm secrets:content-signing:production`        | Set `CONTENT_SIGNING_SECRET` on production `api`, `upload`, `content`, and `jobs` Workers.      |
+| `pnpm secrets:content-signing:reset:preview`     | Mint one fresh `CONTENT_SIGNING_SECRET` and pin it across the four preview Workers (fix drift). |
+| `pnpm secrets:content-signing:reset:production`  | Same drift reset for production.                                                                |
+| `pnpm secrets:upload-signing:preview`            | Set `UPLOAD_SIGNING_SECRET` on the preview `upload` Worker.                                     |
+| `pnpm secrets:upload-signing:production`         | Set `UPLOAD_SIGNING_SECRET` on the production `upload` Worker.                                  |
+| `pnpm secrets:upload-signing:reset:preview`      | Mint one fresh `UPLOAD_SIGNING_SECRET` and pin it on the preview `upload` Worker (fix drift).   |
+| `pnpm secrets:upload-signing:reset:production`   | Same drift reset for production.                                                                |
 | `pnpm secrets:stream-internal:preview`           | Set `STREAM_INTERNAL_SECRET` on preview `api` and `stream` Workers only.                        |
 | `pnpm secrets:stream-internal:production`        | Set `STREAM_INTERNAL_SECRET` on production `api` and `stream` Workers only.                     |
+| `pnpm secrets:stream-internal:reset:preview`     | Mint one fresh `STREAM_INTERNAL_SECRET` and pin it on preview `api` and `stream` (fix drift).   |
+| `pnpm secrets:stream-internal:reset:production`  | Same drift reset for production.                                                                |
 | `pnpm secrets:artifact-bytes:preview`            | Set `ARTIFACT_BYTES_ENCRYPTION_KEY` on preview `upload`, `content`, and `jobs` Workers only.    |
 | `pnpm secrets:artifact-bytes:production`         | Set `ARTIFACT_BYTES_ENCRYPTION_KEY` on production `upload`, `content`, and `jobs` Workers only. |
 | `pnpm secrets:rotate:content-signing:preview`    | ADR 0045 overlap rotation for content signing on preview (`--step` required).                   |
