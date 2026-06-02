@@ -200,6 +200,7 @@ ${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this
 For ${target} live-update rollout after bootstrap, use scripts/set-stream-internal-secret.mjs with the generated STREAM_INTERNAL_SECRET value instead of re-running bootstrap.
 For existing environments that predate artifact-byte encryption, use scripts/set-artifact-bytes-encryption-secret.mjs to bind the same ARTIFACT_BYTES_ENCRYPTION_KEY on upload, content, and jobs without re-running bootstrap.
 To bind CONTENT_SIGNING_SECRET on all four signing Workers (api, upload, content, jobs) without re-running bootstrap, use scripts/set-content-signing-secret.mjs.
+To re-pin UPLOAD_SIGNING_SECRET on the upload Worker without re-running bootstrap, use scripts/set-upload-signing-secret.mjs.
 `);
 }
 

@@ -64,6 +64,49 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 
 It uses `wrangler secret list --format json` and refuses to write when listing fails or when secrets already exist (unless `--force`).
 
+With `--with-web`, bootstrap also writes:
+
+- `WORKOS_API_KEY`
+- `WORKOS_CLIENT_ID`
+- `WORKOS_COOKIE_PASSWORD`
+
+It prints generated values once for password-manager capture, including `SMOKE_HARNESS_SECRET` for non-production smoke harness routes. It checks existing Worker secrets first and refuses to overwrite unless `--force` is passed and the operator types `overwrite <env> secrets`.
+Human operator access is controlled in WorkOS by granting the `admin` role slug to the user.
+
+Use `--print-only` to verify generation shape without calling Wrangler. Use `--skip-web` to force CLI-first bootstrap even if WorkOS values are present.
+
+### Shared-secret setters (`set-*-secret.mjs`)
+
+`set-content-signing-secret.mjs`, `set-upload-signing-secret.mjs`, `set-artifact-bytes-encryption-secret.mjs`, and `set-stream-internal-secret.mjs` are thin wrappers over `lib/shared-secret-setter.mjs`. Each one sets the **same** value for a single shared secret across every Worker that binds it, in one pass, without reading or rotating unrelated secrets.
+
+**Fixing drift — `--reset`.** When the Workers have fallen out of sync, run with `--reset` (or the `secrets:*:reset:*` shortcuts). The script mints one fresh strong secret and pins that same value to every Worker in the set, after a typed confirmation. You do not pass or generate a value yourself — it does it for you. `--reset` and `--value` are mutually exclusive. The `:reset` shortcuts exist for `content-signing`, `upload-signing`, and `stream-internal`; they are intentionally **not** offered for `artifact-bytes` because existing R2 ciphertext is keyed to its original `enc_kid` and minting a fresh encryption key would orphan it — roll that one with `rotate-versioned-secret.mjs artifact-bytes-encryption` instead.
+
+The Worker set for the signing/encryption secrets is derived from `lib/rotation-profiles.mjs` (`VERSIONED_SECRET_PROFILES`), so the "set" and "rotate" flows can never disagree on which Workers carry a key. `STREAM_INTERNAL_SECRET` has no versioned-rotation profile, so its `api`/`stream` set is declared in its wrapper.
+
+Common flags on every setter: `--reset` (mint a fresh value and pin it to every Worker even when bindings exist; typed confirmation; the drift-fix path), `--value <existing-secret>` (pin a known value instead of generating one; required to write over an existing binding without `--reset`), `--force` (allow overwrite after typed confirmation; requires `--value`), `--dry-run` (print the rollout plan only), `--print-only` (generate and print a value without calling wrangler). With no `--value` and no `--reset`, a setter generates a fresh key on first bootstrap but refuses to auto-generate over an existing binding. Operators run these locally with `wrangler`; do not commit secret values.
+
+### `set-content-signing-secret.mjs`
+
+Sets the same `CONTENT_SIGNING_SECRET` on `agent-paste-api-<target>`, `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>`. All four must share one value per environment so content/bundle tokens and agent-view URLs mint and verify across api, upload, content, and the jobs safety-scan handler; use a different value in preview vs production.
+
+```sh
+pnpm secrets:content-signing:reset:preview      # mint + pin a fresh value (fix drift)
+pnpm secrets:content-signing:reset:production
+pnpm secrets:content-signing:production -- --value <existing-secret>   # pin a known value
+node scripts/set-content-signing-secret.mjs preview --reset --dry-run
+```
+
+### `set-upload-signing-secret.mjs`
+
+Sets `UPLOAD_SIGNING_SECRET` on `agent-paste-upload-<target>`. Only the upload Worker mints and verifies signed upload URLs, so this is a single-Worker setter; use a different value in preview vs production.
+
+```sh
+pnpm secrets:upload-signing:reset:preview        # mint + pin a fresh value (fix drift)
+pnpm secrets:upload-signing:reset:production
+pnpm secrets:upload-signing:production -- --value <existing-secret>   # pin a known value
+node scripts/set-upload-signing-secret.mjs preview --reset --dry-run
+```
+
 ### `set-stream-internal-secret.mjs`
 
 Targeted rollout for live-update internal auth only. Sets the same `STREAM_INTERNAL_SECRET` on `agent-paste-api-<target>` and `agent-paste-stream-<target>` without reading or rotating unrelated secrets.
@@ -78,38 +121,13 @@ Use this for AP-80 / live-update rollout on existing hosted environments. First-
 
 ### `set-artifact-bytes-encryption-secret.mjs`
 
-Targeted rollout for application-layer artifact-byte encryption only. Sets the same `ARTIFACT_BYTES_ENCRYPTION_KEY` on `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>` without reading or rotating unrelated secrets.
+Sets the same `ARTIFACT_BYTES_ENCRYPTION_KEY` on `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>`. Use this for AP-32 rollout on existing hosted environments. First-deploy bootstrap mints the same secret; PR preview derives it from `PR_PREVIEW_SECRET_SEED` in `deploy-pr-preview.mjs`.
 
 ```sh
-node scripts/set-artifact-bytes-encryption-secret.mjs preview
-node scripts/set-artifact-bytes-encryption-secret.mjs production --value <existing-secret>
+pnpm secrets:artifact-bytes:preview
+pnpm secrets:artifact-bytes:production -- --value <existing-secret>
 node scripts/set-artifact-bytes-encryption-secret.mjs preview --dry-run
 ```
-
-Use this for AP-32 rollout on existing hosted environments. First-deploy bootstrap mints the same secret; PR preview derives it from `PR_PREVIEW_SECRET_SEED` in `deploy-pr-preview.mjs`. Operators run this locally with `wrangler`; do not commit secret values.
-
-### `set-content-signing-secret.mjs`
-
-Targeted rollout for the content/agent-view signing key. Sets the same `CONTENT_SIGNING_SECRET` on `agent-paste-api-<target>`, `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>` in one pass, without reading or rotating unrelated secrets.
-
-```sh
-node scripts/set-content-signing-secret.mjs preview
-node scripts/set-content-signing-secret.mjs production --value <existing-secret>
-node scripts/set-content-signing-secret.mjs preview --dry-run
-```
-
-All four Workers must share one value per environment so content/bundle tokens and agent-view URLs mint and verify across api, upload, content, and the jobs safety-scan handler; use a different value in preview vs production. With no `--value`, it generates a fresh key, but refuses to auto-generate over an existing binding — pass `--value <current-secret>` to extend the same key to a new Worker, or use `rotate-versioned-secret.mjs content-signing` to roll it. Operators run this locally with `wrangler`; do not commit secret values.
-
-With `--with-web`, bootstrap also writes:
-
-- `WORKOS_API_KEY`
-- `WORKOS_CLIENT_ID`
-- `WORKOS_COOKIE_PASSWORD`
-
-It prints generated values once for password-manager capture, including `SMOKE_HARNESS_SECRET` for non-production smoke harness routes. It checks existing Worker secrets first and refuses to overwrite unless `--force` is passed and the operator types `overwrite <env> secrets`.
-Human operator access is controlled in WorkOS by granting the `admin` role slug to the user.
-
-Use `--print-only` to verify generation shape without calling Wrangler. Use `--skip-web` to force CLI-first bootstrap even if WorkOS values are present.
 
 ### `migrate.mjs`
 
