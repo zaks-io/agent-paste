@@ -16,29 +16,17 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { byteaFromDriver, byteaToDriver } from "./postgres/bytea-codec.js";
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const normalized = hex.startsWith("\\x") ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Number.parseInt(normalized.slice(index * 2, index * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-const bytea = customType<{ data: Uint8Array; driverData: string }>({
+const bytea = customType<{ data: Uint8Array; driverData: string | Uint8Array }>({
   dataType() {
     return "bytea";
   },
   toDriver(value: Uint8Array) {
-    return `\\x${bytesToHex(value)}`;
+    return byteaToDriver(value);
   },
-  fromDriver(value: string): Uint8Array {
-    return hexToBytes(value);
+  fromDriver(value: unknown): Uint8Array {
+    return byteaFromDriver(value);
   },
 });
 
