@@ -1,10 +1,8 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import {
-  type AppErrorCode,
-  errorResponse as runtimeErrorResponse,
-  jsonResponse as runtimeJsonResponse,
-} from "@agent-paste/worker-runtime";
+import { type AppErrorCode, appErrorResponse as errorResponse, jsonResponse } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
+
+export { errorResponse, jsonResponse };
 
 export class RepositoryRouteError extends Error {
   readonly headers: Record<string, string>;
@@ -18,28 +16,6 @@ export class RepositoryRouteError extends Error {
     this.name = "RepositoryRouteError";
     this.headers = options?.headers ?? {};
   }
-}
-
-export function jsonResponse(
-  context: AppContext,
-  body: unknown,
-  status = 200,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return runtimeJsonResponse(context, body, status, extraHeaders);
-}
-
-export function errorResponse(
-  context: AppContext,
-  code: AppErrorCode,
-  message?: string,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return runtimeErrorResponse(context, code, {
-    message,
-    headers: extraHeaders,
-    docsBaseUrl: context.env.DOCS_BASE_URL,
-  });
 }
 
 export async function runIdempotent(

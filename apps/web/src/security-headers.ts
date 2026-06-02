@@ -47,6 +47,18 @@ export function accessLinkProxyHeaders(extra?: HeadersInit): Headers {
   });
 }
 
+// Copies the streamable response headers (content-type, cache-control) from an
+// upstream Live Updates response onto a caller-provided base set of headers.
+export function liveStreamProxyHeaders(upstream: Headers, base: Headers): Headers {
+  for (const name of ["content-type", "cache-control"]) {
+    const value = upstream.get(name);
+    if (value) {
+      base.set(name, value);
+    }
+  }
+  return base;
+}
+
 export function accessLinkSecurityHeadersForPath(pathname: string, env?: AccessLinkSecurityEnv): Headers | null {
   if (isAccessLinkViewerPath(pathname)) {
     return accessLinkViewerHeaders(env);

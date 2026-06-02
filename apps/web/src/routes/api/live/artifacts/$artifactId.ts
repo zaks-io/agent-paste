@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { liveStreamProxyHeaders } from "../../../../security-headers";
 import { getWebEnv } from "../../../../server/runtime";
 
 export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
@@ -25,22 +26,9 @@ export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
         });
         return new Response(upstream.body, {
           status: upstream.status,
-          headers: upstreamHeaders(upstream.headers),
+          headers: liveStreamProxyHeaders(upstream.headers, new Headers()),
         });
       },
     },
   },
 });
-
-function upstreamHeaders(headers: Headers): Headers {
-  const next = new Headers();
-  const contentType = headers.get("content-type");
-  if (contentType) {
-    next.set("content-type", contentType);
-  }
-  const cacheControl = headers.get("cache-control");
-  if (cacheControl) {
-    next.set("cache-control", cacheControl);
-  }
-  return next;
-}
