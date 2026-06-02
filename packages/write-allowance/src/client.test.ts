@@ -3,12 +3,13 @@ import {
   consumeWriteAllowance,
   getWriteAllowanceStatus,
   handleWriteAllowanceRequest,
+  releaseWriteAllowance,
   type WriteAllowanceStorage,
 } from "./client.js";
 import { createMemoryWriteAllowanceNamespace } from "./memory-namespace.js";
 
 function memoryStorage(): WriteAllowanceStorage {
-  let value: { day: string; consumed: number } | undefined;
+  let value: { day: string; consumed: number; reservations?: string[] } | undefined;
   return {
     async get() {
       return value;
@@ -144,6 +145,26 @@ describe("write allowance client", () => {
     });
     await expect(consumeWriteAllowance(namespace, "workspace-a", 1)).resolves.toMatchObject({
       allowed: false,
+    });
+  });
+
+  it("releases a consumed reservation through the memory namespace", async () => {
+    const namespace = createMemoryWriteAllowanceNamespace();
+    const idempotencyKey = "idem-fixture-release-one";
+    await expect(consumeWriteAllowance(namespace, "workspace-release", 1, idempotencyKey)).resolves.toMatchObject({
+      allowed: true,
+      consumed: 1,
+      remaining: 0,
+    });
+    await expect(releaseWriteAllowance(namespace, "workspace-release", idempotencyKey)).resolves.toBe(true);
+    await expect(getWriteAllowanceStatus(namespace, "workspace-release", 1)).resolves.toMatchObject({
+      consumed: 0,
+      remaining: 1,
+    });
+    await expect(
+      consumeWriteAllowance(namespace, "workspace-release", 1, "idem-fixture-release-two"),
+    ).resolves.toMatchObject({
+      allowed: true,
     });
   });
 });

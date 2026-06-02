@@ -1,6 +1,6 @@
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
-import { createMemoryWriteAllowanceNamespace } from "@agent-paste/write-allowance";
-import { describe, expect, it, vi } from "vitest";
+import { createMemoryWriteAllowanceNamespace, resetMemoryWriteAllowanceCounters } from "@agent-paste/write-allowance";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createAccessLinkRoute,
   listAccessLinksRoute,
@@ -148,6 +148,10 @@ describe("AP-91 access link route modules", () => {
 });
 
 describe("AP-91 revision route modules", () => {
+  beforeEach(() => {
+    resetMemoryWriteAllowanceCounters();
+  });
+
   it("returns retained revision errors for authenticated Agent View lookups", async () => {
     const getAgentView = vi.fn(async () => null);
     const listRevisionsFn = vi.fn(async () => ({
@@ -276,6 +280,49 @@ describe("AP-91 revision route modules", () => {
     expect(blocked.headers.get("retry-after")).toMatch(/^\d+$/);
     await expect(responseJson(blocked)).resolves.toMatchObject({ error: { code: "write_allowance_exceeded" } });
     expect(publishRevisionFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases write allowance when publish fails so a fresh idempotency key can retry", async () => {
+    const writeAllowance = createMemoryWriteAllowanceNamespace();
+    const publishRevisionFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("entrypoint_not_in_revision"))
+      .mockResolvedValueOnce({
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        title: "Published",
+        view_url: "https://content.test/v/art_1.rev_1/index.html",
+        bundle: { status: "disabled" },
+      });
+    const db = {
+      peekWorkspaceCommandReplay: vi.fn(async () => null),
+      peekPublishWriteGate: vi.fn(async () => ({
+        is_already_published: false,
+        is_new_artifact: true,
+        daily_new_artifact_allowance: 1,
+      })),
+      publishRevision: publishRevisionFn,
+    };
+
+    const failed = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor({}, "idem-fixture-failed-publish"),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(failed.status).toBe(422);
+    await expect(responseJson(failed)).resolves.toMatchObject({ error: { code: "entrypoint_not_in_revision" } });
+
+    const retry = await publishRevision(
+      contextFor({ env: { WRITE_ALLOWANCE: writeAllowance } }),
+      apiPrincipal(),
+      db as never,
+      guardFor({}, "idem-fixture-retry-publish"),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(retry.status).toBe(200);
+    expect(publishRevisionFn).toHaveBeenCalledTimes(2);
   });
 
   it("returns idempotency_in_flight before consuming write allowance", async () => {

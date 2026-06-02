@@ -1,7 +1,7 @@
 import { handleWriteAllowanceRequest, resetWriteAllowanceAlarm, type WriteAllowanceStorage } from "./client.js";
 
 type MemoryStorage = {
-  value?: { day: string; consumed: number } | undefined;
+  value?: { day: string; consumed: number; reservations?: string[] } | undefined;
   alarmAt?: number | null;
 };
 

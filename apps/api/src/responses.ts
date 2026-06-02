@@ -7,13 +7,16 @@ import {
 import type { AppContext } from "./env.js";
 
 export class RepositoryRouteError extends Error {
+  readonly headers: Record<string, string>;
+
   constructor(
     readonly code: AppErrorCode,
     message?: string,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { headers?: Record<string, string> },
   ) {
     super(message ?? code, options);
     this.name = "RepositoryRouteError";
+    this.headers = options?.headers ?? {};
   }
 }
 
@@ -51,7 +54,7 @@ export async function runIdempotent(
       return errorResponse(context, "idempotency_in_flight");
     }
     if (error instanceof RepositoryRouteError) {
-      return errorResponse(context, error.code, error.message);
+      return errorResponse(context, error.code, error.message, error.headers);
     }
     throw error;
   }

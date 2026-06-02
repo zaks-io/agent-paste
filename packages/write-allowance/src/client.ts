@@ -1,4 +1,4 @@
-import { consumeCounterSlot, readCounterState } from "./counter-state.js";
+import { consumeCounterSlot, readCounterState, releaseCounterReservation } from "./counter-state.js";
 
 export type WriteAllowanceStorage = {
   get(key: string): Promise<{ day: string; consumed: number; reservations?: string[] } | undefined>;
@@ -101,6 +101,28 @@ export async function consumeWriteAllowance(
       };
 }
 
+export async function releaseWriteAllowance(
+  namespace: WriteAllowanceNamespace | undefined,
+  workspaceId: string,
+  idempotencyKey: string,
+): Promise<boolean | null> {
+  if (!namespace) {
+    return null;
+  }
+  const response = await namespace.get(namespace.idFromName(workspaceId)).fetch(
+    new Request("https://write-allowance.internal/release", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ limit: 1, idempotency_key: idempotencyKey }),
+    }),
+  );
+  if (!response.ok) {
+    return null;
+  }
+  const body = (await response.json()) as Partial<{ released: boolean }>;
+  return typeof body.released === "boolean" ? body.released : null;
+}
+
 export async function handleWriteAllowanceRequest(request: Request, storage: WriteAllowanceStorage): Promise<Response> {
   const url = new URL(request.url);
   let limit = 0;
@@ -138,6 +160,19 @@ export async function handleWriteAllowanceRequest(request: Request, storage: Wri
       remaining: outcome.decision.remaining,
       retry_after_seconds: outcome.decision.retry_after_seconds,
     });
+  }
+  if (url.pathname.endsWith("/release")) {
+    const idempotencyKey =
+      body && typeof body.idempotency_key === "string" && body.idempotency_key.length > 0
+        ? body.idempotency_key
+        : undefined;
+    if (!idempotencyKey) {
+      return new Response("invalid_request", { status: 400 });
+    }
+    const outcome = releaseCounterReservation(stored, idempotencyKey);
+    await storage.put(STORAGE_KEY, outcome.next);
+    await storage.setAlarm(outcome.alarmAt);
+    return Response.json({ released: outcome.released });
   }
   return new Response("not_found", { status: 404 });
 }

@@ -74,3 +74,37 @@ export function consumeCounterSlot(
     alarmAt: dayWindowAlarmAt(now),
   };
 }
+
+export function releaseCounterReservation(
+  stored: StoredCounter | undefined,
+  idempotencyKey: string,
+  now = new Date(),
+): { next: StoredCounter; released: boolean; alarmAt: number } {
+  const day = utcDayKey(now);
+  if (!stored || stored.day !== day) {
+    return {
+      next: { day, consumed: 0 },
+      released: false,
+      alarmAt: dayWindowAlarmAt(now),
+    };
+  }
+  const reservations = stored.reservations ?? [];
+  if (!reservations.includes(idempotencyKey)) {
+    return {
+      next: stored,
+      released: false,
+      alarmAt: dayWindowAlarmAt(now),
+    };
+  }
+  const nextReservations = reservations.filter((key) => key !== idempotencyKey);
+  const consumed = Math.max(0, stored.consumed - 1);
+  return {
+    next: {
+      day,
+      consumed,
+      ...(nextReservations.length > 0 ? { reservations: nextReservations } : {}),
+    },
+    released: true,
+    alarmAt: dayWindowAlarmAt(now),
+  };
+}

@@ -1,6 +1,7 @@
 import {
   consumeWriteAllowance,
   getWriteAllowanceStatus,
+  releaseWriteAllowance,
   type WriteAllowanceNamespace,
 } from "@agent-paste/write-allowance";
 
@@ -29,4 +30,12 @@ export async function enforceNewArtifactWriteAllowance(
     return { ok: false, retryAfter: String(outcome.retry_after_seconds) };
   }
   return { ok: true };
+}
+
+export async function releaseNewArtifactWriteAllowance(
+  binding: WriteAllowanceBinding | undefined,
+  workspaceId: string,
+  idempotencyKey: string,
+): Promise<void> {
+  await releaseWriteAllowance(binding, workspaceId, idempotencyKey);
 }
