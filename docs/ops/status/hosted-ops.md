@@ -132,7 +132,7 @@ script-disabled CSP, `noindex`, and optional claim redemption.
 
 Secrets and skip behavior:
 
-- **Required on API Worker:** `EPHEMERAL_POW_SECRET` (bootstrap via `scripts/bootstrap-secrets.mjs`, or PR preview seed via `PR_PREVIEW_SECRET_SEED`). When missing, the smoke exits **0** with a clear skip message (not a false pass).
+- **Required on API Worker:** `EPHEMERAL_POW_SECRET` (bootstrap via `scripts/bootstrap-secrets.mjs`, or PR preview seed via `PR_PREVIEW_SECRET_SEED`). When missing (`database_unavailable` on the provision probe), the smoke exits **0** with a clear skip message (not a false pass). Other provision probe failures (5xx, transport errors, unexpected envelopes) **fail** the smoke so PR gates do not mask a broken route.
 - **Preview/PR cleanup:** `AGENT_PASTE_*_SMOKE_HARNESS_SECRET` deletes the published artifact through `__test__/delete-artifact` (no legacy admin token).
 - **Optional claim check:** `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` (member WorkOS access token). When unset, publish/policy assertions still run; claim redemption is reported as skipped.
 - **Explicit skip:** `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`.

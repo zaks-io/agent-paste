@@ -44,7 +44,7 @@ describe("probeEphemeralPowReady", () => {
     });
     try {
       const result = await probeEphemeralPowReady(server.baseUrl);
-      expect(result.ready).toBe(true);
+      expect(result.outcome).toBe("ready");
     } finally {
       await server.close();
     }
@@ -57,8 +57,22 @@ describe("probeEphemeralPowReady", () => {
     });
     try {
       const result = await probeEphemeralPowReady(server.baseUrl);
-      expect(result.ready).toBe(false);
+      expect(result.outcome).toBe("skip");
       expect(result.reason).toContain("EPHEMERAL_POW_SECRET");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("fails on provision server errors so PR gates do not false-skip", async () => {
+    const server = await startProbeServer({
+      status: 500,
+      body: { error: { code: "internal_error" } },
+    });
+    try {
+      const result = await probeEphemeralPowReady(server.baseUrl);
+      expect(result.outcome).toBe("fail");
+      expect(result.reason).toContain("HTTP 500");
     } finally {
       await server.close();
     }

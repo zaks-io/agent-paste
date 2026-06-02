@@ -81,9 +81,14 @@ export function ephemeralHostedConfig(target) {
 }
 
 /**
- * Returns whether hosted ephemeral smoke can run against the API Worker.
+ * Probes whether hosted ephemeral smoke should run, skip, or fail.
+ *
+ * Only a missing PoW configuration (`database_unavailable`) yields `skip`. Broken or
+ * misconfigured provision routes (5xx, transport errors, unexpected envelopes) yield
+ * `fail` so PR preview gates do not treat regressions as a benign skip.
  *
  * @param {string} apiBaseUrl
+ * @returns {Promise<{ outcome: "ready" } | { outcome: "skip"; reason: string } | { outcome: "fail"; reason: string }>}
  */
 export async function probeEphemeralPowReady(apiBaseUrl) {
   const url = `${apiBaseUrl.replace(/\/$/, "")}/v1/ephemeral/provision`;
@@ -96,7 +101,7 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { ready: false, reason: `ephemeral provision probe failed (${message})` };
+    return { outcome: "fail", reason: `ephemeral provision probe transport error (${message})` };
   }
 
   let payload = {};
@@ -104,22 +109,22 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
     payload = await response.json();
   } catch {
     return {
-      ready: false,
+      outcome: "fail",
       reason: `ephemeral provision probe returned non-JSON HTTP ${response.status}`,
     };
   }
 
   if (response.status === 401 && payload?.error?.code === "pow_required" && payload?.challenge) {
-    return { ready: true, reason: null };
+    return { outcome: "ready" };
   }
   if (payload?.error?.code === "database_unavailable") {
     return {
-      ready: false,
+      outcome: "skip",
       reason: "EPHEMERAL_POW_SECRET is not configured on the API Worker (database_unavailable)",
     };
   }
   return {
-    ready: false,
+    outcome: "fail",
     reason: `unexpected ephemeral provision probe HTTP ${response.status} (${payload?.error?.code ?? "no error code"})`,
   };
 }

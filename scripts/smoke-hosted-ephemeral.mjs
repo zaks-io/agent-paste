@@ -40,8 +40,11 @@ async function runHostedEphemeralSmoke() {
 
   await waitForHealthz(config.apiBaseUrl);
   const readiness = await probeEphemeralPowReady(config.apiBaseUrl);
-  if (!readiness.ready) {
+  if (readiness.outcome === "skip") {
     skipHostedEphemeral(readiness.reason);
+  }
+  if (readiness.outcome === "fail") {
+    throw new EphemeralSmokeError("provision", readiness.reason);
   }
 
   const claimWebOrigin = config.webBaseUrl.replace(/\/+$/, "");
