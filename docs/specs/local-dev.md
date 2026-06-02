@@ -41,22 +41,22 @@ Do not commit real `.env` or `.dev.vars` files.
 
 ## Current Commands
 
-| Command                                                                                    | Purpose                                                                                            |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                     |
-| `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.  |
-| `pnpm smoke:local`                                                                         | Build, start the local harness, drive publish/read/delete via smoke harness, and stop the harness. |
-| `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                        |
-| `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                       |
-| `pnpm test`                                                                                | Run Vitest suites.                                                                                 |
-| `pnpm --filter @agent-paste/api test`                                                      | Run API tests, including the in-process local MVP vertical slice.                                  |
-| `pnpm --filter @agent-paste/api dev`                                                       | Run the API Worker through Wrangler once Wrangler config/bindings exist.                           |
-| `pnpm --filter @agent-paste/upload dev`                                                    | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                        |
-| `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                       |
-| `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                    |
-| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                              |
-| `pnpm --filter @agent-paste/mcp test`                                                      | Run MCP Worker unit tests (transport, auth, tools).                                                |
-| `pnpm smoke:mcp`                                                                           | Build and run local MCP smoke (OAuth + publish/read/delete through MCP tools).                     |
+| Command                                                                                    | Purpose                                                                                                                                          |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                                                                   |
+| `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.                                                |
+| `pnpm smoke:local`                                                                         | Build, start the local harness, drive publish/read/delete via smoke harness, run `publish --ephemeral` + claim redemption, and stop the harness. |
+| `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                                                                      |
+| `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                                                                     |
+| `pnpm test`                                                                                | Run Vitest suites.                                                                                                                               |
+| `pnpm --filter @agent-paste/api test`                                                      | Run API tests, including the in-process local MVP vertical slice.                                                                                |
+| `pnpm --filter @agent-paste/api dev`                                                       | Run the API Worker through Wrangler once Wrangler config/bindings exist.                                                                         |
+| `pnpm --filter @agent-paste/upload dev`                                                    | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                                                                      |
+| `pnpm --filter @agent-paste/content dev`                                                   | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                                                                     |
+| `pnpm cli:dev whoami --json`                                                               | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                                                                  |
+| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json` | Publish the local harness through the configured API and upload URLs.                                                                            |
+| `pnpm --filter @agent-paste/mcp test`                                                      | Run MCP Worker unit tests (transport, auth, tools).                                                                                              |
+| `pnpm smoke:mcp`                                                                           | Build and run local MCP smoke (OAuth + publish/read/delete through MCP tools).                                                                   |
 
 See [`docs/ops/runbook-mcp-hosts.md`](../ops/runbook-mcp-hosts.md) for hosted MCP URLs, host onboarding, and preview/production smoke commands.
 
@@ -68,7 +68,7 @@ The complete local CLI smoke test is:
 pnpm smoke:local
 ```
 
-It starts the local harness, creates a Workspace and API Key through the admin CLI, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `view_url`, fetches the returned `agent_view_url`, lists and inspects the Artifact, runs cleanup dry-run, deletes the Artifact, and verifies the old content URL returns `404`.
+It starts the local harness, creates a Workspace and API Key through the smoke harness, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `view_url`, fetches the returned `agent_view_url`, deletes the Artifact and verifies purge, then publishes `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`, checks ephemeral policy boundaries (noindex, script-disabled CSP, write allowance, Claim Token isolation), and redeems the Claim Token through the local WorkOS stub into a member workspace.
 
 The faster in-process Worker vertical slice is:
 

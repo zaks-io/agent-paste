@@ -3,6 +3,12 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  close as closeHttpServer,
+  createLocalEphemeralWorkOsStub,
+  listen as listenHttpServer,
+  runLocalEphemeralSmoke,
+} from "./smoke-local-ephemeral.mjs";
+import {
   DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
   deleteSmokeArtifact,
   fetchDenylistKey,
@@ -27,6 +33,16 @@ const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 const harnessSecret = smokeHarnessSecretFromEnv();
 const cliEntry = new URL("../apps/cli/dist/index.js", import.meta.url).pathname;
 const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
+const workosPort = intEnv("AGENT_PASTE_LOCAL_EPHEMERAL_WORKOS_PORT", 18790);
+const workosBaseUrl = `http://127.0.0.1:${workosPort}`;
+const workosApiKey = "sk_test_local_ephemeral_smoke";
+const workosClientId = "client_local_ephemeral_smoke";
+const {
+  server: workosServer,
+  privateKey: workosPrivateKey,
+  keyId: workosKeyId,
+  workosEnv,
+} = createLocalEphemeralWorkOsStub(workosBaseUrl, workosApiKey, workosClientId);
 
 const server = spawn(process.execPath, [serverEntry], {
   cwd: root,
@@ -37,6 +53,7 @@ const server = spawn(process.execPath, [serverEntry], {
     AGENT_PASTE_LOCAL_CONTENT_PORT: String(contentPort),
     AGENT_PASTE_LOCAL_JOBS_PORT: String(jobsPort),
     SMOKE_HARNESS_SECRET: harnessSecret,
+    ...workosEnv,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -50,6 +67,7 @@ server.stderr.on("data", (chunk) => {
 });
 
 try {
+  await listenHttpServer(workosServer, workosPort);
   await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
   await waitForHealthz(jobsBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
@@ -104,11 +122,24 @@ try {
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(apiEnv);
 
+  const ephemeral = await runLocalEphemeralSmoke({
+    apiBaseUrl,
+    uploadBaseUrl,
+    contentBaseUrl,
+    cliEntry,
+    root,
+    workosServer,
+    workosBaseUrl,
+    workosPrivateKey,
+    workosKeyId,
+  });
+
   process.stdout.write(`Local MVP smoke test passed.
 
   Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
   View URL:  ${published.view_url}
+  Ephemeral: ${ephemeral.artifact_id} (claimed into ${ephemeral.member_workspace_id})
 
 `);
 } catch (error) {
@@ -124,6 +155,7 @@ try {
     server.kill("SIGKILL");
     await Promise.race([once(server, "exit"), delay(1000)]).catch(() => undefined);
   }
+  await closeHttpServer(workosServer).catch(() => undefined);
 }
 
 async function runCliJson(args, env) {
