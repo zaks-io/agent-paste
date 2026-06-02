@@ -64,6 +64,7 @@ export const VERSIONED_SECRET_PROFILES: Record<VersionedSecretProfileId, Version
       { app: "api", worker: "agent-paste-api" },
       { app: "upload", worker: "agent-paste-upload" },
       { app: "content", worker: "agent-paste-content" },
+      { app: "jobs", worker: "agent-paste-jobs" },
     ],
     drainHint: "Wait at least the longest content-token TTL (default 15 minutes) before drop so kid 1 tokens expire.",
   },

@@ -26,7 +26,7 @@ describe("rotation automation plans", () => {
       step: "stage",
       snapshot: { primaryBound: true, secondaryBound: false },
     });
-    expect(stagePlan.actions).toHaveLength(3);
+    expect(stagePlan.actions).toHaveLength(4);
     expect(stagePlan.actions.every((action) => action.type === "put")).toBe(true);
 
     const flipPlan = buildRotationPlan({
@@ -39,6 +39,7 @@ describe("rotation automation plans", () => {
       expect.objectContaining({ type: "deploy-var", varName: "CONTENT_SIGNING_KID", varValue: "v2" }),
       expect.objectContaining({ type: "deploy-var", varName: "CONTENT_SIGNING_KID", varValue: "v2" }),
       expect.objectContaining({ type: "deploy-var", varName: "CONTENT_SIGNING_KID", varValue: "v2" }),
+      expect.objectContaining({ type: "deploy-var", varName: "CONTENT_SIGNING_KID", varValue: "v2" }),
     ]);
 
     const dropPlan = buildRotationPlan({
@@ -47,8 +48,8 @@ describe("rotation automation plans", () => {
       step: "drop",
       snapshot: { primaryBound: true, secondaryBound: true, signingKidLabel: "v2" },
     });
-    expect(dropPlan.actions.filter((action) => action.type === "put")).toHaveLength(3);
-    expect(dropPlan.actions.filter((action) => action.type === "delete")).toHaveLength(3);
+    expect(dropPlan.actions.filter((action) => action.type === "put")).toHaveLength(4);
+    expect(dropPlan.actions.filter((action) => action.type === "delete")).toHaveLength(4);
     expect(dropPlan.notes.some((note) => note.includes("rotation-agent@platform"))).toBe(true);
   });
 

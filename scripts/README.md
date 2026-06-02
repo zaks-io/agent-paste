@@ -55,7 +55,7 @@ node scripts/bootstrap-secrets.mjs preview \
 
 The script writes Worker secrets with `wrangler secret put`. CLI-first secrets are:
 
-- `CONTENT_SIGNING_SECRET`
+- `CONTENT_SIGNING_SECRET` (api, upload, content, and jobs; same value on all four — jobs needs it for agent-view URL minting in the safety-scan handler)
 - `UPLOAD_SIGNING_SECRET`
 - `ARTIFACT_BYTES_ENCRYPTION_KEY` (upload, content, and jobs; same value on all three)
 - `API_KEY_PEPPER_V1`
@@ -87,6 +87,18 @@ node scripts/set-artifact-bytes-encryption-secret.mjs preview --dry-run
 ```
 
 Use this for AP-32 rollout on existing hosted environments. First-deploy bootstrap mints the same secret; PR preview derives it from `PR_PREVIEW_SECRET_SEED` in `deploy-pr-preview.mjs`. Operators run this locally with `wrangler`; do not commit secret values.
+
+### `set-content-signing-secret.mjs`
+
+Targeted rollout for the content/agent-view signing key. Sets the same `CONTENT_SIGNING_SECRET` on `agent-paste-api-<target>`, `agent-paste-upload-<target>`, `agent-paste-content-<target>`, and `agent-paste-jobs-<target>` in one pass, without reading or rotating unrelated secrets.
+
+```sh
+node scripts/set-content-signing-secret.mjs preview
+node scripts/set-content-signing-secret.mjs production --value <existing-secret>
+node scripts/set-content-signing-secret.mjs preview --dry-run
+```
+
+All four Workers must share one value per environment so content/bundle tokens and agent-view URLs mint and verify across api, upload, content, and the jobs safety-scan handler; use a different value in preview vs production. With no `--value`, it generates a fresh key, but refuses to auto-generate over an existing binding — pass `--value <current-secret>` to extend the same key to a new Worker, or use `rotate-versioned-secret.mjs content-signing` to roll it. Operators run this locally with `wrangler`; do not commit secret values.
 
 With `--with-web`, bootstrap also writes:
 
