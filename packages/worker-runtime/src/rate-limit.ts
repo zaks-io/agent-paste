@@ -43,8 +43,9 @@ export async function applyEphemeralProvisionRateLimit(
 ): Promise<RateLimitResult> {
   const ipKey = clientIp?.trim() || "unknown";
 
-  const globalOutcome = await rateLimitOrFailOpen(bindings?.ephemeralProvisionGlobal, "actor", "global");
-  if (globalOutcome && !globalOutcome.success) {
+  // Global ceiling fails closed (503) when the binding is absent or errors — unlike actor/workspace caps.
+  const globalOutcome = await rateLimitOrFailClosed(bindings?.ephemeralProvisionGlobal, "global");
+  if (!globalOutcome.success) {
     return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
   }
 
@@ -133,5 +134,21 @@ async function rateLimitOrFailOpen(
   } catch (error) {
     console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
     return undefined;
+  }
+}
+
+async function rateLimitOrFailClosed(
+  binding: RateLimitBinding | undefined,
+  scope: "global",
+): Promise<{ success: boolean }> {
+  if (!binding) {
+    return { success: false };
+  }
+
+  try {
+    return await binding.limit({ key: scope });
+  } catch (error) {
+    console.warn(`Rate limit ${scope} binding failed; denying request.`, error);
+    return { success: false };
   }
 }

@@ -853,6 +853,70 @@
         },
         "additionalProperties": false
       },
+      "EphemeralPowRequiredResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "pow_required"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "docs": {
+                "type": "string",
+                "format": "uri"
+              },
+              "request_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          },
+          "challenge": {
+            "type": "object",
+            "properties": {
+              "nonce": {
+                "type": "string",
+                "minLength": 1
+              },
+              "difficulty": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "signature": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "nonce",
+              "difficulty",
+              "expires_at",
+              "signature"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error",
+          "challenge"
+        ],
+        "additionalProperties": false
+      },
       "EphemeralProvisionChallengeResponse": {
         "type": "object",
         "properties": {
@@ -5113,7 +5177,7 @@
     "/v1/ephemeral/provision": {
       "post": {
         "operationId": "ephemeral.provision",
-        "summary": "Provision an Ephemeral Workspace behind proof-of-work.",
+        "summary": "Provision an Ephemeral Workspace behind proof-of-work. Send an empty body or `{}` to receive a signed challenge.",
         "parameters": [
           {
             "schema": {
@@ -5129,7 +5193,7 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -5224,75 +5288,11 @@
             }
           },
           "401": {
-            "description": "Error envelope",
+            "description": "Proof-of-work required; response includes a signed challenge to solve and resubmit.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "api_key_not_found",
-                            "api_key_revoked",
-                            "artifact_not_found",
-                            "database_unavailable",
-                            "draft_revision_conflict",
-                            "entrypoint_not_in_revision",
-                            "file_count_cap_exceeded",
-                            "file_size_cap_exceeded",
-                            "forbidden",
-                            "idempotency_in_flight",
-                            "invalid_auth",
-                            "invalid_content_length",
-                            "invalid_cursor",
-                            "invalid_idempotency_key",
-                            "invalid_request",
-                            "not_authenticated",
-                            "not_found",
-                            "pinned_artifact_cap_exceeded",
-                            "rate_limited_actor",
-                            "rate_limited_artifact",
-                            "rate_limited_workspace",
-                            "ephemeral_provision_rate_limited",
-                            "ephemeral_provision_unavailable",
-                            "pow_required",
-                            "pow_invalid",
-                            "revision_retained",
-                            "revision_size_cap_exceeded",
-                            "revision_unpublished",
-                            "storage_unavailable",
-                            "unexpected_upload_object",
-                            "upload_incomplete",
-                            "upload_session_expired",
-                            "upload_session_not_found",
-                            "usage_policy_exceeded"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "docs": {
-                          "type": "string",
-                          "format": "uri"
-                        },
-                        "request_id": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ]
+                  "$ref": "#/components/schemas/EphemeralPowRequiredResponse"
                 }
               }
             }

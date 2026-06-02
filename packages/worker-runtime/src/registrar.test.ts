@@ -297,6 +297,43 @@ describe("contract-driven registrar", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
   });
+  it("treats an empty ephemeral provision body as {}", async () => {
+    const app = newApp();
+    const contract: RouteContract = {
+      id: "ephemeral.provision",
+      app: "api",
+      method: "POST",
+      path: "/v1/ephemeral/provision",
+      auth: "none",
+      scopes: [],
+      idempotency: "none",
+      rateLimit: "none",
+      requestSchema: "EphemeralProvisionRequest",
+      responseSchema: "EphemeralProvisionResponse",
+      errors: ["pow_required"],
+    };
+
+    createRegistrar({
+      app,
+      auth: {
+        async none() {
+          return { ok: true, principal: { kind: "none" } };
+        },
+      },
+    }).mount(contract, async (_context, _principal, guard) =>
+      jsonOk({ received: guard.body }),
+    );
+
+    const response = await app.fetch(
+      new Request("https://worker.test/v1/ephemeral/provision", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: {} });
+  });
 });
 
 function newApp(): Hono {

@@ -214,10 +214,19 @@ async function parseRequestBody<Contract extends RouteContract>(
     return { ok: true, value: undefined as RequestBodyFor<Contract> };
   }
   let raw: unknown;
-  try {
-    raw = await context.req.raw.json();
-  } catch {
-    return { ok: false };
+  const bodyText = await context.req.raw.text();
+  if (!bodyText.trim()) {
+    if (contract.requestSchema === "EphemeralProvisionRequest") {
+      raw = {};
+    } else {
+      return { ok: false };
+    }
+  } else {
+    try {
+      raw = JSON.parse(bodyText);
+    } catch {
+      return { ok: false };
+    }
   }
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {

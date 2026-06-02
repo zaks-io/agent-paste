@@ -127,11 +127,12 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     method: "post",
     path: "/v1/ephemeral/provision",
     operationId: "ephemeral.provision",
-    summary: "Provision an Ephemeral Workspace behind proof-of-work.",
+    summary:
+      "Provision an Ephemeral Workspace behind proof-of-work. Send an empty body or `{}` to receive a signed challenge.",
     request: {
       headers: [requestIdHeader],
       body: {
-        required: true,
+        required: false,
         content: {
           "application/json": {
             schema: schemaRef("EphemeralProvisionRequest"),
@@ -142,7 +143,10 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     responses: {
       "201": jsonOk(schemaRef("EphemeralProvisionResponse"), "Provisioned (201)"),
       "400": errorResponse,
-      "401": errorResponse,
+      "401": jsonOk(
+        schemaRef("EphemeralPowRequiredResponse"),
+        "Proof-of-work required; response includes a signed challenge to solve and resubmit.",
+      ),
       "429": errorResponse,
       "500": errorResponse,
       "503": errorResponse,

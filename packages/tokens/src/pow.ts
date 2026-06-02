@@ -72,6 +72,9 @@ export async function consumePowNonce(
   nonce: string,
   ttlSeconds: number,
 ): Promise<boolean> {
+  // KV get-then-put is not atomic; concurrent replays of the same solved challenge could
+  // both pass before either write lands. Blast radius is bounded by provision rate limits;
+  // hashcash-over-KV accepts this window rather than a DO or compare-and-swap primitive.
   const key = powNonceKey(nonce);
   const existing = await store.get(key);
   if (existing !== null && existing !== undefined) {

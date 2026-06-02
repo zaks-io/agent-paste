@@ -1,11 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
+import { handleRequest } from "../src/index.js";
 import { ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
 
 describe("ephemeral provision route", () => {
+  it("returns pow_required for an empty POST body through the registrar", async () => {
+    const response = await handleRequest(
+      new Request("https://api.test/v1/ephemeral/provision", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      }),
+      {
+        EPHEMERAL_POW_SECRET: powSecret,
+        DENYLIST: memoryKv(),
+        EPHEMERAL_PROVISION_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
+        EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: { limit: async () => ({ success: true }) },
+        DB: { getWhoami: vi.fn(), createEphemeralWorkspace: vi.fn() } as never,
+      },
+    );
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "pow_required" },
+      challenge: { difficulty: 20 },
+    });
+  });
+
   it("returns a challenge when proof-of-work is missing", async () => {
     const response = await ephemeralProvisionRoute(
       contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: memoryKv() } }),

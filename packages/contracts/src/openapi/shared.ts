@@ -1,6 +1,7 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { AccessLinkResolveRequest } from "../accessLinks.js";
 import {
+  EphemeralPowRequiredResponse,
   EphemeralProvisionChallengeResponse,
   EphemeralProvisionRequest,
   EphemeralProvisionResponse,
@@ -68,6 +69,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
   registry.register("PowChallenge", PowChallenge);
   registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);
+  registry.register("EphemeralPowRequiredResponse", EphemeralPowRequiredResponse);
   registry.register("EphemeralProvisionChallengeResponse", EphemeralProvisionChallengeResponse);
   registry.register("EphemeralProvisionResponse", EphemeralProvisionResponse);
   registry.register(
