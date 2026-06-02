@@ -350,4 +350,40 @@ describe("claimEphemeralWorkspace", () => {
       }),
     ).rejects.toThrow("not_found");
   });
+
+  it("preserves an earlier revoked_at when revoking ephemeral workspace keys", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-prior-revoke",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const localRepo = repo as LocalRepository;
+    const priorRevokedAt = "2099-06-01T10:00:00.000Z";
+    const apiKey = localRepo.apiKeys.get(provisioned.api_key.id);
+    if (!apiKey) {
+      throw new Error("expected_ephemeral_api_key");
+    }
+    apiKey.revoked_at = priorRevokedAt;
+
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_prior_revoke",
+      email: "user_claim_prior_revoke@example.test",
+      idempotencyKey: "claim-prior-revoke-member",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    await repo.claimEphemeralWorkspace({
+      actor: {
+        type: "member",
+        id: member.workspace_member.id,
+        workspace_id: member.workspace.id,
+        email: member.workspace_member.email,
+        scopes: member.scopes,
+      },
+      claimTokenSecret: provisioned.claim_token_secret,
+      idempotencyKey: "claim-prior-revoke",
+      now: new Date("2099-06-01T14:00:00.000Z"),
+    });
+
+    expect(localRepo.apiKeys.get(provisioned.api_key.id)?.revoked_at).toBe(priorRevokedAt);
+  });
 });

@@ -181,7 +181,20 @@ export const liftLockdownFn = createServerFn({ method: "POST" })
 export const claimEphemeralFn = createServerFn({ method: "POST" })
   .inputValidator((input: { claim_token: string; turnstile_token: string }) => input)
   .handler(async ({ data }) => {
-    const turnstileOk = await verifyTurnstileToken(data.turnstile_token);
+    const turnstileToken = typeof data.turnstile_token === "string" ? data.turnstile_token.trim() : "";
+    if (!turnstileToken || turnstileToken.length > 2048) {
+      return {
+        data: null,
+        error: {
+          status: 400,
+          code: "validation_error",
+          message: "Invalid Turnstile token.",
+          requestId: undefined,
+        },
+      };
+    }
+
+    const turnstileOk = await verifyTurnstileToken(turnstileToken);
     if (!turnstileOk) {
       return {
         data: null,

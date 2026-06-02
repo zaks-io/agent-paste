@@ -52,6 +52,10 @@ function ClaimPage() {
   const [successArtifactCount, setSuccessArtifactCount] = useState<number | null>(null);
 
   useEffect(() => {
+    setClaimToken(token);
+  }, [token]);
+
+  useEffect(() => {
     if (!siteKey) {
       return;
     }
@@ -98,21 +102,26 @@ function ClaimPage() {
     }
     setSubmitting(true);
     setError(null);
-    const result = await claimEphemeralFn({
-      data: { claim_token: claimToken.trim(), turnstile_token: turnstileToken },
-    });
-    setSubmitting(false);
-    if (result.error) {
-      setError({
-        message: result.error.message,
-        ...(result.error.requestId ? { requestId: result.error.requestId } : {}),
+    try {
+      const result = await claimEphemeralFn({
+        data: { claim_token: claimToken.trim(), turnstile_token: turnstileToken },
       });
-      return;
+      if (result.error) {
+        setError({
+          message: result.error.message,
+          ...(result.error.requestId ? { requestId: result.error.requestId } : {}),
+        });
+        return;
+      }
+      setSuccessArtifactCount(result.data.artifact_ids.length);
+      window.setTimeout(() => {
+        void navigate({ to: "/artifacts" });
+      }, 1200);
+    } catch {
+      setError({ message: "Claim request failed. Try again." });
+    } finally {
+      setSubmitting(false);
     }
-    setSuccessArtifactCount(result.data.artifact_ids.length);
-    window.setTimeout(() => {
-      void navigate({ to: "/artifacts" });
-    }, 1200);
   }
 
   return (

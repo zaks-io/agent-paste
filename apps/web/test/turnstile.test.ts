@@ -62,7 +62,7 @@ describe("turnstile", () => {
     await expect(verifyTurnstileToken(" response-token ")).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -81,6 +81,18 @@ describe("turnstile", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 500 })),
+    );
+
+    await expect(verifyTurnstileToken("bad-token")).resolves.toBe(false);
+  });
+
+  it("returns false when Cloudflare verification throws", async () => {
+    runtime.env.TURNSTILE_SECRET_KEY = "turnstile-secret";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      }),
     );
 
     await expect(verifyTurnstileToken("bad-token")).resolves.toBe(false);

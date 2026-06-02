@@ -59,6 +59,8 @@ describe("web server mutations", () => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "access-token" };
     state.requestId = "req_local";
     state.apiFetch.mockReset();
+    vi.mocked(verifyTurnstileToken).mockReset();
+    vi.mocked(verifyTurnstileToken).mockResolvedValue(true);
   });
 
   it("creates keys, revokes keys, saves settings, and mutates lockdowns with bearer access and idempotency", async () => {
@@ -251,6 +253,19 @@ describe("web server mutations", () => {
       data: null,
       error: { code: "turnstile_failed" },
     });
+    expect(state.apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Turnstile tokens before calling the API", async () => {
+    await expect(
+      claimEphemeralFn({
+        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "   " },
+      }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { code: "validation_error", status: 400 },
+    });
+    expect(verifyTurnstileToken).not.toHaveBeenCalled();
     expect(state.apiFetch).not.toHaveBeenCalled();
   });
 });

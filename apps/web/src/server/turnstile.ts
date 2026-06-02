@@ -2,6 +2,7 @@ import type { WebEnv } from "./env";
 import { getWebEnv } from "./runtime";
 
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const TURNSTILE_VERIFY_TIMEOUT_MS = 5000;
 export const LOCAL_TURNSTILE_BYPASS_TOKEN = "local-turnstile-bypass";
 
 export function turnstileSiteKey(env: Pick<WebEnv, "TURNSTILE_SITE_KEY"> = getWebEnv()): string | null {
@@ -24,14 +25,19 @@ export async function verifyTurnstileToken(
   }
 
   const body = new URLSearchParams({ secret, response: trimmed });
-  const response = await fetch(TURNSTILE_VERIFY_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!response.ok) {
+  try {
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(TURNSTILE_VERIFY_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const payload = (await response.json()) as { success?: boolean };
+    return payload.success === true;
+  } catch {
     return false;
   }
-  const payload = (await response.json()) as { success?: boolean };
-  return payload.success === true;
 }

@@ -224,7 +224,7 @@ describe("ephemeral claim route", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns pow_required through the registrar when the claim route is hit without auth", async () => {
+  it("returns unauthorized through the registrar when the claim route is hit without auth", async () => {
     const response = await handleRequest(
       new Request("https://api.test/v1/ephemeral/claim", {
         method: "POST",
