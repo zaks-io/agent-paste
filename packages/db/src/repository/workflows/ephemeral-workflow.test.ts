@@ -117,13 +117,18 @@ describe("createEphemeralWorkspace", () => {
       now: "2026-06-01T12:00:00.000Z",
     });
     expect(published).toMatchObject({ ephemeral_tier: true });
-    const agentView = await repo.getAgentView({
-      actor,
-      artifactId: session.artifact_id,
-      revisionId: session.revision_id,
-      contentBaseUrl: "https://content.test",
-    });
-    expect(agentView).toMatchObject({ ephemeral_tier: true });
+    vi.useFakeTimers({ now: new Date("2026-06-01T12:00:00.000Z") });
+    try {
+      const agentView = await repo.getAgentView({
+        actor,
+        artifactId: session.artifact_id,
+        revisionId: session.revision_id,
+        contentBaseUrl: "https://content.test",
+      });
+      expect(agentView).toMatchObject({ ephemeral_tier: true });
+    } finally {
+      vi.useRealTimers();
+    }
     const localRepo = repo as LocalRepository;
     const artifact = localRepo.artifacts.get(session.artifact_id);
     expect(artifact?.expires_at).toBe(
