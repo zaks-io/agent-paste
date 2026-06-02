@@ -1,5 +1,6 @@
 import { buildAgentView, buildPublishResult } from "../../agent-view.js";
 import { operationActorFromApiActor } from "../../created-by.js";
+import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
@@ -40,6 +41,7 @@ export async function createUploadSession(
         request: input.request,
         now: input.now,
         usagePolicy: ctx.usagePolicyFor(workspace),
+        workspace,
       });
     },
   );
@@ -58,10 +60,7 @@ export async function recordUploadedFile(
   await ctx.uow.read(PLATFORM_SCOPE, (entities) => entities.uploadSessionFiles.recordUpload(input));
 }
 
-export async function getUploadSession(
-  ctx: RepositoryCoreContext,
-  input: { actor: ApiActor; sessionId: string },
-) {
+export async function getUploadSession(ctx: RepositoryCoreContext, input: { actor: ApiActor; sessionId: string }) {
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), (entities) =>
     readUploadSessionInEntities(entities, {
       workspaceId: input.actor.workspace_id,
@@ -117,6 +116,7 @@ export async function publishRevision(
       now: input.now,
     },
     async (entities) => {
+      const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
       if (!artifact || artifact.status !== "active") {
         throw new Error("artifact_not_found");
@@ -134,6 +134,7 @@ export async function publishRevision(
           revision,
           undefined,
           ctx.options,
+          { ephemeral_tier: isEphemeralWorkspace(workspace) },
         );
       }
       if (revision.status !== "draft") {
@@ -144,10 +145,7 @@ export async function publishRevision(
         throw new Error("entrypoint_not_in_revision");
       }
       const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
-      const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
-      const bundleStatus = ctx.usagePolicyFor(workspace).bundles_enabled
-        ? ("pending" as const)
-        : ("disabled" as const);
+      const bundleStatus = ctx.usagePolicyFor(workspace).bundles_enabled ? ("pending" as const) : ("disabled" as const);
       const published = await entities.revisions.publish({
         revisionId: revision.id,
         revisionNumber,
@@ -158,13 +156,16 @@ export async function publishRevision(
         throw new Error("revision_unpublished");
       }
       const sourceSession = await entities.uploadSessions.findByRevisionId(revision.id, input.actor.workspace_id);
+      const expiresAt = isEphemeralWorkspace(workspace)
+        ? artifactExpiresAtFromWorkspace(workspace, input.now)
+        : artifact.expires_at;
       await entities.artifacts.updatePublished(artifact.id, {
         revisionId: revision.id,
         title: sourceSession?.title ?? artifact.title,
         entrypoint: revision.entrypoint,
         fileCount: revision.file_count,
         sizeBytes: revision.size_bytes,
-        expiresAt: artifact.expires_at,
+        expiresAt,
         updatedAt: input.now,
       });
       const updatedArtifact = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
@@ -186,15 +187,14 @@ export async function publishRevision(
       if (!publishedRevision) {
         throw new Error("revision_unpublished");
       }
-      return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options);
+      return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
+        ephemeral_tier: isEphemeralWorkspace(workspace),
+      });
     },
   );
 }
 
-export async function listRevisions(
-  ctx: RepositoryCoreContext,
-  input: { actor: ApiActor; artifactId: string },
-) {
+export async function listRevisions(ctx: RepositoryCoreContext, input: { actor: ApiActor; artifactId: string }) {
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
     const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
     if (!artifact) {
@@ -209,10 +209,7 @@ export async function listRevisions(
   });
 }
 
-export async function getPublicAgentView(
-  ctx: RepositoryCoreContext,
-  input: { token: string; contentBaseUrl: string },
-) {
+export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { token: string; contentBaseUrl: string }) {
   const dotIndex = input.token.indexOf(".");
   const artifactId = dotIndex === -1 ? input.token : input.token.slice(0, dotIndex);
   const requestedRevisionId = dotIndex === -1 ? undefined : input.token.slice(dotIndex + 1);
@@ -233,7 +230,16 @@ export async function getPublicAgentView(
       revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
     const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
     const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
+    const workspace = await entities.workspaces.findById(artifact.workspace_id);
+    return buildAgentView(
+      viewArtifact,
+      revisionId,
+      files,
+      input.contentBaseUrl,
+      revision,
+      warnings,
+      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+    );
   });
 }
 
@@ -258,6 +264,15 @@ export async function getAgentView(
       revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
     const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
     const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    return buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision, warnings);
+    const workspace = await entities.workspaces.findById(input.actor.workspace_id);
+    return buildAgentView(
+      viewArtifact,
+      revisionId,
+      files,
+      input.contentBaseUrl,
+      revision,
+      warnings,
+      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+    );
   });
 }

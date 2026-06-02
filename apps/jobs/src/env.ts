@@ -32,10 +32,22 @@ export type QueueMessage = {
   retry(): void;
 };
 
+export type AiBinding = {
+  run(model: string, input: unknown): Promise<unknown>;
+};
+
 export type Env = {
   AGENT_PASTE_ENV?: string;
+  AGENT_VIEW_SIGNING_SECRET?: string;
+  API_BASE_URL?: string;
+  CONTENT_SIGNING_SECRET?: string;
+  CONTENT_SIGNING_SECRET_V2?: string;
+  CONTENT_SIGNING_KID?: string;
   BILLING_ENABLED?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
   JOBS_ENABLED?: string;
+  URL_SCANNER_API_TOKEN?: string;
+  AI?: AiBinding;
   SMOKE_HARNESS_SECRET?: string;
   SENTRY_DSN?: string;
   DB?: HyperdriveBinding | SqlExecutor;

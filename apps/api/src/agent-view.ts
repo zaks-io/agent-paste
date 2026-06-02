@@ -14,7 +14,7 @@ export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promi
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
-  options?: { accessLinkId?: string; workspaceId?: string },
+  options?: { accessLinkId?: string; workspaceId?: string; ephemeralTier?: boolean },
 ): Promise<unknown> {
   if (!view || typeof view !== "object") {
     return view;
@@ -45,9 +45,11 @@ export async function signAgentViewContentUrls(
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const workspaceId =
     options?.workspaceId ?? (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
+  const ephemeralTier = options?.ephemeralTier === true || ("ephemeral_tier" in data && data.ephemeral_tier === true);
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
+    ...(ephemeralTier ? { noindex: true as const } : {}),
   };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(
@@ -96,7 +98,11 @@ export async function signAgentViewContentUrls(
   };
 }
 
-export async function signPublishResult(result: unknown, env: Env, auth?: { workspaceId?: string }): Promise<unknown> {
+export async function signPublishResult(
+  result: unknown,
+  env: Env,
+  auth?: { workspaceId?: string; ephemeralTier?: boolean },
+): Promise<unknown> {
   if (!result || typeof result !== "object") {
     return result;
   }
@@ -113,7 +119,12 @@ export async function signPublishResult(result: unknown, env: Env, auth?: { work
   const entrypointPath = typeof data.view_url === "string" ? entrypointPathFromViewUrl(data.view_url) : "index.html";
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const secret = agentViewSigningSecret(env);
-  const contentAuth = auth?.workspaceId ? { workspaceId: auth.workspaceId } : undefined;
+  const contentAuth = auth?.workspaceId
+    ? {
+        workspaceId: auth.workspaceId,
+        ...(auth.ephemeralTier ? { noindex: true as const } : {}),
+      }
+    : undefined;
   return {
     ...data,
     view_url: await signedContentUrl(env, data.artifact_id, data.revision_id, entrypointPath, expiresAt, contentAuth),
@@ -156,7 +167,7 @@ async function signedBundleUrl(
   artifactId: string,
   revisionId: string,
   expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string },
+  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean },
 ): Promise<string | undefined> {
   const signingSecret = contentSigningSecret(env);
   const workspaceId = auth?.workspaceId;
@@ -171,6 +182,7 @@ async function signedBundleUrl(
       revision_id: revisionId,
       workspace_id: workspaceId,
       ...(auth.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
+      ...(auth.noindex ? { noindex: true } : {}),
       key_prefix: bundleKeyFor({
         workspaceId,
         artifactId,
@@ -188,7 +200,7 @@ async function signedContentUrl(
   revisionId: string,
   path: string,
   expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string },
+  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean },
 ): Promise<string> {
   const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
@@ -202,6 +214,7 @@ async function signedContentUrl(
       revision_id: revisionId,
       ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
       ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
+      ...(auth?.noindex ? { noindex: true } : {}),
       paths: [path],
       exp: contentTokenExpiration(expiresAt),
     },

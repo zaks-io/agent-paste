@@ -9,6 +9,8 @@ export type ContentTokenPayload = {
   access_link_id?: string;
   key_prefix?: string;
   paths?: string[];
+  /** When true, content responses must not be indexed (ephemeral tier). */
+  noindex?: boolean;
   exp: number;
 };
 
@@ -29,6 +31,7 @@ export function isValidContentTokenPayload(value: unknown): value is ContentToke
     (payload.key_prefix === undefined || (typeof payload.key_prefix === "string" && payload.key_prefix.length > 0)) &&
     (payload.paths === undefined ||
       (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
+    (payload.noindex === undefined || typeof payload.noindex === "boolean") &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );

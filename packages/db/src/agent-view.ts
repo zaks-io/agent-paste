@@ -43,6 +43,7 @@ export function buildAgentView(
     bundle_size_bytes: number | null;
   },
   warnings: SafetyWarning[] = [],
+  options?: { ephemeral_tier?: boolean },
 ) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
@@ -63,6 +64,7 @@ export function buildAgentView(
     })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
+    ...(options?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
   };
 }
 
@@ -108,6 +110,7 @@ export function buildPublishResult(
   },
   uploadSessionId: string | undefined,
   options: RepositoryOptions,
+  publishMeta?: { ephemeral_tier?: boolean },
 ) {
   const contentBaseUrl = trimTrailingSlash(options.contentBaseUrl ?? "http://127.0.0.1:8789");
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
@@ -119,6 +122,7 @@ export function buildPublishResult(
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
     bundle: buildBundleAvailability(revision),
+    ...(publishMeta?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
   };
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;
 }

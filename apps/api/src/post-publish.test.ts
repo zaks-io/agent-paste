@@ -47,4 +47,18 @@ describe("enqueuePostPublishJobs", () => {
       }),
     );
   });
+
+  it("enqueues the ephemeral scanner for unclaimed tiers", async () => {
+    const send = vi.fn(async () => ({}));
+    await enqueuePostPublishJobs(
+      { SAFETY_SCAN_QUEUE: { send } },
+      { ...input, bundleStatus: "disabled", ephemeralTier: true },
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scanner_id: "ephemeral_tier",
+        scanner_version: "1",
+      }),
+    );
+  });
 });

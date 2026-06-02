@@ -1,3 +1,4 @@
+import { EPHEMERAL_AUTO_DELETION_DAYS, SECONDS_PER_DAY } from "@agent-paste/config";
 import { PepperRing } from "@agent-paste/rotation";
 import { describe, expect, it, vi } from "vitest";
 import { verifyClaimTokenSecret } from "../../claim-tokens.js";
@@ -80,6 +81,57 @@ describe("createEphemeralWorkspace", () => {
     });
     await expect(claimTokens.findById("ct_00000000000000000000000001", "workspace-b")).resolves.toBeNull();
     await expect(claimTokens.findById("ct_missing")).resolves.toBeNull();
+  });
+
+  it("sets a one-day publish expiry for ephemeral artifacts", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const provisioned = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-publish-ttl" });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "ephemeral-upload",
+      request: { entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-06-01T00:00:00.000Z",
+    });
+    const uploadedFile = session.files[0];
+    if (!uploadedFile) {
+      throw new Error("expected_upload_file");
+    }
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "ephemeral-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: uploadedFile.object_key, sizeBytes: 12 }],
+      now: "2026-06-01T00:00:01.000Z",
+    });
+    const published = await repo.publishRevision({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      idempotencyKey: "ephemeral-publish",
+      now: "2026-06-01T12:00:00.000Z",
+    });
+    expect(published).toMatchObject({ ephemeral_tier: true });
+    const agentView = await repo.getAgentView({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(agentView).toMatchObject({ ephemeral_tier: true });
+    const localRepo = repo as LocalRepository;
+    const artifact = localRepo.artifacts.get(session.artifact_id);
+    expect(artifact?.expires_at).toBe(
+      new Date(
+        Date.parse("2026-06-01T12:00:00.000Z") + EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY * 1000,
+      ).toISOString(),
+    );
+    expect(provisioned.workspace.auto_deletion_days).toBe(EPHEMERAL_AUTO_DELETION_DAYS);
   });
 
   it("isolates claim token rows per workspace in local state", async () => {

@@ -1496,6 +1496,7 @@ describe("api worker", () => {
             artifact_id: "art_1",
             revision_id: "rev_1",
             title: "Browser Proof",
+            ephemeral_tier: true,
             view_url: "https://content.test/v/token/index.html",
             files: [
               {
@@ -1524,7 +1525,10 @@ describe("api worker", () => {
 
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
-    await expect(response.text()).resolves.toContain("Browser Proof");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    const html = await response.text();
+    expect(html).toContain("Browser Proof");
+    expect(html).toContain('<meta name="robots" content="noindex,nofollow">');
   });
 
   it("rejects unsigned public Agent View tokens", async () => {

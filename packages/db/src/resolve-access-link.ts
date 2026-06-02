@@ -1,6 +1,7 @@
 import { ACCESS_LINK_SCOPE } from "@agent-paste/tokens/access-link";
 import { isAccessLinkRowExpired, isArtifactAccessLinkLocked } from "./access-links.js";
 import { buildAgentView } from "./agent-view.js";
+import { isEphemeralWorkspace } from "./policy.js";
 import type { Entities } from "./repository/ports.js";
 import type { AccessLink, Artifact, Revision } from "./types.js";
 
@@ -46,7 +47,16 @@ export async function resolveAccessLinkFromEntities(
   const viewArtifact =
     revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
   const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-  const agentView = buildAgentView(viewArtifact, revisionId, files, input.contentBaseUrl, revision);
+  const workspace = await entities.workspaces.findById(artifact.workspace_id);
+  const agentView = buildAgentView(
+    viewArtifact,
+    revisionId,
+    files,
+    input.contentBaseUrl,
+    revision,
+    [],
+    workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+  );
   return {
     access_link_id: link.id,
     access_link_type: link.type,

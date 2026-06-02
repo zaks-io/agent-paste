@@ -174,6 +174,27 @@ describe("AP-91 shared API route helpers", () => {
     expect(workos).toMatchObject({ ok: true, principal: { identity } });
   });
 
+  it("sets noindex on signed content URLs when the agent view is ephemeral tier", async () => {
+    const signed = (await signAgentViewContentUrls(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        entrypoint: "index.html",
+        expires_at: "2030-01-01T00:00:00.000Z",
+        ephemeral_tier: true,
+        files: [{ path: "index.html", url: "old" }],
+      },
+      { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
+      { workspaceId },
+    )) as { view_url: string };
+
+    const token = decodeURIComponent(signed.view_url.split("/v/")[1]?.split("/")[0] ?? "");
+    const { verifyContentToken } = await import("@agent-paste/tokens/content");
+    const payload = await verifyContentToken(token, "content-secret");
+    expect(payload?.noindex).toBe(true);
+  });
+
   it("signs Agent View content URLs without leaking internal workspace fields", async () => {
     const signed = (await signAgentViewContentUrls(
       {
@@ -233,5 +254,19 @@ describe("AP-91 shared API route helpers", () => {
     expect(body).toContain("&lt;script&gt;");
     expect(body).toContain("&#96;");
     expect(body).not.toContain("<script>");
+  });
+
+  it("adds noindex headers and meta for ephemeral-tier HTML agent views", async () => {
+    const response = htmlAgentViewResponse(contextFor(), {
+      title: "Ephemeral",
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      ephemeral_tier: true,
+      view_url: "https://content.test/v/token/index.html",
+      files: [],
+    });
+
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    await expect(response.text()).resolves.toContain('<meta name="robots" content="noindex,nofollow">');
   });
 });

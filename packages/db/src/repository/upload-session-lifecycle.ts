@@ -1,9 +1,15 @@
 import { buildFinalizeResult, inferRenderMode } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
-import { artifactTtlSecondsForUpload, DEFAULT_UPLOAD_SESSION_TTL_MS, type UsagePolicyConfig } from "../policy.js";
+import {
+  artifactTtlSecondsForUpload,
+  DEFAULT_UPLOAD_SESSION_TTL_MS,
+  ephemeralArtifactTtlSeconds,
+  isEphemeralWorkspace,
+  type UsagePolicyConfig,
+} from "../policy.js";
 import { toUploadSessionRecord } from "../transforms.js";
-import type { ApiActor, Artifact, Revision, StoredFile, UploadSession } from "../types.js";
+import type { ApiActor, Artifact, Revision, StoredFile, UploadSession, Workspace } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
 
@@ -24,6 +30,7 @@ export async function createUploadSessionInEntities(
     request: CreateUploadSessionRequest;
     now: string;
     usagePolicy: UsagePolicyConfig;
+    workspace: Pick<Workspace, "claimed_at">;
   },
 ) {
   const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
@@ -45,7 +52,9 @@ export async function createUploadSessionInEntities(
   }
   const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
   validateUpload(files, input.usagePolicy, entrypoint);
-  const artifactTtlSeconds = artifactTtlSecondsForUpload(input.request.ttl_seconds, input.usagePolicy);
+  const artifactTtlSeconds = isEphemeralWorkspace(input.workspace)
+    ? ephemeralArtifactTtlSeconds(input.request.ttl_seconds, input.usagePolicy)
+    : artifactTtlSecondsForUpload(input.request.ttl_seconds, input.usagePolicy);
   const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
   const updateArtifactId = input.request.artifact_id;
   const createdBy = createdByFromActor(input.actor);

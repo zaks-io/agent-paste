@@ -150,6 +150,98 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
   });
 
+  it("adds noindex headers and meta for ephemeral content tokens", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        noindex: true,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "<html><head><title>x</title></head><body>ok</body></html>",
+    });
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), {
+      ...baseContentEnv({
+        ARTIFACTS: {
+          async get() {
+            return stored;
+          },
+        },
+      }),
+    });
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    await expect(response.text()).resolves.toContain('<meta name="robots" content="noindex,nofollow">');
+  });
+
+  it("does not duplicate robots meta when it is already present", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        noindex: true,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const html = '<html><head><meta name="robots" content="noindex,nofollow"></head><body>ok</body></html>';
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: html,
+    });
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), {
+      ...baseContentEnv({
+        ARTIFACTS: {
+          async get() {
+            return stored;
+          },
+        },
+      }),
+    });
+    await expect(response.text()).resolves.toBe(html);
+  });
+
+  it("prepends robots meta when HTML lacks a head element", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["page.html"],
+        noindex: true,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "page.html",
+      plaintext: "<p>plain</p>",
+    });
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/page.html`), {
+      ...baseContentEnv({
+        ARTIFACTS: {
+          async get() {
+            return stored;
+          },
+        },
+      }),
+    });
+    await expect(response.text()).resolves.toBe('<meta name="robots" content="noindex,nofollow"><p>plain</p>');
+  });
+
   it("serves signed HEAD metadata under the artifact read limit", async () => {
     const token = await signContentToken(
       {
