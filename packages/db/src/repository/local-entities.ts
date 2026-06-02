@@ -2,6 +2,7 @@ import { localAccessLinks } from "./local-entities/access-links.js";
 import { localApiKeys } from "./local-entities/api-keys.js";
 import { localArtifactFiles } from "./local-entities/artifact-files.js";
 import { localArtifacts } from "./local-entities/artifacts.js";
+import { localClaimTokens } from "./local-entities/claim-tokens.js";
 import { localMembers } from "./local-entities/members.js";
 import { localOperationEvents } from "./local-entities/operation-events.js";
 import { localPlatformLockdowns } from "./local-entities/platform-lockdowns.js";
@@ -18,6 +19,7 @@ export function localEntities(state: LocalState): Entities {
   return {
     workspaces: localWorkspaces(state),
     apiKeys: localApiKeys(state),
+    claimTokens: localClaimTokens(state),
     members: localMembers(state),
     artifacts: localArtifacts(state),
     accessLinks: localAccessLinks(state),

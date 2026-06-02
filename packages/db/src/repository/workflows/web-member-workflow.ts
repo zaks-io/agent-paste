@@ -3,8 +3,8 @@ import { defaultAutoDeletionDaysForWorkspace } from "../../policy.js";
 import { toApiKeySummary } from "../../transforms.js";
 import type { Workspace, WorkspaceMember } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
-import type { CommandActor, Entities } from "../ports.js";
 import { PLATFORM_SCOPE } from "../core-helpers.js";
+import type { CommandActor, Entities } from "../ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, webAuthResponse } from "../shared.js";
 
 async function provisionWebMember(
@@ -19,6 +19,7 @@ async function provisionWebMember(
     contact_email: input.email,
     plan: "free",
     plan_operator_override_at: null,
+    claimed_at: now,
     auto_deletion_days: defaultAutoDeletionDaysForWorkspace({ plan: "free" }, ctx.billingEnabled()),
     revision_retention_days: null,
     created_at: now,

@@ -1,8 +1,10 @@
-import type { AdminActor, ApiActor, PlatformActor } from "../types.js";
-import type { PlatformLockdown } from "../types.js";
+import type { AdminActor, ApiActor, PlatformActor, PlatformLockdown } from "../types.js";
 import type { CommandActor, RunScope } from "./ports.js";
 
 export const PLATFORM_SCOPE: RunScope = { kind: "platform" };
+
+/** Reserved system actor for ephemeral workspace provisioning (ADR 0049, 0075). */
+export const EPHEMERAL_PROVISION_SYSTEM_ACTOR: AdminActor = { type: "system", id: "ephemeral_provision" };
 
 export function workspaceScope(workspaceId: string): RunScope {
   return { kind: "workspace", workspaceId };

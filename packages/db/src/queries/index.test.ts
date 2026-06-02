@@ -4,6 +4,7 @@ import {
   apiKeyQueries,
   artifactFileQueries,
   artifactQueries,
+  claimTokenQueries,
   operationEventQueries,
   platformLockdownQueries,
   uploadSessionFileQueries,
@@ -193,6 +194,32 @@ describe("postgres query adapters", () => {
     expect(db.writes.length).toBeGreaterThan(0);
   });
 
+  it("maps claim token rows", async () => {
+    const db = fakeDrizzle([
+      [claimTokenRow()],
+      [claimTokenRow()],
+      [claimTokenRow({ redeemedAt: new Date("2026-01-02T00:00:00.000Z") })],
+    ]);
+
+    await claimTokenQueries.insert(db, claimTokenEntity());
+    await claimTokenQueries.insert(db, {
+      ...claimTokenEntity(),
+      id: "ct_00000000000000000000000002",
+      redeemed_at: "2026-01-02T00:00:00.000Z",
+    });
+    await expect(claimTokenQueries.findById(db, "ct_00000000000000000000000001")).resolves.toMatchObject({
+      id: "ct_00000000000000000000000001",
+      redeemed_at: null,
+    });
+    await expect(claimTokenQueries.findById(db, "ct_00000000000000000000000001", "workspace_1")).resolves.toMatchObject(
+      { workspace_id: "workspace_1" },
+    );
+    await expect(
+      claimTokenQueries.findById(db, "ct_00000000000000000000000001", "workspace_mismatch"),
+    ).resolves.toBeNull();
+    await expect(claimTokenQueries.findById(db, "ct_missing")).resolves.toBeNull();
+  });
+
   it("handles nullable rows, optional filters, and nullable timestamp mappings", async () => {
     const db = fakeDrizzle([
       [],
@@ -333,6 +360,19 @@ function fakeDrizzle(results: unknown[][]) {
   } as DrizzleDb & { writes: unknown[] };
 }
 
+function claimTokenRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "ct_00000000000000000000000001",
+    workspaceId: "workspace_1",
+    tokenHash: new Uint8Array([1, 2, 3]),
+    pepperKid: 1,
+    expiresAt: now,
+    redeemedAt: null,
+    createdAt: now,
+    ...overrides,
+  };
+}
+
 function workspaceRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "workspace_1",
@@ -466,6 +506,18 @@ function eventRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function claimTokenEntity() {
+  return {
+    id: "ct_00000000000000000000000001",
+    workspace_id: "workspace_1",
+    token_hash: new Uint8Array([9, 8, 7]),
+    pepper_kid: 1,
+    expires_at: "2026-01-02T00:00:00.000Z",
+    redeemed_at: null,
+    created_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
 function workspaceEntity() {
   return {
     id: "workspace_1",
@@ -473,6 +525,7 @@ function workspaceEntity() {
     contact_email: "user@example.com",
     plan: "free" as const,
     plan_operator_override_at: null,
+    claimed_at: "2026-01-01T00:00:00.000Z",
     auto_deletion_days: 14,
     revision_retention_days: null,
     created_at: "2026-01-01T00:00:00.000Z",

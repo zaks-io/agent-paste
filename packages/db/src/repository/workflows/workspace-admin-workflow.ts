@@ -1,10 +1,7 @@
 import { parseApiKey, verifyApiKeySecret } from "../../api-keys.js";
-import {
-  defaultAutoDeletionDaysForWorkspace,
-  type UsagePolicyConfig,
-} from "../../policy.js";
+import { defaultAutoDeletionDaysForWorkspace, type UsagePolicyConfig } from "../../policy.js";
 import { toApiKeySummary, toArtifactSummary, toWorkspaceDetail, toWorkspaceSummary } from "../../transforms.js";
-import type { AdminActor, ApiKeyActor, ApiActor, Workspace } from "../../types.js";
+import type { AdminActor, ApiActor, ApiKeyActor, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import {
   adminCommandActor,
@@ -33,6 +30,7 @@ export async function createWorkspace(
     contact_email: input.email,
     plan: "free",
     plan_operator_override_at: null,
+    claimed_at: now,
     auto_deletion_days: defaultAutoDeletionDaysForWorkspace({ plan: "free" }, ctx.billingEnabled()),
     revision_retention_days: null,
     created_at: now,

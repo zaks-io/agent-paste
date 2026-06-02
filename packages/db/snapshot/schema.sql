@@ -66,6 +66,17 @@ CREATE TABLE "artifacts" (
 	CONSTRAINT "artifacts_created_by_type_check" CHECK ("artifacts"."created_by_type" in ('api_key', 'member'))
 );
 
+CREATE TABLE "claim_tokens" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"token_hash" "bytea" NOT NULL,
+	"pepper_kid" smallint NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"redeemed_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "claim_tokens_id_format" CHECK ("claim_tokens"."id" ~ '^ct_[0-9A-HJKMNP-TV-Z]{26}$')
+);
+
 CREATE TABLE "idempotency_records" (
 	"workspace_id" uuid,
 	"actor_type" text NOT NULL,
@@ -212,6 +223,7 @@ CREATE TABLE "workspaces" (
 	"contact_email" text,
 	"plan" text DEFAULT 'free' NOT NULL,
 	"plan_operator_override_at" timestamp with time zone,
+	"claimed_at" timestamp with time zone,
 	"auto_deletion_days" integer DEFAULT 30 NOT NULL,
 	"revision_retention_days" integer,
 	"created_at" timestamp with time zone NOT NULL,
@@ -229,6 +241,7 @@ ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspa
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "claim_tokens" ADD CONSTRAINT "claim_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
@@ -246,6 +259,7 @@ CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspa
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree ("workspace_id","id");
+CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;

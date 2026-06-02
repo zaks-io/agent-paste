@@ -55,10 +55,21 @@ export type Workspace = {
   contact_email: string | null;
   plan: WorkspacePlan;
   plan_operator_override_at: string | null;
+  claimed_at: string | null;
   auto_deletion_days: number;
   revision_retention_days: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ClaimToken = {
+  id: string;
+  workspace_id: string;
+  token_hash: Uint8Array;
+  pepper_kid: number;
+  expires_at: string;
+  redeemed_at: string | null;
+  created_at: string;
 };
 
 export type WorkspaceBilling = {

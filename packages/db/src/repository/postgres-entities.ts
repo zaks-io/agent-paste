@@ -4,6 +4,7 @@ import {
   apiKeyQueries,
   artifactFileQueries,
   artifactQueries,
+  claimTokenQueries,
   operationEventQueries,
   platformLockdownQueries,
   revisionQueries,
@@ -37,6 +38,10 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listForWorkspace: (workspaceId) => apiKeyQueries.listForWorkspace(drizzle, workspaceId),
       updateLastUsedAt: (id, lastUsedAt) => apiKeyQueries.updateLastUsedAt(drizzle, id, lastUsedAt),
       updateRevokedAt: (id, revokedAt) => apiKeyQueries.updateRevokedAt(drizzle, id, revokedAt),
+    },
+    claimTokens: {
+      insert: (claimToken) => claimTokenQueries.insert(drizzle, claimToken),
+      findById: (id, workspaceId) => claimTokenQueries.findById(drizzle, id, workspaceId),
     },
     members: {
       insert: (member) => workspaceMemberQueries.insert(drizzle, member),

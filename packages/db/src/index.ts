@@ -23,6 +23,12 @@ export {
   enqueueArtifactBytePurge,
   writeArtifactDenylist,
 } from "./artifact-invalidation.js";
+export {
+  digestToBytes,
+  generateClaimToken,
+  parseClaimToken,
+  verifyClaimTokenSecret,
+} from "./claim-tokens.js";
 export { createLocalMvpSqlExecutor } from "./local-mvp-sql-executor.js";
 export { createLocalServices, LocalRepository } from "./local-repository.js";
 export {
@@ -43,6 +49,7 @@ export {
 export { PostgresRepository } from "./postgres/repository.js";
 export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
+export { EPHEMERAL_PROVISION_SYSTEM_ACTOR } from "./repository/core-helpers.js";
 export type { Repository } from "./repository/interface.js";
 export {
   applyRevisionPurgeSideEffects,
@@ -62,6 +69,7 @@ export type {
   ApiKey,
   ApiKeyActor,
   Artifact,
+  ClaimToken,
   HyperdriveBinding,
   OperationEvent,
   PlatformActor,
