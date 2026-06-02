@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
 import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
+import { describe, expect, it, vi } from "vitest";
 import { handleRequest } from "../src/index.js";
-import { ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
+import { ephemeralClaimRoute, ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
@@ -117,6 +117,130 @@ describe("ephemeral provision route", () => {
     );
     expect(replay.status).toBe(400);
     expect(db.createEphemeralWorkspace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ephemeral claim route", () => {
+  it("redeems a claim token for an authenticated member", async () => {
+    const claimEphemeralWorkspace = vi.fn(async () => ({
+      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+      source_workspace_id: "00000000-0000-4000-8000-000000000099",
+      artifact_ids: ["art_test"],
+      claim_token_id: "ct_test",
+    }));
+
+    const response = await ephemeralClaimRoute(
+      contextFor({}),
+      {
+        kind: "workos_access_token",
+        identity: { workos_user_id: "user", email: "user@example.test" },
+        actor: {
+          type: "member",
+          id: "mem_test",
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          email: "user@example.test",
+          scopes: ["publish", "read", "admin"],
+        },
+      },
+      { claimEphemeralWorkspace } as never,
+      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(responseJson(response)).resolves.toEqual({
+      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+      source_workspace_id: "00000000-0000-4000-8000-000000000099",
+      artifact_ids: ["art_test"],
+      claim_token_id: "ct_test",
+    });
+    expect(claimEphemeralWorkspace).toHaveBeenCalledWith({
+      actor: {
+        type: "member",
+        id: "mem_test",
+        workspace_id: "00000000-0000-4000-8000-000000000001",
+        email: "user@example.test",
+        scopes: ["publish", "read", "admin"],
+      },
+      claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
+      idempotencyKey: "claim-1",
+    });
+  });
+
+  it("maps invalid claim tokens to not_found", async () => {
+    const response = await ephemeralClaimRoute(
+      contextFor({}),
+      {
+        kind: "workos_access_token",
+        identity: { workos_user_id: "user", email: "user@example.test" },
+        actor: {
+          type: "member",
+          id: "mem_test",
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          email: "user@example.test",
+          scopes: ["publish", "read", "admin"],
+        },
+      },
+      {
+        claimEphemeralWorkspace: vi.fn(async () => {
+          throw new Error("not_found");
+        }),
+      } as never,
+      guardFor({ claim_token: "ap_ct_preview_badtoken000000000_bad" }, "claim-2"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects unauthenticated principals", async () => {
+    const response = await ephemeralClaimRoute(
+      contextFor({}),
+      { kind: "workos_access_token", identity: { workos_user_id: "user", email: "user@example.test" } },
+      {} as never,
+      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-3"),
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("maps forbidden claim errors from the repository", async () => {
+    const response = await ephemeralClaimRoute(
+      contextFor({}),
+      {
+        kind: "workos_access_token",
+        identity: { workos_user_id: "user", email: "user@example.test" },
+        actor: {
+          type: "member",
+          id: "mem_test",
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          email: "user@example.test",
+          scopes: ["publish", "read", "admin"],
+        },
+      },
+      {
+        claimEphemeralWorkspace: vi.fn(async () => {
+          throw new Error("forbidden");
+        }),
+      } as never,
+      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-4"),
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("returns pow_required through the registrar when the claim route is hit without auth", async () => {
+    const response = await handleRequest(
+      new Request("https://api.test/v1/ephemeral/claim", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": "claim-registrar",
+        },
+        body: JSON.stringify({ claim_token: "ap_ct_preview_testsecret000000_abc" }),
+      }),
+      {
+        EPHEMERAL_POW_SECRET: powSecret,
+        DENYLIST: memoryKv(),
+        DB: { claimEphemeralWorkspace: vi.fn() } as never,
+      },
+    );
+    expect(response.status).toBe(401);
   });
 });
 

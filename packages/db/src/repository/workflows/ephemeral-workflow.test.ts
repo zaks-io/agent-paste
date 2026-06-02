@@ -20,6 +20,7 @@ describe("createEphemeralWorkspace", () => {
     expect(result.api_key.workspace_id).toBe(result.workspace.id);
     expect(result.claim_token.workspace_id).toBe(result.workspace.id);
     expect(result.claim_token.redeemed_at).toBeNull();
+    expect(result.claim_token.public_id).toHaveLength(16);
     expect(result.claim_token_secret).toMatch(/^ap_ct_preview_/);
 
     const localRepo = repo as LocalRepository;
@@ -71,6 +72,7 @@ describe("createEphemeralWorkspace", () => {
     await claimTokens.insert({
       id: "ct_00000000000000000000000001",
       workspace_id: "workspace-a",
+      public_id: "ABCDEFGHJKLMNP12",
       token_hash: new Uint8Array([1]),
       pepper_kid: 1,
       expires_at: "2026-01-01T00:00:00.000Z",

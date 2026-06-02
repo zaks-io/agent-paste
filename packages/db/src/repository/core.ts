@@ -38,6 +38,15 @@ export class RepositoryCore implements Repository {
     return ephemeralWorkflow.createEphemeralWorkspace(this.ctx, input);
   }
 
+  async claimEphemeralWorkspace(input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  }) {
+    return ephemeralWorkflow.claimEphemeralWorkspace(this.ctx, input);
+  }
+
   async listWorkspaces() {
     return workspaceAdminWorkflow.listWorkspaces(this.ctx);
   }

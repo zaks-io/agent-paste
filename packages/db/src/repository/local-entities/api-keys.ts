@@ -29,5 +29,12 @@ export function localApiKeys(state: LocalState): Entities["apiKeys"] {
         apiKey.revoked_at = revokedAt;
       }
     },
+    async revokeAllForWorkspace(workspaceId, revokedAt) {
+      for (const apiKey of state.apiKeys.values()) {
+        if (apiKey.workspace_id === workspaceId && apiKey.revoked_at === null) {
+          apiKey.revoked_at = revokedAt;
+        }
+      }
+    },
   };
 }

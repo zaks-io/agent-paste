@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { FileStack, Gauge, KeyRound, Link as LinkIcon, ScrollText, ShieldAlert } from "lucide-react";
+import { FileStack, Gauge, KeyRound, Link as LinkIcon, ScrollText, ShieldAlert, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "../../lib/cn";
 
@@ -11,6 +11,7 @@ type Item = {
 
 const ITEMS: ReadonlyArray<Item> = [
   { to: "/artifacts", label: "Artifacts", Icon: FileStack },
+  { to: "/claim", label: "Claim", Icon: Sparkles },
   { to: "/access-links", label: "Access Links", Icon: LinkIcon },
   { to: "/keys", label: "API Keys", Icon: KeyRound },
   { to: "/audit", label: "Audit Log", Icon: ScrollText },

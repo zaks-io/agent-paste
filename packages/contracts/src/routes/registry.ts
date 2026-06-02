@@ -1,5 +1,5 @@
-import type { RouteContract } from "./types.js";
 import { routeErrorGroups } from "./errors.js";
+import type { RouteContract } from "./types.js";
 
 const {
   apiKeyRead: apiKeyReadErrors,
@@ -10,6 +10,7 @@ const {
   operatorMutation: operatorMutationErrors,
   operatorRead: operatorReadErrors,
   ephemeralProvision: ephemeralProvisionErrors,
+  ephemeralClaim: ephemeralClaimErrors,
 } = routeErrorGroups;
 
 export const routeContracts = [
@@ -98,6 +99,19 @@ export const routeContracts = [
     requestSchema: "EphemeralProvisionRequest",
     responseSchema: "EphemeralProvisionResponse",
     errors: ephemeralProvisionErrors,
+  },
+  {
+    id: "ephemeral.claim",
+    app: "api",
+    method: "POST",
+    path: "/v1/ephemeral/claim",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "EphemeralClaimRequest",
+    responseSchema: "EphemeralClaimResponse",
+    errors: ephemeralClaimErrors,
   },
   {
     id: "artifacts.list",

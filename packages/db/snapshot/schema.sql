@@ -69,6 +69,7 @@ CREATE TABLE "artifacts" (
 CREATE TABLE "claim_tokens" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
+	"public_id" text,
 	"token_hash" "bytea" NOT NULL,
 	"pepper_kid" smallint NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
@@ -260,6 +261,7 @@ CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("work
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree ("workspace_id","id");
 CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
+CREATE UNIQUE INDEX "claim_tokens_public_id_unique" ON "claim_tokens" USING btree ("public_id");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;

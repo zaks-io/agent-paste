@@ -7,6 +7,7 @@ import {
   claimTokenQueries,
   operationEventQueries,
   platformLockdownQueries,
+  reparentTenantContent,
   revisionQueries,
   safetyWarningQueries,
   uploadSessionFileQueries,
@@ -30,6 +31,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       findById: (id) => workspaceQueries.findById(drizzle, id),
       listAll: () => workspaceQueries.listAll(drizzle),
       update: (id, input) => workspaceQueries.update(drizzle, id, input),
+      markClaimed: (id, input) => workspaceQueries.markClaimed(drizzle, id, input),
     },
     apiKeys: {
       insert: (apiKey) => apiKeyQueries.insert(drizzle, apiKey),
@@ -38,10 +40,14 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       listForWorkspace: (workspaceId) => apiKeyQueries.listForWorkspace(drizzle, workspaceId),
       updateLastUsedAt: (id, lastUsedAt) => apiKeyQueries.updateLastUsedAt(drizzle, id, lastUsedAt),
       updateRevokedAt: (id, revokedAt) => apiKeyQueries.updateRevokedAt(drizzle, id, revokedAt),
+      revokeAllForWorkspace: (workspaceId, revokedAt) =>
+        apiKeyQueries.revokeAllForWorkspace(drizzle, workspaceId, revokedAt),
     },
     claimTokens: {
       insert: (claimToken) => claimTokenQueries.insert(drizzle, claimToken),
       findById: (id, workspaceId) => claimTokenQueries.findById(drizzle, id, workspaceId),
+      findByPublicId: (publicId) => claimTokenQueries.findByPublicId(drizzle, publicId),
+      markRedeemed: (id, redeemedAt) => claimTokenQueries.markRedeemed(drizzle, id, redeemedAt),
     },
     members: {
       insert: (member) => workspaceMemberQueries.insert(drizzle, member),
@@ -93,6 +99,15 @@ export function postgresEntities(ctx: PostgresContext): Entities {
       },
       setAccessLinkLockdown: (artifactId, lockdownAt) =>
         artifactQueries.setAccessLinkLockdown(drizzle, artifactId, lockdownAt),
+      reparentWorkspace: async (fromWorkspaceId, toWorkspaceId, minExpiresAt, updatedAt) => {
+        const result = await reparentTenantContent(sql, {
+          fromWorkspaceId,
+          toWorkspaceId,
+          updatedAt,
+          minArtifactExpiresAt: minExpiresAt,
+        });
+        return result.artifact_ids;
+      },
     },
     accessLinks: {
       insert: (link) => accessLinkQueries.insert(drizzle, link),

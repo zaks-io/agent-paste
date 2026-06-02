@@ -138,6 +138,46 @@ try {
     "cross-workspace artifact detail fails closed",
   );
 
+  const powEntry = fileURLToPath(new URL("../packages/tokens/dist/pow.js", import.meta.url));
+  const { issuePowChallenge, solvePowChallenge } = await import(powEntry);
+  const powSecret = process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret";
+  const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
+  const counter = await solvePowChallenge(challenge);
+  const ephemeral = await fetchJson("/v1/ephemeral/provision", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ challenge, solution: { nonce: challenge.nonce, counter } }),
+  });
+  assert(ephemeral.claim_token?.startsWith("ap_ct_preview_"), "ephemeral provision returned claim token");
+  const ephemeralPublished = await publishArtifact(ephemeral.api_key_secret, "Ephemeral smoke");
+  const claimed = await fetchJson("/v1/ephemeral/claim", {
+    method: "POST",
+    headers: {
+      ...primaryAuth,
+      "content-type": "application/json",
+      "idempotency-key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({ claim_token: ephemeral.claim_token }),
+  });
+  assert(claimed.destination_workspace_id === firstCallback.workspace.id, "claim reparented into member workspace");
+  assert(claimed.artifact_ids.includes(ephemeralPublished.artifact_id), "claim returned ephemeral artifact id");
+
+  const artifactsAfterClaim = await fetchJson("/v1/web/artifacts", { headers: primaryAuth });
+  assert(artifactsAfterClaim.items.length === 2, "member workspace lists claimed ephemeral artifact");
+
+  await expectStatus(
+    "/v1/ephemeral/claim",
+    {
+      ...primaryAuth,
+      "content-type": "application/json",
+      "idempotency-key": crypto.randomUUID(),
+    },
+    404,
+    "redeemed claim token fails closed as not_found",
+    "POST",
+    JSON.stringify({ claim_token: ephemeral.claim_token }),
+  );
+
   process.stdout.write(`Web API smoke test passed.
 
   Workspace: ${firstCallback.workspace.id}
@@ -206,7 +246,7 @@ function signWorkOsToken(subject, session = subject) {
   return `${encoded}.${signature}`;
 }
 
-async function publishArtifact(apiKey) {
+async function publishArtifact(apiKey, title = "Web API smoke") {
   const env = {
     ...process.env,
     AGENT_PASTE_API_KEY: apiKey,
@@ -215,7 +255,7 @@ async function publishArtifact(apiKey) {
   };
   const output = await run(
     process.execPath,
-    [cliEntry, "publish", "examples/local-harness/site", "--ttl", "1d", "--title", "Web API smoke", "--json"],
+    [cliEntry, "publish", "examples/local-harness/site", "--ttl", "1d", "--title", title, "--json"],
     env,
   );
   const published = JSON.parse(output);
@@ -231,8 +271,12 @@ async function fetchJson(path, init = {}) {
   return response.json();
 }
 
-async function expectStatus(path, headers, expected, message) {
-  const response = await fetch(`${apiBaseUrl}${path}`, { headers });
+async function expectStatus(path, headers, expected, message, method = "GET", body) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method,
+    headers,
+    ...(body !== undefined ? { body } : {}),
+  });
   assert(response.status === expected, `${message}: expected ${expected}, got ${response.status}`);
 }
 

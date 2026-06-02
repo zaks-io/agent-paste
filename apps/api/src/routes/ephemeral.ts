@@ -8,7 +8,8 @@ import {
   verifyPowSolution,
 } from "@agent-paste/tokens/pow";
 import type { AppContext, Env } from "../env.js";
-import { errorResponse, jsonResponse } from "../responses.js";
+import { webMemberActor } from "../principals.js";
+import { errorResponse, jsonResponse, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function ephemeralProvisionRoute(
@@ -65,6 +66,42 @@ export async function ephemeralProvisionRoute(
       claim_token_id: result.claim_token.id,
     },
     201,
+  );
+}
+
+export async function ephemeralClaimRoute(
+  context: AppContext,
+  principal: import("@agent-paste/worker-runtime").Principal,
+  db: Repository,
+  guard: GuardFor<"ephemeral.claim">,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return errorResponse(context, "forbidden");
+  }
+
+  return runIdempotent(
+    context,
+    async () => {
+      try {
+        return await db.claimEphemeralWorkspace({
+          actor,
+          claimTokenSecret: guard.body.claim_token,
+          idempotencyKey: guard.idempotencyKey,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === "not_found") {
+            throw new RepositoryRouteError("not_found");
+          }
+          if (error.message === "forbidden") {
+            throw new RepositoryRouteError("forbidden");
+          }
+        }
+        throw error;
+      }
+    },
+    200,
   );
 }
 

@@ -65,6 +65,7 @@ export type Workspace = {
 export type ClaimToken = {
   id: string;
   workspace_id: string;
+  public_id: string;
   token_hash: Uint8Array;
   pepper_kid: number;
   expires_at: string;

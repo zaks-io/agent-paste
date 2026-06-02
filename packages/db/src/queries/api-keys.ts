@@ -54,6 +54,13 @@ export const apiKeyQueries = {
       .set({ revokedAt: new Date(revokedAt) })
       .where(eq(apiKeys.id, id));
   },
+
+  async revokeAllForWorkspace(db: DrizzleDb, workspaceId: string, revokedAt: string) {
+    await db
+      .update(apiKeys)
+      .set({ revokedAt: new Date(revokedAt) })
+      .where(eq(apiKeys.workspaceId, workspaceId));
+  },
 };
 
 function mapApiKey(row: typeof apiKeys.$inferSelect): ApiKey {
