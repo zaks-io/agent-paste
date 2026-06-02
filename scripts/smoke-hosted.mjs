@@ -332,70 +332,62 @@ function unquote(value) {
   return value;
 }
 
+// Cloudflare `ratelimits` bindings count per edge location (colo), not globally. Parallel
+// bursts from one client can fan out across PoPs so no single counter reaches the binding
+// limit. Serial probes on one host keep traffic on one colo and make hosted smokes stable.
+const RATE_LIMIT_BINDING_CEILING = 60;
+const RATE_LIMIT_PROBE_OVERSHOOT = 20;
+
 async function assertActorRateLimitFires(apiKeySecret) {
   const url = `${config.uploadBaseUrl}/v1/upload-sessions`;
   const body = JSON.stringify({ files: [{ path: "rate-limit-probe.txt", size_bytes: 1 }] });
-  const waveSize = 80;
-  const maxWaves = 4;
   const probeStart = Date.now();
-  for (let wave = 1; wave <= maxWaves; wave += 1) {
-    const responses = await Promise.all(
-      Array.from({ length: waveSize }, (_, index) =>
-        fetch(url, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${apiKeySecret}`,
-            "content-type": "application/json",
-            "idempotency-key": `rl-probe-${probeStart}-w${wave}-${index}`,
-          },
-          body,
-        }),
-      ),
-    );
-    const limited = responses.find((response) => response.status === 429);
-    await Promise.all(
-      responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()),
-    );
-    if (limited) {
-      const payload = await limited.json();
+  const maxAttempts = RATE_LIMIT_BINDING_CEILING + RATE_LIMIT_PROBE_OVERSHOOT;
+  for (let index = 0; index < maxAttempts; index += 1) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKeySecret}`,
+        "content-type": "application/json",
+        "idempotency-key": `rl-probe-${probeStart}-${index}`,
+      },
+      body,
+      cache: "no-store",
+    });
+    if (response.status === 429) {
+      const payload = await response.json();
       assert(
         payload?.error?.code === "rate_limited_actor",
         `expected rate_limited_actor envelope, got ${JSON.stringify(payload)}`,
       );
-      assert(limited.headers.get("retry-after") === "60", "rate-limited response sets Retry-After: 60");
+      assert(response.headers.get("retry-after") === "60", "rate-limited response sets Retry-After: 60");
       return;
     }
+    await response.body?.cancel?.();
   }
-  throw new Error(
-    `upload mutation never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
-  );
+  throw new Error(`upload mutation never returned 429 after ${maxAttempts} serial attempts`);
 }
 
 async function assertArtifactRateLimitFires(contentUrl) {
-  const waveSize = 80;
-  const maxWaves = 4;
   const probeStart = Date.now();
-  for (let wave = 1; wave <= maxWaves; wave += 1) {
-    const responses = await Promise.all(
-      Array.from({ length: waveSize }, (_, index) => fetch(rateLimitProbeUrl(contentUrl, probeStart, wave, index))),
-    );
-    const limited = responses.find((response) => response.status === 429);
-    await Promise.all(
-      responses.filter((response) => response !== limited).map((response) => response.body?.cancel?.()),
-    );
-    if (limited) {
-      const payload = await limited.json();
+  const maxAttempts = RATE_LIMIT_BINDING_CEILING + RATE_LIMIT_PROBE_OVERSHOOT;
+  for (let index = 0; index < maxAttempts; index += 1) {
+    const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, 1, index), {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    if (response.status === 429) {
+      const payload = await response.json();
       assert(
         payload?.error?.code === "rate_limited_artifact",
         `expected rate_limited_artifact envelope, got ${JSON.stringify(payload)}`,
       );
-      assert(limited.headers.get("retry-after") === "60", "content rate-limited response sets Retry-After: 60");
+      assert(response.headers.get("retry-after") === "60", "content rate-limited response sets Retry-After: 60");
       return;
     }
+    await response.body?.cancel?.();
   }
-  throw new Error(
-    `content Artifact Rate Limit never returned 429 after ${waveSize * maxWaves} attempts in ${maxWaves} parallel waves`,
-  );
+  throw new Error(`content Artifact Rate Limit never returned 429 after ${maxAttempts} serial attempts`);
 }
 
 function rateLimitProbeUrl(contentUrl, probeStart, wave, index) {
