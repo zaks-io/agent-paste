@@ -1,0 +1,2 @@
+export const VALID_TOKEN =
+  "ap_ct_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyz012345";

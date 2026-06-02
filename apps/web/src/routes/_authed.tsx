@@ -2,6 +2,7 @@ import type { WebAuthCallbackResponse } from "@agent-paste/contracts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { ClaimGuestGate } from "../components/claim/ClaimGuestGate";
 import { CommandPaletteProvider } from "../components/chrome/command-palette/CommandPaletteProvider";
 import { Sidebar } from "../components/chrome/Sidebar";
 import { Topbar } from "../components/chrome/Topbar";
@@ -11,23 +12,29 @@ import { signInBridgeHref } from "../lib/auth-return-path";
 import { apiFetchOrEmpty } from "../server/api-client";
 import { hasOperatorRole } from "../server/env";
 
-const loadAuthedSessionFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { redirectTo: "/api/auth/sign-in" as const };
-  const apiSession = await apiFetchOrEmpty<WebAuthCallbackResponse>("/v1/auth/web/callback", {
-    method: "POST",
-    accessToken: auth.accessToken,
+const loadAuthedSessionFn = createServerFn({ method: "GET" })
+  .inputValidator((input: { allowGuest?: boolean }) => input)
+  .handler(async ({ data }) => {
+    const auth = await getAuth();
+    if (!auth.user) {
+      if (data.allowGuest) return { guest: true as const };
+      return { redirectTo: "/api/auth/sign-in" as const };
+    }
+    const apiSession = await apiFetchOrEmpty<WebAuthCallbackResponse>("/v1/auth/web/callback", {
+      method: "POST",
+      accessToken: auth.accessToken,
+    });
+    return {
+      user: auth.user,
+      isOperator: hasOperatorRole(auth),
+      apiSession,
+    };
   });
-  return {
-    user: auth.user,
-    isOperator: hasOperatorRole(auth),
-    apiSession,
-  };
-});
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ location }) => {
-    const result = await loadAuthedSessionFn();
+    const allowGuest = location.pathname === "/claim";
+    const result = await loadAuthedSessionFn({ data: { allowGuest } });
     if ("redirectTo" in result) {
       // Thrown redirect hrefs must stay query-string-free (TanStack Router SSR
       // coercion bug). Thread returnPathname through the sign-in bridge route
@@ -41,7 +48,11 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
-  const { user, isOperator, apiSession } = Route.useRouteContext();
+  const context = Route.useRouteContext();
+  if ("guest" in context && context.guest) {
+    return <ClaimGuestGate />;
+  }
+  const { user, isOperator, apiSession } = context;
   return (
     <ToastProvider>
       <CommandPaletteProvider isOperator={isOperator}>

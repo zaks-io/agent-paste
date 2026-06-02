@@ -11,6 +11,7 @@ describe("auth-return-path", () => {
     expect(parseReturnPathname("/settings")).toBe("/settings");
     expect(parseReturnPathname("/artifacts/art_123")).toBe("/artifacts/art_123");
     expect(parseReturnPathname("/audit?request_id=req_1")).toBe("/audit?request_id=req_1");
+    expect(parseReturnPathname("/claim")).toBe("/claim");
     expect(parseReturnPathname("//evil.test/phish")).toBeUndefined();
     expect(parseReturnPathname("https://evil.test")).toBeUndefined();
     expect(parseReturnPathname(null)).toBeUndefined();
