@@ -16,7 +16,7 @@ export type AuthRequirement =
   | "signed_upload_url"
   | "signed_content_token";
 export type IdempotencyRequirement = "none" | "required";
-export type RateLimitRequirement = "none" | "actor" | "artifact";
+export type RateLimitRequirement = "none" | "actor" | "artifact" | "ephemeral_provision";
 
 export type RouteContract = {
   id: string;

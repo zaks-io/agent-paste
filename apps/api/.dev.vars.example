@@ -13,3 +13,4 @@ AGENT_PASTE_ENV=dev
 DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste
 API_KEY_PEPPER=dev-api-key-pepper-change-me
 API_BASE_URL=http://127.0.0.1:8787
+EPHEMERAL_POW_SECRET=local-ephemeral-pow-secret-change-me

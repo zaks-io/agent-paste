@@ -116,7 +116,9 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
           }
         }
 
-        const rateLimit = await applyRateLimit(contract, auth.principal, deps.rateLimitBindings?.(context));
+        const rateLimit = await applyRateLimit(contract, auth.principal, deps.rateLimitBindings?.(context), {
+          clientIp: clientIpFromRequest(context.req.raw),
+        });
         if (!rateLimit.ok) {
           return errorResponse(context, rateLimit.code, {
             headers: { "Retry-After": rateLimit.retryAfter },
@@ -244,6 +246,15 @@ function scopedActorForPrincipal(principal: Principal): ScopedActor | null {
     return principal.actor;
   }
   return null;
+}
+
+function clientIpFromRequest(request: Request): string | undefined {
+  const connecting = request.headers.get("CF-Connecting-IP")?.trim();
+  if (connecting) {
+    return connecting;
+  }
+  const forwarded = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+  return forwarded || undefined;
 }
 
 function honoPath(path: string): string {

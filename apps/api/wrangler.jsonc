@@ -67,6 +67,22 @@
         "limit": 60,
         "period": 60
       }
+    },
+    {
+      "name": "EPHEMERAL_PROVISION_IP_RATE_LIMIT",
+      "namespace_id": "1000004",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
+      "namespace_id": "1000005",
+      "simple": {
+        "limit": 17,
+        "period": 60
+      }
     }
   ],
   "env": {
@@ -147,6 +163,22 @@
           "namespace_id": "2000003",
           "simple": {
             "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "EPHEMERAL_PROVISION_IP_RATE_LIMIT",
+          "namespace_id": "2000004",
+          "simple": {
+            "limit": 10,
+            "period": 60
+          }
+        },
+        {
+          "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
+          "namespace_id": "2000005",
+          "simple": {
+            "limit": 17,
             "period": 60
           }
         }
@@ -251,6 +283,22 @@
           "namespace_id": "3000003",
           "simple": {
             "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "EPHEMERAL_PROVISION_IP_RATE_LIMIT",
+          "namespace_id": "3000004",
+          "simple": {
+            "limit": 10,
+            "period": 60
+          }
+        },
+        {
+          "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
+          "namespace_id": "3000005",
+          "simple": {
+            "limit": 17,
             "period": 60
           }
         }

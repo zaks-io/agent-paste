@@ -1,5 +1,11 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { AccessLinkResolveRequest } from "../accessLinks.js";
+import {
+  EphemeralProvisionChallengeResponse,
+  EphemeralProvisionRequest,
+  EphemeralProvisionResponse,
+  PowChallenge,
+} from "../ephemeral.js";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
@@ -60,6 +66,10 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("UsagePolicy", UsagePolicy);
   const registeredAgentView = registry.register("AgentView", AgentView);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
+  registry.register("PowChallenge", PowChallenge);
+  registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);
+  registry.register("EphemeralProvisionChallengeResponse", EphemeralProvisionChallengeResponse);
+  registry.register("EphemeralProvisionResponse", EphemeralProvisionResponse);
   registry.register(
     "AccessLinkResolveResponse",
     z.object({

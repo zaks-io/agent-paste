@@ -125,6 +125,32 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
 
   registry.registerPath({
     method: "post",
+    path: "/v1/ephemeral/provision",
+    operationId: "ephemeral.provision",
+    summary: "Provision an Ephemeral Workspace behind proof-of-work.",
+    request: {
+      headers: [requestIdHeader],
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: schemaRef("EphemeralProvisionRequest"),
+          },
+        },
+      },
+    },
+    responses: {
+      "201": jsonOk(schemaRef("EphemeralProvisionResponse"), "Provisioned (201)"),
+      "400": errorResponse,
+      "401": errorResponse,
+      "429": errorResponse,
+      "500": errorResponse,
+      "503": errorResponse,
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
     path: "/v1/auth/web/callback",
     operationId: "web.auth.callback",
     summary: "Resolve or provision a Workspace Member from a WorkOS AuthKit session.",
