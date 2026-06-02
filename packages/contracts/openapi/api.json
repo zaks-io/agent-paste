@@ -5774,7 +5774,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5848,7 +5850,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5922,7 +5926,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5996,7 +6002,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6090,7 +6098,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6164,7 +6174,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
