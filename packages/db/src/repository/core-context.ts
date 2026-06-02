@@ -1,5 +1,6 @@
 import { buildAgentView } from "../agent-view.js";
 import { type UsagePolicyConfig, usagePolicyForWorkspace } from "../policy.js";
+import { repositoryError } from "../repository-error.js";
 import type { Artifact, RepositoryOptions, Revision, Workspace } from "../types.js";
 import type { Entities, UnitOfWork } from "./ports.js";
 import { toWebArtifactRow } from "./web-transforms.js";
@@ -28,7 +29,7 @@ export class RepositoryCoreContext {
   async mustWorkspace(entities: Entities, id: string) {
     const workspace = await entities.workspaces.findById(id);
     if (!workspace) {
-      throw new Error("workspace_not_found");
+      repositoryError("workspace_not_found");
     }
     return workspace;
   }
@@ -36,7 +37,7 @@ export class RepositoryCoreContext {
   async mustApiKey(entities: Entities, id: string) {
     const apiKey = await entities.apiKeys.findById(id);
     if (!apiKey) {
-      throw new Error("api_key_not_found");
+      repositoryError("api_key_not_found");
     }
     return apiKey;
   }
@@ -44,7 +45,7 @@ export class RepositoryCoreContext {
   async mustMember(entities: Entities, id: string) {
     const member = await entities.members.findById(id);
     if (!member) {
-      throw new Error("workspace_member_not_found");
+      repositoryError("workspace_member_not_found");
     }
     return member;
   }

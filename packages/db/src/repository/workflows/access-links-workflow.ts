@@ -1,4 +1,5 @@
 import { assertAccessLinkMintable, createAccessLinkRow, mintAccessLinkSignedUrl } from "../../access-links.js";
+import { repositoryError } from "../../repository-error.js";
 import { resolveAccessLinkFromEntities } from "../../resolve-access-link.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
@@ -34,13 +35,13 @@ export async function createMemberAccessLink(
     async (entities) => {
       const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
       if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       const revisionId = input.type === "revision" ? (input.revisionId ?? null) : null;
       if (input.type === "revision") {
         const revision = revisionId ? await entities.revisions.findById(revisionId, input.actor.workspace_id) : null;
         if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
-          throw new Error("not_found");
+          repositoryError("not_found");
         }
       }
       const link = createAccessLinkRow({
@@ -64,11 +65,7 @@ export async function createMemberAccessLink(
   );
 }
 
-export async function listMemberAccessLinks(
-  ctx: RepositoryCoreContext,
-  actor: ApiActor,
-  artifactId: string,
-) {
+export async function listMemberAccessLinks(ctx: RepositoryCoreContext, actor: ApiActor, artifactId: string) {
   return ctx.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
     const artifact = await entities.artifacts.findById(artifactId, actor.workspace_id);
     if (!artifact) {
@@ -106,11 +103,11 @@ export async function revokeMemberAccessLink(
     async (entities) => {
       const link = await entities.accessLinks.findById(input.accessLinkId, input.actor.workspace_id);
       if (!link) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       const revoked = await entities.accessLinks.revoke(link.id, now);
       if (!revoked) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       return { access_link_id: link.id, revoked_at: now };
     },
@@ -132,7 +129,7 @@ export async function mintMemberAccessLink(
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
     const link = await entities.accessLinks.findById(input.accessLinkId, input.actor.workspace_id);
     if (!link) {
-      throw new Error("not_found");
+      repositoryError("not_found");
     }
     const artifact = await entities.artifacts.findById(link.artifact_id, input.actor.workspace_id);
     assertAccessLinkMintable(link, artifact, new Date(now));

@@ -1,3 +1,4 @@
+import { repositoryError } from "../repository-error.js";
 import type { AdminActor, ApiActor, PlatformActor, PlatformLockdown } from "../types.js";
 import type { CommandActor, RunScope } from "./ports.js";
 
@@ -20,14 +21,14 @@ export function isApiKeyExpired(apiKey: { expires_at: string | null }, now: Date
 
 export function apiCommandActor(actor: ApiActor): CommandActor {
   if (actor.type !== "api_key") {
-    throw new Error(`unexpected_actor_type:${actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   return { type: "api_key", id: actor.id, workspaceId: actor.workspace_id };
 }
 
 export function memberCommandActor(actor: ApiActor): CommandActor {
   if (actor.type !== "member") {
-    throw new Error(`unexpected_actor_type:${actor.type}`);
+    repositoryError("unexpected_actor_type");
   }
   return { type: "member", id: actor.id, workspaceId: actor.workspace_id };
 }
@@ -39,7 +40,7 @@ export function workspaceCommandActor(actor: ApiActor): CommandActor {
   if (actor.type === "member") {
     return memberCommandActor(actor);
   }
-  throw new Error("unexpected_actor_type");
+  repositoryError("unexpected_actor_type");
 }
 
 export function adminCommandActor(actor: AdminActor, workspaceId: string | null): CommandActor {

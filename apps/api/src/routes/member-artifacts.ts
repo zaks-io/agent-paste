@@ -11,7 +11,7 @@ import type { AppContext } from "../env.js";
 import { notifyLiveUpdateDisconnect } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { workspaceApiActor } from "../principals.js";
-import { errorResponse, jsonResponse, runIdempotent } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function listMemberArtifactsRoute(
@@ -27,14 +27,7 @@ export async function listMemberArtifactsRoute(
   if (!pagination.ok) {
     return errorResponse(context, pagination.code);
   }
-  try {
-    return jsonResponse(context, await db.listMemberArtifacts(actor, pagination.value));
-  } catch (error) {
-    if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () => db.listMemberArtifacts(actor, pagination.value));
 }
 
 export async function deleteMemberArtifactRoute(
@@ -104,22 +97,11 @@ export async function updateDisplayMetadataRoute(
     return errorResponse(context, "not_authenticated");
   }
   const body = guard.body;
-  try {
-    return jsonResponse(
-      context,
-      await db.updateArtifactDisplayMetadata({
-        actor,
-        artifactId: context.req.param("artifact_id") ?? "",
-        title: body.title,
-      }),
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "artifact_not_found") {
-      return errorResponse(context, "artifact_not_found");
-    }
-    if (error instanceof Error && error.message === "invalid_request") {
-      return errorResponse(context, "invalid_request");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () =>
+    db.updateArtifactDisplayMetadata({
+      actor,
+      artifactId: context.req.param("artifact_id") ?? "",
+      title: body.title,
+    }),
+  );
 }

@@ -119,6 +119,7 @@ type LockdownDetail = {
 
 // Single backend-agnostic contract. Both the Postgres and local repositories
 // implement this exactly; the api and upload workers consume it directly.
+/** Domain failures throw {@link RepositoryError}; map with {@link repositoryErrorToAppError}. */
 export type Repository = {
   createWorkspace(input: {
     actor: AdminActor;

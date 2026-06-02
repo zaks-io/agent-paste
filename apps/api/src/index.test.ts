@@ -1183,7 +1183,8 @@ describe("api worker", () => {
       AUTH: webAuthForTests(),
       DB: webMemberDbForTests(["admin"], {
         async revokeWebApiKey() {
-          throw new Error("api_key_not_found");
+          const { RepositoryError } = await import("@agent-paste/db");
+          throw new RepositoryError("not_found");
         },
       }),
     };

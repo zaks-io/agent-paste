@@ -4,7 +4,7 @@ import type { Principal } from "@agent-paste/worker-runtime";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, Env } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
-import { errorResponse, jsonResponse, RepositoryRouteError, runIdempotent } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 import { contentBaseUrl, webBaseUrl } from "../runtime.js";
 
@@ -20,27 +20,18 @@ export async function createAccessLinkRoute(
   }
   const body = guard.body;
   const idempotencyKey = guard.idempotencyKey;
-  try {
-    return jsonResponse(
-      context,
-      await db.createMemberAccessLink({
+  return executeRepositoryRoute(
+    context,
+    () =>
+      db.createMemberAccessLink({
         actor,
         idempotencyKey,
         artifactId: context.req.param("artifact_id") ?? "",
         type: body.type,
         revisionId: body.revision_id ?? null,
       }),
-      201,
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "artifact_not_found") {
-      return errorResponse(context, "artifact_not_found");
-    }
-    if (error instanceof Error && error.message === "not_found") {
-      return errorResponse(context, "not_found");
-    }
-    throw error;
-  }
+    201,
+  );
 }
 
 export async function mintAccessLinkRoute(
@@ -56,27 +47,15 @@ export async function mintAccessLinkRoute(
   if (!signing) {
     return errorResponse(context, "database_unavailable");
   }
-  return runIdempotent(context, async () => {
-    try {
-      return await db.mintMemberAccessLink({
-        actor,
-        accessLinkId: context.req.param("access_link_id") ?? "",
-        appBaseUrl: webBaseUrl(context.env),
-        signingSecret: signing.secret,
-        signingKid: signing.kid,
-      });
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.message === "not_found" ||
-          error.message.startsWith("access_link_inactive") ||
-          error.message === "access_link_lockdown_active")
-      ) {
-        throw new RepositoryRouteError("not_found");
-      }
-      throw error;
-    }
-  });
+  return runIdempotent(context, () =>
+    db.mintMemberAccessLink({
+      actor,
+      accessLinkId: context.req.param("access_link_id") ?? "",
+      appBaseUrl: webBaseUrl(context.env),
+      signingSecret: signing.secret,
+      signingKid: signing.kid,
+    }),
+  );
 }
 
 export async function listAccessLinksRoute(
@@ -101,20 +80,12 @@ export async function revokeAccessLinkRoute(
   if (!actor) {
     return errorResponse(context, "not_authenticated");
   }
-  try {
-    return jsonResponse(
-      context,
-      await db.revokeMemberAccessLink({
-        actor,
-        accessLinkId: context.req.param("access_link_id") ?? "",
-      }),
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "not_found") {
-      return errorResponse(context, "not_found");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () =>
+    db.revokeMemberAccessLink({
+      actor,
+      accessLinkId: context.req.param("access_link_id") ?? "",
+    }),
+  );
 }
 
 export async function resolveAccessLinkRoute(

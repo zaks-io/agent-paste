@@ -1,10 +1,11 @@
 import { redactAuditDetails } from "../../audit/change-summary.js";
 import { resolveLockdownAuditWorkspaceId } from "../../audit/lockdown-audit.js";
 import { createId } from "../../id.js";
+import { repositoryError } from "../../repository-error.js";
 import type { PlatformActor, PlatformLockdown } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
+import { nowIso, PLATFORM_SCOPE, platformCommandActor, toLockdownDetail } from "../core-helpers.js";
 import type { OperatorEventFilters } from "../operator-event-filters.js";
-import { platformCommandActor, nowIso, PLATFORM_SCOPE, toLockdownDetail } from "../core-helpers.js";
 import { resolveOperatorEventActions } from "../operator-event-filters.js";
 import {
   decodeLockdownCursor,
@@ -110,7 +111,7 @@ export async function setLockdown(
         if (winner) {
           return toLockdownDetail(winner);
         }
-        throw new Error("lockdown_insert_conflict");
+        repositoryError("lockdown_insert_conflict");
       }
       const auditWorkspaceId = await resolveLockdownAuditWorkspaceId(entities, input.scope, input.targetId);
       await entities.operationEvents.insert({
@@ -152,14 +153,14 @@ export async function liftLockdown(
     async (entities) => {
       const existing = await entities.platformLockdowns.findEffective(input.scope, input.targetId);
       if (!existing) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       const lifted = await entities.platformLockdowns.markLifted(existing.id, {
         liftedAt: now,
         liftedBy: input.actor.id,
       });
       if (!lifted) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       const auditWorkspaceId = await resolveLockdownAuditWorkspaceId(entities, input.scope, input.targetId);
       await entities.operationEvents.insert({

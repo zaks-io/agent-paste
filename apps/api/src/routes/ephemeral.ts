@@ -9,7 +9,7 @@ import {
 } from "@agent-paste/tokens/pow";
 import type { AppContext, Env } from "../env.js";
 import { webMemberActor } from "../principals.js";
-import { errorResponse, jsonResponse, RepositoryRouteError, runIdempotent } from "../responses.js";
+import { errorResponse, jsonResponse, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function ephemeralProvisionRoute(
@@ -82,25 +82,12 @@ export async function ephemeralClaimRoute(
 
   return runIdempotent(
     context,
-    async () => {
-      try {
-        return await db.claimEphemeralWorkspace({
-          actor,
-          claimTokenSecret: guard.body.claim_token,
-          idempotencyKey: guard.idempotencyKey,
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === "not_found") {
-            throw new RepositoryRouteError("not_found");
-          }
-          if (error.message === "forbidden") {
-            throw new RepositoryRouteError("forbidden");
-          }
-        }
-        throw error;
-      }
-    },
+    () =>
+      db.claimEphemeralWorkspace({
+        actor,
+        claimTokenSecret: guard.body.claim_token,
+        idempotencyKey: guard.idempotencyKey,
+      }),
     200,
   );
 }

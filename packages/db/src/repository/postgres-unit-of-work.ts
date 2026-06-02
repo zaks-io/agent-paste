@@ -1,6 +1,7 @@
 import { peekIdempotentReplay, runCommand } from "@agent-paste/commands";
 import { type DrizzleConnection, drizzleForExecutor } from "../postgres/drizzle.js";
 import { type RlsScope, rlsExecutor } from "../postgres/rls.js";
+import { repositoryError } from "../repository-error.js";
 import type { SqlExecutor } from "../types.js";
 import type { CommandRunContext, CommandSpec, RunScope, UnitOfWork } from "./ports.js";
 import { type PostgresContext, postgresEntities } from "./postgres-entities.js";
@@ -8,7 +9,7 @@ import { type PostgresContext, postgresEntities } from "./postgres-entities.js";
 function withDrizzle(tx: SqlExecutor): PostgresContext {
   const drizzle = drizzleForExecutor(tx);
   if (!drizzle) {
-    throw new Error("drizzle_not_bound_to_executor");
+    repositoryError("drizzle_not_bound_to_executor");
   }
   return { sql: tx, drizzle };
 }
@@ -33,7 +34,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
     } else {
       this.executor = connection;
       if (!drizzleForExecutor(connection)) {
-        throw new Error("executor_missing_drizzle_binding");
+        repositoryError("executor_missing_drizzle_binding");
       }
     }
   }

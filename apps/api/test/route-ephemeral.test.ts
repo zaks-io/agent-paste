@@ -1,3 +1,4 @@
+import { RepositoryError } from "@agent-paste/db";
 import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { describe, expect, it, vi } from "vitest";
 import { handleRequest } from "../src/index.js";
@@ -182,7 +183,7 @@ describe("ephemeral claim route", () => {
       },
       {
         claimEphemeralWorkspace: vi.fn(async () => {
-          throw new Error("not_found");
+          throw new RepositoryError("not_found");
         }),
       } as never,
       guardFor({ claim_token: "ap_ct_preview_badtoken000000000_bad" }, "claim-2"),
@@ -216,7 +217,7 @@ describe("ephemeral claim route", () => {
       },
       {
         claimEphemeralWorkspace: vi.fn(async () => {
-          throw new Error("forbidden");
+          throw new RepositoryError("forbidden");
         }),
       } as never,
       guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-4"),

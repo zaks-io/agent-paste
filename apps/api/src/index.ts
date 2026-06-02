@@ -1,6 +1,6 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
-import type { Repository } from "@agent-paste/db";
+import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
 import { createRegistrar, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
@@ -220,6 +220,10 @@ app.notFound((context) => errorResponse(context as AppContext, "not_found"));
 app.onError((error, context) => {
   if (error instanceof RepositoryRouteError) {
     return errorResponse(context as AppContext, error.code, error.message);
+  }
+  const repositoryCode = repositoryErrorToAppError(error);
+  if (repositoryCode) {
+    return errorResponse(context as AppContext, repositoryCode);
   }
   console.error("Unhandled API error:", error);
   return errorResponse(context as AppContext, "internal_error");

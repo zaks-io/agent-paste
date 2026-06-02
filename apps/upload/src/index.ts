@@ -25,6 +25,7 @@ import {
   isBillingEnabled,
   observeUploadSessionForFinalize,
   type Repository,
+  repositoryErrorToAppError,
   resolveSessionObjectKey,
   type UploadSessionRecord,
 } from "@agent-paste/db";
@@ -38,7 +39,6 @@ import {
 import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
 import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
-  type AppErrorCode,
   createRegistrar,
   appErrorResponse as errorResponse,
   type GuardState,
@@ -211,6 +211,10 @@ uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context,
 );
 app.notFound((context) => errorResponse(context, "not_found"));
 app.onError((error, context) => {
+  const repositoryCode = repositoryErrorToAppError(error);
+  if (repositoryCode) {
+    return errorResponse(context, repositoryCode);
+  }
   console.error("Unhandled upload error:", error);
   return errorResponse(context, "internal_error");
 });
@@ -289,9 +293,9 @@ async function createUploadSession(
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight");
     }
-    const mapped = mapRepositoryError(error);
-    if (mapped) {
-      return errorResponse(context, mapped.code, mapped.message);
+    const repositoryCode = repositoryErrorToAppError(error);
+    if (repositoryCode) {
+      return errorResponse(context, repositoryCode);
     }
     throw error;
   }
@@ -402,9 +406,9 @@ async function finalizeUploadSession(
     if (error instanceof IdempotencyInFlightError) {
       return errorResponse(context, "idempotency_in_flight");
     }
-    const mapped = mapRepositoryError(error);
-    if (mapped) {
-      return errorResponse(context, mapped.code, mapped.message);
+    const repositoryCode = repositoryErrorToAppError(error);
+    if (repositoryCode) {
+      return errorResponse(context, repositoryCode);
     }
     throw error;
   }
@@ -574,28 +578,6 @@ function bearerToken(request: Request): string | null {
   const value = request.headers.get("authorization");
   const match = value?.match(/^Bearer\s+(.+)$/i);
   return match?.[1] ?? null;
-}
-
-function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: string } | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-  switch (error.message) {
-    case "artifact_not_found":
-      return { code: "artifact_not_found" };
-    case "draft_revision_conflict":
-      return { code: "draft_revision_conflict" };
-    case "upload_session_not_found":
-      return { code: "upload_session_not_found" };
-    case "upload_incomplete":
-      return { code: "upload_incomplete" };
-    case "entrypoint_not_in_revision":
-      return { code: "entrypoint_not_in_revision" };
-    case "invalid_ttl_seconds":
-      return { code: "invalid_request" };
-    default:
-      return null;
-  }
 }
 
 function ttlSeconds(env: Env): number {

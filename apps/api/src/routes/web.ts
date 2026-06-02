@@ -6,7 +6,7 @@ import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
-import { errorResponse, jsonResponse, mapRepositoryError, RepositoryRouteError, runIdempotent } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
@@ -57,14 +57,7 @@ export async function webArtifacts(context: AppContext, principal: Principal, db
   if (!pagination.ok) {
     return errorResponse(context, pagination.code);
   }
-  try {
-    return jsonResponse(context, await db.listWebArtifacts(actor, pagination.value));
-  } catch (error) {
-    if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () => db.listWebArtifacts(actor, pagination.value));
 }
 
 export async function webArtifactDetail(
@@ -114,17 +107,7 @@ export async function webPinArtifact(
   }
   const pinWebArtifact = db.pinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey;
-  return runIdempotent(context, async () => {
-    try {
-      return await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-    } catch (error) {
-      const mapped = mapRepositoryError(error);
-      if (mapped) {
-        throw new RepositoryRouteError(mapped.code, mapped.message);
-      }
-      throw error;
-    }
-  });
+  return runIdempotent(context, () => pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }));
 }
 
 export async function webUnpinArtifact(
@@ -143,17 +126,7 @@ export async function webUnpinArtifact(
   }
   const unpinWebArtifact = db.unpinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey;
-  return runIdempotent(context, async () => {
-    try {
-      return await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-    } catch (error) {
-      const mapped = mapRepositoryError(error);
-      if (mapped) {
-        throw new RepositoryRouteError(mapped.code, mapped.message);
-      }
-      throw error;
-    }
-  });
+  return runIdempotent(context, () => unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }));
 }
 
 export async function webApiKeys(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -207,20 +180,13 @@ export async function webRevokeApiKey(
     return errorResponse(context, "database_unavailable");
   }
   const revokeWebApiKey = db.revokeWebApiKey.bind(db);
-  try {
-    return await runIdempotent(context, () =>
-      revokeWebApiKey({
-        actor,
-        idempotencyKey,
-        apiKeyId: params.apiKeyId ?? "",
-      }),
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === "api_key_not_found") {
-      return errorResponse(context, "not_found");
-    }
-    throw error;
-  }
+  return runIdempotent(context, () =>
+    revokeWebApiKey({
+      actor,
+      idempotencyKey,
+      apiKeyId: params.apiKeyId ?? "",
+    }),
+  );
 }
 
 export async function webAudit(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -235,14 +201,7 @@ export async function webAudit(context: AppContext, principal: Principal, db: Re
   if (!db.listWebAuditEvents) {
     return errorResponse(context, "database_unavailable");
   }
-  try {
-    return jsonResponse(context, await db.listWebAuditEvents(actor, pagination.value));
-  } catch (error) {
-    if (error instanceof Error && error.message === "invalid_cursor") {
-      return errorResponse(context, "invalid_cursor");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () => db.listWebAuditEvents(actor, pagination.value));
 }
 
 export async function webSettings(context: AppContext, principal: Principal, db: Repository): Promise<Response> {

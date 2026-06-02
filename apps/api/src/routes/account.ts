@@ -4,7 +4,7 @@ import type { ApiActor, ApiKeyActor, Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
 import { apiKeyActor } from "../principals.js";
-import { errorResponse, jsonResponse } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, jsonResponse } from "../responses.js";
 import { enrichUsagePolicyWithWriteAllowance } from "../usage-policy-enrichment.js";
 
 export const CLI_API_KEY_TTL_SECONDS = Seconds.ninetyDays;
@@ -75,12 +75,5 @@ export async function revokeCurrentApiKey(
   if (!db.revokeCurrentApiKey) {
     return errorResponse(context, "database_unavailable");
   }
-  try {
-    return jsonResponse(context, await db.revokeCurrentApiKey({ actor }));
-  } catch (error) {
-    if (error instanceof Error && error.message === "api_key_not_found") {
-      return errorResponse(context, "not_authenticated");
-    }
-    throw error;
-  }
+  return executeRepositoryRoute(context, () => db.revokeCurrentApiKey({ actor }));
 }

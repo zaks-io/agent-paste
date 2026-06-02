@@ -1,4 +1,5 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { repositoryErrorToAppError } from "@agent-paste/db";
 import { type AppErrorCode, appErrorResponse as errorResponse, jsonResponse } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
 
@@ -32,6 +33,26 @@ export async function runIdempotent(
     if (error instanceof RepositoryRouteError) {
       return errorResponse(context, error.code, error.message, error.headers);
     }
+    const repositoryCode = repositoryErrorToAppError(error);
+    if (repositoryCode) {
+      return errorResponse(context, repositoryCode);
+    }
+    throw error;
+  }
+}
+
+export async function executeRepositoryRoute<T>(
+  context: AppContext,
+  run: () => Promise<T>,
+  successStatus = 200,
+): Promise<Response> {
+  try {
+    return jsonResponse(context, await run(), successStatus);
+  } catch (error) {
+    const repositoryCode = repositoryErrorToAppError(error);
+    if (repositoryCode) {
+      return errorResponse(context, repositoryCode);
+    }
     throw error;
   }
 }
@@ -48,32 +69,4 @@ export async function readJsonObject(request: Request): Promise<Record<string, u
     throw new RepositoryRouteError("invalid_request", "malformed JSON body", { cause: error });
   }
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-export function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: string } | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-  switch (error.message) {
-    case "artifact_not_found":
-      return { code: "artifact_not_found" };
-    case "revision_unpublished":
-      return { code: "revision_unpublished" };
-    case "revision_retained":
-      return { code: "revision_retained" };
-    case "entrypoint_not_in_revision":
-      return { code: "entrypoint_not_in_revision" };
-    case "draft_revision_conflict":
-      return { code: "draft_revision_conflict" };
-    case "pinned_artifact_cap_exceeded":
-      return { code: "pinned_artifact_cap_exceeded" };
-    case "revision_ceiling_exceeded":
-      return { code: "revision_ceiling_exceeded" };
-    case "write_allowance_exceeded":
-      return { code: "write_allowance_exceeded" };
-    case "invalid_ttl_seconds":
-      return { code: "invalid_request" };
-    default:
-      return null;
-  }
 }

@@ -7,25 +7,10 @@ import {
   verifyAccessLinkBlob,
 } from "@agent-paste/tokens/access-link";
 import { createId, randomCrockford } from "./id.js";
+import { repositoryError } from "./repository-error.js";
 import type { AccessLink, AccessLinkCreatedByType, AccessLinkType, Artifact } from "./types.js";
 
 export { defaultAccessLinkScopesBitmask } from "@agent-paste/tokens/access-link";
-
-export class AccessLinkInactiveError extends Error {
-  readonly code = "access_link_inactive";
-
-  constructor(readonly reason: "revoked" | "expired" | "lockdown" | "artifact_missing") {
-    super(`access_link_inactive:${reason}`);
-  }
-}
-
-export class AccessLinkLockdownError extends Error {
-  readonly code = "access_link_lockdown_active";
-
-  constructor() {
-    super("access_link_lockdown_active");
-  }
-}
 
 export function isAccessLinkRowExpired(link: AccessLink, now = new Date()): boolean {
   return link.expires_at !== null && isExpired(link.expires_at, now);
@@ -37,16 +22,16 @@ export function isArtifactAccessLinkLocked(artifact: Pick<Artifact, "access_link
 
 export function assertAccessLinkMintable(link: AccessLink, artifact: Artifact | null, now = new Date()): void {
   if (!artifact) {
-    throw new AccessLinkInactiveError("artifact_missing");
+    repositoryError("access_link_inactive_artifact_missing");
   }
   if (isArtifactAccessLinkLocked(artifact)) {
-    throw new AccessLinkLockdownError();
+    repositoryError("access_link_lockdown_active");
   }
   if (link.revoked_at) {
-    throw new AccessLinkInactiveError("revoked");
+    repositoryError("access_link_inactive_revoked");
   }
   if (isAccessLinkRowExpired(link, now)) {
-    throw new AccessLinkInactiveError("expired");
+    repositoryError("access_link_inactive_expired");
   }
 }
 
@@ -61,7 +46,7 @@ export function computeAccessLinkUrlExpMs(link: AccessLink, nowMs: number): numb
 function assertValidAccessLinkScopesBitmask(scopesBitmask: number | undefined): number {
   const value = scopesBitmask ?? defaultAccessLinkScopesBitmask();
   if (!Number.isInteger(value) || value < 0 || value > 0xffff) {
-    throw new Error("access_link_invalid_scopes_bitmask");
+    repositoryError("access_link_invalid_scopes_bitmask");
   }
   return value;
 }
@@ -74,11 +59,11 @@ function parseAccessLinkExpiresAt(expiresAt: string | null | undefined): string 
   }
   const trimmed = expiresAt.trim();
   if (!ACCESS_LINK_EXPIRES_AT_TIMEZONE.test(trimmed)) {
-    throw new Error("access_link_invalid_expires_at");
+    repositoryError("access_link_invalid_expires_at");
   }
   const parsed = Date.parse(trimmed);
   if (!Number.isFinite(parsed)) {
-    throw new Error("access_link_invalid_expires_at");
+    repositoryError("access_link_invalid_expires_at");
   }
   return new Date(parsed).toISOString();
 }
@@ -95,10 +80,10 @@ export function createAccessLinkRow(input: {
   now: string;
 }): AccessLink {
   if (input.type === "share" && input.revisionId) {
-    throw new Error("access_link_share_cannot_pin_revision");
+    repositoryError("access_link_share_cannot_pin_revision");
   }
   if (input.type === "revision" && !input.revisionId) {
-    throw new Error("access_link_revision_requires_revision_id");
+    repositoryError("access_link_revision_requires_revision_id");
   }
 
   return {

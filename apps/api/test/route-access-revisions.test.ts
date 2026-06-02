@@ -1,3 +1,4 @@
+import { RepositoryError } from "@agent-paste/db";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { createMemoryWriteAllowanceNamespace, resetMemoryWriteAllowanceCounters } from "@agent-paste/write-allowance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +31,7 @@ describe("AP-91 access link route modules", () => {
     const denied = await createAccessLinkRoute(context, nonePrincipal(), {} as never, guardFor({ type: "share" }));
     expect(denied.status).toBe(401);
 
-    createMemberAccessLink.mockRejectedValueOnce(new Error("artifact_not_found"));
+    createMemberAccessLink.mockRejectedValueOnce(new RepositoryError("artifact_not_found"));
     const missingArtifact = await createAccessLinkRoute(
       context,
       apiPrincipal(),
@@ -39,7 +40,7 @@ describe("AP-91 access link route modules", () => {
     );
     expect(missingArtifact.status).toBe(404);
 
-    createMemberAccessLink.mockRejectedValueOnce(new Error("not_found"));
+    createMemberAccessLink.mockRejectedValueOnce(new RepositoryError("not_found"));
     const missingRevision = await createAccessLinkRoute(
       context,
       apiPrincipal(),
@@ -68,7 +69,7 @@ describe("AP-91 access link route modules", () => {
       expect.objectContaining({ accessLinkId: "al_1", signingSecret: "access-link-secret" }),
     );
 
-    mintMemberAccessLink.mockRejectedValueOnce(new Error("access_link_inactive"));
+    mintMemberAccessLink.mockRejectedValueOnce(new RepositoryError("access_link_inactive_revoked"));
     const inactive = await mintAccessLinkRoute(
       contextFor({ env: { ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret" } }),
       apiPrincipal(),
@@ -83,7 +84,7 @@ describe("AP-91 access link route modules", () => {
     );
     expect(listed.status).toBe(404);
 
-    revokeMemberAccessLink.mockRejectedValueOnce(new Error("not_found"));
+    revokeMemberAccessLink.mockRejectedValueOnce(new RepositoryError("not_found"));
     const revoked = await revokeAccessLinkRoute(
       contextFor({ params: { access_link_id: "missing" } }),
       apiPrincipal(),
@@ -225,7 +226,7 @@ describe("AP-91 revision route modules", () => {
     expect(published.status).toBe(200);
     expect(warn).toHaveBeenCalled();
 
-    publishRevisionFn.mockRejectedValueOnce(new Error("entrypoint_not_in_revision"));
+    publishRevisionFn.mockRejectedValueOnce(new RepositoryError("entrypoint_not_in_revision"));
     const mapped = await publishRevision(
       contextFor(),
       apiPrincipal(),
@@ -286,7 +287,7 @@ describe("AP-91 revision route modules", () => {
     const writeAllowance = createMemoryWriteAllowanceNamespace();
     const publishRevisionFn = vi
       .fn()
-      .mockRejectedValueOnce(new Error("entrypoint_not_in_revision"))
+      .mockRejectedValueOnce(new RepositoryError("entrypoint_not_in_revision"))
       .mockResolvedValueOnce({
         artifact_id: "art_1",
         revision_id: "rev_1",

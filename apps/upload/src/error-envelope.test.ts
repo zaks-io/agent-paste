@@ -1,4 +1,5 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { RepositoryError } from "@agent-paste/db";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest, type UploadSessionRecord } from "./index.js";
 
@@ -241,7 +242,7 @@ describe("upload error envelope", () => {
       AUTH: workspaceAuth(),
       DB: {
         async createUploadSession() {
-          throw new Error("invalid_ttl_seconds");
+          throw new RepositoryError("invalid_ttl_seconds");
         },
         async getUploadSession() {
           return null;

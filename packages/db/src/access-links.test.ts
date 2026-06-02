@@ -2,8 +2,6 @@ import { KeyRing } from "@agent-paste/rotation";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { describe, expect, it } from "vitest";
 import {
-  AccessLinkInactiveError,
-  AccessLinkLockdownError,
   assertAccessLinkMintable,
   computeAccessLinkUrlExpMs,
   createAccessLinkRow,
@@ -15,6 +13,7 @@ import {
   verifyAccessLinkSignedBlob,
   verifyAccessLinkSignedBlobWithRing,
 } from "./access-links.js";
+import { RepositoryError } from "./repository-error.js";
 import type { AccessLink, Artifact } from "./types.js";
 
 const artifact: Artifact = {
@@ -144,7 +143,7 @@ describe("access link row lifecycle", () => {
   });
 
   it("rejects mint when the artifact row is missing", () => {
-    expect(() => assertAccessLinkMintable(shareLink(), null)).toThrow(AccessLinkInactiveError);
+    expect(() => assertAccessLinkMintable(shareLink(), null)).toThrow(RepositoryError);
   });
 
   it("detects revoked and expired rows", () => {
@@ -154,14 +153,14 @@ describe("access link row lifecycle", () => {
     expect(isArtifactAccessLinkLocked({ access_link_lockdown_at: "2026-01-02T00:00:00.000Z" })).toBe(true);
 
     expect(() => assertAccessLinkMintable(shareLink({ revoked_at: "2026-01-02T00:00:00.000Z" }), artifact)).toThrow(
-      AccessLinkInactiveError,
+      RepositoryError,
     );
     expect(() => assertAccessLinkMintable(shareLink({ expires_at: "2025-01-01T00:00:00.000Z" }), artifact)).toThrow(
-      AccessLinkInactiveError,
+      RepositoryError,
     );
     expect(() =>
       assertAccessLinkMintable(shareLink(), { ...artifact, access_link_lockdown_at: "2026-01-02T00:00:00.000Z" }),
-    ).toThrow(AccessLinkLockdownError);
+    ).toThrow(RepositoryError);
   });
 
   it("blocks mint when the row is inactive and uses default scopes when omitted", async () => {
@@ -183,7 +182,7 @@ describe("access link row lifecycle", () => {
         signingSecret: "secret",
         signingKid: 1,
       }),
-    ).rejects.toThrow(AccessLinkInactiveError);
+    ).rejects.toThrow(RepositoryError);
   });
 
   it("mints and re-mints signed urls when the row is active", async () => {

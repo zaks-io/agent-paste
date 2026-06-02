@@ -3,6 +3,7 @@ import { PepperRing } from "@agent-paste/rotation";
 import { generateClaimToken, parseClaimToken, verifyClaimTokenSecret } from "../../claim-tokens.js";
 import { createId } from "../../id.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
+import { repositoryError } from "../../repository-error.js";
 import type { ApiActor, ClaimToken, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import {
@@ -117,32 +118,32 @@ export type ClaimEphemeralWorkspaceResult = {
 async function resolveClaimTokenRecord(ctx: RepositoryCoreContext, claimTokenSecret: string): Promise<ClaimToken> {
   const parsed = parseClaimToken(claimTokenSecret);
   if (!parsed) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   const record = await ctx.uow.read(PLATFORM_SCOPE, (entities) => entities.claimTokens.findByPublicId(parsed.publicId));
   if (!record?.public_id) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   const pepper = ctx.pepperForRecord(record.pepper_kid);
   if (!pepper) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   const valid = await verifyClaimTokenSecret(claimTokenSecret, record.token_hash, pepper);
   if (!valid) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   return record;
 }
 
 function assertClaimTokenRedeemable(claimToken: ClaimToken, sourceWorkspace: Workspace, now: string) {
   if (claimToken.redeemed_at !== null) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   if (Date.parse(claimToken.expires_at) <= Date.parse(now)) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
   if (!isEphemeralWorkspace(sourceWorkspace)) {
-    throw new Error("not_found");
+    repositoryError("not_found");
   }
 }
 
@@ -156,7 +157,7 @@ export async function claimEphemeralWorkspace(
   },
 ): Promise<ClaimEphemeralWorkspaceResult> {
   if (input.actor.type !== "member") {
-    throw new Error("forbidden");
+    repositoryError("forbidden");
   }
   const now = nowIso(input.now);
   const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
@@ -173,13 +174,13 @@ export async function claimEphemeralWorkspace(
     async (entities) => {
       const resolvedToken = await entities.claimTokens.findByPublicId(claimToken.public_id);
       if (!resolvedToken) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       const sourceWorkspace = await ctx.mustWorkspace(entities, resolvedToken.workspace_id);
       const destinationWorkspace = await ctx.mustWorkspace(entities, destinationWorkspaceId);
       assertClaimTokenRedeemable(resolvedToken, sourceWorkspace, now);
       if (sourceWorkspace.id === destinationWorkspace.id) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
 
       const minArtifactExpiresAt = artifactExpiresAtFromWorkspace(destinationWorkspace, now);
@@ -195,11 +196,11 @@ export async function claimEphemeralWorkspace(
         updatedAt: now,
       });
       if (!markedClaimed) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
       const markedRedeemed = await entities.claimTokens.markRedeemed(resolvedToken.id, now);
       if (!markedRedeemed) {
-        throw new Error("not_found");
+        repositoryError("not_found");
       }
 
       await entities.operationEvents.insert({

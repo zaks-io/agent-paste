@@ -1,5 +1,6 @@
 import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import { ErrorCode, type ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
+import { repositoryErrorToAppError } from "@agent-paste/db";
 import type { Context, Env } from "hono";
 
 export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
@@ -108,6 +109,10 @@ export function appErrorResponse<E extends Env & { Bindings: { DOCS_BASE_URL?: s
 }
 
 export function unknownErrorToCode(error: unknown): ErrorCodeValue | null {
+  const repositoryCode = repositoryErrorToAppError(error);
+  if (repositoryCode) {
+    return repositoryCode;
+  }
   if (!(error instanceof Error)) {
     return null;
   }

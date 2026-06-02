@@ -1,4 +1,5 @@
 import { formatChangeSummary } from "../audit/change-summary.js";
+import { repositoryError } from "../repository-error.js";
 import type { Artifact, OperationEvent, PlatformLockdown } from "../types.js";
 
 // Unified cursor shape for both backends. The wire format is unchanged:
@@ -28,8 +29,7 @@ export function toWebArtifactRow(artifact: Artifact) {
     pinned: artifact.pinned_at !== null,
     lockdown: artifact.access_link_lockdown_at !== null,
     last_published_at: artifact.created_at,
-    auto_delete_at:
-      artifact.status === "deleted" || artifact.pinned_at !== null ? null : artifact.expires_at,
+    auto_delete_at: artifact.status === "deleted" || artifact.pinned_at !== null ? null : artifact.expires_at,
   };
 }
 
@@ -79,22 +79,22 @@ export function decodeWebArtifactCursor(cursor: string): WebArtifactCursor {
       .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
     const raw = JSON.parse(atob(padded)) as { created_at?: unknown; id?: unknown };
     if (typeof raw.created_at !== "string" || typeof raw.id !== "string") {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     const createdAt = new Date(raw.created_at);
     if (Number.isNaN(createdAt.getTime())) {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     return { createdAt, id: raw.id };
   } catch {
-    throw new Error("invalid_cursor");
+    repositoryError("invalid_cursor");
   }
 }
 
 export function normalizeWebArtifactLimit(limit: number | undefined): number {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
-    throw new Error("invalid_pagination_limit");
+    repositoryError("invalid_pagination_limit");
   }
   return resolved;
 }
@@ -114,22 +114,22 @@ export function decodeWebAuditCursor(cursor: string): WebAuditCursor {
       .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
     const raw = JSON.parse(atob(padded)) as { occurred_at?: unknown; id?: unknown };
     if (typeof raw.occurred_at !== "string" || typeof raw.id !== "string") {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     const occurredAt = new Date(raw.occurred_at);
     if (Number.isNaN(occurredAt.getTime())) {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     return { occurredAt, id: raw.id };
   } catch {
-    throw new Error("invalid_cursor");
+    repositoryError("invalid_cursor");
   }
 }
 
 export function normalizeWebAuditLimit(limit: number | undefined): number {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
-    throw new Error("invalid_pagination_limit");
+    repositoryError("invalid_pagination_limit");
   }
   return resolved;
 }
@@ -149,22 +149,22 @@ export function decodeLockdownCursor(cursor: string): LockdownCursor {
       .padEnd(Math.ceil(cursor.length / 4) * 4, "=");
     const raw = JSON.parse(atob(padded)) as { set_at?: unknown; id?: unknown };
     if (typeof raw.set_at !== "string" || typeof raw.id !== "string") {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     const setAt = new Date(raw.set_at);
     if (Number.isNaN(setAt.getTime()) || setAt.toISOString() !== raw.set_at) {
-      throw new Error("invalid_cursor");
+      repositoryError("invalid_cursor");
     }
     return { setAt, id: raw.id };
   } catch {
-    throw new Error("invalid_cursor");
+    repositoryError("invalid_cursor");
   }
 }
 
 export function normalizeLockdownLimit(limit: number | undefined): number {
   const resolved = limit ?? 50;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
-    throw new Error("invalid_pagination_limit");
+    repositoryError("invalid_pagination_limit");
   }
   return resolved;
 }

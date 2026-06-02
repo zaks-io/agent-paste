@@ -1,5 +1,6 @@
 import { parseApiKey, verifyApiKeySecret } from "../../api-keys.js";
 import { defaultAutoDeletionDaysForWorkspace, type UsagePolicyConfig } from "../../policy.js";
+import { repositoryError } from "../../repository-error.js";
 import { toApiKeySummary, toArtifactSummary, toWorkspaceDetail, toWorkspaceSummary } from "../../transforms.js";
 import type { AdminActor, ApiActor, ApiKeyActor, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
@@ -253,7 +254,7 @@ export async function deleteArtifact(
   const deletedAt = nowIso(input.now);
   const target = await ctx.uow.read(PLATFORM_SCOPE, (entities) => entities.artifacts.findById(input.artifactId));
   if (!target) {
-    throw new Error("artifact_not_found");
+    repositoryError("artifact_not_found");
   }
   return ctx.uow.command(
     {
@@ -266,7 +267,7 @@ export async function deleteArtifact(
     async (entities) => {
       const artifact = await entities.artifacts.findById(input.artifactId);
       if (!artifact) {
-        throw new Error("artifact_not_found");
+        repositoryError("artifact_not_found");
       }
       await entities.artifacts.markDeleted(artifact.id, deletedAt);
       await entities.operationEvents.insert({
