@@ -1,11 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { Card, CardHeader } from "../components/ui/Card";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
+import {
+  claimRedemptionErrorMessage,
+  claimTokenFromLocationHash,
+  clearClaimTokenFromLocation,
+  consumePendingClaimToken,
+  stashPendingClaimToken,
+} from "../lib/claim-redemption";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { claimEphemeralFn, LOCAL_TURNSTILE_BYPASS_TOKEN } from "../server/web-mutations";
 
@@ -15,9 +22,6 @@ const loadClaimPageFn = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/_authed/claim")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === "string" ? search.token : "",
-  }),
   loader: () => loadClaimPageFn(),
   head: ({ matches }) =>
     dashboardPageMeta(
@@ -41,19 +45,36 @@ declare global {
   }
 }
 
+function resolveInitialClaimToken(): string {
+  const fromHash = claimTokenFromLocationHash();
+  if (fromHash) {
+    stashPendingClaimToken(fromHash);
+    clearClaimTokenFromLocation();
+    return fromHash;
+  }
+  return consumePendingClaimToken() ?? "";
+}
+
+function claimSuccessPath(artifactIds: string[]): string {
+  const [artifactId] = artifactIds;
+  if (artifactIds.length === 1 && artifactId) {
+    return `/artifacts/${encodeURIComponent(artifactId)}`;
+  }
+  return "/artifacts";
+}
+
 function ClaimPage() {
-  const { token } = Route.useSearch();
   const { turnstileSiteKey: siteKey } = Route.useLoaderData();
   const navigate = useNavigate();
-  const [claimToken, setClaimToken] = useState(token);
+  const [claimToken, setClaimToken] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(siteKey ? null : LOCAL_TURNSTILE_BYPASS_TOKEN);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
   const [successArtifactCount, setSuccessArtifactCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    setClaimToken(token);
-  }, [token]);
+  useLayoutEffect(() => {
+    setClaimToken(resolveInitialClaimToken());
+  }, []);
 
   useEffect(() => {
     if (!siteKey) {
@@ -108,17 +129,19 @@ function ClaimPage() {
       });
       if (result.error) {
         setError({
-          message: result.error.message,
+          message: claimRedemptionErrorMessage(result.error),
           ...(result.error.requestId ? { requestId: result.error.requestId } : {}),
         });
         return;
       }
-      setSuccessArtifactCount(result.data.artifact_ids.length);
+      const artifactIds = result.data.artifact_ids;
+      setSuccessArtifactCount(artifactIds.length);
+      const destination = claimSuccessPath(artifactIds);
       window.setTimeout(() => {
-        void navigate({ to: "/artifacts" });
+        void navigate({ to: destination });
       }, 1200);
     } catch {
-      setError({ message: "Claim request failed. Try again." });
+      setError({ message: claimRedemptionErrorMessage({ code: "network_error", status: 0, message: "" }) });
     } finally {
       setSubmitting(false);
     }

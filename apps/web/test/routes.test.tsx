@@ -97,6 +97,16 @@ describe("web routes", () => {
           location: { pathname: string; search: Record<string, unknown>; searchStr: string };
         }) => Promise<unknown>
       )({
+        location: { pathname: "/claim", search: {}, searchStr: "" },
+      }),
+    ).resolves.toMatchObject({ guest: true });
+
+    await expect(
+      (
+        authed.Route.beforeLoad as (input: {
+          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
+        }) => Promise<unknown>
+      )({
         location: { pathname: "/settings", search: {}, searchStr: "" },
       }),
     ).rejects.toMatchObject({
@@ -450,6 +460,7 @@ describe("web routes", () => {
     const audit = await import("../src/routes/_authed.audit");
     const settings = await import("../src/routes/_authed.settings");
     const admin = await import("../src/routes/_authed.admin");
+    const claim = await import("../src/routes/_authed.claim");
     const index = await import("../src/routes/index");
     const accessLink = await import("../src/routes/al.$publicId");
     const rootMatches = [{ routeId: "__root__", loaderData: { webBaseUrl: "https://app.agent-paste.sh" } }];
@@ -512,6 +523,18 @@ describe("web routes", () => {
       meta: expect.arrayContaining([
         { title: "Workspace Settings | agent-paste" },
         { name: "description", content: "Workspace name, retention, and usage caps." },
+      ]),
+    });
+
+    expect(
+      (claim.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+    ).toEqual({
+      meta: expect.arrayContaining([
+        { title: "Claim Ephemeral Workspace | agent-paste" },
+        {
+          name: "description",
+          content: "Redeem a one-time Claim Token to keep agent-published content in your workspace.",
+        },
       ]),
     });
 

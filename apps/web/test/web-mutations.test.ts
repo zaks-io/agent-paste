@@ -256,6 +256,18 @@ describe("web server mutations", () => {
     expect(state.apiFetch).not.toHaveBeenCalled();
   });
 
+  it("surfaces API not_found errors for claim redemption", async () => {
+    state.apiFetch.mockRejectedValueOnce(new ApiError(404, "not_found", "not_found", "req_nf"));
+    await expect(
+      claimEphemeralFn({
+        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" },
+      }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { status: 404, code: "not_found" },
+    });
+  });
+
   it("rejects malformed Turnstile tokens before calling the API", async () => {
     await expect(
       claimEphemeralFn({

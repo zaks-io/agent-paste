@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_authed/dashboard")({
 function DashboardPage() {
   const { workspace, artifacts, audit } = Route.useLoaderData();
   const session = useRouteContext({ from: "/_authed" });
-  const defaultKeySecret = session.apiSession.data?.default_api_key?.secret ?? null;
+  const defaultKeySecret = session.apiSession?.data?.default_api_key?.secret ?? null;
 
   if (workspace?.error) {
     return (
