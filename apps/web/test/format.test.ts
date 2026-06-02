@@ -48,6 +48,18 @@ describe("formatAbsoluteTime", () => {
     expect(formatAbsoluteTime(iso)).toMatch(/UTC/);
   });
 
+  // Byte-lock the exact output so a future runtime-default drift (e.g. hour12
+  // resolving to true on Workers but false in the browser) is caught here rather
+  // than as a React #418 hydration abort in production. hour12:false is pinned in
+  // formatAbsoluteTime precisely so this string is identical across runtimes.
+  it("renders an exact, hour-cycle-pinned UTC string for a morning instant", () => {
+    expect(formatAbsoluteTime("2026-01-15T09:30:00.000Z")).toBe("Jan 15, 2026, 09:30 UTC");
+  });
+
+  it("uses a 24-hour clock so afternoon instants carry no AM/PM marker", () => {
+    expect(formatAbsoluteTime("2026-01-15T14:32:00.000Z")).toBe("Jan 15, 2026, 14:32 UTC");
+  });
+
   it("returns an empty string for an invalid date", () => {
     expect(formatAbsoluteTime("not-a-date")).toBe("");
   });

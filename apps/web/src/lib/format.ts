@@ -42,7 +42,12 @@ export function formatAbsoluteTime(input: Date | string | number): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    // Pin hour12 so the hour format can't vary by runtime default. The Workers
+    // SSR runtime and the browser otherwise resolve it differently for the same
+    // instant ("09:30" vs "09:30 AM"), reintroducing the React #418 mismatch.
+    hour12: false,
     timeZone: "UTC",
+    // timeZone is forced to UTC, so the "short" label is the stable "UTC" token.
     timeZoneName: "short",
   }).format(date);
 }
