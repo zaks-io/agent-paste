@@ -1,6 +1,7 @@
 export { accessLinkQueries } from "./access-links.js";
 export { apiKeyQueries } from "./api-keys.js";
 export { artifactFileQueries, artifactQueries } from "./artifacts.js";
+export { claimTokenQueries } from "./claim-tokens.js";
 export { operationEventQueries } from "./operation-events.js";
 export { platformLockdownQueries } from "./platform-lockdowns.js";
 export { revisionQueries, toRevisionSummary } from "./revisions.js";

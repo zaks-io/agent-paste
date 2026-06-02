@@ -23,6 +23,9 @@ export type UploadSessionId = z.infer<typeof UploadSessionId>;
 export const ApiKeyId = prefixedId<"ApiKeyId">("key");
 export type ApiKeyId = z.infer<typeof ApiKeyId>;
 
+export const ClaimTokenId = prefixedId<"ClaimTokenId">("ct");
+export type ClaimTokenId = z.infer<typeof ClaimTokenId>;
+
 export const AccessLinkId = prefixedId<"AccessLinkId">("al");
 export type AccessLinkId = z.infer<typeof AccessLinkId>;
 
@@ -51,6 +54,12 @@ export const ApiKeyBearer = z
   .regex(/^ap_pk_(preview|production|live)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/)
   .brand<"ApiKeyBearer">();
 export type ApiKeyBearer = z.infer<typeof ApiKeyBearer>;
+
+export const ClaimTokenBearer = z
+  .string()
+  .regex(/^ap_ct_(preview|production)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/)
+  .brand<"ClaimTokenBearer">();
+export type ClaimTokenBearer = z.infer<typeof ClaimTokenBearer>;
 
 export const FilePath = z
   .string()

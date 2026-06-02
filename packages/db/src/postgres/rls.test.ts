@@ -240,6 +240,24 @@ describe("postgres RLS runtime enforcement", () => {
   // The deploy-production migration runner has no journal table; it re-applies
   // every .sql file every run. Bare `create policy` failed here in 2026-05-22's
   // prod deploys. Re-applying the migrations must be a no-op.
+  it("scopes claim_tokens to the tenant workspace", async () => {
+    const platform = rlsExecutor(executor, { kind: "platform" });
+    await platform.query(
+      `insert into claim_tokens (id, workspace_id, token_hash, pepper_kid, expires_at, created_at)
+       values ('ct_00000000000000000000000001', $1, '\\x00', 1, now() + interval '1 day', now()),
+              ('ct_00000000000000000000000002', $2, '\\x00', 1, now() + interval '1 day', now())`,
+      [ws1Id, ws2Id],
+    );
+
+    const ws1 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws1Id });
+    const rows = await ws1.query<{ id: string }>("select id from claim_tokens order by id");
+    expect(rows.rows).toEqual([{ id: "ct_00000000000000000000000001" }]);
+
+    const ws2 = rlsExecutor(executor, { kind: "workspace", workspaceId: ws2Id });
+    const cross = await ws2.query("select id from claim_tokens where id = $1", ["ct_00000000000000000000000001"]);
+    expect(cross.rows).toEqual([]);
+  });
+
   it("scopes access_links to the tenant workspace", async () => {
     const platform = rlsExecutor(executor, { kind: "platform" });
     await platform.query(

@@ -1,18 +1,12 @@
 import type { UsagePolicyConfig } from "../policy.js";
-import type {
-  AdminActor,
-  ApiActor,
-  ApiKeyActor,
-  PlatformActor,
-  RepositoryOptions,
-  Workspace,
-} from "../types.js";
+import type { AdminActor, ApiActor, ApiKeyActor, PlatformActor, RepositoryOptions, Workspace } from "../types.js";
 import { RepositoryCoreContext } from "./core-context.js";
 import type { Repository } from "./interface.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { UnitOfWork } from "./ports.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
+import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
 import * as memberArtifactsWorkflow from "./workflows/member-artifacts-workflow.js";
 import * as uploadPublishWorkflow from "./workflows/upload-publish-workflow.js";
@@ -26,10 +20,7 @@ import * as workspaceAdminWorkflow from "./workflows/workspace-admin-workflow.js
 export class RepositoryCore implements Repository {
   private readonly ctx: RepositoryCoreContext;
 
-  constructor(
-    uow: UnitOfWork,
-    options: RepositoryOptions,
-  ) {
+  constructor(uow: UnitOfWork, options: RepositoryOptions) {
     this.ctx = new RepositoryCoreContext(uow, options);
   }
 
@@ -41,6 +32,10 @@ export class RepositoryCore implements Repository {
     now?: Date;
   }): Promise<Workspace> {
     return workspaceAdminWorkflow.createWorkspace(this.ctx, input);
+  }
+
+  async createEphemeralWorkspace(input: { idempotencyKey: string; now?: Date; claimTokenExpiresInSeconds?: number }) {
+    return ephemeralWorkflow.createEphemeralWorkspace(this.ctx, input);
   }
 
   async listWorkspaces() {

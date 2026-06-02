@@ -25,6 +25,7 @@ vi.mock("../queries/index.js", () => ({
     "updateLastUsedAt",
     "updateRevokedAt",
   ]),
+  claimTokenQueries: queryObject(["insert", "findById"]),
   workspaceMemberQueries: queryObject(["insert", "findById", "findByWorkOsUserId", "updateSeen"]),
   artifactQueries: queryObject([
     "insert",
@@ -88,6 +89,7 @@ describe("postgresEntities", () => {
       contact_email: "user@example.com",
       plan: "free",
       plan_operator_override_at: null,
+      claimed_at: "2026-01-01T00:00:00.000Z",
       auto_deletion_days: 30,
       revision_retention_days: null,
       created_at: now,
@@ -195,6 +197,18 @@ describe("postgresEntities", () => {
     await entities.workspaces.findById("workspace");
     await entities.workspaces.listAll();
     await entities.workspaces.update("workspace", { name: "Demo", autoDeletionDays: 30, updatedAt: "now" });
+    const claimToken: Parameters<Entities["claimTokens"]["insert"]>[0] = {
+      id: "ct_00000000000000000000000001",
+      workspace_id: "workspace",
+      token_hash: new Uint8Array([1]),
+      pepper_kid: 1,
+      expires_at: now,
+      redeemed_at: null,
+      created_at: now,
+    };
+    await entities.claimTokens.insert(claimToken);
+    await entities.claimTokens.findById("ct_00000000000000000000000001", "workspace");
+
     await entities.apiKeys.insert(apiKey);
     await entities.apiKeys.findById("key");
     await entities.apiKeys.findByPublicId("public");

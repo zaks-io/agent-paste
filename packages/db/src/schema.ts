@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
+  customType,
   foreignKey,
   index,
   integer,
@@ -15,6 +16,31 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const normalized = hex.startsWith("\\x") ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(normalized.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+const bytea = customType<{ data: Uint8Array; driverData: string }>({
+  dataType() {
+    return "bytea";
+  },
+  toDriver(value: Uint8Array) {
+    return `\\x${bytesToHex(value)}`;
+  },
+  fromDriver(value: string): Uint8Array {
+    return hexToBytes(value);
+  },
+});
 
 export const workspacePlans = ["free", "pro"] as const;
 export type WorkspacePlan = (typeof workspacePlans)[number];
@@ -39,6 +65,7 @@ export const workspaces = pgTable(
     contactEmail: text("contact_email"),
     plan: text("plan").$type<WorkspacePlan>().notNull().default("free"),
     planOperatorOverrideAt: timestamp("plan_operator_override_at", { withTimezone: true }),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
     autoDeletionDays: integer("auto_deletion_days").notNull().default(30),
     revisionRetentionDays: integer("revision_retention_days"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
@@ -105,6 +132,25 @@ export const workspaceMembers = pgTable(
   (table) => [
     index("workspace_members_workspace_idx").on(table.workspaceId),
     uniqueIndex("workspace_members_workos_user_unique").on(table.workosUserId),
+  ],
+);
+
+export const claimTokens = pgTable(
+  "claim_tokens",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    tokenHash: bytea("token_hash").notNull(),
+    pepperKid: smallint("pepper_kid").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("claim_tokens_workspace_idx").on(table.workspaceId),
+    check("claim_tokens_id_format", sql`${table.id} ~ '^ct_[0-9A-HJKMNP-TV-Z]{26}$'`),
   ],
 );
 

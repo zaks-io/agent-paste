@@ -2,6 +2,7 @@ import type {
   AccessLink,
   ApiKey,
   Artifact,
+  ClaimToken,
   OperationEvent,
   PlatformLockdown,
   PublishBundleStatus,
@@ -49,6 +50,10 @@ export type Entities = {
     listForWorkspace(workspaceId: string): Promise<ApiKey[]>;
     updateLastUsedAt(id: string, lastUsedAt: string): Promise<void>;
     updateRevokedAt(id: string, revokedAt: string): Promise<void>;
+  };
+  claimTokens: {
+    insert(claimToken: ClaimToken): Promise<void>;
+    findById(id: string, workspaceId?: string): Promise<ClaimToken | null>;
   };
   members: {
     insert(member: WorkspaceMember): Promise<void>;
