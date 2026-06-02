@@ -106,6 +106,10 @@ jobs:
           # Bootstrap migrations with the Neon owner URL until platform_admin exists on the project.
           DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon.outputs.db_url }}
           DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
+          # PR previews migrate a per-PR Neon branch and create their own per-PR Hyperdrive
+          # in a later step. The branch guard compares against the standing preview Hyperdrive
+          # in apps/api/wrangler.jsonc, which is a different topology, so skip it here.
+          SKIP_HYPERDRIVE_BRANCH_GUARD: "1"
         run: node scripts/migrate.mjs preview
 
       - name: Resolve PR runtime database URL
