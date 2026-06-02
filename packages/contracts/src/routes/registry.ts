@@ -9,6 +9,7 @@ const {
   webCallback: webCallbackErrors,
   operatorMutation: operatorMutationErrors,
   operatorRead: operatorReadErrors,
+  ephemeralProvision: ephemeralProvisionErrors,
 } = routeErrorGroups;
 
 export const routeContracts = [
@@ -84,6 +85,19 @@ export const routeContracts = [
     requestSchema: "AccessLinkResolveRequest",
     responseSchema: "AccessLinkResolveResponse",
     errors: ["not_found", "invalid_request", "database_unavailable", "rate_limited_artifact"],
+  },
+  {
+    id: "ephemeral.provision",
+    app: "api",
+    method: "POST",
+    path: "/v1/ephemeral/provision",
+    auth: "none",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "ephemeral_provision",
+    requestSchema: "EphemeralProvisionRequest",
+    responseSchema: "EphemeralProvisionResponse",
+    errors: ephemeralProvisionErrors,
   },
   {
     id: "artifacts.list",

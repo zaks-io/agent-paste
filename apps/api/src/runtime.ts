@@ -38,6 +38,8 @@ export function apiRateLimitBindings(env: Env) {
     actor: env.ACTOR_RATE_LIMIT,
     workspace: env.WORKSPACE_BURST_CAP,
     artifact: env.ARTIFACT_RATE_LIMIT,
+    ephemeralProvisionIp: env.EPHEMERAL_PROVISION_IP_RATE_LIMIT,
+    ephemeralProvisionGlobal: env.EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT,
   };
 }
 

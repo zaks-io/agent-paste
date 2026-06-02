@@ -23,6 +23,14 @@ const operatorMutationErrors = [
 // errors, but keep the same not_found collapse so the surface stays
 // non-enumerable (ADR 0046).
 const operatorReadErrors = ["not_found", "invalid_cursor", "invalid_request", "database_unavailable"] as const;
+const ephemeralProvisionErrors = [
+  "invalid_request",
+  "pow_required",
+  "pow_invalid",
+  "ephemeral_provision_rate_limited",
+  "ephemeral_provision_unavailable",
+  "database_unavailable",
+] as const;
 
 export const routeErrorGroups = {
   apiKeyRead: apiKeyReadErrors,
@@ -33,4 +41,5 @@ export const routeErrorGroups = {
   webCallback: webCallbackErrors,
   operatorMutation: operatorMutationErrors,
   operatorRead: operatorReadErrors,
+  ephemeralProvision: ephemeralProvisionErrors,
 } as const;

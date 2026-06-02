@@ -25,6 +25,7 @@ describe("MVP route registry", () => {
       "apiKeys.revokeCurrent",
       "agentView.public",
       "accessLinks.resolve",
+      "ephemeral.provision",
       "artifacts.list",
       "artifacts.delete",
       "artifacts.updateDisplayMetadata",
@@ -63,7 +64,9 @@ describe("MVP route registry", () => {
   });
 
   it("declares runtime rate-limit classes for every route", () => {
-    expect(routeContracts.every((route) => ["none", "actor", "artifact"].includes(route.rateLimit))).toBe(true);
+    expect(
+      routeContracts.every((route) => ["none", "actor", "artifact", "ephemeral_provision"].includes(route.rateLimit)),
+    ).toBe(true);
     expect(
       routeContracts
         .filter((route) => route.rateLimit === "actor")

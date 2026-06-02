@@ -9,14 +9,21 @@ export type RateLimitBindings = {
   actor?: RateLimitBinding | undefined;
   workspace?: RateLimitBinding | undefined;
   artifact?: RateLimitBinding | undefined;
+  ephemeralProvisionIp?: RateLimitBinding | undefined;
+  ephemeralProvisionGlobal?: RateLimitBinding | undefined;
 };
 
 export type RateLimitResult = { ok: true } | { ok: false; code: ErrorCode; retryAfter: string };
+
+export type RateLimitContext = {
+  clientIp?: string | undefined;
+};
 
 export async function applyRateLimit(
   contract: RouteContract,
   principal: Principal,
   bindings: RateLimitBindings | undefined,
+  context: RateLimitContext = {},
 ): Promise<RateLimitResult> {
   switch (contract.rateLimit satisfies RateLimitRequirement) {
     case "none":
@@ -25,7 +32,29 @@ export async function applyRateLimit(
       return applyActorRateLimit(principal, bindings);
     case "artifact":
       return applyArtifactRateLimit(principal, bindings);
+    case "ephemeral_provision":
+      return applyEphemeralProvisionRateLimit(bindings, context.clientIp);
   }
+}
+
+export async function applyEphemeralProvisionRateLimit(
+  bindings: RateLimitBindings | undefined,
+  clientIp: string | undefined,
+): Promise<RateLimitResult> {
+  const ipKey = clientIp?.trim() || "unknown";
+
+  // Global ceiling fails closed (503) when the binding is absent or errors — unlike actor/workspace caps.
+  const globalOutcome = await rateLimitOrFailClosed(bindings?.ephemeralProvisionGlobal, "global");
+  if (!globalOutcome.success) {
+    return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
+  }
+
+  const ipOutcome = await rateLimitOrFailOpen(bindings?.ephemeralProvisionIp, "actor", ipKey);
+  if (ipOutcome && !ipOutcome.success) {
+    return { ok: false, code: "ephemeral_provision_rate_limited", retryAfter: "3600" } as const;
+  }
+
+  return { ok: true } as const;
 }
 
 async function applyActorRateLimit(principal: Principal, bindings: RateLimitBindings | undefined) {
@@ -105,5 +134,21 @@ async function rateLimitOrFailOpen(
   } catch (error) {
     console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
     return undefined;
+  }
+}
+
+async function rateLimitOrFailClosed(
+  binding: RateLimitBinding | undefined,
+  scope: "global",
+): Promise<{ success: boolean }> {
+  if (!binding) {
+    return { success: false };
+  }
+
+  try {
+    return await binding.limit({ key: scope });
+  } catch (error) {
+    console.warn(`Rate limit ${scope} binding failed; denying request.`, error);
+    return { success: false };
   }
 }

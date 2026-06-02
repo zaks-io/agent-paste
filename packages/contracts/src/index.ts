@@ -6,6 +6,7 @@ export * from "./artifacts.js";
 export * from "./bundle.js";
 export * from "./common.js";
 export * from "./enums.js";
+export * from "./ephemeral.js";
 export * from "./jobs.js";
 export * from "./liveUpdates.js";
 export * from "./lockdown.js";

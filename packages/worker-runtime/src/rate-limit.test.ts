@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Principal } from "./principal.js";
-import { applyRateLimit } from "./rate-limit.js";
+import { applyEphemeralProvisionRateLimit, applyRateLimit } from "./rate-limit.js";
 
 const actorContract = { rateLimit: "actor" } as Parameters<typeof applyRateLimit>[0];
 const artifactContract = { rateLimit: "artifact" } as Parameters<typeof applyRateLimit>[0];
 const noneContract = { rateLimit: "none" } as Parameters<typeof applyRateLimit>[0];
+const ephemeralProvisionContract = { rateLimit: "ephemeral_provision" } as Parameters<typeof applyRateLimit>[0];
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -104,6 +105,88 @@ describe("applyRateLimit", () => {
     ).resolves.toEqual({ ok: true });
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Rate limit actor binding failed"), expect.any(Error));
+  });
+
+  it("routes ephemeral provision limits through the dedicated helper", async () => {
+    const ephemeralProvisionGlobal = { limit: vi.fn().mockResolvedValue({ success: false }) };
+    await expect(
+      applyRateLimit(
+        ephemeralProvisionContract,
+        { kind: "none" },
+        { ephemeralProvisionGlobal, ephemeralProvisionIp: { limit: vi.fn() } },
+        { clientIp: "203.0.113.10" },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "ephemeral_provision_unavailable",
+      retryAfter: "3600",
+    });
+  });
+});
+
+describe("applyEphemeralProvisionRateLimit", () => {
+  it("returns unavailable when the global circuit breaker trips", async () => {
+    const result = await applyEphemeralProvisionRateLimit(
+      {
+        ephemeralProvisionGlobal: {
+          limit: async () => ({ success: false }),
+        },
+        ephemeralProvisionIp: {
+          limit: async () => ({ success: true }),
+        },
+      },
+      "203.0.113.10",
+    );
+    expect(result).toEqual({
+      ok: false,
+      code: "ephemeral_provision_unavailable",
+      retryAfter: "3600",
+    });
+  });
+
+  it("returns rate limited when the per-ip binding trips", async () => {
+    const result = await applyEphemeralProvisionRateLimit(
+      {
+        ephemeralProvisionGlobal: {
+          limit: async () => ({ success: true }),
+        },
+        ephemeralProvisionIp: {
+          limit: async () => ({ success: false }),
+        },
+      },
+      "203.0.113.10",
+    );
+    expect(result).toEqual({
+      ok: false,
+      code: "ephemeral_provision_rate_limited",
+      retryAfter: "3600",
+    });
+  });
+
+  it("fails closed when the global circuit-breaker binding is missing", async () => {
+    await expect(
+      applyEphemeralProvisionRateLimit(
+        {
+          ephemeralProvisionIp: { limit: async () => ({ success: true }) },
+        },
+        "203.0.113.10",
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "ephemeral_provision_unavailable",
+      retryAfter: "3600",
+    });
+  });
+
+  it("fails open when the per-ip binding is missing", async () => {
+    await expect(
+      applyEphemeralProvisionRateLimit(
+        {
+          ephemeralProvisionGlobal: { limit: async () => ({ success: true }) },
+        },
+        "203.0.113.10",
+      ),
+    ).resolves.toEqual({ ok: true });
   });
 });
 
