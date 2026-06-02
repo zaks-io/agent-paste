@@ -1,4 +1,4 @@
-import type { ErrorCode } from "@agent-paste/contracts";
+import { ErrorCode, type ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
 
 export const RepositoryErrorCode = {
   access_link_inactive_artifact_missing: "access_link_inactive_artifact_missing",
@@ -11,7 +11,8 @@ export const RepositoryErrorCode = {
   access_link_share_cannot_pin_revision: "access_link_share_cannot_pin_revision",
   api_key_not_found: "api_key_not_found",
   artifact_not_found: "artifact_not_found",
-  create_postgres_services_missing_connection_or_executor: "create_postgres_services_missing_connection_or_executor",
+  create_postgres_services_missing_connection_or_executor:
+    "create_postgres_services_missing_connection_or_executor",
   current_api_key_not_found: "current_api_key_not_found",
   draft_revision_conflict: "draft_revision_conflict",
   drizzle_not_bound_to_executor: "drizzle_not_bound_to_executor",
@@ -62,7 +63,8 @@ export function repositoryError(kind: RepositoryErrorCode, options?: ErrorOption
   throw new RepositoryError(kind, options);
 }
 
-const repositoryErrorToAppErrorMap = {
+/** null means intentional internal_error (500); every {@link RepositoryErrorCode} must have an entry. */
+const repositoryErrorToAppErrorMap: Record<RepositoryErrorCode, ErrorCodeValue | null> = {
   access_link_inactive_artifact_missing: "not_found",
   access_link_inactive_expired: "not_found",
   access_link_inactive_revoked: "not_found",
@@ -73,9 +75,12 @@ const repositoryErrorToAppErrorMap = {
   access_link_share_cannot_pin_revision: "invalid_request",
   api_key_not_found: "api_key_not_found",
   artifact_not_found: "artifact_not_found",
+  create_postgres_services_missing_connection_or_executor: null,
   current_api_key_not_found: "not_authenticated",
   draft_revision_conflict: "draft_revision_conflict",
+  drizzle_not_bound_to_executor: null,
   entrypoint_not_in_revision: "entrypoint_not_in_revision",
+  executor_missing_drizzle_binding: null,
   file_count_cap_exceeded: "file_count_cap_exceeded",
   file_size_cap_exceeded: "file_size_cap_exceeded",
   forbidden: "forbidden",
@@ -84,22 +89,25 @@ const repositoryErrorToAppErrorMap = {
   invalid_pagination_limit: "invalid_request",
   invalid_request: "invalid_request",
   invalid_ttl_seconds: "invalid_request",
+  lockdown_insert_conflict: null,
   not_found: "not_found",
   pinned_artifact_cap_exceeded: "pinned_artifact_cap_exceeded",
+  postgres_http_error: null,
+  postgres_http_executor_no_transactions: null,
   revision_ceiling_exceeded: "revision_ceiling_exceeded",
   revision_retained: "revision_retained",
   revision_size_cap_exceeded: "revision_size_cap_exceeded",
   revision_unpublished: "revision_unpublished",
+  unexpected_actor_type: null,
   upload_incomplete: "upload_incomplete",
   upload_session_not_found: "upload_session_not_found",
-} as const satisfies Partial<Record<RepositoryErrorCode, ErrorCode>>;
+  workspace_member_not_found: null,
+  workspace_not_found: null,
+};
 
-export function repositoryErrorToAppError(error: unknown): ErrorCode | null {
+export function repositoryErrorToAppError(error: unknown): ErrorCodeValue | null {
   if (!isRepositoryError(error)) {
     return null;
   }
-  if (error.kind in repositoryErrorToAppErrorMap) {
-    return repositoryErrorToAppErrorMap[error.kind as keyof typeof repositoryErrorToAppErrorMap];
-  }
-  return null;
+  return repositoryErrorToAppErrorMap[error.kind];
 }
