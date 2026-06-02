@@ -11,7 +11,6 @@ import {
   claimTokenFromLocationHash,
   clearClaimTokenFromLocation,
   consumePendingClaimToken,
-  stashPendingClaimToken,
 } from "../lib/claim-redemption";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { claimEphemeralFn, LOCAL_TURNSTILE_BYPASS_TOKEN } from "../server/web-mutations";
@@ -48,7 +47,6 @@ declare global {
 function resolveInitialClaimToken(): string {
   const fromHash = claimTokenFromLocationHash();
   if (fromHash) {
-    stashPendingClaimToken(fromHash);
     clearClaimTokenFromLocation();
     return fromHash;
   }

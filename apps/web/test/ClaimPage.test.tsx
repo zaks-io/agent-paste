@@ -34,6 +34,7 @@ vi.mock("../src/server/web-mutations", () => ({
   LOCAL_TURNSTILE_BYPASS_TOKEN: "local-turnstile-bypass",
 }));
 
+import { PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
 import { VALID_TOKEN } from "./claim-fixtures";
 import { Route } from "../src/routes/_authed.claim";
 
@@ -96,5 +97,6 @@ describe("ClaimPage", () => {
     render(<Route.component />);
     await waitFor(() => expect(screen.getByLabelText("Claim token")).toHaveValue(VALID_TOKEN));
     expect(window.location.hash).toBe("");
+    expect(sessionStorage.getItem(PENDING_CLAIM_TOKEN_STORAGE_KEY)).toBeNull();
   });
 });
