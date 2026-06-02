@@ -224,6 +224,8 @@ describe("MVP schemas", () => {
       bundle_size_cap_bytes: 25 * 1024 * 1024,
       bundles_enabled: true,
       file_count_cap: 100,
+      daily_new_artifact_allowance: 100,
+      lifetime_revision_ceiling: 100,
     });
 
     expect(

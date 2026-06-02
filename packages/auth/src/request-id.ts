@@ -12,6 +12,8 @@ export type DocCode =
   | "idempotency_in_flight"
   | "invalid_idempotency_key"
   | "usage_policy_exceeded"
+  | "write_allowance_exceeded"
+  | "revision_ceiling_exceeded"
   | "file_size_cap_exceeded"
   | "file_count_cap_exceeded"
   | "revision_size_cap_exceeded";
@@ -23,6 +25,8 @@ const DOC_PATHS: Record<DocCode, string> = {
   idempotency_in_flight: "/errors/idempotency_in_flight",
   invalid_idempotency_key: "/errors/invalid_idempotency_key",
   usage_policy_exceeded: "/errors/usage_policy_exceeded",
+  write_allowance_exceeded: "/errors/write_allowance_exceeded",
+  revision_ceiling_exceeded: "/errors/revision_ceiling_exceeded",
   file_size_cap_exceeded: "/errors/file_size_cap_exceeded",
   file_count_cap_exceeded: "/errors/file_count_cap_exceeded",
   revision_size_cap_exceeded: "/errors/revision_size_cap_exceeded",

@@ -4,6 +4,7 @@ import {
   isBillingEnabled,
   MAX_ARTIFACT_BYTES,
   PINNED_ARTIFACT_CAP,
+  resolveDailyNewArtifactAllowance,
   resolveUsagePolicy,
   SECONDS_PER_DAY,
   USAGE_POLICY,
@@ -46,15 +47,26 @@ export {
   USAGE_POLICY,
 };
 
-export function usagePolicyForWorkspace(workspace: Pick<Workspace, "plan">, billingEnabled = false): UsagePolicyConfig {
-  return resolveUsagePolicy({ plan: workspace.plan, billingEnabled });
+export function usagePolicyForWorkspace(
+  workspace: Pick<Workspace, "plan" | "claimed_at">,
+  billingEnabled = false,
+): UsagePolicyConfig {
+  const base = resolveUsagePolicy({ plan: workspace.plan, billingEnabled });
+  return {
+    ...base,
+    daily_new_artifact_allowance: resolveDailyNewArtifactAllowance({
+      claimedAt: workspace.claimed_at,
+      plan: workspace.plan,
+      billingEnabled,
+    }),
+  };
 }
 
 export function autoDeletionBoundsForWorkspace(
   workspace: Pick<Workspace, "plan">,
   billingEnabled = false,
 ): { min: number; max: number } {
-  const policy = usagePolicyForWorkspace(workspace, billingEnabled);
+  const policy = resolveUsagePolicy({ plan: workspace.plan, billingEnabled });
   return {
     min: Math.floor(policy.min_ttl_seconds / SECONDS_PER_DAY),
     max: Math.floor(policy.max_ttl_seconds / SECONDS_PER_DAY),
@@ -65,7 +77,7 @@ export function defaultAutoDeletionDaysForWorkspace(
   workspace: Pick<Workspace, "plan">,
   billingEnabled = false,
 ): number {
-  return Math.floor(usagePolicyForWorkspace(workspace, billingEnabled).default_ttl_seconds / SECONDS_PER_DAY);
+  return Math.floor(resolveUsagePolicy({ plan: workspace.plan, billingEnabled }).default_ttl_seconds / SECONDS_PER_DAY);
 }
 
 export function artifactTtlSecondsForUpload(

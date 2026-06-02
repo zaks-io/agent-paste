@@ -36,6 +36,8 @@ export const ErrorCode = z.enum([
   "upload_session_expired",
   "upload_session_not_found",
   "usage_policy_exceeded",
+  "write_allowance_exceeded",
+  "revision_ceiling_exceeded",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 

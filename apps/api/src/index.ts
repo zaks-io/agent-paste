@@ -18,6 +18,7 @@ import {
   revokeAccessLinkRoute,
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
+import { ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import {
   deleteMemberArtifactRoute,
   listMemberArtifactsRoute,
@@ -30,7 +31,6 @@ import {
   webAdminSetLockdown,
 } from "./routes/operator.js";
 import { authenticatedAgentView, listRevisions, publicAgentView, publishRevision } from "./routes/revisions.js";
-import { ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import { deleteSmokeArtifact, forceExpire, getDenylistKey, listR2Prefix, provisionSmoke } from "./routes/smoke.js";
 import {
   webApiKeys,
@@ -255,3 +255,5 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
 }
+
+export { WorkspaceWriteAllowance } from "@agent-paste/write-allowance";

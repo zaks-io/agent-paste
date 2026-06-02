@@ -97,6 +97,46 @@ export async function finalizeUploadSession(
   );
 }
 
+export async function peekPublishWriteGate(
+  ctx: RepositoryCoreContext,
+  input: {
+    actor: ApiActor;
+    artifactId: string;
+    revisionId: string;
+  },
+) {
+  return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
+    const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
+    const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+    if (!artifact || artifact.status !== "active") {
+      return null;
+    }
+    const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
+    if (!revision || revision.artifact_id !== artifact.id) {
+      return null;
+    }
+    if (revision.status === "published") {
+      return {
+        is_already_published: true as const,
+        is_new_artifact: false,
+        next_revision_number: revision.revision_number ?? 1,
+      };
+    }
+    if (revision.status !== "draft") {
+      return null;
+    }
+    const nextRevisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
+    const policy = ctx.usagePolicyFor(workspace);
+    return {
+      is_already_published: false as const,
+      is_new_artifact: nextRevisionNumber === 1,
+      next_revision_number: nextRevisionNumber,
+      daily_new_artifact_allowance: policy.daily_new_artifact_allowance,
+      lifetime_revision_ceiling: policy.lifetime_revision_ceiling,
+    };
+  });
+}
+
 export async function publishRevision(
   ctx: RepositoryCoreContext,
   input: {
@@ -145,7 +185,11 @@ export async function publishRevision(
         throw new Error("entrypoint_not_in_revision");
       }
       const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
-      const bundleStatus = ctx.usagePolicyFor(workspace).bundles_enabled ? ("pending" as const) : ("disabled" as const);
+      const policy = ctx.usagePolicyFor(workspace);
+      if (revisionNumber > policy.lifetime_revision_ceiling) {
+        throw new Error("revision_ceiling_exceeded");
+      }
+      const bundleStatus = policy.bundles_enabled ? ("pending" as const) : ("disabled" as const);
       const published = await entities.revisions.publish({
         revisionId: revision.id,
         revisionNumber,

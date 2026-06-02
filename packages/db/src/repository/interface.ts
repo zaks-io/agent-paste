@@ -61,7 +61,7 @@ type Whoami = {
   actor: { type: string; id: string; name: string };
   workspace: WorkspaceSummary;
   scopes: Array<"publish" | "read">;
-  usage_policy: unknown;
+  usage_policy: UsagePolicyConfig;
 };
 
 type WebWorkspaceView = {
@@ -264,6 +264,13 @@ export type Repository = {
     revisionId: string;
     now: string;
   }): Promise<PublishResult>;
+  peekPublishWriteGate(input: { actor: ApiActor; artifactId: string; revisionId: string }): Promise<{
+    is_already_published: boolean;
+    is_new_artifact: boolean;
+    next_revision_number: number;
+    daily_new_artifact_allowance?: number;
+    lifetime_revision_ceiling?: number;
+  } | null>;
   listMemberArtifacts(
     actor: ApiActor,
     pagination?: { cursor?: string; limit?: number },

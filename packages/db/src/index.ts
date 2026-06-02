@@ -31,6 +31,7 @@ export {
 } from "./claim-tokens.js";
 export { createLocalMvpSqlExecutor } from "./local-mvp-sql-executor.js";
 export { createLocalServices, LocalRepository } from "./local-repository.js";
+export type { UsagePolicyConfig } from "./policy.js";
 export {
   artifactExpiresAtFromWorkspace,
   DEFAULT_UPLOAD_SESSION_TTL_MS,

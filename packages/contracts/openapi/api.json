@@ -77,7 +77,9 @@
                   "upload_incomplete",
                   "upload_session_expired",
                   "upload_session_not_found",
-                  "usage_policy_exceeded"
+                  "usage_policy_exceeded",
+                  "write_allowance_exceeded",
+                  "revision_ceiling_exceeded"
                 ]
               },
               "message": {
@@ -378,6 +380,18 @@
               },
               "live_update_enabled": {
                 "type": "boolean"
+              },
+              "daily_new_artifact_allowance": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "lifetime_revision_ceiling": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "daily_new_artifacts_remaining": {
+                "type": "integer",
+                "minimum": 0
               }
             },
             "required": [
@@ -393,7 +407,9 @@
               "min_ttl_seconds",
               "max_ttl_seconds",
               "live_artifacts_cap",
-              "live_update_enabled"
+              "live_update_enabled",
+              "daily_new_artifact_allowance",
+              "lifetime_revision_ceiling"
             ]
           }
         },
@@ -518,6 +534,18 @@
           },
           "live_update_enabled": {
             "type": "boolean"
+          },
+          "daily_new_artifact_allowance": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "lifetime_revision_ceiling": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "daily_new_artifacts_remaining": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -533,7 +561,9 @@
           "min_ttl_seconds",
           "max_ttl_seconds",
           "live_artifacts_cap",
-          "live_update_enabled"
+          "live_update_enabled",
+          "daily_new_artifact_allowance",
+          "lifetime_revision_ceiling"
         ]
       },
       "AgentView": {
@@ -1937,6 +1967,18 @@
               },
               "live_update_enabled": {
                 "type": "boolean"
+              },
+              "daily_new_artifact_allowance": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "lifetime_revision_ceiling": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "daily_new_artifacts_remaining": {
+                "type": "integer",
+                "minimum": 0
               }
             },
             "required": [
@@ -1952,7 +1994,9 @@
               "min_ttl_seconds",
               "max_ttl_seconds",
               "live_artifacts_cap",
-              "live_update_enabled"
+              "live_update_enabled",
+              "daily_new_artifact_allowance",
+              "lifetime_revision_ceiling"
             ]
           },
           "default_key_first_run": {
@@ -2962,7 +3006,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3036,7 +3082,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3110,7 +3158,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3184,7 +3234,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3278,7 +3330,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3352,7 +3406,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3463,7 +3519,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3537,7 +3595,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3611,7 +3671,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3685,7 +3747,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3779,7 +3843,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3853,7 +3919,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -3964,7 +4032,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4038,7 +4108,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4112,7 +4184,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4186,7 +4260,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4280,7 +4356,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4354,7 +4432,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4469,7 +4549,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4543,7 +4625,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4617,7 +4701,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4711,7 +4797,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4785,7 +4873,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4901,7 +4991,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -4975,7 +5067,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5069,7 +5163,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5143,7 +5239,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5259,7 +5357,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5343,7 +5443,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5417,7 +5519,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5491,7 +5595,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5602,7 +5708,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5676,7 +5784,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5750,7 +5860,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5824,7 +5936,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5918,7 +6032,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -5992,7 +6108,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6103,7 +6221,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6177,7 +6297,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6251,7 +6373,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6325,7 +6449,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6419,7 +6545,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6493,7 +6621,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6626,7 +6756,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6700,7 +6832,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6774,7 +6908,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6848,7 +6984,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -6942,7 +7080,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7016,7 +7156,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7136,7 +7278,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7210,7 +7354,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7284,7 +7430,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7358,7 +7506,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7452,7 +7602,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7526,7 +7678,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7658,7 +7812,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7732,7 +7888,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7806,7 +7964,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7880,7 +8040,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -7974,7 +8136,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8048,7 +8212,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8180,7 +8346,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8254,7 +8422,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8328,7 +8498,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8402,7 +8574,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8496,7 +8670,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8570,7 +8746,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8681,7 +8859,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8755,7 +8935,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8829,7 +9011,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8903,7 +9087,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -8997,7 +9183,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9071,7 +9259,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9202,7 +9392,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9276,7 +9468,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9350,7 +9544,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9424,7 +9620,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9518,7 +9716,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9592,7 +9792,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9724,7 +9926,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9798,7 +10002,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9872,7 +10078,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -9946,7 +10154,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10040,7 +10250,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10114,7 +10326,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10247,7 +10461,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10321,7 +10537,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10395,7 +10613,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10469,7 +10689,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10563,7 +10785,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10637,7 +10861,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10748,7 +10974,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10822,7 +11050,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10896,7 +11126,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -10970,7 +11202,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11064,7 +11298,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11138,7 +11374,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11269,7 +11507,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11343,7 +11583,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11417,7 +11659,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11491,7 +11735,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11585,7 +11831,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11659,7 +11907,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11793,7 +12043,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11867,7 +12119,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -11941,7 +12195,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12035,7 +12291,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12109,7 +12367,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12241,7 +12501,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12315,7 +12577,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12389,7 +12653,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12483,7 +12749,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12557,7 +12825,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12703,7 +12973,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12777,7 +13049,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12851,7 +13125,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -12945,7 +13221,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13019,7 +13297,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13248,7 +13528,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13322,7 +13604,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13396,7 +13680,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13490,7 +13776,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13564,7 +13852,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13684,7 +13974,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13758,7 +14050,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13832,7 +14126,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -13906,7 +14202,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14000,7 +14298,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14074,7 +14374,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14203,7 +14505,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14277,7 +14581,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14351,7 +14657,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14425,7 +14733,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14519,7 +14829,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14593,7 +14905,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14713,7 +15027,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14787,7 +15103,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14861,7 +15179,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -14935,7 +15255,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15029,7 +15351,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15103,7 +15427,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15244,7 +15570,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15318,7 +15646,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15392,7 +15722,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15466,7 +15798,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15560,7 +15894,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {
@@ -15634,7 +15970,9 @@
                             "upload_incomplete",
                             "upload_session_expired",
                             "upload_session_not_found",
-                            "usage_policy_exceeded"
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
                           ]
                         },
                         "message": {

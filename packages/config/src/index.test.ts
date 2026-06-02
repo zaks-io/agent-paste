@@ -71,6 +71,7 @@ describe("resolveUsagePolicy", () => {
     ]) {
       expect(policy.actor_rate_limit_per_minute).toBe(60);
       expect(policy.workspace_burst_cap_per_minute).toBe(300);
+      expect(policy.lifetime_revision_ceiling).toBe(100);
     }
   });
 

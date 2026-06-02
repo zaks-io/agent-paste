@@ -10,6 +10,7 @@ import { workspaceApiActor } from "../principals.js";
 import { errorResponse, jsonResponse, mapRepositoryError, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { contentBaseUrl } from "../runtime.js";
+import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "../write-allowance.js";
 
 export async function authenticatedAgentView(
   context: AppContext,
@@ -74,73 +75,114 @@ export async function publishRevision(
     return errorResponse(context, "not_authenticated");
   }
   const idempotencyKey = guard.idempotencyKey;
+  const replay = await db.peekWorkspaceCommandReplay?.({
+    actor,
+    operation: "artifact.revision.publish",
+    idempotencyKey,
+  });
+  if (replay && "inFlight" in replay && replay.inFlight) {
+    return errorResponse(context, "idempotency_in_flight");
+  }
+  const isReplay = replay !== null && replay !== undefined && "result" in replay;
+
   return runIdempotent(context, async () => {
+    let consumedAllowance = false;
+    if (!isReplay && db.peekPublishWriteGate) {
+      const gate = await db.peekPublishWriteGate({
+        actor,
+        artifactId: params.artifactId ?? "",
+        revisionId: params.revisionId ?? "",
+      });
+      if (gate && !gate.is_already_published && gate.is_new_artifact) {
+        const allowance = gate.daily_new_artifact_allowance;
+        if (typeof allowance === "number") {
+          const writeAllowance = await enforceNewArtifactWriteAllowance(
+            context.env.WRITE_ALLOWANCE,
+            actor.workspace_id,
+            allowance,
+            idempotencyKey,
+          );
+          if (!writeAllowance.ok) {
+            throw new RepositoryRouteError("write_allowance_exceeded", undefined, {
+              headers: { "Retry-After": writeAllowance.retryAfter },
+            });
+          }
+          consumedAllowance = true;
+        }
+      }
+    }
+
+    let result: Awaited<ReturnType<Repository["publishRevision"]>>;
+    const now = new Date().toISOString();
     try {
-      const now = new Date().toISOString();
-      const result = await db.publishRevision({
+      result = await db.publishRevision({
         actor,
         idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
         now,
       });
-      const bundleStatus = bundleStatusFromPublishResult(result);
-      try {
-        await enqueuePostPublishJobs(context.env, {
-          workspaceId: actor.workspace_id,
-          artifactId: params.artifactId ?? "",
-          revisionId: params.revisionId ?? "",
-          bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
-          requestedAt: now,
-          ephemeralTier:
-            result !== null &&
-            typeof result === "object" &&
-            "ephemeral_tier" in result &&
-            result.ephemeral_tier === true,
-        });
-      } catch (error) {
-        console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
-          artifactId: params.artifactId ?? "",
-          revisionId: params.revisionId ?? "",
-          bundleStatus,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      const signed = await signPublishResult(result, context.env, {
-        workspaceId: actor.workspace_id,
-        ephemeralTier:
-          result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true,
-      });
-      if (result && typeof result === "object" && "artifact_id" in result) {
-        const publish = result as { artifact_id: string; title?: string };
-        const entrypoint =
-          typeof (signed as { view_url?: string }).view_url === "string"
-            ? entrypointPathFromViewUrl((signed as { view_url: string }).view_url)
-            : "index.html";
-        const title = typeof publish.title === "string" ? publish.title : "Untitled";
-        const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, title);
-        if (revision) {
-          try {
-            await notifyLiveUpdatePublish(context.env, {
-              artifactId: publish.artifact_id,
-              revision,
-            });
-          } catch (error) {
-            console.warn("Live update publish notify failed after commit.", {
-              artifactId: publish.artifact_id,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      }
-      return signed;
     } catch (error) {
+      if (consumedAllowance) {
+        await releaseNewArtifactWriteAllowance(context.env.WRITE_ALLOWANCE, actor.workspace_id, idempotencyKey);
+      }
       const mapped = mapRepositoryError(error);
       if (mapped) {
         throw new RepositoryRouteError(mapped.code, mapped.message);
       }
       throw error;
     }
+
+    const bundleStatus = bundleStatusFromPublishResult(result);
+    try {
+      await enqueuePostPublishJobs(context.env, {
+        workspaceId: actor.workspace_id,
+        artifactId: params.artifactId ?? "",
+        revisionId: params.revisionId ?? "",
+        bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
+        requestedAt: now,
+        ephemeralTier:
+          result !== null &&
+          typeof result === "object" &&
+          "ephemeral_tier" in result &&
+          result.ephemeral_tier === true,
+      });
+    } catch (error) {
+      console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
+        artifactId: params.artifactId ?? "",
+        revisionId: params.revisionId ?? "",
+        bundleStatus,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    const signed = await signPublishResult(result, context.env, {
+      workspaceId: actor.workspace_id,
+      ephemeralTier:
+        result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true,
+    });
+    if (result && typeof result === "object" && "artifact_id" in result) {
+      const publish = result as { artifact_id: string; title?: string };
+      const entrypoint =
+        typeof (signed as { view_url?: string }).view_url === "string"
+          ? entrypointPathFromViewUrl((signed as { view_url: string }).view_url)
+          : "index.html";
+      const title = typeof publish.title === "string" ? publish.title : "Untitled";
+      const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, title);
+      if (revision) {
+        try {
+          await notifyLiveUpdatePublish(context.env, {
+            artifactId: publish.artifact_id,
+            revision,
+          });
+        } catch (error) {
+          console.warn("Live update publish notify failed after commit.", {
+            artifactId: publish.artifact_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+    return signed;
   });
 }
 
