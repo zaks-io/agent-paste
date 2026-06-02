@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-02 (main at AP-104; ephemeral publish/security catch-up).
+Last updated: 2026-06-02 (main at AP-108; ephemeral publish/security catch-up).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `240c4cd AP-104: Ephemeral moderation, 24h auto-deletion, and noindex (#155)`.
+  `1c3b14b feat(web): Claim Token redemption UX for ephemeral artifacts (AP-108) (#165)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
@@ -23,12 +23,17 @@ and points to the smaller ledgers that own detail.
   drift logging, and plan-derived usage caps (AP-4/AP-6); Checkout/webhooks
   remain for AP-5 and stay post-launch. `apps/stream` implements ADR 0069 Live
   Updates (AP-25), and scanner persistence exists in `packages/db`.
-- Agent-first ephemeral publish is partially implemented through AP-99/AP-101/AP-104:
-  the data model, Claim Token storage, proof-of-work-gated provisioning route,
-  24h ephemeral auto-deletion cap, noindex content-token/header/meta handling,
-  and ephemeral-tier scanner routing are in place. Claim redemption,
-  script-disabled serving, CLI/web entrypoints, and billing upgrade surfaces
-  remain.
+- Agent-first ephemeral publish is partially implemented through
+  AP-99/AP-101/AP-102/AP-103/AP-104/AP-105: the data model, Claim Token storage,
+  proof-of-work-gated provisioning route, 24h ephemeral auto-deletion cap,
+  noindex content-token/header/meta handling, ephemeral-tier scanner routing,
+  the script-disabled Execution Policy token bit (AP-102), the daily
+  new-artifact write allowance (AP-103), and the claim endpoint that reparents an
+  ephemeral workspace to a claimed `free` workspace (AP-105) are in place.
+  Web Claim Token redemption UX landed in AP-108 (#165). In review: CLI
+  `--ephemeral` publish (AP-107, PR #166). Remaining: claim/upgrade funnel
+  (AP-109), local + hosted ephemeral smokes (AP-110/AP-111), and billing upgrade
+  surfaces.
 - MCP publish chain mints a durable Revision Link per ADR 0061 and is
   replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
   runs the content-invalidation boundary (AP-87).

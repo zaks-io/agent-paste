@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-02 (AP-104 ephemeral moderation/provisioning catch-up).
+Last updated: 2026-06-02 (AP-108 claim UX merged; AP-107 in review).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -186,11 +186,14 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        by a content-gateway token bit (ADR 0030 refined), so the platform only
        runs agent code behind an auditable identity. Depends on Phase 3 auth and
        the billing flag above.
-       AP-99/AP-101/AP-104 landed the data model, `claim_tokens`, PoW route,
-       ephemeral provisioning, 24h auto-deletion cap, noindex token/header/meta
-       handling, and ephemeral scanner routing. Remaining work: claim
-       redemption, script-disabled serving, CLI/web publish entrypoints, and
-       claim/upgrade UX.
+       AP-99/AP-101/AP-102/AP-103/AP-104/AP-105 landed the data model,
+       `claim_tokens`, PoW route, ephemeral provisioning, 24h auto-deletion cap,
+       noindex token/header/meta handling, ephemeral scanner routing, the
+       script-disabled Execution Policy token bit, the daily new-artifact write
+       allowance, the claim/reparent endpoint, and web Claim Token redemption UX
+       (AP-108, #165). In review: CLI `--ephemeral` publish (AP-107, PR #166).
+       Remaining: claim/upgrade funnel (AP-109) and local + hosted ephemeral
+       smokes (AP-110/AP-111).
 
 ## Codebase Follow-Ups
 
