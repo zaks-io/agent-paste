@@ -17,9 +17,9 @@ Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in t
 
 ### Workflow
 
-Read `docs/agents/workflow/config.md` before using the `workflow-*` skills
-(`workflow-agent-queue`, `workflow-agent-implement`, `workflow-agent-review`,
-`workflow-issue-triage`, `workflow-code-review`, `workflow-create-pr`); it is
+Read `docs/agents/workflow/config.md` before using the `ziw-*` skills
+(`ziw-orchestrate`, `ziw-implement`, `ziw-review`, `ziw-code-review`, `ziw-pr`,
+`ziw-triage`, `ziw-to-issues`, `ziw-setup`); it is
 the metadata index for commands, tracker states, and environment safety.
 Shared workflow docs live in `docs/agents/workflow.md`.
 Use `docs/agents/skill-usage.md` to choose the smallest repo-local skill for a

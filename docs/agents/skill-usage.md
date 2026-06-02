@@ -6,23 +6,25 @@ to those Claude skill directories for Codex-style runtimes.
 
 | Task                                                           | Skill                       |
 | -------------------------------------------------------------- | --------------------------- |
-| Pick up the next repo item and drive it toward a PR            | `workflow-agent-queue`      |
-| Keep Linear, worker runs, PR checks, and feedback loops moving | `workflow-agent-queue`      |
-| Review new `main` commits and queue actionable fixes in Linear | `workflow-agent-review`     |
-| Implement one ready Linear issue                               | `workflow-agent-implement`  |
-| Review local changes before PR                                 | `workflow-code-review`      |
-| Review one PR against its issue and repo invariants            | `workflow-agent-review`     |
-| Generic local diff or PR bug review                            | `workflow-code-review`      |
-| Create a PR from an existing branch                            | `workflow-create-pr`        |
+| Orchestrate a ticket set, filter, or backlog-until-clear run   | `ziw-orchestrate`           |
+| Review new `main` commits and queue actionable fixes in Linear | `ziw-review`                |
+| Implement one ready Linear issue                               | `ziw-implement`             |
+| Review local changes before PR                                 | `ziw-code-review`           |
+| Review one PR against its issue and repo invariants            | `ziw-review`                |
+| Generic local diff or PR bug review                            | `ziw-code-review`           |
+| Create a PR from an existing branch                            | `ziw-pr`                    |
+| Turn a spec, PRD, or epic into dependency-ordered tickets      | `ziw-to-issues`             |
+| Triage and reconcile tracker issues, make tickets agent-ready  | `ziw-triage`                |
+| Set up or refresh a repo for agent workflows                   | `ziw-setup`                 |
 | Work on Neon setup or Postgres platform tasks                  | `agent-paste-neon-postgres` |
 
 ## Recurring Loops To Run
 
 Run these side by side:
 
-- `workflow-agent-queue` keeps Linear, delegated agents,
+- `ziw-orchestrate` keeps Linear, delegated agents,
   PR checks, and review feedback moving.
-- `workflow-agent-review` reviews newly landed `main`
+- `ziw-review` reviews newly landed `main`
   commits and queues actionable fixes in Linear.
 
 ## Runtime Locations

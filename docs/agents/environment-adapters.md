@@ -43,7 +43,7 @@ Cursor agents should:
 - implement one Linear issue per branch and PR
 - resume the same thread, branch, and PR when the orchestrator sends
   `Changes Requested` feedback
-- run or request `workflow-code-review` before PR handoff
+- run or request `ziw-code-review` before PR handoff
 - stop on missing product, security, credential, provider, or ADR decisions
 
 ## Runtime Selection Hints

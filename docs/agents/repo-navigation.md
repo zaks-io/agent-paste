@@ -72,11 +72,11 @@ carry the local contract summary and commands.
 
 For repo-local skill selection:
 
-- Use `.claude/skills/workflow-agent-queue/SKILL.md` for
+- Use `.claude/skills/ziw-orchestrate/SKILL.md` for
   the recurring implementation queue loop across Linear, agents, PR checks, and
   review feedback.
 - Use
-  `.claude/skills/workflow-agent-review/SKILL.md` for
+  `.claude/skills/ziw-review/SKILL.md` for
   the periodic sidecar review of newly landed `main` commits that should become
   queued fixes.
 

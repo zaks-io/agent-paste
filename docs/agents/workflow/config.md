@@ -1,8 +1,8 @@
 # Agent Config
 
-Last updated: 2026-05-28
+Last updated: 2026-06-02
 
-Metadata-only config consumed by the `workflow-*` skills. Authoritative detail
+Metadata-only config consumed by the `ziw-*` skills. Authoritative detail
 lives in the linked docs; this file is the distilled, machine-readable index.
 When this file and a linked doc disagree, the linked doc wins and this file
 should be corrected.
@@ -50,7 +50,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Active states: `In Progress`, `Blocked`, `In Review`, `Changes Requested`,
   `Ready to Merge`
 - Done state: `Done` (also `Canceled`)
-- Status transition owner: Agent Queue (`workflow-agent-queue`)
+- Status transition owner: Agent Orchestrate (`ziw-orchestrate`)
 - Readiness labels (Linear `Readiness` group): `needs-triage`, `needs-info`,
   `ready-for-agent`, `ready-for-human`, `wontfix`; plus ungrouped `remote-cursor`
 - Risk labels (exist in Linear, ungrouped): `risk-normal`,
@@ -69,7 +69,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   acceptance criteria, required checks, cross-layer invariants, dependencies
   (see issue-tracker-contract reference)
 - Labels are signals, not authority: yes — Linear workflow state is the source
-  of truth; Agent Queue owns transitions
+  of truth; Agent Orchestrate owns transitions
 
 ## Work Coordination
 
@@ -77,16 +77,16 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Authoritative PR state: GitHub
 - Authoritative check state: GitHub Actions (`CI` workflow) + preview smoke
 - Authoritative deploy state: Cloudflare Workers via deploy workflows
-- Queue mutation authority: Agent Queue only
-- Implement authority: Agent Implement (`workflow-agent-implement`)
-- Review authority: Agent Review (`workflow-agent-review` /
-  `workflow-code-review`)
-- Merge authority: human / Agent Queue when explicitly delegated; `main` ruleset
+- Queue mutation authority: Agent Orchestrate only
+- Implement authority: Agent Implement (`ziw-implement`)
+- Review authority: Agent Review (`ziw-review` /
+  `ziw-code-review`)
+- Merge authority: human / Agent Orchestrate when explicitly delegated; `main` ruleset
   (verified live 2026-06-01) requires 0 approvals and only the `Validate` check
   green, so solo merges use plain `gh pr merge --squash` (no `--admin`)
 - Claim record: Linear assignment + `In Progress` state
 - Queue local state: scratch only; refresh Linear/GitHub before acting
-- Handoff format: see `.claude/skills/workflow-setup/references/handoff.md`
+- Handoff format: see `.claude/skills/ziw-setup/references/handoff.md`
   (Issue, Branch, PR, Owner,
   Runtime, Environment, Current state, Next owner/action, Checks, Code review,
   Tracker updates, Blockers, Residual risk)
@@ -102,11 +102,12 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   picks it; uses canonical `.claude/skills`, not personal globals
 - Review model policy: strongest available tier for auth, authorization,
   secrets, schemas, background jobs, cross-package contracts, destructive paths
-- Agent Queue: `workflow-agent-queue`
-- Agent Review: `workflow-agent-review` (PR + main drift)
-- Agent Implement: `workflow-agent-implement`
-- Issue Triage: `workflow-issue-triage`
-- Setup: `workflow-setup`; secret hygiene: `workflow-secret-redaction`
+- Agent Orchestrate: `ziw-orchestrate`
+- Agent Review: `ziw-review` (PR + main drift)
+- Agent Implement: `ziw-implement`
+- Issue Triage: `ziw-triage`
+- Decompose spec/PRD/epic into tickets: `ziw-to-issues`
+- Setup: `ziw-setup`
 
 ## Pull Requests
 
@@ -115,7 +116,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - PR body: Summary / Changes / Risk (LOW|MEDIUM|HIGH) / Test plan + Linear link
 - Required checks: `pnpm verify` + `pnpm test:coverage` (CI `Validate` job);
   preview smoke for hosted-affecting changes
-- Code review: `workflow-code-review` before PR; `workflow-agent-review` for
+- Code review: `ziw-code-review` before PR; `ziw-review` for
   PR review
 - CodeRabbit: on-demand only (auto-run disabled, 12/hr cap) — use when local
   review recommends it or change is high-risk

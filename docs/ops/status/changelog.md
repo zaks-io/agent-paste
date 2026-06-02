@@ -29,6 +29,15 @@ use `git log` for commit-level detail.
 - Synced repo workflow skills, added `workflow-decompose`, and excluded vendored
   `.agents` skills from Biome formatting.
 
+### Agent skills migrated to the `ziw-*` family
+
+- Replaced the `workflow-*` agent-skill family with the synced `ziw-*` family
+  and removed the 10 `workflow-*` skill directories, symlinks, and lock entries.
+- Dropped `workflow-agent-queue` (its queue/status-mutation authority now lives
+  in `ziw-orchestrate`) and `workflow-secret-redaction` (no replacement).
+- Repointed `CLAUDE.md`, `docs/agents/workflow/config.md`, and the other agent
+  docs at the `ziw-*` names; the "Agent Queue" role is now "Agent Orchestrate".
+
 ## 2026-05-28
 
 ### Stronger audit semantics and operator abuse workflows (AP-34)
