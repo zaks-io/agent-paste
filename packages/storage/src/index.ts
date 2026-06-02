@@ -67,6 +67,57 @@ export const BASE_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
+  const directives = new Map<string, string>();
+  for (const segment of csp.split(";")) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const spaceIndex = trimmed.search(/\s/u);
+    if (spaceIndex === -1) {
+      directives.set(trimmed, "");
+      continue;
+    }
+    directives.set(trimmed.slice(0, spaceIndex), trimmed.slice(spaceIndex + 1).trim());
+  }
+  return directives;
+}
+
+function contentSecurityPolicyDirectiveOrder(csp: string): string[] {
+  const order: string[] = [];
+  for (const segment of csp.split(";")) {
+    const trimmed = segment.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const name = trimmed.split(/\s+/u)[0];
+    if (name) {
+      order.push(name);
+    }
+  }
+  return order;
+}
+
+/** Derives the ephemeral script-disabled policy from the base policy by disabling script execution only. */
+export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): string {
+  const directives = parseContentSecurityPolicyDirectives(baseCsp);
+  directives.set("script-src", "'none'");
+  return contentSecurityPolicyDirectiveOrder(baseCsp)
+    .map((name) => {
+      const value = directives.get(name);
+      if (value === undefined) {
+        return null;
+      }
+      return value.length > 0 ? `${name} ${value}` : name;
+    })
+    .filter((segment): segment is string => segment !== null)
+    .join("; ");
+}
+
+export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY =
+  deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY);
+
 export const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
 
 export const CONTENT_SECURITY_HEADERS = {
@@ -96,32 +147,21 @@ export function contentTypeForPath(path: string): string {
   return DEFAULT_MIME_TYPE;
 }
 
-export function servedContentForPath(path: string): ServedContent {
+export function servedContentForPath(path: string, options?: { scriptDisabled?: boolean }): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
+  const scriptDisabled = options?.scriptDisabled === true;
+  const baseCsp = scriptDisabled ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {
-    return { contentType, disposition: "attachment", csp: BASE_CONTENT_SECURITY_POLICY };
+    return { contentType, disposition: "attachment", csp: baseCsp };
   }
   if (extension === ".svg") {
     return { contentType, disposition: "inline", csp: SVG_CONTENT_SECURITY_POLICY };
   }
-  return { contentType, disposition: "inline", csp: BASE_CONTENT_SECURITY_POLICY };
+  return { contentType, disposition: "inline", csp: baseCsp };
 }
 
 export function attachmentFilename(path: string): string {
   const basename = path.split("/").at(-1) || "download";
   return basename.replaceAll(/["\\\r\n]/gu, "_");
-}
-
-export function responseHeadersForPath(path: string, extra: Record<string, string> = {}): Record<string, string> {
-  const served = servedContentForPath(path);
-  return {
-    ...CONTENT_SECURITY_HEADERS,
-    "Content-Type": served.contentType,
-    "Content-Security-Policy": served.csp,
-    ...(served.disposition === "attachment"
-      ? { "Content-Disposition": `attachment; filename="${attachmentFilename(path)}"` }
-      : {}),
-    ...extra,
-  };
 }

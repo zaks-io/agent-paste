@@ -49,7 +49,11 @@ export async function signAgentViewContentUrls(
   const contentAuth = {
     ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    ...(ephemeralTier ? { noindex: true as const } : {}),
+    ...(ephemeralTier
+      ? { noindex: true as const, scriptDisabled: true as const }
+      : workspaceId
+        ? { scriptDisabled: false as const }
+        : {}),
   };
   const signedFiles = Array.isArray(data.files)
     ? await Promise.all(
@@ -122,7 +126,9 @@ export async function signPublishResult(
   const contentAuth = auth?.workspaceId
     ? {
         workspaceId: auth.workspaceId,
-        ...(auth.ephemeralTier ? { noindex: true as const } : {}),
+        ...(auth.ephemeralTier
+          ? { noindex: true as const, scriptDisabled: true as const }
+          : { scriptDisabled: false as const }),
       }
     : undefined;
   return {
@@ -167,7 +173,7 @@ async function signedBundleUrl(
   artifactId: string,
   revisionId: string,
   expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean },
+  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
 ): Promise<string | undefined> {
   const signingSecret = contentSigningSecret(env);
   const workspaceId = auth?.workspaceId;
@@ -183,6 +189,11 @@ async function signedBundleUrl(
       workspace_id: workspaceId,
       ...(auth.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
       ...(auth.noindex ? { noindex: true } : {}),
+      ...(auth.scriptDisabled === true
+        ? { script_disabled: true }
+        : auth.scriptDisabled === false
+          ? { script_disabled: false }
+          : {}),
       key_prefix: bundleKeyFor({
         workspaceId,
         artifactId,
@@ -200,7 +211,7 @@ async function signedContentUrl(
   revisionId: string,
   path: string,
   expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean },
+  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
 ): Promise<string> {
   const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
@@ -215,6 +226,11 @@ async function signedContentUrl(
       ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
       ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
       ...(auth?.noindex ? { noindex: true } : {}),
+      ...(auth?.scriptDisabled === true
+        ? { script_disabled: true }
+        : auth?.scriptDisabled === false
+          ? { script_disabled: false }
+          : {}),
       paths: [path],
       exp: contentTokenExpiration(expiresAt),
     },

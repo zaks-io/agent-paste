@@ -222,7 +222,7 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
     return errorResponse(context, "not_found");
   }
 
-  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload.noindex === true);
+  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   let body = served.body;
@@ -329,8 +329,9 @@ function bundleResponseHeaders(size: number, tokenExpiresAt: number, noindex: bo
   return headers;
 }
 
-function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number, noindex: boolean): Headers {
-  const served = servedContentForPath(path);
+function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number, payload: ContentTokenPayload): Headers {
+  const scriptDisabled = payload.script_disabled !== false;
+  const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
   headers.set("content-length", String(size));
@@ -339,7 +340,7 @@ function responseHeadersForPath(path: string, size: number, tokenExpiresAt: numb
   if (served.disposition === "attachment") {
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }
-  if (noindex) {
+  if (payload.noindex === true) {
     headers.set("x-robots-tag", NOINDEX_HEADER);
   }
   return headers;

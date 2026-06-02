@@ -11,6 +11,8 @@ export type ContentTokenPayload = {
   paths?: string[];
   /** When true, content responses must not be indexed (ephemeral tier). */
   noindex?: boolean;
+  /** When true, content responses use the script-disabled Execution Policy (ephemeral tier). */
+  script_disabled?: boolean;
   exp: number;
 };
 
@@ -32,6 +34,7 @@ export function isValidContentTokenPayload(value: unknown): value is ContentToke
     (payload.paths === undefined ||
       (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
     (payload.noindex === undefined || typeof payload.noindex === "boolean") &&
+    (payload.script_disabled === undefined || typeof payload.script_disabled === "boolean") &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );

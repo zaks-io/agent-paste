@@ -51,7 +51,11 @@ function baseContentEnv(overrides: Partial<Env> = {}): Env {
   };
 }
 
-async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
+async function fetchServedFile(
+  path: string,
+  body = "ok",
+  tokenOptions: { script_disabled?: boolean; noindex?: boolean } = { script_disabled: false },
+): Promise<Response> {
   const token = await signContentToken(
     {
       workspace_id: workspaceId,
@@ -59,6 +63,7 @@ async function fetchServedFile(path: string, body = "ok"): Promise<Response> {
       revision_id: "rev_1",
       paths: [path],
       exp: Math.floor(Date.now() / 1000) + 60,
+      ...tokenOptions,
     },
     "secret",
   );
@@ -765,5 +770,18 @@ describe("CSP header per content type", () => {
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
       `"default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
     );
+  });
+
+  it("pins the script-disabled HTML CSP for ephemeral-tier tokens", async () => {
+    const response = await fetchServedFile("index.html", "ok", { script_disabled: true, noindex: true });
+    expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
+      `"default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
+    );
+  });
+
+  it("fails closed to script-disabled when the token omits script_disabled", async () => {
+    const response = await fetchServedFile("index.html", "ok", {});
+    expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(response.headers.get("content-security-policy")).not.toContain("unsafe-eval");
   });
 });
