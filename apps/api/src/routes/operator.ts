@@ -14,7 +14,7 @@ import type { AppContext, Env } from "../env.js";
 import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { platformActor } from "../principals.js";
-import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
+import { errorResponse, executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 type OperatorEventFilterInput = {

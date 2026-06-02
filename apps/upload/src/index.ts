@@ -39,7 +39,6 @@ import {
 import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
 import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
-  type AppErrorCode,
   createRegistrar,
   appErrorResponse as errorResponse,
   type GuardState,
