@@ -6,6 +6,7 @@ import {
   migrationDatabaseUrlEnvName,
   usesLegacyMigrationEnv,
 } from "../packages/db/scripts/credentials.mjs";
+import { assertMigrationBranchMatchesHyperdrive } from "./lib/hyperdrive-branch-guard.mjs";
 
 loadDotenv();
 
@@ -23,6 +24,14 @@ if (usesLegacyMigrationEnv(target, envName)) {
   process.stderr.write(
     `warning: ${envName} is a legacy migration secret name. Prefer DATABASE_URL_MIGRATIONS_${target.toUpperCase()} (role ${MIGRATION_ROLE}).\n`,
   );
+}
+
+if (process.env.SKIP_HYPERDRIVE_BRANCH_GUARD === "1") {
+  process.stderr.write(
+    "warning: SKIP_HYPERDRIVE_BRANCH_GUARD=1 — not verifying the migration target matches the Hyperdrive branch.\n",
+  );
+} else {
+  await assertMigrationBranchMatchesHyperdrive({ target, migrationUrl: process.env[envName] });
 }
 
 await run("pnpm", ["--filter", "@agent-paste/db", "migrate"]);
@@ -59,6 +68,11 @@ function usage() {
 
 Migration URLs use DATABASE_URL_MIGRATIONS_PREVIEW or DATABASE_URL_MIGRATIONS_PRODUCTION
 (platform_admin direct connection). Hyperdrive Workers use DATABASE_URL_RUNTIME_* (app_role).
+
+Before migrating, the target Neon branch is checked against the Hyperdrive binding's
+origin (apps/api/wrangler.jsonc). Migrations are refused when they diverge so changes
+cannot land on a branch the Workers never read. Set SKIP_HYPERDRIVE_BRANCH_GUARD=1 to
+bypass (only when intentionally migrating a branch Hyperdrive does not serve).
 `);
   process.exit(1);
 }

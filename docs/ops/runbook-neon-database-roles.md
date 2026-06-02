@@ -47,6 +47,19 @@ Local development (`docker-compose`) may keep using the single `DATABASE_URL` su
 
 The owner/bootstrap URL is used only for migrations. Deploy steps never receive it. Once `platform_admin` exists on the shared preview/production branches, hosted migrate workflows should use `DATABASE_URL_MIGRATIONS_*` with that role instead of the owner URL.
 
+## Migration / Hyperdrive branch guard
+
+`DATABASE_URL_MIGRATIONS_*` (where migrations are applied) and the Hyperdrive binding in `apps/api/wrangler.jsonc` (where the Workers read) point at a Neon branch independently. Nothing forces them onto the same branch, so a mismatch silently applies migrations to a database the runtime never reads. That is exactly what happened when `migrate:preview` targeted the `main` branch while preview Hyperdrive read the `preview` branch — `provision-smoke` failed because the runtime DB was missing columns the migration had added elsewhere.
+
+`scripts/migrate.mjs` now runs a pre-flight guard (`scripts/lib/hyperdrive-branch-guard.mjs`) before every migration:
+
+1. Reads the Hyperdrive binding `id` for the target env from `apps/api/wrangler.jsonc`.
+2. Runs `wrangler hyperdrive get <id>` and extracts the Neon endpoint id from `origin.host` (no password is exposed).
+3. Compares it to the endpoint id parsed from the migration URL's host (pooled vs direct hosts for the same branch share an endpoint id; the `-pooler` infix is normalized away).
+4. Refuses to migrate when they differ, naming both endpoints.
+
+If you intentionally migrate a branch Hyperdrive does not serve (e.g. bootstrapping a fresh branch before repointing Hyperdrive), set `SKIP_HYPERDRIVE_BRANCH_GUARD=1`. To clear a real divergence, repoint `DATABASE_URL_MIGRATIONS_<ENV>` at the Hyperdrive branch (or update the Hyperdrive origin via `scripts/create-hyperdrive.mjs`) so both endpoints match, then retry.
+
 ## Verification
 
 ```sh
