@@ -1,8 +1,10 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { AgentPasteError } from "@agent-paste/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseArgs, publishEphemeral } from "../src/index.js";
+import * as credentials from "../src/credentials.js";
+import { ephemeralClaimUrl, parseArgs, publishEphemeral } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -34,9 +36,10 @@ afterEach(() => {
 });
 
 describe("cli ephemeral publish", () => {
-  it("provisions, publishes, and prints share URL plus claim token separately", async () => {
+  it("provisions, publishes, and prints share URL plus claim deep link in the hash", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
@@ -53,19 +56,48 @@ describe("cli ephemeral publish", () => {
 
       expect(provision).toHaveBeenCalledOnce();
       const human = String(stdout.mock.calls.at(-1)?.[0]);
+      const claimUrl = ephemeralClaimUrl(claimToken);
+      expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
       expect(human).toContain("https://app.test/view");
-      expect(human).toContain(`Claim Token: ${claimToken}`);
+      expect(human).toContain(`Claim:      ${claimUrl}`);
+      expect(human).not.toContain(`?${claimToken}`);
       expect(human).not.toContain(`https://app.test/view/${claimToken}`);
-      expect(human).not.toContain(`agent_view/${claimToken}`);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
 
-  it("parses --ephemeral and warns when env credentials are present", async () => {
+  it("defaults ephemeral publish TTL to one day when --ttl is omitted", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-ttl-default-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
+      const publishClient = fakePublishClient();
+      await publishEphemeral(parsedPublishArgs(root), {
+        provision: vi.fn().mockResolvedValue(provisionedCredentials()),
+        createPublishClient: () => publishClient,
+      });
+      expect(publishClient.uploadSessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({ ttl_seconds: 86_400 }),
+        expect.any(String),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when env API key and stored login credentials are present", async () => {
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_API_KEY", "ap_pk_preview_ignored_secret");
+    vi.spyOn(credentials, "loadCredential").mockResolvedValue({
+      api_key: "ap_pk_preview_stored_secret",
+      public_id: "0123456789ABCDEF",
+      workspace_id: "ws_1",
+      member_email: "user@example.test",
+      expires_at: "2099-01-01T00:00:00.000Z",
+    });
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-warn-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
@@ -75,6 +107,7 @@ describe("cli ephemeral publish", () => {
       });
       expect(parseArgs(["publish", root, "--ephemeral"]).flags.get("ephemeral")).toBe(true);
       expect(stderr).toHaveBeenCalledWith("agent-paste: --ephemeral ignores AGENT_PASTE_API_KEY.\n");
+      expect(stderr).toHaveBeenCalledWith("agent-paste: --ephemeral ignores the stored login credential.\n");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -101,17 +134,13 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("surfaces provision failures without printing secrets", async () => {
+  it("surfaces proof-of-work failures after retry without printing secrets", async () => {
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-fail-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-pow-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
       const provision = vi.fn().mockRejectedValue(
-        Object.assign(new Error("ephemeral_provision_rate_limited"), {
-          name: "AgentPasteError",
-          code: "ephemeral_provision_rate_limited",
-          status: 429,
-        }),
+        new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400, requestId: "req_pow" }),
       );
 
       await expect(
@@ -119,7 +148,7 @@ describe("cli ephemeral publish", () => {
           provision,
           createPublishClient: () => fakePublishClient(),
         }),
-      ).rejects.toThrow("ephemeral_provision_rate_limited");
+      ).rejects.toMatchObject({ code: "pow_invalid" });
 
       const stderrOutput = vi
         .mocked(process.stderr.write)
@@ -130,6 +159,72 @@ describe("cli ephemeral publish", () => {
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("surfaces upload failures without printing secrets", async () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-upload-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
+      const publishClient = fakePublishClient();
+      publishClient.putFile = vi.fn().mockRejectedValue(
+        new AgentPasteError({ code: "storage_unavailable", message: "storage_unavailable", status: 503 }),
+      );
+
+      await expect(
+        publishEphemeral(parsedPublishArgs(root), {
+          provision: vi.fn().mockResolvedValue(provisionedCredentials()),
+          createPublishClient: () => publishClient,
+        }),
+      ).rejects.toMatchObject({ code: "storage_unavailable" });
+
+      const stderrOutput = vi
+        .mocked(process.stderr.write)
+        .mock.calls.map(([chunk]) => String(chunk))
+        .join("");
+      expect(stderrOutput).not.toContain(claimToken);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("surfaces provision failures without printing secrets", async () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-fail-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
+      const provision = vi.fn().mockRejectedValue(
+        new AgentPasteError({
+          code: "ephemeral_provision_rate_limited",
+          message: "ephemeral_provision_rate_limited",
+          status: 429,
+        }),
+      );
+
+      await expect(
+        publishEphemeral(parsedPublishArgs(root), {
+          provision,
+          createPublishClient: () => fakePublishClient(),
+        }),
+      ).rejects.toMatchObject({ code: "ephemeral_provision_rate_limited" });
+
+      const stderrOutput = vi
+        .mocked(process.stderr.write)
+        .mock.calls.map(([chunk]) => String(chunk))
+        .join("");
+      expect(stderrOutput).not.toContain(claimToken);
+      expect(stderrOutput).not.toContain(ephemeralApiKey);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ephemeralClaimUrl", () => {
+  it("uses the web app origin with a hash fragment and no query string", () => {
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh/");
+    expect(ephemeralClaimUrl(claimToken)).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
+    expect(ephemeralClaimUrl(claimToken)).not.toContain("?");
   });
 });
 

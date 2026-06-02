@@ -84,6 +84,45 @@ describe("ApiClient ephemeral provision", () => {
     expect(challengeFetch).toBe(2);
   });
 
+  it("throws pow_invalid when both proof-of-work attempts fail", async () => {
+    const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
+    const client = new ApiClient({
+      apiBaseUrl: "https://api.example.test",
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        const body = request.method === "POST" ? await request.clone().json() : null;
+        if (!body || !("solution" in body)) {
+          return Response.json(
+            { error: { code: "pow_required", message: "pow_required", request_id: "req_pow" }, challenge },
+            { status: 401 },
+          );
+        }
+        return Response.json(
+          { error: { code: "pow_invalid", message: "pow_invalid", request_id: "req_bad" } },
+          { status: 400 },
+        );
+      },
+    });
+
+    await expect(client.ephemeral.provision({ maxPowAttempts: 2 })).rejects.toMatchObject({
+      code: "pow_invalid",
+      status: 400,
+      requestId: "req_bad",
+    });
+  });
+
+  it("rejects challenge responses that omit proof-of-work", async () => {
+    const client = new ApiClient({
+      apiBaseUrl: "https://api.example.test",
+      fetch: async () => Response.json({ ok: true }, { status: 200 }),
+    });
+
+    await expect(client.ephemeral.provision({ maxPowAttempts: 1 })).rejects.toMatchObject({
+      code: "ephemeral_provision_unavailable",
+      status: 200,
+    });
+  });
+
   it("surfaces provision failures without echoing secrets", async () => {
     const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
     const client = new ApiClient({

@@ -158,14 +158,16 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
       auth: { type: "api_key", apiKey: provisioned.api_key_secret },
     });
   const result = await runPublish(parsed, publishClient, { ephemeral: true });
+  const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
   const payload = {
     ...result,
     claim_token: provisioned.claim_token,
+    claim_url: claimUrl,
     workspace_id: provisioned.workspace_id,
     api_key_id: provisioned.api_key_id,
     claim_token_id: provisioned.claim_token_id,
   };
-  return output(payload, parsed.global, formatEphemeralPublishResult(result, provisioned.claim_token));
+  return output(payload, parsed.global, formatEphemeralPublishResult(result, claimUrl));
 }
 
 async function noteEphemeralCredentialPrecedence() {
@@ -328,17 +330,29 @@ function formatPublishResult(result: PublishResultShape) {
   ].join("\n");
 }
 
-function formatEphemeralPublishResult(result: PublishResultShape, claimToken: string) {
-  assertClaimTokenNotInPublicUrls(result, claimToken);
+export function ephemeralClaimUrl(claimToken: string) {
+  const base = (process.env.AGENT_PASTE_WEB_URL ?? "https://app.agent-paste.sh").replace(/\/+$/, "");
+  return `${base}/claim#${claimToken}`;
+}
+
+function formatEphemeralPublishResult(result: PublishResultShape, claimUrl: string) {
+  assertClaimTokenNotInPublicUrls(result, claimUrl);
   return [
     formatPublishResult(result),
     "",
-    "Save this Claim Token to take ownership later. It is not part of the public share URL.",
-    `  Claim Token: ${claimToken}`,
+    "Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).",
+    `  Claim:      ${claimUrl}`,
   ].join("\n");
 }
 
-function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimToken: string) {
+function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: string) {
+  const claimToken = claimUrl.split("#")[1] ?? "";
+  if (!claimToken || !claimUrl.includes("#")) {
+    throw new Error("Claim URL must carry the token in the URL hash");
+  }
+  if (claimUrl.includes("?") && claimUrl.includes(claimToken)) {
+    throw new Error("Claim Token must not appear in the URL query string");
+  }
   if (result.view_url.includes(claimToken) || result.agent_view_url.includes(claimToken)) {
     throw new Error("Claim Token must not appear in public share URLs");
   }
