@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import {
-  findSecretCollisions,
-  listWorkerSecrets,
-  putWorkerSecret,
-  workerName,
-} from "./wrangler-secrets.mjs";
+import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, workerName } from "./wrangler-secrets.mjs";
 
 const target = parseTarget(process.argv.slice(2));
 const options = parseOptions(process.argv.slice(2));
@@ -31,7 +26,7 @@ const workerSecrets = [
     names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ARTIFACT_BYTES_ENCRYPTION_KEY"],
   },
   { app: "content", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"] },
-  { app: "jobs", names: ["ARTIFACT_BYTES_ENCRYPTION_KEY"] },
+  { app: "jobs", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"] },
   { app: "stream", names: ["STREAM_INTERNAL_SECRET"] },
   ...(options.includeWeb
     ? [
@@ -204,6 +199,7 @@ ${workerBindings.map((binding) => `  ${binding.worker}: ${binding.names.join(", 
 ${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this script. The wrangler.jsonc vars remain non-secret deployment metadata/placeholders and are not modified here.\n" : ""}
 For ${target} live-update rollout after bootstrap, use scripts/set-stream-internal-secret.mjs with the generated STREAM_INTERNAL_SECRET value instead of re-running bootstrap.
 For existing environments that predate artifact-byte encryption, use scripts/set-artifact-bytes-encryption-secret.mjs to bind the same ARTIFACT_BYTES_ENCRYPTION_KEY on upload, content, and jobs without re-running bootstrap.
+To bind CONTENT_SIGNING_SECRET on all four signing Workers (api, upload, content, jobs) without re-running bootstrap, use scripts/set-content-signing-secret.mjs.
 `);
 }
 
