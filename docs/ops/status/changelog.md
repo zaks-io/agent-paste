@@ -5,6 +5,12 @@ use `git log` for commit-level detail.
 
 ## 2026-06-02
 
+### Ephemeral publish operator runbook (AP-112)
+
+- Added `docs/ops/runbook-ephemeral-publish.md` for provision/publish/claim flow,
+  abuse and lockdown response, Claim Token support guidance, and smoke verification.
+- Reconciled status ledgers with AP-107/108/110/111 completion on `main`.
+
 ### Ephemeral publish foundation and moderation (AP-99/AP-101/AP-104)
 
 - Added Ephemeral Workspace state, `claim_tokens`, RLS coverage, claim-token
