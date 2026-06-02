@@ -1,9 +1,12 @@
+import "@tanstack/react-start/server-only";
+import { LOCAL_TURNSTILE_BYPASS_TOKEN } from "../lib/turnstile-constants";
 import type { WebEnv } from "./env";
 import { getWebEnv } from "./runtime";
 
+export { LOCAL_TURNSTILE_BYPASS_TOKEN };
+
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const TURNSTILE_VERIFY_TIMEOUT_MS = 5000;
-export const LOCAL_TURNSTILE_BYPASS_TOKEN = "local-turnstile-bypass";
 
 export function turnstileSiteKey(env: Pick<WebEnv, "TURNSTILE_SITE_KEY"> = getWebEnv()): string | null {
   const siteKey = env.TURNSTILE_SITE_KEY?.trim();

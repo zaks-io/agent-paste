@@ -15,9 +15,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { ApiError, type ApiErrorInfo, apiFetch } from "./api-client";
 import { getRequestId } from "./runtime";
-import { LOCAL_TURNSTILE_BYPASS_TOKEN, verifyTurnstileToken } from "./turnstile";
-
-export { LOCAL_TURNSTILE_BYPASS_TOKEN };
+import { verifyTurnstileToken } from "./turnstile";
 
 export type MutationResult<T> = { data: T; error: null } | { data: null; error: ApiErrorInfo };
 
