@@ -39,6 +39,7 @@ an existing environment, use targeted scripts instead of re-running bootstrap:
 | `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Root key for per-workspace artifact-byte AES-256-GCM (ADR 0063). Same value on all three Workers.  |
 | `API_KEY_PEPPER_V1`             | api, upload           | Active API-key HMAC pepper.                                                                        |
 | `SMOKE_HARNESS_SECRET`          | api (preview/PR)      | Non-production smoke harness only; never set on production.                                        |
+| `EPHEMERAL_POW_SECRET`          | api (preview/PR/prod) | Proof-of-work signing secret for `POST /v1/ephemeral/provision`. Required for ephemeral publish.   |
 | `STREAM_INTERNAL_SECRET`        | api, stream           | Shared secret for stream Worker calls to `api` live-update authorize.                              |
 | `WORKOS_API_KEY`                | api, web, mcp         | WorkOS server-side API credential. Same target WorkOS project; `bootstrap:* --with-web` writes it. |
 | `WORKOS_CLIENT_ID`              | api, web              | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                         |
@@ -102,17 +103,41 @@ Deferred secrets not created for the current app:
 2. `pnpm verify`
 3. `pnpm smoke:local`
 4. Address the active backlog item, or document why it is deferred.
-5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview`
+5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview &&
+pnpm smoke:preview:ephemeral`
 6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` (optionally with
    `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` for authenticated tool checks).
 7. Same-repo PRs exercise the PR preview deploy workflow automatically. The PR
-   workflow gates on `/healthz` readiness and local dashboard Lighthouse only;
-   full hosted smoke is manual for PRs and automatic after `main` deploy.
+   workflow gates on `/healthz` readiness, hosted ephemeral publish smoke
+   (`scripts/smoke-hosted-ephemeral.mjs pr`), and local dashboard Lighthouse.
+   The standard hosted MVP smoke (`pnpm smoke:pr`) remains manual when diagnosing
+   a preview.
 8. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production &&
-pnpm smoke:mcp:production`. The production GitHub deploy workflow runs the
-   unauthenticated MCP smoke automatically; authenticated MCP tool checks stay
-   manual via `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN`.
+pnpm smoke:production:ephemeral && pnpm smoke:mcp:production`. The production
+   GitHub deploy workflow runs the unauthenticated MCP smoke automatically;
+   authenticated MCP tool checks stay manual via `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN`.
+
+## Hosted ephemeral publish smoke
+
+`scripts/smoke-hosted-ephemeral.mjs` proves the deployed ephemeral chain end to end:
+proof-of-work provision, CLI `publish --ephemeral`, content and Agent View fetches,
+script-disabled CSP, `noindex`, and optional claim redemption.
+
+| Command                           | When to run                                                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pnpm smoke:preview:ephemeral`    | After shared preview deploy when `EPHEMERAL_POW_SECRET` is set on the preview API Worker.             |
+| `pnpm smoke:pr:ephemeral`         | Automatically in `.github/workflows/pr-preview.yml` after PR Workers are ready.                       |
+| `pnpm smoke:production:ephemeral` | Operator-only after production deploy; uses the tiny `examples/local-harness/ephemeral-site` fixture. |
+
+Secrets and skip behavior:
+
+- **Required on API Worker:** `EPHEMERAL_POW_SECRET` (bootstrap via `scripts/bootstrap-secrets.mjs`, or PR preview seed via `PR_PREVIEW_SECRET_SEED`). When missing, the smoke exits **0** with a clear skip message (not a false pass).
+- **Preview/PR cleanup:** `AGENT_PASTE_*_SMOKE_HARNESS_SECRET` deletes the published artifact through `__test__/delete-artifact` (no legacy admin token).
+- **Optional claim check:** `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` (member WorkOS access token). When unset, publish/policy assertions still run; claim redemption is reported as skipped.
+- **Explicit skip:** `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`.
+
+Smoke output redacts the Claim Token hash in the summary line and never logs API keys or signed URL secrets.
 
 ## Database credential boundaries
 

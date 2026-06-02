@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-import { createSign, generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-
-const EPHEMERAL_SITE = fileURLToPath(new URL("../examples/local-harness/ephemeral-site", import.meta.url));
-const EPHEMERAL_MAX_TTL_SECONDS = 86_400;
-const EPHEMERAL_DAILY_ALLOWANCE = 20;
-
-export class EphemeralSmokeError extends Error {
-  constructor(boundary, message) {
-    super(`[ephemeral:${boundary}] ${message}`);
-    this.name = "EphemeralSmokeError";
-    this.boundary = boundary;
-  }
-}
+import {
+  assertAgentView,
+  assertClaimRedemption,
+  assertContentPolicy,
+  assertEphemeralWriteAllowance,
+  assertNoClaimTokenLeakage,
+  assertPublishOutput,
+  classifyCliFailure,
+  EPHEMERAL_SITE_DIR,
+  EphemeralSmokeError,
+  toBoundaryError,
+} from "./smoke-ephemeral-harness.mjs";
 
 /**
  * End-to-end ephemeral publish + claim smoke against a running local MVP harness.
@@ -92,14 +92,7 @@ export async function runLocalEphemeralSmoke(options) {
   try {
     const { stdout, stderr } = await runCli(
       cliEntry,
-      [
-        "publish",
-        EPHEMERAL_SITE,
-        "--ephemeral",
-        "--title",
-        "Ephemeral local smoke",
-        "--json",
-      ],
+      ["publish", EPHEMERAL_SITE_DIR, "--ephemeral", "--title", "Ephemeral local smoke", "--json"],
       cliEnv,
       root,
     );
@@ -111,7 +104,12 @@ export async function runLocalEphemeralSmoke(options) {
 
   assertNoClaimTokenLeakage(published, stderrOutput);
 
-  await assertPublishOutput(published, { apiBaseUrl, contentBaseUrl, claimWebOrigin });
+  await assertPublishOutput(published, {
+    apiBaseUrl,
+    contentBaseUrl,
+    claimWebOrigin,
+    expectedClaimTokenPrefix: "ap_ct_preview_",
+  });
   await assertContentPolicy(published.view_url, published.claim_token);
   await assertAgentView(published, { apiBaseUrl, contentBaseUrl });
   await assertClaimRedemption({
@@ -173,176 +171,6 @@ export function createLocalEphemeralWorkOsStub(workosBaseUrl, workosApiKey, work
   };
 }
 
-function assertNoClaimTokenLeakage(published, stderrOutput) {
-  const claimToken = published.claim_token;
-  assertBoundary(claimToken?.startsWith("ap_ct_preview_"), "publish", "JSON output includes preview Claim Token");
-  assertBoundary(published.claim_url?.includes(`#${claimToken}`), "publish", "claim_url carries token in URL hash");
-  assertBoundary(!published.claim_url?.includes("?"), "publish", "claim_url does not use query string");
-  assertBoundary(
-    !published.view_url?.includes(claimToken),
-    "publish",
-    "view_url does not embed Claim Token",
-  );
-  assertBoundary(
-    !published.agent_view_url?.includes(claimToken),
-    "publish",
-    "agent_view_url does not embed Claim Token",
-  );
-  if (stderrOutput.includes(claimToken)) {
-    throw new EphemeralSmokeError("publish", "stderr leaked Claim Token");
-  }
-}
-
-async function assertPublishOutput(published, { apiBaseUrl, contentBaseUrl, claimWebOrigin }) {
-  assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
-  assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
-  assertBoundary(published.view_url?.startsWith(contentBaseUrl), "content", "view_url targets local content origin");
-  assertBoundary(
-    published.agent_view_url?.startsWith(apiBaseUrl) &&
-      published.agent_view_url.includes("/v1/public/agent-view/"),
-    "content",
-    "agent_view_url targets API agent view",
-  );
-  assertBoundary(
-    published.claim_url === `${claimWebOrigin}/claim#${published.claim_token}`,
-    "publish",
-    "claim_url uses configured web origin and hash fragment",
-  );
-
-  const expiresAt = Date.parse(published.expires_at);
-  assertBoundary(Number.isFinite(expiresAt), "policy", "expires_at is parseable");
-  const ttlSeconds = Math.round((expiresAt - Date.now()) / 1000);
-  assertBoundary(
-    ttlSeconds > 0 && ttlSeconds <= EPHEMERAL_MAX_TTL_SECONDS,
-    "policy",
-    `TTL is within ephemeral cap (${ttlSeconds}s)`,
-  );
-}
-
-async function assertContentPolicy(viewUrl, claimToken) {
-  const response = await fetch(viewUrl);
-  assertBoundary(response.status === 200, "content", `view_url returned ${response.status}`);
-  const csp = response.headers.get("content-security-policy") ?? "";
-  assertBoundary(csp.includes("script-src 'none'"), "policy", "content CSP is script-disabled for ephemeral tier");
-  assertBoundary(
-    response.headers.get("x-robots-tag") === "noindex, nofollow",
-    "policy",
-    "content includes noindex x-robots-tag",
-  );
-  const html = await response.text();
-  assertBoundary(!html.includes(claimToken), "content", "served HTML does not embed Claim Token");
-  assertBoundary(html.includes("Ephemeral Local Smoke"), "content", "view served ephemeral fixture HTML");
-  assertBoundary(
-    html.includes("<title>Agent Paste Ephemeral Smoke</title>"),
-    "policy",
-    "inline script did not execute (title unchanged in served HTML)",
-  );
-  if (!html.includes("noindex")) {
-    assertBoundary(
-      response.headers.get("x-robots-tag") === "noindex, nofollow",
-      "policy",
-      "ephemeral content is noindex via header when HTML omits robots meta",
-    );
-  }
-}
-
-async function assertAgentView(published, { apiBaseUrl, contentBaseUrl }) {
-  const agentView = await fetchJson(published.agent_view_url, { boundary: "content" });
-  assertBoundary(agentView.artifact_id === published.artifact_id, "content", "agent view artifact id matches publish");
-  const indexFile = agentView.files?.find((file) => file.path === "index.html");
-  assertBoundary(indexFile?.url?.startsWith(contentBaseUrl), "content", "agent view lists index.html on content origin");
-  assertBoundary(
-    !indexFile?.url?.includes(published.claim_token),
-    "content",
-    "signed content file URL does not embed Claim Token",
-  );
-  assertBoundary(
-    !JSON.stringify(agentView).includes(published.claim_token),
-    "content",
-    "agent view JSON does not include Claim Token",
-  );
-
-  const browserAgentView = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
-  assertBoundary(browserAgentView.status === 200, "content", "browser agent view HTML returned 200");
-  const browserHtml = await browserAgentView.text();
-  assertBoundary(
-    browserAgentView.headers.get("x-robots-tag") === "noindex, nofollow",
-    "policy",
-    "agent view HTML includes noindex header for ephemeral tier",
-  );
-  assertBoundary(browserHtml.includes(published.artifact_id), "content", "agent view HTML renders artifact id");
-  assertBoundary(!browserHtml.includes(published.claim_token), "content", "agent view HTML omits Claim Token");
-  assertBoundary(browserHtml.includes(apiBaseUrl) || browserHtml.includes("index.html"), "content", "agent view HTML lists files");
-}
-
-async function assertEphemeralWriteAllowance(apiBaseUrl) {
-  const provisioned = await ephemeralProvision(apiBaseUrl);
-  const policy = await fetchJson(`${apiBaseUrl}/v1/usage-policy`, {
-    headers: { authorization: `Bearer ${provisioned.api_key_secret}` },
-    boundary: "provision",
-  });
-  assertBoundary(
-    policy.daily_new_artifact_allowance === EPHEMERAL_DAILY_ALLOWANCE,
-    "policy",
-    "fresh ephemeral workspace daily_new_artifact_allowance is 20",
-  );
-  if (policy.daily_new_artifacts_remaining !== undefined) {
-    assertBoundary(
-      policy.daily_new_artifacts_remaining === EPHEMERAL_DAILY_ALLOWANCE,
-      "policy",
-      "fresh ephemeral workspace has full daily write allowance remaining",
-    );
-  }
-}
-
-async function ephemeralProvision(apiBaseUrl) {
-  const powEntry = fileURLToPath(new URL("../packages/tokens/dist/pow.js", import.meta.url));
-  const { issuePowChallenge, solvePowChallenge } = await import(powEntry);
-  const powSecret = process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret";
-  const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
-  const counter = await solvePowChallenge(challenge);
-  return fetchJson(`${apiBaseUrl}/v1/ephemeral/provision`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ challenge, solution: { nonce: challenge.nonce, counter } }),
-    boundary: "provision",
-  });
-}
-
-async function assertClaimRedemption({ apiBaseUrl, memberAuth, memberWorkspaceId, published }) {
-  const claimed = await fetchJson(`${apiBaseUrl}/v1/ephemeral/claim`, {
-    method: "POST",
-    headers: {
-      ...memberAuth,
-      "content-type": "application/json",
-      "idempotency-key": crypto.randomUUID(),
-    },
-    body: JSON.stringify({ claim_token: published.claim_token }),
-    boundary: "claim",
-  });
-  assertBoundary(
-    claimed.destination_workspace_id === memberWorkspaceId,
-    "claim",
-    "claim reparented artifact into member workspace",
-  );
-  assertBoundary(
-    claimed.artifact_ids?.includes(published.artifact_id),
-    "claim",
-    "claim response lists ephemeral artifact id",
-  );
-
-  const repeat = await fetch(`${apiBaseUrl}/v1/ephemeral/claim`, {
-    method: "POST",
-    headers: {
-      ...memberAuth,
-      "content-type": "application/json",
-      "idempotency-key": crypto.randomUUID(),
-    },
-    body: JSON.stringify({ claim_token: published.claim_token }),
-  });
-  assertBoundary(repeat.status === 404, "claim", "redeemed claim token fails closed as not_found");
-}
-
 function signWorkOsToken({ subject, session, issuer, privateKey, keyId }) {
   const header = { alg: "RS256", kid: keyId, typ: "JWT" };
   const payload = {
@@ -373,28 +201,6 @@ function assertBoundary(condition, boundary, message) {
   if (!condition) {
     throw new EphemeralSmokeError(boundary, message);
   }
-}
-
-function classifyCliFailure(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/upload session|upload-session|PUT exited|upload url/i.test(message)) {
-    return "upload";
-  }
-  if (/finalize|publish exited|artifact_id/i.test(message)) {
-    return "publish";
-  }
-  if (/ephemeral\/provision|proof-of-work|pow/i.test(message)) {
-    return "provision";
-  }
-  return "publish";
-}
-
-function toBoundaryError(boundary, error) {
-  if (error instanceof EphemeralSmokeError) {
-    return error;
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return new EphemeralSmokeError(boundary, message);
 }
 
 function runCli(cliEntry, args, env, cwd) {
