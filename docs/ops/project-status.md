@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-02 (main at AP-108; ephemeral publish/security catch-up).
+Last updated: 2026-06-02 (main at AP-111; ephemeral publish runbook AP-112).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `1c3b14b feat(web): Claim Token redemption UX for ephemeral artifacts (AP-108) (#165)`.
+  `777db63 Add hosted ephemeral publish smoke for preview, PR, and production (#172)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
@@ -23,17 +23,14 @@ and points to the smaller ledgers that own detail.
   drift logging, and plan-derived usage caps (AP-4/AP-6); Checkout/webhooks
   remain for AP-5 and stay post-launch. `apps/stream` implements ADR 0069 Live
   Updates (AP-25), and scanner persistence exists in `packages/db`.
-- Agent-first ephemeral publish is partially implemented through
-  AP-99/AP-101/AP-102/AP-103/AP-104/AP-105: the data model, Claim Token storage,
-  proof-of-work-gated provisioning route, 24h ephemeral auto-deletion cap,
-  noindex content-token/header/meta handling, ephemeral-tier scanner routing,
-  the script-disabled Execution Policy token bit (AP-102), the daily
-  new-artifact write allowance (AP-103), and the claim endpoint that reparents an
-  ephemeral workspace to a claimed `free` workspace (AP-105) are in place.
-  Web Claim Token redemption UX landed in AP-108 (#165). In review: CLI
-  `--ephemeral` publish (AP-107, PR #166). Remaining: claim/upgrade funnel
-  (AP-109), local + hosted ephemeral smokes (AP-110/AP-111), and billing upgrade
-  surfaces.
+- Agent-first ephemeral publish is implemented end-to-end on `main` through
+  AP-99/AP-101/AP-102/AP-103/AP-104/AP-105/AP-107/AP-108/AP-110/AP-111: data
+  model, Claim Token storage, proof-of-work provision, 24h auto-deletion,
+  noindex + script-disabled serving, ephemeral-tier scanner routing, daily write
+  allowance, claim/reparent API, CLI `publish --ephemeral`, web `/claim` UX, and
+  local + hosted smokes (PR preview workflow included). Remaining product slice:
+  claim/upgrade funnel polish (AP-109) and billing upgrade surfaces (AP-5).
+  Operators: [`runbook-ephemeral-publish.md`](./runbook-ephemeral-publish.md).
 - MCP publish chain mints a durable Revision Link per ADR 0061 and is
   replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
   runs the content-invalidation boundary (AP-87).
@@ -81,6 +78,8 @@ Feature-specific ledgers:
   drift, auth failures, and verification.
 - [Logpush runbook](./runbook-logpush.md) - parked Cloudflare Logpush -> Axiom
   work.
+- [Ephemeral publish runbook](./runbook-ephemeral-publish.md) - provision,
+  publish, claim, abuse, support, and smoke verification (AP-112).
 
 ## Current Phase
 
@@ -97,8 +96,8 @@ surfaces, ephemeral claim/upgrade, and ops polish.
 Highest-signal gaps:
 
 - Post-launch/Phase 6 follow-ups: Stripe Checkout/webhooks/Portal (AP-5),
-  hosted billing UI, operator plan override, ephemeral Claim Token redemption,
-  CLI/web `--ephemeral` entrypoints, and claim/upgrade UX.
+  hosted billing UI, operator plan override, and ephemeral claim/upgrade funnel
+  polish (AP-109).
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
 - Parked ops/security hardening: optional dedicated admin hostname decision.
 
@@ -142,9 +141,9 @@ Full component map:
 - Stripe Checkout + webhooks (AP-5, ADRs 0073/0074) are intentionally
   post-launch; the local source of truth, `BillingProvider` seam, and
   reconciliation backstop already exist.
-- Ephemeral publish is not complete until claim redemption, script-disabled
-  serving, and user-facing publish/claim entrypoints land; the provisioning,
-  PoW, moderation, noindex, and short-retention pieces already exist.
+- Ephemeral publish code and smokes are on `main`; treat a specific environment
+  as live only after its hosted ephemeral smoke passes (see
+  `runbook-ephemeral-publish.md`). AP-109 claim/upgrade funnel polish remains.
 
 ## Maintenance Rules
 

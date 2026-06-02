@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-02 (AP-108 claim UX merged; AP-107 in review).
+Last updated: 2026-06-02 (AP-110/AP-111 smokes merged; AP-112 runbook).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -176,24 +176,13 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
 4. [x] Add `workspace_billing` and daily jobs reconciliation so local
        entitlements converge even if webhooks are delayed or disabled.
 5. [ ] Add hosted web billing UI and operator plan override.
-6. [ ] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
+6. [x] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
        `docs/specs/ephemeral-publish.md`). Self-provisioned Ephemeral Workspace
-       behind proof-of-work, daily new-artifact write allowance as the gate
-       (reads stay free), one-time Claim Token promotion to a claimed `free`
-       workspace, and ephemeral-tier scanning (Llama Guard 3 / URL Scanner)
-       through the existing safety-scanner seam. Executable JS requires a claimed
-       tier: ephemeral content serves a script-disabled Execution Policy selected
-       by a content-gateway token bit (ADR 0030 refined), so the platform only
-       runs agent code behind an auditable identity. Depends on Phase 3 auth and
-       the billing flag above.
-       AP-99/AP-101/AP-102/AP-103/AP-104/AP-105 landed the data model,
-       `claim_tokens`, PoW route, ephemeral provisioning, 24h auto-deletion cap,
-       noindex token/header/meta handling, ephemeral scanner routing, the
-       script-disabled Execution Policy token bit, the daily new-artifact write
-       allowance, the claim/reparent endpoint, and web Claim Token redemption UX
-       (AP-108, #165). In review: CLI `--ephemeral` publish (AP-107, PR #166).
-       Remaining: claim/upgrade funnel (AP-109) and local + hosted ephemeral
-       smokes (AP-110/AP-111).
+       behind proof-of-work, daily new-artifact write allowance, Claim Token
+       promotion, ephemeral-tier scanning, and script-disabled serving are
+       implemented (AP-99–AP-108, AP-107 CLI, AP-110 local smoke, AP-111 hosted
+       smoke). Operator runbook: `docs/ops/runbook-ephemeral-publish.md` (AP-112).
+       Remaining: claim/upgrade funnel polish (AP-109) and Stripe checkout (AP-5).
 
 ## Codebase Follow-Ups
 

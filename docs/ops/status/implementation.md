@@ -1,14 +1,15 @@
 # Implementation State
 
-Last updated: 2026-06-02.
+Last updated: 2026-06-02 (AP-112 runbook).
 
 ## Snapshot
 
 - Local `main` and `origin/main` are aligned at
-  `240c4cd AP-104: Ephemeral moderation, 24h auto-deletion, and noindex (#155)`.
-- AP-99/AP-101/AP-104 add Ephemeral Workspace data/Claim Tokens,
-  proof-of-work-gated provisioning, short-retention/noindex serving, and
-  ephemeral scanner routing.
+  `777db63 Add hosted ephemeral publish smoke for preview, PR, and production (#172)`.
+- AP-99 through AP-111 add Ephemeral Workspace provisioning, claim, CLI
+  `--ephemeral`, web claim UX, script-disabled/noindex serving, and local +
+  hosted ephemeral smokes. Operator notes:
+  [`runbook-ephemeral-publish.md`](../runbook-ephemeral-publish.md).
 - Last recorded `pnpm verify` passed on 2026-05-28: 80 Turbo tasks successful.
 - Last recorded hosted MVP smokes remain green from the 2026-05-22 production
   run and the later preview/web deploy checks recorded in the changelog.
@@ -18,10 +19,10 @@ Last updated: 2026-06-02.
 | Component                 | Status                      | Notes                                                                                                                                                                                                                                                                                                                                                       |
 | ------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/apex`               | Implemented                 | Marketing/apex Worker, auth vanity redirects, agent-facing copy, and tests.                                                                                                                                                                                                                                                                                 |
-| `apps/api`                | Implemented                 | Public Agent View, dashboard APIs, WorkOS callback/member provisioning, operator APIs, operator event browsing, revision publish/list, and `POST /v1/ephemeral/provision` PoW provisioning.                                                                                                                                                                 |
+| `apps/api`                | Implemented                 | Public Agent View, dashboard APIs, WorkOS callback/member provisioning, operator APIs, operator event browsing, revision publish/list, `POST /v1/ephemeral/provision`, and `POST /v1/ephemeral/claim`.                                                                                                                                                      |
 | `apps/upload`             | Implemented                 | Session create (including update sessions), signed upload-worker PUTs, R2 writes, finalize to draft revision.                                                                                                                                                                                                                                               |
-| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads/decrypt, CSP/security headers, noindex ephemeral serving, extension-derived MIME, denylist, read throttling. Script-disabled ephemeral CSP remains an ADR 0075 gap.                                                                                                                                     |
-| `apps/cli`                | Implemented                 | `publish` (finalize + publish), optional `--artifact-id` updates, `whoami`, `login`, `logout`, local credential storage, and API-client plumbing.                                                                                                                                                                                                           |
+| `apps/content`            | Implemented                 | Signed content-token verification, private R2 reads/decrypt, CSP/security headers, noindex ephemeral serving, script-disabled ephemeral CSP via content-token bit, extension-derived MIME, denylist, read throttling.                                                                                                                                       |
+| `apps/cli`                | Implemented                 | `publish` (finalize + publish) with `--ephemeral`, optional `--artifact-id` updates, `whoami`, `login`, `logout`, local credential storage, and API-client plumbing.                                                                                                                                                                                        |
 | `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, operator event browsing, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Link `/al/{publicId}` viewer and resolve proxy route ship; dashboard Access Link management UI remains deferred.                                          |
 | `apps/jobs`               | Implemented for current app | Cron discovery (upload cleanup, 24h ephemeral auto-deletion, auto-deletion skipping pinned artifacts, retention for non-current revisions, billing reconciliation, purge recovery, maintenance GC), queue consumers + DLQs, bundle zip generation + DLQ `mark_failed`, built-in and ephemeral-tier safety scan warning replacement (AP-21/22/23/24/33/104). |
 | `apps/mcp`                | Implemented                 | Streamable HTTP MCP transport, WorkOS JWT verification, twelve-tool surface, API/upload forwarding, hosted/local smoke (`pnpm smoke:mcp`). See [`docs/ops/runbook-mcp-hosts.md`](../runbook-mcp-hosts.md).                                                                                                                                                  |
@@ -41,12 +42,12 @@ Last updated: 2026-06-02.
 
 ## Planned But Absent
 
-| Planned item                     | Earliest phase | Current state                                                                                                             |
-| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Stripe Checkout/webhooks/Portal  | Post-launch    | Not implemented; AP-5 remains the main billing code gap.                                                                  |
-| Hosted billing UI                | Post-launch    | Not implemented; plan state exists, but no member/operator billing UI.                                                    |
-| Ephemeral claim/user entrypoints | Post-launch    | Provisioning exists; claim redemption, script-disabled serving, CLI/web `--ephemeral` entrypoints, and upgrade UX remain. |
-| Access Link management UI        | Phase 4        | `access_links` storage/codec/resolve/viewer landed. Dashboard link management UI still pending.                           |
+| Planned item                    | Earliest phase | Current state                                                                                                 |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------- |
+| Stripe Checkout/webhooks/Portal | Post-launch    | Not implemented; AP-5 remains the main billing code gap.                                                      |
+| Hosted billing UI               | Post-launch    | Not implemented; plan state exists, but no member/operator billing UI.                                        |
+| Ephemeral claim/upgrade funnel  | Post-launch    | Provision, claim API, CLI `--ephemeral`, web `/claim`, and smokes ship; AP-109 upgrade funnel polish remains. |
+| Access Link management UI       | Phase 4        | `access_links` storage/codec/resolve/viewer landed. Dashboard link management UI still pending.               |
 
 ## Known Implementation Gaps
 
