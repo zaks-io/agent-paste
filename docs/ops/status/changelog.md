@@ -3,6 +3,32 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-02
+
+### Ephemeral publish foundation and moderation (AP-99/AP-101/AP-104)
+
+- Added Ephemeral Workspace state, `claim_tokens`, RLS coverage, claim-token
+  hashing, and repository workflow support.
+- Added `POST /v1/ephemeral/provision` with proof-of-work challenge/solution
+  handling, dedicated rate-limit bindings, and returned API Key + Claim Token.
+- Added the 24h ephemeral auto-deletion cap, noindex/nofollow token signal,
+  noindex headers/meta injection, and ephemeral-tier scanner routing with URL
+  Scanner/Platform Lockdown integration.
+
+### Platform and repo modularization catch-up
+
+- Split API route families, DB repository workflows/entities, web command
+  palette modules, contracts route/MCP registries, and shared WorkOS/MCP auth
+  primitives into focused modules.
+- Added `packages/billing` with plan helpers, `BillingProvider` adapters,
+  synchronization/reconciliation, drift logging, and `workspace_billing`.
+- Added app-layer Artifact bytes encryption helpers and Worker key-ring support.
+- Added ADR 0076 for public security badge posture and kept npm publish blocked
+  while the CLI remains `UNLICENSED`.
+- Restored AP-91 route coverage and added stale PR-preview cleanup tooling.
+- Synced repo workflow skills, added `workflow-decompose`, and excluded vendored
+  `.agents` skills from Biome formatting.
+
 ## 2026-05-28
 
 ### Stronger audit semantics and operator abuse workflows (AP-34)

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-29 (gitleaks CI gate + CLI publish guard; Wave 4-6 catch-up).
+Last updated: 2026-06-02 (main at AP-104; ephemeral publish/security catch-up).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `687e33c chore(cli): make CLI publishable as @zaks-io/agent-paste (#142)`.
+  `240c4cd AP-104: Ephemeral moderation, 24h auto-deletion, and noindex (#155)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
@@ -23,6 +23,12 @@ and points to the smaller ledgers that own detail.
   drift logging, and plan-derived usage caps (AP-4/AP-6); Checkout/webhooks
   remain for AP-5 and stay post-launch. `apps/stream` implements ADR 0069 Live
   Updates (AP-25), and scanner persistence exists in `packages/db`.
+- Agent-first ephemeral publish is partially implemented through AP-99/AP-101/AP-104:
+  the data model, Claim Token storage, proof-of-work-gated provisioning route,
+  24h ephemeral auto-deletion cap, noindex content-token/header/meta handling,
+  and ephemeral-tier scanner routing are in place. Claim redemption,
+  script-disabled serving, CLI/web entrypoints, and billing upgrade surfaces
+  remain.
 - MCP publish chain mints a durable Revision Link per ADR 0061 and is
   replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
   runs the content-invalidation boundary (AP-87).
@@ -74,16 +80,20 @@ Feature-specific ledgers:
 Phase 3 is complete. WorkOS project setup, web AuthKit integration, CLI
 login, dashboard data loaders, key lifecycle, audit reads, settings mutation,
 operator lockdown APIs, preview/production web deploys, hosted web auth smoke,
-and deep-link return paths are implemented.
+and deep-link return paths are implemented. Phase 4 and Phase 5 are complete
+for the current Access Link, lifecycle/jobs/bundle, Live Updates, and MCP
+surfaces. Current active work is post-launch/Phase 6 hardening around billing
+surfaces, ephemeral claim/upgrade, and ops polish.
 
 ## Not Yet Implemented From The Docs
 
 Highest-signal gaps:
 
+- Post-launch/Phase 6 follow-ups: Stripe Checkout/webhooks/Portal (AP-5),
+  hosted billing UI, operator plan override, ephemeral Claim Token redemption,
+  CLI/web `--ephemeral` entrypoints, and claim/upgrade UX.
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
 - Parked ops/security hardening: optional dedicated admin hostname decision.
-- Post-launch: Stripe Checkout + webhooks (AP-5) and billing UI. Plan tiers,
-  reconciliation, and plan-derived caps already landed (AP-4/AP-6).
 
 ## Publish / open-source gate
 
@@ -109,9 +119,9 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
   Checkout/webhooks pending AP-5) and app-layer Artifact-bytes encryption in
   `packages/storage`.
 - Partial: `jobs` only where future hardening adds new queue families beyond
-  the current lifecycle/bundle/safety-scan set.
+  the current lifecycle/bundle/safety-scan/billing-reconcile set.
 - Scaffolded only: none in the active app set.
-- Placeholder UI: `web` Access Links.
+- Placeholder UI: dashboard Access Link management.
 
 Full component map:
 [implementation.md](./status/implementation.md#components).
@@ -123,8 +133,11 @@ Full component map:
 - Production deploy gate/wait-timer/vault posture remains parked in
   [hosted-ops.md](./status/hosted-ops.md#open-ops-items).
 - Stripe Checkout + webhooks (AP-5, ADRs 0073/0074) are intentionally
-  post-launch; the local source of truth and reconciliation backstop already
-  exist.
+  post-launch; the local source of truth, `BillingProvider` seam, and
+  reconciliation backstop already exist.
+- Ephemeral publish is not complete until claim redemption, script-disabled
+  serving, and user-facing publish/claim entrypoints land; the provisioning,
+  PoW, moderation, noindex, and short-retention pieces already exist.
 
 ## Maintenance Rules
 

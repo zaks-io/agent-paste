@@ -1,18 +1,15 @@
 # Phase Backlog
 
-Last updated: 2026-05-28 (AP-33 safety scanner warning persistence).
-remaining work. When asked to "implement the next step", start at the first
-unchecked item in the active phase below unless the user says otherwise.
+Last updated: 2026-06-02 (AP-104 ephemeral moderation/provisioning catch-up).
+Tracks remaining work. When asked to "implement the next step", start at the
+first unchecked item in the active work below unless the user says otherwise.
 
 ## Current Position
 
-Phase 1 is complete for the hosted CLI-first MVP. Phase 3 is the active product
-phase. The WorkOS dashboard, CLI login, web deploys, and dashboard API tranches
-are already implemented. Phase 3 is now close-out and operator-surface work, not
-initial OAuth/dashboard bring-up.
-
-Access Links are not Phase 3. They start in Phase 4 because they depend on
-multi-revision artifacts and the Access Link signing-key family.
+Phase 1 is complete for the hosted CLI-first MVP. Phase 3 is complete. Phase 4
+and Phase 5 are complete for the current Access Link, jobs/lifecycle/bundle,
+Live Updates, and MCP surfaces. Active product work is now post-launch/Phase 6:
+billing surfaces, ephemeral publish claim/upgrade, and security/ops polish.
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
@@ -21,7 +18,7 @@ the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TO
 Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
 
-## Active: Phase 3 Close-Out
+## Phase 3 Close-Out
 
 Goal: self-serve browser signup/login, dashboard use, CLI login, and operator
 admin basics.
@@ -150,7 +147,10 @@ Recommended order:
 Goal: security, abuse, and enterprise-shaped controls once the core product has
 usage.
 
-1. [ ] Application-layer encryption for artifact bytes.
+1. [x] Application-layer encryption for artifact bytes.
+       Implemented in `packages/storage/src/artifact-bytes-encryption.ts` with
+       Worker env key-ring resolution, encrypted upload/bundle paths, and
+       content/job decrypt support.
 2. [x] Real safety scanner integration behind the scanner interface.
        Publishes enqueue `safety-scan`, the jobs worker runs the replaceable
        built-in content scanner, and warnings are stored with scanner
@@ -167,9 +167,9 @@ usage.
 
 Goal: hosted-service monetization without making self-hosters configure Stripe.
 
-1. [ ] Add `workspaces.plan` and plan-resolved usage policy values behind a
+1. [x] Add `workspaces.plan` and plan-resolved usage policy values behind a
        deploy-time billing flag that is off by default.
-2. [ ] Create severable `packages/billing` with a `BillingProvider` seam and a
+2. [x] Create severable `packages/billing` with a `BillingProvider` seam and a
        no-op adapter.
 3. [ ] Add Stripe Checkout, synchronous activation, idempotent webhooks, and
        Customer Portal routes mounted in `api` only when billing is enabled.
@@ -186,6 +186,11 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        by a content-gateway token bit (ADR 0030 refined), so the platform only
        runs agent code behind an auditable identity. Depends on Phase 3 auth and
        the billing flag above.
+       AP-99/AP-101/AP-104 landed the data model, `claim_tokens`, PoW route,
+       ephemeral provisioning, 24h auto-deletion cap, noindex token/header/meta
+       handling, and ephemeral scanner routing. Remaining work: claim
+       redemption, script-disabled serving, CLI/web publish entrypoints, and
+       claim/upgrade UX.
 
 ## Codebase Follow-Ups
 
@@ -195,7 +200,9 @@ These are not phase gates, but they are documented cleanup:
       faithfulness.
 - [ ] Deepen the Upload Session lifecycle module when Phase 4 publish/update
       work starts.
-- [ ] Decide whether `deleted_r2_objects` is replay-stable or best-effort.
+- [x] Decide whether `deleted_r2_objects` is replay-stable or best-effort.
+      Documented as best-effort and not replay-stable in
+      `docs/ops/repository-todo.md`; no core refactor is active.
 - [x] Deepen deletion/invalidation side effects once jobs own lifecycle byte
       purge (AP-40).
 - [ ] Split `RepositoryCore` if growth continues, without reintroducing backend
