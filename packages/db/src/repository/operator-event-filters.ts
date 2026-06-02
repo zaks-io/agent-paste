@@ -41,7 +41,5 @@ export function resolveOperatorEventActions(filters: OperatorEventFilters): stri
   if (!filters.focus || filters.focus === "all") {
     return undefined;
   }
-  return filters.focus === "security"
-    ? [...OPERATOR_SECURITY_EVENT_ACTIONS]
-    : [...OPERATOR_LIFECYCLE_EVENT_ACTIONS];
+  return filters.focus === "security" ? [...OPERATOR_SECURITY_EVENT_ACTIONS] : [...OPERATOR_LIFECYCLE_EVENT_ACTIONS];
 }

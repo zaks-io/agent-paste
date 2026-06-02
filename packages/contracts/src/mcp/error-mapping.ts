@@ -1,13 +1,10 @@
 import type { ErrorCode } from "../common.js";
 import {
-  MCP_API_ERROR_HTTP_STATUS,
-  type McpProtocolErrorCode,
-} from "./error-codes.js";
-import {
   MCP_JSONRPC_APPLICATION_ERROR,
   MCP_JSONRPC_INVALID_PARAMS,
   MCP_JSONRPC_METHOD_NOT_FOUND,
 } from "./constants.js";
+import { MCP_API_ERROR_HTTP_STATUS, type McpProtocolErrorCode } from "./error-codes.js";
 import type { McpJsonRpcError, McpMappedToolError } from "./jsonrpc.js";
 
 export function mapApiErrorToMcp(error: {

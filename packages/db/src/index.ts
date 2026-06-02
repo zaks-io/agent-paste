@@ -54,10 +54,10 @@ export { createPostgresServices } from "./postgres/services.js";
 export {
   type CreatePostgresRuntimeOptions,
   createPostgresRuntime,
+  isHyperdriveBinding,
   type PostgresRuntime,
   type PostgresRuntimeAuth,
   type WorkerPostgresEnv,
-  isHyperdriveBinding,
 } from "./postgres/worker-runtime.js";
 export { EPHEMERAL_PROVISION_SYSTEM_ACTOR } from "./repository/core-helpers.js";
 export type { Repository } from "./repository/interface.js";

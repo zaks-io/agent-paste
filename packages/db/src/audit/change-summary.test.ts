@@ -35,9 +35,9 @@ describe("change-summary", () => {
   });
 
   it("formats publish and settings summaries", () => {
-    expect(
-      formatChangeSummary("artifact.published", { revision_number: 2, file_count: 3, secret: "x" }),
-    ).toBe("Published revision 2 (3 files)");
+    expect(formatChangeSummary("artifact.published", { revision_number: 2, file_count: 3, secret: "x" })).toBe(
+      "Published revision 2 (3 files)",
+    );
     expect(formatChangeSummary("workspace.settings.updated", { auto_deletion_days: 14 })).toBe(
       "Workspace settings updated (14-day auto-deletion)",
     );
@@ -55,9 +55,7 @@ describe("change-summary", () => {
     expect(formatChangeSummary("platform.lockdown.lifted", { scope: "workspace", reason_code: "abuse" })).toBe(
       "Platform lockdown lifted on workspace (was: abuse)",
     );
-    expect(formatChangeSummary("platform.lockdown.set", { scope: "unknown" })).toBe(
-      "Platform lockdown set on target",
-    );
+    expect(formatChangeSummary("platform.lockdown.set", { scope: "unknown" })).toBe("Platform lockdown set on target");
   });
 
   it("formats lifecycle action summaries across branches", () => {

@@ -1,8 +1,4 @@
-import {
-  hasApiKeyPepperBinding,
-  pepperRingFromWorkerEnv,
-  resolveApiKeyPepperMaterial,
-} from "@agent-paste/rotation";
+import { hasApiKeyPepperBinding, pepperRingFromWorkerEnv, resolveApiKeyPepperMaterial } from "@agent-paste/rotation";
 import { isBillingEnabled } from "../policy.js";
 import type { Repository } from "../repository/interface.js";
 import type { ApiKeyActor, HyperdriveBinding, RepositoryOptions } from "../types.js";

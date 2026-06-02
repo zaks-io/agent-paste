@@ -1,4 +1,4 @@
-import { ErrorCode, type ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
+import type { ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
 
 export const RepositoryErrorCode = {
   access_link_inactive_artifact_missing: "access_link_inactive_artifact_missing",
@@ -11,8 +11,7 @@ export const RepositoryErrorCode = {
   access_link_share_cannot_pin_revision: "access_link_share_cannot_pin_revision",
   api_key_not_found: "api_key_not_found",
   artifact_not_found: "artifact_not_found",
-  create_postgres_services_missing_connection_or_executor:
-    "create_postgres_services_missing_connection_or_executor",
+  create_postgres_services_missing_connection_or_executor: "create_postgres_services_missing_connection_or_executor",
   current_api_key_not_found: "current_api_key_not_found",
   draft_revision_conflict: "draft_revision_conflict",
   drizzle_not_bound_to_executor: "drizzle_not_bound_to_executor",

@@ -10,8 +10,8 @@ import {
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
   mcpIdempotencySegment,
-  mcpPublishAccessLinkIdempotencyKey,
   mcpProtectedResourceMetadata,
+  mcpPublishAccessLinkIdempotencyKey,
   mcpScopeClaimIncludesMemberOnlyScopes,
   mcpScopesToApiScopes,
   mcpTokenHasRequiredScopes,
@@ -204,7 +204,9 @@ describe("MCP auth and idempotency helpers", () => {
 
   it("derives distinct publish access-link idempotency keys from the tool key", () => {
     const toolKey = IdempotencyKey.parse("mcp:user_01:42:publish_artifact");
-    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "revision")).toBe("mcp:user_01:42:publish_artifact:revision-link");
+    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "revision")).toBe(
+      "mcp:user_01:42:publish_artifact:revision-link",
+    );
     expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "share")).toBe("mcp:user_01:42:publish_artifact:share-link");
   });
 

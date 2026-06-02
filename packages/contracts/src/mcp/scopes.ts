@@ -1,11 +1,7 @@
 import type { Scope } from "../enums.js";
-import {
-  MCP_DELEGATED_SCOPES,
-  MCP_EXCLUDED_MEMBER_ONLY_SCOPES,
-  MCP_RESOURCE_INDICATOR,
-} from "./constants.js";
-import { McpProtectedResourceMetadata, McpScope } from "./schemas.js";
+import { MCP_DELEGATED_SCOPES, MCP_EXCLUDED_MEMBER_ONLY_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
 import type { McpScope as McpScopeValue } from "./schemas.js";
+import { McpProtectedResourceMetadata, McpScope } from "./schemas.js";
 
 const mcpScopeSet = new Set<string>(MCP_DELEGATED_SCOPES);
 const excludedMemberOnlyScopeSet = new Set<string>(MCP_EXCLUDED_MEMBER_ONLY_SCOPES);
@@ -26,7 +22,10 @@ export function mcpWwwAuthenticateHeader(resource = MCP_RESOURCE_INDICATOR): str
   return `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resourceMetadata}"`;
 }
 
-export function mcpTokenHasRequiredScopes(granted: readonly McpScopeValue[], required: readonly McpScopeValue[]): boolean {
+export function mcpTokenHasRequiredScopes(
+  granted: readonly McpScopeValue[],
+  required: readonly McpScopeValue[],
+): boolean {
   const grantedSet = new Set(granted);
   return required.every((scope) => grantedSet.has(scope));
 }
