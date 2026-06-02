@@ -334,7 +334,7 @@ function unquote(value) {
 
 // Cloudflare `ratelimits` bindings count per edge location (colo), not globally. Parallel
 // bursts from one client can fan out across PoPs so no single counter reaches the binding
-// limit. Serial probes on one host keep traffic on one colo and make hosted smokes stable.
+// limit. Serial probes on one host substantially reduce PoP fan-out versus parallel waves.
 const RATE_LIMIT_BINDING_CEILING = 60;
 const RATE_LIMIT_PROBE_OVERSHOOT = 20;
 
@@ -372,17 +372,14 @@ async function assertArtifactRateLimitFires(contentUrl) {
   const probeStart = Date.now();
   const maxAttempts = RATE_LIMIT_BINDING_CEILING + RATE_LIMIT_PROBE_OVERSHOOT;
   for (let index = 0; index < maxAttempts; index += 1) {
-    const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, 1, index), {
+    const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, index), {
       method: "HEAD",
       cache: "no-store",
     });
     if (response.status === 429) {
-      const payload = await response.json();
-      assert(
-        payload?.error?.code === "rate_limited_artifact",
-        `expected rate_limited_artifact envelope, got ${JSON.stringify(payload)}`,
-      );
+      // HEAD responses have no body (RFC 9110); the worker still sets Retry-After.
       assert(response.headers.get("retry-after") === "60", "content rate-limited response sets Retry-After: 60");
+      await response.body?.cancel?.();
       return;
     }
     await response.body?.cancel?.();
@@ -390,9 +387,9 @@ async function assertArtifactRateLimitFires(contentUrl) {
   throw new Error(`content Artifact Rate Limit never returned 429 after ${maxAttempts} serial attempts`);
 }
 
-function rateLimitProbeUrl(contentUrl, probeStart, wave, index) {
+function rateLimitProbeUrl(contentUrl, probeStart, index) {
   const url = new URL(contentUrl);
-  url.searchParams.set("rl_probe", `${probeStart}-w${wave}-${index}`);
+  url.searchParams.set("rl_probe", `${probeStart}-${index}`);
   return url;
 }
 

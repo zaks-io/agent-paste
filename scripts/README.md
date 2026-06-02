@@ -217,7 +217,7 @@ Assertions:
 - browser Agent View HTML returns `text/html` and renders the artifact/file list
 - content HTML returns the published fixture
 - deleting the artifact makes the old content URL return `404`
-- preview/PR content Artifact Rate Limit returns `rate_limited_artifact` (serial burst: CF bindings are per-colo)
+- preview/PR content Artifact Rate Limit returns HTTP 429 with `Retry-After: 60` (serial HEAD burst; CF bindings are per-colo)
 - apex `/`, `/llms.txt`, `/agents.md`, and product-surface redirects behave without cookies
 - web `/healthz` returns 200 and `/api/auth/sign-in` returns a WorkOS 307 when a web URL is configured
 
