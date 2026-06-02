@@ -11,7 +11,7 @@ describe("isValidContentTokenPayload", () => {
     expect(isValidContentTokenPayload(base)).toBe(true);
   });
 
-  it("accepts optional workspace_id, access_link_id, key_prefix, and paths", () => {
+  it("accepts optional workspace_id, access_link_id, key_prefix, paths, noindex, and script_disabled", () => {
     expect(
       isValidContentTokenPayload({
         ...base,
@@ -20,6 +20,7 @@ describe("isValidContentTokenPayload", () => {
         key_prefix: "art_1/rev_1",
         paths: ["index.html", "style.css"],
         noindex: true,
+        script_disabled: true,
       }),
     ).toBe(true);
   });

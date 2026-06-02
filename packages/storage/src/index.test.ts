@@ -4,6 +4,8 @@ import {
   CONTENT_SECURITY_HEADERS,
   contentTypeForPath,
   responseHeadersForPath,
+  SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+  servedContentForPath,
 } from "./index";
 
 describe("storage helpers", () => {
@@ -45,5 +47,15 @@ describe("storage helpers", () => {
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     });
+  });
+
+  it("uses the script-disabled policy when requested", () => {
+    expect(servedContentForPath("index.html", { scriptDisabled: true }).csp).toBe(
+      SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+    );
+    expect(servedContentForPath("index.html", { scriptDisabled: false }).csp).toBe(BASE_CONTENT_SECURITY_POLICY);
+    expect(servedContentForPath("chart.svg", { scriptDisabled: true }).csp).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    );
   });
 });

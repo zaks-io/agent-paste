@@ -67,6 +67,18 @@ export const BASE_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/** Base CDN-allowlisted policy with script execution removed (ephemeral tier). */
+export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "img-src 'self' data: blob:",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "script-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 export const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
 
 export const CONTENT_SECURITY_HEADERS = {
@@ -96,16 +108,18 @@ export function contentTypeForPath(path: string): string {
   return DEFAULT_MIME_TYPE;
 }
 
-export function servedContentForPath(path: string): ServedContent {
+export function servedContentForPath(path: string, options?: { scriptDisabled?: boolean }): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
+  const scriptDisabled = options?.scriptDisabled === true;
+  const baseCsp = scriptDisabled ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {
-    return { contentType, disposition: "attachment", csp: BASE_CONTENT_SECURITY_POLICY };
+    return { contentType, disposition: "attachment", csp: baseCsp };
   }
   if (extension === ".svg") {
     return { contentType, disposition: "inline", csp: SVG_CONTENT_SECURITY_POLICY };
   }
-  return { contentType, disposition: "inline", csp: BASE_CONTENT_SECURITY_POLICY };
+  return { contentType, disposition: "inline", csp: baseCsp };
 }
 
 export function attachmentFilename(path: string): string {
