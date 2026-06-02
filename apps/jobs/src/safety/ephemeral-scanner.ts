@@ -86,15 +86,18 @@ async function llamaGuardWarnings(
     const result = await ai.run(LLAMA_GUARD_MODEL, {
       messages: [{ role: "user", content: combined }],
     });
-    if (!isUnsafeLlamaGuardResult(result)) {
+    const verdict = parseLlamaGuardWorkersAiResult(result);
+    if (!verdict || verdict.label !== "unsafe") {
       return [];
     }
+    const categoryDetail =
+      verdict.categories.length > 0 ? ` (${verdict.categories.join(", ")})` : "";
     return [
       {
         code: "llama_guard_unsafe",
         severity: "warning",
         scope: "revision",
-        message: "Llama Guard flagged potentially unsafe content in this revision.",
+        message: `Llama Guard flagged potentially unsafe content${categoryDetail}.`,
       },
     ];
   } catch {
@@ -102,19 +105,51 @@ async function llamaGuardWarnings(
   }
 }
 
-function isUnsafeLlamaGuardResult(result: unknown): boolean {
+export type LlamaGuardVerdict =
+  | { label: "safe" }
+  | { label: "unsafe"; categories: readonly string[] };
+
+const LLAMA_GUARD_CATEGORY_PATTERN = /\bS(?:1[0-4]|[1-9])\b/g;
+
+/** Parses Workers AI `{ response: string }` from `@cf/meta/llama-guard-3-8b`. */
+export function parseLlamaGuardWorkersAiResult(result: unknown): LlamaGuardVerdict | null {
   if (!result || typeof result !== "object") {
-    return false;
+    return null;
   }
   const response = (result as { response?: unknown }).response;
-  if (typeof response === "string") {
-    return response.toLowerCase().includes("unsafe");
+  if (typeof response !== "string") {
+    return null;
   }
-  if (!response || typeof response !== "object") {
-    return false;
+  return parseLlamaGuardVerdictText(response);
+}
+
+/** First line must be exactly `safe` or `unsafe`; category codes follow on later lines. */
+export function parseLlamaGuardVerdictText(text: string): LlamaGuardVerdict | null {
+  const lines = text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const verdictLine = lines[0]?.toLowerCase();
+  if (!verdictLine) {
+    return null;
   }
-  const safe = (response as { safe?: unknown }).safe;
-  return safe === false;
+  if (verdictLine === "safe") {
+    return { label: "safe" };
+  }
+  if (verdictLine !== "unsafe") {
+    return null;
+  }
+  const categorySource = lines.slice(1).join("\n");
+  return { label: "unsafe", categories: extractLlamaGuardCategories(categorySource) };
+}
+
+function extractLlamaGuardCategories(text: string): string[] {
+  const matches = text.match(LLAMA_GUARD_CATEGORY_PATTERN);
+  if (!matches) {
+    return [];
+  }
+  return [...new Set(matches)];
 }
 
 function decodeText(file: SafetyScannerFile): string | null {
