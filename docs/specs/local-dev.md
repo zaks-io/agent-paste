@@ -45,7 +45,7 @@ Do not commit real `.env` or `.dev.vars` files.
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | `pnpm check`                                                                               | Run the repo check pipeline through Turborepo.                                                     |
 | `pnpm dev:all`                                                                             | Build and run the local MVP API, Upload, and Content harness on ports `8787`, `8788`, and `8789`.  |
-| `pnpm smoke:local`                                                                         | Build, start the local harness, drive publish/read/delete via smoke harness, and stop the harness. |
+| `pnpm smoke:local`                                                                         | Build, start the local harness, drive publish/read/delete via smoke harness, run `publish --ephemeral` + claim redemption, and stop the harness. |
 | `pnpm hooks:install`                                                                       | Install Lefthook git hooks.                                                                        |
 | `pnpm typecheck`                                                                           | Typecheck packages and apps.                                                                       |
 | `pnpm test`                                                                                | Run Vitest suites.                                                                                 |
@@ -68,7 +68,7 @@ The complete local CLI smoke test is:
 pnpm smoke:local
 ```
 
-It starts the local harness, creates a Workspace and API Key through the admin CLI, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `view_url`, fetches the returned `agent_view_url`, lists and inspects the Artifact, runs cleanup dry-run, deletes the Artifact, and verifies the old content URL returns `404`.
+It starts the local harness, creates a Workspace and API Key through the smoke harness, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `view_url`, fetches the returned `agent_view_url`, deletes the Artifact and verifies purge, then publishes `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`, checks ephemeral policy boundaries (noindex, script-disabled CSP, write allowance, Claim Token isolation), and redeems the Claim Token through the local WorkOS stub into a member workspace.
 
 The faster in-process Worker vertical slice is:
 

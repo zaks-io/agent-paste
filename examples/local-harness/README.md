@@ -2,6 +2,9 @@
 
 This folder is the default fixture for `pnpm smoke:local`.
 
+- `site/` — standard publish/read/delete smoke
+- `ephemeral-site/` — `agent-paste publish --ephemeral` smoke (script-tagged HTML for script-disabled CSP checks)
+
 ## Quick path
 
 1. Start the harness: `pnpm dev:all`
