@@ -1,10 +1,11 @@
 import type { WebApiKeyRow } from "@agent-paste/contracts";
 import { useState } from "react";
-import { formatRelativeTime } from "../../lib/format";
+import { useHydrated } from "../../lib/use-hydrated";
 import { revokeKeyFn } from "../../server/web-mutations";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Identifier } from "../ui/Identifier";
+import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
@@ -16,6 +17,7 @@ type Props = {
 export function KeysTable({ rows, onRevoked }: Props) {
   const { push } = useToast();
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const hydrated = useHydrated();
 
   async function onRevoke(row: WebApiKeyRow) {
     if (revokingId) return;
@@ -48,7 +50,7 @@ export function KeysTable({ rows, onRevoked }: Props) {
       </THead>
       <TBody>
         {rows.map((row) => {
-          const state = keyState(row);
+          const state = keyState(row, hydrated);
           return (
             <TR key={row.id}>
               <TD className="font-medium">{row.name}</TD>
@@ -57,10 +59,10 @@ export function KeysTable({ rows, onRevoked }: Props) {
               </TD>
               <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
               <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                {row.last_used_at ? formatRelativeTime(row.last_used_at) : "never"}
+                {row.last_used_at ? <RelativeTime value={row.last_used_at} /> : "never"}
               </TD>
               <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                {row.expires_at ? formatRelativeTime(row.expires_at) : "never"}
+                {row.expires_at ? <RelativeTime value={row.expires_at} /> : "never"}
               </TD>
               <TD>
                 <Badge tone={state.tone}>{state.label}</Badge>
@@ -88,11 +90,17 @@ export function KeysTable({ rows, onRevoked }: Props) {
   );
 }
 
-function keyState(row: WebApiKeyRow): { label: string; tone: "success" | "warning" | "destructive" } {
+// `hydrated` gates the wall-clock expiry check: on the server and first client
+// paint we never read Date.now(), so SSR and hydration agree. The Expired badge
+// settles in once the client has mounted.
+function keyState(
+  row: WebApiKeyRow,
+  hydrated: boolean,
+): { label: string; tone: "success" | "warning" | "destructive" } {
   if (row.revoked) {
     return { label: "Revoked", tone: "destructive" };
   }
-  if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) {
+  if (hydrated && row.expires_at && Date.parse(row.expires_at) <= Date.now()) {
     return { label: "Expired", tone: "warning" };
   }
   return { label: "Active", tone: "success" };

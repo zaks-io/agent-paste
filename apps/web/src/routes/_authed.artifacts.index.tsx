@@ -7,9 +7,9 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
+import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { artifactStatusTone } from "../lib/artifact-status";
-import { formatRelativeTime } from "../lib/format";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -77,11 +77,7 @@ function ArtifactsListPage() {
                   <Badge tone={artifactStatusTone(row.status)}>{row.status}</Badge>
                 </TD>
                 <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                  {row.last_published_at ? (
-                    <span title={row.last_published_at}>{formatRelativeTime(row.last_published_at)}</span>
-                  ) : (
-                    "—"
-                  )}
+                  {row.last_published_at ? <RelativeTime value={row.last_published_at} /> : "—"}
                 </TD>
                 <TD className="text-right text-[hsl(var(--muted))]">
                   {row.pinned ? <Badge tone="accent">Pinned</Badge> : null}

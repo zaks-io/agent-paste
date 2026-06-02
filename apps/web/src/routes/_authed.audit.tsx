@@ -6,8 +6,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
+import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
-import { formatRelativeTime } from "../lib/format";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
 
@@ -74,14 +74,12 @@ function AuditPage() {
                 data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
                 className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
               >
-                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]" title={row.time}>
-                  {formatRelativeTime(row.time)}
+                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                  <RelativeTime value={row.time} />
                 </TD>
                 <TD className="text-[13px]">{row.actor}</TD>
                 <TD className="font-medium">{row.action}</TD>
-                <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">
-                  {row.change_summary || "—"}
-                </TD>
+                <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
                 <TD className="text-[hsl(var(--muted))]">{row.target}</TD>
                 <TD>
                   <Identifier value={row.request_id} />

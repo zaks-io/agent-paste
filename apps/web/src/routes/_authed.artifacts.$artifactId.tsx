@@ -9,9 +9,10 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
+import { RelativeTime } from "../components/ui/RelativeTime";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { cn } from "../lib/cn";
-import { formatBytes, formatRelativeTime } from "../lib/format";
+import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
@@ -126,7 +127,7 @@ function ArtifactDetailPage() {
           <dd className="font-mono tabular-nums text-right">{formatBytes(artifact.size_bytes)}</dd>
           <dt className="text-[hsl(var(--muted))]">Last published</dt>
           <dd className="font-mono text-right">
-            {artifact.last_published_at ? formatRelativeTime(artifact.last_published_at) : "—"}
+            {artifact.last_published_at ? <RelativeTime value={artifact.last_published_at} /> : "—"}
           </dd>
         </dl>
       </Card>
