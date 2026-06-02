@@ -10,6 +10,7 @@ const UNITS: ReadonlyArray<readonly [number, Intl.RelativeTimeFormatUnit]> = [
 
 export function formatRelativeTime(input: Date | string | number, now: number = Date.now()): string {
   const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return "";
   const diffSeconds = (now - date.getTime()) / 1000;
   const absSeconds = Math.abs(diffSeconds);
 

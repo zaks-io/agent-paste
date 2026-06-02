@@ -31,4 +31,11 @@ describe("RelativeTime", () => {
     const el = await screen.findByText(/ago|just now|in /);
     expect(el.tagName).toBe("TIME");
   });
+
+  it("omits the dateTime attribute for an unparseable value", () => {
+    const { container } = render(<RelativeTime value="not-a-date" />);
+    const el = container.querySelector("time");
+    expect(el).not.toBeNull();
+    expect(el).not.toHaveAttribute("datetime");
+  });
 });

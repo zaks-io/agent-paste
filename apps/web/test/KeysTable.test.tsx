@@ -73,6 +73,12 @@ describe("KeysTable", () => {
         id: "key_01HABCDEFGHJKMNPQRSTVWXYA2" as WebApiKeyRow["id"],
         expires_at: "2000-01-01T00:00:00.000Z" as WebApiKeyRow["expires_at"],
       },
+      // Future expiry exercises the not-yet-expired side of the hydrated Date.now() check.
+      {
+        ...baseRow,
+        id: "key_01HABCDEFGHJKMNPQRSTVWXYA4" as WebApiKeyRow["id"],
+        expires_at: "2099-01-01T00:00:00.000Z" as WebApiKeyRow["expires_at"],
+      },
       {
         ...baseRow,
         id: "key_01HABCDEFGHJKMNPQRSTVWXYA3" as WebApiKeyRow["id"],
@@ -81,7 +87,7 @@ describe("KeysTable", () => {
       },
     ]);
 
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
     expect(screen.getByText("Expired")).toBeInTheDocument();
     expect(screen.getByText("Revoked")).toBeInTheDocument();
     expect(screen.getAllByText("never").length).toBeGreaterThan(0);

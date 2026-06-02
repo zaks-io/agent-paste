@@ -72,4 +72,9 @@ describe("formatRelativeTime", () => {
     const t = "2026-01-15T09:30:00.000Z";
     expect(formatRelativeTime(t, Date.parse(t) + 1000)).toBe("just now");
   });
+
+  it("returns an empty string for an unparseable value instead of throwing", () => {
+    // Intl.RelativeTimeFormat throws RangeError on a NaN date; guard against it.
+    expect(formatRelativeTime("not-a-date")).toBe("");
+  });
 });
