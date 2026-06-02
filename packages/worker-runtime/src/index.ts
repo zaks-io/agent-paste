@@ -1,4 +1,11 @@
-export { APP_ERROR_STATUS, type AppErrorCode, ERROR_STATUS, errorResponse, jsonResponse } from "./errors.js";
+export {
+  APP_ERROR_STATUS,
+  type AppErrorCode,
+  appErrorResponse,
+  ERROR_STATUS,
+  errorResponse,
+  jsonResponse,
+} from "./errors.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,

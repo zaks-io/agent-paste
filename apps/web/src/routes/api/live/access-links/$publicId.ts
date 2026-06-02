@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { accessLinkProxyHeaders } from "../../../../security-headers";
+import { accessLinkProxyHeaders, liveStreamProxyHeaders } from "../../../../security-headers";
 import { getWebEnv } from "../../../../server/runtime";
 
 export const Route = createFileRoute("/api/live/access-links/$publicId")({
@@ -19,22 +19,9 @@ export const Route = createFileRoute("/api/live/access-links/$publicId")({
         });
         return new Response(upstream.body, {
           status: upstream.status,
-          headers: upstreamHeaders(upstream.headers),
+          headers: liveStreamProxyHeaders(upstream.headers, accessLinkProxyHeaders()),
         });
       },
     },
   },
 });
-
-function upstreamHeaders(headers: Headers): Headers {
-  const next = accessLinkProxyHeaders();
-  const contentType = headers.get("content-type");
-  if (contentType) {
-    next.set("content-type", contentType);
-  }
-  const cacheControl = headers.get("cache-control");
-  if (cacheControl) {
-    next.set("cache-control", cacheControl);
-  }
-  return next;
-}

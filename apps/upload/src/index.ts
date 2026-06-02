@@ -40,11 +40,11 @@ import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upl
 import {
   type AppErrorCode,
   createRegistrar,
+  appErrorResponse as errorResponse,
   type GuardState,
   type HeaderGuardState,
+  jsonResponse,
   type Principal,
-  errorResponse as runtimeErrorResponse,
-  jsonResponse as runtimeJsonResponse,
   type SignedUploadUrlPrincipal,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
@@ -601,28 +601,6 @@ function mapRepositoryError(error: unknown): { code: AppErrorCode; message?: str
 function ttlSeconds(env: Env): number {
   const parsed = Number.parseInt(env.UPLOAD_URL_TTL_SECONDS ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 900;
-}
-
-function jsonResponse(
-  context: AppContext,
-  body: unknown,
-  status = 200,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return runtimeJsonResponse(context, body, status, extraHeaders);
-}
-
-function errorResponse(
-  context: AppContext,
-  code: AppErrorCode,
-  message?: string,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return runtimeErrorResponse(context, code, {
-    message,
-    headers: extraHeaders,
-    docsBaseUrl: context.env.DOCS_BASE_URL,
-  });
 }
 
 function contractById<Id extends RouteId>(id: Id): ContractById<Id> {

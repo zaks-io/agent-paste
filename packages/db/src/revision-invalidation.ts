@@ -1,10 +1,11 @@
-import { resolveUsagePolicy } from "@agent-paste/config";
-import { BytePurgeMessage, type BytePurgeMessage as BytePurgePayload } from "@agent-paste/contracts";
-import type { ArtifactBytePurgeHooks, ArtifactInvalidationEnv } from "./artifact-invalidation.js";
+import type { BytePurgeMessage as BytePurgePayload } from "@agent-paste/contracts";
+import {
+  type ArtifactBytePurgeHooks,
+  type ArtifactInvalidationEnv,
+  enqueueBytePurge,
+  writeDenylistKey,
+} from "./byte-purge-shared.js";
 import type { SqlExecutor } from "./types.js";
-
-const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
-const MAX_DENYLIST_ATTEMPTS = 3;
 
 export type RevisionInvalidationEnv = ArtifactInvalidationEnv;
 
@@ -19,68 +20,25 @@ export function revisionPurgePrefix(artifactId: string, revisionId: string): str
   return `artifacts/${artifactId}/revisions/${revisionId}/`;
 }
 
-export async function writeRevisionDenylist(env: RevisionInvalidationEnv, revisionId: string): Promise<boolean> {
-  if (!revisionId || !env.DENYLIST) {
-    return false;
+export function writeRevisionDenylist(env: RevisionInvalidationEnv, revisionId: string): Promise<boolean> {
+  if (!revisionId) {
+    return Promise.resolve(false);
   }
-
-  const value = JSON.stringify({ reason: "retention", at: new Date().toISOString() });
-  for (let attempt = 1; attempt <= MAX_DENYLIST_ATTEMPTS; attempt += 1) {
-    try {
-      await env.DENYLIST.put(`rd:${revisionId}`, value, { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });
-      return true;
-    } catch {
-      if (attempt === MAX_DENYLIST_ATTEMPTS) {
-        return false;
-      }
-      await sleep(Math.min(250 * 2 ** (attempt - 1), 1000));
-    }
-  }
-  return false;
+  return writeDenylistKey(env, `rd:${revisionId}`, "retention");
 }
 
-export async function enqueueRevisionBytePurge(
+export function enqueueRevisionBytePurge(
   env: RevisionInvalidationEnv,
   executor: SqlExecutor,
   input: RevisionBytePurgeInput,
   hooks?: ArtifactBytePurgeHooks,
 ): Promise<boolean> {
-  if (!env.BYTE_PURGE_QUEUE) {
-    return false;
-  }
-
-  const message = BytePurgeMessage.parse({
-    type: "byte.purge.v1",
-    workspace_id: input.workspaceId,
-    artifact_id: input.artifactId,
-    revision_id: input.revisionId,
-    upload_session_id: null,
-    prefixes: [revisionPurgePrefix(input.artifactId, input.revisionId)],
-    reason: input.reason,
-  });
-
-  try {
-    await env.BYTE_PURGE_QUEUE.send(message);
-    await hooks?.afterEnqueue?.(message);
-  } catch {
-    return false;
-  }
-
-  try {
-    const result = await executor.query<{ id: string }>(
-      `update revisions
-       set bytes_purge_enqueued_at = now()
-       where workspace_id = $1 and id = $2 and artifact_id = $3
-       returning id`,
-      [input.workspaceId, input.revisionId, input.artifactId],
-    );
-    if (result.rows.length === 0) {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-  return true;
+  return enqueueBytePurge(
+    env,
+    executor,
+    { ...input, uploadSessionId: null, prefixes: [revisionPurgePrefix(input.artifactId, input.revisionId)] },
+    hooks,
+  );
 }
 
 export async function applyRevisionPurgeSideEffects(
@@ -95,8 +53,4 @@ export async function applyRevisionPurgeSideEffects(
   }
   const enqueued = await enqueueRevisionBytePurge(env, executor, input, hooks);
   return { denylistWritten, enqueued };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
