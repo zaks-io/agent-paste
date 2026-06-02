@@ -35,6 +35,7 @@ export function createMemoryArtifactLiveNamespace(options: MemoryArtifactLiveOpt
     },
     get(id: string) {
       return {
+        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (35), pending ratchet toward 15 — see docs/ops/complexity-todo.md
         async fetch(request: Request): Promise<Response> {
           const url = new URL(request.url);
           const hub = hubFor(id);

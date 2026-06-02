@@ -37,6 +37,7 @@ export type ApiOpenApiOptions = {
   docsBaseUrl?: string | undefined;
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: registry-population builder (360 lines), mostly flat schema registration — see docs/ops/complexity-todo.md
 export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record<string, unknown> {
   const registry = new OpenAPIRegistry();
   registerApiSchemas(registry);
