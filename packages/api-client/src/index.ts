@@ -4,9 +4,12 @@ import {
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
   CreateUploadSessionResponse,
+  EphemeralPowRequiredResponse,
+  EphemeralProvisionResponse,
   ErrorEnvelope,
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
+  type PowChallenge,
   PublishResult,
   type RevisionId,
   RevisionListResponse,
@@ -15,6 +18,7 @@ import {
   UsagePolicy,
   WhoamiResponse,
 } from "@agent-paste/contracts";
+import { solvePowChallenge } from "@agent-paste/tokens/pow";
 
 type Schema<Output> = {
   parse: (value: unknown) => Output;
@@ -120,6 +124,10 @@ export class ApiClient {
       this.request(RevisionListResponse, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions`),
   };
 
+  ephemeral = {
+    provision: (options: EphemeralProvisionOptions = {}) => this.provisionEphemeralWorkspace(options),
+  };
+
   web = {
     keys: {
       // Mints a scoped API key from a WorkOS member/CLI access token. The login
@@ -144,6 +152,68 @@ export class ApiClient {
     if (!response.ok) {
       await throwResponseError(response);
     }
+  }
+
+  private async provisionEphemeralWorkspace(options: EphemeralProvisionOptions): Promise<EphemeralProvisionResponse> {
+    const maxAttempts = options.maxPowAttempts ?? 2;
+    let lastError: AgentPasteError | undefined;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        const challenge = await this.fetchEphemeralPowChallenge();
+        const counter = await solvePowChallenge(challenge);
+        return await this.request(EphemeralProvisionResponse, this.apiBaseUrl, "/v1/ephemeral/provision", {
+          method: "POST",
+          body: {
+            challenge,
+            solution: { nonce: challenge.nonce, counter },
+          },
+          auth: "none",
+        });
+      } catch (error) {
+        if (error instanceof AgentPasteError && error.code === "pow_invalid" && attempt + 1 < maxAttempts) {
+          lastError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError ?? new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400 });
+  }
+
+  private async fetchEphemeralPowChallenge(): Promise<PowChallenge> {
+    const response = await this.fetchImpl(`${this.apiBaseUrl}/v1/ephemeral/provision`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    const text = await response.text();
+    let data: unknown = {};
+    try {
+      data = text.length === 0 ? {} : JSON.parse(text);
+    } catch {
+      throw new AgentPasteError({
+        code: "http_error",
+        message: text || `HTTP ${response.status}`,
+        status: response.status,
+      });
+    }
+    if (response.status === 401) {
+      const parsed = EphemeralPowRequiredResponse.safeParse(data);
+      if (parsed.success) {
+        return parsed.data.challenge;
+      }
+    }
+    if (!response.ok) {
+      await throwParsedResponseError(response, text, data);
+    }
+    throw new AgentPasteError({
+      code: "ephemeral_provision_unavailable",
+      message: "Ephemeral provision did not return a proof-of-work challenge.",
+      status: response.status,
+    });
   }
 
   private async request<Output>(
@@ -175,7 +245,18 @@ export class ApiClient {
     const response = await this.fetchImpl(`${baseUrl}${path}`, init);
 
     if (!response.ok) {
-      await throwResponseError(response);
+      const text = await response.text();
+      let data: unknown = {};
+      try {
+        data = text.length === 0 ? {} : JSON.parse(text);
+      } catch {
+        throw new AgentPasteError({
+          code: "http_error",
+          message: text || `HTTP ${response.status}`,
+          status: response.status,
+        });
+      }
+      await throwParsedResponseError(response, text, data);
     }
 
     const text = await response.text();
@@ -221,8 +302,21 @@ function normalizeBaseUrl(url: string) {
 
 async function throwResponseError(response: Response): Promise<never> {
   const text = await response.text();
+  let raw: unknown = {};
   try {
-    const raw = JSON.parse(text);
+    raw = text.length === 0 ? {} : JSON.parse(text);
+  } catch {
+    throw new AgentPasteError({
+      code: "http_error",
+      message: text || `HTTP ${response.status}`,
+      status: response.status,
+    });
+  }
+  return throwParsedResponseError(response, text, raw);
+}
+
+async function throwParsedResponseError(response: Response, text: string, raw: unknown): Promise<never> {
+  try {
     const parsed = ErrorEnvelope.safeParse(raw);
     if (!parsed.success && isErrorEnvelopeLike(raw)) {
       throw new AgentPasteError({
@@ -270,6 +364,11 @@ function isErrorEnvelopeLike(
     typeof (error as { request_id?: unknown }).request_id === "string"
   );
 }
+
+export type EphemeralProvisionOptions = {
+  /** Retries provision with a fresh challenge after `pow_invalid` (default 2). */
+  maxPowAttempts?: number;
+};
 
 export function createIdempotencyKey(prefix = "cli"): IdempotencyKey {
   return `${prefix}_${crypto.randomUUID()}` as IdempotencyKey;
