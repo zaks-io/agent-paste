@@ -39,6 +39,22 @@ Publishes are idempotent. Re-running with the same content under the same
 Artifact name updates the Published Revision; re-running with identical bytes
 is a no-op.
 
+## Publish without an account
+
+An agent with no human auth can publish directly. \`--ephemeral\` self-provisions
+a short-lived Workspace and key, so there is no login step and nothing to store:
+
+\`\`\`
+npx @zaks-io/agent-paste publish ./report --ephemeral
+\`\`\`
+
+The Artifact lives for up to 24 hours, then auto-deletes. Publish prints a
+one-time **Claim Token** as a claim link (\`${APP_BASE_URL}/claim#<token>\`). A
+signed-in human opens that link to reparent the Artifact into their Workspace
+and keep it. The token rides the URL **hash** only: it never appears in the
+query string or in any public share URL. \`--ephemeral\` ignores
+\`AGENT_PASTE_API_KEY\` and any stored login.
+
 ## REST entry points
 
 Base: \`${API_BASE_URL}\`
@@ -59,6 +75,9 @@ authenticates with **OAuth** (WorkOS). They are separate credentials.
 
 - **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
   stores a scoped API key for you. Nothing to copy or paste.
+- **Ephemeral:** \`npx @zaks-io/agent-paste publish --ephemeral\` needs no human
+  auth at all. The CLI self-provisions a short-lived, low-cap key and returns a
+  one-time Claim Token; a signed-in human redeems it later to keep the Artifact.
 - **REST:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI or
   headless use on the dashboard API Keys page
   ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`
