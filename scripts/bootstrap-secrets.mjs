@@ -200,10 +200,7 @@ ${Object.entries(secrets)
 ${bindingHeader}
 ${workerBindings.map((binding) => `  ${binding.worker}: ${binding.names.join(", ")}`).join("\n")}
 ${options.includeWeb ? "\nWORKOS_CLIENT_ID is written as a Worker secret by this script. The wrangler.jsonc vars remain non-secret deployment metadata/placeholders and are not modified here.\n" : ""}
-For ${target} live-update rollout after bootstrap, use scripts/set-stream-internal-secret.mjs with the generated STREAM_INTERNAL_SECRET value instead of re-running bootstrap.
-For existing environments that predate artifact-byte encryption, use scripts/set-artifact-bytes-encryption-secret.mjs to bind the same ARTIFACT_BYTES_ENCRYPTION_KEY on upload, content, and jobs without re-running bootstrap.
-To bind CONTENT_SIGNING_SECRET on all four signing Workers (api, upload, content, jobs) without re-running bootstrap, use scripts/set-content-signing-secret.mjs.
-To re-pin UPLOAD_SIGNING_SECRET on the upload Worker without re-running bootstrap, use scripts/set-upload-signing-secret.mjs.
+Per ADR 0078, steady-state secret application is handled by scripts/deploy.mjs (generate-if-missing, binds every secret to its consumers on each deploy). Rotation goes through scripts/rotate-versioned-secret.mjs / scripts/rotate-workos-secrets.mjs. This bootstrap script remains only for first-deploy generation.
 `);
 }
 
@@ -262,9 +259,8 @@ Options:
   --workos-cookie-password
                        32+ char AuthKit cookie password. Env fallback: WORKOS_COOKIE_PASSWORD.
 
-Hosted live-update rollout for an existing environment:
-  node scripts/set-stream-internal-secret.mjs <preview|production>
-  node scripts/set-artifact-bytes-encryption-secret.mjs <preview|production>
+Steady-state secret application (ADR 0078):
+  node scripts/deploy.mjs <preview|production>   # binds every secret to its consumers, generate-if-missing
 `);
   process.exit(1);
 }

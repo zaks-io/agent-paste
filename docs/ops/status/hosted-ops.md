@@ -25,12 +25,13 @@ Last updated: 2026-05-27.
 
 ## Secrets
 
-`scripts/bootstrap-secrets.mjs` writes MVP secrets and optional web secrets. Use
-`--with-web` only when all WorkOS inputs are available. For live-update rollout on
-an existing environment, use targeted scripts instead of re-running bootstrap:
-
-- `scripts/set-stream-internal-secret.mjs` — `STREAM_INTERNAL_SECRET` on `api` and `stream`
-- `scripts/set-artifact-bytes-encryption-secret.mjs` — `ARTIFACT_BYTES_ENCRYPTION_KEY` on `upload`, `content`, and `jobs`
+`scripts/bootstrap-secrets.mjs` generates first-deploy MVP secrets and optional web
+secrets. Use `--with-web` only when all WorkOS inputs are available. Steady-state
+secret application is otherwise handled by `scripts/deploy.mjs <preview|production>`
+(ADR 0078): it binds every secret to its consumer Workers (generate-if-missing, or
+from `PRODUCTION_*`/`PREVIEW_*` env values) on each deploy, so they stay in sync.
+Rotation goes through `scripts/rotate-versioned-secret.mjs` /
+`scripts/rotate-workos-secrets.mjs`.
 
 | Secret                          | Bound on              | Notes                                                                                              |
 | ------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |

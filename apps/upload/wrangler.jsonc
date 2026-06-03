@@ -55,6 +55,15 @@
   "env": {
     "preview": {
       "name": "agent-paste-upload-preview",
+      // Per ADR 0078; routing source of truth: scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": [
+          "API_KEY_PEPPER_V1",
+          "ARTIFACT_BYTES_ENCRYPTION_KEY",
+          "CONTENT_SIGNING_SECRET",
+          "UPLOAD_SIGNING_SECRET"
+        ]
+      },
       "workers_dev": true,
       "routes": [
         {
@@ -109,6 +118,14 @@
     },
     "production": {
       "name": "agent-paste-upload-production",
+      "secrets": {
+        "required": [
+          "API_KEY_PEPPER_V1",
+          "ARTIFACT_BYTES_ENCRYPTION_KEY",
+          "CONTENT_SIGNING_SECRET",
+          "UPLOAD_SIGNING_SECRET"
+        ]
+      },
       "workers_dev": false,
       "routes": [
         {

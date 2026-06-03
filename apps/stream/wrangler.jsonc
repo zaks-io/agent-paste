@@ -44,6 +44,10 @@
   "env": {
     "preview": {
       "name": "agent-paste-stream-preview",
+      // Per ADR 0078; routing source of truth: scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": ["STREAM_INTERNAL_SECRET"]
+      },
       "workers_dev": true,
       "routes": [
         {
@@ -64,6 +68,9 @@
     },
     "production": {
       "name": "agent-paste-stream-production",
+      "secrets": {
+        "required": ["STREAM_INTERNAL_SECRET"]
+      },
       "workers_dev": false,
       "routes": [
         {

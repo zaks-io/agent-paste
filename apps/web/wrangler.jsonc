@@ -35,6 +35,10 @@
   "env": {
     "preview": {
       "name": "agent-paste-web-preview",
+      // Per ADR 0078; routing source of truth: scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": ["WORKOS_API_KEY", "WORKOS_COOKIE_PASSWORD"]
+      },
       "workers_dev": true,
       "routes": [
         {
@@ -63,6 +67,9 @@
     },
     "production": {
       "name": "agent-paste-web-production",
+      "secrets": {
+        "required": ["WORKOS_API_KEY", "WORKOS_COOKIE_PASSWORD"]
+      },
       "workers_dev": false,
       "routes": [
         {

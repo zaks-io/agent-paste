@@ -1,27 +1,28 @@
 #!/usr/bin/env node
-import { createSign, generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { MCP_RESOURCE_INDICATOR } from "../packages/contracts/dist/mcp.js";
 import mcpWorker from "../apps/mcp/dist/index.js";
+import { MCP_RESOURCE_INDICATOR } from "../packages/contracts/dist/mcp.js";
+import { listenHttpPort, waitForHarnessHealth } from "./lib/smoke-port.mjs";
+import { mintForPrefix } from "./lib/workos-m2m.mjs";
+import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, smokeHarnessSecretFromEnv, waitForHealthz } from "./smoke-harness.mjs";
 import {
   assert,
   assertMcpRejectsApiKey,
   assertMcpUnauthorizedChallenge,
   fetchMcpProtectedResource,
+  MCP_TOOL_NAMES,
   mcpCallTool,
   mcpInitializeSession,
   mcpSmokeConfig,
-  MCP_TOOL_NAMES,
   mcpToolsList,
   normalizeMcpSmokeTarget,
   waitForMcpHealth,
 } from "./smoke-mcp-harness.mjs";
-import { listenHttpPort, waitForHarnessHealth } from "./lib/smoke-port.mjs";
-import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, smokeHarnessSecretFromEnv, waitForHealthz } from "./smoke-harness.mjs";
 
 const target = normalizeMcpSmokeTarget(process.argv[2]);
 
@@ -49,14 +50,22 @@ async function runHostedMcpSmoke(target) {
   await assertMcpUnauthorizedChallenge(config.mcpBaseUrl, config.resource);
   await assertMcpRejectsApiKey(config.mcpBaseUrl);
 
-  const accessToken = optionalEnv(["AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN", `AGENT_PASTE_${target.toUpperCase()}_MCP_SMOKE_ACCESS_TOKEN`]);
-  let authenticatedSummary = "Skipped authenticated MCP tool calls (set AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN).";
+  // Per ADR 0078: mint a fresh WorkOS access token at run time via M2M
+  // client_credentials so it cannot go stale. Fall back to a pre-provided token.
+  const minted = await mintForPrefix("AGENT_PASTE_MCP_SMOKE");
+  const accessToken =
+    minted.token ??
+    optionalEnv(["AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN", `AGENT_PASTE_${target.toUpperCase()}_MCP_SMOKE_ACCESS_TOKEN`]);
+  let authenticatedSummary = `Skipped authenticated MCP tool calls (${minted.reason ?? "no token configured"}).`;
   if (accessToken) {
     await mcpInitializeSession(config.mcpBaseUrl, accessToken);
     const tools = await mcpToolsList(config.mcpBaseUrl, accessToken);
     assert(tools.length === MCP_TOOL_NAMES.length, `tools/list returned ${MCP_TOOL_NAMES.length} tools`);
     for (const name of MCP_TOOL_NAMES) {
-      assert(tools.some((tool) => tool.name === name), `tools/list includes ${name}`);
+      assert(
+        tools.some((tool) => tool.name === name),
+        `tools/list includes ${name}`,
+      );
     }
     const whoami = await mcpCallTool(config.mcpBaseUrl, accessToken, "whoami", {}, 3);
     assert(whoami.workspace?.id, "whoami returned workspace id");
@@ -172,7 +181,10 @@ async function runLocalMcpSmoke() {
 
     const metadata = await fetchMcpProtectedResource(mcpBaseUrl);
     assert(metadata.resource === MCP_RESOURCE_INDICATOR, "local protected resource uses production resource indicator");
-    assert(metadata.authorization_servers.includes(workosBaseUrl), "local metadata advertises WorkOS authorization server");
+    assert(
+      metadata.authorization_servers.includes(workosBaseUrl),
+      "local metadata advertises WorkOS authorization server",
+    );
 
     await assertMcpUnauthorizedChallenge(mcpBaseUrl, MCP_RESOURCE_INDICATOR);
     await assertMcpRejectsApiKey(mcpBaseUrl);
@@ -221,7 +233,13 @@ async function runLocalMcpSmoke() {
     );
     assert(published.artifact_id?.startsWith("art_"), "publish_artifact returned artifact_id");
 
-    const agentView = await mcpCallTool(mcpBaseUrl, mcpToken, "read_artifact", { artifact_id: published.artifact_id }, 5);
+    const agentView = await mcpCallTool(
+      mcpBaseUrl,
+      mcpToken,
+      "read_artifact",
+      { artifact_id: published.artifact_id },
+      5,
+    );
     assert(agentView.artifact_id === published.artifact_id, "read_artifact returns the published artifact");
 
     process.stdout.write(`Local MCP smoke passed.

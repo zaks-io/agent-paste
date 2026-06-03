@@ -62,14 +62,14 @@ Do not create or rotate these names for the CLI-first MVP:
 
 ## First-time bind (existing environments)
 
-When `upload`, `content`, or `jobs` were deployed before artifact-byte encryption (AP-32), bind the same root key on all three Workers without re-running bootstrap:
+Initial binding of `ARTIFACT_BYTES_ENCRYPTION_KEY` is handled by `scripts/deploy.mjs` (ADR 0078): on the next deploy it generates the key if missing and binds the same value on `upload`, `content`, and `jobs`, without re-running bootstrap.
 
 ```sh
-pnpm secrets:artifact-bytes:preview -- --dry-run
-pnpm secrets:artifact-bytes:production -- --value <generated-or-captured-secret>
+node scripts/deploy.mjs preview
+node scripts/deploy.mjs production
 ```
 
-`scripts/set-artifact-bytes-encryption-secret.mjs` writes only `ARTIFACT_BYTES_ENCRYPTION_KEY`. Run it from an operator machine with Wrangler auth; do not store the value in the repo or in Worker code. Objects written before the bind are not retroactively encrypted; they remain in their original R2 format until re-encrypted or lifecycle removes them. New encrypted uploads and reads require the key.
+Run from an operator machine with Wrangler auth; the value is never printed or stored in the repo. Objects written before the bind are not retroactively encrypted; they remain in their original R2 format until re-encrypted or lifecycle removes them. New encrypted uploads and reads require the key. To _rotate_ it (not initial bind), use `rotate-versioned-secret.mjs artifact-bytes-encryption`.
 
 ## Guardrails
 

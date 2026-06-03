@@ -116,40 +116,28 @@ pnpm hooks:install
 
 ### Deploy
 
-| Command                                          | Purpose                                                                                         |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `pnpm bootstrap:preview`                         | Generate/write preview Worker secrets.                                                          |
-| `pnpm bootstrap:production`                      | Generate/write production Worker secrets.                                                       |
-| `pnpm bootstrap:live`                            | Alias for `pnpm bootstrap:production`.                                                          |
-| `pnpm secrets:content-signing:preview`           | Set `CONTENT_SIGNING_SECRET` on preview `api`, `upload`, `content`, and `jobs` Workers.         |
-| `pnpm secrets:content-signing:production`        | Set `CONTENT_SIGNING_SECRET` on production `api`, `upload`, `content`, and `jobs` Workers.      |
-| `pnpm secrets:content-signing:reset:preview`     | Mint one fresh `CONTENT_SIGNING_SECRET` and pin it across the four preview Workers (fix drift). |
-| `pnpm secrets:content-signing:reset:production`  | Same drift reset for production.                                                                |
-| `pnpm secrets:upload-signing:preview`            | Set `UPLOAD_SIGNING_SECRET` on the preview `upload` Worker.                                     |
-| `pnpm secrets:upload-signing:production`         | Set `UPLOAD_SIGNING_SECRET` on the production `upload` Worker.                                  |
-| `pnpm secrets:upload-signing:reset:preview`      | Mint one fresh `UPLOAD_SIGNING_SECRET` and pin it on the preview `upload` Worker (fix drift).   |
-| `pnpm secrets:upload-signing:reset:production`   | Same drift reset for production.                                                                |
-| `pnpm secrets:stream-internal:preview`           | Set `STREAM_INTERNAL_SECRET` on preview `api` and `stream` Workers only.                        |
-| `pnpm secrets:stream-internal:production`        | Set `STREAM_INTERNAL_SECRET` on production `api` and `stream` Workers only.                     |
-| `pnpm secrets:stream-internal:reset:preview`     | Mint one fresh `STREAM_INTERNAL_SECRET` and pin it on preview `api` and `stream` (fix drift).   |
-| `pnpm secrets:stream-internal:reset:production`  | Same drift reset for production.                                                                |
-| `pnpm secrets:artifact-bytes:preview`            | Set `ARTIFACT_BYTES_ENCRYPTION_KEY` on preview `upload`, `content`, and `jobs` Workers only.    |
-| `pnpm secrets:artifact-bytes:production`         | Set `ARTIFACT_BYTES_ENCRYPTION_KEY` on production `upload`, `content`, and `jobs` Workers only. |
-| `pnpm secrets:rotate:content-signing:preview`    | ADR 0045 overlap rotation for content signing on preview (`--step` required).                   |
-| `pnpm secrets:rotate:content-signing:production` | Same for production.                                                                            |
-| `pnpm secrets:rotate:upload-signing:preview`     | ADR 0045 overlap rotation for upload signing on preview.                                        |
-| `pnpm secrets:rotate:upload-signing:production`  | Same for production.                                                                            |
-| `pnpm secrets:rotate:api-key-pepper:preview`     | ADR 0045 overlap rotation for API key pepper on preview.                                        |
-| `pnpm secrets:rotate:api-key-pepper:production`  | Same for production.                                                                            |
-| `pnpm secrets:rotate:artifact-bytes:preview`     | ADR 0045 overlap rotation for artifact-byte encryption keys on preview.                         |
-| `pnpm secrets:rotate:artifact-bytes:production`  | Same for production.                                                                            |
-| `pnpm secrets:rotate:workos-api-key:preview`     | Write `WORKOS_API_KEY` to preview `api` then `web` (requires `--value`).                        |
-| `pnpm secrets:rotate:workos-api-key:production`  | Same for production.                                                                            |
-| `pnpm secrets:rotate:workos-cookie:preview`      | Rotate preview `WORKOS_COOKIE_PASSWORD` on `web`.                                               |
-| `pnpm secrets:rotate:workos-cookie:production`   | Same for production.                                                                            |
-| `pnpm deploy:preview`                            | Run preview migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.     |
-| `pnpm deploy:production`                         | Run production migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.  |
-| `pnpm deploy:live`                               | Alias for `pnpm deploy:production`.                                                             |
+| Command                                                | Purpose                                                                                                                                                                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm bootstrap:preview`                               | Generate/write preview Worker secrets.                                                                                                                                                                              |
+| `pnpm bootstrap:production`                            | Generate/write production Worker secrets.                                                                                                                                                                           |
+| `pnpm bootstrap:live`                                  | Alias for `pnpm bootstrap:production`.                                                                                                                                                                              |
+| `node scripts/deploy.mjs <local\|preview\|production>` | One command: bind every secret to its consumer Workers (generate-if-missing or from `PRODUCTION_*`/`PREVIEW_*` env) and deploy. `local` writes a gitignored `.env`. Idempotent; never prints a value. See ADR 0078. |
+| `pnpm secrets:local`                                   | Generate independent local-only secrets into a gitignored `.env` for `pnpm dev:all` (alias for `node scripts/deploy.mjs local`). Idempotent; never prints a value.                                                  |
+| `pnpm secrets:rotate:content-signing:preview`          | ADR 0045 overlap rotation for content signing on preview (`--step` required).                                                                                                                                       |
+| `pnpm secrets:rotate:content-signing:production`       | Same for production.                                                                                                                                                                                                |
+| `pnpm secrets:rotate:upload-signing:preview`           | ADR 0045 overlap rotation for upload signing on preview.                                                                                                                                                            |
+| `pnpm secrets:rotate:upload-signing:production`        | Same for production.                                                                                                                                                                                                |
+| `pnpm secrets:rotate:api-key-pepper:preview`           | ADR 0045 overlap rotation for API key pepper on preview.                                                                                                                                                            |
+| `pnpm secrets:rotate:api-key-pepper:production`        | Same for production.                                                                                                                                                                                                |
+| `pnpm secrets:rotate:artifact-bytes:preview`           | ADR 0045 overlap rotation for artifact-byte encryption keys on preview.                                                                                                                                             |
+| `pnpm secrets:rotate:artifact-bytes:production`        | Same for production.                                                                                                                                                                                                |
+| `pnpm secrets:rotate:workos-api-key:preview`           | Write `WORKOS_API_KEY` to preview `api` then `web` (requires `--value`).                                                                                                                                            |
+| `pnpm secrets:rotate:workos-api-key:production`        | Same for production.                                                                                                                                                                                                |
+| `pnpm secrets:rotate:workos-cookie:preview`            | Rotate preview `WORKOS_COOKIE_PASSWORD` on `web`.                                                                                                                                                                   |
+| `pnpm secrets:rotate:workos-cookie:production`         | Same for production.                                                                                                                                                                                                |
+| `pnpm deploy:preview`                                  | Run preview migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.                                                                                                                         |
+| `pnpm deploy:production`                               | Run production migrations, then deploy `api`, `upload`, `content`, `apex`, and `web` in order.                                                                                                                      |
+| `pnpm deploy:live`                                     | Alias for `pnpm deploy:production`.                                                                                                                                                                                 |
 
 ### Smoke Tests
 
@@ -167,6 +155,8 @@ pnpm hooks:install
 | `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).             |
 | `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                            |
 | `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke (also runs in the PR preview workflow).                       |
+| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke ("is it broken right now?"; no secrets, nothing skipped).   |
+| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke; runs post-deploy in the production workflow.            |
 
 ### Hooks
 

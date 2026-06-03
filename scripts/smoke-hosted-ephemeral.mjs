@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { mintForPrefix } from "./lib/workos-m2m.mjs";
 import {
   assertAgentView,
   assertClaimRedemption,
@@ -53,8 +54,13 @@ async function runHostedEphemeralSmoke() {
   };
   delete cliEnv.AGENT_PASTE_API_KEY;
 
-  let claimSummary = "Claim redemption skipped (set AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN to enable).";
-  const workosAccessToken = optionalEnv(["AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN"]);
+  // Per ADR 0078: mint a fresh WorkOS access token at run time via M2M
+  // client_credentials so the token can never go stale. Fall back to a
+  // pre-provided token only if M2M is not configured.
+  const workosAccessToken = await resolveClaimToken();
+  let claimSummary = workosAccessToken
+    ? "Claim redemption attempted with a run-time WorkOS token."
+    : "Claim redemption skipped (configure AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_M2M_* to enable).";
   let memberAuth;
   let memberWorkspaceId;
   if (config.allowClaim && workosAccessToken) {
@@ -175,13 +181,15 @@ async function fetchJson(url, { boundary = "content", ...init } = {}) {
   return response.json();
 }
 
-function optionalEnv(names) {
-  for (const name of names) {
-    if (process.env[name]) {
-      return process.env[name];
-    }
+// Obtain a WorkOS access token for claim redemption: mint a fresh one via M2M
+// client_credentials (ADR 0078), or fall back to a pre-provided token if one is
+// still configured. Returns undefined when neither is available so claim skips.
+async function resolveClaimToken() {
+  const minted = await mintForPrefix("AGENT_PASTE_EPHEMERAL_SMOKE");
+  if (minted.token) {
+    return minted.token;
   }
-  return undefined;
+  return process.env.AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN || undefined;
 }
 
 function loadDotenv() {
