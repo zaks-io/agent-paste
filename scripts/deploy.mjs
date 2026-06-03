@@ -29,10 +29,20 @@ import { secretConsumingApps, secretsForApp } from "./lib/secret-routing.mjs";
 import { resolveSecretValue } from "./lib/secret-values.mjs";
 import { listWorkerSecrets, workerName } from "./wrangler-secrets.mjs";
 
-const rawTarget = process.argv[2] ?? "preview";
+const argv = process.argv.slice(2);
+const rawTarget = argv.find((a) => !a.startsWith("--")) ?? "preview";
 const target = rawTarget === "live" ? "production" : rawTarget;
 if (target !== "local" && target !== "preview" && target !== "production") {
-  fail("Usage: node scripts/deploy.mjs <local|preview|production>");
+  fail("Usage: node scripts/deploy.mjs <local|preview|production> [--smoke]");
+}
+// --smoke: after deploying, rotate SMOKE_HARNESS_SECRET to a fresh value, bind it
+// to its consumer Workers, and run the hosted smoke with that exact value held in
+// memory — machine-to-machine, never printed, never to disk, never handed to a
+// human. The harness secret is test-only and not user-facing, so rotating it on
+// every smoke run is harmless. Not valid for local (which has no hosted smoke).
+const runSmoke = argv.includes("--smoke");
+if (runSmoke && target === "local") {
+  fail("--smoke applies to preview/production, not local.");
 }
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -73,6 +83,13 @@ const APPS = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"
 // Generate one value per name, reuse it everywhere.
 const generatedValues = new Map();
 
+// When running the smoke, pre-seed a fresh SMOKE_HARNESS_SECRET so the deploy
+// binds it to its consumers AND the smoke run below authenticates with the same
+// in-memory value. This is a deliberate rotation of the test-only harness secret.
+if (runSmoke) {
+  generatedValues.set("SMOKE_HARNESS_SECRET", randomBytes(32).toString("base64url"));
+}
+
 process.stdout.write(`Deploying agent-paste to ${target}.\n\n`);
 
 process.stdout.write(`Ensuring hosted ${target} Cloudflare Queues exist...\n`);
@@ -95,6 +112,26 @@ for (const app of APPS) {
 
 process.stdout.write(`${target} deploy complete. No secret values were displayed.\n`);
 
+if (runSmoke) {
+  await runHostedSmoke();
+}
+
+// --- smoke ----------------------------------------------------------------
+
+// Run the hosted smoke against the just-deployed environment, handing it the
+// fresh SMOKE_HARNESS_SECRET via env (in memory only). The value is never
+// printed and never reaches the operator.
+async function runHostedSmoke() {
+  // valueFor returns exactly what was bound to the Workers (the pre-seeded fresh
+  // value, or an env-provided one), so the smoke authenticates with the same value.
+  const harnessSecret = valueFor("SMOKE_HARNESS_SECRET");
+  process.stdout.write(`\nRunning ${target} hosted smoke (harness secret threaded in-memory)...\n`);
+  await run("pnpm", ["exec", "node", "scripts/smoke-hosted.mjs", target], null, {
+    AGENT_PASTE_SMOKE_HARNESS_SECRET: harnessSecret,
+  });
+  process.stdout.write(`${target} hosted smoke passed.\n`);
+}
+
 // --- planning -------------------------------------------------------------
 
 async function buildProvisionPlan() {
@@ -106,7 +143,10 @@ async function buildProvisionPlan() {
     const needed = secretsForApp(app, target);
     const toSet = [];
     for (const name of needed) {
-      if (existing.has(name)) {
+      // --smoke forces a rotation of SMOKE_HARNESS_SECRET: re-bind it even though
+      // it already exists, so the worker and the smoke run share the fresh value.
+      const forceRotate = runSmoke && name === "SMOKE_HARNESS_SECRET";
+      if (existing.has(name) && !forceRotate) {
         continue;
       }
       // Prefer a value supplied by the environment (CI / GitHub environment
@@ -193,10 +233,11 @@ async function listWorkerSecretsSafe(worker) {
 
 // --- process plumbing -----------------------------------------------------
 
-function run(command, args, stdin = null) {
+function run(command, args, stdin = null, envOverride = null) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: root,
+      env: envOverride ? { ...process.env, ...envOverride } : process.env,
       stdio: [stdin === null ? "inherit" : "pipe", "inherit", "inherit"],
     });
     child.on("error", reject);

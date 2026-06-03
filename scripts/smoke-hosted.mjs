@@ -19,6 +19,14 @@ const target = normalizeTarget(process.argv[2] ?? "preview");
 const config = smokeConfig(target);
 const smokePath = process.env.AGENT_PASTE_SMOKE_PATH ?? "examples/local-harness/site";
 
+// Cloudflare `ratelimits` bindings count per edge location (colo), not globally. Parallel
+// bursts from one client can fan out across PoPs so no single counter reaches the binding
+// limit. Serial probes on one host substantially reduce PoP fan-out versus parallel waves.
+// Declared up here (not lower) because the top-level await chain below calls the
+// rate-limit assertions before the module body would otherwise reach a later const (TDZ).
+const RATE_LIMIT_BINDING_CEILING = 60;
+const RATE_LIMIT_PROBE_OVERSHOOT = 20;
+
 await waitForHealthz(config.apiBaseUrl);
 
 const provisioned = await resolveSmokeCredentials(config);
@@ -332,12 +340,6 @@ function unquote(value) {
   return value;
 }
 
-// Cloudflare `ratelimits` bindings count per edge location (colo), not globally. Parallel
-// bursts from one client can fan out across PoPs so no single counter reaches the binding
-// limit. Serial probes on one host substantially reduce PoP fan-out versus parallel waves.
-const RATE_LIMIT_BINDING_CEILING = 60;
-const RATE_LIMIT_PROBE_OVERSHOOT = 20;
-
 async function assertActorRateLimitFires(apiKeySecret) {
   const url = `${config.uploadBaseUrl}/v1/upload-sessions`;
   const body = JSON.stringify({ files: [{ path: "rate-limit-probe.txt", size_bytes: 1 }] });
@@ -371,8 +373,10 @@ async function assertActorRateLimitFires(apiKeySecret) {
 async function assertArtifactRateLimitFires(contentUrl) {
   const probeStart = Date.now();
   const maxAttempts = RATE_LIMIT_BINDING_CEILING + RATE_LIMIT_PROBE_OVERSHOOT;
+  const statusTally = {};
   for (let index = 0; index < maxAttempts; index += 1) {
     const response = await fetch(rateLimitProbeUrl(contentUrl, probeStart, index), { cache: "no-store" });
+    statusTally[response.status] = (statusTally[response.status] ?? 0) + 1;
     if (response.status === 429) {
       const payload = await response.json();
       assert(
@@ -384,7 +388,10 @@ async function assertArtifactRateLimitFires(contentUrl) {
     }
     await response.body?.cancel?.();
   }
-  throw new Error(`content Artifact Rate Limit never returned 429 after ${maxAttempts} serial attempts`);
+  throw new Error(
+    `content Artifact Rate Limit never returned 429 after ${maxAttempts} serial attempts; ` +
+      `status distribution: ${JSON.stringify(statusTally)}`,
+  );
 }
 
 function rateLimitProbeUrl(contentUrl, probeStart, index) {
