@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { formatAbsoluteTime, formatRelativeTime } from "../../lib/format";
+import {
+  formatAbsoluteTime,
+  formatRelativeTime,
+  getRelativeTimeTickIntervalMs,
+} from "../../lib/format";
 
 type Props = {
   value: string | number | Date;
@@ -16,7 +20,19 @@ export function RelativeTime({ value, className }: Props) {
   const [relative, setRelative] = useState<string | null>(null);
 
   useEffect(() => {
-    setRelative(formatRelativeTime(value));
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      setRelative(formatRelativeTime(value));
+      const delay = getRelativeTimeTickIntervalMs(value);
+      if (Number.isFinite(delay)) {
+        timeoutId = setTimeout(tick, delay);
+      }
+    };
+
+    tick();
+
+    return () => clearTimeout(timeoutId);
   }, [value]);
 
   return (

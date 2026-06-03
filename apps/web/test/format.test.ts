@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatAbsoluteTime, formatBytes, formatRelativeTime, truncateId } from "../src/lib/format";
+import {
+  formatAbsoluteTime,
+  formatBytes,
+  formatRelativeTime,
+  getRelativeTimeTickIntervalMs,
+  truncateId,
+} from "../src/lib/format";
 
 describe("truncateId", () => {
   it("returns the original value when short enough to fit", () => {
@@ -88,5 +94,25 @@ describe("formatRelativeTime", () => {
   it("returns an empty string for an unparseable value instead of throwing", () => {
     // Intl.RelativeTimeFormat throws RangeError on a NaN date; guard against it.
     expect(formatRelativeTime("not-a-date")).toBe("");
+  });
+});
+
+describe("getRelativeTimeTickIntervalMs", () => {
+  const now = Date.parse("2026-06-03T12:00:00.000Z");
+
+  it("returns no finite interval for an unparseable value", () => {
+    expect(getRelativeTimeTickIntervalMs("not-a-date", now)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("uses a short cadence while the label is still in the just-now window", () => {
+    const recent = Date.parse("2026-06-03T11:59:57.000Z");
+    expect(getRelativeTimeTickIntervalMs(recent, now)).toBe(5_000);
+  });
+
+  it("uses second-, minute-, hour-, and day-scale cadences by age", () => {
+    expect(getRelativeTimeTickIntervalMs("2026-06-03T11:59:20.000Z", now)).toBe(15_000);
+    expect(getRelativeTimeTickIntervalMs("2026-06-03T11:30:00.000Z", now)).toBe(60_000);
+    expect(getRelativeTimeTickIntervalMs("2026-06-03T00:00:00.000Z", now)).toBe(3_600_000);
+    expect(getRelativeTimeTickIntervalMs("2026-05-01T12:00:00.000Z", now)).toBe(86_400_000);
   });
 });
