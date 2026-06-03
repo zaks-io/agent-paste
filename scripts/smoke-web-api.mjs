@@ -5,6 +5,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { listenHttpPort, waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, waitForHealthz } from "./smoke-harness.mjs";
 
 const root = new URL("..", import.meta.url);
@@ -50,8 +51,16 @@ localServer.stderr.on("data", (chunk) => {
 });
 
 try {
-  await listen(workosServer, workosPort);
-  await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
+  await listenHttpPort(workosServer, workosPort, {
+    envVar: "AGENT_PASTE_WEB_SMOKE_WORKOS_PORT",
+    label: "web smoke WorkOS stub",
+  });
+  await waitForHarnessHealth(
+    localServer,
+    [apiBaseUrl],
+    { getLog: () => serverLog, timeoutMs: 10_000, sleepMs: 100 },
+    waitForHealthz,
+  );
 
   const primaryToken = signWorkOsToken("user_web_smoke_primary");
   const primaryAuth = { authorization: `Bearer ${primaryToken}` };
@@ -299,10 +308,6 @@ function run(command, args, env) {
       }
     });
   });
-}
-
-function listen(server, port) {
-  return new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
 }
 
 function close(server) {
