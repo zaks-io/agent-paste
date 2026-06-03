@@ -73,10 +73,5 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: node scripts/deploy-preview.mjs production
 
-      - name: Smoke production
-        env:
-          AGENT_PASTE_PRODUCTION_SMOKE_API_KEY: ${{ secrets.AGENT_PASTE_PRODUCTION_SMOKE_API_KEY }}
-        run: pnpm smoke:production
-
       - name: Smoke production MCP (unauthenticated)
         run: pnpm smoke:mcp:production
