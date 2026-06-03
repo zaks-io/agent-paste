@@ -75,6 +75,19 @@ const GENERATABLE = new Set([
   "STREAM_INTERNAL_SECRET",
 ]);
 
+// Match bootstrap-secrets.mjs exactly (it is no longer the authoritative generator,
+// but the two must agree per ADR 0078): the transient test/internal secrets are 32
+// bytes; every cryptographic signing/pepper/encryption secret is 48 bytes (384 bits).
+const TRANSIENT_32_BYTE_SECRETS = new Set([
+  "SMOKE_HARNESS_SECRET",
+  "EPHEMERAL_POW_SECRET",
+  "STREAM_INTERNAL_SECRET",
+]);
+
+function generatedByteLength(name) {
+  return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;
+}
+
 // Deploy order: stream/api first (service bindings), web last.
 const APPS = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
 
@@ -193,15 +206,6 @@ async function bulkSetSecrets(worker, names) {
   }
   // Pipe JSON to `wrangler secret bulk` over stdin: no file on disk, no stdout.
   await run("pnpm", ["exec", "wrangler", "secret", "bulk", "--name", worker], JSON.stringify(payload));
-}
-
-// Match bootstrap-secrets.mjs exactly (it is no longer the authoritative generator,
-// but the two must agree per ADR 0078): the transient test/internal secrets are 32
-// bytes; every cryptographic signing/pepper/encryption secret is 48 bytes (384 bits).
-const TRANSIENT_32_BYTE_SECRETS = new Set(["SMOKE_HARNESS_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]);
-
-function generatedByteLength(name) {
-  return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;
 }
 
 function valueFor(name) {
