@@ -11,10 +11,10 @@ import type {
   WebSettingsResponse,
   WebWorkspaceResponse,
 } from "@agent-paste/contracts";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import type { LoaderFallback } from "../lib/api-error";
 import { type OperatorEventSearch, operatorEventsQueryString } from "../lib/operator-events";
 import { apiFetchOrEmpty } from "./api-client";
+import { getServerAuth } from "./authkit";
 import { hasOperatorRole } from "./env";
 import { getWebEnv } from "./runtime";
 import { turnstileSiteKey } from "./turnstile";
@@ -35,7 +35,7 @@ export function loadRootEnv() {
 }
 
 export async function loadRootAuth() {
-  const { user } = await getAuth();
+  const { user } = getServerAuth();
   return {
     signedIn: Boolean(user),
     signInHref: new URL("/api/auth/sign-in", getWebEnv().WEB_BASE_URL).toString(),
@@ -43,7 +43,7 @@ export async function loadRootAuth() {
 }
 
 export async function loadAuthedSession(input: { allowGuest?: boolean; returnPathname?: string }) {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) {
     if (input.allowGuest) return { guest: true as const };
     const signInUrl = new URL("/api/auth/sign-in", getWebEnv().WEB_BASE_URL);
@@ -59,7 +59,7 @@ export async function loadAuthedSession(input: { allowGuest?: boolean; returnPat
 }
 
 export async function loadDashboard() {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) {
     return { workspace: null, artifacts: null, audit: null };
   }
@@ -73,7 +73,7 @@ export async function loadDashboard() {
 }
 
 export async function listArtifacts() {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebArtifactListResponse>();
   return apiFetchOrEmpty<WebArtifactListResponse>("/v1/web/artifacts", {
     accessToken: auth.accessToken,
@@ -81,7 +81,7 @@ export async function listArtifacts() {
 }
 
 export async function getArtifact(input: { artifactId: string }) {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebArtifactDetailResponse>();
   return apiFetchOrEmpty<WebArtifactDetailResponse>(`/v1/web/artifacts/${encodeURIComponent(input.artifactId)}`, {
     accessToken: auth.accessToken,
@@ -89,7 +89,7 @@ export async function getArtifact(input: { artifactId: string }) {
 }
 
 export async function listAudit() {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebAuditListResponse>();
   return apiFetchOrEmpty<WebAuditListResponse>("/v1/web/audit", {
     accessToken: auth.accessToken,
@@ -97,7 +97,7 @@ export async function listAudit() {
 }
 
 export async function listKeys() {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebApiKeyListResponse>();
   return apiFetchOrEmpty<WebApiKeyListResponse>("/v1/web/keys", {
     accessToken: auth.accessToken,
@@ -105,7 +105,7 @@ export async function listKeys() {
 }
 
 export async function loadSettings() {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebSettingsResponse>();
   return apiFetchOrEmpty<WebSettingsResponse>("/v1/web/settings", {
     accessToken: auth.accessToken,
@@ -113,7 +113,7 @@ export async function loadSettings() {
 }
 
 export async function loadAdmin(search: OperatorEventSearch) {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user || !hasOperatorRole(auth)) {
     return { allowed: false as const };
   }

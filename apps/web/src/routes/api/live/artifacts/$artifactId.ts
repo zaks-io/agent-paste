@@ -5,11 +5,11 @@ export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const [{ getAuth }, { getWebEnv }] = await Promise.all([
-          import("@workos/authkit-tanstack-react-start"),
+        const [{ getServerAuth }, { getWebEnv }] = await Promise.all([
+          import("../../../../server/authkit"),
           import("../../../../server/runtime"),
         ]);
-        const auth = await getAuth();
+        const auth = getServerAuth();
         if (!auth.user || !auth.accessToken) {
           return new Response(JSON.stringify({ error: { code: "not_found" } }), {
             status: 404,

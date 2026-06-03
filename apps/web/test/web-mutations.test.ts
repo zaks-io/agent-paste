@@ -18,6 +18,16 @@ vi.mock("@tanstack/react-start", () => ({
     };
     return builder;
   },
+  getGlobalStartContext: () => ({
+    auth: () =>
+      state.auth.user
+        ? {
+            ...state.auth,
+            sessionId: "session_1",
+            claims: {},
+          }
+        : { user: null },
+  }),
 }));
 
 vi.mock("@workos/authkit-tanstack-react-start", () => ({

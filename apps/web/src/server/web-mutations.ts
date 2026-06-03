@@ -13,9 +13,9 @@ import {
   UpdateWebSettingsRequest,
   type WebSettingsResponse,
 } from "@agent-paste/contracts";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import type { ApiErrorInfo, MutationResult } from "../lib/api-error";
 import { ApiError, apiFetch } from "./api-client";
+import { getServerAuth } from "./authkit";
 import { getRequestId } from "./runtime";
 import { verifyTurnstileToken } from "./turnstile";
 
@@ -46,7 +46,7 @@ function parseInput<T>(
 }
 
 async function runMutation<T>(invoke: (accessToken: string) => Promise<T>): Promise<MutationResult<T>> {
-  const auth = await getAuth();
+  const auth = getServerAuth();
   if (!auth.user || !auth.accessToken) {
     return {
       data: null,

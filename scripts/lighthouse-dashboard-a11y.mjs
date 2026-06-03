@@ -23,6 +23,7 @@ const webWranglerConfig = fileURLToPath(new URL("../apps/web/dist/server/wrangle
 const localWebWranglerConfig = fileURLToPath(
   new URL("../apps/web/dist/server/wrangler.lighthouse-dashboard-a11y.json", import.meta.url),
 );
+const localWebDevVars = fileURLToPath(new URL("../apps/web/dist/server/.dev.vars", import.meta.url));
 const localServerEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
 const wranglerBin = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
 
@@ -153,6 +154,7 @@ async function writeLocalWebWranglerConfig() {
   delete config.services;
   config.name = "agent-paste-web-lighthouse-dashboard-a11y";
   config.workers_dev = true;
+  config.secrets = withRequiredSecrets(config.secrets, ["WORKOS_API_KEY", "WORKOS_COOKIE_PASSWORD"]);
   config.vars = {
     ...config.vars,
     API_BASE_URL: apiBaseUrl,
@@ -161,14 +163,32 @@ async function writeLocalWebWranglerConfig() {
     WORKOS_REDIRECT_URI: `${webBaseUrl}/api/auth/callback`,
     WORKOS_COOKIE_NAME: cookieName,
     AGENT_PASTE_ENV: "dev",
-    WORKOS_API_KEY: workosApiKey,
-    WORKOS_COOKIE_PASSWORD: cookiePassword,
     WORKOS_API_HOSTNAME: "127.0.0.1",
     WORKOS_API_PORT: String(workosPort),
     WORKOS_API_HTTPS: "false",
   };
+  delete config.vars.WORKOS_API_KEY;
+  delete config.vars.WORKOS_COOKIE_PASSWORD;
 
   await writeFile(localWebWranglerConfig, `${JSON.stringify(config, null, 2)}\n`);
+  await writeFile(
+    localWebDevVars,
+    [`WORKOS_API_KEY=${dotenvValue(workosApiKey)}`, `WORKOS_COOKIE_PASSWORD=${dotenvValue(cookiePassword)}`, ""].join(
+      "\n",
+    ),
+  );
+}
+
+function withRequiredSecrets(secrets, names) {
+  const required = new Set(Array.isArray(secrets?.required) ? secrets.required : []);
+  for (const name of names) {
+    required.add(name);
+  }
+  return { ...secrets, required: [...required].sort() };
+}
+
+function dotenvValue(value) {
+  return JSON.stringify(value);
 }
 
 function createWorkOsServer() {

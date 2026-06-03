@@ -51,10 +51,32 @@ vi.mock("@tanstack/react-start", () => ({
     };
     return builder;
   },
+  getGlobalStartContext: () => ({
+    auth: () =>
+      state.auth.user
+        ? {
+            ...state.auth,
+            sessionId: "session_1",
+            claims: {
+              role: state.auth.role,
+              roles: state.auth.roles,
+            },
+          }
+        : { user: null },
+  }),
 }));
 
 vi.mock("@workos/authkit-tanstack-react-start", () => ({
   getAuth: () => state.auth,
+  getAuthkit: () => ({
+    createSignIn: (_screenHint?: unknown, input?: { returnPathname?: string }) => ({
+      url: input?.returnPathname ? `${state.signInUrl}?return=${input.returnPathname}` : state.signInUrl,
+    }),
+    signOut: (sessionId: string) => {
+      state.signOut(sessionId);
+      return { logoutUrl: "https://workos.example.test/sign-out" };
+    },
+  }),
   getSignInUrl: (input?: { data?: { returnPathname?: string } }) =>
     input?.data?.returnPathname ? `${state.signInUrl}?return=${input.data.returnPathname}` : state.signInUrl,
   signOut: () => state.signOut(),
@@ -71,7 +93,11 @@ vi.mock("../src/rpc/web-mutations", () => ({
 }));
 
 vi.mock("../src/server/runtime", () => ({
-  getWebEnv: () => ({ WEB_BASE_URL: "https://app.agent-paste.sh", API_BASE_URL: "https://api.agent-paste.sh" }),
+  getWebEnv: () => ({
+    WEB_BASE_URL: "https://app.agent-paste.sh",
+    API_BASE_URL: "https://api.agent-paste.sh",
+    WORKOS_REDIRECT_URI: "https://app.agent-paste.sh/api/auth/callback",
+  }),
 }));
 
 describe("web routes", () => {
@@ -595,8 +621,12 @@ describe("web routes", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
 
-    await signOut.Route.server.handlers.POST();
-    expect(state.signOut).toHaveBeenCalledOnce();
+    const signOutResponse = await signOut.Route.server.handlers.POST({
+      request: new Request("https://app.test/api/auth/sign-out"),
+    });
+    expect(signOutResponse.status).toBe(303);
+    expect(signOutResponse.headers.get("location")).toBe("https://workos.example.test/sign-out");
+    expect(state.signOut).toHaveBeenCalledWith("session_1");
     await expect(callback.Route.server.handlers.GET()).resolves.toBeInstanceOf(Response);
   });
 });
