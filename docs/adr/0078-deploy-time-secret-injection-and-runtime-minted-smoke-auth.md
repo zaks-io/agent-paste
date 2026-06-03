@@ -51,7 +51,7 @@ The smoke job sources its symmetric secrets (e.g. `SMOKE_HARNESS_SECRET`) from t
 
 Stop storing WorkOS _access tokens_. Create a WorkOS **M2M application** and store only its **`client_secret`** (long-lived, non-expiring) in the secret store. The smoke job mints a fresh short-lived access token per run:
 
-```
+```http
 POST https://<subdomain>.authkit.app/oauth2/token
 Content-Type: application/x-www-form-urlencoded
 grant_type=client_credentials&client_id=<id>&client_secret=<secret>[&scope=...]

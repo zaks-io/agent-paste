@@ -7,6 +7,11 @@ describe("secret-values", () => {
     expect(envPrefix("preview")).toBe("PREVIEW");
   });
 
+  it("throws on an invalid environment instead of silently defaulting", () => {
+    expect(() => envPrefix("local")).toThrow(/Invalid environment/);
+    expect(() => envPrefix("prod")).toThrow(/Invalid environment/);
+  });
+
   it("prefers the env-prefixed value, falling back to the bare name", () => {
     expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "production", { PRODUCTION_CONTENT_SIGNING_SECRET: "p" })).toBe(
       "p",

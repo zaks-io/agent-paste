@@ -58,6 +58,8 @@ export async function mintWorkOsM2MToken(credentials, fetchImpl = fetch) {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
+    // Fail fast: a hung token endpoint must not stall the smoke run indefinitely.
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");

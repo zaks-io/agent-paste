@@ -195,16 +195,22 @@ async function bulkSetSecrets(worker, names) {
   await run("pnpm", ["exec", "wrangler", "secret", "bulk", "--name", worker], JSON.stringify(payload));
 }
 
+// Match bootstrap-secrets.mjs exactly (it is no longer the authoritative generator,
+// but the two must agree per ADR 0078): the transient test/internal secrets are 32
+// bytes; every cryptographic signing/pepper/encryption secret is 48 bytes (384 bits).
+const TRANSIENT_32_BYTE_SECRETS = new Set(["SMOKE_HARNESS_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]);
+
+function generatedByteLength(name) {
+  return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;
+}
+
 function valueFor(name) {
   const fromEnv = resolveSecretValue(name, target);
   if (fromEnv !== undefined && fromEnv !== "") {
     return fromEnv;
   }
   if (!generatedValues.has(name)) {
-    generatedValues.set(
-      name,
-      randomBytes(name.includes("PEPPER") || name.endsWith("KEY") ? 48 : 32).toString("base64url"),
-    );
+    generatedValues.set(name, randomBytes(generatedByteLength(name)).toString("base64url"));
   }
   return generatedValues.get(name);
 }

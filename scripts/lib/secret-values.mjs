@@ -11,6 +11,12 @@
 
 /** @param {"preview"|"production"} env */
 export function envPrefix(env) {
+  // Guard against a typo silently resolving to PREVIEW and reading the wrong
+  // environment's secrets — exactly the kind of routing bug this module exists
+  // to prevent. deploy.mjs validates the target too, but this is the unit boundary.
+  if (env !== "preview" && env !== "production") {
+    throw new Error(`Invalid environment: ${env}. Must be "preview" or "production".`);
+  }
   return env === "production" ? "PRODUCTION" : "PREVIEW";
 }
 
