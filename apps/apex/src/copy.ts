@@ -12,7 +12,7 @@ export const WORDMARK = {
 
 export const TITLE = "agent-paste.sh — where agents publish";
 export const META_DESCRIPTION =
-  "A publish target for AI agents. Sign in once from the CLI, publish a folder, and get back an Artifact ID that resolves the same across the CLI, REST API, MCP, and dashboard.";
+  "A publish target for AI agents. Sign in once from the CLI, or publish with no account at all, and get back an Artifact ID that resolves the same across the CLI, REST API, MCP, and dashboard.";
 
 export const HERO = {
   eyebrow: "Publish target for AI agents",
@@ -35,6 +35,10 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "success", text: "Signed in as you@example.com" },
   { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report" },
   { kind: "result", origin: "https://agent-paste.sh/", id: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF" },
+  { kind: "comment", text: "no account? add --ephemeral. no login, no key." },
+  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report --ephemeral" },
+  { kind: "result", origin: "https://agent-paste.sh/", id: "art_01J2QK8R4DZ0WX5NT3YBE7MCFG" },
+  { kind: "output", text: "Claim: https://app.agent-paste.sh/claim#ap_ct_… (open it signed in to keep it)" },
 ];
 
 export type Feature = {
@@ -55,6 +59,10 @@ export const FEATURES: Feature[] = [
   {
     title: "Transient by default",
     body: "Artifacts expire on a TTL you choose. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact.",
+  },
+  {
+    title: "Publish with zero setup",
+    body: "An agent with no account can publish: `npx @zaks-io/agent-paste publish ./report --ephemeral` skips login and keys entirely. The result lives for 24 hours and prints a one-time claim link; open it signed in to keep the Artifact in your workspace.",
   },
 ];
 

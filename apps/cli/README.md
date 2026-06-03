@@ -65,6 +65,18 @@ A new revision of an existing Artifact:
 npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
 ```
 
+## Publish without signing in
+
+For agents with no human auth, `--ephemeral` skips login entirely. The CLI self-provisions a short-lived **Workspace** and key, publishes, and prints a one-time **Claim Token** as a claim link.
+
+```sh
+npx @zaks-io/agent-paste publish ./report --ephemeral
+```
+
+`--ephemeral` ignores `AGENT_PASTE_API_KEY` and any stored login credential (it prints a one-line note to stderr when it does). The Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then auto-deletes. To keep it, a signed-in human opens the claim link to reparent the Artifact into their Personal Workspace.
+
+The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `view_url` or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
+
 ## Commands
 
 | Command                      | Purpose                                                                       |
@@ -76,15 +88,16 @@ npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
 
 ## Flags
 
-| Flag                   | Purpose                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.             |
-| `--title <text>`       | Set the title. Default: path basename.                                                    |
-| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                       |
-| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`. |
-| `--ttl <duration>`     | Set retention. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.         |
-| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                              |
-| `--quiet`              | Suppress human-readable stdout output.                                                    |
+| Flag                   | Purpose                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                           |
+| `--title <text>`       | Set the title. Default: path basename.                                                                  |
+| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                     |
+| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.               |
+| `--ttl <duration>`     | Set retention. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.                       |
+| `--ephemeral`          | Publish with no login or key. Self-provisions a short-lived Workspace and prints a one-time claim link. |
+| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                            |
+| `--quiet`              | Suppress human-readable stdout output.                                                                  |
 
 ## Output
 
@@ -114,6 +127,15 @@ With `--json`, stdout is exactly the publish result:
 
 `view_url` is served from the isolated content origin (`usercontent.agent-paste.sh`);
 `agent_view_url` is the Agent View JSON on the API origin.
+
+With `--ephemeral`, the human-readable output appends the claim link:
+
+```text
+Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).
+  Claim:      https://app.agent-paste.sh/claim#ap_ct_...
+```
+
+With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
 
 ## Inference
 
@@ -158,10 +180,11 @@ The `code` field is the stable identifier; `message` is human-readable.
 
 ## Configuration
 
-| Variable              | Purpose                                                              |
-| --------------------- | -------------------------------------------------------------------- |
-| `AGENT_PASTE_API_KEY` | API key for CI and headless use. Takes precedence over stored login. |
-| `AGENT_PASTE_API_URL` | Override the API base URL. Defaults to `https://api.agent-paste.sh`. |
+| Variable              | Purpose                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_PASTE_API_KEY` | API key for CI and headless use. Takes precedence over stored login.                                                |
+| `AGENT_PASTE_API_URL` | Override the API base URL. Defaults to `https://api.agent-paste.sh`.                                                |
+| `AGENT_PASTE_WEB_URL` | Override the web app base URL used to build the `--ephemeral` claim link. Defaults to `https://app.agent-paste.sh`. |
 
 ## When not to use the CLI
 

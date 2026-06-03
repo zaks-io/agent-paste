@@ -16,6 +16,9 @@ another platform — without translation tables.
 - Sign in once with \`npx @zaks-io/agent-paste login\` (browser OAuth, no API key to
   copy), then publish: \`npx @zaks-io/agent-paste publish ./path\` returns an Artifact ID
   synchronously, idempotent on retry.
+- Publish with no account: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
+  needs no login or key. The Artifact lives 24h and prints a one-time claim link
+  (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to keep the Artifact.
 - Address an artifact from any surface: \`${API_BASE_URL}/v1/artifacts/{id}\`,
   \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard at
   \`${APP_BASE_URL}/artifacts/{id}\`.
