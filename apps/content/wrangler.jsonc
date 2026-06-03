@@ -48,6 +48,10 @@
   "env": {
     "preview": {
       "name": "agent-paste-content-preview",
+      // Per ADR 0078; routing source of truth: scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": ["ARTIFACT_BYTES_ENCRYPTION_KEY", "CONTENT_SIGNING_SECRET"]
+      },
       "workers_dev": true,
       "routes": [
         {
@@ -85,6 +89,9 @@
     },
     "production": {
       "name": "agent-paste-content-production",
+      "secrets": {
+        "required": ["ARTIFACT_BYTES_ENCRYPTION_KEY", "CONTENT_SIGNING_SECRET"]
+      },
       "workers_dev": false,
       "routes": [
         {

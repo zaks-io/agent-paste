@@ -71,7 +71,22 @@ jobs:
       - name: Deploy production Workers
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: node scripts/deploy-preview.mjs production
+          # Per ADR 0078: the Production GitHub environment is the single source of
+          # truth for secret VALUES. scripts/deploy.mjs injects these onto each
+          # Worker (wrangler secret bulk over stdin) so the Worker cannot drift from
+          # source. A required secret with no value here fails the deploy fast.
+          # Routing/required-set source of truth: scripts/lib/secret-routing.mjs.
+          PRODUCTION_CONTENT_SIGNING_SECRET: ${{ secrets.PRODUCTION_CONTENT_SIGNING_SECRET }}
+          PRODUCTION_UPLOAD_SIGNING_SECRET: ${{ secrets.PRODUCTION_UPLOAD_SIGNING_SECRET }}
+          PRODUCTION_ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_ARTIFACT_BYTES_ENCRYPTION_KEY }}
+          PRODUCTION_API_KEY_PEPPER_V1: ${{ secrets.PRODUCTION_API_KEY_PEPPER_V1 }}
+          PRODUCTION_API_KEY_PEPPER_V2: ${{ secrets.PRODUCTION_API_KEY_PEPPER_V2 }}
+          PRODUCTION_EPHEMERAL_POW_SECRET: ${{ secrets.PRODUCTION_EPHEMERAL_POW_SECRET }}
+          PRODUCTION_STREAM_INTERNAL_SECRET: ${{ secrets.PRODUCTION_STREAM_INTERNAL_SECRET }}
+          PRODUCTION_CF_ACCESS_AUD: ${{ secrets.PRODUCTION_CF_ACCESS_AUD }}
+          PRODUCTION_WORKOS_API_KEY: ${{ secrets.PRODUCTION_WORKOS_API_KEY }}
+          PRODUCTION_WORKOS_COOKIE_PASSWORD: ${{ secrets.PRODUCTION_WORKOS_COOKIE_PASSWORD }}
+        run: node scripts/deploy.mjs production
 
       - name: Smoke production MCP (unauthenticated)
         run: pnpm smoke:mcp:production

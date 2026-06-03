@@ -107,6 +107,11 @@
     "preview": {
       "name": "agent-paste-api-preview",
       "workers_dev": true,
+      // Per ADR 0078: deploy fails if any of these are missing. Source of truth
+      // for routing is scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": ["API_KEY_PEPPER_V1", "CONTENT_SIGNING_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]
+      },
       "routes": [
         {
           "pattern": "api.preview.agent-paste.sh",
@@ -224,6 +229,9 @@
     "production": {
       "name": "agent-paste-api-production",
       "workers_dev": false,
+      "secrets": {
+        "required": ["API_KEY_PEPPER_V1", "CONTENT_SIGNING_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]
+      },
       "routes": [
         {
           "pattern": "api.agent-paste.sh",

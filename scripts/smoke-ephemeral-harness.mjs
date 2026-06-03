@@ -62,7 +62,9 @@ export function ephemeralHostedConfig(target) {
       harnessSecret: undefined,
       expectedClaimTokenPrefix: "ap_ct_production_",
       allowHarnessCleanup: false,
-      allowClaim: Boolean(optionalEnv(["AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN"])),
+      // Claim is allowed whenever a token can be obtained; the driver mints one
+      // at run time via M2M (ADR 0078) and skips loudly if M2M is unconfigured.
+      allowClaim: true,
     };
   }
   const prNumber = process.env.PR_NUMBER ?? process.env.GITHUB_EVENT_NUMBER ?? "unknown";
@@ -76,7 +78,7 @@ export function ephemeralHostedConfig(target) {
     harnessSecret: requiredEnv(["AGENT_PASTE_PR_SMOKE_HARNESS_SECRET", "AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET"]),
     expectedClaimTokenPrefix: "ap_ct_preview_",
     allowHarnessCleanup: true,
-    allowClaim: Boolean(optionalEnv(["AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN"])),
+    allowClaim: true,
   };
 }
 
