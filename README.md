@@ -155,6 +155,8 @@ pnpm hooks:install
 | `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).             |
 | `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                            |
 | `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke (also runs in the PR preview workflow).                       |
+| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke ("is it broken right now?"; no secrets, nothing skipped).   |
+| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke; runs post-deploy in the production workflow.            |
 
 ### Hooks
 

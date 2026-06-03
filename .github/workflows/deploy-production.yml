@@ -88,5 +88,5 @@ jobs:
           PRODUCTION_WORKOS_COOKIE_PASSWORD: ${{ secrets.PRODUCTION_WORKOS_COOKIE_PASSWORD }}
         run: node scripts/deploy.mjs production
 
-      - name: Smoke production MCP (unauthenticated)
-        run: pnpm smoke:mcp:production
+      - name: Smoke production (read-only, no credentials)
+        run: pnpm smoke:prod:readonly
