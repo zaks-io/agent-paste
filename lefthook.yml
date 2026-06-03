@@ -22,19 +22,14 @@ pre-push:
     # locally so lint/repo-lint/openapi/db:check failures surface before push,
     # not in CI. `pnpm verify` covers lint, typecheck, test, knip, openapi:check,
     # db:check, and docs formatting; test:coverage matches CI's separate step.
-    #
-    # TURBO_FORCE bypasses local and remote turbo cache so pre-push matches CI
-    # Validate (cold install + no stale hits). Without it, turbo can serve cached
-    # lint/test/build passes after deletions — e.g. AP-129 (noUnusedImports) and
-    # AP-128 (global branch coverage dropped to 79.99% while build/test cache
-    # still reported green). verify's turbo tasks and test:coverage's build step
-    # both need a fresh run; vitest coverage thresholds are global across packages
-    # and cannot be reasoned about by per-package turbo cache keys alone.
     verify:
       run: pnpm verify
-      env:
-        TURBO_FORCE: "true"
     test-coverage:
+      # Coverage is a global/aggregate gate (80% across the whole repo); turbo's
+      # per-package cache cannot see that a deletion elsewhere moved the global
+      # number, so a cached build/test pass can lie (AP-128). Force a cold turbo
+      # build before vitest. Per-package checks in `verify` cache safely and stay
+      # fast — do not add TURBO_FORCE there (AP-136).
       run: pnpm test:coverage
       env:
         TURBO_FORCE: "true"
