@@ -36,9 +36,13 @@ export function buildRevisionZip(files: ReadonlyArray<{ path: string; bytes: Uin
   });
 
   for (const path of Object.keys(entries)) {
+    const bytes = entries[path];
+    if (bytes === undefined) {
+      throw new Error(`missing_revision_path:${path}`);
+    }
     const entry = new ZipPassThrough(path);
     zip.add(entry);
-    entry.push(entries[path]!, true);
+    entry.push(bytes, true);
   }
   zip.end();
 
