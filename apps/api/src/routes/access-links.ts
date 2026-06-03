@@ -1,10 +1,11 @@
 import type { Repository } from "@agent-paste/db";
 import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import type { Principal } from "@agent-paste/worker-runtime";
+import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, Env } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
-import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 import { contentBaseUrl, webBaseUrl } from "../runtime.js";
 
@@ -16,7 +17,7 @@ export async function createAccessLinkRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const body = guard.body;
   const idempotencyKey = guard.idempotencyKey;
@@ -41,11 +42,11 @@ export async function mintAccessLinkRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const signing = accessLinkSigningSecret(context.env);
   if (!signing) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   return runIdempotent(context, () =>
     db.mintMemberAccessLink({
@@ -65,10 +66,12 @@ export async function listAccessLinksRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const result = await db.listMemberAccessLinks(actor, context.req.param("artifact_id") ?? "");
-  return result ? jsonResponse(context, result) : errorResponse(context, "artifact_not_found");
+  return result
+    ? getBoundResponders(context).respondJson(result)
+    : getBoundResponders(context).respondError("artifact_not_found");
 }
 
 export async function revokeAccessLinkRoute(
@@ -78,7 +81,7 @@ export async function revokeAccessLinkRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   return executeRepositoryRoute(context, () =>
     db.revokeMemberAccessLink({
@@ -97,11 +100,11 @@ export async function resolveAccessLinkRoute(
   const body = guard.body;
   const signer = resolveAccessLinkSigner(env);
   if (!signer) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   const verified = await signer.verify({ publicId: body.public_id, blob: body.blob });
   if (!verified) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const resolved = await db.resolveAccessLink({
@@ -111,7 +114,7 @@ export async function resolveAccessLinkRoute(
     now: new Date().toISOString(),
   });
   if (!resolved) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const rateLimited = await enforceArtifactRateLimit(context, resolved.agent_view.artifact_id);
@@ -124,7 +127,7 @@ export async function resolveAccessLinkRoute(
     workspaceId: resolved.workspace_id,
   });
   const view = signedView as { view_url?: string; title?: string };
-  return jsonResponse(context, {
+  return getBoundResponders(context).respondJson({
     agent_view: signedView,
     render_mode: resolved.render_mode,
     title: resolved.title,
@@ -148,7 +151,7 @@ async function enforceArtifactRateLimit(context: AppContext, artifactId: string)
   try {
     const outcome = await binding.limit({ key: artifactId });
     if (!outcome.success) {
-      return errorResponse(context, "rate_limited_artifact", undefined, { "Retry-After": "60" });
+      return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
     }
   } catch (error) {
     console.warn("Artifact rate limit binding failed; allowing access link resolve.", error);

@@ -13,9 +13,10 @@ import {
 } from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken } from "@agent-paste/tokens/content";
 import {
-  type AppErrorCode,
+  type BoundRespondersVariables,
+  boundRespondersMiddleware,
   createRegistrar,
-  errorResponse as runtimeErrorResponse,
+  getBoundResponders,
   type SignedContentTokenPrincipal,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
@@ -64,18 +65,23 @@ export type Env = {
   SENTRY_DSN?: string;
 };
 
-type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
+type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>;
 
 const contractById = routeContractById;
 const securityHeaders = CONTENT_SECURITY_HEADERS;
+const boundResponderConfig = {
+  docsBaseUrl: (context: AppContext) => context.env.DOCS_BASE_URL,
+  defaultErrorHeaders: () => securityHeaders,
+} as const;
 const NOINDEX_HEADER = "noindex, nofollow";
-const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
+const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
 const BUNDLE_FILENAME = "bundle.zip";
 
 app.use("*", requestIdMiddleware());
+app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(
@@ -102,8 +108,8 @@ const contentRegistrar = createRegistrar({
     },
   },
   rateLimitBindings: (context) => ({ artifact: (context.env as Env).ARTIFACT_RATE_LIMIT }),
-  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
-  defaultErrorHeaders: () => securityHeaders,
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
+  defaultErrorHeaders: boundResponderConfig.defaultErrorHeaders,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
   },
@@ -128,10 +134,10 @@ contentRegistrar.mount(contractById("content.bundle"), async (context, principal
 contentRegistrar.mount(contractById("content.bundleHead"), async (context, principal) =>
   serveSignedBundle(context as AppContext, (principal as SignedContentTokenPrincipal<ContentTokenPayload>).payload),
 );
-app.notFound((context) => errorResponse(context, "not_found"));
+app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
   console.error("Unhandled content error:", error);
-  return errorResponse(context, "internal_error");
+  return getBoundResponders(context).respondError("internal_error");
 });
 
 const worker = {
@@ -173,13 +179,13 @@ async function serveSignedBundle(context: AppContext, payload: ContentTokenPaylo
   const request = context.req.raw;
   const key = payload.key_prefix;
   if (!key?.endsWith(BUNDLE_FILENAME)) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const served = await prepareEncryptedObjectResponse({
@@ -191,7 +197,7 @@ async function serveSignedBundle(context: AppContext, payload: ContentTokenPaylo
     method: request.method,
   });
   if (!served) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const headers = bundleResponseHeaders(served.plaintextSize, payload.exp, payload.noindex === true);
@@ -208,7 +214,7 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const served = await prepareEncryptedObjectResponse({
@@ -220,7 +226,7 @@ async function serveSignedObject(context: AppContext, payload: ContentTokenPaylo
     method: request.method,
   });
   if (!served) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload);
@@ -330,7 +336,12 @@ function bundleResponseHeaders(size: number, tokenExpiresAt: number, noindex: bo
   return headers;
 }
 
-function responseHeadersForPath(path: string, size: number, tokenExpiresAt: number, payload: ContentTokenPayload): Headers {
+function responseHeadersForPath(
+  path: string,
+  size: number,
+  tokenExpiresAt: number,
+  payload: ContentTokenPayload,
+): Headers {
   const scriptDisabled = payload.script_disabled !== false;
   const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
@@ -378,18 +389,4 @@ function safeDecodeURIComponent(value: string): string | null {
   } catch {
     return null;
   }
-}
-
-function errorResponse(
-  context: AppContext,
-  code: AppErrorCode,
-  message?: string,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return runtimeErrorResponse(context, code, {
-    message,
-    headers: extraHeaders,
-    docsBaseUrl: context.env.DOCS_BASE_URL,
-    defaultHeaders: securityHeaders,
-  });
 }

@@ -7,9 +7,10 @@ import {
   type PowNonceStore,
   verifyPowSolution,
 } from "@agent-paste/tokens/pow";
+import { getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext, Env } from "../env.js";
 import { webMemberActor } from "../principals.js";
-import { errorResponse, jsonResponse, runIdempotent } from "../responses.js";
+import { runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function ephemeralProvisionRoute(
@@ -20,7 +21,7 @@ export async function ephemeralProvisionRoute(
   const env = context.env;
   const powSecret = env.EPHEMERAL_POW_SECRET;
   if (!powSecret) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
 
   const body = guard.body;
@@ -31,7 +32,7 @@ export async function ephemeralProvisionRoute(
   const challenge = body.challenge;
   const solution = body.solution;
   if (solution.nonce !== challenge.nonce) {
-    return errorResponse(context, "pow_invalid");
+    return getBoundResponders(context).respondError("pow_invalid");
   }
 
   const valid = await verifyPowSolution({
@@ -40,24 +41,23 @@ export async function ephemeralProvisionRoute(
     solution,
   });
   if (!valid) {
-    return errorResponse(context, "pow_invalid");
+    return getBoundResponders(context).respondError("pow_invalid");
   }
 
   const nonceStore = powNonceStore(env);
   if (!nonceStore) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const consumed = await consumePowNonce(nonceStore, challenge.nonce, DEFAULT_POW_CHALLENGE_TTL_SECONDS);
   if (!consumed) {
-    return errorResponse(context, "pow_invalid");
+    return getBoundResponders(context).respondError("pow_invalid");
   }
 
   const result = await db.createEphemeralWorkspace({
     idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
   });
 
-  return jsonResponse(
-    context,
+  return getBoundResponders(context).respondJson(
     {
       api_key_secret: result.api_key_secret,
       claim_token: result.claim_token_secret,
@@ -77,7 +77,7 @@ export async function ephemeralClaimRoute(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
 
   return runIdempotent(

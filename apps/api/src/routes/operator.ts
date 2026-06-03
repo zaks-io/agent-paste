@@ -10,11 +10,12 @@ import {
 } from "@agent-paste/contracts";
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
+import { getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext, Env } from "../env.js";
 import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { platformActor } from "../principals.js";
-import { errorResponse, executeRepositoryRoute, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 type OperatorEventFilterInput = {
@@ -33,14 +34,14 @@ export async function webAdminListLockdowns(
 ): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   if (!db.listLockdowns) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code);
+    return getBoundResponders(context).respondError(pagination.code);
   }
   const listLockdowns = db.listLockdowns.bind(db);
   return executeRepositoryRoute(context, () => listLockdowns(actor, pagination.value));
@@ -49,18 +50,18 @@ export async function webAdminListLockdowns(
 export async function webAdminListEvents(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   if (!db.listOperatorEvents) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code);
+    return getBoundResponders(context).respondError(pagination.code);
   }
   const filters = parseOperatorEventFilters(context.req.raw);
   if (!filters.ok) {
-    return errorResponse(context, filters.code);
+    return getBoundResponders(context).respondError(filters.code);
   }
   const listOperatorEvents = db.listOperatorEvents.bind(db);
   return executeRepositoryRoute(context, () =>
@@ -79,10 +80,10 @@ export async function webAdminSetLockdown(
 ): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   if (!db.setLockdown) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const setLockdown = db.setLockdown.bind(db);
   const body: SetLockdownRequest = guard.body;
@@ -134,15 +135,15 @@ export async function webAdminLiftLockdown(
 ): Promise<Response> {
   const actor = platformActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   if (!db.liftLockdown) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const liftLockdown = db.liftLockdown.bind(db);
   const scopeResult = LockdownScope.safeParse(params.scope);
   if (!scopeResult.success) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   const scope = scopeResult.data;
   const env = context.env;

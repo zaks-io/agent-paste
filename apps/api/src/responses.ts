@@ -1,10 +1,8 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ErrorCode } from "@agent-paste/contracts";
 import { repositoryErrorToAppError } from "@agent-paste/db";
-import { type AppErrorCode, appErrorResponse as errorResponse, jsonResponse } from "@agent-paste/worker-runtime";
+import { type AppErrorCode, getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
-
-export { errorResponse, jsonResponse };
 
 export type ContractRespondError = (
   code: ErrorCode,
@@ -41,7 +39,14 @@ function repositoryErrorResponse(
     }
     return respondError(code);
   }
-  return errorResponse(context, code, message, headers ?? {});
+  const bound = getBoundResponders(context);
+  if (message !== undefined) {
+    return bound.respondError(code, headers ? { message, headers } : message);
+  }
+  if (headers !== undefined) {
+    return bound.respondError(code, { headers });
+  }
+  return bound.respondError(code);
 }
 
 export async function runIdempotent(
@@ -49,15 +54,16 @@ export async function runIdempotent(
   run: () => Promise<unknown>,
   options: { successStatus?: number; respondError?: ContractRespondError } = {},
 ): Promise<Response> {
+  const { respondJson, respondError: boundRespondError } = getBoundResponders(context);
   const successStatus = options.successStatus ?? 200;
   try {
-    return jsonResponse(context, await run(), successStatus);
+    return respondJson(await run(), successStatus);
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
       if (options.respondError) {
         return options.respondError("idempotency_in_flight");
       }
-      return errorResponse(context, "idempotency_in_flight");
+      return boundRespondError("idempotency_in_flight");
     }
     if (error instanceof RepositoryRouteError) {
       return repositoryErrorResponse(
@@ -81,9 +87,10 @@ export async function executeRepositoryRoute<T>(
   run: () => Promise<T>,
   options: { successStatus?: number; respondError?: ContractRespondError } = {},
 ): Promise<Response> {
+  const { respondJson } = getBoundResponders(context);
   const successStatus = options.successStatus ?? 200;
   try {
-    return jsonResponse(context, await run(), successStatus);
+    return respondJson(await run(), successStatus);
   } catch (error) {
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
