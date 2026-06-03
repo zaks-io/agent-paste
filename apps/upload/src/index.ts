@@ -6,7 +6,7 @@ import {
   FinalizeUploadSessionResponse,
   type RouteContract,
   routeContractById,
-  routeContracts,
+  type routeContracts,
 } from "@agent-paste/contracts";
 import {
   type ApiActor,
@@ -23,13 +23,14 @@ import { artifactBytesEncryptionRingFromEnv, resolveUploadTokenSigner } from "@a
 import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
 import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
+  type BoundRespondersVariables,
+  boundRespondersMiddleware,
   createApiKeyOrMcpOAuthResolver,
   createAuthenticateApiKey,
   createRegistrar,
-  appErrorResponse as errorResponse,
   type GuardState,
+  getBoundResponders,
   type HeaderGuardState,
-  jsonResponse,
   type Principal,
   type SignedUploadUrlPrincipal,
   sentryOptions,
@@ -125,11 +126,16 @@ function postgresRuntime(env: Env) {
     }),
   });
 }
-const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
+const boundResponderConfig = {
+  docsBaseUrl: (context: { env: Env }) => context.env.DOCS_BASE_URL,
+} as const;
+
+const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
 app.use("*", requestIdMiddleware());
+app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),
@@ -151,7 +157,7 @@ const uploadDbRegistrar = createRegistrar<Repository>({
     actor: (context.env as Env).ACTOR_RATE_LIMIT,
     workspace: (context.env as Env).WORKSPACE_BURST_CAP,
   }),
-  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
   replay: uploadReplay,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
@@ -173,7 +179,7 @@ const uploadNoDbRegistrar = createRegistrar({
       return { ok: true, principal: { kind: "signed_upload_url", payload } };
     },
   },
-  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
   },
@@ -187,14 +193,15 @@ uploadNoDbRegistrar.mount(contractById("uploadSessions.putFile"), async (context
 uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context, principal, db, guard) =>
   finalizeUploadSession(context as AppContext, principal, db, guard),
 );
-app.notFound((context) => errorResponse(context, "not_found"));
+app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
+  const { respondError } = getBoundResponders(context);
   const repositoryCode = repositoryErrorToAppError(error);
   if (repositoryCode) {
-    return errorResponse(context, repositoryCode);
+    return respondError(repositoryCode);
   }
   console.error("Unhandled upload error:", error);
-  return errorResponse(context, "internal_error");
+  return respondError("internal_error");
 });
 
 function uploadFilePath(context: AppContext): string {
@@ -247,7 +254,7 @@ async function createUploadSession(
   const request = context.req.raw;
   const actor = uploadSessionActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const idempotencyKey = guard.idempotencyKey;
   const body: CreateUploadSessionRequest = guard.body;
@@ -269,17 +276,16 @@ async function createUploadSession(
     });
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse(context, "idempotency_in_flight");
+      return getBoundResponders(context).respondError("idempotency_in_flight");
     }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
-      return errorResponse(context, repositoryCode);
+      return getBoundResponders(context).respondError(repositoryCode);
     }
     throw error;
   }
 
-  return jsonResponse(
-    context,
+  return getBoundResponders(context).respondJson(
     await buildCreateUploadSessionWireResponse(session, {
       signPutUrl: (uploadSession, file) => signUploadUrl(request, env, uploadSession, file),
     }),
@@ -293,26 +299,26 @@ async function putUploadFile(
   const env = context.env;
   const request = context.req.raw;
   if (!env.ARTIFACTS) {
-    return errorResponse(context, "storage_unavailable");
+    return getBoundResponders(context).respondError("storage_unavailable");
   }
   const payload = principal.payload;
 
   if (!request.body) {
-    return errorResponse(context, "invalid_request", "request body is required");
+    return getBoundResponders(context).respondError("invalid_request", "request body is required");
   }
 
   const contentLength = Number.parseInt(request.headers.get("content-length") ?? "", 10);
   if (!Number.isFinite(contentLength) || contentLength !== payload.size) {
-    return errorResponse(context, "invalid_request", "content-length does not match signed upload");
+    return getBoundResponders(context).respondError("invalid_request", "content-length does not match signed upload");
   }
 
   const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
   if (!encryptionRing) {
-    return errorResponse(context, "storage_unavailable");
+    return getBoundResponders(context).respondError("storage_unavailable");
   }
   const keyParts = parseRevisionFileObjectKey(payload.key);
   if (!keyParts || keyParts.path !== payload.path) {
-    return errorResponse(context, "invalid_request", "upload object key does not match signed path");
+    return getBoundResponders(context).respondError("invalid_request", "upload object key does not match signed path");
   }
   const plaintext = await bytesFromReadableBody(request.body);
   const encrypted = await encryptArtifactBytes({
@@ -351,23 +357,23 @@ async function finalizeUploadSession(
   const env = context.env;
   const actor = uploadSessionActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const idempotencyKey = guard.idempotencyKey;
   const sessionId = context.req.param("upload_session_id") ?? "";
 
   if (!env.ARTIFACTS) {
-    return errorResponse(context, "storage_unavailable");
+    return getBoundResponders(context).respondError("storage_unavailable");
   }
 
   const session = await db.getUploadSession({ actor, sessionId });
   if (!session) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
 
   const observation = await observeUploadSessionForFinalize(session, env.ARTIFACTS);
   if ("incompletePath" in observation) {
-    return errorResponse(context, "upload_incomplete", observation.incompletePath);
+    return getBoundResponders(context).respondError("upload_incomplete", observation.incompletePath);
   }
   const { observedFiles } = observation;
 
@@ -382,16 +388,16 @@ async function finalizeUploadSession(
     });
   } catch (error) {
     if (error instanceof IdempotencyInFlightError) {
-      return errorResponse(context, "idempotency_in_flight");
+      return getBoundResponders(context).respondError("idempotency_in_flight");
     }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
-      return errorResponse(context, repositoryCode);
+      return getBoundResponders(context).respondError(repositoryCode);
     }
     throw error;
   }
 
-  return jsonResponse(context, FinalizeUploadSessionResponse.parse(result));
+  return getBoundResponders(context).respondJson(FinalizeUploadSessionResponse.parse(result));
 }
 
 function uploadDatabase(env: Env): Repository | undefined {
@@ -434,8 +440,7 @@ async function uploadReplay(input: {
       input.guard.idempotencyKey,
     );
     return replay
-      ? jsonResponse(
-          context,
+      ? getBoundResponders(context).respondJson(
           await buildCreateUploadSessionWireResponse(replay, {
             signPutUrl: (uploadSession, file) =>
               signUploadUrl(context.req.raw, context.env as Env, uploadSession, file),
@@ -450,7 +455,7 @@ async function uploadReplay(input: {
       "upload.session.finalize",
       input.guard.idempotencyKey,
     );
-    return replay ? jsonResponse(context, FinalizeUploadSessionResponse.parse(replay)) : null;
+    return replay ? getBoundResponders(context).respondJson(FinalizeUploadSessionResponse.parse(replay)) : null;
   }
   return null;
 }

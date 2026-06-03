@@ -2,21 +2,22 @@ import type { WebCallbackIdentity, WorkOsIdentity } from "@agent-paste/auth";
 import type { CreateApiKeyRequest, UpdateWebSettingsRequest } from "@agent-paste/contracts";
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
+import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
-import { errorResponse, executeRepositoryRoute, jsonResponse, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
 export async function webAuthCallback(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   if (principal.kind !== "workos_access_token") {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const identity = principal.identity as WorkOsIdentity;
   if (!hasWebCallbackId(identity)) {
-    return errorResponse(context, "not_authenticated", "missing WorkOS token_id or session_id");
+    return getBoundResponders(context).respondError("not_authenticated", "missing WorkOS token_id or session_id");
   }
   const idempotencyKey = webCallbackIdempotencyKey(identity);
   return runIdempotent(context, () =>
@@ -45,17 +46,19 @@ function webCallbackIdempotencyKey(identity: WebCallbackIdentity): string {
 
 export async function webWorkspace(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.getWebWorkspace(actor)) : errorResponse(context, "forbidden");
+  return actor
+    ? getBoundResponders(context).respondJson(await db.getWebWorkspace(actor))
+    : getBoundResponders(context).respondError("forbidden");
 }
 
 export async function webArtifacts(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code);
+    return getBoundResponders(context).respondError(pagination.code);
   }
   return executeRepositoryRoute(context, () => db.listWebArtifacts(actor, pagination.value));
 }
@@ -68,11 +71,11 @@ export async function webArtifactDetail(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const detail = await db.getWebArtifact(actor, params.artifactId ?? "");
   if (!detail) {
-    return errorResponse(context, "not_found");
+    return getBoundResponders(context).respondError("not_found");
   }
   if (detail.viewer) {
     const signed = (await signAgentViewContentUrls(
@@ -86,9 +89,9 @@ export async function webArtifactDetail(
       { workspaceId: actor.workspace_id },
     )) as { view_url?: unknown };
     const iframeSrc = typeof signed.view_url === "string" ? signed.view_url : detail.viewer.iframe_src;
-    return jsonResponse(context, { ...detail, viewer: { ...detail.viewer, iframe_src: iframeSrc } });
+    return getBoundResponders(context).respondJson({ ...detail, viewer: { ...detail.viewer, iframe_src: iframeSrc } });
   }
-  return jsonResponse(context, detail);
+  return getBoundResponders(context).respondJson(detail);
 }
 
 export async function webPinArtifact(
@@ -100,10 +103,10 @@ export async function webPinArtifact(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   if (!db.pinWebArtifact) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const pinWebArtifact = db.pinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey;
@@ -119,10 +122,10 @@ export async function webUnpinArtifact(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   if (!db.unpinWebArtifact) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const unpinWebArtifact = db.unpinWebArtifact.bind(db);
   const idempotencyKey = guard.idempotencyKey;
@@ -131,7 +134,9 @@ export async function webUnpinArtifact(
 
 export async function webApiKeys(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.listWebApiKeys(actor)) : errorResponse(context, "forbidden");
+  return actor
+    ? getBoundResponders(context).respondJson(await db.listWebApiKeys(actor))
+    : getBoundResponders(context).respondError("forbidden");
 }
 
 export async function webCreateApiKey(
@@ -142,11 +147,11 @@ export async function webCreateApiKey(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const idempotencyKey = guard.idempotencyKey;
   if (!db.createWebApiKey) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const createWebApiKey = db.createWebApiKey.bind(db);
   const body: CreateApiKeyRequest = guard.body;
@@ -173,11 +178,11 @@ export async function webRevokeApiKey(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const idempotencyKey = guard.idempotencyKey;
   if (!db.revokeWebApiKey) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const revokeWebApiKey = db.revokeWebApiKey.bind(db);
   return runIdempotent(context, () =>
@@ -192,21 +197,23 @@ export async function webRevokeApiKey(
 export async function webAudit(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code);
+    return getBoundResponders(context).respondError(pagination.code);
   }
   if (!db.listWebAuditEvents) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   return executeRepositoryRoute(context, () => db.listWebAuditEvents(actor, pagination.value));
 }
 
 export async function webSettings(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
   const actor = webMemberActor(principal);
-  return actor ? jsonResponse(context, await db.getWebSettings(actor)) : errorResponse(context, "forbidden");
+  return actor
+    ? getBoundResponders(context).respondJson(await db.getWebSettings(actor))
+    : getBoundResponders(context).respondError("forbidden");
 }
 
 export async function webUpdateSettings(
@@ -217,11 +224,11 @@ export async function webUpdateSettings(
 ): Promise<Response> {
   const actor = webMemberActor(principal);
   if (!actor) {
-    return errorResponse(context, "forbidden");
+    return getBoundResponders(context).respondError("forbidden");
   }
   const idempotencyKey = guard.idempotencyKey;
   if (!db.updateWebSettings) {
-    return errorResponse(context, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   const updateWebSettings = db.updateWebSettings.bind(db);
   const body: UpdateWebSettingsRequest = guard.body;

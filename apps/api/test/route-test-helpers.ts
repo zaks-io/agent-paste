@@ -1,4 +1,6 @@
-import type { Principal } from "@agent-paste/worker-runtime";
+import { REQUEST_ID_CONTEXT_KEY } from "@agent-paste/auth";
+import { BOUND_RESPONDERS_KEY, createBoundResponders, type Principal } from "@agent-paste/worker-runtime";
+import type { Context } from "hono";
 import type { AppContext, Env } from "../src/env.js";
 
 export const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -62,18 +64,29 @@ export function contextFor(
     body,
   });
   const params = input.params ?? {};
-  return {
-    env: input.env ?? {},
+  const env = input.env ?? {};
+  const stub = {
+    env,
     req: {
       raw: request,
       param(name: string) {
         return params[name];
       },
     },
-    get() {
-      return "req_test_12345678";
+    get(key: string) {
+      if (key === REQUEST_ID_CONTEXT_KEY) {
+        return "req_test_12345678";
+      }
+      if (key === BOUND_RESPONDERS_KEY) {
+        return boundResponders;
+      }
+      return undefined;
     },
-  } as unknown as AppContext;
+  };
+  const boundResponders = createBoundResponders(stub as Context, {
+    docsBaseUrl: env.DOCS_BASE_URL,
+  });
+  return stub as unknown as AppContext;
 }
 
 export function guardFor(body: unknown = {}, idempotencyKey = "idem_1") {

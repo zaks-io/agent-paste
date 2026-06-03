@@ -1,14 +1,20 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
-import { createRegistrar, sentryOptions } from "@agent-paste/worker-runtime";
+import {
+  type BoundRespondersVariables,
+  boundRespondersMiddleware,
+  createRegistrar,
+  getBoundResponders,
+  sentryOptions,
+} from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 import { signAgentViewContentUrls } from "./agent-view.js";
 import { authenticateWebIdentity, createApiAuthResolvers } from "./auth.js";
 import type { AppContext, Env } from "./env.js";
 import { handleLiveUpdateAuthorize, wireLiveUpdateDeps } from "./live-updates.js";
-import { errorResponse, RepositoryRouteError } from "./responses.js";
+import { RepositoryRouteError } from "./responses.js";
 import { contractById } from "./route-contracts.js";
 import {
   createAccessLinkRoute,
@@ -51,7 +57,7 @@ import { apiDatabase, apiRateLimitBindings } from "./runtime.js";
 export { authenticateWebIdentity } from "./auth.js";
 export type { ApiDatabase, AuthService, Env, KVNamespace, R2Bucket, RateLimitBinding } from "./env.js";
 
-const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
+const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = [
   "/healthz",
@@ -64,7 +70,12 @@ export const nonContractRoutePaths = [
   "/v1/internal/live-updates/authorize",
 ] as const;
 
+const boundResponderConfig = {
+  docsBaseUrl: (context: { env: Env }) => context.env.DOCS_BASE_URL,
+} as const;
+
 app.use("*", requestIdMiddleware());
+app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (context) => context.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(
@@ -77,7 +88,7 @@ const apiDbRegistrar = createRegistrar<Repository>({
   auth: createApiAuthResolvers(),
   db: (context) => apiDatabase(context.env as Env),
   rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
-  docsBaseUrl: (context) => (context.env as Env).DOCS_BASE_URL,
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
   },
@@ -212,21 +223,22 @@ app.get("/__test__/denylist", (context) => getDenylistKey(context as AppContext)
 app.post("/v1/internal/live-updates/authorize", async (context) => {
   const db = apiDatabase(context.env);
   if (!db) {
-    return errorResponse(context as AppContext, "database_unavailable");
+    return getBoundResponders(context).respondError("database_unavailable");
   }
   return handleLiveUpdateAuthorize(context.req.raw, context.env, db);
 });
-app.notFound((context) => errorResponse(context as AppContext, "not_found"));
+app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
+  const { respondError } = getBoundResponders(context);
   if (error instanceof RepositoryRouteError) {
-    return errorResponse(context as AppContext, error.code, error.message);
+    return respondError(error.code, error.message);
   }
   const repositoryCode = repositoryErrorToAppError(error);
   if (repositoryCode) {
-    return errorResponse(context as AppContext, repositoryCode);
+    return respondError(repositoryCode);
   }
   console.error("Unhandled API error:", error);
-  return errorResponse(context as AppContext, "internal_error");
+  return respondError("internal_error");
 });
 
 wireLiveUpdateDeps({

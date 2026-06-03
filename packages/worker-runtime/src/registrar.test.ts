@@ -322,6 +322,31 @@ describe("contract-driven registrar", () => {
     setContractErrorEnforcement(undefined);
   });
 
+  it("applies docs links and default headers to handler-emitted contract errors", async () => {
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal(["read"]);
+        },
+      },
+      docsBaseUrl: () => "https://docs.example.com",
+      defaultErrorHeaders: () => ({ "content-security-policy": "default-src 'none'" }),
+    }).mount(baseContract, async (_context, _principal, guard) => guard.respondError("rate_limited_artifact"));
+
+    const response = await app.fetch(new Request("https://worker.test/test"));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("content-security-policy")).toBe("default-src 'none'");
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "rate_limited_artifact",
+        docs: "https://docs.example.com/errors/rate_limited_artifact",
+      },
+    });
+  });
+
   it("returns forbidden when required scopes are absent", async () => {
     const app = newApp();
     createRegistrar({
@@ -369,12 +394,18 @@ describe("contract-driven registrar", () => {
         },
       },
       rateLimitBindings: () => ({
-        ephemeralProvisionGlobal: { async limit() { return { success: true }; } },
-        ephemeralProvisionIp: { async limit() { return { success: true }; } },
+        ephemeralProvisionGlobal: {
+          async limit() {
+            return { success: true };
+          },
+        },
+        ephemeralProvisionIp: {
+          async limit() {
+            return { success: true };
+          },
+        },
       }),
-    }).mount(contract, async (_context, _principal, guard) =>
-      jsonOk({ received: guard.body }),
-    );
+    }).mount(contract, async (_context, _principal, guard) => jsonOk({ received: guard.body }));
 
     const response = await app.fetch(
       new Request("https://worker.test/v1/ephemeral/provision", {

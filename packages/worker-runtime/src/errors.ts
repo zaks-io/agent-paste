@@ -1,7 +1,7 @@
 import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import { ErrorCode, type ErrorCode as ErrorCodeValue } from "@agent-paste/contracts";
 import { repositoryErrorToAppError } from "@agent-paste/db";
-import type { Context, Env } from "hono";
+import type { Context } from "hono";
 
 export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   invalid_auth: 400,
@@ -90,21 +90,6 @@ export function errorResponse(context: Context, code: AppErrorCode, options: Err
       ...(options.headers ?? {}),
       [REQUEST_ID_HEADER]: requestId,
     },
-  });
-}
-
-// Ergonomic error response for app workers: reads DOCS_BASE_URL off the worker
-// env so callers do not repeat the wiring. Workers re-export this directly.
-export function appErrorResponse<E extends Env & { Bindings: { DOCS_BASE_URL?: string } }>(
-  context: Context<E>,
-  code: AppErrorCode,
-  message?: string,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return errorResponse(context, code, {
-    message,
-    headers: extraHeaders,
-    docsBaseUrl: context.env.DOCS_BASE_URL,
   });
 }
 

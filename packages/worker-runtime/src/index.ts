@@ -1,11 +1,22 @@
 export {
-  APP_ERROR_STATUS,
-  type AppErrorCode,
-  appErrorResponse,
-  ERROR_STATUS,
-  errorResponse,
-  jsonResponse,
-} from "./errors.js";
+  type ApiKeyAuthEnv,
+  type ApiKeyAuthService,
+  createAuthenticateApiKey,
+  type PostgresApiKeyRuntime,
+  validApiKeyActor,
+} from "./api-key-auth.js";
+export { createApiKeyOrMcpOAuthResolver, createMcpOAuthResolver } from "./auth-resolvers.js";
+export { bearerToken } from "./bearer.js";
+export {
+  BOUND_RESPONDERS_KEY,
+  type BoundResponderConfig,
+  type BoundResponders,
+  type BoundRespondersVariables,
+  boundResponderOptions,
+  boundRespondersMiddleware,
+  createBoundResponders,
+  getBoundResponders,
+} from "./bound-responders.js";
 export {
   assertContractError,
   assertRegistrarGuardErrorsDeclared,
@@ -18,10 +29,12 @@ export {
   shouldEnforceContractErrors,
 } from "./contract-errors.js";
 export {
-  assertRouteRepositoryErrorsDeclared,
-  collectRouteRepositoryDeclarationFailures,
-  routeRepositorySurfaces,
-} from "./route-repository-errors.js";
+  APP_ERROR_STATUS,
+  type AppErrorCode,
+  ERROR_STATUS,
+  errorResponse,
+  jsonResponse,
+} from "./errors.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,
@@ -37,15 +50,6 @@ export type {
   WorkOsAccessTokenPrincipal,
 } from "./principal.js";
 export { applyRateLimit, type RateLimitBinding, type RateLimitBindings } from "./rate-limit.js";
-export { bearerToken } from "./bearer.js";
-export {
-  type ApiKeyAuthEnv,
-  type ApiKeyAuthService,
-  createAuthenticateApiKey,
-  type PostgresApiKeyRuntime,
-  validApiKeyActor,
-} from "./api-key-auth.js";
-export { createApiKeyOrMcpOAuthResolver, createMcpOAuthResolver } from "./auth-resolvers.js";
 export {
   type AuthResolver,
   type AuthResolvers,
@@ -54,6 +58,11 @@ export {
   type Handler,
   type HeaderGuardState,
 } from "./registrar.js";
+export {
+  assertRouteRepositoryErrorsDeclared,
+  collectRouteRepositoryDeclarationFailures,
+  routeRepositorySurfaces,
+} from "./route-repository-errors.js";
 export { type SentryEnv, sentryOptions } from "./sentry.js";
 export {
   isAuthorizedStreamInternalRequest,

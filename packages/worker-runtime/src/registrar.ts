@@ -8,6 +8,7 @@ import {
   type Scope,
 } from "@agent-paste/contracts";
 import type { Context } from "hono";
+import { boundResponderOptions, createBoundResponders } from "./bound-responders.js";
 import {
   assertRegistrarGuardErrorsDeclared,
   contractErrorResponse,
@@ -37,6 +38,7 @@ export type GuardState<Contract extends RouteContract = RouteContract> = HeaderG
   body: RequestBodyFor<Contract>;
   params: Record<string, string>;
   respondError: (code: Contract["errors"][number], messageOrOptions?: string | ErrorResponseOptions) => Response;
+  respondJson: (body: unknown, status?: number, extraHeaders?: Record<string, string>) => Response;
 };
 
 export type ReplayHook<Db> = (input: {
@@ -85,10 +87,16 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
 
       assertRegistrarGuardErrorsDeclared(contract, { hasDb: deps.db !== undefined });
 
-      const errorOptions = (context: Context) => ({
-        docsBaseUrl: deps.docsBaseUrl?.(context),
-        defaultHeaders: deps.defaultErrorHeaders?.(context),
-      });
+      const errorOptions = (context: Context) => {
+        const config: Parameters<typeof boundResponderOptions>[1] = {};
+        if (deps.docsBaseUrl) {
+          config.docsBaseUrl = deps.docsBaseUrl;
+        }
+        if (deps.defaultErrorHeaders) {
+          config.defaultErrorHeaders = deps.defaultErrorHeaders;
+        }
+        return boundResponderOptions(context, config);
+      };
 
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (41), pending ratchet toward 15 — see docs/ops/complexity-todo.md
       const routeHandler = async (context: Context) => {
@@ -142,12 +150,14 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
           return contractErrorResponse(context, contract, "invalid_request", errorOptions(context));
         }
 
+        const bound = createBoundResponders(context, errorOptions(context));
         const respondError = createContractErrorResponder(context, contract, errorOptions(context));
         const finalGuard = {
           ...guard.state,
           body: body.value,
           params: context.req.param(),
           respondError,
+          respondJson: bound.respondJson,
         } as GuardState<typeof contract>;
 
         try {

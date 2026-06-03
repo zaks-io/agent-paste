@@ -1,5 +1,6 @@
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
+import { getBoundResponders } from "@agent-paste/worker-runtime";
 import {
   isHyperdriveDb,
   MEMBER_ARTIFACT_DELETE_OPERATION,
@@ -11,7 +12,7 @@ import type { AppContext } from "../env.js";
 import { notifyLiveUpdateDisconnect } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { workspaceApiActor } from "../principals.js";
-import { errorResponse, executeRepositoryRoute, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function listMemberArtifactsRoute(
@@ -21,11 +22,11 @@ export async function listMemberArtifactsRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const pagination = parsePagination(context.req.raw);
   if (!pagination.ok) {
-    return errorResponse(context, pagination.code);
+    return getBoundResponders(context).respondError(pagination.code);
   }
   return executeRepositoryRoute(context, () => db.listMemberArtifacts(actor, pagination.value));
 }
@@ -38,7 +39,7 @@ export async function deleteMemberArtifactRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const artifactId = context.req.param("artifact_id") ?? "";
   const idempotencyKey = guard.idempotencyKey ?? `mcp-delete:${artifactId}`;
@@ -94,7 +95,7 @@ export async function updateDisplayMetadataRoute(
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {
-    return errorResponse(context, "not_authenticated");
+    return getBoundResponders(context).respondError("not_authenticated");
   }
   const body = guard.body;
   return executeRepositoryRoute(context, () =>

@@ -1,5 +1,6 @@
 import type { RequestIdVariables, WebCallbackIdentity } from "@agent-paste/auth";
 import type { ApiKeyActor, HyperdriveBinding, Repository } from "@agent-paste/db";
+import type { BoundRespondersVariables } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 
 export type AuthService = {
@@ -93,4 +94,4 @@ export type Env = {
   SENTRY_DSN?: string;
 };
 
-export type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
+export type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>;
