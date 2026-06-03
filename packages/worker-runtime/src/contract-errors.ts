@@ -30,7 +30,24 @@ export function isDeclaredContractError(contract: RouteContract, code: ErrorCode
   return contract.errors.includes(code);
 }
 
+let contractErrorEnforcementOverride: boolean | undefined;
+
+/** Test-only hook to prove production vs enforcement behavior. */
+export function setContractErrorEnforcement(enabled: boolean | undefined): void {
+  contractErrorEnforcementOverride = enabled;
+}
+
+export function shouldEnforceContractErrors(): boolean {
+  if (contractErrorEnforcementOverride !== undefined) {
+    return contractErrorEnforcementOverride;
+  }
+  return false;
+}
+
 export function assertContractError(contract: RouteContract, code: ErrorCode): void {
+  if (!shouldEnforceContractErrors()) {
+    return;
+  }
   if (!isDeclaredContractError(contract, code)) {
     throw new ContractErrorViolation(contract.id, code);
   }

@@ -30,7 +30,7 @@ export async function createAccessLinkRoute(
         type: body.type,
         revisionId: body.revision_id ?? null,
       }),
-    201,
+    { successStatus: 201 },
   );
 }
 

@@ -88,7 +88,7 @@ export async function ephemeralClaimRoute(
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
       }),
-    200,
+    { successStatus: 200 },
   );
 }
 

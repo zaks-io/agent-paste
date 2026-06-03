@@ -131,7 +131,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "ArtifactListResponse",
-    errors: [...apiKeyActorReadErrors, "forbidden", "invalid_cursor"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "invalid_cursor", "invalid_request"],
   },
   {
     id: "artifacts.delete",
@@ -169,7 +169,7 @@ export const routeContracts = [
     rateLimit: "actor",
     requestSchema: "CreateAccessLinkRequest",
     responseSchema: "CreateAccessLinkResponse",
-    errors: [...apiKeyMutationErrors, "forbidden", "artifact_not_found", "invalid_request"],
+    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "artifact_not_found", "invalid_request"],
   },
   {
     id: "accessLinks.mint",
@@ -321,7 +321,7 @@ export const routeContracts = [
     idempotency: "required",
     rateLimit: "actor",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webIdempotentMutationErrors, "not_found", "pinned_artifact_cap_exceeded"],
+    errors: [...webIdempotentMutationErrors, "not_found", "artifact_not_found", "pinned_artifact_cap_exceeded"],
   },
   {
     id: "web.artifacts.unpin",
@@ -333,7 +333,7 @@ export const routeContracts = [
     idempotency: "required",
     rateLimit: "actor",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webIdempotentMutationErrors, "not_found"],
+    errors: [...webIdempotentMutationErrors, "not_found", "artifact_not_found"],
   },
   {
     id: "web.apiKeys.list",

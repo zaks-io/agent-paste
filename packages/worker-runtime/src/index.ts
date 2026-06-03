@@ -14,7 +14,14 @@ export {
   createContractErrorResponder,
   isDeclaredContractError,
   registrarGuardErrorCodes,
+  setContractErrorEnforcement,
+  shouldEnforceContractErrors,
 } from "./contract-errors.js";
+export {
+  assertRouteRepositoryErrorsDeclared,
+  collectRouteRepositoryDeclarationFailures,
+  routeRepositorySurfaces,
+} from "./route-repository-errors.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,

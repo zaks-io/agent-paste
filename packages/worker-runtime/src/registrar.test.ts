@@ -2,7 +2,8 @@ import { requestIdMiddleware } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { ErrorCode, type RouteContract } from "@agent-paste/contracts";
 import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setContractErrorEnforcement } from "./contract-errors.js";
 import { ERROR_STATUS } from "./errors.js";
 import { createRegistrar } from "./registrar.js";
 
@@ -32,6 +33,14 @@ const baseContract: RouteContract = {
 };
 
 describe("contract-driven registrar", () => {
+  beforeEach(() => {
+    setContractErrorEnforcement(true);
+  });
+
+  afterEach(() => {
+    setContractErrorEnforcement(undefined);
+  });
+
   it("maps every contract error code to a status", () => {
     expect(Object.keys(ERROR_STATUS).sort()).toEqual([...ErrorCode.options].sort());
     expect(ERROR_STATUS.file_size_cap_exceeded).toBe(400);
@@ -293,7 +302,8 @@ describe("contract-driven registrar", () => {
     expect(rateLimitCalls.count).toBe(0);
   });
 
-  it("throws when the registrar emits an undeclared repository error code", async () => {
+  it("throws when the registrar emits an undeclared repository error code under enforcement", async () => {
+    setContractErrorEnforcement(true);
     const app = newApp();
     createRegistrar({
       app,
@@ -309,6 +319,7 @@ describe("contract-driven registrar", () => {
 
     const response = await app.fetch(new Request("https://worker.test/test", { method: "POST" }));
     expect(response.status).toBe(500);
+    setContractErrorEnforcement(undefined);
   });
 
   it("returns forbidden when required scopes are absent", async () => {
