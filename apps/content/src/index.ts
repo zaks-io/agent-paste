@@ -1,16 +1,7 @@
-import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContractById } from "@agent-paste/contracts";
-import { artifactBytesEncryptionRingFromEnv, resolveContentTokenSigner } from "@agent-paste/rotation";
-import {
-  attachmentFilename,
-  bytesFromReadableBody,
-  CONTENT_SECURITY_HEADERS,
-  decryptArtifactBytesWithKeyRing,
-  isArtifactBytesEncryptionMetadata,
-  parseRevisionFileObjectKey,
-  plaintextByteLengthFromStoredObject,
-  servedContentForPath,
-} from "@agent-paste/storage";
+import { resolveContentTokenSigner } from "@agent-paste/rotation";
+import { CONTENT_SECURITY_HEADERS } from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken } from "@agent-paste/tokens/content";
 import {
   type BoundRespondersVariables,
@@ -21,51 +12,20 @@ import {
   sentryOptions,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
-import { type Context, Hono } from "hono";
+import { Hono } from "hono";
+import type { AppContext, Env } from "./env.js";
+import {
+  contentPath,
+  contentTokenFromRequest,
+  isAllowedPath,
+  isDenylisted,
+  serveSignedBundle,
+  serveSignedObject,
+} from "./serve-object.js";
 
+export type { Env, R2Bucket, R2ObjectBody } from "./env.js";
 export type { ContentTokenPayload };
 export { mintContentToken as signContentToken };
-
-export type R2ObjectBody = {
-  body: ReadableStream | null;
-  size: number;
-  customMetadata?: Record<string, string>;
-  httpMetadata?: {
-    contentType?: string;
-  };
-  writeHttpMetadata?(headers: Headers): void;
-};
-
-export type R2Bucket = {
-  get(key: string): Promise<R2ObjectBody | null>;
-  head?(key: string): Promise<R2ObjectBody | null>;
-};
-
-export type KVNamespace = {
-  get(key: string): Promise<string | null>;
-};
-
-export type RateLimitBinding = {
-  limit(options: { key: string }): Promise<{ success: boolean }>;
-};
-
-export type Env = {
-  ARTIFACTS: R2Bucket;
-  DENYLIST: KVNamespace;
-  ARTIFACT_RATE_LIMIT?: RateLimitBinding;
-  CONTENT_SIGNING_SECRET: string;
-  CONTENT_SIGNING_SECRET_V2?: string;
-  CONTENT_SIGNING_KID?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
-  CONTENT_BASE_URL?: string;
-  DOCS_BASE_URL?: string;
-  AGENT_PASTE_ENV?: string;
-  SENTRY_DSN?: string;
-};
-
-type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>;
 
 const contractById = routeContractById;
 const securityHeaders = CONTENT_SECURITY_HEADERS;
@@ -73,12 +33,9 @@ const boundResponderConfig = {
   docsBaseUrl: (context: AppContext) => context.env.DOCS_BASE_URL,
   defaultErrorHeaders: () => securityHeaders,
 } as const;
-const NOINDEX_HEADER = "noindex, nofollow";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
-
-const BUNDLE_FILENAME = "bundle.zip";
 
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
@@ -150,243 +107,4 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
-}
-
-function contentTokenFromRequest(context: AppContext): string {
-  const pathname = new URL(context.req.raw.url).pathname;
-  if (pathname.startsWith("/b/")) {
-    const encodedToken = pathname.split("/")[2];
-    return encodedToken ? (safeDecodeURIComponent(encodedToken) ?? "") : "";
-  }
-  return context.req.param("token") ?? "";
-}
-
-function contentPath(context: AppContext): string {
-  const pathname = new URL(context.req.raw.url).pathname;
-  if (pathname.startsWith("/b/")) {
-    return "";
-  }
-  const encodedToken = pathname.split("/")[2];
-  if (!encodedToken) {
-    return "";
-  }
-  const marker = `/v/${encodedToken}/`;
-  return safeDecodeURIComponent(pathname.slice(marker.length)) ?? "";
-}
-
-async function serveSignedBundle(context: AppContext, payload: ContentTokenPayload): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  const key = payload.key_prefix;
-  if (!key?.endsWith(BUNDLE_FILENAME)) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const object =
-    request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
-  if (!object) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const served = await prepareEncryptedObjectResponse({
-    env,
-    payload,
-    object,
-    path: BUNDLE_FILENAME,
-    objectKey: key,
-    method: request.method,
-  });
-  if (!served) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const headers = bundleResponseHeaders(served.plaintextSize, payload.exp, payload.noindex === true);
-  headers.set(REQUEST_ID_HEADER, getRequestId(context));
-
-  return new Response(served.body, { status: 200, headers });
-}
-
-async function serveSignedObject(context: AppContext, payload: ContentTokenPayload, path: string): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-
-  const key = objectKeyFor(payload, path);
-  const object =
-    request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
-  if (!object) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const served = await prepareEncryptedObjectResponse({
-    env,
-    payload,
-    object,
-    path,
-    objectKey: key,
-    method: request.method,
-  });
-  if (!served) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload);
-  headers.set(REQUEST_ID_HEADER, getRequestId(context));
-
-  let body = served.body;
-  if (payload.noindex === true && served.body && request.method !== "HEAD") {
-    body = await maybeInjectNoindexMetaBody(served.body, path);
-  }
-  return new Response(body, { status: 200, headers });
-}
-
-async function prepareEncryptedObjectResponse(input: {
-  env: Env;
-  payload: ContentTokenPayload;
-  object: R2ObjectBody;
-  path: string;
-  objectKey: string;
-  method: string;
-}): Promise<{ body: ReadableStream | null; plaintextSize: number } | null> {
-  const encryptionRing = artifactBytesEncryptionRingFromEnv(input.env);
-  if (!encryptionRing || !isArtifactBytesEncryptionMetadata(input.object.customMetadata)) {
-    return null;
-  }
-  const workspaceId = input.payload.workspace_id;
-  if (!workspaceId) {
-    return null;
-  }
-  const normalizedPath = input.path.length > 0 ? input.path : BUNDLE_FILENAME;
-  const keyParts = normalizedPath === BUNDLE_FILENAME ? null : parseRevisionFileObjectKey(input.objectKey);
-  const artifactId = keyParts?.artifactId ?? input.payload.artifact_id;
-  const revisionId = keyParts?.revisionId ?? input.payload.revision_id;
-  let plaintextSize: number;
-  try {
-    plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
-  } catch {
-    return null;
-  }
-  if (input.method === "HEAD") {
-    return { body: null, plaintextSize };
-  }
-  const ciphertext = await bytesFromReadableBody(input.object.body);
-  try {
-    const plaintext = await decryptArtifactBytesWithKeyRing({
-      ciphertext,
-      ring: encryptionRing,
-      metadata: input.object.customMetadata,
-      context: {
-        workspaceId,
-        artifactId,
-        revisionId,
-        normalizedPath,
-      },
-    });
-    return {
-      body: new Blob([plaintext as BlobPart]).stream(),
-      plaintextSize,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function denylistKeysForPayload(payload: ContentTokenPayload): string[] {
-  return [
-    ...(payload.workspace_id ? [`wsd:${payload.workspace_id}`] : []),
-    `ad:${payload.artifact_id}`,
-    `rd:${payload.revision_id}`,
-    ...(payload.access_link_id ? [`ald:${payload.access_link_id}`] : []),
-  ];
-}
-
-async function isDenylisted(env: Env, payload: ContentTokenPayload): Promise<boolean> {
-  const denylistResults = await Promise.all(denylistKeysForPayload(payload).map((key) => env.DENYLIST.get(key)));
-  return denylistResults.some((value) => value !== null);
-}
-
-function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
-  if (path.length === 0) {
-    return Boolean(payload.key_prefix?.endsWith(BUNDLE_FILENAME));
-  }
-  if (!isSafePath(path)) {
-    return false;
-  }
-
-  return !payload.paths || payload.paths.includes(path);
-}
-
-function isSafePath(path: string): boolean {
-  return path.length > 0 && !path.startsWith("/") && !path.split("/").includes("..");
-}
-
-function objectKeyFor(payload: ContentTokenPayload, path: string): string {
-  const prefix = payload.key_prefix ?? `artifacts/${payload.artifact_id}/revisions/${payload.revision_id}/files`;
-  return `${prefix.replace(/\/+$/, "")}/${path}`;
-}
-
-function bundleResponseHeaders(size: number, tokenExpiresAt: number, noindex: boolean): Headers {
-  const headers = new Headers(securityHeaders);
-  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
-  headers.set("content-length", String(size));
-  headers.set("content-type", "application/zip");
-  headers.set("content-disposition", `attachment; filename="${BUNDLE_FILENAME}"`);
-  if (noindex) {
-    headers.set("x-robots-tag", NOINDEX_HEADER);
-  }
-  return headers;
-}
-
-function responseHeadersForPath(
-  path: string,
-  size: number,
-  tokenExpiresAt: number,
-  payload: ContentTokenPayload,
-): Headers {
-  const scriptDisabled = payload.script_disabled !== false;
-  const served = servedContentForPath(path, { scriptDisabled });
-  const headers = new Headers(securityHeaders);
-  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
-  headers.set("content-length", String(size));
-  headers.set("content-type", served.contentType);
-  headers.set("content-security-policy", served.csp);
-  if (served.disposition === "attachment") {
-    headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
-  }
-  if (payload.noindex === true) {
-    headers.set("x-robots-tag", NOINDEX_HEADER);
-  }
-  return headers;
-}
-
-async function maybeInjectNoindexMetaBody(body: ReadableStream, path: string): Promise<ReadableStream> {
-  if (!isHtmlPath(path)) {
-    return body;
-  }
-  const html = await new Response(body).text();
-  return new Blob([injectNoindexMeta(html)]).stream();
-}
-
-function isHtmlPath(path: string): boolean {
-  return /\.(?:html?|xhtml)$/i.test(path);
-}
-
-function injectNoindexMeta(html: string): string {
-  const tag = '<meta name="robots" content="noindex,nofollow">';
-  if (html.includes(tag)) {
-    return html;
-  }
-  const headMatch = /<head(\b[^>]*)>/i.exec(html);
-  if (headMatch) {
-    const index = headMatch.index + headMatch[0].length;
-    return `${html.slice(0, index)}${tag}${html.slice(index)}`;
-  }
-  return `${tag}${html}`;
-}
-
-function safeDecodeURIComponent(value: string): string | null {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
 }
