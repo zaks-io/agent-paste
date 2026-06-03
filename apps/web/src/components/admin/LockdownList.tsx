@@ -1,7 +1,7 @@
 import type { LockdownDetail } from "@agent-paste/contracts";
 import { useState } from "react";
-import type { ApiErrorInfo } from "../../server/api-client";
-import { liftLockdownFn } from "../../server/web-mutations";
+import type { ApiErrorInfo } from "../../lib/api-error";
+import { liftLockdownFn } from "../../rpc/web-mutations";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";

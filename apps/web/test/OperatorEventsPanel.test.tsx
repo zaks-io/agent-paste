@@ -2,11 +2,8 @@ import type { WebOperatorEventRow } from "@agent-paste/contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  type OperatorEventSearch,
-  OperatorEventsPanel,
-  operatorEventsQueryString,
-} from "../src/components/admin/OperatorEventsPanel";
+import { OperatorEventsPanel } from "../src/components/admin/OperatorEventsPanel";
+import { type OperatorEventSearch, operatorEventsQueryString } from "../src/lib/operator-events";
 
 const state = vi.hoisted(() => ({
   navigate: vi.fn(),

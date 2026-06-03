@@ -112,10 +112,8 @@ async function ensurePreviewJobQueues() {
 
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
-  await run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath]);
-  if (secretsPath) {
-    await run("pnpm", ["exec", "wrangler", "secret", "bulk", secretsPath, "--name", names[app]]);
-  }
+  const secretArgs = secretsPath ? ["--secrets-file", secretsPath] : [];
+  await run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath, ...secretArgs]);
 }
 
 // web is a TanStack Start build, not a bundle-from-src worker: building with
@@ -155,14 +153,12 @@ async function deployWeb() {
   config.services = [{ binding: "API", service: names.api }];
   writeJson(generatedConfig, config);
 
-  await run("pnpm", ["exec", "wrangler", "deploy", "--config", generatedConfig]);
-
   const webSecretsPath = new URL("web.secrets.json", outDir).pathname;
   writeJson(webSecretsPath, {
     WORKOS_API_KEY: workosApiKey,
     WORKOS_COOKIE_PASSWORD: prSecrets.WORKOS_COOKIE_PASSWORD,
   });
-  await run("pnpm", ["exec", "wrangler", "secret", "bulk", webSecretsPath, "--name", names.web]);
+  await run("pnpm", ["exec", "wrangler", "deploy", "--config", generatedConfig, "--secrets-file", webSecretsPath]);
   return true;
 }
 

@@ -44,9 +44,9 @@ admin basics.
 6. [x] Promote status after the above lands: update ADR 0033/0059/0068
        coverage and the Phase 3 summary in `project-status.md`.
 7. [x] Restore deep-link return paths for unauthenticated `_authed` redirects.
-       `_authed.beforeLoad` now redirects through
-       `/api/auth/sign-in/p/{base64url(pathname)}` so returnPathname survives
-       without a query string on the thrown redirect href.
+       `_authed` now returns a redirect payload and the client assigns
+       `/api/auth/sign-in?returnPathname=<path>` so returnPathname survives
+       without a query string on a thrown router redirect href.
 
 Nice-to-have but not a Phase 3 gate:
 

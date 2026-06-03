@@ -1,4 +1,5 @@
 import "@tanstack/react-start/server-only";
+import type { LoaderFallback } from "../lib/api-error";
 import { getRequestId, getWebEnv } from "./runtime";
 
 export class ApiError extends Error {
@@ -14,18 +15,12 @@ export class ApiError extends Error {
   }
 }
 
-export type ApiErrorInfo = {
-  status: number;
-  code: string;
-  message: string;
-  requestId: string | undefined;
-};
-
 export type ApiFetchOptions = RequestInit & {
   accessToken?: string;
 };
 
 const ABSENT_DATA_STATUSES = new Set([404, 501]);
+const API_FETCH_TIMEOUT_MS = 8_000;
 
 function resolveApiUrl(path: string): string {
   const env = getWebEnv();
@@ -36,10 +31,13 @@ function resolveApiUrl(path: string): string {
 
 async function dispatch(input: string, init: RequestInit): Promise<Response> {
   const env = getWebEnv();
+  const timeoutSignal = AbortSignal.timeout(API_FETCH_TIMEOUT_MS);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+  const requestInit = { ...init, signal };
   if (env.API) {
-    return env.API.fetch(new Request(input, init));
+    return env.API.fetch(new Request(input, requestInit));
   }
-  return fetch(input, init);
+  return fetch(input, requestInit);
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
@@ -87,12 +85,6 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   return parsed as T;
 }
-
-export type LoaderFallback<T> = {
-  data: T | null;
-  empty: boolean;
-  error: ApiErrorInfo | null;
-};
 
 export async function apiFetchOrEmpty<T>(path: string, options: ApiFetchOptions = {}): Promise<LoaderFallback<T>> {
   const requestId = getRequestId();

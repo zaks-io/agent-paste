@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { createKeyFn } from "../../server/web-mutations";
+import { createKeyFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
@@ -37,7 +37,7 @@ export function KeyCreateForm({ onCreated, onSecret }: Props) {
 
   return (
     <Card>
-      <CardHeader title="Create a key" subtitle="Name it so you remember where it runs." />
+      <CardHeader title="Create a key" subtitle="Name it so you remember where it runs." className="mb-5" />
       <form className="flex max-w-[480px] items-end gap-3" onSubmit={onSubmit}>
         <label htmlFor="new-key-name" className="grid flex-1 gap-1">
           <span className="text-[12px] text-[hsl(var(--muted))]">Key name</span>

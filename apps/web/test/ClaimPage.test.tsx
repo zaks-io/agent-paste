@@ -29,14 +29,14 @@ vi.mock("@tanstack/react-start", () => ({
   },
 }));
 
-vi.mock("../src/server/web-mutations", () => ({
+vi.mock("../src/rpc/web-mutations", () => ({
   claimEphemeralFn: (...args: unknown[]) => state.claimEphemeralFn(...args),
   LOCAL_TURNSTILE_BYPASS_TOKEN: "local-turnstile-bypass",
 }));
 
 import { PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
-import { VALID_TOKEN } from "./claim-fixtures";
 import { Route } from "../src/routes/_authed.claim";
+import { VALID_TOKEN } from "./claim-fixtures";
 
 describe("ClaimPage", () => {
   beforeEach(() => {

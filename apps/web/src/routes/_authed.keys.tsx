@@ -1,7 +1,5 @@
 import type { WebApiKeyListResponse } from "@agent-paste/contracts";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { useCallback, useState } from "react";
 import { KeyCreateForm } from "../components/keys/KeyCreateForm";
 import { KeysTable } from "../components/keys/KeysTable";
@@ -10,15 +8,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const listKeysFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<WebApiKeyListResponse>("/v1/web/keys", {
-    accessToken: auth.accessToken,
-  });
-});
+import { listKeysFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/keys")({
   loader: () => listKeysFn(),
@@ -38,6 +28,7 @@ function KeysPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Configuration"
         title="API Keys"
         description={
           <>

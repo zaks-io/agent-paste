@@ -28,7 +28,6 @@ import { Route as ApiAccessLinksResolveRouteImport } from './routes/api/access-l
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
 import { Route as ApiLiveArtifactsArtifactIdRouteImport } from './routes/api/live/artifacts/$artifactId'
 import { Route as ApiLiveAccessLinksPublicIdRouteImport } from './routes/api/live/access-links/$publicId'
-import { Route as ApiAuthSignInPEncodedRouteImport } from './routes/api/auth/sign-in/p.$encoded'
 
 const HealthzRoute = HealthzRouteImport.update({
   id: '/healthz',
@@ -127,11 +126,6 @@ const ApiLiveAccessLinksPublicIdRoute =
     path: '/api/live/access-links/$publicId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiAuthSignInPEncodedRoute = ApiAuthSignInPEncodedRouteImport.update({
-  id: '/p/$encoded',
-  path: '/p/$encoded',
-  getParentRoute: () => ApiAuthSignInRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -147,12 +141,11 @@ export interface FileRoutesByFullPath {
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts/': typeof AuthedArtifactsIndexRoute
   '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
   '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
-  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -168,12 +161,11 @@ export interface FileRoutesByTo {
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts': typeof AuthedArtifactsIndexRoute
   '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
   '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
-  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -191,12 +183,11 @@ export interface FileRoutesById {
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
-  '/api/auth/sign-in': typeof ApiAuthSignInRouteWithChildren
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/_authed/artifacts/': typeof AuthedArtifactsIndexRoute
   '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
   '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
-  '/api/auth/sign-in/p/$encoded': typeof ApiAuthSignInPEncodedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -219,7 +210,6 @@ export interface FileRouteTypes {
     | '/artifacts/'
     | '/api/live/access-links/$publicId'
     | '/api/live/artifacts/$artifactId'
-    | '/api/auth/sign-in/p/$encoded'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -240,7 +230,6 @@ export interface FileRouteTypes {
     | '/artifacts'
     | '/api/live/access-links/$publicId'
     | '/api/live/artifacts/$artifactId'
-    | '/api/auth/sign-in/p/$encoded'
   id:
     | '__root__'
     | '/'
@@ -262,7 +251,6 @@ export interface FileRouteTypes {
     | '/_authed/artifacts/'
     | '/api/live/access-links/$publicId'
     | '/api/live/artifacts/$artifactId'
-    | '/api/auth/sign-in/p/$encoded'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -272,7 +260,7 @@ export interface RootRouteChildren {
   AlPublicIdRoute: typeof AlPublicIdRoute
   ApiAccessLinksResolveRoute: typeof ApiAccessLinksResolveRoute
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
-  ApiAuthSignInRoute: typeof ApiAuthSignInRouteWithChildren
+  ApiAuthSignInRoute: typeof ApiAuthSignInRoute
   ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
   ApiLiveAccessLinksPublicIdRoute: typeof ApiLiveAccessLinksPublicIdRoute
   ApiLiveArtifactsArtifactIdRoute: typeof ApiLiveArtifactsArtifactIdRoute
@@ -413,13 +401,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLiveAccessLinksPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/sign-in/p/$encoded': {
-      id: '/api/auth/sign-in/p/$encoded'
-      path: '/p/$encoded'
-      fullPath: '/api/auth/sign-in/p/$encoded'
-      preLoaderRoute: typeof ApiAuthSignInPEncodedRouteImport
-      parentRoute: typeof ApiAuthSignInRoute
-    }
   }
 }
 
@@ -450,18 +431,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
-interface ApiAuthSignInRouteChildren {
-  ApiAuthSignInPEncodedRoute: typeof ApiAuthSignInPEncodedRoute
-}
-
-const ApiAuthSignInRouteChildren: ApiAuthSignInRouteChildren = {
-  ApiAuthSignInPEncodedRoute: ApiAuthSignInPEncodedRoute,
-}
-
-const ApiAuthSignInRouteWithChildren = ApiAuthSignInRoute._addFileChildren(
-  ApiAuthSignInRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
@@ -469,7 +438,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlPublicIdRoute: AlPublicIdRoute,
   ApiAccessLinksResolveRoute: ApiAccessLinksResolveRoute,
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
-  ApiAuthSignInRoute: ApiAuthSignInRouteWithChildren,
+  ApiAuthSignInRoute: ApiAuthSignInRoute,
   ApiAuthSignOutRoute: ApiAuthSignOutRoute,
   ApiLiveAccessLinksPublicIdRoute: ApiLiveAccessLinksPublicIdRoute,
   ApiLiveArtifactsArtifactIdRoute: ApiLiveArtifactsArtifactIdRoute,

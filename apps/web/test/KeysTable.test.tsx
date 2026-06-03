@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const revokeKeyFn = vi.fn();
-vi.mock("../src/server/web-mutations", () => ({ revokeKeyFn: (...args: unknown[]) => revokeKeyFn(...args) }));
+vi.mock("../src/rpc/web-mutations", () => ({ revokeKeyFn: (...args: unknown[]) => revokeKeyFn(...args) }));
 
 import { KeysTable } from "../src/components/keys/KeysTable";
 import { ToastProvider } from "../src/components/ui/ToastProvider";

@@ -18,6 +18,16 @@ vi.mock("@tanstack/react-start", () => ({
     };
     return builder;
   },
+  getGlobalStartContext: () => ({
+    auth: () =>
+      state.auth.user
+        ? {
+            ...state.auth,
+            sessionId: "session_1",
+            claims: {},
+          }
+        : { user: null },
+  }),
 }));
 
 vi.mock("@workos/authkit-tanstack-react-start", () => ({
@@ -44,12 +54,12 @@ vi.mock("../src/server/turnstile", () => ({
 import { ApiError } from "../src/server/api-client";
 import { verifyTurnstileToken } from "../src/server/turnstile";
 import {
-  claimEphemeralFn,
-  createKeyFn,
-  liftLockdownFn,
-  revokeKeyFn,
-  saveSettingsFn,
-  setLockdownFn,
+  claimEphemeral,
+  createKey,
+  liftLockdown,
+  revokeKey,
+  saveSettings,
+  setLockdown,
 } from "../src/server/web-mutations";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,28 +81,30 @@ describe("web server mutations", () => {
       .mockResolvedValueOnce(lockdownRow())
       .mockResolvedValueOnce({ ...lockdownRow(), lifted_at: "2026-01-01T00:00:00.000Z" });
 
-    await expect(createKeyFn({ data: { name: "Dashboard Key" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "Dashboard Key" })).resolves.toMatchObject({
       data: { secret: "secret" },
       error: null,
     });
-    await expect(revokeKeyFn({ data: { apiKeyId: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" } })).resolves.toMatchObject({
+    await expect(revokeKey({ apiKeyId: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" })).resolves.toMatchObject({
       data: { api_key: { id: "key_1" } },
       error: null,
     });
-    await expect(saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 14 } })).resolves.toMatchObject({
+    await expect(saveSettings({ workspace_name: "Demo", auto_deletion_days: 14 })).resolves.toMatchObject({
       data: { workspace_name: "Demo" },
       error: null,
     });
     await expect(
-      setLockdownFn({
-        data: { scope: "workspace", target_id: "00000000-0000-4000-8000-000000000000", reason_code: "abuse" },
+      setLockdown({
+        scope: "workspace",
+        target_id: "00000000-0000-4000-8000-000000000000",
+        reason_code: "abuse",
       }),
     ).resolves.toMatchObject({
       data: { scope: "workspace" },
       error: null,
     });
     await expect(
-      liftLockdownFn({ data: { scope: "workspace", target_id: "00000000-0000-4000-8000-000000000000" } }),
+      liftLockdown({ scope: "workspace", target_id: "00000000-0000-4000-8000-000000000000" }),
     ).resolves.toMatchObject({
       data: { lifted_at: "2026-01-01T00:00:00.000Z" },
       error: null,
@@ -153,39 +165,35 @@ describe("web server mutations", () => {
   });
 
   it("returns validation errors before calling the API", async () => {
-    await expect(createKeyFn({ data: { name: "" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(revokeKeyFn({ data: { apiKeyId: "not-a-key" } })).resolves.toMatchObject({
+    await expect(revokeKey({ apiKeyId: "not-a-key" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(saveSettingsFn({ data: { workspace_name: "", auto_deletion_days: 0 } })).resolves.toMatchObject({
+    await expect(saveSettings({ workspace_name: "", auto_deletion_days: 0 })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(
-      setLockdownFn({ data: { scope: "workspace", target_id: "", reason_code: "" } }),
-    ).resolves.toMatchObject({
+    await expect(setLockdown({ scope: "workspace", target_id: "", reason_code: "" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(
-      setLockdownFn({ data: { scope: "workspace", target_id: "   ", reason_code: "abuse" } }),
-    ).resolves.toMatchObject({
+    await expect(setLockdown({ scope: "workspace", target_id: "   ", reason_code: "abuse" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(liftLockdownFn({ data: { scope: "invalid", target_id: "" } })).resolves.toMatchObject({
+    await expect(liftLockdown({ scope: "invalid", target_id: "" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(liftLockdownFn({ data: { scope: "workspace", target_id: "   " } })).resolves.toMatchObject({
+    await expect(liftLockdown({ scope: "workspace", target_id: "   " })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
-    await expect(liftLockdownFn({ data: { scope: "workspace" } })).resolves.toMatchObject({
+    await expect(liftLockdown({ scope: "workspace" })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });
@@ -195,7 +203,7 @@ describe("web server mutations", () => {
   it("returns unauthorized when the WorkOS session is missing", async () => {
     state.auth = { user: null };
 
-    await expect(createKeyFn({ data: { name: "Key" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "Key" })).resolves.toMatchObject({
       data: null,
       error: { status: 401, code: "unauthorized", message: "Not signed in." },
     });
@@ -207,15 +215,15 @@ describe("web server mutations", () => {
       .mockRejectedValueOnce(new Error("network down"))
       .mockRejectedValueOnce("boom");
 
-    await expect(createKeyFn({ data: { name: "Key" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "Key" })).resolves.toMatchObject({
       data: null,
       error: { status: 409, code: "idempotency_in_flight", message: "Already running", requestId: "req_api" },
     });
-    await expect(createKeyFn({ data: { name: "Key" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "Key" })).resolves.toMatchObject({
       data: null,
       error: { status: 0, code: "network_error", message: "network down", requestId: "req_local" },
     });
-    await expect(createKeyFn({ data: { name: "Key" } })).resolves.toMatchObject({
+    await expect(createKey({ name: "Key" })).resolves.toMatchObject({
       data: null,
       error: { status: 0, code: "network_error", message: "request failed", requestId: "req_local" },
     });
@@ -230,9 +238,7 @@ describe("web server mutations", () => {
     });
 
     await expect(
-      claimEphemeralFn({
-        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" },
-      }),
+      claimEphemeral({ claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" }),
     ).resolves.toMatchObject({
       data: {
         destination_workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -246,9 +252,7 @@ describe("web server mutations", () => {
   it("rejects claim attempts when Turnstile verification fails", async () => {
     vi.mocked(verifyTurnstileToken).mockResolvedValueOnce(false);
     await expect(
-      claimEphemeralFn({
-        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "bad" },
-      }),
+      claimEphemeral({ claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "bad" }),
     ).resolves.toMatchObject({
       data: null,
       error: { code: "turnstile_failed" },
@@ -259,9 +263,7 @@ describe("web server mutations", () => {
   it("surfaces API not_found errors for claim redemption", async () => {
     state.apiFetch.mockRejectedValueOnce(new ApiError(404, "not_found", "not_found", "req_nf"));
     await expect(
-      claimEphemeralFn({
-        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" },
-      }),
+      claimEphemeral({ claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "local-turnstile-bypass" }),
     ).resolves.toMatchObject({
       data: null,
       error: { status: 404, code: "not_found" },
@@ -270,9 +272,7 @@ describe("web server mutations", () => {
 
   it("rejects malformed Turnstile tokens before calling the API", async () => {
     await expect(
-      claimEphemeralFn({
-        data: { claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "   " },
-      }),
+      claimEphemeral({ claim_token: "ap_ct_preview_testsecret000000_abc", turnstile_token: "   " }),
     ).resolves.toMatchObject({
       data: null,
       error: { code: "validation_error", status: 400 },

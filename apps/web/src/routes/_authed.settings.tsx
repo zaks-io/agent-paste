@@ -1,22 +1,11 @@
-import type { WebSettingsResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { SettingsForm } from "../components/settings/SettingsForm";
-import { Card, CardHeader } from "../components/ui/Card";
+import { SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<WebSettingsResponse>("/v1/web/settings", {
-    accessToken: auth.accessToken,
-  });
-});
+import { loadSettingsFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/settings")({
   loader: () => loadSettingsFn(),
@@ -31,23 +20,33 @@ function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Workspace" description="Name, retention, and usage caps." />
+      <PageHeader eyebrow="Configuration" title="Workspace" description="Name, retention, and usage caps." />
       {result.error ? (
         <ErrorBanner title="Couldn't load settings" message={result.error.message} requestId={result.error.requestId} />
       ) : !settings ? (
         <EmptyState title="No settings yet." body="This workspace has not been provisioned yet." />
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-10">
           <SettingsForm settings={settings} />
-          <Card>
-            <CardHeader title="Usage policy" subtitle="Read-only caps for this workspace." />
-            <dl className="grid grid-cols-2 gap-y-2 text-[13px] font-mono">
-              <dt className="text-[hsl(var(--muted))]">Artifacts per day</dt>
-              <dd className="tabular-nums">{settings.usage_policy.artifacts_per_day}</dd>
-              <dt className="text-[hsl(var(--muted))]">Bytes per day</dt>
-              <dd className="tabular-nums">{settings.usage_policy.bytes_per_day}</dd>
+          <section>
+            <SectionLabel className="mb-4">Usage policy</SectionLabel>
+            <dl className="border-t border-[hsl(var(--rule))]">
+              {(
+                [
+                  ["Artifacts per day", settings.usage_policy.artifacts_per_day],
+                  ["Bytes per day", settings.usage_policy.bytes_per_day],
+                ] as const
+              ).map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between border-b border-[hsl(var(--rule))] py-2.5 pl-3 pr-3"
+                >
+                  <dt className="text-[12.5px] text-[hsl(var(--subtle))]">{label}</dt>
+                  <dd className="font-mono text-[12.5px] tabular-nums text-[hsl(var(--foreground))]">{value}</dd>
+                </div>
+              ))}
             </dl>
-          </Card>
+          </section>
         </div>
       )}
     </>

@@ -4,7 +4,7 @@ import { cn } from "../../lib/cn";
 export function Table({ className, children, ...rest }: HTMLAttributes<HTMLTableElement>) {
   return (
     <div className="w-full overflow-x-auto">
-      <table className={cn("w-full border-separate border-spacing-0 tabular-nums text-[14px]", className)} {...rest}>
+      <table className={cn("w-full border-separate border-spacing-0 text-[13.5px]", className)} {...rest}>
         {children}
       </table>
     </div>
@@ -16,13 +16,7 @@ export function THead({ children }: { children: ReactNode }) {
 }
 
 export function TBody({ children }: { children: ReactNode }) {
-  return (
-    <tbody
-      className={cn("[&_tr:hover]:bg-[hsl(var(--surface-sunken))] [&_tr]:transition-colors", "[&_tr]:duration-[80ms]")}
-    >
-      {children}
-    </tbody>
-  );
+  return <tbody className="[&_tr]:transition-colors [&_tr:hover]:bg-[hsl(var(--surface-2))]">{children}</tbody>;
 }
 
 export function TR({ children, className, ...rest }: HTMLAttributes<HTMLTableRowElement>) {
@@ -37,8 +31,8 @@ export function TH({ className, children, ...rest }: ThHTMLAttributes<HTMLTableC
   return (
     <th
       className={cn(
-        "text-left font-semibold uppercase tracking-[0.04em] text-[11px] leading-[1.3]",
-        "text-[hsl(var(--muted))] px-4 py-3 border-b border-[hsl(var(--rule-strong))]",
+        "border-b border-[hsl(var(--rule))] px-4 py-2.5 text-left",
+        "font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-[hsl(var(--subtle))]",
         className,
       )}
       {...rest}
@@ -51,7 +45,11 @@ export function TH({ className, children, ...rest }: ThHTMLAttributes<HTMLTableC
 export function TD({ className, children, ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn("px-4 py-3 border-b border-[hsl(var(--rule))] last:[tr:last-child_&]:border-0", className)}
+      className={cn(
+        "border-b border-[hsl(var(--rule))] px-4 py-3 text-[hsl(var(--foreground))]",
+        "[tr:last-child_&]:border-0",
+        className,
+      )}
       {...rest}
     >
       {children}

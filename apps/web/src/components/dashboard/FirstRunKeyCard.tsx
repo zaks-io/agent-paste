@@ -10,7 +10,7 @@ export function FirstRunKeyCard({ secret }: Props) {
   const [revealed, setRevealed] = useState(false);
 
   return (
-    <Card>
+    <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
       <CardHeader
         title="Your default API key"
         subtitle={
@@ -20,6 +20,7 @@ export function FirstRunKeyCard({ secret }: Props) {
             is shown only once.
           </>
         }
+        className="mb-4"
       />
       {secret ? (
         <div className="grid gap-3">

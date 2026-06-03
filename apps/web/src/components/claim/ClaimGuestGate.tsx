@@ -1,5 +1,4 @@
 import { useLayoutEffect } from "react";
-import { signInBridgeHref } from "../../lib/auth-return-path";
 import {
   claimTokenFromLocationHash,
   clearClaimTokenFromLocation,
@@ -14,7 +13,7 @@ export function ClaimGuestGate() {
       stashPendingClaimToken(token);
       clearClaimTokenFromLocation();
     }
-    window.location.assign(signInBridgeHref("/claim"));
+    window.location.assign("/api/auth/sign-in?returnPathname=%2Fclaim");
   }, []);
 
   return (

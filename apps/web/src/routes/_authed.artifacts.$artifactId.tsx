@@ -1,10 +1,9 @@
-import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
+import type { LiveUpdatePointer } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
-import { Card, CardHeader } from "../components/ui/Card";
+import { Card, SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
@@ -15,17 +14,7 @@ import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const getArtifactFn = createServerFn({ method: "GET" })
-  .inputValidator((input: { artifactId: string }) => input)
-  .handler(async ({ data }) => {
-    const auth = await getAuth();
-    if (!auth.user) return { data: null, empty: true, error: null };
-    return apiFetchOrEmpty<WebArtifactDetailResponse>(`/v1/web/artifacts/${encodeURIComponent(data.artifactId)}`, {
-      accessToken: auth.accessToken,
-    });
-  });
+import { getArtifactFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
   loader: ({ params }) => getArtifactFn({ data: { artifactId: params.artifactId } }),
@@ -89,48 +78,71 @@ function ArtifactDetailPage() {
     );
   }
 
+  const meta: ReadonlyArray<[string, ReactNode]> = [
+    ["Entrypoint", artifact.entrypoint],
+    ["Files", artifact.file_count],
+    ["Size", formatBytes(artifact.size_bytes)],
+    ["Last published", artifact.last_published_at ? <RelativeTime key="lp" value={artifact.last_published_at} /> : "—"],
+  ];
+
   return (
     <>
       <PageHeader
+        eyebrow="Artifact"
         title={artifact.title || "Untitled"}
-        description={<Identifier value={artifact.id} />}
+        meta={<Identifier value={artifact.id} />}
         actions={
           <div className="flex items-center gap-2">
-            <Badge tone={artifactStatusTone(artifact.status)}>{artifact.status}</Badge>
+            <Badge tone={artifactStatusTone(artifact.status)} dot>
+              {artifact.status}
+            </Badge>
             {artifact.pinned ? <Badge tone="accent">Pinned</Badge> : null}
             {artifact.lockdown ? <Badge tone="destructive">Locked down</Badge> : null}
           </div>
         }
       />
-      {iframeSrc ? (
-        <Card>
-          <CardHeader title="Published viewer" subtitle="Live updates when a new revision is published." />
-          <div className="h-[min(70vh,720px)] border border-[hsl(var(--rule))] rounded-[var(--radius)] overflow-hidden">
-            <iframe
-              title="Artifact content"
-              src={iframeSrc}
-              sandbox="allow-scripts allow-popups"
-              referrerPolicy="no-referrer"
-              className={cn("w-full h-full border-0")}
-            />
-          </div>
-        </Card>
-      ) : null}
-      <Card>
-        <CardHeader title="Latest revision" subtitle="The currently published file tree." />
-        <dl className="grid grid-cols-2 gap-y-2 text-[13px]">
-          <dt className="text-[hsl(var(--muted))]">Entrypoint</dt>
-          <dd className="font-mono text-right">{artifact.entrypoint}</dd>
-          <dt className="text-[hsl(var(--muted))]">Files</dt>
-          <dd className="font-mono tabular-nums text-right">{artifact.file_count}</dd>
-          <dt className="text-[hsl(var(--muted))]">Size</dt>
-          <dd className="font-mono tabular-nums text-right">{formatBytes(artifact.size_bytes)}</dd>
-          <dt className="text-[hsl(var(--muted))]">Last published</dt>
-          <dd className="font-mono text-right">
-            {artifact.last_published_at ? <RelativeTime value={artifact.last_published_at} /> : "—"}
-          </dd>
-        </dl>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid gap-6">
+          {iframeSrc ? (
+            <Card elevated flush className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[hsl(var(--rule))] px-5 py-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="eyebrow">Published viewer</span>
+                  <span className="text-[12px] text-[hsl(var(--subtle))]">live on each revision</span>
+                </div>
+                <Badge tone="success" dot pulse>
+                  Live
+                </Badge>
+              </div>
+              <div className="h-[min(70vh,720px)] bg-[hsl(var(--background))]">
+                <iframe
+                  title="Artifact content"
+                  src={iframeSrc}
+                  sandbox="allow-scripts allow-popups"
+                  referrerPolicy="no-referrer"
+                  className={cn("h-full w-full border-0")}
+                />
+              </div>
+            </Card>
+          ) : (
+            <EmptyState title="No published viewer." body="This artifact has no live revision to display right now." />
+          )}
+        </div>
+        <div className="h-fit">
+          <SectionLabel className="mb-4">Latest revision</SectionLabel>
+          <dl className="border-t border-[hsl(var(--rule))]">
+            {meta.map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-center justify-between gap-4 border-b border-[hsl(var(--rule))] py-2.5 pl-3 pr-3"
+              >
+                <dt className="text-[12.5px] text-[hsl(var(--subtle))]">{label}</dt>
+                <dd className="truncate text-right font-mono text-[12px] tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
     </>
   );
 }

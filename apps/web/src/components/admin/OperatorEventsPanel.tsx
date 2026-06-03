@@ -1,7 +1,9 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useRef } from "react";
-import type { ApiErrorInfo } from "../../server/api-client";
+import type { ApiErrorInfo } from "../../lib/api-error";
+import { lockdownTriageFromEvent, lockdownTriageQueryString } from "../../lib/lockdown-triage";
+import type { OperatorEventSearch } from "../../lib/operator-events";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
@@ -9,16 +11,6 @@ import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
-import { lockdownTriageFromEvent, lockdownTriageQueryString } from "./lockdown-triage";
-
-export type OperatorEventSearch = {
-  focus?: WebOperatorEventFocus;
-  workspace_id?: string;
-  actor_type?: string;
-  action?: string;
-  target_type?: string;
-  request_id?: string;
-};
 
 type Props = {
   events: WebOperatorEventListResponse | null;
@@ -231,28 +223,4 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
       )}
     </Card>
   );
-}
-
-export function operatorEventsQueryString(search: OperatorEventSearch): string {
-  const params = new URLSearchParams();
-  if (search.focus) {
-    params.set("focus", search.focus);
-  }
-  if (search.workspace_id) {
-    params.set("workspace_id", search.workspace_id);
-  }
-  if (search.actor_type) {
-    params.set("actor_type", search.actor_type);
-  }
-  if (search.action) {
-    params.set("action", search.action);
-  }
-  if (search.target_type) {
-    params.set("target_type", search.target_type);
-  }
-  if (search.request_id) {
-    params.set("request_id", search.request_id);
-  }
-  const query = params.toString();
-  return query.length > 0 ? `?${query}` : "";
 }

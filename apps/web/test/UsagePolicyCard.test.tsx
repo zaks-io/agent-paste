@@ -25,7 +25,7 @@ describe("UsagePolicyCard", () => {
   it("formats caps and the default retention window", () => {
     render(<UsagePolicyCard policy={policy} />);
     expect(screen.getByText("10.0 MB")).toBeInTheDocument();
-    expect(screen.getByText("60 / min")).toBeInTheDocument();
-    expect(screen.getByText("30 days")).toBeInTheDocument();
+    expect(screen.getByText("60/min")).toBeInTheDocument();
+    expect(screen.getByText("30d")).toBeInTheDocument();
   });
 });

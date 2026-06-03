@@ -17,7 +17,11 @@ export const Route = createFileRoute("/_authed/access-links")({
 function AccessLinksPage() {
   return (
     <>
-      <PageHeader title="Access Links" description="Short-lived URLs that reveal a single artifact to a recipient." />
+      <PageHeader
+        eyebrow="Sharing"
+        title="Access Links"
+        description="Short-lived URLs that reveal a single artifact to a recipient."
+      />
       <EmptyState title="No access links yet." body="Create one from an artifact detail page." />
     </>
   );

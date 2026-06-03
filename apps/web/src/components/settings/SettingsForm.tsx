@@ -1,7 +1,7 @@
 import type { WebSettingsResponse } from "@agent-paste/contracts";
 import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
-import { saveSettingsFn } from "../../server/web-mutations";
+import { saveSettingsFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
@@ -44,7 +44,7 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
 
   return (
     <Card>
-      <CardHeader title="Workspace settings" subtitle="Name and auto-deletion window." />
+      <CardHeader title="Workspace settings" subtitle="Name and auto-deletion window." className="mb-5" />
       <form className="grid max-w-[420px] gap-4" onSubmit={onSubmit}>
         <label htmlFor="workspace-name" className="grid gap-1">
           <span className="text-[12px] text-[hsl(var(--muted))]">Workspace name</span>
