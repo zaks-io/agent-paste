@@ -1,6 +1,6 @@
 import type { AppSurface, HttpMethod, IdempotencyRequirement, RouteId } from "../routes.js";
-import type { McpScope, McpToolName } from "./schemas.js";
 import type { McpToolErrorCode } from "./error-codes.js";
+import type { McpScope, McpToolName } from "./schemas.js";
 import type { McpToolInputSchemaName, McpToolOutputSchemaName } from "./tool-schemas.js";
 
 /** MCP accepts OAuth bearer tokens only; API keys and dashboard sessions are rejected. */

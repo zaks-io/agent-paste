@@ -73,16 +73,12 @@ export function formatChangeSummary(action: string, details: Record<string, unkn
     case "platform.lockdown.set": {
       const scope = lockdownScopeLabel(readString(safe, "scope"));
       const reason = readString(safe, "reason_code");
-      return reason
-        ? `Platform lockdown set on ${scope} (reason: ${reason})`
-        : `Platform lockdown set on ${scope}`;
+      return reason ? `Platform lockdown set on ${scope} (reason: ${reason})` : `Platform lockdown set on ${scope}`;
     }
     case "platform.lockdown.lifted": {
       const scope = lockdownScopeLabel(readString(safe, "scope"));
       const reason = readString(safe, "reason_code");
-      return reason
-        ? `Platform lockdown lifted on ${scope} (was: ${reason})`
-        : `Platform lockdown lifted on ${scope}`;
+      return reason ? `Platform lockdown lifted on ${scope} (was: ${reason})` : `Platform lockdown lifted on ${scope}`;
     }
     case "api_key.created": {
       const name = readString(safe, "name");
@@ -94,7 +90,9 @@ export function formatChangeSummary(action: string, details: Record<string, unkn
       return "Workspace created";
     case "workspace.settings.updated": {
       const days = readNumber(safe, "auto_deletion_days");
-      return days === undefined ? "Workspace settings updated" : `Workspace settings updated (${days}-day auto-deletion)`;
+      return days === undefined
+        ? "Workspace settings updated"
+        : `Workspace settings updated (${days}-day auto-deletion)`;
     }
     case "artifact.created":
       return "Artifact created";

@@ -1,18 +1,19 @@
 import {
-  authenticateMcpBearer,
-  cachedNegativeLookup,
-  cacheKeyForSecret,
   DEFAULT_WORKOS_ISSUER,
-  resolveMcpMemberActor,
   resolveWorkOsIdentity,
   type WorkOsIdentity,
   type WorkOsRejectReason,
   type WorkOsVerificationOptions,
 } from "@agent-paste/auth";
 import type { RouteContract } from "@agent-paste/contracts";
-import type { ApiKeyActor } from "@agent-paste/db";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
-import type { AuthResolvers } from "@agent-paste/worker-runtime";
+import {
+  bearerToken,
+  createApiKeyOrMcpOAuthResolver,
+  createAuthenticateApiKey,
+  createMcpOAuthResolver,
+  type AuthResolvers,
+} from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 import { verifyAgentViewTokenForEnv } from "./agent-view.js";
 import type { Env } from "./env.js";
@@ -20,7 +21,6 @@ import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import type { RouteId } from "./route-contracts.js";
 import { apiDatabase, postgresRuntime } from "./runtime.js";
 
-const AUTH_CACHE_TTL_SECONDS = 60;
 const CLI_KEY_MINT_ROUTE_ID: RouteId = "web.apiKeys.create";
 
 type WebIdentityOptions = {
@@ -33,7 +33,13 @@ type WorkOsRejection = {
   detail?: Record<string, unknown>;
 };
 
+const authenticateApiKey = createAuthenticateApiKey({
+  namespace: "api-key-auth-v2",
+  resolvePostgresRuntime: postgresRuntime,
+});
+
 export function createApiAuthResolvers(): AuthResolvers {
+  const resolveDatabase = (env: Env) => apiDatabase(env);
   return {
     async none() {
       return { ok: true, principal: { kind: "none" } } as const;
@@ -44,17 +50,8 @@ export function createApiAuthResolvers(): AuthResolvers {
         ? ({ ok: true, principal: { kind: "api_key", actor } } as const)
         : ({ ok: false, code: "not_authenticated" } as const);
     },
-    async mcp_oauth(context: Context) {
-      return authenticateMcpPrincipal(context);
-    },
-    async api_key_or_mcp_oauth(context: Context) {
-      const env = context.env as Env;
-      const apiKeyActor = await authenticateApiKey(context.req.raw, env);
-      if (apiKeyActor) {
-        return { ok: true, principal: { kind: "api_key", actor: apiKeyActor } } as const;
-      }
-      return authenticateMcpPrincipal(context);
-    },
+    mcp_oauth: createMcpOAuthResolver({ resolveDatabase }),
+    api_key_or_mcp_oauth: createApiKeyOrMcpOAuthResolver({ authenticateApiKey, resolveDatabase }),
     async signed_agent_view_token(context: Context) {
       const token = context.req.param("token");
       if (!token) {
@@ -142,11 +139,7 @@ export async function authenticateWebIdentity(
   return null;
 }
 
-export function bearerToken(request: Request): string | null {
-  const value = request.headers.get("authorization");
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
-}
+export { bearerToken } from "@agent-paste/worker-runtime";
 
 export function authenticateSmokeHarness(request: Request, env: Env): boolean {
   const secret = env.SMOKE_HARNESS_SECRET;
@@ -157,66 +150,6 @@ export function authenticateSmokeHarness(request: Request, env: Env): boolean {
 export function isNonProductionEnv(env: Env): boolean {
   const value = env.AGENT_PASTE_ENV;
   return value !== undefined && value !== "production" && value !== "live";
-}
-
-async function authenticateApiKey(request: Request, env: Env): Promise<ApiKeyActor | null> {
-  const token = bearerToken(request);
-  if (!token) {
-    return null;
-  }
-
-  if (env.AUTH) {
-    return validApiKeyActor(await env.AUTH.verifyApiKey(token));
-  }
-
-  const runtime = postgresRuntime(env);
-  if (!runtime) {
-    return null;
-  }
-
-  return validApiKeyActor(
-    (await cachedNegativeLookup({
-      namespace: "api-key-auth-v2",
-      key: await cacheKeyForSecret(token),
-      ttlSeconds: AUTH_CACHE_TTL_SECONDS,
-      lookup: () => runtime.auth.verifyApiKey(token),
-    })) ?? null,
-  );
-}
-
-function validApiKeyActor(actor: ApiKeyActor | null): ApiKeyActor | null {
-  if (!actor?.expires_at) {
-    return actor;
-  }
-  const expiresAtMs = Date.parse(actor.expires_at);
-  if (Number.isNaN(expiresAtMs)) {
-    return null;
-  }
-  return expiresAtMs <= Date.now() ? null : actor;
-}
-
-async function authenticateMcpPrincipal(context: Context) {
-  const env = context.env as Env;
-  const authenticated = await authenticateMcpBearer(context.req.raw, env);
-  if (!authenticated) {
-    return { ok: false, code: "not_authenticated" } as const;
-  }
-  const db = apiDatabase(env);
-  if (!db) {
-    return { ok: false, code: "database_unavailable" } as const;
-  }
-  const actor = await resolveMcpMemberActor(authenticated, db);
-  if (!actor) {
-    return { ok: false, code: "forbidden" } as const;
-  }
-  return {
-    ok: true,
-    principal: {
-      kind: "workos_access_token",
-      identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
-      actor,
-    },
-  } as const;
 }
 
 function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {

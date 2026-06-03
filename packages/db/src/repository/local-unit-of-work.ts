@@ -22,9 +22,7 @@ function commandKey(input: {
   return `${input.operation}:${actor.type}:${actor.id}:${workspaceId}:${input.idempotencyKey}`;
 }
 
-type IdempotencyEntry =
-  | { kind: "in_flight" }
-  | { kind: "completed"; value: unknown };
+type IdempotencyEntry = { kind: "in_flight" } | { kind: "completed"; value: unknown };
 
 // The local backend has no transactions or RLS, so scopes are advisory. Idempotency
 // claims the command key before the handler runs, rejects concurrent same-key calls with

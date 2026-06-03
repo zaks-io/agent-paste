@@ -51,10 +51,7 @@ describe("LocalUnitOfWork", () => {
 
   it("evicts in-flight keys when the handler rejects so retries can run", async () => {
     const uow = new LocalUnitOfWork(createLocalState());
-    const handler = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("handler_failed"))
-      .mockResolvedValueOnce("recovered");
+    const handler = vi.fn().mockRejectedValueOnce(new Error("handler_failed")).mockResolvedValueOnce("recovered");
 
     await expect(uow.command(baseSpec, async () => handler())).rejects.toThrow("handler_failed");
     await expect(uow.command(baseSpec, async () => handler())).resolves.toBe("recovered");
