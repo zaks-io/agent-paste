@@ -118,9 +118,9 @@ function ArtifactDetailPage() {
           {iframeSrc ? (
             <Card elevated flush className="overflow-hidden">
               <div className="flex items-center justify-between border-b border-[hsl(var(--rule))] px-5 py-3">
-                <div>
-                  <h3 className="text-[14px] font-semibold">Published viewer</h3>
-                  <p className="text-[12px] text-[hsl(var(--subtle))]">Live-updates on each new revision.</p>
+                <div className="flex items-baseline gap-3">
+                  <span className="eyebrow">Published viewer</span>
+                  <span className="text-[12px] text-[hsl(var(--subtle))]">live on each revision</span>
                 </div>
                 <Badge tone="success" dot pulse>
                   Live

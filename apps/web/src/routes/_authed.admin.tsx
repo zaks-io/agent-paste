@@ -2,15 +2,15 @@ import type { LockdownListResponse, WebOperatorEventListResponse } from "@agent-
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { AbuseTriageGuide } from "../components/admin/AbuseTriageGuide";
 import { LockdownForm } from "../components/admin/LockdownForm";
 import { LockdownList } from "../components/admin/LockdownList";
-import { AbuseTriageGuide } from "../components/admin/AbuseTriageGuide";
+import { type LockdownTriagePrefill, parseLockdownTriageSearch } from "../components/admin/lockdown-triage";
 import {
   type OperatorEventSearch,
   OperatorEventsPanel,
   operatorEventsQueryString,
 } from "../components/admin/OperatorEventsPanel";
-import { type LockdownTriagePrefill, parseLockdownTriageSearch } from "../components/admin/lockdown-triage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { apiFetchOrEmpty } from "../server/api-client";
@@ -36,10 +36,9 @@ const loadOperatorEventsFn = createServerFn({ method: "GET" })
     if (!auth.user || !auth.accessToken) {
       return { data: null, empty: true, error: null };
     }
-    return apiFetchOrEmpty<WebOperatorEventListResponse>(
-      `/v1/web/admin/events${operatorEventsQueryString(search)}`,
-      { accessToken: auth.accessToken },
-    );
+    return apiFetchOrEmpty<WebOperatorEventListResponse>(`/v1/web/admin/events${operatorEventsQueryString(search)}`, {
+      accessToken: auth.accessToken,
+    });
   });
 
 function parseOperatorEventSearch(search: Record<string, unknown>): OperatorEventSearch {
@@ -106,7 +105,8 @@ function AdminPage() {
   return (
     <>
       <PageHeader
-        title="Operator"
+        eyebrow="Operator"
+        title="Console"
         description="Platform lockdowns and cross-workspace security or lifecycle event browsing."
       />
       <div className="grid gap-6">

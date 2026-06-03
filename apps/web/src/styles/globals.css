@@ -64,7 +64,6 @@
 
   /* Hero is the anchor, not the whole fold: bold but inline-scale. */
   --text-hero: clamp(60px, 7vw, 84px);
-  --text-display: clamp(40px, 6vw, 64px);
   --text-h1: 30px;
   --text-h2: 20px;
   --text-h3: 15px;
