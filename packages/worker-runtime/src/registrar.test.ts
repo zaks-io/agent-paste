@@ -374,6 +374,7 @@ describe("contract-driven registrar", () => {
       scopes: [],
       idempotency: "none",
       rateLimit: "ephemeral_provision",
+      allowEmptyBody: true,
       requestSchema: "EphemeralProvisionRequest",
       responseSchema: "EphemeralProvisionResponse",
       errors: [

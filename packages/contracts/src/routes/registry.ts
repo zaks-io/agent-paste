@@ -104,6 +104,7 @@ export const routeContracts = [
     scopes: [],
     idempotency: "none",
     rateLimit: "ephemeral_provision",
+    allowEmptyBody: true,
     requestSchema: "EphemeralProvisionRequest",
     responseSchema: "EphemeralProvisionResponse",
     errors: ephemeralProvisionErrors,
