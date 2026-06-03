@@ -8,7 +8,12 @@ import {
   type Scope,
 } from "@agent-paste/contracts";
 import type { Context } from "hono";
-import { errorResponse, jsonResponse, unknownErrorToCode } from "./errors.js";
+import {
+  assertRegistrarGuardErrorsDeclared,
+  contractErrorResponse,
+  createContractErrorResponder,
+} from "./contract-errors.js";
+import { type ErrorResponseOptions, jsonResponse, unknownErrorToCode } from "./errors.js";
 import type { AuthResult, Principal, PrincipalFor, ScopedActor } from "./principal.js";
 import { applyRateLimit, type RateLimitBindings } from "./rate-limit.js";
 
@@ -31,6 +36,7 @@ export type HeaderGuardState<Contract extends Pick<RouteContract, "idempotency">
 export type GuardState<Contract extends RouteContract = RouteContract> = HeaderGuardState<Contract> & {
   body: RequestBodyFor<Contract>;
   params: Record<string, string>;
+  respondError: (code: Contract["errors"][number], messageOrOptions?: string | ErrorResponseOptions) => Response;
 };
 
 export type ReplayHook<Db> = (input: {
@@ -77,31 +83,31 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
         throw new Error(`No auth resolver registered for ${contract.auth} (${contract.id})`);
       }
 
+      assertRegistrarGuardErrorsDeclared(contract, { hasDb: deps.db !== undefined });
+
+      const errorOptions = (context: Context) => ({
+        docsBaseUrl: deps.docsBaseUrl?.(context),
+        defaultHeaders: deps.defaultErrorHeaders?.(context),
+      });
+
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (41), pending ratchet toward 15 — see docs/ops/complexity-todo.md
       const routeHandler = async (context: Context) => {
         const auth = await resolver(context, contract);
         if (!auth.ok) {
-          return errorResponse(context, auth.code, {
+          return contractErrorResponse(context, contract, auth.code, {
             message: auth.message,
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
+            ...errorOptions(context),
           });
         }
 
         const guard = idempotencyGuard(context, contract);
         if (!guard.ok) {
-          return errorResponse(context, guard.code, {
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
-          });
+          return contractErrorResponse(context, contract, guard.code, errorOptions(context));
         }
 
         const db = deps.db?.(context);
         if (deps.db && db === undefined) {
-          return errorResponse(context, "database_unavailable", {
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
-          });
+          return contractErrorResponse(context, contract, "database_unavailable", errorOptions(context));
         }
 
         if (deps.replay && db !== undefined) {
@@ -121,32 +127,27 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
           clientIp: clientIpFromRequest(context.req.raw),
         });
         if (!rateLimit.ok) {
-          return errorResponse(context, rateLimit.code, {
+          return contractErrorResponse(context, contract, rateLimit.code, {
             headers: { "Retry-After": rateLimit.retryAfter },
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
+            ...errorOptions(context),
           });
         }
 
         if (!hasScopes(auth.principal, contract.scopes)) {
-          return errorResponse(context, "forbidden", {
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
-          });
+          return contractErrorResponse(context, contract, "forbidden", errorOptions(context));
         }
 
         const body = await parseRequestBody(context, contract);
         if (!body.ok) {
-          return errorResponse(context, "invalid_request", {
-            docsBaseUrl: deps.docsBaseUrl?.(context),
-            defaultHeaders: deps.defaultErrorHeaders?.(context),
-          });
+          return contractErrorResponse(context, contract, "invalid_request", errorOptions(context));
         }
 
+        const respondError = createContractErrorResponder(context, contract, errorOptions(context));
         const finalGuard = {
           ...guard.state,
           body: body.value,
           params: context.req.param(),
+          respondError,
         } as GuardState<typeof contract>;
 
         try {
@@ -169,17 +170,11 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
           )(context, auth.principal as PrincipalFor<typeof contract.auth>, finalGuard);
         } catch (error) {
           if (error instanceof IdempotencyInFlightError) {
-            return errorResponse(context, "idempotency_in_flight", {
-              docsBaseUrl: deps.docsBaseUrl?.(context),
-              defaultHeaders: deps.defaultErrorHeaders?.(context),
-            });
+            return contractErrorResponse(context, contract, "idempotency_in_flight", errorOptions(context));
           }
           const code = unknownErrorToCode(error);
           if (code) {
-            return errorResponse(context, code, {
-              docsBaseUrl: deps.docsBaseUrl?.(context),
-              defaultHeaders: deps.defaultErrorHeaders?.(context),
-            });
+            return contractErrorResponse(context, contract, code, errorOptions(context));
           }
           throw error;
         }

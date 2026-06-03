@@ -3,8 +3,10 @@ import type { RouteContract } from "./types.js";
 
 const {
   apiKeyRead: apiKeyReadErrors,
+  apiKeyActorRead: apiKeyActorReadErrors,
   apiKeyMutation: apiKeyMutationErrors,
   webRead: webReadErrors,
+  webActorRead: webActorReadErrors,
   webIdempotentMutation: webIdempotentMutationErrors,
   webCallback: webCallbackErrors,
   operatorMutation: operatorMutationErrors,
@@ -24,7 +26,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WhoamiResponse",
-    errors: apiKeyReadErrors,
+    errors: apiKeyActorReadErrors,
   },
   {
     id: "mcp.whoami",
@@ -36,7 +38,13 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "McpWhoamiResponse",
-    errors: ["not_authenticated", "forbidden", "database_unavailable"] as const,
+    errors: [
+      "not_authenticated",
+      "forbidden",
+      "database_unavailable",
+      "rate_limited_actor",
+      "rate_limited_workspace",
+    ] as const,
   },
   {
     id: "usagePolicy.get",
@@ -60,7 +68,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "RevokeApiKeyResponse",
-    errors: apiKeyReadErrors,
+    errors: apiKeyActorReadErrors,
   },
   {
     id: "agentView.public",
@@ -123,7 +131,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "ArtifactListResponse",
-    errors: [...apiKeyReadErrors, "forbidden", "invalid_cursor"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "invalid_cursor", "invalid_request"],
   },
   {
     id: "artifacts.delete",
@@ -161,7 +169,7 @@ export const routeContracts = [
     rateLimit: "actor",
     requestSchema: "CreateAccessLinkRequest",
     responseSchema: "CreateAccessLinkResponse",
-    errors: [...apiKeyMutationErrors, "forbidden", "artifact_not_found", "invalid_request"],
+    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "artifact_not_found", "invalid_request"],
   },
   {
     id: "accessLinks.mint",
@@ -173,7 +181,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "AccessLinkSignedUrl",
-    errors: [...apiKeyReadErrors, "forbidden", "not_found"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "not_found"],
   },
   {
     id: "accessLinks.list",
@@ -185,7 +193,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "McpListAccessLinksOutput",
-    errors: [...apiKeyReadErrors, "forbidden", "artifact_not_found"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "artifact_not_found"],
   },
   {
     id: "accessLinks.revoke",
@@ -209,7 +217,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "AgentView",
-    errors: [...apiKeyReadErrors, "forbidden", "not_found"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "not_found"],
   },
   {
     id: "agentView.getRevision",
@@ -221,7 +229,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "AgentView",
-    errors: [...apiKeyReadErrors, "forbidden", "not_found", "revision_retained"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "not_found", "revision_retained"],
   },
   {
     id: "revisions.list",
@@ -233,7 +241,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "RevisionListResponse",
-    errors: [...apiKeyReadErrors, "forbidden", "artifact_not_found"],
+    errors: [...apiKeyActorReadErrors, "forbidden", "artifact_not_found"],
   },
   {
     id: "revisions.publish",
@@ -248,6 +256,7 @@ export const routeContracts = [
     errors: [
       ...apiKeyMutationErrors,
       "artifact_not_found",
+      "draft_revision_conflict",
       "entrypoint_not_in_revision",
       "revision_retained",
       "revision_unpublished",
@@ -276,7 +285,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebWorkspaceResponse",
-    errors: webReadErrors,
+    errors: webActorReadErrors,
   },
   {
     id: "web.artifacts.list",
@@ -288,7 +297,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebArtifactListResponse",
-    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
+    errors: [...webActorReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.artifacts.get",
@@ -300,7 +309,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webReadErrors, "not_found"],
+    errors: [...webActorReadErrors, "not_found"],
   },
   {
     id: "web.artifacts.pin",
@@ -312,7 +321,7 @@ export const routeContracts = [
     idempotency: "required",
     rateLimit: "actor",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webIdempotentMutationErrors, "not_found", "pinned_artifact_cap_exceeded"],
+    errors: [...webIdempotentMutationErrors, "not_found", "artifact_not_found", "pinned_artifact_cap_exceeded"],
   },
   {
     id: "web.artifacts.unpin",
@@ -324,7 +333,7 @@ export const routeContracts = [
     idempotency: "required",
     rateLimit: "actor",
     responseSchema: "WebArtifactDetailResponse",
-    errors: [...webIdempotentMutationErrors, "not_found"],
+    errors: [...webIdempotentMutationErrors, "not_found", "artifact_not_found"],
   },
   {
     id: "web.apiKeys.list",
@@ -336,7 +345,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebApiKeyListResponse",
-    errors: webReadErrors,
+    errors: webActorReadErrors,
   },
   {
     id: "web.apiKeys.create",
@@ -373,7 +382,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebAuditListResponse",
-    errors: [...webReadErrors, "invalid_cursor", "invalid_request"],
+    errors: [...webActorReadErrors, "invalid_cursor", "invalid_request"],
   },
   {
     id: "web.settings.get",
@@ -385,7 +394,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebSettingsResponse",
-    errors: webReadErrors,
+    errors: webActorReadErrors,
   },
   {
     id: "web.settings.update",
@@ -467,6 +476,7 @@ export const routeContracts = [
       "file_count_cap_exceeded",
       "file_size_cap_exceeded",
       "revision_size_cap_exceeded",
+      "invalid_request",
     ],
   },
   {
@@ -481,6 +491,7 @@ export const routeContracts = [
     responseSchema: "EmptyObject",
     errors: [
       "not_found",
+      "not_authenticated",
       "invalid_content_length",
       "file_size_cap_exceeded",
       "upload_session_expired",

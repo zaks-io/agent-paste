@@ -2,7 +2,8 @@ import { requestIdMiddleware } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { ErrorCode, type RouteContract } from "@agent-paste/contracts";
 import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setContractErrorEnforcement } from "./contract-errors.js";
 import { ERROR_STATUS } from "./errors.js";
 import { createRegistrar } from "./registrar.js";
 
@@ -16,10 +17,30 @@ const baseContract: RouteContract = {
   idempotency: "none",
   rateLimit: "none",
   responseSchema: "EmptyObject",
-  errors: ["not_authenticated"],
+  errors: [
+    "not_authenticated",
+    "invalid_auth",
+    "database_unavailable",
+    "rate_limited_actor",
+    "rate_limited_workspace",
+    "forbidden",
+    "invalid_request",
+    "invalid_idempotency_key",
+    "idempotency_in_flight",
+    "not_found",
+    "rate_limited_artifact",
+  ],
 };
 
 describe("contract-driven registrar", () => {
+  beforeEach(() => {
+    setContractErrorEnforcement(true);
+  });
+
+  afterEach(() => {
+    setContractErrorEnforcement(undefined);
+  });
+
   it("maps every contract error code to a status", () => {
     expect(Object.keys(ERROR_STATUS).sort()).toEqual([...ErrorCode.options].sort());
     expect(ERROR_STATUS.file_size_cap_exceeded).toBe(400);
@@ -281,6 +302,26 @@ describe("contract-driven registrar", () => {
     expect(rateLimitCalls.count).toBe(0);
   });
 
+  it("throws when the registrar emits an undeclared repository error code under enforcement", async () => {
+    setContractErrorEnforcement(true);
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal(["read"]);
+        },
+      },
+      db: () => ({ ok: true }),
+    }).mount({ ...baseContract, method: "POST", scopes: ["read"] }, async () => {
+      throw new Error("storage_unavailable");
+    });
+
+    const response = await app.fetch(new Request("https://worker.test/test", { method: "POST" }));
+    expect(response.status).toBe(500);
+    setContractErrorEnforcement(undefined);
+  });
+
   it("returns forbidden when required scopes are absent", async () => {
     const app = newApp();
     createRegistrar({
@@ -307,10 +348,17 @@ describe("contract-driven registrar", () => {
       auth: "none",
       scopes: [],
       idempotency: "none",
-      rateLimit: "none",
+      rateLimit: "ephemeral_provision",
       requestSchema: "EphemeralProvisionRequest",
       responseSchema: "EphemeralProvisionResponse",
-      errors: ["pow_required"],
+      errors: [
+        "invalid_request",
+        "pow_required",
+        "pow_invalid",
+        "ephemeral_provision_rate_limited",
+        "ephemeral_provision_unavailable",
+        "database_unavailable",
+      ],
     };
 
     createRegistrar({
@@ -320,6 +368,10 @@ describe("contract-driven registrar", () => {
           return { ok: true, principal: { kind: "none" } };
         },
       },
+      rateLimitBindings: () => ({
+        ephemeralProvisionGlobal: { async limit() { return { success: true }; } },
+        ephemeralProvisionIp: { async limit() { return { success: true }; } },
+      }),
     }).mount(contract, async (_context, _principal, guard) =>
       jsonOk({ received: guard.body }),
     );

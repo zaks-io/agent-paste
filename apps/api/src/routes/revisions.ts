@@ -7,7 +7,13 @@ import type { AppContext } from "../env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "../live-updates.js";
 import { enqueuePostPublishJobs } from "../post-publish.js";
 import { workspaceApiActor } from "../principals.js";
-import { errorResponse, jsonResponse, RepositoryRouteError, runIdempotent } from "../responses.js";
+import {
+  type ContractRespondError,
+  errorResponse,
+  jsonResponse,
+  RepositoryRouteError,
+  runIdempotent,
+} from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { contentBaseUrl } from "../runtime.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "../write-allowance.js";
@@ -177,7 +183,7 @@ export async function publishRevision(
       }
     }
     return signed;
-  });
+  }, { respondError: guard.respondError as ContractRespondError });
 }
 
 function bundleStatusFromPublishResult(result: unknown): string {

@@ -160,7 +160,7 @@ export async function webCreateApiKey(
         name: body.name,
         ...(identity?.auth_surface === "cli" ? { expiresInSeconds: CLI_API_KEY_TTL_SECONDS } : {}),
       }),
-    201,
+    { successStatus: 201 },
   );
 }
 

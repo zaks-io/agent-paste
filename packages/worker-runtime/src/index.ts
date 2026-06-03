@@ -6,6 +6,22 @@ export {
   errorResponse,
   jsonResponse,
 } from "./errors.js";
+export {
+  assertContractError,
+  assertRegistrarGuardErrorsDeclared,
+  ContractErrorViolation,
+  contractErrorResponse,
+  createContractErrorResponder,
+  isDeclaredContractError,
+  registrarGuardErrorCodes,
+  setContractErrorEnforcement,
+  shouldEnforceContractErrors,
+} from "./contract-errors.js";
+export {
+  assertRouteRepositoryErrorsDeclared,
+  collectRouteRepositoryDeclarationFailures,
+  routeRepositorySurfaces,
+} from "./route-repository-errors.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,

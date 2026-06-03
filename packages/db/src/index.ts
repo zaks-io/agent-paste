@@ -64,7 +64,7 @@ export type { Repository } from "./repository/interface.js";
 export {
   isRepositoryError,
   RepositoryError,
-  type RepositoryErrorCode,
+  RepositoryErrorCode,
   repositoryError,
   repositoryErrorToAppError,
 } from "./repository-error.js";

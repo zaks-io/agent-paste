@@ -121,7 +121,7 @@ export async function webAdminSetLockdown(
       }
       return detail;
     },
-    201,
+    { successStatus: 201 },
   );
 }
 
