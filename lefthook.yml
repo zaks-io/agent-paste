@@ -18,18 +18,16 @@ pre-commit:
 
 pre-push:
   commands:
-    # Mirror the CI Validate job (.github/workflows/ci.yml): run the full gate
-    # locally so lint/repo-lint/openapi/db:check failures surface before push,
-    # not in CI. `pnpm verify` covers lint, typecheck, test, knip, openapi:check,
-    # db:check, and docs formatting; test:coverage matches CI's separate step.
+    # Mirror CI Validate (.github/workflows/ci.yml) with a cold run — no turbo
+    # cache. Cached pre-push passes bounced three AP-126 slices (AP-128 coverage
+    # at 79.99%, AP-129 lint noUnusedImports) because turbo replayed stale greens
+    # that CI's fresh install would catch. The hook is the gate; it must not trust
+    # the cache. Day-to-day `pnpm verify` / `pnpm test:coverage` stay cacheable.
     verify:
-      run: pnpm verify
+      run: pnpm verify --force
     test-coverage:
-      # Coverage is a global/aggregate gate (80% across the whole repo); turbo's
-      # per-package cache cannot see that a deletion elsewhere moved the global
-      # number, so a cached build/test pass can lie (AP-128). Force a cold turbo
-      # build before vitest. Per-package checks in `verify` cache safely and stay
-      # fast — do not add TURBO_FORCE there (AP-136).
+      # pnpm forwards `--force` to vitest, not turbo build; TURBO_FORCE cold-runs
+      # the build step inside test:coverage (same bypass as --force on turbo).
       run: pnpm test:coverage
       env:
         TURBO_FORCE: "true"
