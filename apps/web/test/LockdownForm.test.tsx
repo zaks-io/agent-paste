@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const setLockdownFn = vi.fn();
-vi.mock("../src/server/web-mutations", () => ({ setLockdownFn: (...args: unknown[]) => setLockdownFn(...args) }));
+vi.mock("../src/rpc/web-mutations", () => ({ setLockdownFn: (...args: unknown[]) => setLockdownFn(...args) }));
 
 import { LockdownForm } from "../src/components/admin/LockdownForm";
 import { ToastProvider } from "../src/components/ui/ToastProvider";
@@ -139,10 +139,7 @@ describe("LockdownForm", () => {
   it("preserves only triage fields still present in prefill", () => {
     const { rerender } = render(
       <ToastProvider>
-        <LockdownForm
-          onSuccess={vi.fn()}
-          prefill={{ scope: "workspace", target_id: "ws_abc", reason_code: "abuse" }}
-        />
+        <LockdownForm onSuccess={vi.fn()} prefill={{ scope: "workspace", target_id: "ws_abc", reason_code: "abuse" }} />
       </ToastProvider>,
     );
 

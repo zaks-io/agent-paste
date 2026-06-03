@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { liveStreamProxyHeaders } from "../../../../security-headers";
-import { getWebEnv } from "../../../../server/runtime";
 
 export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
+        const [{ getAuth }, { getWebEnv }] = await Promise.all([
+          import("@workos/authkit-tanstack-react-start"),
+          import("../../../../server/runtime"),
+        ]);
         const auth = await getAuth();
         if (!auth.user || !auth.accessToken) {
           return new Response(JSON.stringify({ error: { code: "not_found" } }), {

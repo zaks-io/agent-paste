@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveSettingsFn = vi.fn();
-vi.mock("../src/server/web-mutations", () => ({ saveSettingsFn: (...args: unknown[]) => saveSettingsFn(...args) }));
+vi.mock("../src/rpc/web-mutations", () => ({ saveSettingsFn: (...args: unknown[]) => saveSettingsFn(...args) }));
 
 const invalidate = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ invalidate }) }));

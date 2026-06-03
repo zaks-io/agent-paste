@@ -1,3 +1,5 @@
+import "@tanstack/react-start/server-only";
+
 export type WebEnv = {
   AGENT_PASTE_ENV: "dev" | "preview" | "production";
   API_BASE_URL: string;

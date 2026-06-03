@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Wordmark } from "../components/chrome/Wordmark";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { publicPageMeta } from "../lib/page-meta";
+import { loadRootAuthFn } from "../rpc/web-loaders";
 
 type Search = { auth_error?: string };
 
@@ -20,8 +20,8 @@ export const Route = createFileRoute("/")({
   loader: async ({ location }) => {
     const search = location.search as Search;
     if (search.auth_error) return { auth_error: search.auth_error };
-    const { user } = await getAuth();
-    throw redirect({ href: user ? "/dashboard" : "/api/auth/sign-in" });
+    const { signedIn, signInHref } = await loadRootAuthFn();
+    throw redirect({ href: signedIn ? "/dashboard" : signInHref });
   },
   component: HomePage,
 });

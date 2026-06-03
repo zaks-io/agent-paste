@@ -1,7 +1,5 @@
-import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
+import type { LiveUpdatePointer } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
@@ -16,17 +14,7 @@ import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const getArtifactFn = createServerFn({ method: "GET" })
-  .inputValidator((input: { artifactId: string }) => input)
-  .handler(async ({ data }) => {
-    const auth = await getAuth();
-    if (!auth.user) return { data: null, empty: true, error: null };
-    return apiFetchOrEmpty<WebArtifactDetailResponse>(`/v1/web/artifacts/${encodeURIComponent(data.artifactId)}`, {
-      accessToken: auth.accessToken,
-    });
-  });
+import { getArtifactFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
   loader: ({ params }) => getArtifactFn({ data: { artifactId: params.artifactId } }),

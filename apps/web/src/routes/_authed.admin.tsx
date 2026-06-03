@@ -1,62 +1,13 @@
-import type { LockdownListResponse, WebOperatorEventListResponse } from "@agent-paste/contracts";
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { AbuseTriageGuide } from "../components/admin/AbuseTriageGuide";
 import { LockdownForm } from "../components/admin/LockdownForm";
 import { LockdownList } from "../components/admin/LockdownList";
-import { type LockdownTriagePrefill, parseLockdownTriageSearch } from "../components/admin/lockdown-triage";
-import {
-  type OperatorEventSearch,
-  OperatorEventsPanel,
-  operatorEventsQueryString,
-} from "../components/admin/OperatorEventsPanel";
+import { OperatorEventsPanel } from "../components/admin/OperatorEventsPanel";
 import { PageHeader } from "../components/ui/PageHeader";
+import { type LockdownTriagePrefill, parseLockdownTriageSearch } from "../lib/lockdown-triage";
+import { type OperatorEventSearch, parseOperatorEventSearch } from "../lib/operator-events";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-import { hasOperatorRole } from "../server/env";
-
-const checkOperatorFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  return Boolean(auth.user && hasOperatorRole(auth));
-});
-
-const loadLockdownsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user || !auth.accessToken) {
-    return { data: null, empty: true, error: null };
-  }
-  return apiFetchOrEmpty<LockdownListResponse>("/v1/web/admin/lockdowns", { accessToken: auth.accessToken });
-});
-
-const loadOperatorEventsFn = createServerFn({ method: "GET" })
-  .inputValidator((search: OperatorEventSearch) => search)
-  .handler(async ({ data: search }) => {
-    const auth = await getAuth();
-    if (!auth.user || !auth.accessToken) {
-      return { data: null, empty: true, error: null };
-    }
-    return apiFetchOrEmpty<WebOperatorEventListResponse>(`/v1/web/admin/events${operatorEventsQueryString(search)}`, {
-      accessToken: auth.accessToken,
-    });
-  });
-
-function parseOperatorEventSearch(search: Record<string, unknown>): OperatorEventSearch {
-  const next: OperatorEventSearch = {};
-  const focus = search.focus;
-  if (focus === "security" || focus === "lifecycle" || focus === "all") {
-    if (focus !== "all") {
-      next.focus = focus;
-    }
-  }
-  for (const key of ["workspace_id", "actor_type", "action", "target_type", "request_id"] as const) {
-    const value = search[key];
-    if (typeof value === "string" && value.trim().length > 0) {
-      next[key] = value.trim();
-    }
-  }
-  return next;
-}
+import { loadAdminFn } from "../rpc/web-loaders";
 
 export type AdminRouteSearch = OperatorEventSearch & LockdownTriagePrefill;
 
@@ -67,11 +18,10 @@ function parseAdminSearch(search: Record<string, unknown>): AdminRouteSearch {
 export const Route = createFileRoute("/_authed/admin")({
   validateSearch: (search: Record<string, unknown>): AdminRouteSearch => parseAdminSearch(search),
   loader: async ({ location }) => {
-    const ok = await checkOperatorFn();
-    if (!ok) throw redirect({ to: "/dashboard" });
     const adminSearch = parseAdminSearch(location.search as Record<string, unknown>);
     const eventSearch: OperatorEventSearch = parseOperatorEventSearch(location.search as Record<string, unknown>);
-    const [lockdowns, events] = await Promise.all([loadLockdownsFn(), loadOperatorEventsFn({ data: eventSearch })]);
+    const admin = await loadAdminFn({ data: eventSearch });
+    if (!admin.allowed) throw redirect({ to: "/dashboard" });
     const lockdownPrefill: LockdownTriagePrefill = {};
     if (adminSearch.scope) {
       lockdownPrefill.scope = adminSearch.scope;
@@ -82,7 +32,7 @@ export const Route = createFileRoute("/_authed/admin")({
     if (adminSearch.reason_code) {
       lockdownPrefill.reason_code = adminSearch.reason_code;
     }
-    return { lockdowns, events, eventSearch, lockdownPrefill };
+    return { lockdowns: admin.lockdowns, events: admin.events, eventSearch, lockdownPrefill };
   },
   head: ({ matches }) =>
     dashboardPageMeta(

@@ -1,7 +1,6 @@
 import type { AccessLinkResolveResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { accessLinkProxyHeaders } from "../../../security-headers";
-import { ApiError, apiFetch } from "../../../server/api-client";
 
 export const Route = createFileRoute("/api/access-links/resolve")({
   server: {
@@ -14,6 +13,7 @@ export const Route = createFileRoute("/api/access-links/resolve")({
           return resolveErrorResponse(400);
         }
         try {
+          const { apiFetch } = await import("../../../server/api-client");
           const data = await apiFetch<AccessLinkResolveResponse>("/v1/access-links/resolve", {
             method: "POST",
             headers: {
@@ -27,6 +27,7 @@ export const Route = createFileRoute("/api/access-links/resolve")({
             headers: accessLinkProxyHeaders(),
           });
         } catch (error) {
+          const { ApiError } = await import("../../../server/api-client");
           if (error instanceof ApiError) {
             if (error.status === 404) {
               return resolveErrorResponse(404);

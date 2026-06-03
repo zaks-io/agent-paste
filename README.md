@@ -26,7 +26,7 @@ This README is the human entry point. Agents should start with [`AGENTS.md`](./A
 For a fresh worktree:
 
 ```sh
-pnpm setup:codex
+pnpm setup:worktree
 ```
 
 For a normal local install:
@@ -69,20 +69,21 @@ pnpm hooks:install
 
 ### Setup
 
-| Command              | Purpose                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `pnpm setup:codex`   | Prepare a fresh Codex worktree, copy local env files when available, install dependencies, and install hooks. |
-| `pnpm hooks:install` | Install Lefthook git hooks.                                                                                   |
-| `pnpm prepare`       | Non-interactive hook installer used by package lifecycle; skips in CI or with `SKIP_LEFTHOOK=1`.              |
+| Command               | Purpose                                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm setup:worktree` | Prepare a fresh git worktree: copy local env files (incl. nested `.dev.vars`) from the main checkout, install dependencies, and install hooks. Aliased as `pnpm setup:codex`. |
+| `pnpm hooks:install`  | Install Lefthook git hooks.                                                                                                                                                   |
+| `pnpm prepare`        | Non-interactive hook installer used by package lifecycle; skips in CI or with `SKIP_LEFTHOOK=1`.                                                                              |
 
 ### Local Development
 
-| Command                  | Purpose                                                            |
-| ------------------------ | ------------------------------------------------------------------ |
-| `pnpm dev:all`           | Build packages and start the local MVP API/upload/content harness. |
-| `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                   |
-| `pnpm admin -- <args>`   | Shortcut for `pnpm cli:dev admin`.                                 |
-| `pnpm cli:test`          | Run only the CLI test suite.                                       |
+| Command                  | Purpose                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev:web`           | Build packages and start the local API/upload/content/jobs/stream harness plus the web dashboard on `localhost:5173`. |
+| `pnpm dev:all`           | Build packages and start only the local MVP API/upload/content/jobs/stream harness.                                   |
+| `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                                                                      |
+| `pnpm admin -- <args>`   | Shortcut for `pnpm cli:dev admin`.                                                                                    |
+| `pnpm cli:test`          | Run only the CLI test suite.                                                                                          |
 
 ### Quality
 

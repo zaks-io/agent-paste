@@ -1,7 +1,7 @@
 import type { WebApiKeyRow } from "@agent-paste/contracts";
 import { useState } from "react";
 import { useHydrated } from "../../lib/use-hydrated";
-import { revokeKeyFn } from "../../server/web-mutations";
+import { revokeKeyFn } from "../../rpc/web-mutations";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";

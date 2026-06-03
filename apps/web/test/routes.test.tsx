@@ -2,11 +2,11 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { signInBridgeHref } from "../src/lib/auth-return-path";
 import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   loaderData: undefined as unknown,
+  parentLoaderData: { apiSession: { data: null, error: null } } as unknown,
   parentRouteContext: { apiSession: { data: null, error: null } } as unknown,
   params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" },
   search: {} as Record<string, unknown>,
@@ -37,6 +37,7 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: ReactNode }) => <a href="/mock-link">{children}</a>,
   Outlet: () => <div data-testid="outlet" />,
   redirect: (input: unknown) => ({ redirected: true, ...((input as Record<string, unknown>) ?? {}) }),
+  useLoaderData: () => state.parentLoaderData,
   useRouteContext: () => state.parentRouteContext,
   useRouter: () => ({ invalidate: state.invalidate }),
   useNavigate: () => vi.fn(),
@@ -64,7 +65,7 @@ vi.mock("../src/server/api-client", () => ({
   apiFetchOrEmpty: (...args: unknown[]) => state.apiFetchOrEmpty(...args),
 }));
 
-vi.mock("../src/server/web-mutations", () => ({
+vi.mock("../src/rpc/web-mutations", () => ({
   liftLockdownFn: (...args: unknown[]) => state.liftLockdownFn(...args),
   setLockdownFn: (...args: unknown[]) => state.setLockdownFn(...args),
 }));
@@ -76,6 +77,7 @@ vi.mock("../src/server/runtime", () => ({
 describe("web routes", () => {
   beforeEach(() => {
     state.loaderData = undefined;
+    state.parentLoaderData = { apiSession: { data: null, error: null } };
     state.parentRouteContext = { apiSession: { data: null, error: null } };
     state.params = { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" };
     state.search = {};
@@ -87,47 +89,22 @@ describe("web routes", () => {
     state.signOut.mockReset();
   });
 
-  it("provisions the authenticated layout before child loaders run", async () => {
+  it("provisions the authenticated layout and redirects unauthenticated requests", async () => {
     const authed = await import("../src/routes/_authed");
+    const loader = authed.Route.loader as (input: {
+      location: { pathname: string; searchStr: string };
+    }) => Promise<unknown>;
 
     state.auth = { user: null, accessToken: "" };
-    await expect(
-      (
-        authed.Route.beforeLoad as (input: {
-          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
-        }) => Promise<unknown>
-      )({
-        location: { pathname: "/claim", search: {}, searchStr: "" },
-      }),
-    ).resolves.toMatchObject({ guest: true });
-
-    await expect(
-      (
-        authed.Route.beforeLoad as (input: {
-          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
-        }) => Promise<unknown>
-      )({
-        location: { pathname: "/settings", search: {}, searchStr: "" },
-      }),
-    ).rejects.toMatchObject({
-      redirected: true,
-      href: signInBridgeHref("/settings"),
+    await expect(loader({ location: { pathname: "/claim", searchStr: "" } })).resolves.toMatchObject({
+      guest: true,
     });
-    await expect(
-      (
-        authed.Route.beforeLoad as (input: {
-          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
-        }) => Promise<unknown>
-      )({
-        location: {
-          pathname: "/audit",
-          search: { request_id: "req_1" },
-          searchStr: "?request_id=req_1",
-        },
-      }),
-    ).rejects.toMatchObject({
-      redirected: true,
-      href: signInBridgeHref("/audit?request_id=req_1"),
+
+    await expect(loader({ location: { pathname: "/settings", searchStr: "" } })).resolves.toMatchObject({
+      redirectTo: "https://app.agent-paste.sh/api/auth/sign-in?returnPathname=%2Fsettings",
+    });
+    await expect(loader({ location: { pathname: "/audit", searchStr: "?request_id=req_1" } })).resolves.toMatchObject({
+      redirectTo: "https://app.agent-paste.sh/api/auth/sign-in?returnPathname=%2Faudit%3Frequest_id%3Dreq_1",
     });
     expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
@@ -143,15 +120,7 @@ describe("web routes", () => {
       error: null,
     });
 
-    await expect(
-      (
-        authed.Route.beforeLoad as (input: {
-          location: { pathname: string; search: Record<string, unknown>; searchStr: string };
-        }) => Promise<unknown>
-      )({
-        location: { pathname: "/dashboard", search: {}, searchStr: "" },
-      }),
-    ).resolves.toMatchObject({
+    await expect(loader({ location: { pathname: "/dashboard", searchStr: "" } })).resolves.toMatchObject({
       user: { email: "user@example.com" },
       isOperator: true,
       apiSession: {
@@ -203,7 +172,7 @@ describe("web routes", () => {
         error: null,
       },
     };
-    state.parentRouteContext = {
+    state.parentLoaderData = {
       apiSession: {
         data: {
           default_api_key: { secret: "ap_pk_preview_first_secret" },
@@ -620,23 +589,15 @@ describe("web routes", () => {
     expect(screen.getByText("Sign in failed")).toBeInTheDocument();
     view.unmount();
 
-    const signInBridge = await import("../src/routes/api/auth/sign-in/p.$encoded");
-    const encoded = signInBridgeHref("/dashboard").slice("/api/auth/sign-in/p/".length);
-
     const response = await signIn.Route.server.handlers.GET({
       request: new Request("https://app.test/api/auth/sign-in?returnPathname=/dashboard"),
     });
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
 
-    const bridgeResponse = await signInBridge.Route.server.handlers.GET({
-      params: { encoded },
-    });
-    expect(bridgeResponse.status).toBe(307);
-    expect(bridgeResponse.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
     await signOut.Route.server.handlers.POST();
     expect(state.signOut).toHaveBeenCalledOnce();
-    expect(callback.Route.server.handlers.GET()).toBeInstanceOf(Response);
+    await expect(callback.Route.server.handlers.GET()).resolves.toBeInstanceOf(Response);
   });
 });
 

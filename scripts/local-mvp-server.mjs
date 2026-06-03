@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import apiWorker from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
@@ -9,8 +10,27 @@ import uploadWorker from "../apps/upload/dist/index.js";
 import { createLocalServices } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
+import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { loadWranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
+
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+
+loadEnvFiles([".env", ".env.local", "apps/web/.dev.vars", "apps/api/.dev.vars"], { cwd: repoRoot });
+loadWranglerEnvVars("apps/api/wrangler.jsonc", {
+  cwd: repoRoot,
+  envName: process.env.AGENT_PASTE_LOCAL_WORKOS_ENV ?? process.env.CLOUDFLARE_ENV ?? "production",
+  keys: [
+    "WORKOS_ISSUER",
+    "WORKOS_CLI_AUDIENCE",
+    "WORKOS_CLI_ISSUER",
+    "WORKOS_CLI_JWKS_URL",
+    "WORKOS_MCP_AUDIENCE",
+    "WORKOS_MCP_ISSUER",
+    "WORKOS_MCP_JWKS_URL",
+  ],
+});
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);

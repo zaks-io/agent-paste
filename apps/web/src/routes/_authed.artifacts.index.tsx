@@ -1,7 +1,5 @@
 import type { WebArtifactListResponse } from "@agent-paste/contracts";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
@@ -13,15 +11,7 @@ import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const listArtifactsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<WebArtifactListResponse>("/v1/web/artifacts", {
-    accessToken: auth.accessToken,
-  });
-});
+import { listArtifactsFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/artifacts/")({
   loader: () => listArtifactsFn(),

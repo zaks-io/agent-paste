@@ -78,6 +78,12 @@ All standard commands are documented in the root `README.md` tables. Highlights 
 - Follow the harness's own printed guidance to publish: `pnpm cli:dev login`, `pnpm cli:dev whoami`, `pnpm cli:dev publish examples/local-harness/site`.
 - The CLI resolves paths relative to `apps/cli/`, so use absolute paths when calling `pnpm cli:dev publish`.
 
+### Worktree env + web dev server
+
+- A fresh git worktree has no local env files. Run `pnpm setup:worktree` (alias `pnpm setup:codex`) to copy ignored `.env*` and `.dev.vars*` — including nested ones like `apps/web/.dev.vars` — from the main checkout (the worktree owning the shared `.git` dir). Pass `--skip-install` if deps are already linked, `--force` to overwrite, `--source <path>` to override the source. Script: `scripts/setup-worktree.mjs`.
+- The human web app (`apps/web`, `pnpm dev` / `vite dev` on **:5173**) is WorkOS-authed and **500s on every authed route without WorkOS secrets** in `apps/web/.dev.vars` (`WORKOS_CLIENT_ID`, `WORKOS_API_KEY`, `WORKOS_REDIRECT_URI=http://localhost:5173/api/auth/callback`, `WORKOS_COOKIE_PASSWORD` ≥32 chars, `WORKOS_COOKIE_NAME`). The WorkOS app must allow `http://localhost:5173/api/auth/callback` as a redirect URI. These secrets are not in `.env.example`; they live only in real `.dev.vars`.
+- For UI-only visual checks without WorkOS, a throwaway Vite harness rendering the real primitives + `globals.css` with mock data is the fast path (no auth needed).
+
 ### Gotchas
 
 - pnpm may report "Ignored build scripts" for esbuild/workerd/lefthook/sharp. This does not break builds because the native platform packages are listed as `optionalDependencies` which provide pre-built binaries.

@@ -1,7 +1,5 @@
 import type { WebAuditListResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
@@ -10,15 +8,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const listAuditFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<WebAuditListResponse>("/v1/web/audit", {
-    accessToken: auth.accessToken,
-  });
-});
+import { listAuditFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/audit")({
   validateSearch: (search: Record<string, unknown>): { request_id?: string } => {

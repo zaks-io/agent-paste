@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { createKeyFn } from "../../server/web-mutations";
+import { createKeyFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";

@@ -1,22 +1,11 @@
-import type { WebSettingsResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
 import { SettingsForm } from "../components/settings/SettingsForm";
 import { SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
-
-const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) return { data: null, empty: true, error: null };
-  return apiFetchOrEmpty<WebSettingsResponse>("/v1/web/settings", {
-    accessToken: auth.accessToken,
-  });
-});
+import { loadSettingsFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/settings")({
   loader: () => loadSettingsFn(),

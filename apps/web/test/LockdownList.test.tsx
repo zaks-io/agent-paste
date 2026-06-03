@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lockdownRow } from "./fixtures";
 
 const liftLockdownFn = vi.fn();
-vi.mock("../src/server/web-mutations", () => ({ liftLockdownFn: (...args: unknown[]) => liftLockdownFn(...args) }));
+vi.mock("../src/rpc/web-mutations", () => ({ liftLockdownFn: (...args: unknown[]) => liftLockdownFn(...args) }));
 
 import { LockdownList } from "../src/components/admin/LockdownList";
 import { ToastProvider } from "../src/components/ui/ToastProvider";

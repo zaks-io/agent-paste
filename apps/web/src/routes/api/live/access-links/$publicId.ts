@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { accessLinkProxyHeaders, liveStreamProxyHeaders } from "../../../../security-headers";
-import { getWebEnv } from "../../../../server/runtime";
 
 export const Route = createFileRoute("/api/live/access-links/$publicId")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
+        const { getWebEnv } = await import("../../../../server/runtime");
         const env = getWebEnv();
         const streamBase = (env.STREAM_BASE_URL ?? "http://127.0.0.1:8791").replace(/\/$/, "");
         const upstream = await fetch(`${streamBase}/v1/live/access-links/${params.publicId}`, {

@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { Card, CardHeader } from "../components/ui/Card";
@@ -14,12 +13,8 @@ import {
 } from "../lib/claim-redemption";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { LOCAL_TURNSTILE_BYPASS_TOKEN } from "../lib/turnstile-constants";
-import { claimEphemeralFn } from "../server/web-mutations";
-
-const loadClaimPageFn = createServerFn({ method: "GET" }).handler(async () => {
-  const { turnstileSiteKey } = await import("../server/turnstile");
-  return { turnstileSiteKey: turnstileSiteKey() };
-});
+import { loadClaimPageFn } from "../rpc/web-loaders";
+import { claimEphemeralFn } from "../rpc/web-mutations";
 
 export const Route = createFileRoute("/_authed/claim")({
   loader: () => loadClaimPageFn(),

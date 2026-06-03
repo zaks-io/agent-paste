@@ -223,9 +223,9 @@ Historical note: production Issue A (2026-05) was `issuer_mismatch` because `WOR
 
 ### Unauthenticated dashboard 500 (historical)
 
-| Symptom                              | Likely cause                                    | Fix                                                                                 |
-| ------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `/dashboard` 500 instead of redirect | Query string on thrown TanStack Router redirect | Fixed: `_authed` redirects through `/api/auth/sign-in/p/{encoded}` (#59 follow-up). |
+| Symptom                              | Likely cause                                    | Fix                                                                                                                                                                         |
+| ------------------------------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard` 500 instead of redirect | Query string on thrown TanStack Router redirect | Fixed: `_authed` returns a redirect payload and the client assigns `/api/auth/sign-in?returnPathname=...`, so the query string is never placed on a thrown router redirect. |
 
 ## Verification commands
 

@@ -1,17 +1,29 @@
 import { Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useCommandPaletteContext } from "./command-palette-context";
+
+const DEFAULT_SHORTCUT_LABEL = "Ctrl+K";
+
+function getShortcutLabel() {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform)
+    ? "⌘K"
+    : DEFAULT_SHORTCUT_LABEL;
+}
 
 export function CommandPaletteTrigger() {
   const { setOpen, triggerRef } = useCommandPaletteContext();
-  const shortcutLabel =
-    typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform) ? "⌘K" : "Ctrl+K";
+  const [shortcutLabel, setShortcutLabel] = useState(DEFAULT_SHORTCUT_LABEL);
+
+  useEffect(() => {
+    setShortcutLabel(getShortcutLabel());
+  }, []);
 
   return (
     <button
       ref={triggerRef}
       type="button"
       aria-label="Open command palette"
-      aria-keyshortcuts={shortcutLabel}
+      aria-keyshortcuts="Control+K Meta+K"
       onClick={() => setOpen(true)}
       className="
         flex items-center gap-2 h-8 w-full md:min-w-[240px] md:max-w-[320px] px-3

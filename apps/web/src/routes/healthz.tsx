@@ -1,9 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-
-const healthFn = createServerFn({ method: "GET" }).handler(async () => {
-  return { ok: true, app: "web" };
-});
+import { healthFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/healthz")({
   loader: () => healthFn(),

@@ -4,25 +4,25 @@ Implementation and operations scripts live here. Root package scripts wrap the c
 
 ## Worktree Setup
 
-### `setup-codex-worktree.mjs`
+### `setup-worktree.mjs`
 
-Sets up a fresh Codex worktree:
+Sets up a fresh git worktree:
 
 ```sh
-pnpm setup:codex
+pnpm setup:worktree   # alias: pnpm setup:codex
 ```
 
-The script copies ignored `.env*` and `.dev.vars*` files from the primary Git worktree when it can find one, falling back to creating `.env` from `.env.example` if no real env file exists. It does not overwrite existing env files unless `--force` is passed.
+The script copies ignored `.env*` and `.dev.vars*` files — including nested ones such as `apps/web/.dev.vars` — from the main checkout (the worktree that owns the shared `.git` directory) when it can find one, falling back to creating `.env` from `.env.example` if no real env file exists. It does not overwrite existing env files unless `--force` is passed. Override the source with `--source` or `WORKTREE_SETUP_SOURCE`.
 
 Then it enables Corepack, activates the `pnpm` version from `package.json`, installs dependencies with the lockfile, and installs Lefthook hooks. If the active Node version does not match `.nvmrc`, the script first looks for an installed matching Node under `~/.nvm/versions/node`, re-runs itself with that absolute `node` binary, and prepends that Node's `bin` directory so child `pnpm` commands use the same runtime. If no matching local Node exists, it falls back to installing through `nvm`.
 
 Useful options:
 
 ```sh
-pnpm setup:codex -- --source /path/to/source/worktree
-pnpm setup:codex -- --dry-run
-pnpm setup:codex -- --skip-install
-pnpm setup:codex -- --skip-env
+pnpm setup:worktree -- --source /path/to/source/worktree
+pnpm setup:worktree -- --dry-run
+pnpm setup:worktree -- --skip-install
+pnpm setup:worktree -- --skip-env
 ```
 
 ## Hosted Scripts

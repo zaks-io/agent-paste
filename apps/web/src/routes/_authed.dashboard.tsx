@@ -1,7 +1,4 @@
-import type { WebArtifactListResponse, WebAuditListResponse, WebWorkspaceResponse } from "@agent-paste/contracts";
-import { createFileRoute, useRouteContext } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { FirstRunKeyCard } from "../components/dashboard/FirstRunKeyCard";
 import { RecentArtifacts } from "../components/dashboard/RecentArtifacts";
 import { RecentAudit } from "../components/dashboard/RecentAudit";
@@ -11,24 +8,9 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { HeroStat, type RailItem } from "../components/ui/HeroStat";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { apiFetchOrEmpty } from "../server/api-client";
+import { loadDashboardFn } from "../rpc/web-loaders";
 
 const RECENT_LIMIT = 6;
-const COUNT_LIMIT = 100;
-
-const loadDashboardFn = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await getAuth();
-  if (!auth.user) {
-    return { workspace: null, artifacts: null, audit: null };
-  }
-  const token = { accessToken: auth.accessToken };
-  const [workspace, artifacts, audit] = await Promise.all([
-    apiFetchOrEmpty<WebWorkspaceResponse>("/v1/web/workspace", token),
-    apiFetchOrEmpty<WebArtifactListResponse>(`/v1/web/artifacts?limit=${COUNT_LIMIT}`, token),
-    apiFetchOrEmpty<WebAuditListResponse>(`/v1/web/audit?limit=${RECENT_LIMIT}`, token),
-  ]);
-  return { workspace, artifacts, audit };
-});
 
 export const Route = createFileRoute("/_authed/dashboard")({
   loader: () => loadDashboardFn(),
@@ -44,8 +26,9 @@ export const Route = createFileRoute("/_authed/dashboard")({
 
 function DashboardPage() {
   const { workspace, artifacts, audit } = Route.useLoaderData();
-  const session = useRouteContext({ from: "/_authed" });
-  const defaultKeySecret = session.apiSession?.data?.default_api_key?.secret ?? null;
+  const parentSession = useLoaderData({ from: "/_authed" });
+  const defaultKeySecret =
+    "apiSession" in parentSession ? (parentSession.apiSession.data?.default_api_key?.secret ?? null) : null;
 
   if (workspace?.error) {
     return (

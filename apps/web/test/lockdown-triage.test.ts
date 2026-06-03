@@ -3,7 +3,7 @@ import {
   lockdownTriageFromEvent,
   lockdownTriageQueryString,
   parseLockdownTriageSearch,
-} from "../src/components/admin/lockdown-triage";
+} from "../src/lib/lockdown-triage";
 
 describe("lockdown-triage", () => {
   it("parses triage search params", () => {

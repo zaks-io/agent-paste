@@ -1,8 +1,8 @@
 import { PLATFORM_LOCKDOWN_REASON_CODES } from "@agent-paste/contracts";
 import { FileWarning, ShieldBan } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { setLockdownFn } from "../../server/web-mutations";
-import type { LockdownTriagePrefill } from "./lockdown-triage";
+import type { LockdownTriagePrefill } from "../../lib/lockdown-triage";
+import { setLockdownFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";

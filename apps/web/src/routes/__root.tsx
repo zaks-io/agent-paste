@@ -1,9 +1,9 @@
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
-import { AuthKitProvider, getAuthAction } from "@workos/authkit-tanstack-react-start/client";
 import { type ReactNode, useEffect } from "react";
 import { ThemeProvider } from "../components/theme-provider";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
-import { type BrowserSentryConfig, captureBrowserException, initBrowserSentry } from "../lib/sentry-browser";
+import { captureBrowserException, initBrowserSentry } from "../lib/sentry-browser";
+import { loadRootEnvFn } from "../rpc/web-loaders";
 import "../styles/globals.css";
 
 export const Route = createRootRoute({
@@ -17,15 +17,8 @@ export const Route = createRootRoute({
     links: [{ rel: "icon", href: "/favicon.ico" }],
   }),
   loader: async () => {
-    let webBaseUrl: string | undefined;
-    let sentry: BrowserSentryConfig | undefined;
-    if (import.meta.env.SSR) {
-      const { getWebEnv } = await import("../server/runtime");
-      const env = getWebEnv();
-      webBaseUrl = env.WEB_BASE_URL;
-      sentry = { dsn: env.SENTRY_DSN, environment: env.AGENT_PASTE_ENV };
-    }
-    return { auth: await getAuthAction(), webBaseUrl, sentry };
+    const env = await loadRootEnvFn();
+    return { webBaseUrl: env.webBaseUrl, sentry: env.sentry };
   },
   errorComponent: ({ error }) => <RootError error={error} />,
   notFoundComponent: NotFound,
@@ -33,18 +26,16 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const { auth, sentry } = Route.useLoaderData();
+  const { sentry } = Route.useLoaderData();
   const router = useRouter();
   useEffect(() => {
     initBrowserSentry(sentry, router);
   }, [sentry, router]);
   return (
     <RootDocument>
-      <AuthKitProvider initialAuth={auth}>
-        <ThemeProvider>
-          <Outlet />
-        </ThemeProvider>
-      </AuthKitProvider>
+      <ThemeProvider>
+        <Outlet />
+      </ThemeProvider>
     </RootDocument>
   );
 }

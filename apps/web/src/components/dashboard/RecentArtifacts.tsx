@@ -1,7 +1,7 @@
 import type { WebArtifactRow } from "@agent-paste/contracts";
 import { Link } from "@tanstack/react-router";
+import type { ApiErrorInfo } from "../../lib/api-error";
 import { artifactStatusTone } from "../../lib/artifact-status";
-import type { ApiErrorInfo } from "../../server/api-client";
 import { Badge } from "../ui/Badge";
 import { SectionLabel } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";

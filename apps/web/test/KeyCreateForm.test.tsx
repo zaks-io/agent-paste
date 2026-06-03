@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createKeyFn = vi.fn();
-vi.mock("../src/server/web-mutations", () => ({ createKeyFn: (...args: unknown[]) => createKeyFn(...args) }));
+vi.mock("../src/rpc/web-mutations", () => ({ createKeyFn: (...args: unknown[]) => createKeyFn(...args) }));
 
 import { KeyCreateForm } from "../src/components/keys/KeyCreateForm";
 import { ToastProvider } from "../src/components/ui/ToastProvider";

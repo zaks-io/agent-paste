@@ -31,7 +31,7 @@ function main() {
     run("pnpm", ["hooks:install"]);
   }
 
-  log("Codex worktree setup complete.");
+  log("Worktree setup complete.");
 }
 
 function copyEnvFiles(source) {
@@ -124,29 +124,35 @@ function isEnvFile(path) {
 }
 
 function defaultSourceWorktree() {
-  if (process.env.HOME) {
-    const canonicalSource = join(process.env.HOME, "src", "agent-paste");
-    if (realPathish(canonicalSource) !== realPathish(root) && isDirectory(canonicalSource)) {
-      return canonicalSource;
+  const current = realPathish(root);
+
+  // The main checkout owns the real .git directory; linked worktrees only carry
+  // a gitdir pointer. Its parent is the canonical source for env files no matter
+  // what the repo is named or where it lives on disk.
+  const commonDir = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (commonDir.status === 0) {
+    const mainCheckout = dirname(commonDir.stdout.trim());
+    if (mainCheckout && realPathish(mainCheckout) !== current && isDirectory(mainCheckout)) {
+      return mainCheckout;
     }
   }
 
+  // Fallback: any sibling worktree that still has env files to offer.
   const output = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: root, encoding: "utf8" });
   if (output.status !== 0) {
     return undefined;
   }
 
-  const current = realPathish(root);
   const worktrees = output.stdout
     .split(/\n(?=worktree )/)
     .map((entry) => entry.match(/^worktree (.+)$/m)?.[1])
     .filter(Boolean)
     .map((path) => resolve(path));
 
-  return (
-    worktrees.find((path) => realPathish(path) !== current && !path.includes("/.codex/worktrees/")) ??
-    worktrees.find((path) => realPathish(path) !== current)
-  );
+  return worktrees.find((path) => realPathish(path) !== current);
 }
 
 function ensureNodeVersion() {
@@ -159,7 +165,7 @@ function ensureNodeVersion() {
     log(`warning: ${message}`);
     return;
   }
-  if (process.env.CODEX_SETUP_NODE_REEXEC !== "1") {
+  if (process.env.WORKTREE_SETUP_NODE_REEXEC !== "1") {
     const installedNode = findInstalledNode(wantedNodeMajor);
     if (installedNode) {
       reexecWithNode(installedNode);
@@ -169,7 +175,7 @@ function ensureNodeVersion() {
       reexecWithNode(nvmNode);
     }
   }
-  throw new Error(`${message} Run \`nvm install && nvm use\` or equivalent, then re-run \`pnpm setup:codex\`.`);
+  throw new Error(`${message} Run \`nvm install && nvm use\` or equivalent, then re-run \`pnpm setup:worktree\`.`);
 }
 
 function findInstalledNode(major) {
@@ -219,7 +225,7 @@ function reexecWithNode(nodePath) {
   const nodeBin = dirname(nodePath);
   const env = {
     ...process.env,
-    CODEX_SETUP_NODE_REEXEC: "1",
+    WORKTREE_SETUP_NODE_REEXEC: "1",
     PATH: [nodeBin, process.env.PATH].filter(Boolean).join(":"),
   };
   log(`Re-running setup with ${nodePath}`);
@@ -278,7 +284,7 @@ function parseArgs(argv) {
     force: false,
     skipEnv: false,
     skipInstall: false,
-    source: process.env.CODEX_SETUP_SOURCE_WORKTREE,
+    source: process.env.WORKTREE_SETUP_SOURCE,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -310,10 +316,12 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  process.stdout.write(`Usage: pnpm setup:codex [options]
+  process.stdout.write(`Usage: pnpm setup:worktree [options]
 
-Sets up a fresh Codex worktree by copying local env files from another worktree
-and installing repo dependencies.
+Sets up a fresh git worktree by copying local env files (.env*, .dev.vars*,
+including nested ones like apps/web/.dev.vars) from the main checkout and
+installing repo dependencies. The source defaults to the main checkout that
+owns the shared .git directory; override with --source or WORKTREE_SETUP_SOURCE.
 
 Options:
   --source <path>   Source checkout to copy .env/.dev.vars files from.

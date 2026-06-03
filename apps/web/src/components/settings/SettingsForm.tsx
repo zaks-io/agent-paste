@@ -1,7 +1,7 @@
 import type { WebSettingsResponse } from "@agent-paste/contracts";
 import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
-import { saveSettingsFn } from "../../server/web-mutations";
+import { saveSettingsFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
