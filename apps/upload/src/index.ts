@@ -5,6 +5,7 @@ import {
   type CreateUploadSessionRequest,
   FinalizeUploadSessionResponse,
   type RouteContract,
+  routeContractById,
   routeContracts,
 } from "@agent-paste/contracts";
 import {
@@ -107,6 +108,7 @@ type RouteId = (typeof routeContracts)[number]["id"];
 type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
 type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
 
+const contractById = routeContractById;
 const UPLOAD_FILE_PATH_MARKER = "/files/";
 
 const authenticateApiKey = createAuthenticateApiKey({
@@ -492,12 +494,4 @@ async function verifyUploadToken(token: string | null, env: Env): Promise<Signed
 function ttlSeconds(env: Env): number {
   const parsed = Number.parseInt(env.UPLOAD_URL_TTL_SECONDS ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 900;
-}
-
-function contractById<Id extends RouteId>(id: Id): ContractById<Id> {
-  const contract = routeContracts.find((route) => route.id === id);
-  if (!contract) {
-    throw new Error(`Missing route contract ${id}`);
-  }
-  return contract as ContractById<Id>;
 }

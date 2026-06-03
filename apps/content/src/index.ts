@@ -1,5 +1,5 @@
 import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { buildContentOpenApiDocument, routeContracts } from "@agent-paste/contracts";
+import { buildContentOpenApiDocument, routeContractById } from "@agent-paste/contracts";
 import { artifactBytesEncryptionRingFromEnv, resolveContentTokenSigner } from "@agent-paste/rotation";
 import {
   attachmentFilename,
@@ -66,6 +66,7 @@ export type Env = {
 
 type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
 
+const contractById = routeContractById;
 const securityHeaders = CONTENT_SECURITY_HEADERS;
 const NOINDEX_HEADER = "noindex, nofollow";
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables }>();
@@ -377,14 +378,6 @@ function safeDecodeURIComponent(value: string): string | null {
   } catch {
     return null;
   }
-}
-
-function contractById(id: (typeof routeContracts)[number]["id"]): (typeof routeContracts)[number] {
-  const contract = routeContracts.find((route) => route.id === id);
-  if (!contract) {
-    throw new Error(`Missing route contract ${id}`);
-  }
-  return contract;
 }
 
 function errorResponse(

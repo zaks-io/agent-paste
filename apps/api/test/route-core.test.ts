@@ -111,7 +111,7 @@ describe("AP-91 shared API route helpers", () => {
 
   it("finds route contracts by id and fails loudly for missing ids", () => {
     expect(contractById("whoami.get")).toMatchObject({ id: "whoami.get", app: "api" });
-    expect(() => contractById("missing.route" as never)).toThrow("Missing route contract missing.route");
+    expect(() => contractById("missing.route" as never)).toThrow("Unknown route contract: missing.route");
   });
 
   it("resolves runtime bindings and public base URLs", () => {
