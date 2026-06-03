@@ -222,7 +222,7 @@ async function parseRequestBody<Contract extends RouteContract>(
   let raw: unknown;
   const bodyText = await context.req.raw.text();
   if (!bodyText.trim()) {
-    if (contract.requestSchema === "EphemeralProvisionRequest") {
+    if (contract.allowEmptyBody) {
       raw = {};
     } else {
       return { ok: false };

@@ -28,6 +28,8 @@ export type RouteContract = {
   idempotency: IdempotencyRequirement;
   rateLimit: RateLimitRequirement;
   allowUnprovisioned?: boolean;
+  /** When true, an empty request body is parsed as `{}` before schema validation. */
+  allowEmptyBody?: boolean;
   requestSchema?: RequestSchemaName;
   responseSchema: string;
   errors: readonly ErrorCode[];
