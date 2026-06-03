@@ -15,6 +15,7 @@ import {
   EphemeralSmokeError,
   toBoundaryError,
 } from "./smoke-ephemeral-harness.mjs";
+import { listenHttpPort } from "./lib/smoke-port.mjs";
 
 /**
  * End-to-end ephemeral publish + claim smoke against a running local MVP harness.
@@ -224,8 +225,8 @@ function runCli(cliEntry, args, env, cwd) {
   });
 }
 
-export function listen(server, port) {
-  return new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
+export function listen(server, port, { envVar = "PORT", label = "server" } = {}) {
+  return listenHttpPort(server, port, { envVar, label });
 }
 
 export function close(server) {

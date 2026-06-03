@@ -8,6 +8,7 @@ import {
   listen as listenHttpServer,
   runLocalEphemeralSmoke,
 } from "./smoke-local-ephemeral.mjs";
+import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import {
   DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
   deleteSmokeArtifact,
@@ -67,9 +68,16 @@ server.stderr.on("data", (chunk) => {
 });
 
 try {
-  await listenHttpServer(workosServer, workosPort);
-  await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
-  await waitForHealthz(jobsBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
+  await listenHttpServer(workosServer, workosPort, {
+    envVar: "AGENT_PASTE_LOCAL_EPHEMERAL_WORKOS_PORT",
+    label: "ephemeral WorkOS stub",
+  });
+  await waitForHarnessHealth(
+    server,
+    [apiBaseUrl, jobsBaseUrl],
+    { getLog: () => serverLog, timeoutMs: 10_000, sleepMs: 100 },
+    waitForHealthz,
+  );
 
   const provisioned = await provisionSmokeWorkspace(apiBaseUrl, {
     email: `local-${Date.now()}@example.test`,

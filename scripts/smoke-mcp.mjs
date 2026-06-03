@@ -20,6 +20,7 @@ import {
   normalizeMcpSmokeTarget,
   waitForMcpHealth,
 } from "./smoke-mcp-harness.mjs";
+import { listenHttpPort, waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, smokeHarnessSecretFromEnv, waitForHealthz } from "./smoke-harness.mjs";
 
 const target = normalizeMcpSmokeTarget(process.argv[2]);
@@ -153,10 +154,21 @@ async function runLocalMcpSmoke() {
   const mcpHttpServer = createWorkerServer("mcp", mcpWorker, mcpEnv);
 
   try {
-    await listen(workosServer, workosPort);
-    await listen(mcpHttpServer, mcpPort);
+    await listenHttpPort(workosServer, workosPort, {
+      envVar: "AGENT_PASTE_MCP_SMOKE_WORKOS_PORT",
+      label: "MCP smoke WorkOS stub",
+    });
+    await listenHttpPort(mcpHttpServer, mcpPort, {
+      envVar: "AGENT_PASTE_MCP_SMOKE_MCP_PORT",
+      label: "MCP smoke worker",
+    });
+    await waitForHarnessHealth(
+      localServer,
+      [apiBaseUrl],
+      { getLog: () => serverLog, timeoutMs: 10_000, sleepMs: 100 },
+      waitForHealthz,
+    );
     await waitForMcpHealth(mcpBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
-    await waitForHealthz(apiBaseUrl, { timeoutMs: 10_000, sleepMs: 100 });
 
     const metadata = await fetchMcpProtectedResource(mcpBaseUrl);
     assert(metadata.resource === MCP_RESOURCE_INDICATOR, "local protected resource uses production resource indicator");
@@ -325,13 +337,6 @@ async function fetchJson(url, init = {}) {
     throw new Error(`${url} returned ${response.status}: ${await response.text()}`);
   }
   return response.json();
-}
-
-function listen(server, port) {
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve());
-  });
 }
 
 function close(server) {

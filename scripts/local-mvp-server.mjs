@@ -10,6 +10,7 @@ import { createLocalServices } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
+import { listenHttpPort, LOCAL_SERVER_PORT_ENV } from "./lib/smoke-port.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
@@ -47,9 +48,6 @@ function createWorkerServer(name, port, worker, env) {
       outgoing.writeHead(500, { "content-type": "application/json; charset=utf-8" });
       outgoing.end(JSON.stringify({ error: { code: "local_harness_error", message: `${name}: ${message}` } }));
     }
-  }).on("error", (error) => {
-    process.stderr.write(`agent-paste local ${name} server failed on port ${port}: ${error.message}\n`);
-    process.exitCode = 1;
   });
 }
 
@@ -143,15 +141,21 @@ async function pipeWebStreamToNode(outgoing, webStream) {
   }
 }
 
-function listen(server) {
-  return new Promise((resolve) => server.listen(serverPort(server), "127.0.0.1", resolve));
+function listenNamedServer(server, name) {
+  const port = serverPort(server, name);
+  const envVar = LOCAL_SERVER_PORT_ENV[name];
+  return listenHttpPort(server, port, { envVar, label: `${name} server` });
 }
 
 function close(server) {
   return new Promise((resolve) => server.close(resolve));
 }
 
-function serverPort(server) {
+function serverPort(server, name) {
+  if (name) {
+    const ports = { api: apiPort, upload: uploadPort, content: contentPort, jobs: jobsPort, stream: streamPort };
+    return ports[name];
+  }
   if (server === servers?.[0]) return apiPort;
   if (server === servers?.[1]) return uploadPort;
   if (server === servers?.[2]) return contentPort;
@@ -415,15 +419,23 @@ const streamEnv = {
 };
 await seedProofArtifacts(services.repo, artifacts);
 
-const servers = [
-  createWorkerServer("api", apiPort, apiWorker, apiEnv),
-  createWorkerServer("upload", uploadPort, uploadWorker, uploadEnv),
-  createWorkerServer("content", contentPort, contentWorker, contentEnv),
-  createWorkerServer("jobs", jobsPort, jobsWorker, jobsEnv),
-  createWorkerServer("stream", streamPort, streamWorker, streamEnv),
+const serverDefs = [
+  { name: "api", port: apiPort, worker: apiWorker, env: apiEnv },
+  { name: "upload", port: uploadPort, worker: uploadWorker, env: uploadEnv },
+  { name: "content", port: contentPort, worker: contentWorker, env: contentEnv },
+  { name: "jobs", port: jobsPort, worker: jobsWorker, env: jobsEnv },
+  { name: "stream", port: streamPort, worker: streamWorker, env: streamEnv },
 ];
 
-await Promise.all(servers.map((server) => listen(server)));
+const servers = serverDefs.map(({ name, port, worker, env }) => createWorkerServer(name, port, worker, env));
+
+try {
+  await Promise.all(serverDefs.map(({ name }, index) => listenNamedServer(servers[index], name)));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`agent-paste local harness failed: ${message}\n`);
+  process.exit(1);
+}
 
 process.stdout.write(`agent-paste local MVP running
 
