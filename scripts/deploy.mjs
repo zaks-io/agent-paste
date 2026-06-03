@@ -225,7 +225,7 @@ async function deployApp(app) {
 
 async function listWorkerSecretsSafe(worker) {
   try {
-    return await listWorkerSecrets(worker);
+    return await listWorkerSecrets(worker, runWranglerCapture);
   } catch (error) {
     // A not-yet-created Worker has no secrets to list; treat as empty so the
     // first deploy provisions everything.
@@ -238,6 +238,45 @@ async function listWorkerSecretsSafe(worker) {
 }
 
 // --- process plumbing -----------------------------------------------------
+
+function runWranglerCapture(command, args, stdin = null, runOptions = {}) {
+  if (command !== "wrangler") {
+    return runCapture(command, args, stdin, runOptions);
+  }
+  return runCapture("pnpm", ["exec", "wrangler", ...args], stdin, runOptions);
+}
+
+function runCapture(command, args, stdin = null, runOptions = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: root,
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      const result = { code: code ?? 1, stdout, stderr };
+      if (result.code === 0 || runOptions.allowFailure) {
+        resolve(result);
+        return;
+      }
+      reject(new Error(`${command} ${args.join(" ")} exited ${result.code}\n${stderr || stdout}`));
+    });
+    if (stdin !== null) {
+      child.stdin.end(`${stdin}\n`);
+    } else {
+      child.stdin.end();
+    }
+  });
+}
 
 function run(command, args, stdin = null, envOverride = null) {
   return new Promise((resolve, reject) => {
