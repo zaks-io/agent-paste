@@ -18,16 +18,15 @@ pre-commit:
 
 pre-push:
   commands:
-    # Mirror CI Validate (.github/workflows/ci.yml) with a cold run — no turbo
-    # cache. Cached pre-push passes bounced three AP-126 slices (AP-128 coverage
-    # at 79.99%, AP-129 lint noUnusedImports) because turbo replayed stale greens
-    # that CI's fresh install would catch. The hook is the gate; it must not trust
-    # the cache. Day-to-day `pnpm verify` / `pnpm test:coverage` stay cacheable.
     verify:
-      run: pnpm verify --force
+      run: pnpm verify
     test-coverage:
-      # pnpm forwards `--force` to vitest, not turbo build; TURBO_FORCE cold-runs
-      # the build step inside test:coverage (same bypass as --force on turbo).
+      # Coverage is a GLOBAL/aggregate gate (80% across the whole repo); turbo's
+      # per-package cache can't see that a deletion elsewhere moved the global
+      # number, so a cached green lies. Force a cold turbo build before vitest.
+      # Per-package checks in `verify` cache safely and stay fast. See AP-136 —
+      # this false-green bounced three AP-126 slices. (pnpm `--force` reaches
+      # vitest, which has no such flag; TURBO_FORCE is the cache bypass here.)
       run: pnpm test:coverage
       env:
         TURBO_FORCE: "true"
