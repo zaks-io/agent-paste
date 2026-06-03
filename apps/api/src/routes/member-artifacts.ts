@@ -1,5 +1,5 @@
 import type { Repository } from "@agent-paste/db";
-import type { GuardState, Principal } from "@agent-paste/worker-runtime";
+import type { Principal } from "@agent-paste/worker-runtime";
 import {
   isHyperdriveDb,
   MEMBER_ARTIFACT_DELETE_OPERATION,
@@ -34,7 +34,7 @@ export async function deleteMemberArtifactRoute(
   context: AppContext,
   principal: Principal,
   db: Repository,
-  guard: GuardState,
+  guard: GuardFor<"artifacts.delete">,
 ): Promise<Response> {
   const actor = workspaceApiActor(principal);
   if (!actor) {

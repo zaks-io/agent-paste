@@ -16,7 +16,19 @@ const baseContract: RouteContract = {
   idempotency: "none",
   rateLimit: "none",
   responseSchema: "EmptyObject",
-  errors: ["not_authenticated"],
+  errors: [
+    "not_authenticated",
+    "invalid_auth",
+    "database_unavailable",
+    "rate_limited_actor",
+    "rate_limited_workspace",
+    "forbidden",
+    "invalid_request",
+    "invalid_idempotency_key",
+    "idempotency_in_flight",
+    "not_found",
+    "rate_limited_artifact",
+  ],
 };
 
 describe("contract-driven registrar", () => {
@@ -281,6 +293,24 @@ describe("contract-driven registrar", () => {
     expect(rateLimitCalls.count).toBe(0);
   });
 
+  it("throws when the registrar emits an undeclared repository error code", async () => {
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal(["read"]);
+        },
+      },
+      db: () => ({ ok: true }),
+    }).mount({ ...baseContract, method: "POST", scopes: ["read"] }, async () => {
+      throw new Error("storage_unavailable");
+    });
+
+    const response = await app.fetch(new Request("https://worker.test/test", { method: "POST" }));
+    expect(response.status).toBe(500);
+  });
+
   it("returns forbidden when required scopes are absent", async () => {
     const app = newApp();
     createRegistrar({
@@ -307,10 +337,17 @@ describe("contract-driven registrar", () => {
       auth: "none",
       scopes: [],
       idempotency: "none",
-      rateLimit: "none",
+      rateLimit: "ephemeral_provision",
       requestSchema: "EphemeralProvisionRequest",
       responseSchema: "EphemeralProvisionResponse",
-      errors: ["pow_required"],
+      errors: [
+        "invalid_request",
+        "pow_required",
+        "pow_invalid",
+        "ephemeral_provision_rate_limited",
+        "ephemeral_provision_unavailable",
+        "database_unavailable",
+      ],
     };
 
     createRegistrar({
@@ -320,6 +357,10 @@ describe("contract-driven registrar", () => {
           return { ok: true, principal: { kind: "none" } };
         },
       },
+      rateLimitBindings: () => ({
+        ephemeralProvisionGlobal: { async limit() { return { success: true }; } },
+        ephemeralProvisionIp: { async limit() { return { success: true }; } },
+      }),
     }).mount(contract, async (_context, _principal, guard) =>
       jsonOk({ received: guard.body }),
     );
