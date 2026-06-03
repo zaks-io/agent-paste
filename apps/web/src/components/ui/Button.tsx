@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { forwardRef } from "react";
 import { cn } from "../../lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive" | "link";
+export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "destructive" | "link";
 export type ButtonSize = "sm" | "md" | "lg";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -12,34 +12,27 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 font-medium select-none " +
-  "transition-colors duration-[80ms] ease-[var(--ease-out)] " +
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 " +
-  "focus-visible:outline-[hsl(var(--accent))] " +
+  "inline-flex items-center justify-center gap-2 font-medium select-none rounded-[var(--radius-sm)] " +
+  "transition-[background-color,color,border-color] duration-150 ease-[var(--ease-out)] " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--accent))] " +
   "disabled:opacity-45 disabled:cursor-not-allowed";
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    "bg-[hsl(var(--primary))] text-[hsl(var(--primary-fg))] " +
-    "hover:bg-[hsl(var(--primary)/0.9)] active:bg-[hsl(var(--primary)/0.85)] " +
-    "rounded-[var(--radius-md)]",
+  // Primary IS the accent — one voltage, one job.
+  primary: "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] hover:bg-[hsl(var(--accent-dim))]",
+  accent: "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] hover:bg-[hsl(var(--accent-dim))]",
   secondary:
-    "bg-[hsl(var(--surface))] text-[hsl(var(--foreground))] " +
-    "border border-[hsl(var(--rule))] hover:bg-[hsl(var(--surface-sunken))] " +
-    "rounded-[var(--radius-md)]",
-  ghost:
-    "bg-transparent text-[hsl(var(--foreground))] " +
-    "hover:bg-[hsl(var(--surface-sunken))] rounded-[var(--radius-md)]",
-  destructive:
-    "bg-[hsl(var(--destructive))] text-[hsl(var(--neutral-50))] " +
-    "hover:bg-[hsl(var(--destructive)/0.9)] rounded-[var(--radius-md)]",
-  link: "bg-transparent text-[hsl(var(--accent))] underline-offset-4 " + "hover:underline px-0 py-0 h-auto",
+    "bg-transparent text-[hsl(var(--foreground))] border border-[hsl(var(--rule-strong))] " +
+    "hover:bg-[hsl(var(--surface-2))] hover:border-[hsl(var(--rule-strong))]",
+  ghost: "bg-transparent text-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]",
+  destructive: "bg-[hsl(var(--destructive))] text-[hsl(var(--fg-0))] hover:opacity-90",
+  link: "bg-transparent text-[hsl(var(--accent))] underline-offset-4 hover:underline px-0 py-0 h-auto rounded-none",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-[28px] px-[10px] text-[13px]",
-  md: "h-[34px] px-[14px] text-[14px]",
-  lg: "h-[40px] px-[18px] text-[15px]",
+  sm: "h-[30px] px-[12px] text-[12.5px]",
+  md: "h-[35px] px-[15px] text-[13.5px]",
+  lg: "h-[40px] px-[18px] text-[14px]",
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
@@ -59,9 +52,10 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     >
       {loading ? (
         <>
-          <span aria-hidden className="opacity-50">
-            ···
-          </span>
+          <span
+            aria-hidden
+            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60"
+          />
           <span className="sr-only">Loading</span>
         </>
       ) : (

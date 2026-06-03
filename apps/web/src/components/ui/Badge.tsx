@@ -3,33 +3,57 @@ import { cn } from "../../lib/cn";
 
 export type BadgeTone = "neutral" | "success" | "warning" | "destructive" | "accent" | "info";
 
-const TONES: Record<BadgeTone, string> = {
-  neutral: "bg-[hsl(var(--surface-sunken))] text-[hsl(var(--foreground))] border-[hsl(var(--rule))]",
-  success: "text-[hsl(var(--success))] bg-[hsl(var(--success)/0.08)] border-[hsl(var(--success)/0.2)]",
-  warning: "text-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.10)] border-[hsl(var(--warning)/0.24)]",
-  destructive: "text-[hsl(var(--destructive))] bg-[hsl(var(--destructive)/0.08)] border-[hsl(var(--destructive)/0.2)]",
-  accent: "text-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.08)] border-[hsl(var(--accent)/0.2)]",
-  info: "text-[hsl(var(--info))] bg-[hsl(var(--info)/0.08)] border-[hsl(var(--info)/0.2)]",
+const TEXT: Record<BadgeTone, string> = {
+  neutral: "text-[hsl(var(--subtle))]",
+  success: "text-[hsl(var(--success))]",
+  warning: "text-[hsl(var(--warning))]",
+  destructive: "text-[hsl(var(--destructive))]",
+  accent: "text-[hsl(var(--accent))]",
+  info: "text-[hsl(var(--info))]",
+};
+
+const DOT: Record<BadgeTone, string> = {
+  neutral: "bg-[hsl(var(--faint))]",
+  success: "bg-[hsl(var(--success))]",
+  warning: "bg-[hsl(var(--warning))]",
+  destructive: "bg-[hsl(var(--destructive))]",
+  accent: "bg-[hsl(var(--accent))]",
+  info: "bg-[hsl(var(--info))]",
 };
 
 type Props = HTMLAttributes<HTMLSpanElement> & {
   tone?: BadgeTone;
+  dot?: boolean;
+  /** Pulse the dot — reserved for genuinely live state. */
+  pulse?: boolean;
   children: ReactNode;
 };
 
-export function Badge({ tone = "neutral", className, children, ...rest }: Props) {
+/*
+ * Not a pill. A status mark: optional dot + an uppercase mono label on the
+ * baseline. Color carries meaning; there is no container chrome.
+ */
+export function Badge({ tone = "neutral", dot, pulse, className, children, ...rest }: Props) {
   return (
     <span
       data-tone={tone}
       className={cn(
-        "inline-flex items-center gap-1 font-medium",
-        "text-[11px] leading-none px-[7px] py-[3px]",
-        "border rounded-[var(--radius-sm)]",
-        TONES[tone],
+        "inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.1em]",
+        TEXT[tone],
         className,
       )}
       {...rest}
     >
+      {dot ? (
+        <span
+          aria-hidden
+          className={cn(
+            "h-[6px] w-[6px] rounded-full",
+            DOT[tone],
+            pulse && "[animation:live-pulse_2.4s_ease-in-out_infinite]",
+          )}
+        />
+      ) : null}
       {children}
     </span>
   );

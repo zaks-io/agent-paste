@@ -1,15 +1,16 @@
 import { useRouter } from "@tanstack/react-router";
 import {
   FileStack,
-  Gauge,
   KeyRound,
-  LayoutDashboard,
+  LayoutGrid,
   Link as LinkIcon,
   LogOut,
   Monitor,
   Moon,
   ScrollText,
   ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
   Sun,
 } from "lucide-react";
 import { useCallback, useMemo } from "react";
@@ -33,9 +34,9 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
     const navigation: CommandItem[] = [
       {
         id: "dashboard",
-        label: "Dashboard",
-        keywords: ["home", "overview"],
-        Icon: LayoutDashboard,
+        label: "Overview",
+        keywords: ["home", "dashboard"],
+        Icon: LayoutGrid,
         group: "navigation",
         onSelect: () => navigate("/dashboard"),
       },
@@ -75,9 +76,17 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
         id: "settings",
         label: "Workspace",
         keywords: ["settings", "workspace"],
-        Icon: Gauge,
+        Icon: SlidersHorizontal,
         group: "navigation",
         onSelect: () => navigate("/settings"),
+      },
+      {
+        id: "claim",
+        label: "Claim workspace",
+        keywords: ["claim", "ephemeral", "token", "redeem"],
+        Icon: Sparkles,
+        group: "navigation",
+        onSelect: () => navigate("/claim"),
       },
     ];
 

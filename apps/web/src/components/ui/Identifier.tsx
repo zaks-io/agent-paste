@@ -44,11 +44,11 @@ export function Identifier({ value, truncate = true, className, label }: Props) 
       title={value}
       aria-label={label ?? `Copy ${value}`}
       className={cn(
-        "font-mono text-[13px] leading-[1.4] cursor-copy",
-        "rounded-[3px] px-[5px] -mx-[5px] py-[1px] -my-[1px]",
-        "text-[hsl(var(--muted))]",
+        "font-mono text-[12px] leading-[1.4] cursor-copy",
+        "rounded-[var(--radius-xs)] px-[5px] -mx-[5px] py-[1px] -my-[1px]",
+        "text-[hsl(var(--subtle))]",
         "transition-[background,color] duration-[120ms] ease-out",
-        "hover:bg-[hsl(var(--accent)/0.08)] hover:text-[hsl(var(--foreground))]",
+        "hover:bg-[hsl(var(--accent-tint))] hover:text-[hsl(var(--foreground))]",
         "data-[copied=true]:text-[hsl(var(--accent))]",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent))]",
         className,

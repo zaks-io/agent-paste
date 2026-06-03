@@ -2,10 +2,10 @@ import type { WebAuthCallbackResponse } from "@agent-paste/contracts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
-import { ClaimGuestGate } from "../components/claim/ClaimGuestGate";
 import { CommandPaletteProvider } from "../components/chrome/command-palette/CommandPaletteProvider";
 import { Sidebar } from "../components/chrome/Sidebar";
 import { Topbar } from "../components/chrome/Topbar";
+import { ClaimGuestGate } from "../components/claim/ClaimGuestGate";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { ToastProvider } from "../components/ui/ToastProvider";
 import { signInBridgeHref } from "../lib/auth-return-path";
@@ -53,15 +53,16 @@ function AuthedLayout() {
     return <ClaimGuestGate />;
   }
   const { user, isOperator, apiSession } = context;
+  const workspaceName = apiSession.data?.workspace.name;
   return (
     <ToastProvider>
       <CommandPaletteProvider isOperator={isOperator}>
         <div className="min-h-screen flex flex-col">
-          <Topbar user={user} />
+          <Topbar user={user} workspaceName={workspaceName} />
           <div className="flex flex-1 min-h-0">
             <Sidebar isOperator={isOperator} />
             <main className="flex-1 min-w-0 overflow-x-auto">
-              <div className="mx-auto w-full max-w-[1040px] px-6 py-10">
+              <div className="mx-auto w-full max-w-[1080px] px-6 py-12 sm:px-10">
                 {apiSession.error ? (
                   <div className="mb-6">
                     <ErrorBanner

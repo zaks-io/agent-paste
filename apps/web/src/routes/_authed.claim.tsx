@@ -149,12 +149,13 @@ function ClaimPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Ephemeral"
         title="Claim workspace"
         description="Redeem a one-time Claim Token from agent-paste publish output to keep ephemeral content in your Personal Workspace."
       />
       {error ? <ErrorBanner title="Claim failed" message={error.message} requestId={error.requestId} /> : null}
       {successArtifactCount !== null ? (
-        <Card>
+        <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
           <CardHeader
             title="Claim succeeded"
             subtitle={`Reparented ${successArtifactCount} artifact${successArtifactCount === 1 ? "" : "s"} into your workspace.`}

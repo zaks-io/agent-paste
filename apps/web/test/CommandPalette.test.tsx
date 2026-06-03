@@ -167,7 +167,7 @@ describe("CommandPalette", () => {
     renderHarness();
     openPalette();
 
-    fireEvent.click(screen.getByRole("option", { name: "Dashboard" }));
+    fireEvent.click(screen.getByRole("option", { name: "Overview" }));
     expect(navigate).toHaveBeenCalledWith({ to: "/dashboard" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

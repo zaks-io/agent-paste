@@ -44,7 +44,7 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
 
   return (
     <Card>
-      <CardHeader title="Workspace settings" subtitle="Name and auto-deletion window." />
+      <CardHeader title="Workspace settings" subtitle="Name and auto-deletion window." className="mb-5" />
       <form className="grid max-w-[420px] gap-4" onSubmit={onSubmit}>
         <label htmlFor="workspace-name" className="grid gap-1">
           <span className="text-[12px] text-[hsl(var(--muted))]">Workspace name</span>

@@ -13,16 +13,16 @@ export const Input = forwardRef<HTMLInputElement, Props>(function Input({ classN
       ref={ref}
       aria-invalid={invalid || undefined}
       className={cn(
-        "h-[34px] px-3 w-full",
-        "bg-[hsl(var(--surface))] text-[hsl(var(--foreground))]",
-        "border border-[hsl(var(--rule))] rounded-[var(--radius-sm)]",
-        "placeholder:text-[hsl(var(--subtle))]",
+        "h-[35px] w-full px-3 rounded-[var(--radius-sm)]",
+        "bg-[hsl(var(--background))] text-[hsl(var(--foreground))]",
+        "border border-[hsl(var(--rule-strong))]",
+        "placeholder:text-[hsl(var(--faint))]",
         "focus:outline-none focus:border-[hsl(var(--accent))]",
-        "focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.12)]",
+        "focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.18)]",
         "aria-[invalid=true]:border-[hsl(var(--destructive))]",
-        "aria-[invalid=true]:focus:shadow-[0_0_0_3px_hsl(var(--destructive)/0.12)]",
+        "aria-[invalid=true]:focus:shadow-[0_0_0_3px_hsl(var(--destructive)/0.18)]",
         "disabled:opacity-45 disabled:cursor-not-allowed",
-        mono ? "font-mono text-[13px]" : "text-[14px]",
+        mono ? "font-mono text-[12.5px]" : "text-[13.5px]",
         className,
       )}
       {...rest}

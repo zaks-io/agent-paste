@@ -2,6 +2,7 @@ import type { WebAuditListResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@workos/authkit-tanstack-react-start";
+import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
@@ -39,7 +40,11 @@ function AuditPage() {
 
   return (
     <>
-      <PageHeader title="Audit Log" description="Every meaningful action in this workspace." />
+      <PageHeader
+        eyebrow="Provenance"
+        title="Audit Log"
+        description="Every meaningful action in this workspace, in order."
+      />
       {highlightedRequestId && !highlightMatched ? (
         <p className="mb-4 text-[13px] text-[hsl(var(--muted))]">
           No recent event matches request_id <span className="font-mono">{highlightedRequestId}</span>. It may be older
@@ -55,39 +60,41 @@ function AuditPage() {
       ) : rows.length === 0 ? (
         <EmptyState title="Quiet so far." body="Events will appear as activity happens." />
       ) : (
-        <Table>
-          <THead>
-            <TR>
-              <TH>Time</TH>
-              <TH>Actor</TH>
-              <TH>Action</TH>
-              <TH>Change summary</TH>
-              <TH>Target</TH>
-              <TH>Request ID</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {rows.map((row) => (
-              <TR
-                key={row.id}
-                aria-current={highlightedRequestId === row.request_id ? "true" : undefined}
-                data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
-                className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
-              >
-                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
-                  <RelativeTime value={row.time} />
-                </TD>
-                <TD className="text-[13px]">{row.actor}</TD>
-                <TD className="font-medium">{row.action}</TD>
-                <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
-                <TD className="text-[hsl(var(--muted))]">{row.target}</TD>
-                <TD>
-                  <Identifier value={row.request_id} />
-                </TD>
+        <Card flush className="rise overflow-hidden">
+          <Table>
+            <THead>
+              <TR>
+                <TH>Time</TH>
+                <TH>Actor</TH>
+                <TH>Action</TH>
+                <TH>Change summary</TH>
+                <TH>Target</TH>
+                <TH>Request ID</TH>
               </TR>
-            ))}
-          </TBody>
-        </Table>
+            </THead>
+            <TBody>
+              {rows.map((row) => (
+                <TR
+                  key={row.id}
+                  aria-current={highlightedRequestId === row.request_id ? "true" : undefined}
+                  data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
+                  className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
+                >
+                  <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                    <RelativeTime value={row.time} />
+                  </TD>
+                  <TD className="text-[13px]">{row.actor}</TD>
+                  <TD className="font-medium">{row.action}</TD>
+                  <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
+                  <TD className="text-[hsl(var(--muted))]">{row.target}</TD>
+                  <TD>
+                    <Identifier value={row.request_id} />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </Card>
       )}
     </>
   );

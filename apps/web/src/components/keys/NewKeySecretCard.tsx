@@ -8,10 +8,11 @@ type Props = {
 
 export function NewKeySecretCard({ secret, onDismiss }: Props) {
   return (
-    <Card className="border-[hsl(var(--accent)/0.3)]">
+    <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
       <CardHeader
         title="Copy your new key secret"
         subtitle="This is shown once and never again. Store it somewhere safe."
+        className="mb-4"
         actions={
           <Button size="sm" variant="ghost" onClick={onDismiss}>
             Dismiss

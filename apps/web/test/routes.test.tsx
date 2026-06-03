@@ -227,7 +227,7 @@ describe("web routes", () => {
       audit: { data: null, empty: true, error: null },
     };
     const empty = render(<Route.component />);
-    expect(screen.getByText("Nothing here yet.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing on record yet.")).toBeInTheDocument();
     empty.unmount();
 
     state.loaderData = {
@@ -472,7 +472,7 @@ describe("web routes", () => {
       ),
     ).toEqual({
       meta: expect.arrayContaining([
-        { title: "Dashboard | agent-paste" },
+        { title: "Overview | agent-paste" },
         { name: "description", content: "Overview of recent artifacts, audit events, and usage policy." },
       ]),
     });

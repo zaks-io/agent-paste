@@ -38,6 +38,7 @@ function KeysPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Configuration"
         title="API Keys"
         description={
           <>

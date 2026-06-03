@@ -29,24 +29,34 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const data = Route.useLoaderData() as Search | undefined;
   return (
-    <main className="min-h-screen grid place-items-center px-6">
-      <div className="w-full max-w-[380px] grid gap-8">
-        <div className="flex justify-center">
-          <Wordmark />
+    <main className="grid min-h-screen place-items-center px-6">
+      <div className="w-full max-w-[400px]">
+        <div className="rise grid gap-8 text-center">
+          <div className="flex justify-center">
+            <Wordmark />
+          </div>
+          <div className="grid gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--accent))]">Workspace</p>
+            <h1 className="font-display text-[34px] leading-[1.08] text-[hsl(var(--foreground))]">
+              The record room for what your agents publish.
+            </h1>
+            <p className="mx-auto max-w-[34ch] text-[14px] leading-relaxed text-[hsl(var(--muted))]">
+              Sign in to manage artifacts, keys, and the audit trail for your workspace.
+            </p>
+          </div>
+          {data?.auth_error ? <ErrorBanner title="Sign in failed" message="That didn't complete. Try again." /> : null}
+          <a
+            href="/api/auth/sign-in"
+            className="
+              flex h-11 items-center justify-center rounded-[var(--radius-md)]
+              bg-[hsl(var(--accent))] text-[14px] font-medium text-[hsl(var(--accent-foreground))]
+              shadow-[0_1px_2px_hsl(0_0%_0%/0.2)]
+              transition-colors duration-150 ease-[var(--ease-out)] hover:bg-[hsl(var(--accent-strong))]
+            "
+          >
+            Continue with WorkOS
+          </a>
         </div>
-        {data?.auth_error ? <ErrorBanner title="Sign in failed" message="That didn't complete. Try again." /> : null}
-        <a
-          href="/api/auth/sign-in"
-          className="
-            block text-center px-4 h-10 leading-10
-            rounded-[var(--radius-sm)]
-            bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]
-            hover:opacity-90 transition-opacity duration-[80ms]
-            text-[14px] font-medium
-          "
-        >
-          Continue with WorkOS
-        </a>
       </div>
     </main>
   );

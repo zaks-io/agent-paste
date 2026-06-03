@@ -4,6 +4,7 @@ import { useHydrated } from "../../lib/use-hydrated";
 import { revokeKeyFn } from "../../server/web-mutations";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
@@ -36,57 +37,61 @@ export function KeysTable({ rows, onRevoked }: Props) {
   }
 
   return (
-    <Table>
-      <THead>
-        <TR>
-          <TH>Name</TH>
-          <TH>Public ID</TH>
-          <TH>Scopes</TH>
-          <TH>Last used</TH>
-          <TH>Expires</TH>
-          <TH>State</TH>
-          <TH className="text-right">Actions</TH>
-        </TR>
-      </THead>
-      <TBody>
-        {rows.map((row) => {
-          const state = keyState(row, hydrated);
-          return (
-            <TR key={row.id}>
-              <TD className="font-medium">{row.name}</TD>
-              <TD>
-                <Identifier value={row.public_id} />
-              </TD>
-              <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                {row.last_used_at ? <RelativeTime value={row.last_used_at} /> : "never"}
-              </TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                {row.expires_at ? <RelativeTime value={row.expires_at} /> : "never"}
-              </TD>
-              <TD>
-                <Badge tone={state.tone}>{state.label}</Badge>
-              </TD>
-              <TD className="text-right">
-                {row.revoked ? (
-                  <span className="text-[hsl(var(--subtle))]">-</span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    loading={revokingId === row.id}
-                    disabled={revokingId !== null}
-                    onClick={() => onRevoke(row)}
-                  >
-                    Revoke
-                  </Button>
-                )}
-              </TD>
-            </TR>
-          );
-        })}
-      </TBody>
-    </Table>
+    <Card flush className="overflow-hidden">
+      <Table>
+        <THead>
+          <TR>
+            <TH>Name</TH>
+            <TH>Public ID</TH>
+            <TH>Scopes</TH>
+            <TH>Last used</TH>
+            <TH>Expires</TH>
+            <TH>State</TH>
+            <TH className="text-right">Actions</TH>
+          </TR>
+        </THead>
+        <TBody>
+          {rows.map((row) => {
+            const state = keyState(row, hydrated);
+            return (
+              <TR key={row.id}>
+                <TD className="font-medium">{row.name}</TD>
+                <TD>
+                  <Identifier value={row.public_id} />
+                </TD>
+                <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
+                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                  {row.last_used_at ? <RelativeTime value={row.last_used_at} /> : "never"}
+                </TD>
+                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                  {row.expires_at ? <RelativeTime value={row.expires_at} /> : "never"}
+                </TD>
+                <TD>
+                  <Badge tone={state.tone} dot>
+                    {state.label}
+                  </Badge>
+                </TD>
+                <TD className="text-right">
+                  {row.revoked ? (
+                    <span className="text-[hsl(var(--subtle))]">-</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      loading={revokingId === row.id}
+                      disabled={revokingId !== null}
+                      onClick={() => onRevoke(row)}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </Table>
+    </Card>
   );
 }
 

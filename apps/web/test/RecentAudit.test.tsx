@@ -1,6 +1,12 @@
 import type { WebAuditRow } from "@agent-paste/contracts";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ children }: { children: ReactNode }) => <a href="/mock-link">{children}</a>,
+}));
+
 import { RecentAudit } from "../src/components/dashboard/RecentAudit";
 
 const row: WebAuditRow = {

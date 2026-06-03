@@ -31,7 +31,7 @@ function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Workspace" description="Name, retention, and usage caps." />
+      <PageHeader eyebrow="Configuration" title="Workspace" description="Name, retention, and usage caps." />
       {result.error ? (
         <ErrorBanner title="Couldn't load settings" message={result.error.message} requestId={result.error.requestId} />
       ) : !settings ? (
@@ -40,12 +40,16 @@ function SettingsPage() {
         <div className="grid gap-6">
           <SettingsForm settings={settings} />
           <Card>
-            <CardHeader title="Usage policy" subtitle="Read-only caps for this workspace." />
-            <dl className="grid grid-cols-2 gap-y-2 text-[13px] font-mono">
-              <dt className="text-[hsl(var(--muted))]">Artifacts per day</dt>
-              <dd className="tabular-nums">{settings.usage_policy.artifacts_per_day}</dd>
-              <dt className="text-[hsl(var(--muted))]">Bytes per day</dt>
-              <dd className="tabular-nums">{settings.usage_policy.bytes_per_day}</dd>
+            <CardHeader title="Usage policy" subtitle="Read-only caps for this workspace." className="mb-5" />
+            <dl className="grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-[hsl(var(--rule))]">
+              <div className="flex items-center justify-between bg-[hsl(var(--surface))] px-3.5 py-2.5">
+                <dt className="text-[13px] text-[hsl(var(--muted))]">Artifacts per day</dt>
+                <dd className="font-mono text-[13px] tabular-nums">{settings.usage_policy.artifacts_per_day}</dd>
+              </div>
+              <div className="flex items-center justify-between bg-[hsl(var(--surface))] px-3.5 py-2.5">
+                <dt className="text-[13px] text-[hsl(var(--muted))]">Bytes per day</dt>
+                <dd className="font-mono text-[13px] tabular-nums">{settings.usage_policy.bytes_per_day}</dd>
+              </div>
             </dl>
           </Card>
         </div>
