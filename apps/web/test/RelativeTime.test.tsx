@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RelativeTime } from "../src/components/ui/RelativeTime";
+import * as format from "../src/lib/format";
 
 const ISO = "2026-01-15T09:30:00.000Z";
 
@@ -30,6 +31,29 @@ describe("RelativeTime", () => {
     render(<RelativeTime value={ISO} />);
     const el = await screen.findByText(/ago|just now|in /);
     expect(el.tagName).toBe("TIME");
+  });
+
+  it("recomputes the relative label on a client-only timer after mount", async () => {
+    vi.useFakeTimers();
+    const formatSpy = vi.spyOn(format, "formatRelativeTime");
+
+    render(<RelativeTime value={ISO} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(formatSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(86_400_000);
+    });
+    expect(formatSpy.mock.calls.length).toBeGreaterThan(1);
+
+    formatSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("omits the dateTime attribute for an unparseable value", () => {

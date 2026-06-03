@@ -29,6 +29,25 @@ export function formatRelativeTime(input: Date | string | number, now: number = 
   return formatter.format(-Math.round(value), unit);
 }
 
+// Client-only cadence for <RelativeTime> live ticks. Matches formatRelativeTime
+// precision so labels refresh when the displayed unit can change, without a 1s poll
+// on every timestamp on a page.
+export function getRelativeTimeTickIntervalMs(
+  input: Date | string | number,
+  now: number = Date.now(),
+): number {
+  const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return Number.POSITIVE_INFINITY;
+
+  const absSeconds = Math.abs((now - date.getTime()) / 1000);
+
+  if (absSeconds < 5) return 5_000;
+  if (absSeconds < 60) return 15_000;
+  if (absSeconds < 3_600) return 60_000;
+  if (absSeconds < 86_400) return 3_600_000;
+  return 86_400_000;
+}
+
 // Deterministic, clock-independent rendering of a timestamp. Server and client
 // produce identical text from the same input, so it is safe during hydration.
 // Used as the SSR / first-paint value before <RelativeTime> upgrades to a live
