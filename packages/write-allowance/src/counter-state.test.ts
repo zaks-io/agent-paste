@@ -41,9 +41,8 @@ describe("write allowance counter", () => {
   });
 
   it("releases a consumed reservation without double-refunding", () => {
-    let stored: { day: string; consumed: number; reservations?: string[] } | undefined;
     const idempotencyKey = "idem-fixture-reservation-one";
-    stored = consumeCounterSlot(stored, 1, now, idempotencyKey).next;
+    const stored = consumeCounterSlot(undefined, 1, now, idempotencyKey).next;
     const released = releaseCounterReservation(stored, idempotencyKey, now);
     expect(released).toMatchObject({ released: true });
     expect(readCounterState(released.next, 1, now)).toMatchObject({ consumed: 0, remaining: 1 });
