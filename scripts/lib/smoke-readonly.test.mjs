@@ -46,7 +46,15 @@ describe("smoke-readonly assertions", () => {
 
   it("assertWorkersHealthy skips workers with no URL and probes the rest", async () => {
     fetchMock.mockResolvedValue(new Response("ok", { status: 200 }));
-    const config = { target: "production", apiBaseUrl: "https://api", uploadBaseUrl: "https://up", contentBaseUrl: "https://c", jobsBaseUrl: undefined, streamBaseUrl: "https://s", mcpBaseUrl: "https://m" };
+    const config = {
+      target: "production",
+      apiBaseUrl: "https://api",
+      uploadBaseUrl: "https://up",
+      contentBaseUrl: "https://c",
+      jobsBaseUrl: undefined,
+      streamBaseUrl: "https://s",
+      mcpBaseUrl: "https://m",
+    };
     await assertWorkersHealthy(config);
     const probed = fetchMock.mock.calls.map(([url]) => String(url));
     expect(probed.some((u) => u.includes("api/healthz"))).toBe(true);
@@ -77,7 +85,10 @@ describe("smoke-readonly assertions", () => {
       if (u.endsWith("/healthz")) return Promise.resolve(htmlResponse("ok"));
       if (u.endsWith("/api/auth/sign-in")) {
         return Promise.resolve(
-          new Response(null, { status: 307, headers: { location: "https://api.workos.com/user_management/authorize?x=1" } }),
+          new Response(null, {
+            status: 307,
+            headers: { location: "https://api.workos.com/user_management/authorize?x=1" },
+          }),
         );
       }
       return Promise.resolve(new Response("?", { status: 404 }));

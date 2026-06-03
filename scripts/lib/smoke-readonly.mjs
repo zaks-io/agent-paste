@@ -14,13 +14,13 @@
  * live in smoke-mcp-harness.mjs; this module composes them.
  */
 
+import { waitForHealthz } from "../smoke-harness.mjs";
 import {
   assert,
   assertMcpRejectsApiKey,
   assertMcpUnauthorizedChallenge,
   fetchMcpProtectedResource,
 } from "../smoke-mcp-harness.mjs";
-import { waitForHealthz } from "../smoke-harness.mjs";
 
 export { assert };
 
@@ -66,8 +66,7 @@ export function readonlyConfig(target) {
     throw new Error("Read-only smoke target must be preview or production.");
   }
   const defaults = DEFAULT_URLS[target];
-  const url = (surface) =>
-    process.env[`AGENT_PASTE_${prefix}_${surface.toUpperCase()}_URL`] ?? defaults[surface];
+  const url = (surface) => process.env[`AGENT_PASTE_${prefix}_${surface.toUpperCase()}_URL`] ?? defaults[surface];
   return {
     label: target === "production" ? "Production" : "Preview",
     target,

@@ -40,7 +40,9 @@ try {
   await assertWebServes(config);
   process.stdout.write(`\n${config.label} read-only smoke passed. Every reachable surface is up.\n`);
 } catch (error) {
-  process.stderr.write(`\n${config.label} read-only smoke FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(
+    `\n${config.label} read-only smoke FAILED: ${error instanceof Error ? error.message : String(error)}\n`,
+  );
   process.exit(1);
 }
 
