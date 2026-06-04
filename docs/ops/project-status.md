@@ -36,8 +36,11 @@ and points to the smaller ledgers that own detail.
   runs the content-invalidation boundary (AP-87).
 - Signed-token key resolution is consolidated into one rotation seam in
   `packages/rotation/src/signers.ts` (AP-90).
-- CI runs a full-history gitleaks secret scan (`.gitleaks.toml`, `Secret scan`
-  job). History verified clean on 2026-05-29.
+- Secret scanning is split (ADR 0076): CI (`ci.yml`) runs a fast incremental
+  PR-range gitleaks scan, and the dedicated `Security` workflow
+  (`.github/workflows/security.yml`) runs the full-history scan on push to `main`,
+  a daily cron (09:00 UTC), and manual dispatch — all using `.gitleaks.toml`.
+  History verified clean on 2026-06-04.
 - Known security/ops debt: Cloudflare Access now gates the production operator
   web/API paths, and the hosted API environments now carry the app-side
   `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
@@ -115,10 +118,20 @@ only runtime dep is `@napi-rs/keyring`, and `files` ships `dist`, `README.md`,
 and `LICENSE`.
 
 Full git history is gitleaks-clean (re-verified 2026-06-04, 1298 commits across
-all refs). Remaining go-public steps (post-flip, GitHub-side) per
+all refs). The ADR 0076 private-phase
+[`security.yml`](../../.github/workflows/security.yml) workflow is now in place:
+PRs and `main` run a dedicated `Security` workflow with full-history gitleaks
+and Snyk Open Source (gating, using the org-wide `SNYK_TOKEN`), plus advisory
+Snyk Code/Semgrep/Trivy/Grype and a Syft SBOM artifact; `snyk monitor` reports
+`main`. Snyk Code is advisory pending the org SAST entitlement and triage of its
+initial findings (AP-160). SARIF-to-code-scanning and public badges stay deferred
+to the public phase. This satisfies the ADR's "private phase is done" criterion.
+
+Remaining go-public steps (post-flip, GitHub-side) per
 [ADR 0076](./../adr/0076-public-open-source-security-posture-and-badges.md):
 flip repo visibility, then enable CodeQL/secret scanning/Dependabot/OpenSSF
-Scorecard and configure npm trusted publishing (OIDC).
+Scorecard and configure npm trusted publishing (OIDC). Tracked in
+[security-todo.md](./security-todo.md).
 
 See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 [coverage.md](./status/coverage.md) for the spec/ADR ledger.

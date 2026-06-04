@@ -24,6 +24,9 @@ env:
 jobs:
   secrets:
     name: Secret scan
+    # Fast, incremental PR-range scan for quick feedback. The full-history scan
+    # (plus a daily cron) lives in the dedicated Security workflow (ADR 0076).
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
 
@@ -41,8 +44,13 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
 
-      - name: Scan full git history for secrets
-        run: gitleaks git --no-banner --redact --config .gitleaks.toml --exit-code 1
+      - name: Scan PR commit range for secrets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gitleaks git --no-banner --redact --config .gitleaks.toml --exit-code 1 \
+            --log-opts="${BASE_SHA}..${HEAD_SHA}"
 
   validate:
     name: Validate
