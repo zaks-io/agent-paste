@@ -1,0 +1,228 @@
+name: CLI Release
+
+# Manually cross/native-compiles the @zaks-io/agent-paste CLI into standalone
+# single-file binaries (one per platform, no Node/node_modules required) with
+# `bun build --compile`, signs+notarizes the macOS binary with Apple's standard
+# tooling (codesign + notarytool), and attaches everything to a single DRAFT
+# GitHub Release for human review before publishing.
+#
+# Native per-OS Blacksmith runners so each binary is built (and the keyring NAPI
+# addon validated) on its real target OS. See AP-36 / AP-41.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create/attach the draft to (e.g. cli-v0.1.0)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-release-${{ github.event.inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: blacksmith-2vcpu-ubuntu-2404
+            target: bun-linux-x64
+            asset: agent-paste-linux-x64
+          - name: linux-arm64
+            runner: blacksmith-2vcpu-ubuntu-2404-arm
+            target: bun-linux-arm64
+            asset: agent-paste-linux-arm64
+          - name: macos-arm64
+            runner: blacksmith-6vcpu-macos-latest
+            target: bun-darwin-arm64
+            asset: agent-paste-darwin-arm64
+          - name: windows-x64
+            runner: blacksmith-4vcpu-windows-2025
+            target: bun-windows-x64
+            asset: agent-paste-windows-x64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      # --conditions=types resolves @agent-paste/* workspace deps to their TS
+      # source (mirrors apps/cli/build.mjs), so no pre-compile of workspace pkgs.
+      - name: Compile binary
+        working-directory: apps/cli
+        shell: bash
+        env:
+          BUN_TARGET: ${{ matrix.target }}
+          ASSET: ${{ matrix.asset }}
+        run: |
+          set -euo pipefail
+          bun build src/index.ts \
+            --compile \
+            --conditions=types \
+            --target="$BUN_TARGET" \
+            --outfile "$ASSET"
+
+      # Runs the binary on its own OS — proves the keyring NAPI addon loads and
+      # the CLI starts. `whoami` exercises credentials.ts (keyring -> file
+      # fallback) and exits 0 with not_authenticated when no creds are present.
+      - name: Smoke-check binary
+        if: runner.os != 'Windows'
+        working-directory: apps/cli
+        shell: bash
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: |
+          set -euo pipefail
+          "./$ASSET" --help
+          "./$ASSET" whoami
+
+      - name: Smoke-check binary (Windows)
+        if: runner.os == 'Windows'
+        working-directory: apps/cli
+        shell: pwsh
+        run: |
+          & ".\${{ matrix.asset }}" --help
+          & ".\${{ matrix.asset }}" whoami
+
+      - name: Import Apple Developer certificate
+        if: matrix.name == 'macos-arm64'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${APPLE_CERTIFICATE:?APPLE_CERTIFICATE is required}"
+          : "${APPLE_CERTIFICATE_PASSWORD:?APPLE_CERTIFICATE_PASSWORD is required}"
+          : "${KEYCHAIN_PASSWORD:?KEYCHAIN_PASSWORD is required}"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+          rm certificate.p12
+
+      - name: Write Apple notarization key
+        if: matrix.name == 'macos-arm64'
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          : "${APPLE_API_KEY_BASE64:?APPLE_API_KEY_BASE64 is required}"
+          key_path="$RUNNER_TEMP/apple-api-key.p8"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      # Hardened-runtime sign, then notarize the standalone executable. A bare
+      # CLI binary cannot be stapled (no bundle/installer); notarytool acceptance
+      # is the proof, and Gatekeeper verifies online at first run. We zip for
+      # submission because notarytool requires a zip/pkg/dmg container.
+      - name: Codesign + notarize binary
+        if: matrix.name == 'macos-arm64'
+        working-directory: apps/cli
+        env:
+          ASSET: ${{ matrix.asset }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          : "${APPLE_SIGNING_IDENTITY:?APPLE_SIGNING_IDENTITY is required}"
+          : "${APPLE_API_ISSUER:?APPLE_API_ISSUER is required}"
+          : "${APPLE_API_KEY:?APPLE_API_KEY is required}"
+          : "${APPLE_API_KEY_PATH:?APPLE_API_KEY_PATH not set by prior step}"
+
+          codesign --force --timestamp --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" "$ASSET"
+          codesign --verify --strict --verbose=2 "$ASSET"
+
+          ditto -c -k --keepParent "$ASSET" "$ASSET.zip"
+          xcrun notarytool submit "$ASSET.zip" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          rm -f "$ASSET.zip"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.asset }}
+          path: apps/cli/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Draft release
+    needs: build
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v7
+        with:
+          path: dist-binaries
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist-binaries
+        run: sha256sum agent-paste-* > SHA256SUMS
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -Eq '^[0-9A-Za-z._/-]+$'; then
+            echo "::error::Invalid release tag: $TAG"
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist-binaries/* --clobber
+          else
+            gh release create "$TAG" dist-binaries/* \
+              --draft \
+              --title "agent-paste CLI $TAG" \
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+          fi
