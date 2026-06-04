@@ -1,13 +1,32 @@
+import { QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
-  return createTanStackRouter({
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Show cache instantly on navigation, reconcile in the background.
+        staleTime: 10_000,
+        refetchOnWindowFocus: true,
+      },
+    },
+  });
+
+  const router = createTanStackRouter({
     routeTree,
+    context: { queryClient },
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
   });
+
+  // Dehydrate/hydrate query cache across the SSR boundary and wrap the app in
+  // QueryClientProvider (wrapQueryClient defaults to true).
+  setupRouterSsrQueryIntegration({ router, queryClient });
+
+  return router;
 }
 
 declare module "@tanstack/react-router" {

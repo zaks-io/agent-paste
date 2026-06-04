@@ -1,4 +1,5 @@
-import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { ThemeProvider } from "../components/theme-provider";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
@@ -6,7 +7,7 @@ import { captureBrowserException, initBrowserSentry } from "../lib/sentry-browse
 import { loadRootEnvFn } from "../rpc/web-loaders";
 import "../styles/globals.css";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },

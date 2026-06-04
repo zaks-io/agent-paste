@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { FirstRunKeyCard } from "../components/dashboard/FirstRunKeyCard";
 import { RecentArtifacts } from "../components/dashboard/RecentArtifacts";
@@ -8,12 +9,12 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { HeroStat, type RailItem } from "../components/ui/HeroStat";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { loadDashboardFn } from "../rpc/web-loaders";
+import { dashboardQuery } from "../lib/queries";
 
 const RECENT_LIMIT = 6;
 
 export const Route = createFileRoute("/_authed/dashboard")({
-  loader: () => loadDashboardFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQuery()),
   head: ({ matches }) =>
     dashboardPageMeta(
       "Overview",
@@ -25,7 +26,8 @@ export const Route = createFileRoute("/_authed/dashboard")({
 });
 
 function DashboardPage() {
-  const { workspace, artifacts, audit } = Route.useLoaderData();
+  const { data: dashboard } = useSuspenseQuery(dashboardQuery());
+  const { workspace, artifacts, audit } = dashboard;
   const parentSession = useLoaderData({ from: "/_authed" });
   const defaultKeySecret =
     "apiSession" in parentSession ? (parentSession.apiSession.data?.default_api_key?.secret ?? null) : null;

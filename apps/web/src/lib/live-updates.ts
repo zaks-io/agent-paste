@@ -1,4 +1,6 @@
-import type { LiveUpdatePointer, LiveUpdateSseEvent } from "@agent-paste/contracts";
+import type { LiveUpdatePointer, LiveUpdateRevokedEvent, LiveUpdateSseEvent } from "@agent-paste/contracts";
+
+export type LiveUpdateRevokedReason = LiveUpdateRevokedEvent["reason"];
 
 export type LiveUpdateConnection = {
   close: () => void;
@@ -10,7 +12,7 @@ export function connectLiveUpdates(input: {
   body?: string;
   signal?: AbortSignal;
   onPointer: (pointer: LiveUpdatePointer) => void;
-  onRevoked?: () => void;
+  onRevoked?: (reason: LiveUpdateRevokedReason) => void;
   onUnavailable?: () => void;
 }): LiveUpdateConnection {
   const controller = new AbortController();
@@ -40,7 +42,7 @@ export function connectLiveUpdates(input: {
             return;
           }
           if (event.type === "revoked") {
-            input.onRevoked?.();
+            input.onRevoked?.(event.reason);
           }
         },
       });

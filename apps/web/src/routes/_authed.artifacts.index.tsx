@@ -1,4 +1,5 @@
 import type { WebArtifactListResponse } from "@agent-paste/contracts";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "../components/ui/Badge";
@@ -11,17 +12,17 @@ import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { listArtifactsFn } from "../rpc/web-loaders";
+import { artifactsQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/artifacts/")({
-  loader: () => listArtifactsFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(artifactsQuery()),
   head: ({ matches }) =>
     dashboardPageMeta("Artifacts", "Everything published from this workspace.", "/artifacts", matches),
   component: ArtifactsListPage,
 });
 
 function ArtifactsListPage() {
-  const result = Route.useLoaderData();
+  const { data: result } = useSuspenseQuery(artifactsQuery());
   const rows: WebArtifactListResponse["items"] = result.data?.items ?? [];
   const liveCount = rows.filter((r) => r.status === "Published").length;
 

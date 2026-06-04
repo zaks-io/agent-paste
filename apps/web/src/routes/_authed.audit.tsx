@@ -1,4 +1,5 @@
 import type { WebAuditListResponse } from "@agent-paste/contracts";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -8,21 +9,21 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
 import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { listAuditFn } from "../rpc/web-loaders";
+import { auditQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/audit")({
   validateSearch: (search: Record<string, unknown>): { request_id?: string } => {
     const requestId = search.request_id;
     return typeof requestId === "string" && requestId.length > 0 ? { request_id: requestId } : {};
   },
-  loader: () => listAuditFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(auditQuery()),
   head: ({ matches }) =>
     dashboardPageMeta("Audit Log", "Every meaningful action in this workspace.", "/audit", matches),
   component: AuditPage,
 });
 
 function AuditPage() {
-  const result = Route.useLoaderData();
+  const { data: result } = useSuspenseQuery(auditQuery());
   const { request_id: highlightedRequestId } = Route.useSearch();
   const rows: WebAuditListResponse["items"] = result.data?.items ?? [];
 
