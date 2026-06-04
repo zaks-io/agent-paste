@@ -48,6 +48,14 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
       return logout(parsed.global);
   }
 
+  if (!client && command === "whoami" && !(await hasResolvableAuth())) {
+    return output(
+      { authenticated: false },
+      parsed.global,
+      "Not signed in. Run `agent-paste login` or set AGENT_PASTE_API_KEY.",
+    );
+  }
+
   const apiClient = client ?? (await resolveClient());
   return dispatch(command, parsed, apiClient);
 }
@@ -64,6 +72,17 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
     default:
       throw new Error(`Unknown command: ${command}`);
   }
+}
+
+// `whoami` answering "you're nobody" is a valid answer, not a failure. When no
+// usable credential is present we report it and exit 0 rather than forcing a
+// 401 round-trip — the CLI also serves anonymous (`--ephemeral`) flows.
+async function hasResolvableAuth(): Promise<boolean> {
+  if (process.env.AGENT_PASTE_API_KEY) {
+    return true;
+  }
+  const stored = await loadCredential();
+  return Boolean(stored && !isCredentialExpired(stored));
 }
 
 // AGENT_PASTE_API_KEY wins for CI/headless use; otherwise the key stored by
