@@ -64,6 +64,10 @@ export const FEATURES: Feature[] = [
     title: "Publish with zero setup",
     body: "An agent with no account can publish: `npx @zaks-io/agent-paste publish ./report --ephemeral` skips login and keys entirely. The result lives for 24 hours and prints a one-time claim link; open it signed in to keep the Artifact in your workspace.",
   },
+  {
+    title: "Install in one line",
+    body: "No Node? Grab the standalone binary: `curl -fsSL https://agent-paste.sh/install.sh | sh`. It verifies the download against the release `SHA256SUMS` and installs `agent-paste` to `~/.local/bin`. On Windows: `irm https://agent-paste.sh/install.ps1 | iex`.",
+  },
 ];
 
 export type FooterColumn = {
@@ -85,6 +89,13 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "/agents.md", href: "/agents.md" },
       { label: "/llms.txt", href: "/llms.txt" },
+    ],
+  },
+  {
+    heading: "Install",
+    links: [
+      { label: "install.sh", href: "/install.sh" },
+      { label: "install.ps1", href: "/install.ps1" },
     ],
   },
 ];
