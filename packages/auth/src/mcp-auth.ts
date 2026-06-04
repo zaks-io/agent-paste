@@ -1,10 +1,4 @@
-import {
-  MCP_RESOURCE_INDICATOR,
-  type McpScope,
-  mcpScopeClaimIncludesMemberOnlyScopes,
-  mcpScopesToApiScopes,
-  parseMcpScopeClaim,
-} from "@agent-paste/contracts";
+import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
 import type { ApiActor } from "@agent-paste/db";
 import {
   fetchWorkOsUser,
@@ -26,7 +20,6 @@ export type McpAuthEnv = {
 export type McpAuthenticatedPrincipal = {
   identity: WorkOsIdentity & { auth_surface: "mcp" };
   actor: ApiActor;
-  mcpScopes: readonly McpScope[];
 };
 
 function bearerToken(request: Request): string | null {
@@ -100,11 +93,7 @@ export async function authenticateMcpBearer(
   if (!audienceMatchesMcpResource(verified.payload.aud, resource)) {
     return null;
   }
-  if (mcpScopeClaimIncludesMemberOnlyScopes(verified.payload.scope)) {
-    return null;
-  }
 
-  const mcpScopes = parseMcpScopeClaim(verified.payload.scope);
   const user = await fetchWorkOsUser(verified.sub, options);
   if (!user) {
     return null;
@@ -116,7 +105,7 @@ export async function authenticateMcpBearer(
     auth_surface: "mcp",
   };
 
-  const apiScopes = mcpScopesToApiScopes(mcpScopes);
+  // Stub actor replaced by resolveMcpMemberActor (the member row carries real scopes).
   return {
     identity,
     actor: {
@@ -124,9 +113,8 @@ export async function authenticateMcpBearer(
       id: "",
       workspace_id: "",
       email: user.email,
-      scopes: apiScopes,
+      scopes: [],
     },
-    mcpScopes,
   };
 }
 
@@ -138,8 +126,5 @@ export async function resolveMcpMemberActor(
   if (!member || member.type !== "member") {
     return null;
   }
-  return {
-    ...member,
-    scopes: mcpScopesToApiScopes(principal.mcpScopes),
-  };
+  return member;
 }

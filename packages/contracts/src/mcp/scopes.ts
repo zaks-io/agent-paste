@@ -1,10 +1,7 @@
 import type { Scope } from "../enums.js";
-import { MCP_DELEGATED_SCOPES, MCP_EXCLUDED_MEMBER_ONLY_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
+import { MCP_DELEGATED_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
 import type { McpScope as McpScopeValue } from "./schemas.js";
-import { McpProtectedResourceMetadata, McpScope } from "./schemas.js";
-
-const mcpScopeSet = new Set<string>(MCP_DELEGATED_SCOPES);
-const excludedMemberOnlyScopeSet = new Set<string>(MCP_EXCLUDED_MEMBER_ONLY_SCOPES);
+import { McpProtectedResourceMetadata } from "./schemas.js";
 
 export function mcpProtectedResourceMetadata(
   input: { resource?: string; authorizationServers?: readonly string[] } = {},
@@ -30,28 +27,6 @@ export function mcpTokenHasRequiredScopes(
   return required.every((scope) => grantedSet.has(scope));
 }
 
-/** Parse the OAuth `scope` claim into delegated MCP scopes only. */
-export function parseMcpScopeClaim(value: unknown): McpScopeValue[] {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return [];
-  }
-  const scopes: McpScopeValue[] = [];
-  for (const part of value.split(/\s+/u)) {
-    if (mcpScopeSet.has(part)) {
-      scopes.push(McpScope.parse(part));
-    }
-  }
-  return scopes;
-}
-
-/** True when the claim includes Member-Only Scopes that MCP tokens must never carry. */
-export function mcpScopeClaimIncludesMemberOnlyScopes(value: unknown): boolean {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return false;
-  }
-  return value.split(/\s+/u).some((part) => excludedMemberOnlyScopeSet.has(part));
-}
-
 /** Map delegated MCP scopes to API route scopes for service-binding forwarding (ADR 0034). */
 export function mcpScopesToApiScopes(mcpScopes: readonly McpScopeValue[]): Scope[] {
   const apiScopes: Scope[] = [];
@@ -65,4 +40,19 @@ export function mcpScopesToApiScopes(mcpScopes: readonly McpScopeValue[]): Scope
     apiScopes.push("admin");
   }
   return apiScopes;
+}
+
+/** Map a member's API scopes to delegated MCP scopes (inverse of mcpScopesToApiScopes, ADR 0079). */
+export function apiScopesToMcpScopes(apiScopes: readonly Scope[]): McpScopeValue[] {
+  const mcpScopes: McpScopeValue[] = [];
+  if (apiScopes.includes("publish")) {
+    mcpScopes.push("write");
+  }
+  if (apiScopes.includes("read")) {
+    mcpScopes.push("read");
+  }
+  if (apiScopes.includes("admin")) {
+    mcpScopes.push("share");
+  }
+  return mcpScopes;
 }

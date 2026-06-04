@@ -7,15 +7,21 @@ import { handleMcpEndpoint } from "./transport.js";
 const testAuth = createTestMcpBearerAuth({
   "mcp-valid-token": {
     tokenSub: "user_01",
-    scopes: ["write", "read", "share"],
     bearerToken: "mcp-valid-token",
   },
   "mcp-read-only": {
     tokenSub: "user_02",
-    scopes: ["read"],
     bearerToken: "mcp-read-only",
   },
 });
+
+function whoamiResponse(scopes: readonly string[]) {
+  return Response.json({
+    workspace_member: { id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", email: "user@example.com" },
+    workspace: { id: "550e8400-e29b-41d4-a716-446655440000", name: "Personal", created_at: "2026-05-20T12:00:00.000Z" },
+    scopes: [...scopes],
+  });
+}
 
 function mcpPost(
   body: unknown,
@@ -270,9 +276,9 @@ describe("MCP streamable HTTP transport", () => {
     expect(payload.result.structuredContent.workspace_member.id).toBe("mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
   });
 
-  it("returns insufficient_scope when the token lacks required scopes", async () => {
+  it("returns insufficient_scope when the member's granted scopes lack the requirement", async () => {
     const upload = { fetch: async () => new Response(null, { status: 500 }) };
-    const api = { fetch: async () => new Response(null, { status: 500 }) };
+    const api = { fetch: async () => whoamiResponse(["read"]) };
     const response = await handleMcpEndpoint(
       new Request("https://mcp.test/", {
         method: "POST",

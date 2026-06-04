@@ -24,19 +24,7 @@ describe("MCP WorkOS token verification", () => {
       WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
     });
 
-    expect(verified).toEqual({ tokenSub: subject, scopes: ["write", "read"] });
-  });
-
-  it("rejects member-only scopes in the claim", async () => {
-    const fixture = await tokenFixture({ scope: "read manage_workspace" });
-    stubJwks(fixture.publicJwk);
-
-    const verified = await verifyMcpOAuthToken(fixture.token, {
-      WORKOS_API_KEY: "sk_test",
-      WORKOS_MCP_JWKS_URL: jwksUrl,
-      WORKOS_MCP_ISSUER: issuer,
-    });
-    expect(verified).toBeNull();
+    expect(verified).toEqual({ tokenSub: subject });
   });
 
   it("checks audience membership", () => {

@@ -42,7 +42,6 @@ describe("MCP OAuth bearer verification", () => {
     const principal = await authenticateMcpBearer(request("https://api.test/v1/mcp/whoami", fixture.token), baseEnv());
     expect(principal).toMatchObject({
       identity: { workos_user_id: subject, auth_surface: "mcp" },
-      mcpScopes: ["read"],
     });
     expect(oauthClientId).not.toBe(MCP_RESOURCE_INDICATOR);
   });
@@ -55,11 +54,10 @@ describe("MCP OAuth bearer verification", () => {
     const principal = await authenticateMcpBearer(request("https://api.test/v1/mcp/whoami", fixture.token), baseEnv());
     expect(principal).toMatchObject({
       identity: { workos_user_id: subject, auth_surface: "mcp" },
-      mcpScopes: ["read"],
     });
   });
 
-  it("accepts a valid MCP resource token and maps scopes", async () => {
+  it("accepts a valid MCP resource token with a stub actor (scopes come from the member row)", async () => {
     const fixture = await mcpTokenFixture({ scope: "write read share" });
     stubFetch(fixture.publicJwk);
 
@@ -73,10 +71,9 @@ describe("MCP OAuth bearer verification", () => {
         email: "user@example.com",
         auth_surface: "mcp",
       },
-      mcpScopes: ["write", "read", "share"],
       actor: {
         type: "member",
-        scopes: ["publish", "read", "admin"],
+        scopes: [],
       },
     });
   });
@@ -91,16 +88,6 @@ describe("MCP OAuth bearer verification", () => {
 
   it("rejects tokens with the wrong audience", async () => {
     const fixture = await mcpTokenFixture({ audience: "https://other.example" });
-    stubFetch(fixture.publicJwk);
-    const principal = await authenticateMcpBearer(
-      request("https://upload.test/v1/upload-sessions", fixture.token),
-      baseEnv(),
-    );
-    expect(principal).toBeNull();
-  });
-
-  it("rejects tokens that include member-only scopes", async () => {
-    const fixture = await mcpTokenFixture({ scope: "read manage_keys" });
     stubFetch(fixture.publicJwk);
     const principal = await authenticateMcpBearer(
       request("https://upload.test/v1/upload-sessions", fixture.token),
@@ -159,16 +146,15 @@ describe("MCP OAuth bearer verification", () => {
     ).toBeNull();
   });
 
-  it("resolves member actors from the database", async () => {
+  it("resolves member actors from the database with their stored scopes intact", async () => {
     const principal: McpAuthenticatedPrincipal = {
       identity: { workos_user_id: subject, email: "user@example.com", auth_surface: "mcp" },
-      mcpScopes: ["write", "read"],
       actor: {
         type: "member",
         id: "",
         workspace_id: "",
         email: "user@example.com",
-        scopes: ["publish", "read"],
+        scopes: [],
       },
     };
     const member = {
@@ -181,19 +167,18 @@ describe("MCP OAuth bearer verification", () => {
     const resolved = await resolveMcpMemberActor(principal, {
       getWebMemberByWorkOsUserId: vi.fn(async () => member),
     });
-    expect(resolved).toEqual({ ...member, scopes: ["publish", "read"] });
+    expect(resolved).toEqual(member);
   });
 
   it("returns null when no web member exists", async () => {
     const principal: McpAuthenticatedPrincipal = {
       identity: { workos_user_id: subject, email: "user@example.com", auth_surface: "mcp" },
-      mcpScopes: ["read"],
       actor: {
         type: "member",
         id: "",
         workspace_id: "",
         email: "user@example.com",
-        scopes: ["read"],
+        scopes: [],
       },
     };
     await expect(

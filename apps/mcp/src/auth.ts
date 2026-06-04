@@ -1,9 +1,7 @@
-import type { McpScope } from "@agent-paste/contracts";
 import { isConfiguredMcpOAuthVerifier, type McpWorkOsEnv, verifyMcpOAuthToken } from "./workos.js";
 
 export type McpAuthContext = {
   tokenSub: string;
-  scopes: readonly McpScope[];
   bearerToken: string;
 };
 
@@ -99,7 +97,6 @@ export function createWorkOsMcpBearerAuth(env: McpWorkOsEnv): VerifyMcpBearer {
       ok: true,
       context: {
         tokenSub: verified.tokenSub,
-        scopes: verified.scopes,
         bearerToken: token,
       },
     };

@@ -20,6 +20,7 @@ import {
   type McpReadArtifactInput,
   type McpRevokeAccessLinkInput,
   McpRevokeAccessLinkOutput,
+  type McpScope,
   McpToolCallParams,
   type McpUpdateDisplayMetadataInput,
   McpWhoamiResponse,
@@ -60,8 +61,14 @@ export async function callMcpTool(
   }
 
   const contract = mcpToolContractByName(parsed.data.name);
-  if (!mcpTokenHasRequiredScopes(auth.scopes, contract.requiredScopes)) {
-    return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
+  if (contract.requiredScopes.length > 0) {
+    const granted = await resolveGrantedScopes(deps);
+    if (!granted.ok) {
+      return granted;
+    }
+    if (!mcpTokenHasRequiredScopes(granted.scopes, contract.requiredScopes)) {
+      return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
+    }
   }
 
   const inputSchema = mcpToolInputSchemas[parsed.data.name];
@@ -133,6 +140,27 @@ async function callWhoami(deps: McpToolDeps): Promise<McpToolResult> {
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, McpWhoamiResponse);
+}
+
+type ResolvedScopes =
+  | { ok: true; scopes: readonly McpScope[] }
+  | { ok: false; error: ReturnType<typeof mapMcpProtocolError> };
+
+/** Pre-flight scope source (ADR 0079): the member's granted scopes come from api, not the token. */
+async function resolveGrantedScopes(deps: McpToolDeps): Promise<ResolvedScopes> {
+  const forwarded = await forwardToApiRoute({
+    api: deps.api,
+    routeId: "mcp.whoami",
+    bearerToken: deps.bearerToken,
+  });
+  if (!forwarded.ok) {
+    return forwarded;
+  }
+  const parsed = McpWhoamiResponse.safeParse(forwarded.body);
+  if (!parsed.success) {
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  return { ok: true, scopes: parsed.data.scopes };
 }
 
 async function callPublishArtifact(

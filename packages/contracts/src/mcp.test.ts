@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import {
+  apiScopesToMcpScopes,
   buildMcpToolList,
   deriveMcpIdempotencyKey,
   McpPublishArtifactInput,
@@ -12,12 +13,10 @@ import {
   mcpIdempotencySegment,
   mcpProtectedResourceMetadata,
   mcpPublishAccessLinkIdempotencyKey,
-  mcpScopeClaimIncludesMemberOnlyScopes,
   mcpScopesToApiScopes,
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
-  parseMcpScopeClaim,
   resolveMcpForwardedCall,
   toMcpJsonRpcError,
 } from "./mcp.js";
@@ -190,16 +189,14 @@ describe("MCP auth and idempotency helpers", () => {
     expect(mcpTokenHasRequiredScopes(["read"], ["write"])).toBe(false);
   });
 
-  it("parses OAuth scope claims and rejects member-only scopes", () => {
-    expect(parseMcpScopeClaim("write read share")).toEqual(["write", "read", "share"]);
-    expect(parseMcpScopeClaim("read unknown")).toEqual(["read"]);
-    expect(mcpScopeClaimIncludesMemberOnlyScopes("read manage_keys")).toBe(true);
-    expect(mcpScopeClaimIncludesMemberOnlyScopes("write read share")).toBe(false);
-  });
-
   it("maps delegated MCP scopes to API route scopes", () => {
     expect(mcpScopesToApiScopes(["write", "read", "share"])).toEqual(["publish", "read", "admin"]);
     expect(mcpScopesToApiScopes(["read"])).toEqual(["read"]);
+  });
+
+  it("maps member API scopes to delegated MCP scopes", () => {
+    expect(apiScopesToMcpScopes(["publish", "read", "admin"])).toEqual(["write", "read", "share"]);
+    expect(apiScopesToMcpScopes(["read"])).toEqual(["read"]);
   });
 
   it("derives distinct publish access-link idempotency keys from the tool key", () => {

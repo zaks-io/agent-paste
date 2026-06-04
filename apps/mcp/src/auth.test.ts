@@ -31,7 +31,7 @@ describe("MCP bearer auth hooks", () => {
 
   it("rejects WorkOS session-style tokens at the MCP surface", () => {
     const verify = createTestMcpBearerAuth({
-      ok: { tokenSub: "u1", scopes: ["read"], bearerToken: "ok" },
+      ok: { tokenSub: "u1", bearerToken: "ok" },
     });
     const response = verify({ authorizationHeader: "Bearer wos_session_abc" });
     expect(response).toEqual({
@@ -63,7 +63,7 @@ describe("MCP bearer auth hooks", () => {
     });
     await expect(verify({ authorizationHeader: `Bearer ${fixture.token}` })).resolves.toEqual({
       ok: true,
-      context: { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: fixture.token },
+      context: { tokenSub: "user_01", bearerToken: fixture.token },
     });
   });
 

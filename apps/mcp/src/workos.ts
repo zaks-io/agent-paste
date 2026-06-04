@@ -1,9 +1,4 @@
-import {
-  MCP_RESOURCE_INDICATOR,
-  type McpScope,
-  mcpScopeClaimIncludesMemberOnlyScopes,
-  parseMcpScopeClaim,
-} from "@agent-paste/contracts";
+import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 
 export type McpWorkOsEnv = {
@@ -68,10 +63,7 @@ function issuers(env: McpWorkOsEnv): string[] {
   return [];
 }
 
-export async function verifyMcpOAuthToken(
-  token: string,
-  env: McpWorkOsEnv,
-): Promise<{ tokenSub: string; scopes: readonly McpScope[] } | null> {
+export async function verifyMcpOAuthToken(token: string, env: McpWorkOsEnv): Promise<{ tokenSub: string } | null> {
   if (!env.WORKOS_API_KEY) {
     return null;
   }
@@ -91,13 +83,7 @@ export async function verifyMcpOAuthToken(
     if (!audienceMatches(payload.aud, resource)) {
       return null;
     }
-    if (mcpScopeClaimIncludesMemberOnlyScopes(payload.scope)) {
-      return null;
-    }
-    return {
-      tokenSub: payload.sub,
-      scopes: parseMcpScopeClaim(payload.scope),
-    };
+    return { tokenSub: payload.sub };
   } catch {
     return null;
   }

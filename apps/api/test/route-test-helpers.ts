@@ -24,10 +24,13 @@ export function apiPrincipal(actor: Record<string, unknown> = apiActor): Princip
   return { kind: "api_key", actor } as Principal;
 }
 
-export function memberPrincipal(identity: Record<string, unknown> = {}): Principal {
+export function memberPrincipal(
+  identity: Record<string, unknown> = {},
+  actor: Record<string, unknown> = memberActor,
+): Principal {
   return {
     kind: "workos_access_token",
-    actor: memberActor,
+    actor,
     identity: { workos_user_id: "user_1", email: "member@example.com", ...identity },
   } as Principal;
 }
