@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Entry } from "@napi-rs/keyring";
+import { execEntry } from "./keychain.js";
 
 export type Credential = {
   api_key: string;
@@ -13,7 +13,6 @@ export type Credential = {
 
 const SERVICE = "agent-paste";
 const ACCOUNT = "default";
-const KEYRING_PLATFORMS = new Set(["darwin", "win32", "linux"]);
 
 type KeyringEntry = {
   getPassword(): string | null;
@@ -31,12 +30,14 @@ type WarningSink = (message: string) => void;
 
 let warnedAboutFileFallback = false;
 
-// Desktop platforms prefer the native OS keyring. Headless Linux and other
-// keyring failures fall back to the existing 0600 file so remote shells still
-// work, but the warning makes the weaker storage explicit.
+// Desktop platforms prefer the OS keychain via its own CLI tools. Unsupported
+// platforms, missing tools, and headless Linux fall back to the existing 0600
+// file so remote shells still work, but the warning makes the weaker storage
+// explicit.
 export function credentialStore(platform: string = process.platform): CredentialStore {
   const fallback = fileStore();
-  return KEYRING_PLATFORMS.has(platform) ? keyringStore(new Entry(SERVICE, ACCOUNT), fallback) : fallback;
+  const entry = execEntry(SERVICE, ACCOUNT, platform);
+  return entry ? keyringStore(entry, fallback) : fallback;
 }
 
 export function loadCredential(): Promise<Credential | null> {

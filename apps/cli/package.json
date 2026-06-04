@@ -29,9 +29,6 @@
     "test": "vitest run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "@napi-rs/keyring": "1.3.0"
-  },
   "devDependencies": {
     "@agent-paste/api-client": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
