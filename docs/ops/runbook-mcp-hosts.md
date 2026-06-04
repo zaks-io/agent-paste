@@ -97,19 +97,26 @@ Deploy order: `api` and `upload` must exist before `mcp` (service bindings). See
 
 ## Scopes
 
-MCP consent requests from `{write, read, share}`. The user selects a subset at
-consent; the issued token's `scope` claim is authoritative. **Member-Only
-Scopes** (`manage_keys`, `manage_workspace`, `read_audit`) are not offered and
-must not appear on MCP tokens.
+Hosts authenticate via WorkOS AuthKit; they do **not** select scopes at consent.
+WorkOS AuthKit cannot issue custom OAuth scopes — the access token carries only
+AuthKit's built-in scopes (`openid`, `profile`, `email`, `offline_access`), and
+the MCP token is verified by issuer + `aud` only. A caller's `{write, read,
+share}` capability is **derived in `api` from the caller's Workspace Member
+scopes** (`mcp.whoami` returns the derived set), not from the token. See
+[ADR 0079](../adr/0079-mcp-scopes-derived-from-member-role-not-workos-token.md).
 
-| MCP scope | Maps to API scopes | Typical tools                                                                          |
-| --------- | ------------------ | -------------------------------------------------------------------------------------- |
-| `read`    | `read`             | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                          |
-| `write`   | `publish`          | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`       |
-| `share`   | `admin` (link ops) | `create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
+| MCP scope | Member API scope | Typical tools                                                                          |
+| --------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `read`    | `read`           | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                          |
+| `write`   | `publish`        | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`       |
+| `share`   | `admin`          | `create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
 
-Publishing and revision tools require **`write read share`** together (ADR 0061).
-Hosts that grant only `read` can inspect artifacts but cannot publish.
+Publishing and revision tools require **`write read share`** together. Members
+are provisioned with all three (`DEFAULT_MEMBER_SCOPES`), so today every member
+has full capability; a future read-only or share-less member is a change to that
+member's stored scopes in `api`, with no host, token, or WorkOS change. The MCP
+Worker pre-flight-gates each tool by fetching the member's derived scopes via
+`mcp.whoami`; `api` re-enforces the member's scopes/RLS on every forwarded call.
 
 Prerequisite: the WorkOS user must already have a **Workspace Member** row
 (created by dashboard sign-in or CLI login). MCP OAuth does not auto-provision
@@ -123,17 +130,20 @@ workspaces on first token use.
 2. Server URL: `https://mcp.agent-paste.sh` (or preview URL for staging).
 3. Complete the OAuth flow when prompted. Cursor uses the registered
    `cursor://oauth/callback` redirect.
-4. Grant `write`, `read`, and `share` if you need publish and link tools.
-5. Verify with the `whoami` tool, then try `list_artifacts`.
+4. Verify with the `whoami` tool (it reports the member's derived scopes), then
+   try `list_artifacts`. Capability follows the member's role, not a consent
+   selection.
 
-**Quirk:** Cursor may cache OAuth tokens across reconnects. If scopes change,
-disconnect and re-authenticate so consent re-runs.
+**Quirk:** Cursor may cache OAuth tokens across reconnects. If a member's scopes
+change in `api`, the next `mcp.whoami` reflects it on the following tool call; no
+re-consent is needed.
 
 ### Claude Desktop
 
 1. Add the MCP server URL in Claude Desktop connector settings.
 2. OAuth uses `claude-desktop://oauth/callback` (registered in WorkOS).
-3. Grant all three scopes for full publish/link coverage.
+3. Capability follows the member's role; full members get publish/link coverage
+   automatically (no scope selection at consent).
 
 **Quirk:** Desktop builds lag web MCP auth spec changes; DCR compatibility must
 stay enabled in WorkOS until CIMD support is confirmed for your build.
@@ -231,15 +241,15 @@ pnpm --filter @agent-paste/mcp test
 
 ## Failure modes
 
-| Symptom                                     | Likely cause                                                     |
-| ------------------------------------------- | ---------------------------------------------------------------- |
-| `401` + `WWW-Authenticate: invalid_token`   | Missing/expired token, wrong `aud`, or missing WorkOS member row |
-| `403` / `insufficient_scope` on tool call   | Token missing required scopes for that tool                      |
-| `401` with API key message                  | Host sent an API key; MCP accepts OAuth only                     |
-| `401` with `workos_access_token` message    | Host sent a dashboard session token instead of MCP OAuth         |
-| `mcp_oauth_verifier_not_configured` (local) | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker               |
-| Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS                           |
-| `whoami` succeeds but publish fails         | Token lacks `write read share` together                          |
+| Symptom                                     | Likely cause                                                         |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| `401` + `WWW-Authenticate: invalid_token`   | Missing/expired token, wrong `aud`, or missing WorkOS member row     |
+| `403` / `insufficient_scope` on tool call   | Member's role lacks required scopes for that tool (derived in `api`) |
+| `401` with API key message                  | Host sent an API key; MCP accepts OAuth only                         |
+| `401` with `workos_access_token` message    | Host sent a dashboard session token instead of MCP OAuth             |
+| `mcp_oauth_verifier_not_configured` (local) | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                   |
+| Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS                               |
+| `whoami` succeeds but publish fails         | Member's role lacks `write read share` together                      |
 
 ## Verification boundary
 

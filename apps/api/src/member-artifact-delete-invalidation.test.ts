@@ -98,7 +98,6 @@ describe("member MCP artifact delete invalidation", () => {
         email: "mcp-member@example.com",
         auth_surface: "mcp",
       },
-      mcpScopes: ["publish"],
       actor: member,
     });
     vi.spyOn(mcpAuth, "resolveMcpMemberActor").mockResolvedValue(member);

@@ -11,6 +11,7 @@ import {
   apiPrincipal,
   contextFor,
   guardFor,
+  memberActor,
   memberPrincipal,
   nonePrincipal,
   responseJson,
@@ -33,15 +34,26 @@ describe("AP-91 account route modules", () => {
     expect(rejected.status).toBe(401);
 
     const getWebWorkspace = vi.fn(async () => ({ workspace: { id: workspaceId, name: "Workspace" } }));
-    const ok = await mcpWhoami(contextFor(), memberPrincipal({ email: undefined, mcp_scopes: ["read"] }), {
+    const ok = await mcpWhoami(contextFor(), memberPrincipal({ email: undefined }), {
       getWebWorkspace,
     } as never);
     expect(ok.status).toBe(200);
     await expect(responseJson(ok)).resolves.toMatchObject({
       workspace_member: { id: "mem_1", email: "member@example.com" },
       workspace: { id: workspaceId },
-      scopes: ["read"],
+      scopes: ["write", "read", "share"],
     });
+  });
+
+  it("derives MCP whoami scopes from the member's stored API scopes", async () => {
+    const getWebWorkspace = vi.fn(async () => ({ workspace: { id: workspaceId, name: "Workspace" } }));
+    const readOnly = await mcpWhoami(
+      contextFor(),
+      memberPrincipal({ email: undefined }, { ...memberActor, scopes: ["read"] }),
+      { getWebWorkspace } as never,
+    );
+    expect(readOnly.status).toBe(200);
+    await expect(responseJson(readOnly)).resolves.toMatchObject({ scopes: ["read"] });
   });
 
   it("gets usage policy through API key actors and reports unavailable repositories", async () => {

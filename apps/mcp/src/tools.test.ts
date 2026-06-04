@@ -1,3 +1,4 @@
+import type { McpScope } from "@agent-paste/contracts";
 import { deriveMcpIdempotencyKey } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import * as publishChain from "./publish-chain.js";
@@ -7,12 +8,44 @@ vi.mock("./publish-chain.js", () => ({
   runTextPublishChain: vi.fn(),
 }));
 
-const auth = { tokenSub: "user_01", scopes: ["read"] as const, bearerToken: "token-read" };
-const whoamiBody = {
-  workspace_member: { id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", email: "user@example.com" },
-  workspace: { id: "550e8400-e29b-41d4-a716-446655440000", name: "Personal", created_at: "2026-05-20T12:00:00.000Z" },
-  scopes: ["read"],
-};
+const auth = { tokenSub: "user_01", bearerToken: "token-read" };
+
+function whoamiBodyFor(scopes: readonly McpScope[]) {
+  return {
+    workspace_member: { id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", email: "user@example.com" },
+    workspace: { id: "550e8400-e29b-41d4-a716-446655440000", name: "Personal", created_at: "2026-05-20T12:00:00.000Z" },
+    scopes: [...scopes],
+  };
+}
+
+const whoamiBody = whoamiBodyFor(["read", "write", "share"]);
+
+/**
+ * Mock api service binding. The pre-flight scope gate (ADR 0079) calls `mcp.whoami`
+ * before the real route, so answer that path with a whoami body carrying `grantedScopes`,
+ * and answer every other path sequentially from `routeResponses`.
+ */
+function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response[]) {
+  let next = 0;
+  return {
+    fetch: vi.fn(async (request: Request) => {
+      if (new URL(request.url).pathname.endsWith("/mcp/whoami")) {
+        return Response.json(whoamiBodyFor(grantedScopes));
+      }
+      const response = routeResponses[next];
+      next += 1;
+      return response ?? new Response("not found", { status: 404 });
+    }),
+  };
+}
+
+/** The Nth real route request (skipping the pre-flight `mcp.whoami` gate call). */
+function routeCall(api: ReturnType<typeof apiMock>, index: number): Request {
+  const routeRequests = api.fetch.mock.calls
+    .map((call) => call[0] as Request)
+    .filter((request) => !new URL(request.url).pathname.endsWith("/mcp/whoami"));
+  return routeRequests[index] as Request;
+}
 
 describe("callMcpTool", () => {
   const upload = { fetch: vi.fn() };
@@ -29,9 +62,10 @@ describe("callMcpTool", () => {
     }
   });
 
-  it("rejects tools when delegated scopes are insufficient", async () => {
+  it("rejects tools when the member's granted scopes are insufficient", async () => {
+    const api = apiMock(["read"]);
     const result = await callMcpTool("publish_artifact", { title: "t", body: "b", render_mode: "text" }, auth, {
-      api: { fetch: vi.fn() },
+      api,
       upload,
       bearerToken: auth.bearerToken,
     });
@@ -46,15 +80,8 @@ describe("callMcpTool", () => {
       data: [],
       page_info: { next_cursor: null, has_more: false },
     };
-    const api = {
-      fetch: vi.fn(async () => Response.json(listBody)),
-    };
-    const result = await callMcpTool(
-      "list_artifacts",
-      {},
-      { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
-      { api, upload, bearerToken: "token-read" },
-    );
+    const api = apiMock(["read"], Response.json(listBody));
+    const result = await callMcpTool("list_artifacts", {}, auth, { api, upload, bearerToken: "token-read" });
     expect(result).toEqual({ ok: true, result: listBody });
   });
 
@@ -80,15 +107,12 @@ describe("callMcpTool", () => {
   it("deletes an artifact through the API binding", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const deleteBody = { artifact_id: artifactId, deleted_at: "2026-01-01T00:00:00.000Z" };
-    const api = {
-      fetch: vi.fn(async () => Response.json(deleteBody)),
-    };
-    const result = await callMcpTool(
-      "delete_artifact",
-      { artifact_id: artifactId },
-      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
-      { api, upload, bearerToken: "token-write" },
-    );
+    const api = apiMock(["write"], Response.json(deleteBody));
+    const result = await callMcpTool("delete_artifact", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-write",
+    });
     expect(result).toEqual({ ok: true, result: deleteBody });
   });
 
@@ -113,7 +137,7 @@ describe("callMcpTool", () => {
       safety_warnings: [],
       bundle: { status: "pending", retry_after_seconds: 30 },
     };
-    const api = { fetch: vi.fn(async () => Response.json(agentView)) };
+    const api = apiMock(["read"], Response.json(agentView));
     const result = await callMcpTool("read_artifact", { artifact_id: artifactId }, auth, {
       api,
       upload,
@@ -135,12 +159,12 @@ describe("callMcpTool", () => {
       revision_link_url: "https://revision.example/al",
     };
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
-    const result = await callMcpTool(
-      "publish_artifact",
-      { title: "Note", body: "hello", render_mode: "text" },
-      { tokenSub: "user_01", scopes: ["write", "read", "share"], bearerToken: "token-all" },
-      { api: { fetch: vi.fn() }, upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 42 },
-    );
+    const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
+      api: apiMock(["write", "read", "share"]),
+      upload: { fetch: vi.fn() },
+      bearerToken: "token-all",
+      jsonRpcId: 42,
+    });
     expect(result).toEqual({ ok: true, result: published });
   });
 
@@ -151,7 +175,7 @@ describe("callMcpTool", () => {
       items: [],
       page_info: { next_cursor: null, has_more: false },
     };
-    const api = { fetch: vi.fn(async () => Response.json(revisions)) };
+    const api = apiMock(["read"], Response.json(revisions));
     const result = await callMcpTool("list_revisions", { artifact_id: artifactId }, auth, {
       api,
       upload,
@@ -162,31 +186,28 @@ describe("callMcpTool", () => {
 
   it("creates and mints a share link", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = {
-      fetch: vi
-        .fn()
-        .mockResolvedValueOnce(
-          Response.json({
-            id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: "2026-01-01T00:00:00.000Z",
-          }),
-        )
-        .mockResolvedValueOnce(Response.json({ url: "https://share.example/al" })),
-    };
-    const result = await callMcpTool(
-      "create_share_link",
-      { artifact_id: artifactId },
-      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
-      { api, upload, bearerToken: "token-share", jsonRpcId: 7 },
+    const api = apiMock(
+      ["read", "share"],
+      Response.json({
+        id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        type: "share",
+        artifact_id: artifactId,
+        revision_id: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      Response.json({ url: "https://share.example/al" }),
     );
+    const result = await callMcpTool("create_share_link", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+      jsonRpcId: 7,
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({ url: "https://share.example/al" });
     }
-    const createRequest = api.fetch.mock.calls[0]?.[0] as Request;
+    const createRequest = routeCall(api, 0);
     expect(createRequest.headers.get("idempotency-key")).toBe(
       deriveMcpIdempotencyKey({
         tokenSub: "user_01",
@@ -194,7 +215,7 @@ describe("callMcpTool", () => {
         toolName: "create_share_link",
       }),
     );
-    const mintRequest = api.fetch.mock.calls[1]?.[0] as Request;
+    const mintRequest = routeCall(api, 1);
     expect(mintRequest.url).toBe("https://agent-paste.internal/v1/access-links/al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/mint");
     expect(mintRequest.headers.get("idempotency-key")).toBeNull();
     await expect(mintRequest.text()).resolves.toBe("");
@@ -220,8 +241,8 @@ describe("callMcpTool", () => {
         body: "next",
         render_mode: "text",
       },
-      { tokenSub: "user_01", scopes: ["write", "read", "share"], bearerToken: "token-all" },
-      { api: { fetch: vi.fn() }, upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
+      auth,
+      { api: apiMock(["write", "read", "share"]), upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
     );
     expect(result).toEqual({ ok: true, result: published });
   });
@@ -229,31 +250,28 @@ describe("callMcpTool", () => {
   it("creates a revision link", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = {
-      fetch: vi
-        .fn()
-        .mockResolvedValueOnce(
-          Response.json({
-            id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0",
-            type: "revision",
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            created_at: "2026-01-01T00:00:00.000Z",
-          }),
-        )
-        .mockResolvedValueOnce(Response.json({ url: "https://share.example/rev" })),
-    };
+    const api = apiMock(
+      ["read", "share"],
+      Response.json({
+        id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0",
+        type: "revision",
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      Response.json({ url: "https://share.example/rev" }),
+    );
     const result = await callMcpTool(
       "create_revision_link",
       { artifact_id: artifactId, revision_id: revisionId },
-      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
+      auth,
       { api, upload, bearerToken: "token-share", jsonRpcId: 8 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({ url: "https://share.example/rev" });
     }
-    const createRequest = api.fetch.mock.calls[0]?.[0] as Request;
+    const createRequest = routeCall(api, 0);
     expect(createRequest.headers.get("idempotency-key")).toBe(
       deriveMcpIdempotencyKey({
         tokenSub: "user_01",
@@ -261,7 +279,7 @@ describe("callMcpTool", () => {
         toolName: "create_revision_link",
       }),
     );
-    const mintRequest = api.fetch.mock.calls[1]?.[0] as Request;
+    const mintRequest = routeCall(api, 1);
     expect(mintRequest.url).toBe("https://agent-paste.internal/v1/access-links/al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0/mint");
     expect(mintRequest.headers.get("idempotency-key")).toBeNull();
     await expect(mintRequest.text()).resolves.toBe("");
@@ -270,40 +288,35 @@ describe("callMcpTool", () => {
   it("lists and revokes access links", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const linkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = {
-      fetch: vi
-        .fn()
-        .mockResolvedValueOnce(
-          Response.json({
+    const api = apiMock(
+      ["read", "share"],
+      Response.json({
+        artifact_id: artifactId,
+        items: [
+          {
+            id: linkId,
+            type: "share",
             artifact_id: artifactId,
-            items: [
-              {
-                id: linkId,
-                type: "share",
-                artifact_id: artifactId,
-                revision_id: null,
-                created_at: "2026-01-01T00:00:00.000Z",
-                expires_at: null,
-                revoked_at: null,
-              },
-            ],
-          }),
-        )
-        .mockResolvedValueOnce(Response.json({ access_link_id: linkId, revoked_at: "2026-01-02T00:00:00.000Z" })),
-    };
-    const listResult = await callMcpTool(
-      "list_access_links",
-      { artifact_id: artifactId },
-      { tokenSub: "user_01", scopes: ["read", "share"], bearerToken: "token-share" },
-      { api, upload, bearerToken: "token-share" },
+            revision_id: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            expires_at: null,
+            revoked_at: null,
+          },
+        ],
+      }),
+      Response.json({ access_link_id: linkId, revoked_at: "2026-01-02T00:00:00.000Z" }),
     );
+    const listResult = await callMcpTool("list_access_links", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+    });
     expect(listResult.ok).toBe(true);
-    const revokeResult = await callMcpTool(
-      "revoke_access_link",
-      { access_link_id: linkId },
-      { tokenSub: "user_01", scopes: ["share"], bearerToken: "token-share" },
-      { api, upload, bearerToken: "token-share" },
-    );
+    const revokeResult = await callMcpTool("revoke_access_link", { access_link_id: linkId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+    });
     expect(revokeResult.ok).toBe(true);
   });
 
@@ -314,8 +327,8 @@ describe("callMcpTool", () => {
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         description: "not supported",
       },
-      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
-      { api: { fetch: vi.fn() }, upload, bearerToken: "token-write" },
+      auth,
+      { api: apiMock(["write"]), upload, bearerToken: "token-write" },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -326,13 +339,12 @@ describe("callMcpTool", () => {
   it("updates display metadata through the API binding", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const metadata = { title: "Renamed", description: null };
-    const api = { fetch: vi.fn(async () => Response.json(metadata)) };
-    const result = await callMcpTool(
-      "update_display_metadata",
-      { artifact_id: artifactId, title: "Renamed" },
-      { tokenSub: "user_01", scopes: ["write"], bearerToken: "token-write" },
-      { api, upload, bearerToken: "token-write" },
-    );
+    const api = apiMock(["write"], Response.json(metadata));
+    const result = await callMcpTool("update_display_metadata", { artifact_id: artifactId, title: "Renamed" }, auth, {
+      api,
+      upload,
+      bearerToken: "token-write",
+    });
     expect(result).toEqual({ ok: true, result: metadata });
   });
 

@@ -141,7 +141,7 @@
         "WORKOS_CLI_AUDIENCE": "client_01KSAGD5FCYJ13KSQ7SKVBDKNB",
         "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
         "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.preview.agent-paste.sh",
         "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
         "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "CF_ACCESS_TEAM_DOMAIN": ""

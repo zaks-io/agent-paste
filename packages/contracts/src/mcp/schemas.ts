@@ -21,12 +21,17 @@ import { MCP_DELEGATED_SCOPES } from "./constants.js";
 export const McpScope = z.enum(MCP_DELEGATED_SCOPES);
 export type McpScope = z.infer<typeof McpScope>;
 
+// scopes_supported advertises AuthKit's OAuth scopes (not the write/read/share
+// capability vocabulary). The MCP client SDK reads this and sends it at
+// /authorize; it must be AuthKit-supported scopes or the SDK falls back to its
+// own default and AuthKit returns invalid_scope. Capability is still derived in
+// api from the member (ADR 0079).
 export const McpProtectedResourceMetadata = z
   .object({
     resource: UrlString,
     authorization_servers: z.array(UrlString),
     bearer_methods_supported: z.tuple([z.literal("header")]),
-    scopes_supported: z.array(McpScope).length(MCP_DELEGATED_SCOPES.length),
+    scopes_supported: z.array(z.string()).nonempty(),
   })
   .strict();
 export type McpProtectedResourceMetadata = z.infer<typeof McpProtectedResourceMetadata>;

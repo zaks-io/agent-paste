@@ -45,7 +45,7 @@ async function resolveMcpPrincipal(
     ok: true,
     principal: {
       kind: "workos_access_token",
-      identity: { ...authenticated.identity, mcp_scopes: authenticated.mcpScopes },
+      identity: authenticated.identity,
       actor,
     },
   } as const;
