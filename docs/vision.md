@@ -51,6 +51,16 @@ agents publish.
   v0) proves the demand and, at the same time, makes the case for a neutral layer
   that does not belong to any one of them.
 
+Checked directly on 2026-06-04: Claude Artifacts are auth-walled with no
+machine-readable handoff out, and ChatGPT has no first-party way for an agent to
+emit a portable URL (asked to share, it improvised a Notion document). The gap is
+real, it is felt at the agent layer, and the incumbents are structurally
+disinclined to close it: cross-vendor interop works against the lock-in those
+surfaces exist to create. That is the kind of gap a neutral third party gets to
+own. The motivating case was concrete: an agent renders an HTML visualization and
+the operator wants a URL to open, not a Vercel project, and no way exists to pass
+it from the tool that made it to the next tool that needs it.
+
 ## The world we are building toward
 
 If the bet is right, in a few years:
