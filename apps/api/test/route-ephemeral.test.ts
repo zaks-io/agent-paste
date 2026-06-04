@@ -1,11 +1,26 @@
 import { RepositoryError } from "@agent-paste/db";
-import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
+import { countLeadingZeroBits, issuePowChallenge, type PowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { describe, expect, it, vi } from "vitest";
 import { handleRequest } from "../src/index.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
+
+// A hardcoded counter clears `difficulty` ~1/256 of the time by chance, which made
+// the "rejects invalid solutions" assertion flake (AP-150). Search for a counter
+// whose digest is provably under-difficulty so the solution is deterministically invalid.
+async function findInvalidPowCounter(challenge: PowChallenge): Promise<number> {
+  for (let counter = 0; counter < 1000; counter += 1) {
+    const digest = new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${challenge.nonce}:${counter}`)),
+    );
+    if (countLeadingZeroBits(digest) < challenge.difficulty) {
+      return counter;
+    }
+  }
+  throw new Error("no invalid counter found");
+}
 
 describe("ephemeral provision route", () => {
   it("returns pow_required for an empty POST body through the registrar", async () => {
@@ -44,12 +59,13 @@ describe("ephemeral provision route", () => {
 
   it("rejects invalid proof-of-work solutions", async () => {
     const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
+    const counter = await findInvalidPowCounter(challenge);
     const response = await ephemeralProvisionRoute(
       contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: memoryKv() } }),
       {} as never,
       guardFor({
         challenge,
-        solution: { nonce: challenge.nonce, counter: 0 },
+        solution: { nonce: challenge.nonce, counter },
       }),
     );
     expect(response.status).toBe(400);
