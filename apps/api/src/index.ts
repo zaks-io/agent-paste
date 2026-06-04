@@ -39,14 +39,20 @@ import {
 import { authenticatedAgentView, listRevisions, publicAgentView, publishRevision } from "./routes/revisions.js";
 import { deleteSmokeArtifact, forceExpire, getDenylistKey, listR2Prefix, provisionSmoke } from "./routes/smoke.js";
 import {
+  webAccessLinks,
   webApiKeys,
+  webArtifactAccessLinks,
   webArtifactDetail,
   webArtifacts,
   webAudit,
   webAuthCallback,
+  webCreateAccessLink,
   webCreateApiKey,
+  webMintAccessLink,
   webPinArtifact,
+  webRevokeAccessLink,
   webRevokeApiKey,
+  webSetAccessLinkLockdown,
   webSettings,
   webUnpinArtifact,
   webUpdateSettings,
@@ -189,6 +195,49 @@ apiDbRegistrar.mount(contractById("web.apiKeys.create"), async (context, princip
 );
 apiDbRegistrar.mount(contractById("web.apiKeys.revoke"), async (context, principal, db, guard) =>
   webRevokeApiKey(context as AppContext, principal, db, guard, { apiKeyId: context.req.param("api_key_id") ?? "" }),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.listAll"), async (context, principal, db) =>
+  webAccessLinks(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.listForArtifact"), async (context, principal, db) =>
+  webArtifactAccessLinks(context as AppContext, principal, db, {
+    artifactId: context.req.param("artifact_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.create"), async (context, principal, db, guard) =>
+  webCreateAccessLink(context as AppContext, principal, db, guard, {
+    artifactId: context.req.param("artifact_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.mint"), async (context, principal, db) =>
+  webMintAccessLink(context as AppContext, principal, db, {
+    accessLinkId: context.req.param("access_link_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.revoke"), async (context, principal, db) =>
+  webRevokeAccessLink(context as AppContext, principal, db, {
+    accessLinkId: context.req.param("access_link_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.lockdown.set"), async (context, principal, db, guard) =>
+  webSetAccessLinkLockdown(
+    context as AppContext,
+    principal,
+    db,
+    guard,
+    { artifactId: context.req.param("artifact_id") ?? "" },
+    true,
+  ),
+);
+apiDbRegistrar.mount(contractById("web.accessLinks.lockdown.lift"), async (context, principal, db, guard) =>
+  webSetAccessLinkLockdown(
+    context as AppContext,
+    principal,
+    db,
+    guard,
+    { artifactId: context.req.param("artifact_id") ?? "" },
+    false,
+  ),
 );
 apiDbRegistrar.mount(contractById("web.audit.list"), async (context, principal, db) =>
   webAudit(context as AppContext, principal, db),

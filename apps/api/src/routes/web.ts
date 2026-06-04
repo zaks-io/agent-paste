@@ -9,6 +9,8 @@ import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
 import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
+import { webBaseUrl } from "../runtime.js";
+import { accessLinkSigningSecret } from "./access-links.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
 export async function webAuthCallback(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -190,6 +192,122 @@ export async function webRevokeApiKey(
       actor,
       idempotencyKey,
       apiKeyId: params.apiKeyId ?? "",
+    }),
+  );
+}
+
+export async function webAccessLinks(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
+  const actor = webMemberActor(principal);
+  return actor
+    ? getBoundResponders(context).respondJson(await db.listWorkspaceAccessLinks(actor))
+    : getBoundResponders(context).respondError("forbidden");
+}
+
+export async function webArtifactAccessLinks(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  const result = await db.listWebArtifactAccessLinks(actor, params.artifactId ?? "");
+  return result
+    ? getBoundResponders(context).respondJson(result)
+    : getBoundResponders(context).respondError("artifact_not_found");
+}
+
+export async function webCreateAccessLink(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"web.accessLinks.create">,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  const body = guard.body;
+  const idempotencyKey = guard.idempotencyKey;
+  return runIdempotent(
+    context,
+    () =>
+      db.createMemberAccessLink({
+        actor,
+        idempotencyKey,
+        artifactId: params.artifactId ?? "",
+        type: body.type,
+        revisionId: body.revision_id ?? null,
+      }),
+    { successStatus: 201 },
+  );
+}
+
+export async function webMintAccessLink(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  const signing = accessLinkSigningSecret(context.env);
+  if (!signing) {
+    return getBoundResponders(context).respondError("database_unavailable");
+  }
+  return runIdempotent(context, () =>
+    db.mintMemberAccessLink({
+      actor,
+      accessLinkId: params.accessLinkId ?? "",
+      appBaseUrl: webBaseUrl(context.env),
+      signingSecret: signing.secret,
+      signingKid: signing.kid,
+    }),
+  );
+}
+
+export async function webRevokeAccessLink(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  return runIdempotent(context, () =>
+    db.revokeMemberAccessLink({
+      actor,
+      accessLinkId: params.accessLinkId ?? "",
+    }),
+  );
+}
+
+export async function webSetAccessLinkLockdown(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  guard: GuardFor<"web.accessLinks.lockdown.set">,
+  params: RouteParams,
+  locked: boolean,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  const idempotencyKey = guard.idempotencyKey;
+  return runIdempotent(context, () =>
+    db.setMemberAccessLinkLockdown({
+      actor,
+      idempotencyKey,
+      artifactId: params.artifactId ?? "",
+      locked,
     }),
   );
 }

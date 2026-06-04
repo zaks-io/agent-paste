@@ -287,6 +287,95 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
 
   registry.registerPath({
     method: "get",
+    path: "/v1/web/access-links",
+    operationId: "web.accessLinks.listAll",
+    summary: "List all Access Links across the current Workspace.",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("WebAccessLinkListResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/web/artifacts/{artifact_id}/access-links",
+    operationId: "web.accessLinks.listForArtifact",
+    summary: "List Access Links for an artifact in the current Workspace.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebAccessLinkListResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/artifacts/{artifact_id}/access-links",
+    operationId: "web.accessLinks.create",
+    summary: "Create a Share or Revision Access Link for an artifact.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: true, content: { "application/json": { schema: schemaRef("CreateAccessLinkRequest") } } },
+    },
+    responses: standardJsonResponses(schemaRef("CreateAccessLinkResponse"), 201),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/access-links/{access_link_id}/mint",
+    operationId: "web.accessLinks.mint",
+    summary: "Mint a fresh Access Link Signed URL for an Access Link.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ access_link_id: pathStringParam("access_link_id", "Access Link id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("AccessLinkSignedUrl")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/access-links/{access_link_id}/revoke",
+    operationId: "web.accessLinks.revoke",
+    summary: "Revoke an Access Link in the current Workspace.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ access_link_id: pathStringParam("access_link_id", "Access Link id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebRevokeAccessLinkResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/artifacts/{artifact_id}/access-link-lockdown",
+    operationId: "web.accessLinks.lockdown.set",
+    summary: "Engage Access Link Lockdown for an artifact.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebArtifactDetailResponse")),
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/web/artifacts/{artifact_id}/access-link-lockdown/lift",
+    operationId: "web.accessLinks.lockdown.lift",
+    summary: "Lift Access Link Lockdown for an artifact.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [idempotencyKeyHeader, requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("WebArtifactDetailResponse")),
+  });
+
+  registry.registerPath({
+    method: "get",
     path: "/v1/web/audit",
     operationId: "web.audit.list",
     summary: "List Audit Events for the current Workspace Member.",

@@ -21,6 +21,11 @@ export function localAccessLinks(state: LocalState): Entities["accessLinks"] {
         .filter((link) => link.artifact_id === artifactId)
         .sort((left, right) => right.created_at.localeCompare(left.created_at));
     },
+    async listForWorkspace(workspaceId) {
+      return [...state.accessLinks.values()]
+        .filter((link) => link.workspace_id === workspaceId)
+        .sort((left, right) => right.created_at.localeCompare(left.created_at));
+    },
     async revoke(id, revokedAt) {
       const link = state.accessLinks.get(id);
       if (!link || link.revoked_at) {

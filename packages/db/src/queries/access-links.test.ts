@@ -28,6 +28,19 @@ describe("accessLinkQueries", () => {
     await expect(accessLinkQueries.updateExpiresAt(db, "al_test", null)).resolves.toBe(true);
   });
 
+  it("lists access links for a workspace", async () => {
+    const db = fakeDrizzle([[accessLinkRow(), accessLinkRow({ id: "al_other" })]]);
+    await expect(accessLinkQueries.listForWorkspace(db, "workspace_1")).resolves.toMatchObject([
+      { id: "al_test" },
+      { id: "al_other" },
+    ]);
+  });
+
+  it("returns an empty list for a workspace with no access links", async () => {
+    const db = fakeDrizzle([[]]);
+    await expect(accessLinkQueries.listForWorkspace(db, "workspace_1")).resolves.toEqual([]);
+  });
+
   it("maps nullable expiration and revocation timestamps", async () => {
     const db = fakeDrizzle([
       [

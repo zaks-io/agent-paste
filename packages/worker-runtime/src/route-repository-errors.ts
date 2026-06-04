@@ -1,4 +1,4 @@
-import { routeContracts, type RouteId } from "@agent-paste/contracts";
+import { type RouteId, routeContracts } from "@agent-paste/contracts";
 import type { RepositoryErrorCode } from "@agent-paste/db";
 import { RepositoryError, repositoryErrorToAppError } from "@agent-paste/db";
 
@@ -53,6 +53,24 @@ export const routeRepositorySurfaces = {
   "web.apiKeys.list": [],
   "web.apiKeys.create": [],
   "web.apiKeys.revoke": ["api_key_not_found"],
+  "web.accessLinks.listAll": [],
+  "web.accessLinks.listForArtifact": [],
+  "web.accessLinks.create": [
+    "access_link_revision_requires_revision_id",
+    "access_link_share_cannot_pin_revision",
+    "artifact_not_found",
+    "not_found",
+  ],
+  "web.accessLinks.mint": [
+    "access_link_inactive_artifact_missing",
+    "access_link_inactive_expired",
+    "access_link_inactive_revoked",
+    "access_link_lockdown_active",
+    "not_found",
+  ],
+  "web.accessLinks.revoke": ["not_found"],
+  "web.accessLinks.lockdown.set": ["artifact_not_found"],
+  "web.accessLinks.lockdown.lift": ["artifact_not_found"],
   "web.audit.list": ["invalid_cursor", "invalid_pagination_limit"],
   "web.settings.get": [],
   "web.settings.update": ["invalid_auto_deletion_days"],
@@ -86,9 +104,7 @@ export function collectRouteRepositoryDeclarationFailures(
     for (const kind of kinds) {
       const appCode = repositoryErrorToAppError(new RepositoryError(kind));
       if (appCode && !declared.has(appCode)) {
-        failures.push(
-          `Route ${contract.id} can surface ${kind} -> ${appCode} but contract.errors omits ${appCode}`,
-        );
+        failures.push(`Route ${contract.id} can surface ${kind} -> ${appCode} but contract.errors omits ${appCode}`);
       }
     }
   }
