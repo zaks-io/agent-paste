@@ -1,4 +1,6 @@
 import { AGENTS_MD } from "./agents.js";
+import { INSTALL_PS1 } from "./install-ps1.js";
+import { INSTALL_SH } from "./install-sh.js";
 import { LLMS_TXT } from "./llms.js";
 import { renderHomePage } from "./page.js";
 import { APP_ORIGIN, productRedirect } from "./redirects.js";
@@ -7,6 +9,7 @@ const TEXT_PLAIN = "text/plain; charset=utf-8";
 const TEXT_MARKDOWN = "text/markdown; charset=utf-8";
 const TEXT_HTML = "text/html; charset=utf-8";
 const TEXT_XML = "application/xml; charset=utf-8";
+const TEXT_SHELL = "text/x-shellscript; charset=utf-8";
 
 const CSP = [
   "default-src 'self'",
@@ -66,6 +69,14 @@ export function routeApex(request: Request): Response | null {
     return textResponse(AGENTS_MD, TEXT_MARKDOWN, request.method);
   }
 
+  if (url.pathname === "/install.sh") {
+    return textResponse(INSTALL_SH, TEXT_SHELL, request.method);
+  }
+
+  if (url.pathname === "/install.ps1") {
+    return textResponse(INSTALL_PS1, TEXT_PLAIN, request.method);
+  }
+
   if (url.pathname === "/robots.txt") {
     return textResponse(robotsTxt(url.origin), TEXT_PLAIN, request.method);
   }
@@ -110,7 +121,7 @@ function robotsTxt(origin: string): string {
 }
 
 function sitemapXml(origin: string): string {
-  const urls = ["/", "/llms.txt", "/agents.md"];
+  const urls = ["/", "/llms.txt", "/agents.md", "/install.sh", "/install.ps1"];
   const entries = urls.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }

@@ -6,6 +6,28 @@ The npm package is `@zaks-io/agent-paste`; the installed binary is `agent-paste`
 
 ## Install
 
+### Standalone binary (no Node required)
+
+macOS and Linux:
+
+```sh
+curl -fsSL https://agent-paste.sh/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://agent-paste.sh/install.ps1 | iex
+```
+
+This downloads the prebuilt binary for your OS/arch, verifies it against the release `SHA256SUMS`, sets the exec bit, and installs to `~/.local/bin/agent-paste` (no sudo). On Windows it installs to `%LOCALAPPDATA%\agent-paste\bin` and updates your user `PATH`.
+
+Overrides (env vars): `AGENT_PASTE_VERSION` pins a release tag (e.g. `cli-v0.1.0`; default `latest`), `AGENT_PASTE_INSTALL_DIR` changes the install directory.
+
+The macOS binary is codesigned and notarized. Prefer manual verification? Download the asset and `SHA256SUMS` from the [releases page](https://github.com/zaks-io/agent-paste/releases) and run `shasum -a 256 -c SHA256SUMS`, then `chmod +x` the binary yourself.
+
+### npm (Node.js 24+)
+
 No install required:
 
 ```sh
@@ -17,8 +39,6 @@ For repeated use:
 ```sh
 npm install -g @zaks-io/agent-paste
 ```
-
-Requires Node.js 24+.
 
 ## Authenticate
 
@@ -188,4 +208,4 @@ The `code` field is the stable identifier; `message` is human-readable.
 
 ## When not to use the CLI
 
-The CLI assumes Node and `npx`. For non-Node environments (Python or Go agents, server-to-server callers, sandboxes without npm access), call the REST API directly at `https://api.agent-paste.sh/v1`.
+The CLI runs either as a standalone binary (the installer above, no Node) or via Node/`npx`. For server-to-server callers and environments where neither fits (Python or Go agents, sandboxes without a shell or filesystem), call the REST API directly at `https://api.agent-paste.sh/v1`.
