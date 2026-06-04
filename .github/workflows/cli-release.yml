@@ -93,7 +93,8 @@ jobs:
 
       # Runs the binary on its own OS — proves the keyring NAPI addon loads and
       # the CLI starts. `whoami` exercises credentials.ts (keyring -> file
-      # fallback) and exits 0 with not_authenticated when no creds are present.
+      # fallback); with no creds it reports "not signed in" and exits 0 (a
+      # status query, not an authed action — no API key required).
       - name: Smoke-check binary
         if: runner.os != 'Windows'
         working-directory: apps/cli

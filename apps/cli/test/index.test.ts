@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
+import * as credentials from "../src/credentials.js";
 import { logout, main, parseArgs } from "../src/index.js";
 
 const usagePolicy = {
@@ -51,6 +52,23 @@ describe("cli command dispatch", () => {
 
     expect(client.whoami).toHaveBeenCalledOnce();
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"workspace"'));
+  });
+
+  it("reports unauthenticated whoami without hitting the server (exit 0)", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const previousKey = process.env.AGENT_PASTE_API_KEY;
+    delete process.env.AGENT_PASTE_API_KEY;
+    vi.spyOn(credentials, "loadCredential").mockResolvedValue(null);
+    try {
+      // No client passed and no creds: must resolve without throwing (exit 0)
+      // rather than 401ing against the server.
+      await expect(main(["whoami", "--json"])).resolves.toBeUndefined();
+    } finally {
+      if (previousKey === undefined) delete process.env.AGENT_PASTE_API_KEY;
+      else process.env.AGENT_PASTE_API_KEY = previousKey;
+    }
+
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"authenticated": false'));
   });
 
   it("publishes a local folder through create, PUT, and finalize", async () => {
