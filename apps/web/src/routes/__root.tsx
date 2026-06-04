@@ -15,7 +15,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "color-scheme", content: "light dark" },
       ...buildPageMeta({ title: SITE_NAME }).meta,
     ],
-    links: [{ rel: "icon", href: "/favicon.ico" }],
+    links: [
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "shortcut icon", href: "/favicon.ico" },
+    ],
   }),
   loader: async () => {
     const env = await loadRootEnvFn();

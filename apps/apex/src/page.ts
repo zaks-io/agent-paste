@@ -22,7 +22,8 @@ export function renderHomePage(): string {
     <title>${esc(TITLE)}</title>
     <meta name="description" content="${esc(META_DESCRIPTION)}">
     <meta name="color-scheme" content="light dark">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
     <link rel="preload" href="/fonts/HankenGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta property="og:type" content="website">
