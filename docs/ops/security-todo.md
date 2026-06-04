@@ -32,6 +32,24 @@ what can land while the repo is private and what waits for the public flip.
 - [ ] Re-verify the pinned non-`actions/*` action tags are current before each
       release cycle: `aquasecurity/trivy-action@v0.36.0`, `anchore/sbom-action@v0`,
       `anchore/scan-action@v7`, and the `semgrep/semgrep` container image.
+      `anchore/sbom-action@v0` / `anchore/scan-action@v7` are also used by the CLI
+      release (AP-154 Phase 1) — re-verify both surfaces together.
+
+## CLI Release supply-chain (AP-154)
+
+- [x] **Phase 1 (capture, non-blocking)** — `.github/workflows/cli-release.yml`
+      attaches a per-release SBOM (`agent-paste-cli.sbom.spdx.json`, syft over the
+      CLI closure), a grype scan report (`agent-paste-cli.grype.json`), and
+      scanner/DB versions (`scan-metadata.json`), and emits a per-binary
+      `actions/attest-build-provenance` attestation. Scan is advisory
+      (`fail-build: false`).
+- [ ] **Phase 2 (gate, blocking)** — fail the release on HIGH+ in the CLI closure
+      with a defined severity policy; capture the scan result as an
+      `actions/attest` predicate attestation (not just a CI log).
+- [ ] **Phase 3 (daily re-scan)** — daily workflow re-scans each supported
+      release's captured SBOM against the current vuln DB and alerts (issue /
+      Linear) on new CVEs. Non-blocking, no rebuild. Optional `cosign` for a
+      uniform Linux/Windows signature (macOS already notarized).
 
 ## Public phase (after the repo is public + licensed)
 

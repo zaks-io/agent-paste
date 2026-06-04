@@ -29,6 +29,13 @@ jobs:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    # Job-level permissions REPLACE (not merge with) the top-level contents:read,
+    # so re-declare it alongside the attestation scopes. id-token mints the
+    # Sigstore OIDC token; attestations persists the provenance.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -189,6 +196,16 @@ jobs:
             --wait
           rm -f "$ASSET.zip"
 
+      # Bind each shipped binary to this commit SHA + workflow run + builder
+      # identity (SLSA build provenance). Placed AFTER codesign/notarize so the
+      # attested digest matches the final macOS bytes; on the other three legs
+      # nothing mutates the binary between compile and here (smoke-check runs on
+      # a $RUNNER_TEMP copy), so the digest is equally final. Runs on all legs.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: apps/cli/${{ matrix.asset }}
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
         with:
@@ -220,10 +237,56 @@ jobs:
         working-directory: dist-binaries
         run: sha256sum agent-paste-* > SHA256SUMS
 
+      # One SBOM over the CLI's source closure (the deps baked into the binary
+      # via --conditions=types). Scoped to apps/cli — NOT the whole monorepo —
+      # so it reflects what ships, not the dev surface. The closure is
+      # platform-independent, so one SBOM covers every target. No pnpm install
+      # needed: syft reads pnpm-lock.yaml statically.
+      - name: Generate SBOM (Syft, SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: apps/cli
+          format: spdx-json
+          output-file: dist-binaries/agent-paste-cli.sbom.spdx.json
+          upload-artifact: false
+
+      # Advisory grype scan of the SBOM (NON-BLOCKING — Phase 1 captures, Phase 2
+      # gates). fail-build:false keeps the release green on findings.
+      - name: Scan SBOM (advisory)
+        id: grype
+        uses: anchore/scan-action@v7
+        with:
+          sbom: dist-binaries/agent-paste-cli.sbom.spdx.json
+          severity-cutoff: high
+          fail-build: false
+          output-format: json
+
+      # Persist the grype report + a small metadata summary so build-time and the
+      # Phase-3 daily re-scan are comparable (scanner + vuln-DB versions). The
+      # grype JSON embeds descriptor.version + descriptor.db.{built,schemaVersion}.
+      - name: Capture scan report and scanner/DB versions
+        shell: bash
+        env:
+          GRYPE_JSON: ${{ steps.grype.outputs.json }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          cp "$GRYPE_JSON" dist-binaries/agent-paste-cli.grype.json
+          jq -n \
+            --arg grypeVersion "$(jq -r '.descriptor.version // empty' "$GRYPE_JSON")" \
+            --arg vulnDbBuilt "$(jq -r '.descriptor.db.built // empty' "$GRYPE_JSON")" \
+            --arg vulnDbSchemaVersion "$(jq -r '.descriptor.db.schemaVersion // empty' "$GRYPE_JSON")" \
+            --arg commit "$COMMIT_SHA" \
+            --arg scannedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{grypeVersion:$grypeVersion, vulnDbBuilt:$vulnDbBuilt, vulnDbSchemaVersion:$vulnDbSchemaVersion, commit:$commit, scannedAt:$scannedAt, blocking:false}' \
+            > dist-binaries/scan-metadata.json
+          cat dist-binaries/scan-metadata.json
+
       - name: Create or update draft release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if ! printf '%s' "$TAG" | grep -Eq '^[0-9A-Za-z._/-]+$'; then
@@ -236,5 +299,5 @@ jobs:
             gh release create "$TAG" dist-binaries/* \
               --draft \
               --title "agent-paste CLI $TAG" \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). An SBOM (\`agent-paste-cli.sbom.spdx.json\`), a grype scan report (\`agent-paste-cli.grype.json\`), and scanner/DB versions (\`scan-metadata.json\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi
