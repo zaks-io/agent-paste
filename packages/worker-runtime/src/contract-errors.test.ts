@@ -1,4 +1,4 @@
-import { routeContractById, routeContracts } from "@agent-paste/contracts";
+import { routeContracts } from "@agent-paste/contracts";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -8,12 +8,12 @@ import {
   registrarGuardErrorCodes,
   setContractErrorEnforcement,
 } from "./contract-errors.js";
+import { createRegistrar } from "./registrar.js";
 import {
   assertRouteRepositoryErrorsDeclared,
   collectRouteRepositoryDeclarationFailures,
   routeRepositorySurfaces,
 } from "./route-repository-errors.js";
-import { createRegistrar } from "./registrar.js";
 
 const baseContract = routeContracts.find((route) => route.id === "whoami.get");
 if (!baseContract) {
@@ -82,7 +82,10 @@ describe("contract error enforcement", () => {
         app,
         auth: {
           async api_key() {
-            return { ok: true, principal: { kind: "api_key", actor: { type: "api_key", id: "k", workspace_id: "w", scopes: [] } } };
+            return {
+              ok: true,
+              principal: { kind: "api_key", actor: { type: "api_key", id: "k", workspace_id: "w", scopes: [] } },
+            };
           },
         },
       }).mount(

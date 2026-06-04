@@ -1,6 +1,5 @@
 import { authenticateMcpBearer, type McpAuthEnv, resolveMcpMemberActor } from "@agent-paste/auth";
 import type { ApiKeyActor, Repository } from "@agent-paste/db";
-import type { Context } from "hono";
 import type { AuthResolver } from "./registrar.js";
 
 export function createMcpOAuthResolver<TEnv extends McpAuthEnv>(options: {
