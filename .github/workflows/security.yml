@@ -1,0 +1,164 @@
+# Private-phase security workflow (ADR 0076). Runs the free checks we can operate
+# while the repository is private: full-history gitleaks, Snyk Open Source + Snyk
+# Code (gating), and advisory Semgrep / Trivy / Grype with a Syft SBOM artifact.
+#
+# Gating today: gitleaks (full history) + Snyk OSS + Snyk Code. Everything else is
+# advisory (log + uploaded artifact). SARIF is uploaded as a plain build artifact,
+# NOT to GitHub code scanning — that, plus CodeQL/Scorecard/Dependabot and a public
+# badge, is deferred to the public phase per ADR 0076.
+
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Secret scan (full history)
+    # PRs get the fast incremental scan in ci.yml; this owns the full-history
+    # scan on push to main, the daily cron, and manual dispatch.
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan full git history for secrets
+        run: gitleaks git --no-banner --redact --config .gitleaks.toml --exit-code 1
+
+  sca:
+    name: Dependency scan (SCA)
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Snyk Open Source test
+        run: pnpm dlx snyk@latest test --all-projects --severity-threshold=high
+
+      - name: Snyk Code test
+        run: pnpm dlx snyk@latest code test --severity-threshold=high
+
+      - name: Snyk monitor main
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: pnpm dlx snyk@latest monitor --all-projects
+
+      - name: Trivy filesystem scan (advisory)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trivy-results
+          path: trivy-results.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+  sast:
+    name: Static analysis (SAST)
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Semgrep scan (advisory)
+        run: semgrep scan --config p/default --sarif --output semgrep.sarif || true
+
+      - name: Upload Semgrep SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: semgrep-results
+          path: semgrep.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+  sbom:
+    name: SBOM and dependency CVE scan
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Generate SBOM (Syft, SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: agent-paste.sbom.spdx.json
+          upload-artifact: false
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: agent-paste.sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Grype scan of SBOM (advisory)
+        uses: anchore/scan-action@v7
+        with:
+          sbom: agent-paste.sbom.spdx.json
+          severity-cutoff: high
+          fail-build: false
+          output-format: table

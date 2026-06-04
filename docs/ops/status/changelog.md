@@ -5,6 +5,21 @@ use `git log` for commit-level detail.
 
 ## 2026-06-04
 
+### Dedicated security workflow (ADR 0076)
+
+- Added `.github/workflows/security.yml`, the private-phase security gate from
+  ADR 0076. Jobs: full-history gitleaks secret scan (gating), Snyk Open Source +
+  Snyk Code (gating, org-wide `SNYK_TOKEN`), advisory Trivy filesystem and Grype
+  scans, advisory Semgrep, and a Syft SPDX SBOM uploaded as a 90-day artifact.
+  `snyk monitor` reports `main` on push.
+- Split secret scanning: `ci.yml`'s `Secret scan` is now a fast incremental
+  PR-range gitleaks scan; the full-history scan runs in `security.yml` on push to
+  `main`, a daily 09:00 UTC cron, and manual dispatch.
+- Advisory scanner SARIF is uploaded as plain build artifacts, not to GitHub code
+  scanning. CodeQL/Scorecard/Dependabot, SARIF-to-code-scanning, gating promotion
+  of the advisory scanners, npm OIDC publishing, and public badges stay deferred
+  to the public phase (tracked in `docs/ops/security-todo.md`).
+
 ### Open-core license landed: Apache-2.0
 
 - Adopted Apache-2.0 for the repo. Added root `LICENSE` + `NOTICE`, `SECURITY.md`
