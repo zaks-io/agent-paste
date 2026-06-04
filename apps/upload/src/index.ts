@@ -1,131 +1,34 @@
-import { getRequestId, REQUEST_ID_HEADER, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { IdempotencyInFlightError } from "@agent-paste/commands";
-import {
-  buildUploadOpenApiDocument,
-  type CreateUploadSessionRequest,
-  FinalizeUploadSessionResponse,
-  type RouteContract,
-  routeContractById,
-  type routeContracts,
-} from "@agent-paste/contracts";
-import {
-  type ApiActor,
-  buildCreateUploadSessionWireResponse,
-  createPostgresRuntime,
-  type HyperdriveBinding,
-  observeUploadSessionForFinalize,
-  type Repository,
-  repositoryErrorToAppError,
-  resolveSessionObjectKey,
-  type UploadSessionRecord,
-} from "@agent-paste/db";
-import { artifactBytesEncryptionRingFromEnv, resolveUploadTokenSigner } from "@agent-paste/rotation";
-import { bytesFromReadableBody, encryptArtifactBytes, parseRevisionFileObjectKey } from "@agent-paste/storage";
-import { mintUploadUrl, type SignedUploadPayload } from "@agent-paste/tokens/upload-url";
+import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { buildUploadOpenApiDocument, routeContractById } from "@agent-paste/contracts";
+import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
+import type { SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
   type BoundRespondersVariables,
   boundRespondersMiddleware,
   createApiKeyOrMcpOAuthResolver,
   createAuthenticateApiKey,
   createRegistrar,
-  type GuardState,
   getBoundResponders,
-  type HeaderGuardState,
-  type Principal,
   type SignedUploadUrlPrincipal,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
-import { type Context, Hono } from "hono";
+import { Hono } from "hono";
+import { createUploadSession } from "./create-session.js";
+import type { AppContext, Env } from "./env.js";
+import { finalizeUploadSession } from "./finalize.js";
+import { putUploadFile, uploadFilePath, verifyUploadToken } from "./put.js";
+import { postgresRuntime, uploadDatabase, uploadReplay } from "./upload-db.js";
 
-export type UploadActor = ApiActor;
-
-export type AuthService = {
-  verifyApiKey(apiKey: string): Promise<Extract<UploadActor, { type: "api_key" }> | null>;
-};
-
-export type UploadFileInput = {
-  path: string;
-  size_bytes: number;
-  sha256?: string;
-};
-
-export type { UploadSessionRecord };
-
-export type R2Object = {
-  size: number;
-};
-
-export type R2Bucket = {
-  put(
-    key: string,
-    value: ReadableStream | ArrayBuffer | Uint8Array | string | null,
-    options?: { httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> },
-  ): Promise<unknown>;
-  head(key: string): Promise<R2Object | null>;
-};
-
-export type RateLimitBinding = {
-  limit(options: { key: string }): Promise<{ success: boolean }>;
-};
-
-export type Env = {
-  AUTH?: AuthService;
-  DB?: Repository | HyperdriveBinding;
-  ARTIFACTS?: R2Bucket;
-  API_KEY_PEPPER_V1?: string;
-  API_KEY_PEPPER_V2?: string;
-  API_KEY_PEPPER_CURRENT_KID?: string;
-  API_KEY_ENV?: "preview" | "production";
-  API_BASE_URL?: string;
-  CONTENT_BASE_URL?: string;
-  CONTENT_SIGNING_SECRET?: string;
-  AGENT_VIEW_SIGNING_SECRET?: string;
-  UPLOAD_SIGNING_SECRET?: string;
-  UPLOAD_SIGNING_SECRET_V2?: string;
-  UPLOAD_SIGNING_KID?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KEY_V2?: string;
-  ARTIFACT_BYTES_ENCRYPTION_KID?: string;
-  UPLOAD_BASE_URL?: string;
-  UPLOAD_URL_TTL_SECONDS?: string;
-  ACTOR_RATE_LIMIT?: RateLimitBinding;
-  WORKSPACE_BURST_CAP?: RateLimitBinding;
-  DOCS_BASE_URL?: string;
-  BILLING_ENABLED?: string;
-  AGENT_PASTE_ENV?: string;
-  SENTRY_DSN?: string;
-  WORKOS_API_KEY?: string;
-  WORKOS_API_BASE_URL?: string;
-  WORKOS_MCP_AUDIENCE?: string;
-  WORKOS_MCP_ISSUER?: string;
-  WORKOS_MCP_JWKS_URL?: string;
-  WORKOS_CLI_ISSUER?: string;
-  WORKOS_CLI_JWKS_URL?: string;
-};
-
-type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables }>;
-type RouteId = (typeof routeContracts)[number]["id"];
-type ContractById<Id extends RouteId> = Extract<(typeof routeContracts)[number], { id: Id }>;
-type GuardFor<Id extends RouteId> = GuardState<ContractById<Id>>;
+export type { AuthService, Env, UploadActor, UploadFileInput, UploadSessionRecord } from "./env.js";
 
 const contractById = routeContractById;
-const UPLOAD_FILE_PATH_MARKER = "/files/";
 
 const authenticateApiKey = createAuthenticateApiKey({
   namespace: "upload-api-key-auth-v2",
   resolvePostgresRuntime: postgresRuntime,
 });
 
-function postgresRuntime(env: Env) {
-  return createPostgresRuntime(env, {
-    pickDb: (services) => services.uploadDb,
-    resolveServiceUrls: (workerEnv) => ({
-      ...(workerEnv.API_BASE_URL ? { apiBaseUrl: workerEnv.API_BASE_URL } : {}),
-      ...(workerEnv.CONTENT_BASE_URL ? { contentBaseUrl: workerEnv.CONTENT_BASE_URL } : {}),
-    }),
-  });
-}
 const boundResponderConfig = {
   docsBaseUrl: (context: { env: Env }) => context.env.DOCS_BASE_URL,
 } as const;
@@ -204,12 +107,6 @@ app.onError((error, context) => {
   return respondError("internal_error");
 });
 
-function uploadFilePath(context: AppContext): string {
-  const pathname = new URL(context.req.raw.url).pathname;
-  const markerIndex = pathname.indexOf(UPLOAD_FILE_PATH_MARKER);
-  return markerIndex === -1 ? "" : decodeURIComponent(pathname.slice(markerIndex + UPLOAD_FILE_PATH_MARKER.length));
-}
-
 const worker = {
   fetch(request: Request, env: Env): Promise<Response> {
     return handleRequest(request, env);
@@ -220,283 +117,4 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
-}
-
-function uploadSessionActor(principal: Principal): UploadActor | null {
-  if (principal.kind === "api_key") {
-    const actor = principal.actor;
-    if (actor.type !== "api_key" || !actor.workspace_id) {
-      return null;
-    }
-    return {
-      type: "api_key",
-      id: actor.id,
-      workspace_id: actor.workspace_id,
-    };
-  }
-  if (principal.kind === "workos_access_token" && principal.actor?.type === "member") {
-    const actor = principal.actor as ApiActor;
-    if (actor.type !== "member" || !actor.workspace_id) {
-      return null;
-    }
-    return actor;
-  }
-  return null;
-}
-
-async function createUploadSession(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"uploadSessions.create">,
-): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  const actor = uploadSessionActor(principal);
-  if (!actor) {
-    return getBoundResponders(context).respondError("not_authenticated");
-  }
-  const idempotencyKey = guard.idempotencyKey;
-  const body: CreateUploadSessionRequest = guard.body;
-  const createRequest = {
-    title: body.title,
-    ttl_seconds: body.ttl_seconds,
-    entrypoint: body.entrypoint,
-    files: body.files,
-    ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
-  };
-
-  let session: UploadSessionRecord;
-  try {
-    session = await db.createUploadSession({
-      actor,
-      idempotencyKey,
-      request: createRequest,
-      now: new Date().toISOString(),
-    });
-  } catch (error) {
-    if (error instanceof IdempotencyInFlightError) {
-      return getBoundResponders(context).respondError("idempotency_in_flight");
-    }
-    const repositoryCode = repositoryErrorToAppError(error);
-    if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode);
-    }
-    throw error;
-  }
-
-  return getBoundResponders(context).respondJson(
-    await buildCreateUploadSessionWireResponse(session, {
-      signPutUrl: (uploadSession, file) => signUploadUrl(request, env, uploadSession, file),
-    }),
-  );
-}
-
-async function putUploadFile(
-  context: AppContext,
-  principal: SignedUploadUrlPrincipal<SignedUploadPayload>,
-): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!env.ARTIFACTS) {
-    return getBoundResponders(context).respondError("storage_unavailable");
-  }
-  const payload = principal.payload;
-
-  if (!request.body) {
-    return getBoundResponders(context).respondError("invalid_request", "request body is required");
-  }
-
-  const contentLength = Number.parseInt(request.headers.get("content-length") ?? "", 10);
-  if (!Number.isFinite(contentLength) || contentLength !== payload.size) {
-    return getBoundResponders(context).respondError("invalid_request", "content-length does not match signed upload");
-  }
-
-  const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
-  if (!encryptionRing) {
-    return getBoundResponders(context).respondError("storage_unavailable");
-  }
-  const keyParts = parseRevisionFileObjectKey(payload.key);
-  if (!keyParts || keyParts.path !== payload.path) {
-    return getBoundResponders(context).respondError("invalid_request", "upload object key does not match signed path");
-  }
-  const plaintext = await bytesFromReadableBody(request.body);
-  const encrypted = await encryptArtifactBytes({
-    plaintext,
-    rootSecret: encryptionRing.signingSecret(),
-    kid: encryptionRing.signingKid,
-    context: {
-      workspaceId: payload.wid,
-      artifactId: keyParts.artifactId,
-      revisionId: keyParts.revisionId,
-      normalizedPath: keyParts.path,
-    },
-  });
-  await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
-    httpMetadata: { contentType: "application/octet-stream" },
-    customMetadata: encrypted.customMetadata,
-  });
-
-  await uploadDatabase(env)?.recordUploadedFile({
-    sessionId: payload.sid,
-    path: payload.path,
-    objectKey: payload.key,
-    sizeBytes: payload.size,
-    uploadedAt: new Date().toISOString(),
-  });
-
-  return new Response(null, { status: 204, headers: { [REQUEST_ID_HEADER]: getRequestId(context) } });
-}
-
-async function finalizeUploadSession(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"uploadSessions.finalize">,
-): Promise<Response> {
-  const env = context.env;
-  const actor = uploadSessionActor(principal);
-  if (!actor) {
-    return getBoundResponders(context).respondError("not_authenticated");
-  }
-  const idempotencyKey = guard.idempotencyKey;
-  const sessionId = context.req.param("upload_session_id") ?? "";
-
-  if (!env.ARTIFACTS) {
-    return getBoundResponders(context).respondError("storage_unavailable");
-  }
-
-  const session = await db.getUploadSession({ actor, sessionId });
-  if (!session) {
-    return getBoundResponders(context).respondError("not_found");
-  }
-
-  const observation = await observeUploadSessionForFinalize(session, env.ARTIFACTS);
-  if ("incompletePath" in observation) {
-    return getBoundResponders(context).respondError("upload_incomplete", observation.incompletePath);
-  }
-  const { observedFiles } = observation;
-
-  let result: unknown;
-  try {
-    result = await db.finalizeUploadSession({
-      actor,
-      idempotencyKey,
-      sessionId,
-      observedFiles,
-      now: new Date().toISOString(),
-    });
-  } catch (error) {
-    if (error instanceof IdempotencyInFlightError) {
-      return getBoundResponders(context).respondError("idempotency_in_flight");
-    }
-    const repositoryCode = repositoryErrorToAppError(error);
-    if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode);
-    }
-    throw error;
-  }
-
-  return getBoundResponders(context).respondJson(FinalizeUploadSessionResponse.parse(result));
-}
-
-function uploadDatabase(env: Env): Repository | undefined {
-  if (isUploadDatabase(env.DB)) {
-    return env.DB;
-  }
-  return postgresRuntime(env)?.db;
-}
-
-async function peekUploadReplay<T>(
-  db: Repository,
-  actor: UploadActor,
-  operation: string,
-  idempotencyKey: string,
-): Promise<T | null> {
-  const hit = await db.peekIdempotentReplay({ actor, operation, idempotencyKey });
-  return hit && "result" in hit ? (hit.result as T) : null;
-}
-
-async function uploadReplay(input: {
-  context: Context;
-  contract: RouteContract;
-  principal: Principal;
-  db: Repository;
-  guard: HeaderGuardState;
-}): Promise<Response | null> {
-  if (!input.guard.idempotencyKey) {
-    return null;
-  }
-  const actor = uploadSessionActor(input.principal);
-  if (!actor) {
-    return null;
-  }
-  const context = input.context as AppContext;
-  if (input.contract.id === "uploadSessions.create") {
-    const replay = await peekUploadReplay<UploadSessionRecord>(
-      input.db,
-      actor,
-      "upload.session.create",
-      input.guard.idempotencyKey,
-    );
-    return replay
-      ? getBoundResponders(context).respondJson(
-          await buildCreateUploadSessionWireResponse(replay, {
-            signPutUrl: (uploadSession, file) =>
-              signUploadUrl(context.req.raw, context.env as Env, uploadSession, file),
-          }),
-        )
-      : null;
-  }
-  if (input.contract.id === "uploadSessions.finalize") {
-    const replay = await peekUploadReplay<unknown>(
-      input.db,
-      actor,
-      "upload.session.finalize",
-      input.guard.idempotencyKey,
-    );
-    return replay ? getBoundResponders(context).respondJson(FinalizeUploadSessionResponse.parse(replay)) : null;
-  }
-  return null;
-}
-
-function isUploadDatabase(value: Env["DB"]): value is Repository {
-  return typeof value === "object" && value !== null && "createUploadSession" in value;
-}
-
-async function signUploadUrl(
-  request: Request,
-  env: Env,
-  session: UploadSessionRecord,
-  file: UploadFileInput & { object_key?: string },
-): Promise<string> {
-  const signer = resolveUploadTokenSigner(env);
-  if (!signer) {
-    throw new Error("UPLOAD_SIGNING_SECRET is required");
-  }
-  return mintUploadUrl({
-    baseUrl: env.UPLOAD_BASE_URL ?? new URL(request.url).origin,
-    secret: signer.signingSecret,
-    payload: {
-      sid: session.session_id,
-      wid: session.workspace_id,
-      path: file.path,
-      key: resolveSessionObjectKey(session, file.path, file.object_key),
-      size: file.size_bytes,
-      exp: Math.floor(Date.now() / 1000) + ttlSeconds(env),
-    },
-  });
-}
-
-async function verifyUploadToken(token: string | null, env: Env): Promise<SignedUploadPayload | null> {
-  if (!token) {
-    return null;
-  }
-  const signer = resolveUploadTokenSigner(env);
-  return signer ? signer.verify(token) : null;
-}
-
-function ttlSeconds(env: Env): number {
-  const parsed = Number.parseInt(env.UPLOAD_URL_TTL_SECONDS ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 900;
 }
