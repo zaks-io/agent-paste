@@ -208,4 +208,4 @@ The `code` field is the stable identifier; `message` is human-readable.
 
 ## When not to use the CLI
 
-The CLI assumes Node and `npx`. For non-Node environments (Python or Go agents, server-to-server callers, sandboxes without npm access), call the REST API directly at `https://api.agent-paste.sh/v1`.
+The CLI runs either as a standalone binary (the installer above, no Node) or via Node/`npx`. For server-to-server callers and environments where neither fits (Python or Go agents, sandboxes without a shell or filesystem), call the REST API directly at `https://api.agent-paste.sh/v1`.

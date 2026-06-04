@@ -130,6 +130,7 @@ describe("apex worker", () => {
     expect(body).toContain("<loc>https://agent-paste.sh/</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/llms.txt</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/install.sh</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/install.ps1</loc>");
   });
 
   it("redirects /dashboard to the app domain", async () => {
@@ -213,7 +214,17 @@ describe("apex worker", () => {
   });
 
   it("never sets cookies on any apex response", async () => {
-    const paths = ["/", "/llms.txt", "/agents.md", "/robots.txt", "/sitemap.xml", "/dashboard", "/healthz"];
+    const paths = [
+      "/",
+      "/llms.txt",
+      "/agents.md",
+      "/install.sh",
+      "/install.ps1",
+      "/robots.txt",
+      "/sitemap.xml",
+      "/dashboard",
+      "/healthz",
+    ];
     for (const path of paths) {
       const response = await get(path);
       expect(response.headers.get("set-cookie"), `cookie on ${path}`).toBeNull();
