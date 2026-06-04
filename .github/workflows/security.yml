@@ -11,6 +11,13 @@ name: Security
 
 on:
   pull_request:
+    # Docs-only PRs change no scannable code. Push to main, the daily cron, and
+    # manual dispatch still run the full scan (including full-history gitleaks).
+    # Keep this glob set in sync with ci.yml and pr-preview.yml.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
   push:
     branches:
       - main
