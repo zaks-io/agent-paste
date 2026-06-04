@@ -43,6 +43,7 @@ import {
   webApiKeys,
   webArtifactAccessLinks,
   webArtifactDetail,
+  webArtifactRevisions,
   webArtifacts,
   webAudit,
   webAuthCallback,
@@ -201,6 +202,11 @@ apiDbRegistrar.mount(contractById("web.accessLinks.listAll"), async (context, pr
 );
 apiDbRegistrar.mount(contractById("web.accessLinks.listForArtifact"), async (context, principal, db) =>
   webArtifactAccessLinks(context as AppContext, principal, db, {
+    artifactId: context.req.param("artifact_id") ?? "",
+  }),
+);
+apiDbRegistrar.mount(contractById("web.revisions.list"), async (context, principal, db) =>
+  webArtifactRevisions(context as AppContext, principal, db, {
     artifactId: context.req.param("artifact_id") ?? "",
   }),
 );

@@ -3001,6 +3001,81 @@ describe("web Access Link routes", () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
   });
+
+  it("lists revisions for an artifact and 404s when the artifact is unknown", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async listRevisions({ actor, artifactId }) {
+          expect(actor).toMatchObject({ type: "member" });
+          return artifactId === ARTIFACT_ID
+            ? {
+                artifact_id: ARTIFACT_ID,
+                items: [
+                  {
+                    revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+                    revision_number: 1,
+                    status: "published",
+                    entrypoint: "index.html",
+                    render_mode: "html",
+                    file_count: 1,
+                    size_bytes: 12,
+                    created_at: "2026-01-01T00:00:00.000Z",
+                    published_at: "2026-01-01T00:00:00.000Z",
+                  },
+                ],
+                page_info: { next_cursor: null, has_more: false },
+              }
+            : null;
+        },
+      }),
+    };
+
+    const ok = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/revisions`, {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(ok.status).toBe(200);
+    await expect(ok.json()).resolves.toMatchObject({
+      artifact_id: ARTIFACT_ID,
+      items: [{ revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }],
+    });
+
+    const missing = await handleRequest(
+      new Request("https://api.test/v1/web/artifacts/art_missing/revisions", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(missing.status).toBe(404);
+    await expect(missing.json()).resolves.toMatchObject({ error: { code: "artifact_not_found" } });
+  });
+
+  it("rejects non-members on the web revisions list route", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async getWebMemberByWorkOsUserId() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["admin"] };
+        },
+        async listRevisions() {
+          throw new Error("listRevisions should not run for a non-member");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/revisions`, {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
 });
 
 function webAuthForTests(role = "admin"): Env["AUTH"] {

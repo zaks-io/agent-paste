@@ -23,6 +23,8 @@ vi.mock("@tanstack/react-router", () => ({
       useLoaderData: () => state.loaderData,
       useParams: () => state.params,
     }),
+  useRouter: () => ({ invalidate: vi.fn() }),
+  Link: ({ children }: { children: unknown }) => children,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -118,9 +120,26 @@ describe("viewer live-update revocation", () => {
 
   it("clears the dashboard artifact iframe when live updates are revoked", async () => {
     const { Route } = await import("../src/routes/_authed.artifacts.$artifactId");
+    const { ToastProvider } = await import("../src/components/ui/ToastProvider");
 
-    state.loaderData = { data: artifactDetailRow(), empty: false, error: null };
-    render(<Route.component />);
+    state.loaderData = {
+      artifact: { data: artifactDetailRow(), empty: false, error: null },
+      accessLinks: {
+        data: { items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      },
+      revisions: {
+        data: { artifact_id: state.params.artifactId, items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      },
+    };
+    render(
+      <ToastProvider>
+        <Route.component />
+      </ToastProvider>,
+    );
 
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
     await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));

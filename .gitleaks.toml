@@ -28,3 +28,9 @@ paths = ['''apps/.*/wrangler\.jsonc''']
 [[allowlists]]
 description = "Documented localhost smoke-harness placeholder for local dev"
 paths = ['''docs/specs/local-dev\.md''']
+
+[[allowlists]]
+description = "Prefixed-ULID test fixtures (art_/al_/rev_) are fake ids, not secrets"
+regexTarget = "match"
+regexes = ['''(art|al|rev)_[0-9A-HJKMNP-TV-Z]{26}''']
+paths = ['''apps/web/test/.*\.tsx?''']

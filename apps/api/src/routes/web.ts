@@ -219,6 +219,22 @@ export async function webArtifactAccessLinks(
     : getBoundResponders(context).respondError("artifact_not_found");
 }
 
+export async function webArtifactRevisions(
+  context: AppContext,
+  principal: Principal,
+  db: Repository,
+  params: RouteParams,
+): Promise<Response> {
+  const actor = webMemberActor(principal);
+  if (!actor) {
+    return getBoundResponders(context).respondError("forbidden");
+  }
+  const result = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
+  return result
+    ? getBoundResponders(context).respondJson(result)
+    : getBoundResponders(context).respondError("artifact_not_found");
+}
+
 export async function webCreateAccessLink(
   context: AppContext,
   principal: Principal,

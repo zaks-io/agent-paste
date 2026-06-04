@@ -309,6 +309,19 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
 
   registry.registerPath({
+    method: "get",
+    path: "/v1/web/artifacts/{artifact_id}/revisions",
+    operationId: "web.revisions.list",
+    summary: "List Revisions for an artifact in the current Workspace.",
+    security: [{ WorkOsBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      headers: [requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("RevisionListResponse")),
+  });
+
+  registry.registerPath({
     method: "post",
     path: "/v1/web/artifacts/{artifact_id}/access-links",
     operationId: "web.accessLinks.create",
