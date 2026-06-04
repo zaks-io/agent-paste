@@ -1,6 +1,10 @@
 import { runCommand, shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
-import { SafetyScanMessage } from "@agent-paste/contracts";
+import {
+  HASH_REPUTATION_SAFETY_SCANNER_ID,
+  HASH_REPUTATION_SAFETY_SCANNER_VERSION,
+  SafetyScanMessage,
+} from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import { mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -8,9 +12,10 @@ import { resolveSqlExecutor } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { isEphemeralScannerId } from "../safety/ephemeral-scanner.js";
+import { hashReputationWarnings, scanFilesHashReputation } from "../safety/hash-reputation-scanner.js";
 import { applyMaliciousUrlLockdown } from "../safety/platform-lockdown.js";
 import { resolveSafetyScanner } from "../safety/resolve-scanner.js";
-import type { SafetyScannerWarning } from "../safety/scanner.js";
+import type { SafetyScannerFile, SafetyScannerWarning } from "../safety/scanner.js";
 import { scanPublishedUrlMalicious } from "../safety/url-scanner.js";
 
 type RevisionRow = {
@@ -95,6 +100,20 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
         warnings,
         now: payload.requested_at,
       });
+      try {
+        await runHashReputationScan(executor, env, {
+          workspaceId: payload.workspace_id,
+          artifactId: payload.artifact_id,
+          revisionId: payload.revision_id,
+          now: payload.requested_at,
+          scannerFiles,
+        });
+      } catch (error) {
+        logOpError("queue.safety_scan.hash_reputation_failed", {
+          revision_id: payload.revision_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       if (isEphemeralScannerId(payload.scanner_id)) {
         await runEphemeralUrlScanner(executor, env, {
           workspaceId: payload.workspace_id,
@@ -295,6 +314,46 @@ function warningDelta(before: Set<string>, after: Set<string>) {
 function createSafetyWarningId(): string {
   const value = crypto.randomUUID();
   return `warn_${value.replaceAll("-", "")}`;
+}
+
+async function runHashReputationScan(
+  executor: SqlExecutor,
+  env: Env,
+  input: {
+    workspaceId: string;
+    artifactId: string;
+    revisionId: string;
+    now: string;
+    scannerFiles: readonly SafetyScannerFile[];
+  },
+): Promise<void> {
+  const verdicts = await scanFilesHashReputation({
+    files: input.scannerFiles,
+    ...(env.MALWAREBAZAAR_API_KEY ? { malwareBazaarApiKey: env.MALWAREBAZAAR_API_KEY } : {}),
+    ...(env.VIRUSTOTAL_API_KEY ? { virusTotalApiKey: env.VIRUSTOTAL_API_KEY } : {}),
+  });
+  await replaceSafetyWarnings(executor, {
+    workspaceId: input.workspaceId,
+    artifactId: input.artifactId,
+    revisionId: input.revisionId,
+    scannerId: HASH_REPUTATION_SAFETY_SCANNER_ID,
+    scannerVersion: HASH_REPUTATION_SAFETY_SCANNER_VERSION,
+    warnings: hashReputationWarnings(verdicts),
+    now: input.now,
+  });
+  if (verdicts.some((entry) => entry.verdict === "malicious")) {
+    await applyMaliciousUrlLockdown(
+      executor,
+      env,
+      {
+        workspaceId: input.workspaceId,
+        artifactId: input.artifactId,
+        revisionId: input.revisionId,
+        now: input.now,
+      },
+      { source: "hash_reputation", idempotencyKeyPrefix: "hash_reputation" },
+    );
+  }
 }
 
 async function runEphemeralUrlScanner(

@@ -47,6 +47,8 @@ export type Env = {
   CLOUDFLARE_ACCOUNT_ID?: string;
   JOBS_ENABLED?: string;
   URL_SCANNER_API_TOKEN?: string;
+  MALWAREBAZAAR_API_KEY?: string;
+  VIRUSTOTAL_API_KEY?: string;
   AI?: AiBinding;
   SMOKE_HARNESS_SECRET?: string;
   SENTRY_DSN?: string;

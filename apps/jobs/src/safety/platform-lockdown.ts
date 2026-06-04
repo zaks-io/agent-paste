@@ -10,12 +10,15 @@ export async function applyMaliciousUrlLockdown(
   executor: SqlExecutor,
   env: Env,
   input: { workspaceId: string; artifactId: string; revisionId: string; now: string },
+  options: { source?: string; idempotencyKeyPrefix?: string } = {},
 ): Promise<boolean> {
+  const source = options.source ?? "url_scanner";
+  const idempotencyKeyPrefix = options.idempotencyKeyPrefix ?? "url_scanner";
   const command = await runCommand({
     executor,
     actor: { type: "platform", id: SAFETY_SCAN_PLATFORM_ACTOR_ID, workspaceId: null },
     operation: "platform.lockdown.set",
-    idempotencyKey: `url_scanner:${input.artifactId}`,
+    idempotencyKey: `${idempotencyKeyPrefix}:${input.artifactId}`,
     workspaceId: null,
     now: input.now,
     handler: async (tx) => {
@@ -47,7 +50,7 @@ export async function applyMaliciousUrlLockdown(
             input.workspaceId,
             SAFETY_SCAN_PLATFORM_ACTOR_ID,
             input.artifactId,
-            JSON.stringify({ scope: "artifact", reason_code: "malware_signal", source: "url_scanner" }),
+            JSON.stringify({ scope: "artifact", reason_code: "malware_signal", source }),
             input.now,
           ],
         );

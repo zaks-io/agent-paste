@@ -1,6 +1,10 @@
 # Safety Scanner Lifecycle: Replace on Scan, Scanner Versioning
 
-Status: Accepted. Renumbered from duplicate ADR 0035.
+Status: Accepted. Renumbered from duplicate ADR 0035. The "vendor scanner
+integration" considered-and-deferred option below is partially realized by
+[ADR 0080](./0080-hash-reputation-malware-scanning-for-untrusted-content.md),
+which adds a file-bytes hash-reputation scanner under its own `scanner_id`
+through this seam with no schema change.
 
 The `safety-scan` consumer in `jobs` runs a replaceable built-in content scanner behind the scanner interface. The first rule set detects stable, non-blocking warning classes such as password-collection forms and credential-shaped literals while exercising the full lifecycle: warning storage, Agent View surfacing, async audit events, and scanner versioning. **Safety Warnings** are stored per `(revision_id, scanner_id)` and each scan REPLACES all rows in that scope. `scanner_version` participates in the idempotency key so a version bump re-scans the same **Revision** without manual TTL expiry.
 

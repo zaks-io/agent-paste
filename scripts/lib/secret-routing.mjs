@@ -51,6 +51,10 @@ export const SECRET_ROUTING = {
     CONTENT_SIGNING_SECRET: { required: true },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" },
+    // Hash-reputation scanner (ADR 0080); provider-issued, not generatable. Absent
+    // -> scanner degrades to an "unknown" verdict, never a failed scan or deploy.
+    MALWAREBAZAAR_API_KEY: { required: false },
+    VIRUSTOTAL_API_KEY: { required: false },
   },
   stream: {
     STREAM_INTERNAL_SECRET: { required: true },

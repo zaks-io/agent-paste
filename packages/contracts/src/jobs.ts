@@ -33,6 +33,10 @@ export const DEFAULT_SAFETY_SCANNER_VERSION = "1";
 export const EPHEMERAL_SAFETY_SCANNER_ID = "ephemeral_tier";
 export const EPHEMERAL_SAFETY_SCANNER_VERSION = "1";
 
+/** File-bytes hash-reputation scanner (MalwareBazaar + optional VirusTotal); runs on every tier. */
+export const HASH_REPUTATION_SAFETY_SCANNER_ID = "builtin_hash_reputation";
+export const HASH_REPUTATION_SAFETY_SCANNER_VERSION = "1";
+
 export const BundleGenerateReason = z.enum(["publish"]);
 export type BundleGenerateReason = z.infer<typeof BundleGenerateReason>;
 

@@ -211,6 +211,9 @@ describe("handleSafetyScanBatch", () => {
           return { rows: [{ workspace_id: workspaceId }] };
         }
         if (sql.includes("from safety_warnings")) {
+          if (params?.[2] !== "builtin_content") {
+            return { rows: [] };
+          }
           return {
             rows: [
               {
@@ -303,6 +306,9 @@ describe("handleSafetyScanBatch", () => {
           return { rows: [{ workspace_id: workspaceId }] };
         }
         if (sql.includes("from safety_warnings")) {
+          if (params?.[2] !== "builtin_content") {
+            return { rows: [] };
+          }
           return {
             rows: [
               {
@@ -345,6 +351,124 @@ describe("handleSafetyScanBatch", () => {
     });
 
     expect(auditInserts).toHaveLength(0);
+  });
+
+  it("locks down a claimed artifact when a file hash matches known malware", async () => {
+    const denylistPut = vi.fn(async () => {});
+    const lockdownEvents: unknown[][] = [];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ query_status: "ok", data: [{ sha256_hash: "abc" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const tx = {
+      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: workspaceId }] };
+        }
+        if (sql.includes("from platform_lockdowns")) {
+          return { rows: [] };
+        }
+        if (sql.includes("insert into platform_lockdowns")) {
+          return { rows: [{ id: "lkd_hash" }] };
+        }
+        if (sql.includes("insert into operation_events") && sql.includes("'platform.lockdown.set'")) {
+          lockdownEvents.push(params ?? []);
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(),
+    };
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("from revisions r")) {
+          return { rows: [{ status: "published", artifact_status: "active" }] };
+        }
+        if (sql.includes("from artifact_files")) {
+          return {
+            rows: [
+              { path: "payload.bin", r2_key: "objects/payload.bin", served_content_type: "application/octet-stream" },
+            ],
+          };
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(async (run) => run(tx)),
+    };
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      DB: db,
+      MALWAREBAZAAR_API_KEY: "mb-key",
+      DENYLIST: { put: denylistPut },
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: async () => ({ body: encoder.encode("malware-bytes") }),
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://mb-api.abuse.ch/api/v1/", expect.any(Object));
+    expect(denylistPut).toHaveBeenCalledWith(
+      `ad:${artifactId}`,
+      expect.any(String),
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
+    expect(lockdownEvents).toHaveLength(1);
+    expect(JSON.parse(String(lockdownEvents[0]?.[4]))).toMatchObject({ source: "hash_reputation" });
+    vi.unstubAllGlobals();
+  });
+
+  it("does not lock down or warn when no malware key is configured", async () => {
+    const denylistPut = vi.fn(async () => {});
+    const warningInserts: unknown[][] = [];
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const tx = {
+      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: workspaceId }] };
+        }
+        if (sql.includes("from safety_warnings")) {
+          return { rows: [] };
+        }
+        if (sql.includes("insert into safety_warnings")) {
+          warningInserts.push(params ?? []);
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(),
+    };
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("from revisions r")) {
+          return { rows: [{ status: "published", artifact_status: "active" }] };
+        }
+        if (sql.includes("from artifact_files")) {
+          return {
+            rows: [
+              { path: "payload.bin", r2_key: "objects/payload.bin", served_content_type: "application/octet-stream" },
+            ],
+          };
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(async (run) => run(tx)),
+    };
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      DB: db,
+      DENYLIST: { put: denylistPut },
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: async () => ({ body: encoder.encode("inert-bytes") }),
+      },
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(denylistPut).not.toHaveBeenCalled();
+    expect(warningInserts).toHaveLength(0);
+    vi.unstubAllGlobals();
   });
 
   it("locks down ephemeral artifacts when URL Scanner reports malicious", async () => {
