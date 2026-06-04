@@ -4,6 +4,7 @@ import {
   isQueueConsumerNotFound,
   isQueueNotFound,
   isQueueStillReferenced,
+  isTransientApiError,
 } from "./wrangler-queue-cli.mjs";
 
 describe("wrangler queue CLI helpers", () => {
@@ -56,6 +57,37 @@ describe("wrangler queue CLI helpers", () => {
         stderr: "Worker is not configured as a consumer for this queue",
       }),
     ).toBe(true);
+  });
+
+  it("treats wrangler's 'no worker consumer exists' phrasing as already detached", () => {
+    expect(
+      isQueueConsumerNotFound({
+        code: 1,
+        stdout: "",
+        stderr: "No worker consumer 'agent-paste-jobs-pr-211' exists for queue byte-purge-preview-pr-211",
+      }),
+    ).toBe(true);
+  });
+
+  it("treats Cloudflare's generic 10013 error as transient", () => {
+    expect(
+      isTransientApiError({
+        code: 1,
+        stdout: "",
+        stderr:
+          "A request to the Cloudflare API (/accounts/x/queues) failed. An unknown error has occurred. [code: 10013]",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat deterministic errors as transient", () => {
+    expect(
+      isTransientApiError({
+        code: 1,
+        stdout: "",
+        stderr: "Authentication error [code: 10000]",
+      }),
+    ).toBe(false);
   });
 
   it("detects queue delete failures caused by Worker bindings", () => {
