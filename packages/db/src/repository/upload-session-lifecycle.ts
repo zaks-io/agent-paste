@@ -17,7 +17,6 @@ import type { Entities } from "./ports.js";
 export type CreateUploadSessionRequest = {
   artifact_id?: string;
   title?: string;
-  ttl_seconds?: number;
   entrypoint?: string;
   files: Array<{ path: string; size_bytes: number }>;
 };
@@ -54,8 +53,8 @@ export async function createUploadSessionInEntities(
   const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
   validateUpload(files, input.usagePolicy, entrypoint);
   const artifactTtlSeconds = isEphemeralWorkspace(input.workspace)
-    ? ephemeralArtifactTtlSeconds(input.request.ttl_seconds, input.usagePolicy)
-    : artifactTtlSecondsForUpload(input.request.ttl_seconds, input.usagePolicy);
+    ? ephemeralArtifactTtlSeconds(input.usagePolicy)
+    : artifactTtlSecondsForUpload(input.usagePolicy);
   const totalSize = files.reduce((sum, file) => sum + file.size_bytes, 0);
   const updateArtifactId = input.request.artifact_id;
   const createdBy = createdByFromActor(input.actor);

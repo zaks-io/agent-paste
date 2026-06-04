@@ -104,7 +104,7 @@ describe("AP-91 shared API route helpers", () => {
 
   it("maps known repository errors and preserves unknown failures", () => {
     expect(repositoryErrorToAppError(new RepositoryError("artifact_not_found"))).toBe("artifact_not_found");
-    expect(repositoryErrorToAppError(new RepositoryError("invalid_ttl_seconds"))).toBe("invalid_request");
+    expect(repositoryErrorToAppError(new RepositoryError("invalid_auto_deletion_days"))).toBe("invalid_request");
     expect(repositoryErrorToAppError(new Error("unknown"))).toBeNull();
     expect(repositoryErrorToAppError("artifact_not_found")).toBeNull();
   });

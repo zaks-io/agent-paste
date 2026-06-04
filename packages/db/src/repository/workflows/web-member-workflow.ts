@@ -66,6 +66,16 @@ async function provisionWebMember(
   return webAuthResponse(workspace, member, { api_key: toApiKeySummary(apiKey), secret });
 }
 
+// Heals workspaces provisioned before web-member provisioning set claimed_at.
+// A member-owned web workspace is always claimed by its WorkOS owner.
+async function ensureClaimed(entities: Entities, workspace: Workspace, now: string): Promise<Workspace> {
+  if (workspace.claimed_at !== null) {
+    return workspace;
+  }
+  await entities.workspaces.markClaimed(workspace.id, { claimedAt: now, updatedAt: now });
+  return { ...workspace, claimed_at: now, updated_at: now };
+}
+
 export async function resolveWebMember(
   ctx: RepositoryCoreContext,
   input: { workosUserId: string; email: string; idempotencyKey: string; now?: string },
@@ -79,7 +89,7 @@ export async function resolveWebMember(
       if (existing) {
         const member = await entities.members.updateSeen(existing.id, { email: input.email, lastSeenAt: now });
         const resolved = member ?? existing;
-        const workspace = await ctx.mustWorkspace(entities, resolved.workspace_id);
+        const workspace = await ensureClaimed(entities, await ctx.mustWorkspace(entities, resolved.workspace_id), now);
         return webAuthResponse(workspace, resolved, null);
       }
       return uowCtx.command(

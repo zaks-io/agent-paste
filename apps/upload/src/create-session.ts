@@ -30,9 +30,10 @@ export async function createUploadSession(
   }
   const idempotencyKey = guard.idempotencyKey;
   const body: CreateUploadSessionRequest = guard.body;
+  // TTL is omitted so the repository derives it from the workspace tier (ephemeral
+  // workspaces are hard-capped at one day). Clients cannot influence artifact lifetime.
   const createRequest = {
     title: body.title,
-    ttl_seconds: body.ttl_seconds,
     entrypoint: body.entrypoint,
     files: body.files,
     ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),

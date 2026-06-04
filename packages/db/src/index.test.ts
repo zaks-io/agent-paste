@@ -109,6 +109,30 @@ describe("LocalRepository", () => {
     expect(repo.apiKeys.size).toBe(1);
   });
 
+  it("heals a null claimed_at on a returning member's workspace", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const first = await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:first",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const stored = repo.workspaces.get(first.workspace.id);
+    if (!stored) {
+      throw new Error("workspace not stored");
+    }
+    stored.claimed_at = null;
+
+    await repo.resolveWebMember({
+      workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      email: "user@example.com",
+      idempotencyKey: "workos-jti:second",
+      now: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(repo.workspaces.get(first.workspace.id)?.claimed_at).toBe("2026-01-02T00:00:00.000Z");
+  });
+
   it("replays web member resolution by idempotency key without mutating member state", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const first = await repo.resolveWebMember({
@@ -1092,7 +1116,6 @@ describe("LocalRepository", () => {
       idempotencyKey: "idem-create",
       request: {
         title: "demo",
-        ttl_seconds: 86_400,
         entrypoint: "index.html",
         files: [{ path: "index.html", size_bytes: 12 }],
       },
@@ -1442,7 +1465,6 @@ describe("LocalRepository", () => {
       request: {
         title: "expiring",
         entrypoint: "index.html",
-        ttl_seconds: 86_400,
         files: [{ path: "index.html", size_bytes: 12 }],
       },
       now: "2026-01-01T00:00:00.000Z",

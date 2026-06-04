@@ -1,5 +1,5 @@
 import { BundleAvailability } from "./bundle.js";
-import { Mebibytes, Seconds } from "./common.js";
+import { Mebibytes } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
   ArtifactId,
@@ -18,10 +18,11 @@ export const UploadSessionFileInput = z.object({
 });
 export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
+// TTL is a server-side policy decision derived from the workspace tier, never a
+// client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
 export const CreateUploadSessionRequest = z.object({
   artifact_id: ArtifactId.optional(),
   title: PlainTextTitle,
-  ttl_seconds: z.number().int().min(Seconds.oneDay).max(Seconds.ninetyDays).default(Seconds.thirtyDays),
   entrypoint: FilePath,
   files: z.array(UploadSessionFileInput).min(1).max(100),
 });

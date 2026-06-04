@@ -459,6 +459,17 @@ describe("runTextPublishChain", () => {
     }
   });
 
+  it("omits ttl_seconds from the create forward so the repository applies the per-workspace cap", async () => {
+    mockUploadChain("content.txt", 5);
+    mockPublishAndRevisionLink();
+
+    await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text" }, deps);
+
+    const createCall = vi.mocked(forward.forwardToUploadRoute).mock.calls[0]?.[0];
+    expect(createCall?.routeId).toBe("uploadSessions.create");
+    expect(JSON.parse(createCall?.body as string)).not.toHaveProperty("ttl_seconds");
+  });
+
   it("uses html content type for html render mode", async () => {
     mockUploadChain("index.html", 12);
     mockPublishAndRevisionLink();

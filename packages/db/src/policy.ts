@@ -11,7 +11,6 @@ import {
   type UsagePolicyConfig,
   type WorkspacePlan,
 } from "@agent-paste/config";
-import { repositoryError } from "./repository-error.js";
 import type { Workspace } from "./types.js";
 
 export function isEphemeralWorkspace(workspace: Pick<Workspace, "claimed_at">): boolean {
@@ -25,16 +24,10 @@ export function artifactExpiresAtFromWorkspace(
   return new Date(Date.parse(publishedAt) + workspace.auto_deletion_days * SECONDS_PER_DAY * 1000).toISOString();
 }
 
-export function ephemeralArtifactTtlSeconds(
-  requestedTtlSeconds: number | undefined,
-  policy: Pick<UsagePolicyConfig, "default_ttl_seconds" | "min_ttl_seconds" | "max_ttl_seconds">,
-): number {
-  const ephemeralCap = EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY;
-  const ttlSeconds = requestedTtlSeconds ?? Math.min(policy.default_ttl_seconds, ephemeralCap);
-  if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > ephemeralCap) {
-    repositoryError("invalid_ttl_seconds");
-  }
-  return ttlSeconds;
+// Ephemeral (unclaimed) artifact lifetime is a fixed server-side policy: the plan
+// default, hard-capped at the one-day ephemeral ceiling. There is no client input.
+export function ephemeralArtifactTtlSeconds(policy: Pick<UsagePolicyConfig, "default_ttl_seconds">): number {
+  return Math.min(policy.default_ttl_seconds, EPHEMERAL_AUTO_DELETION_DAYS * SECONDS_PER_DAY);
 }
 
 export type { UsagePolicyConfig, WorkspacePlan };
@@ -81,13 +74,8 @@ export function defaultAutoDeletionDaysForWorkspace(
   return Math.floor(resolveUsagePolicy({ plan: workspace.plan, billingEnabled }).default_ttl_seconds / SECONDS_PER_DAY);
 }
 
-export function artifactTtlSecondsForUpload(
-  requestedTtlSeconds: number | undefined,
-  policy: Pick<UsagePolicyConfig, "default_ttl_seconds" | "min_ttl_seconds" | "max_ttl_seconds">,
-): number {
-  const ttlSeconds = requestedTtlSeconds ?? policy.default_ttl_seconds;
-  if (ttlSeconds < policy.min_ttl_seconds || ttlSeconds > policy.max_ttl_seconds) {
-    repositoryError("invalid_ttl_seconds");
-  }
-  return ttlSeconds;
+// Claimed-workspace artifact lifetime is the plan default. Server-side policy only;
+// clients cannot request or influence it.
+export function artifactTtlSecondsForUpload(policy: Pick<UsagePolicyConfig, "default_ttl_seconds">): number {
+  return policy.default_ttl_seconds;
 }
