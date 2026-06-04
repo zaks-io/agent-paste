@@ -16,18 +16,31 @@ export async function readWriteAllowanceRemaining(
   return status?.remaining;
 }
 
+export type WriteAllowanceOutcome =
+  | { ok: true }
+  | { ok: false; reason: "exceeded"; retryAfter: string }
+  | { ok: false; reason: "unavailable" };
+
 export async function enforceNewArtifactWriteAllowance(
   binding: WriteAllowanceBinding | undefined,
   workspaceId: string,
   limit: number,
   idempotencyKey?: string,
-): Promise<{ ok: true } | { ok: false; retryAfter: string }> {
+): Promise<WriteAllowanceOutcome> {
+  // The allowance counter is a required enforcement dependency: a missing binding
+  // means the gate is unconfigured, so fail closed rather than silently admitting
+  // every publish.
+  if (!binding) {
+    return { ok: false, reason: "unavailable" };
+  }
   const outcome = await consumeWriteAllowance(binding, workspaceId, limit, idempotencyKey);
   if (!outcome) {
-    return { ok: true };
+    // Binding present but the counter could not be reached or returned an
+    // unparseable response: still a dependency failure, not a free pass.
+    return { ok: false, reason: "unavailable" };
   }
   if (!outcome.allowed) {
-    return { ok: false, retryAfter: String(outcome.retry_after_seconds) };
+    return { ok: false, reason: "exceeded", retryAfter: String(outcome.retry_after_seconds) };
   }
   return { ok: true };
 }

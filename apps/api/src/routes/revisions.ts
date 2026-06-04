@@ -111,6 +111,9 @@ export async function publishRevision(
               idempotencyKey,
             );
             if (!writeAllowance.ok) {
+              if (writeAllowance.reason === "unavailable") {
+                throw new RepositoryRouteError("storage_unavailable");
+              }
               throw new RepositoryRouteError("write_allowance_exceeded", undefined, {
                 headers: { "Retry-After": writeAllowance.retryAfter },
               });

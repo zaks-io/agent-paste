@@ -20,12 +20,16 @@ describe("enforceNewArtifactWriteAllowance", () => {
       enforceNewArtifactWriteAllowance(writeAllowance, "workspace-a", DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL),
     ).resolves.toMatchObject({
       ok: false,
+      reason: "exceeded",
       retryAfter: expect.any(String),
     });
   });
 
-  it("fails open when the binding is absent", async () => {
-    await expect(enforceNewArtifactWriteAllowance(undefined, "workspace-a", 20)).resolves.toEqual({ ok: true });
+  it("fails closed when the binding is absent", async () => {
+    await expect(enforceNewArtifactWriteAllowance(undefined, "workspace-a", 20)).resolves.toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
   });
 
   it("does not double-count retries that reuse the same idempotency key", async () => {
