@@ -429,10 +429,10 @@ export const routeContracts = [
     path: "/v1/web/access-links/{access_link_id}/mint",
     auth: "workos_access_token",
     scopes: ["read"],
-    idempotency: "required",
+    idempotency: "none",
     rateLimit: "actor",
     responseSchema: "AccessLinkSignedUrl",
-    errors: [...webIdempotentMutationErrors, "not_found"],
+    errors: [...webActorReadErrors, "not_found"],
   },
   {
     id: "web.accessLinks.revoke",
@@ -441,10 +441,13 @@ export const routeContracts = [
     path: "/v1/web/access-links/{access_link_id}/revoke",
     auth: "workos_access_token",
     scopes: ["read"],
-    idempotency: "required",
+    idempotency: "none",
     rateLimit: "actor",
     responseSchema: "WebRevokeAccessLinkResponse",
-    errors: [...webIdempotentMutationErrors, "not_found"],
+    // revoke self-dedupes via uow.command (server-derived key), so a concurrent
+    // collision can still surface idempotency_in_flight even though the client
+    // does not supply an Idempotency-Key header. mint is a pure read and cannot.
+    errors: [...webActorReadErrors, "not_found", "idempotency_in_flight"],
   },
   {
     id: "web.accessLinks.lockdown.set",

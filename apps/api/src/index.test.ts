@@ -1,3 +1,4 @@
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { routeContracts } from "@agent-paste/contracts";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -2836,7 +2837,7 @@ describe("web Access Link routes", () => {
     const response = await handleRequest(
       new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, {
         method: "POST",
-        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-mint" },
+        headers: { authorization: "Bearer workos-ok" },
       }),
       env,
     );
@@ -2860,7 +2861,7 @@ describe("web Access Link routes", () => {
     const response = await handleRequest(
       new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, {
         method: "POST",
-        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-mint" },
+        headers: { authorization: "Bearer workos-ok" },
       }),
       env,
     );
@@ -2883,13 +2884,37 @@ describe("web Access Link routes", () => {
     const response = await handleRequest(
       new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/revoke`, {
         method: "POST",
-        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-revoke" },
+        headers: { authorization: "Bearer workos-ok" },
       }),
       env,
     );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ access_link_id: ACCESS_LINK_ID });
+  });
+
+  // revoke self-dedupes through uow.command, so a concurrent collision still
+  // surfaces idempotency_in_flight even though the route carries no client key.
+  it("maps a concurrent revoke collision to idempotency_in_flight", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async revokeMemberAccessLink() {
+          throw new IdempotencyInFlightError();
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/revoke`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "idempotency_in_flight" } });
   });
 
   it.each([

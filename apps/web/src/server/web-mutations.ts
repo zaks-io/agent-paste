@@ -139,7 +139,6 @@ export function mintAccessLink(data: { accessLinkId: string }): Promise<Mutation
     apiFetch<AccessLinkSignedUrl>(`/v1/web/access-links/${encodeURIComponent(input.value)}/mint`, {
       method: "POST",
       accessToken,
-      headers: { "idempotency-key": crypto.randomUUID() },
     }),
   );
 }
@@ -151,7 +150,6 @@ export function revokeAccessLink(data: { accessLinkId: string }): Promise<Mutati
     apiFetch<WebRevokeAccessLinkResponse>(`/v1/web/access-links/${encodeURIComponent(input.value)}/revoke`, {
       method: "POST",
       accessToken,
-      headers: { "idempotency-key": crypto.randomUUID() },
     }),
   );
 }

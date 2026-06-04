@@ -13473,18 +13473,6 @@
             "schema": {
               "type": "string",
               "minLength": 8,
-              "maxLength": 200,
-              "description": "Caller-provided idempotency key. Required on every mutation."
-            },
-            "required": true,
-            "description": "Caller-provided idempotency key. Required on every mutation.",
-            "name": "Idempotency-Key",
-            "in": "header"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 8,
               "maxLength": 128,
               "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
             },
@@ -14002,18 +13990,6 @@
             "name": "access_link_id",
             "in": "path",
             "description": "Access Link id."
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 200,
-              "description": "Caller-provided idempotency key. Required on every mutation."
-            },
-            "required": true,
-            "description": "Caller-provided idempotency key. Required on every mutation.",
-            "name": "Idempotency-Key",
-            "in": "header"
           },
           {
             "schema": {
