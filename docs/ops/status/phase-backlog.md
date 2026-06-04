@@ -123,7 +123,9 @@ Recommended order:
 8. [x] Live Updates after dependencies are ready.
        Follow `docs/ops/live-updates-todo.md`: `apps/stream`, per-artifact
        Durable Objects, SSE over `fetch()`, publish notification, viewer caps,
-       and proactive disconnect on takedown (AP-25).
+       and proactive disconnect on takedown (AP-25). SSE-driven live UI
+       (whole-card invalidation on a new revision) landed in AP-164; two
+       deferred-polish items remain in AP-166.
 
 ## Phase 5: MCP
 
