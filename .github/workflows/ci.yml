@@ -22,11 +22,51 @@ env:
   TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    outputs:
+      # `code` is "true" unless EVERY changed file is docs-only. Computed by an
+      # explicit git diff rather than a path-matcher action so the docs-only
+      # rule is unambiguous and auditable.
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether non-docs files changed
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_SHA:-}" ]; then
+            # Not a PR (push to main / manual dispatch): always run code checks.
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # List files changed since the PR base. A file is docs-only when it
+          # matches one of these globs; keep in sync with pr-preview.yml and
+          # security.yml.
+          code=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              docs/*|.claude/*|*.md) ;;
+              *) code=true; break ;;
+            esac
+          done < <(git diff --name-only "${BASE_SHA}...HEAD")
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   secrets:
     name: Secret scan
     # Fast, incremental PR-range scan for quick feedback. The full-history scan
     # (plus a daily cron) lives in the dedicated Security workflow (ADR 0076).
-    if: ${{ github.event_name == 'pull_request' }}
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
 
@@ -54,19 +94,32 @@ jobs:
 
   validate:
     name: Validate
+    # Always runs so the required check always reports. On docs-only PRs the
+    # `code` filter is false and every heavy step below is skipped, so the job
+    # is a fast green no-op; on push to main it runs in full.
+    needs: changes
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
+    env:
+      RUN_CODE: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
 
     steps:
+      - name: Docs-only short-circuit
+        if: ${{ env.RUN_CODE != 'true' }}
+        run: echo "Docs-only change; skipping build/verify/coverage."
+
       - name: Checkout
+        if: ${{ env.RUN_CODE == 'true' }}
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
+        if: ${{ env.RUN_CODE == 'true' }}
         uses: pnpm/action-setup@v6
 
       - name: Setup Node
+        if: ${{ env.RUN_CODE == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
@@ -75,9 +128,11 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
+        if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
       - name: Restore Turbo local cache
+        if: ${{ env.RUN_CODE == 'true' }}
         uses: actions/cache@v5
         with:
           path: .turbo/cache
@@ -87,6 +142,7 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Verify dependency guardrails
+        if: ${{ env.RUN_CODE == 'true' }}
         run: |
           test "$(tr -d '[:space:]' < .nvmrc)" = "$(tr -d '[:space:]' < .node-version)"
           test "$(pnpm config get engine-strict)" = "true"
@@ -94,6 +150,7 @@ jobs:
           test "$(pnpm config get nodeLinker)" = "isolated"
 
       - name: Verify Turbo cache guardrails
+        if: ${{ env.RUN_CODE == 'true' }}
         run: |
           node -e '
             const fs = require("node:fs");
@@ -104,7 +161,7 @@ jobs:
           '
 
       - name: Verify Turbo remote cache credentials
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ env.RUN_CODE == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
           missing=0
           for name in TURBO_TOKEN TURBO_TEAM TURBO_REMOTE_CACHE_SIGNATURE_KEY; do
@@ -116,13 +173,15 @@ jobs:
           exit "$missing"
 
       - name: Validate
+        if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm verify
 
       - name: Coverage
+        if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm test:coverage
 
       - name: Upload coverage artifact
-        if: always()
+        if: ${{ always() && env.RUN_CODE == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: coverage
