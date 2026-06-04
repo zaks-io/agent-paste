@@ -92,15 +92,45 @@ jobs:
           ASSET: ${{ matrix.asset }}
         run: |
           set -euo pipefail
+          # --metafile records the exact module graph bundled into the binary;
+          # the SBOM step (linux-x64 leg) turns it into a CycloneDX BOM of what
+          # actually ships. Platform-independent, so one leg's metafile suffices.
           bun build src/index.ts \
             --compile \
             --conditions=types \
             --target="$BUN_TARGET" \
-            --outfile "$ASSET"
+            --outfile "$ASSET" \
+            --metafile=meta.json
           # bun --compile does not set the exec bit, and upload-artifact does not
           # preserve it through its zip round-trip, so assert it here. Harmless on
           # the Windows .exe (filename carries the executable semantics there).
           chmod +x "$ASSET"
+
+      # Generate the SBOM from the bundler metafile so it lists exactly the deps
+      # compiled into the binary (workspace pkgs bundled from TS source + the
+      # external closure: zod, @asteasolutions/zod-to-openapi) — not the whole
+      # monorepo and not hollow. The closure is platform-independent, so generate
+      # it once on the linux-x64 leg. CycloneDX is grype-scannable.
+      - name: Generate SBOM from bundle (CycloneDX)
+        if: matrix.name == 'linux-x64'
+        working-directory: apps/cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes @cyclonedx/cyclonedx-esbuild@1 \
+            --bwd "$PWD" \
+            --output-reproducible \
+            -o agent-paste-cli.sbom.cdx.json \
+            meta.json
+
+      - name: Upload SBOM artifact
+        if: matrix.name == 'linux-x64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: apps/cli/agent-paste-cli.sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 7
 
       # Proves the binary is genuinely standalone: copy it OUTSIDE the repo to
       # $RUNNER_TEMP (no node_modules ancestry) and run it there. Running from
@@ -233,49 +263,39 @@ jobs:
           path: dist-binaries
           merge-multiple: true
 
+      # Checksums cover only the binaries — the per-OS globs deliberately exclude
+      # the agent-paste-cli.* SBOM/report files, which carry their own provenance.
       - name: Generate checksums
         working-directory: dist-binaries
-        run: sha256sum agent-paste-* > SHA256SUMS
+        run: sha256sum agent-paste-linux-* agent-paste-darwin-* agent-paste-windows-* > SHA256SUMS
 
-      # One SBOM over the CLI's source closure (the deps baked into the binary
-      # via --conditions=types). Scoped to apps/cli — NOT the whole monorepo —
-      # so it reflects what ships, not the dev surface. The closure is
-      # platform-independent, so one SBOM covers every target. No pnpm install
-      # needed: syft reads pnpm-lock.yaml statically.
-      - name: Generate SBOM (Syft, SPDX JSON)
-        uses: anchore/sbom-action@v0
-        with:
-          path: apps/cli
-          format: spdx-json
-          output-file: dist-binaries/agent-paste-cli.sbom.spdx.json
-          upload-artifact: false
-
-      # Advisory grype scan of the SBOM (NON-BLOCKING — Phase 1 captures, Phase 2
-      # gates). fail-build:false keeps the release green on findings.
+      # The SBOM was generated from the bundler metafile in the build job and
+      # downloaded above (merge-multiple lands it in dist-binaries/). It lists
+      # exactly what is compiled into the binary.
       - name: Scan SBOM (advisory)
         id: grype
         uses: anchore/scan-action@v7
         with:
-          sbom: dist-binaries/agent-paste-cli.sbom.spdx.json
+          sbom: dist-binaries/agent-paste-cli.sbom.cdx.json
           severity-cutoff: high
           fail-build: false
           output-format: json
 
       # Persist the grype report + a small metadata summary so build-time and the
-      # Phase-3 daily re-scan are comparable (scanner + vuln-DB versions). The
-      # grype JSON embeds descriptor.version + descriptor.db.{built,schemaVersion}.
+      # Phase-3 daily re-scan are comparable (scanner + vuln-DB versions). The DB
+      # metadata lives under descriptor.db.status in grype's JSON.
       - name: Capture scan report and scanner/DB versions
         shell: bash
         env:
           GRYPE_JSON: ${{ steps.grype.outputs.json }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
           cp "$GRYPE_JSON" dist-binaries/agent-paste-cli.grype.json
           jq -n \
             --arg grypeVersion "$(jq -r '.descriptor.version // empty' "$GRYPE_JSON")" \
-            --arg vulnDbBuilt "$(jq -r '.descriptor.db.built // empty' "$GRYPE_JSON")" \
-            --arg vulnDbSchemaVersion "$(jq -r '.descriptor.db.schemaVersion // empty' "$GRYPE_JSON")" \
+            --arg vulnDbBuilt "$(jq -r '.descriptor.db.status.built // empty' "$GRYPE_JSON")" \
+            --arg vulnDbSchemaVersion "$(jq -r '.descriptor.db.status.schemaVersion // empty' "$GRYPE_JSON")" \
             --arg commit "$COMMIT_SHA" \
             --arg scannedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{grypeVersion:$grypeVersion, vulnDbBuilt:$vulnDbBuilt, vulnDbSchemaVersion:$vulnDbSchemaVersion, commit:$commit, scannedAt:$scannedAt, blocking:false}' \
@@ -299,5 +319,5 @@ jobs:
             gh release create "$TAG" dist-binaries/* \
               --draft \
               --title "agent-paste CLI $TAG" \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). An SBOM (\`agent-paste-cli.sbom.spdx.json\`), a grype scan report (\`agent-paste-cli.grype.json\`), and scanner/DB versions (\`scan-metadata.json\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a grype scan report (\`agent-paste-cli.grype.json\`), and scanner/DB versions (\`scan-metadata.json\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi
