@@ -32,6 +32,33 @@ what can land while the repo is private and what waits for the public flip.
 - [ ] Re-verify the pinned non-`actions/*` action tags are current before each
       release cycle: `aquasecurity/trivy-action@v0.36.0`, `anchore/sbom-action@v0`,
       `anchore/scan-action@v7`, and the `semgrep/semgrep` container image.
+      `anchore/scan-action@v7` is also used by the CLI release (AP-154 Phase 1),
+      which additionally pins `@cyclonedx/cyclonedx-esbuild@1` — re-verify all
+      surfaces together.
+
+## CLI Release supply-chain (AP-154)
+
+- [x] **Phase 1 (capture, non-blocking)** — `.github/workflows/cli-release.yml`
+      attaches a per-release CycloneDX SBOM (`agent-paste-cli.sbom.cdx.json`)
+      generated from the `bun build --metafile` bundler graph via
+      `@cyclonedx/cyclonedx-esbuild`, so it lists **exactly** what is compiled into
+      the binary (the bundled workspace packages + the external closure `zod` +
+      `@asteasolutions/zod-to-openapi`) — not the whole monorepo and not a hollow
+      manifest scan. Also attaches a grype scan report (`agent-paste-cli.grype.json`)
+      and scanner/DB versions (`scan-metadata.json`), and emits a per-binary
+      `actions/attest-build-provenance` attestation. Scan is advisory
+      (`fail-build: false`). The metafile route was chosen because the CLI is a
+      bundled app: its workspace deps are (correctly) `devDependencies` and are
+      inlined from TS source, so a lockfile/manifest scan can't see the real
+      closure. `pnpm sbom --prod --filter` would be the native answer but ships
+      after pnpm 10.19.0 (our pinned version).
+- [ ] **Phase 2 (gate, blocking)** — fail the release on HIGH+ in the CLI closure
+      with a defined severity policy; capture the scan result as an
+      `actions/attest` predicate attestation (not just a CI log).
+- [ ] **Phase 3 (daily re-scan)** — daily workflow re-scans each supported
+      release's captured SBOM against the current vuln DB and alerts (issue /
+      Linear) on new CVEs. Non-blocking, no rebuild. Optional `cosign` for a
+      uniform Linux/Windows signature (macOS already notarized).
 
 ## Public phase (after the repo is public + licensed)
 
