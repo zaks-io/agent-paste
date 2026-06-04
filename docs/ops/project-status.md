@@ -120,11 +120,12 @@ and `LICENSE`.
 Full git history is gitleaks-clean (re-verified 2026-06-04, 1298 commits across
 all refs). The ADR 0076 private-phase
 [`security.yml`](../../.github/workflows/security.yml) workflow is now in place:
-PRs and `main` run a dedicated `Security` workflow with full-history gitleaks,
-Snyk Open Source + Snyk Code (gating, using the org-wide `SNYK_TOKEN`), and
-advisory Semgrep/Trivy/Grype plus a Syft SBOM artifact; `snyk monitor` reports
-`main`. SARIF-to-code-scanning and public badges stay deferred to the public
-phase. This satisfies the ADR's "private phase is done" criterion.
+PRs and `main` run a dedicated `Security` workflow with full-history gitleaks
+and Snyk Open Source (gating, using the org-wide `SNYK_TOKEN`), plus advisory
+Snyk Code/Semgrep/Trivy/Grype and a Syft SBOM artifact; `snyk monitor` reports
+`main`. Snyk Code is advisory pending the org SAST entitlement and triage of its
+initial findings (AP-160). SARIF-to-code-scanning and public badges stay deferred
+to the public phase. This satisfies the ADR's "private phase is done" criterion.
 
 Remaining go-public steps (post-flip, GitHub-side) per
 [ADR 0076](./../adr/0076-public-open-source-security-posture-and-badges.md):

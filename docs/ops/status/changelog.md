@@ -8,10 +8,11 @@ use `git log` for commit-level detail.
 ### Dedicated security workflow (ADR 0076)
 
 - Added `.github/workflows/security.yml`, the private-phase security gate from
-  ADR 0076. Jobs: full-history gitleaks secret scan (gating), Snyk Open Source +
-  Snyk Code (gating, org-wide `SNYK_TOKEN`), advisory Trivy filesystem and Grype
-  scans, advisory Semgrep, and a Syft SPDX SBOM uploaded as a 90-day artifact.
-  `snyk monitor` reports `main` on push.
+  ADR 0076. Jobs: full-history gitleaks secret scan (gating), Snyk Open Source
+  (gating, org-wide `SNYK_TOKEN`), advisory Snyk Code, Trivy filesystem, Grype,
+  and Semgrep scans, and a Syft SPDX SBOM uploaded as a 90-day artifact.
+  `snyk monitor` reports `main` on push. (Snyk Code is advisory pending org SAST
+  entitlement + triage of its initial findings — see AP-160.)
 - Split secret scanning: `ci.yml`'s `Secret scan` is now a fast incremental
   PR-range gitleaks scan; the full-history scan runs in `security.yml` on push to
   `main`, a daily 09:00 UTC cron, and manual dispatch.

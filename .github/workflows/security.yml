@@ -1,8 +1,8 @@
 # Private-phase security workflow (ADR 0076). Runs the free checks we can operate
-# while the repository is private: full-history gitleaks, Snyk Open Source + Snyk
-# Code (gating), and advisory Semgrep / Trivy / Grype with a Syft SBOM artifact.
+# while the repository is private: full-history gitleaks, Snyk Open Source, and
+# advisory Snyk Code / Semgrep / Trivy / Grype with a Syft SBOM artifact.
 #
-# Gating today: gitleaks (full history) + Snyk OSS + Snyk Code. Everything else is
+# Gating today: gitleaks (full history) + Snyk Open Source. Everything else is
 # advisory (log + uploaded artifact). SARIF is uploaded as a plain build artifact,
 # NOT to GitHub code scanning — that, plus CodeQL/Scorecard/Dependabot and a public
 # badge, is deferred to the public phase per ADR 0076.
@@ -79,8 +79,20 @@ jobs:
       - name: Snyk Open Source test
         run: pnpm dlx snyk@latest test --all-projects --severity-threshold=high
 
-      - name: Snyk Code test
-        run: pnpm dlx snyk@latest code test --severity-threshold=high
+      # Advisory: Snyk Code (SAST) overlaps Semgrep and currently needs an org
+      # entitlement that returns 403 on report. Emit SARIF + never fail the build;
+      # findings are triaged out of band (see docs/ops/security-todo.md).
+      - name: Snyk Code test (advisory)
+        run: pnpm dlx snyk@latest code test --severity-threshold=high --sarif-file-output=snyk-code.sarif || true
+
+      - name: Upload Snyk Code SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: snyk-code-results
+          path: snyk-code.sarif
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Snyk monitor main
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

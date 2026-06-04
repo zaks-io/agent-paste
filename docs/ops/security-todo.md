@@ -7,9 +7,16 @@ what can land while the repo is private and what waits for the public flip.
 
 ## Private phase (do now / when convenient)
 
-- [ ] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — the first
-      `Security` run on a branch proves it (Snyk OSS + Snyk Code steps run instead
-      of erroring on a missing token).
+- [x] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — proven on
+      PR #217: Snyk Open Source tested 24 projects (clean) and Snyk Code ran.
+- [ ] Enable the **Snyk Code (SAST) entitlement** on the Snyk org
+      (`isaac-…`). On PR #217 `snyk code test` ran the analysis but the report
+      call returned **403 Forbidden (SNYK-CLI-0000)**. Snyk Code is wired as
+      **advisory** (`|| true` + SARIF artifact) until the entitlement is on; flip
+      it back to gating only after the entitlement works and AP-160 triage is done.
+- [ ] Triage the initial Snyk Code HIGH findings (19 on PR #217) — see **AP-160**.
+      Mostly `scripts/*.mjs` "hardcoded non-cryptographic secret" likely-FPs plus a
+      few app-code XSS/SSRF worth a real look. Add `.snyk` ignores for confirmed FPs.
 - [ ] Link a Snyk project so `snyk monitor --all-projects` (main-only step) posts
       `main` state to the Snyk dashboard. Verify after the first push to `main`.
 - [ ] Tune scanner noise only if warranted: add `.semgrep.yml` / `.trivyignore` /
@@ -36,8 +43,8 @@ license, workflows, and scan config are inspectable.
 - [ ] Swap the advisory SARIF **artifact** uploads (Trivy, Semgrep) for
       `github/codeql-action/upload-sarif`, and add `security-events: write` to the
       relevant job's `permissions`. Keep the top-level default at `contents: read`.
-- [ ] Promote Semgrep / Trivy / Grype from advisory to **gating** once the
-      false-positive surface is characterized.
+- [ ] Promote Snyk Code / Semgrep / Trivy / Grype from advisory to **gating** once
+      their entitlement (Snyk Code) and false-positive surface are characterized.
 - [ ] Configure npm **trusted publishing (OIDC)** + provenance for
       `@zaks-io/agent-paste` from a protected release workflow (replaces long-lived
       npm tokens).
