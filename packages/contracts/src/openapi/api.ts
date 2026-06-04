@@ -343,7 +343,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     security: [{ WorkOsBearer: [] }],
     request: {
       params: params({ access_link_id: pathStringParam("access_link_id", "Access Link id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
+      headers: [requestIdHeader],
     },
     responses: standardJsonResponses(schemaRef("AccessLinkSignedUrl")),
   });
@@ -356,7 +356,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     security: [{ WorkOsBearer: [] }],
     request: {
       params: params({ access_link_id: pathStringParam("access_link_id", "Access Link id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
+      headers: [requestIdHeader],
     },
     responses: standardJsonResponses(schemaRef("WebRevokeAccessLinkResponse")),
   });
