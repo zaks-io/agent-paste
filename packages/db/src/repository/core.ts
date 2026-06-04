@@ -289,6 +289,24 @@ export class RepositoryCore implements Repository {
     return accessLinksWorkflow.listMemberAccessLinks(this.ctx, actor, artifactId);
   }
 
+  async listWorkspaceAccessLinks(actor: ApiActor) {
+    return accessLinksWorkflow.listWorkspaceAccessLinks(this.ctx, actor);
+  }
+
+  async listWebArtifactAccessLinks(actor: ApiActor, artifactId: string) {
+    return accessLinksWorkflow.listWebArtifactAccessLinks(this.ctx, actor, artifactId);
+  }
+
+  async setMemberAccessLinkLockdown(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    locked: boolean;
+    now?: Date;
+  }) {
+    return accessLinksWorkflow.setMemberAccessLinkLockdown(this.ctx, input);
+  }
+
   async revokeMemberAccessLink(input: { actor: ApiActor; accessLinkId: string; now?: Date }) {
     return accessLinksWorkflow.revokeMemberAccessLink(this.ctx, input);
   }

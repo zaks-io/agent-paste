@@ -80,6 +80,22 @@ type WebArtifactDetail = WebArtifactRow & {
 
 type WebApiKeyRow = ApiKeySummary & { revoked: boolean };
 
+type WebAccessLinkRow = {
+  id: string;
+  type: AccessLinkType;
+  artifact_id: string;
+  revision_id: string | null;
+  created_at: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  revoked: boolean;
+};
+
+type WebAccessLinkListView = {
+  items: WebAccessLinkRow[];
+  page_info: { next_cursor: string | null; has_more: boolean };
+};
+
 type WebSettings = {
   workspace_name: string;
   auto_deletion_days: number;
@@ -323,6 +339,15 @@ export type Repository = {
       revoked_at: string | null;
     }>;
   } | null>;
+  listWorkspaceAccessLinks(actor: ApiActor): Promise<WebAccessLinkListView>;
+  listWebArtifactAccessLinks(actor: ApiActor, artifactId: string): Promise<WebAccessLinkListView | null>;
+  setMemberAccessLinkLockdown(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    artifactId: string;
+    locked: boolean;
+    now?: Date;
+  }): Promise<WebArtifactDetail>;
   revokeMemberAccessLink(input: {
     actor: ApiActor;
     accessLinkId: string;

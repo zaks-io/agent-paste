@@ -120,6 +120,7 @@ export type Entities = {
     findById(id: string, workspaceId?: string): Promise<AccessLink | null>;
     findByPublicId(publicId: string): Promise<AccessLink | null>;
     listForArtifact(artifactId: string): Promise<AccessLink[]>;
+    listForWorkspace(workspaceId: string): Promise<AccessLink[]>;
     revoke(id: string, revokedAt: string): Promise<boolean>;
     updateExpiresAt(id: string, expiresAt: string | null): Promise<boolean>;
   };

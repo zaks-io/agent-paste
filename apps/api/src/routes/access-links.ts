@@ -135,7 +135,7 @@ export async function resolveAccessLinkRoute(
   });
 }
 
-function accessLinkSigningSecret(env: Env): { secret: string; kid: number } | null {
+export function accessLinkSigningSecret(env: Env): { secret: string; kid: number } | null {
   const signer = resolveAccessLinkSigner(env);
   if (!signer) {
     return null;

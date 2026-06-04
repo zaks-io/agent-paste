@@ -2671,6 +2671,338 @@ describe("api worker", () => {
   });
 });
 
+describe("web Access Link routes", () => {
+  const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+  const ACCESS_LINK_ID = "al_test_link";
+
+  function accessLinkRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: ACCESS_LINK_ID,
+      type: "share",
+      artifact_id: ARTIFACT_ID,
+      revision_id: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: null,
+      revoked_at: null,
+      revoked: false,
+      ...overrides,
+    };
+  }
+
+  it("lists access links workspace-wide for a member", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async listWorkspaceAccessLinks(actor) {
+          expect(actor).toMatchObject({ type: "member" });
+          return { items: [accessLinkRow()], page_info: { next_cursor: null, has_more: false } };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/access-links", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ items: [{ id: ACCESS_LINK_ID, revoked: false }] });
+  });
+
+  it("rejects non-members on the workspace access link list", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async getWebMemberByWorkOsUserId() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
+        },
+        async listWorkspaceAccessLinks() {
+          throw new Error("should not run for non-members");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/access-links", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
+  it("rejects members without the read scope on access link create", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["publish"], {
+        async createMemberAccessLink() {
+          throw new Error("create should not run without the read scope");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-no-read",
+        },
+        body: JSON.stringify({ type: "share" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
+  it("lists access links for an artifact and 404s when the artifact is unknown", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async listWebArtifactAccessLinks(_actor, artifactId) {
+          return artifactId === ARTIFACT_ID
+            ? { items: [accessLinkRow()], page_info: { next_cursor: null, has_more: false } }
+            : null;
+        },
+      }),
+    };
+
+    const ok = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`, {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(ok.status).toBe(200);
+    await expect(ok.json()).resolves.toMatchObject({ items: [{ id: ACCESS_LINK_ID }] });
+
+    const missing = await handleRequest(
+      new Request("https://api.test/v1/web/artifacts/art_missing/access-links", {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(missing.status).toBe(404);
+    await expect(missing.json()).resolves.toMatchObject({ error: { code: "artifact_not_found" } });
+  });
+
+  it("creates an access link from the member workspace", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async createMemberAccessLink(input) {
+          expect(input).toMatchObject({ artifactId: ARTIFACT_ID, type: "share", idempotencyKey: "idem-al-create" });
+          return {
+            id: ACCESS_LINK_ID,
+            type: "share",
+            artifact_id: ARTIFACT_ID,
+            revision_id: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-al-create",
+        },
+        body: JSON.stringify({ type: "share" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({ id: ACCESS_LINK_ID, type: "share" });
+  });
+
+  it("returns database_unavailable when the access link signer is unset on mint", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async mintMemberAccessLink() {
+          throw new Error("mint should not run without a signer");
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-mint" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "database_unavailable" } });
+  });
+
+  it("mints a signed URL for an access link", async () => {
+    const env: Env = {
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async mintMemberAccessLink(input) {
+          expect(input).toMatchObject({ accessLinkId: ACCESS_LINK_ID });
+          return { url: `https://app.agent-paste.sh/al/0123456789ABCDEF#blob` };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-mint" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ url: expect.stringContaining("/al/") });
+  });
+
+  it("revokes an access link", async () => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async revokeMemberAccessLink(input) {
+          expect(input).toMatchObject({ accessLinkId: ACCESS_LINK_ID });
+          return { access_link_id: ACCESS_LINK_ID, revoked_at: "2026-01-02T00:00:00.000Z" };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/revoke`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-al-revoke" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ access_link_id: ACCESS_LINK_ID });
+  });
+
+  it.each([
+    ["set", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown`, true],
+    ["lift", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown/lift`, false],
+  ])("%ss Access Link Lockdown for an artifact", async (_label, url, expectedLocked) => {
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async setMemberAccessLinkLockdown(input) {
+          expect(input).toMatchObject({ artifactId: ARTIFACT_ID, locked: expectedLocked });
+          return {
+            id: ARTIFACT_ID,
+            title: "Demo",
+            status: "Published",
+            latest_revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            pinned: false,
+            lockdown: expectedLocked,
+            last_published_at: "2026-01-01T00:00:00.000Z",
+            auto_delete_at: null,
+            entrypoint: "index.html",
+            file_count: 1,
+            size_bytes: 12,
+            viewer: null,
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-lockdown" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ id: ARTIFACT_ID, lockdown: expectedLocked });
+  });
+
+  it.each([
+    ["listForArtifact", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`, { method: "GET" }],
+    [
+      "create",
+      `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`,
+      { method: "POST", body: JSON.stringify({ type: "share" }) },
+    ],
+    ["mint", `https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, { method: "POST" }],
+    ["revoke", `https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/revoke`, { method: "POST" }],
+    ["lockdownSet", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown`, { method: "POST" }],
+    ["lockdownLift", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown/lift`, { method: "POST" }],
+  ])("rejects non-members on web access link %s routes", async (_label, url, init) => {
+    const env: Env = {
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      AUTH: webAuthForTests(),
+      DB: webMemberDbForTests(["read"], {
+        async getWebMemberByWorkOsUserId() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["admin"] };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        ...init,
+        headers: {
+          authorization: "Bearer workos-ok",
+          "content-type": "application/json",
+          "idempotency-key": "idem-forbidden",
+        },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+  });
+
+  it.each([
+    ["list", "https://api.test/v1/web/access-links", { method: "GET" }],
+    [
+      "create",
+      `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`,
+      { method: "POST", body: JSON.stringify({ type: "share" }) },
+    ],
+  ])("rejects API keys on web access link %s routes", async (_label, url, init) => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["admin"] };
+        },
+      },
+      DB: baseDbForTests(),
+    };
+
+    const response = await handleRequest(
+      new Request(url, {
+        ...init,
+        headers: {
+          authorization: "Bearer ap_pk_preview_fake",
+          "content-type": "application/json",
+          "idempotency-key": "idem-1",
+        },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+  });
+});
+
 function webAuthForTests(role = "admin"): Env["AUTH"] {
   return {
     async verifyApiKey() {

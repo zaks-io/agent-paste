@@ -45,6 +45,15 @@ export const accessLinkQueries = {
     return rows.map(mapAccessLink);
   },
 
+  async listForWorkspace(db: DrizzleDb, workspaceId: string): Promise<AccessLink[]> {
+    const rows = await db
+      .select()
+      .from(accessLinks)
+      .where(eq(accessLinks.workspaceId, workspaceId))
+      .orderBy(desc(accessLinks.createdAt));
+    return rows.map(mapAccessLink);
+  },
+
   async revoke(db: DrizzleDb, id: string, revokedAt: string): Promise<boolean> {
     const rows = await db
       .update(accessLinks)

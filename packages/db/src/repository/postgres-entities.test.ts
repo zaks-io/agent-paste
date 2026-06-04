@@ -42,6 +42,7 @@ vi.mock("../queries/index.js", () => ({
     "findById",
     "findByPublicId",
     "listForArtifact",
+    "listForWorkspace",
     "revoke",
     "updateExpiresAt",
   ]),
@@ -262,6 +263,7 @@ describe("postgresEntities", () => {
     await entities.accessLinks.findById("al_test", "workspace");
     await entities.accessLinks.findByPublicId("0123456789ABCDEF");
     await entities.accessLinks.listForArtifact("artifact");
+    await entities.accessLinks.listForWorkspace("workspace");
     await entities.accessLinks.revoke("al_test", "now");
     await entities.accessLinks.updateExpiresAt("al_test", now);
     await entities.artifactFiles.insert("artifact", "revision", file, "now");

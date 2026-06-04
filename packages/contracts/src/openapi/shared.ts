@@ -1,5 +1,10 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { AccessLinkResolveRequest } from "../accessLinks.js";
+import {
+  AccessLinkResolveRequest,
+  AccessLinkSignedUrl,
+  CreateAccessLinkRequest,
+  CreateAccessLinkResponse,
+} from "../accessLinks.js";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
@@ -33,6 +38,8 @@ import {
 } from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
+  WebAccessLinkListResponse,
+  WebAccessLinkRow,
   WebApiKeyListResponse,
   WebArtifactDetailResponse,
   WebArtifactListResponse,
@@ -42,6 +49,7 @@ import {
   WebAuthCallbackResponse,
   WebOperatorEventListResponse,
   WebOperatorEventRow,
+  WebRevokeAccessLinkResponse,
   WebSettingsResponse,
   WebWorkspaceResponse,
   WorkspaceMemberSummary,
@@ -100,6 +108,12 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebArtifactListResponse", WebArtifactListResponse);
   registry.register("WebArtifactDetailResponse", WebArtifactDetailResponse);
   registry.register("WebApiKeyListResponse", WebApiKeyListResponse);
+  registry.register("CreateAccessLinkRequest", CreateAccessLinkRequest);
+  registry.register("CreateAccessLinkResponse", CreateAccessLinkResponse);
+  registry.register("AccessLinkSignedUrl", AccessLinkSignedUrl);
+  registry.register("WebAccessLinkRow", WebAccessLinkRow);
+  registry.register("WebAccessLinkListResponse", WebAccessLinkListResponse);
+  registry.register("WebRevokeAccessLinkResponse", WebRevokeAccessLinkResponse);
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
   registry.register("WebOperatorEventRow", WebOperatorEventRow);
