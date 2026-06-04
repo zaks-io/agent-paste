@@ -24,6 +24,7 @@ describe("apex worker", () => {
     expect(csp).toContain("object-src 'none'");
     const body = await response.text();
     expect(body).toContain("<!doctype html>");
+    expect(body).toContain("Hand off what your agent made");
     expect(body).toContain("Where agents publish");
     expect(body).toContain('<span class="wordmark-tld">.sh</span>');
     expect(body).toContain("npx @zaks-io/agent-paste publish ./report");
@@ -34,6 +35,17 @@ describe("apex worker", () => {
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
     expect(body).not.toContain("github.com");
     expect(body).not.toContain("View on GitHub");
+  });
+
+  it("leads with the cross-vendor handoff story and live updates", async () => {
+    const response = await get("/");
+    const body = await response.text();
+    // The wedge: the neutral handoff layer between agents and tools, plus
+    // live-updating artifacts. These are the two lead features.
+    expect(body).toContain("Cross-vendor by design");
+    expect(body).toContain("Leave the tab open, watch it iterate");
+    expect(body).toContain("no polling");
+    expect(body).toContain("hand off");
   });
 
   it("surfaces the standalone one-line installer", async () => {
