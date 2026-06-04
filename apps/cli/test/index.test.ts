@@ -141,18 +141,6 @@ describe("cli command dispatch", () => {
     }
   });
 
-  it("rejects publish TTLs below the workspace minimum", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
-    try {
-      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
-      const client = fakeClient({ usagePolicy: vi.fn().mockResolvedValue(usagePolicy) });
-
-      await expect(main(["publish", root, "--ttl", "1h"], client)).rejects.toThrow("TTL is below workspace minimum");
-    } finally {
-      await removePublishFixture(root);
-    }
-  });
-
   it("rejects upload sessions that return unknown files", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
     try {
@@ -168,9 +156,9 @@ describe("cli command dispatch", () => {
         },
       });
 
-      await expect(
-        main(["publish", root, "--entrypoint=index.html", "--render-mode", "html", "--ttl", "2d"], client),
-      ).rejects.toThrow("Upload session returned unknown file missing.html");
+      await expect(main(["publish", root, "--entrypoint=index.html", "--render-mode", "html"], client)).rejects.toThrow(
+        "Upload session returned unknown file missing.html",
+      );
     } finally {
       await removePublishFixture(root);
     }

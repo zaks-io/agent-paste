@@ -9,8 +9,7 @@ describe("ephemeral workspace policy helpers", () => {
   });
 
   it("caps upload TTL to one day for ephemeral tenants", () => {
-    expect(ephemeralArtifactTtlSeconds(undefined, USAGE_POLICY)).toBe(SECONDS_PER_DAY);
-    expect(() => ephemeralArtifactTtlSeconds(2 * SECONDS_PER_DAY, USAGE_POLICY)).toThrow("invalid_ttl_seconds");
+    expect(ephemeralArtifactTtlSeconds(USAGE_POLICY)).toBe(SECONDS_PER_DAY);
   });
 
   it("computes publish expiry from workspace auto deletion days", () => {

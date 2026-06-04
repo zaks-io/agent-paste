@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { LocalRepository } from "./local-repository.js";
-import { artifactTtlSecondsForUpload, SECONDS_PER_DAY, usagePolicyForWorkspace } from "./policy.js";
+import { artifactTtlSecondsForUpload, usagePolicyForWorkspace } from "./policy.js";
 
 describe("artifactTtlSecondsForUpload", () => {
   const freePolicy = usagePolicyForWorkspace({ plan: "free" }, true);
 
-  it("rejects ttl above the resolved plan max", () => {
-    expect(() => artifactTtlSecondsForUpload(90 * SECONDS_PER_DAY, freePolicy)).toThrow("invalid_ttl_seconds");
-  });
-
-  it("accepts ttl within the resolved plan bounds", () => {
-    expect(artifactTtlSecondsForUpload(7 * SECONDS_PER_DAY, freePolicy)).toBe(7 * SECONDS_PER_DAY);
-    expect(artifactTtlSecondsForUpload(undefined, freePolicy)).toBe(freePolicy.default_ttl_seconds);
+  it("returns the resolved plan default", () => {
+    expect(artifactTtlSecondsForUpload(freePolicy)).toBe(freePolicy.default_ttl_seconds);
   });
 });
 
@@ -61,37 +56,6 @@ describe("LocalRepository usage policy reads", () => {
     await expect(repo.getUsagePolicy(actor)).resolves.toMatchObject({
       max_ttl_seconds: 7 * 24 * 60 * 60,
     });
-  });
-
-  it("rejects upload session ttl above free plan max when billing is enabled", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper", billingEnabled: true });
-    const workspace = await repo.createWorkspace({
-      actor: { type: "admin", id: "admin@example.com" },
-      idempotencyKey: "idem-workspace-ttl",
-      email: "ttl@example.com",
-    });
-    const { secret } = await repo.createApiKey({
-      actor: { type: "admin", id: "admin@example.com" },
-      idempotencyKey: "idem-key-ttl",
-      workspaceId: workspace.id,
-      name: "CI",
-    });
-    const actor = await repo.verifyApiKey(secret);
-    if (!actor) {
-      throw new Error("expected api actor");
-    }
-    await expect(
-      repo.createUploadSession({
-        actor,
-        idempotencyKey: "idem-upload-ttl",
-        request: {
-          entrypoint: "index.html",
-          files: [{ path: "index.html", size_bytes: 12 }],
-          ttl_seconds: 90 * SECONDS_PER_DAY,
-        },
-        now: "2026-01-01T00:00:00.000Z",
-      }),
-    ).rejects.toThrow("invalid_ttl_seconds");
   });
 
   it("returns pro caps from getUsagePolicy when billing is disabled", async () => {

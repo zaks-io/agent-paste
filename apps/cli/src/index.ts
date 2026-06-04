@@ -12,9 +12,7 @@ import { CreateUploadSessionRequest } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
-  expiresAtFromTtl,
   inferPublishOptions,
-  parseTtlSeconds,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "./local.js";
@@ -176,7 +174,7 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
       uploadBaseUrl: provisionClient.uploadBaseUrl,
       auth: { type: "api_key", apiKey: provisioned.api_key_secret },
     });
-  const result = await runPublish(parsed, publishClient, { ephemeral: true });
+  const result = await runPublish(parsed, publishClient);
   const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
   const payload = {
     ...result,
@@ -208,9 +206,7 @@ async function publish(parsed: Parsed, client: ApiClient) {
   return output(result, parsed.global, formatPublishResult(result));
 }
 
-const EPHEMERAL_MAX_TTL_SECONDS = 86_400;
-
-async function runPublish(parsed: Parsed, client: ApiClient, options: { ephemeral?: boolean } = {}) {
+async function runPublish(parsed: Parsed, client: ApiClient) {
   const inputPath = requiredArg(parsed, 0, "path");
   const files = await walkLocalPath(inputPath);
   const policy = await client.usagePolicy();
@@ -231,7 +227,6 @@ async function runPublish(parsed: Parsed, client: ApiClient, options: { ephemera
   const createSessionRequest = CreateUploadSessionRequest.parse({
     ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
     title: inferred.title,
-    ttl_seconds: ttlSecondsForPublish(parsed, policy, options),
     entrypoint: inferred.entrypoint,
     files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes })),
   });
@@ -300,7 +295,7 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "ttl", "name"]).has(name);
+  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "name"]).has(name);
 }
 
 function requiredArg(parsed: Parsed, index: number, label: string) {
@@ -384,39 +379,8 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ttl 7d] [--ephemeral] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
 `);
-}
-
-function ttlSecondsForPublish(
-  parsed: Parsed,
-  policy: Awaited<ReturnType<ApiClient["usagePolicy"]>>,
-  options: { ephemeral?: boolean } = {},
-) {
-  const ttl = stringFlag(parsed, "ttl");
-  if (options.ephemeral) {
-    if (!ttl) {
-      return EPHEMERAL_MAX_TTL_SECONDS;
-    }
-    const seconds = parseTtlSeconds(ttl);
-    if (seconds > EPHEMERAL_MAX_TTL_SECONDS) {
-      throw new Error(`TTL exceeds ephemeral maximum of ${EPHEMERAL_MAX_TTL_SECONDS} seconds (1d)`);
-    }
-    expiresAtFromTtl(ttl, new Date(), EPHEMERAL_MAX_TTL_SECONDS / 86_400);
-    if (seconds < policy.min_ttl_seconds) {
-      throw new Error(`TTL is below workspace minimum of ${policy.min_ttl_seconds} seconds`);
-    }
-    return seconds;
-  }
-  if (!ttl) {
-    return policy.default_ttl_seconds;
-  }
-  const seconds = parseTtlSeconds(ttl);
-  expiresAtFromTtl(ttl, new Date(), policy.max_ttl_seconds / 86_400);
-  if (seconds < policy.min_ttl_seconds) {
-    throw new Error(`TTL is below workspace minimum of ${policy.min_ttl_seconds} seconds`);
-  }
-  return seconds;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

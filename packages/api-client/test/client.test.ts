@@ -116,7 +116,6 @@ describe("ApiClient", () => {
     await client.uploadSessions.create(
       {
         title: "Demo",
-        ttl_seconds: 86_400,
         entrypoint: "index.html",
         files: [{ path: "index.html", size_bytes: 12 }],
       } as Parameters<typeof client.uploadSessions.create>[0],

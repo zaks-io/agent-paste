@@ -22,8 +22,6 @@ import {
   type UploadServiceBinding,
 } from "./forward.js";
 
-const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
-
 function contentTypeForEntrypoint(path: string): string {
   if (path.endsWith(".html")) {
     return "text/html; charset=utf-8";
@@ -47,10 +45,11 @@ export async function runTextPublishChain(
 ): Promise<ForwardToApiResult> {
   const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
   const bodyBytes = new TextEncoder().encode(input.body);
+  // TTL is a server-side policy decision derived from the workspace tier (ephemeral
+  // workspaces are hard-capped at one day). Clients cannot request or influence it.
   const createBody = CreateUploadSessionRequest.parse({
     ...("artifact_id" in input ? { artifact_id: input.artifact_id } : {}),
     title: "title" in input ? input.title : "Revision",
-    ttl_seconds: DEFAULT_TTL_SECONDS,
     entrypoint,
     files: [{ path: entrypoint, size_bytes: bodyBytes.byteLength }],
   });

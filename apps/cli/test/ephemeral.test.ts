@@ -67,7 +67,7 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("defaults ephemeral publish TTL to one day when --ttl is omitted", async () => {
+  it("never sends a client-chosen ttl_seconds on the create call", async () => {
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-ttl-default-"));
@@ -78,10 +78,8 @@ describe("cli ephemeral publish", () => {
         provision: vi.fn().mockResolvedValue(provisionedCredentials()),
         createPublishClient: () => publishClient,
       });
-      expect(publishClient.uploadSessions.create).toHaveBeenCalledWith(
-        expect.objectContaining({ ttl_seconds: 86_400 }),
-        expect.any(String),
-      );
+      const createArg = vi.mocked(publishClient.uploadSessions.create).mock.calls[0]?.[0];
+      expect(createArg).not.toHaveProperty("ttl_seconds");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -113,35 +111,16 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("rejects TTLs above the ephemeral one-day cap", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-ttl-"));
-    try {
-      await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
-      await expect(
-        publishEphemeral(
-          {
-            ...parsedPublishArgs(root),
-            flags: new Map([["ttl", "7d"]]),
-          },
-          {
-            provision: vi.fn().mockResolvedValue(provisionedCredentials()),
-            createPublishClient: () => fakePublishClient(),
-          },
-        ),
-      ).rejects.toThrow("TTL exceeds ephemeral maximum");
-    } finally {
-      await fs.rm(root, { recursive: true, force: true });
-    }
-  });
-
   it("surfaces proof-of-work failures after retry without printing secrets", async () => {
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-pow-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
-      const provision = vi.fn().mockRejectedValue(
-        new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400, requestId: "req_pow" }),
-      );
+      const provision = vi
+        .fn()
+        .mockRejectedValue(
+          new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400, requestId: "req_pow" }),
+        );
 
       await expect(
         publishEphemeral(parsedPublishArgs(root), {
@@ -167,9 +146,11 @@ describe("cli ephemeral publish", () => {
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
       const publishClient = fakePublishClient();
-      publishClient.putFile = vi.fn().mockRejectedValue(
-        new AgentPasteError({ code: "storage_unavailable", message: "storage_unavailable", status: 503 }),
-      );
+      publishClient.putFile = vi
+        .fn()
+        .mockRejectedValue(
+          new AgentPasteError({ code: "storage_unavailable", message: "storage_unavailable", status: 503 }),
+        );
 
       await expect(
         publishEphemeral(parsedPublishArgs(root), {

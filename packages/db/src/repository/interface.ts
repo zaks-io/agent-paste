@@ -259,7 +259,6 @@ export type Repository = {
     request: {
       artifact_id?: string;
       title?: string;
-      ttl_seconds?: number;
       entrypoint?: string;
       files: Array<{ path: string; size_bytes: number }>;
     };

@@ -262,12 +262,6 @@
             "minLength": 1,
             "maxLength": 160
           },
-          "ttl_seconds": {
-            "type": "integer",
-            "minimum": 86400,
-            "maximum": 7776000,
-            "default": 2592000
-          },
           "entrypoint": {
             "type": "string",
             "minLength": 1,
@@ -816,12 +810,6 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 160
-                  },
-                  "ttl_seconds": {
-                    "type": "integer",
-                    "minimum": 86400,
-                    "maximum": 7776000,
-                    "default": 2592000
                   },
                   "entrypoint": {
                     "type": "string",

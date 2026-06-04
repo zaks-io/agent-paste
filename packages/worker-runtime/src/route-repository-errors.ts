@@ -84,7 +84,6 @@ export const routeRepositorySurfaces = {
     "draft_revision_conflict",
     "file_count_cap_exceeded",
     "file_size_cap_exceeded",
-    "invalid_ttl_seconds",
     "revision_size_cap_exceeded",
   ],
   "uploadSessions.putFile": [],

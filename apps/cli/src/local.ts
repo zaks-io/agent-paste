@@ -64,34 +64,6 @@ export function inferPublishOptions(
   return { title, entrypoint, renderMode };
 }
 
-export function parseTtlSeconds(input: string): number {
-  const trimmed = input.trim();
-  const match = /^(?<amount>\d+)(?<unit>s|m|h|d|w)?$/i.exec(trimmed);
-  if (!match?.groups) {
-    throw new Error("TTL must look like 30m, 12h, 7d, or a plain second count");
-  }
-  const amountText = match.groups.amount;
-  if (!amountText) {
-    throw new Error("TTL must include an amount");
-  }
-  const amount = Number.parseInt(amountText, 10);
-  const unit = (match.groups.unit ?? "s").toLowerCase();
-  const multipliers: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86_400, w: 604_800 };
-  const multiplier = multipliers[unit];
-  if (multiplier === undefined) {
-    throw new Error(`Unsupported TTL unit ${unit}`);
-  }
-  return amount * multiplier;
-}
-
-export function expiresAtFromTtl(ttl: string, now = new Date(), capDays?: number): string {
-  const seconds = parseTtlSeconds(ttl);
-  if (capDays !== undefined && seconds > capDays * 86_400) {
-    throw new Error(`TTL exceeds workspace cap of ${capDays} days`);
-  }
-  return new Date(now.getTime() + seconds * 1000).toISOString();
-}
-
 export function validateFilesAgainstUsagePolicy(files: LocalFile[], policy: UsagePolicy) {
   if (files.length > policy.file_count_cap) {
     throw new Error(`File count ${files.length} exceeds cap ${policy.file_count_cap}`);

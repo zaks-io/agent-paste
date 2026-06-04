@@ -4,9 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   contentTypeForLocalPath,
-  expiresAtFromTtl,
   inferPublishOptions,
-  parseTtlSeconds,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "../src/local.js";
@@ -46,12 +44,6 @@ describe("local publish helpers", () => {
 
     const files = await walkLocalPath(root);
     expect(() => inferPublishOptions(root, files)).toThrow(/Could not infer entrypoint/);
-  });
-
-  it("parses TTLs and enforces caps", () => {
-    expect(parseTtlSeconds("2h")).toBe(7200);
-    expect(expiresAtFromTtl("1d", new Date("2026-01-01T00:00:00.000Z"), 2)).toBe("2026-01-02T00:00:00.000Z");
-    expect(() => expiresAtFromTtl("3d", new Date("2026-01-01T00:00:00.000Z"), 2)).toThrow(/cap/);
   });
 
   it("maps upload content types", () => {

@@ -309,7 +309,6 @@ describe("local MVP vertical slice", () => {
         headers: apiHeaders,
         body: JSON.stringify({
           title: "demo",
-          ttl_seconds: 86_400,
           entrypoint: "index.html",
           files: [{ path: "index.html", size_bytes: 12 }],
         }),
