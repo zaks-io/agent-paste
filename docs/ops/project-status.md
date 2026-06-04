@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-02 (main at AP-111; ephemeral publish runbook AP-112).
+Last updated: 2026-06-04 (main at AP-154 Phase 1; web Access Link UI + TanStack/SSE live UI landed).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `777db63 Add hosted ephemeral publish smoke for preview, PR, and production (#172)`.
+  `567e476 feat(ci): capture SBOM + provenance + scan metadata for CLI release (AP-154 Phase 1) (#226)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
@@ -28,12 +28,22 @@ and points to the smaller ledgers that own detail.
   model, Claim Token storage, proof-of-work provision, 24h auto-deletion,
   noindex + script-disabled serving, ephemeral-tier scanner routing, daily write
   allowance, claim/reparent API, CLI `publish --ephemeral`, web `/claim` UX, and
-  local + hosted smokes (PR preview workflow included). Remaining product slice:
+  local + hosted smokes (PR preview workflow included). Artifact TTL is now a
+  purely server-side policy decision (AP-161), and returning web-member login
+  heals a stale null `claimed_at` (AP-162). Remaining product slice:
   claim/upgrade funnel polish (AP-109) and billing upgrade surfaces (AP-5).
   Operators: [`runbook-ephemeral-publish.md`](./runbook-ephemeral-publish.md).
+- Dashboard Access Link management is implemented (AP-156): `/v1/web/*` member
+  routes plus list/create/mint/revoke/lockdown UI on `/access-links` and the
+  artifact detail route. Mint/revoke are `idempotency:none` by contract
+  (AP-163). The dashboard now uses a TanStack Query client cache with an
+  SSE-driven live UI (AP-164).
 - MCP publish chain mints a durable Revision Link per ADR 0061 and is
   replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
-  runs the content-invalidation boundary (AP-87).
+  runs the content-invalidation boundary (AP-87). MCP OAuth scopes derive from
+  the member role and AuthKit login is unblocked per ADR 0079 (AP-153); MCP
+  write-path secrets (`WORKOS_API_KEY`, `ACCESS_LINK_SIGNING_KEY`) are wired
+  into deploy routing (AP-159).
 - Signed-token key resolution is consolidated into one rotation seam in
   `packages/rotation/src/signers.ts` (AP-90).
 - Secret scanning is split (ADR 0076): CI (`ci.yml`) runs a fast incremental
@@ -48,7 +58,14 @@ and points to the smaller ledgers that own detail.
   `/admin` check passed after the WorkOS `admin` role assignment. The repo-local
   `ADMIN_TOKEN` `/admin/*` path is retired (AP-13); operator work uses WorkOS +
   `/v1/web/admin/*`, operator event browsing is implemented (AP-16), and
-  non-production smokes use `SMOKE_HARNESS_SECRET`.
+  non-production smokes use `SMOKE_HARNESS_SECRET`. The authed production
+  hosted-smoke gate stays removed: production deploys run the credential-free
+  `pnpm smoke:prod:readonly` canary instead, and AP-138 is closed on that
+  decision (the authed CI-vs-local 401 divergence is not chased). The artifact
+  rate-limit smoke probe was dropped (AP-143): Cloudflare's `ratelimits` binding
+  is permissive and per-edge by design, so an 80-request probe could not be
+  expected to trip it; the `429 rate_limited_artifact` envelope stays proven by
+  `apps/content` unit tests.
 
 ## Status Ledgers
 
@@ -104,7 +121,10 @@ Highest-signal gaps:
   hosted billing UI, operator plan override, and ephemeral claim/upgrade funnel
   polish (AP-109).
 - Phase 4 follow-ups: Access Link Lockdown live disconnect hook, operator-tunable viewer cap.
-- Parked ops/security hardening: optional dedicated admin hostname decision.
+- In progress: file-bytes hash-reputation malware scanner behind the scanner
+  interface (ADR 0080, AP-149).
+- Security triage backlog: triage Snyk Code (SAST) HIGH findings and enable the
+  org SAST entitlement (AP-160); Snyk Code stays advisory until then.
 
 ## Publish / open-source gate
 
@@ -147,7 +167,7 @@ See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 - Partial: `jobs` only where future hardening adds new queue families beyond
   the current lifecycle/bundle/safety-scan/billing-reconcile set.
 - Scaffolded only: none in the active app set.
-- Placeholder UI: dashboard Access Link management.
+- Placeholder UI: none; dashboard Access Link management is implemented (AP-156).
 
 Full component map:
 [implementation.md](./status/implementation.md#components).

@@ -1,6 +1,6 @@
 # Coverage Ledger
 
-Last updated: 2026-06-02.
+Last updated: 2026-06-04 (AP-156 Access Link UI, AP-153/AP-159 MCP, AP-158 security workflow).
 
 Status legend:
 

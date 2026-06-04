@@ -5,6 +5,52 @@ use `git log` for commit-level detail.
 
 ## 2026-06-04
 
+### Dashboard Access Link management + live dashboard
+
+- Shipped member `/v1/web/*` Access Link routes and the dashboard management UI:
+  list/create/mint/revoke/lockdown on `/access-links` and the artifact detail
+  route (AP-156, #213/#220). Mint and revoke are `idempotency:none` by contract
+  (AP-163, #230) — the fix landed in the contract, not the handler.
+- Moved the dashboard to a TanStack Query client cache with an SSE-driven live
+  UI so published/revoked changes reflect without reload (AP-164, #229).
+
+### Ephemeral TTL + claim hardening
+
+- Made artifact TTL a purely server-side policy decision with no client input
+  (AP-161) and healed a stale null `claimed_at` on returning web-member login
+  (AP-162, #225).
+
+### MCP write-path + OAuth scope fixes
+
+- Derived MCP OAuth scopes from the member role and unblocked AuthKit login per
+  ADR 0079 (AP-153, #205).
+- Wired MCP write-path secrets (`WORKOS_API_KEY`, `ACCESS_LINK_SIGNING_KEY`)
+  into deploy routing (AP-159, #216).
+
+### CLI release supply-chain (AP-154 Phase 1)
+
+- The CLI release workflow now captures an SBOM, provenance, and scan-result
+  metadata, and adds a supply-chain scan gate (AP-154 Phase 1, #226).
+
+### CI + smoke maintenance
+
+- Ran `scripts/` unit tests in the `Validate` gate (AP-145, #219), raised the
+  web test timeout to de-flake cold-cache runs (AP-140, #221), de-flaked the
+  ephemeral PoW "rejects invalid solutions" counter race (AP-150, #222), and
+  retried transient Cloudflare 10013s on PR-preview queue create (AP-157, #212).
+- Dropped the artifact rate-limit smoke probe (AP-143, #211): Cloudflare's
+  `ratelimits` binding is permissive and per-edge by design, so the 80-request
+  probe could not be expected to trip it; the `429 rate_limited_artifact`
+  envelope stays proven by `apps/content` unit tests.
+
+### Ops decisions closed
+
+- Closed AP-138: production deploys run the credential-free
+  `pnpm smoke:prod:readonly` canary instead of the removed authed smoke; the
+  authed CI-vs-local 401 divergence is not chased.
+- Recorded the dedicated operator-hostname decision (AP-11, no new CNAME) and
+  reviewed the GitHub Production environment reviewer/wait-timer posture (AP-17).
+
 ### Dedicated security workflow (ADR 0076)
 
 - Added `.github/workflows/security.yml`, the private-phase security gate from

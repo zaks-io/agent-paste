@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-02 (AP-110/AP-111 smokes merged; AP-112 runbook).
+Last updated: 2026-06-04 (AP-156 Access Link UI; AP-11/AP-17 ops decisions closed).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -8,8 +8,12 @@ first unchecked item in the active work below unless the user says otherwise.
 
 Phase 1 is complete for the hosted CLI-first MVP. Phase 3 is complete. Phase 4
 and Phase 5 are complete for the current Access Link, jobs/lifecycle/bundle,
-Live Updates, and MCP surfaces. Active product work is now post-launch/Phase 6:
-billing surfaces, ephemeral publish claim/upgrade, and security/ops polish.
+Live Updates, and MCP surfaces; the dashboard Access Link management UI and its
+member `/v1/web/*` routes shipped in AP-156, and the dashboard moved to a
+TanStack Query cache with an SSE-driven live UI in AP-164. Active product work
+is now post-launch/Phase 6: billing surfaces, ephemeral publish claim/upgrade,
+the in-progress file-bytes malware scanner (ADR 0080, AP-149), and security/ops
+polish.
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
@@ -66,8 +70,8 @@ Goal: operational depth without changing the product surface.
        hosted API Workers. Production service-token/JWT smoke passed for the API
        lockdown list on 2026-05-26, and the approved human browser `/admin`
        check passed after assigning the WorkOS `admin` role.
-3. [ ] Decide whether to add a dedicated admin/operator hostname.
-       No new CNAME is needed for the current path-based Access gate; add and
+3. [x] Decide whether to add a dedicated admin/operator hostname (AP-11).
+       Decision: no new CNAME for the current path-based Access gate; add and
        document one only if the operator surface grows enough to justify it.
 4. [x] Retire the repo-local `ADMIN_TOKEN` `/admin/*` path after Cloudflare
        Access + WorkOS operator routes cover the remaining operational needs
@@ -80,7 +84,8 @@ Goal: operational depth without changing the product surface.
        public Agent View.
 7. [x] Tested multi-key and multi-pepper rotation automation for ADR 0045.
 8. [x] Richer event/audit browsing for operators.
-9. [ ] GitHub Production environment reviewer/wait-timer/admin-bypass posture.
+9. [x] GitHub Production environment reviewer/wait-timer/admin-bypass posture
+       reviewed (AP-17).
 10. [x] Neon hardening: separate Hyperdrive runtime role from migration role,
         and restrict migration URL secrets to migration workflows (AP-18; operator
         Hyperdrive + GitHub secret cutover tracked in

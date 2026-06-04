@@ -1,18 +1,26 @@
 # Implementation State
 
-Last updated: 2026-06-02 (AP-112 runbook).
+Last updated: 2026-06-04 (AP-154 Phase 1; web Access Link UI + TanStack/SSE).
 
 ## Snapshot
 
 - Local `main` and `origin/main` are aligned at
-  `777db63 Add hosted ephemeral publish smoke for preview, PR, and production (#172)`.
+  `567e476 feat(ci): capture SBOM + provenance + scan metadata for CLI release (AP-154 Phase 1) (#226)`.
 - AP-99 through AP-111 add Ephemeral Workspace provisioning, claim, CLI
   `--ephemeral`, web claim UX, script-disabled/noindex serving, and local +
   hosted ephemeral smokes. Operator notes:
   [`runbook-ephemeral-publish.md`](../runbook-ephemeral-publish.md).
-- Last recorded `pnpm verify` passed on 2026-05-28: 80 Turbo tasks successful.
+- AP-156 ships dashboard Access Link management (member `/v1/web/*` routes plus
+  list/create/mint/revoke/lockdown UI); AP-164 adds the TanStack Query client
+  cache and SSE-driven live dashboard. AP-161/AP-162 make artifact TTL
+  server-side-only and heal stale `claimed_at` on web-member login.
+- CI `Validate` and `Security` are green on `567e476` (current `main` HEAD), and
+  `Deploy Production` succeeded on the same SHA. Local `pnpm verify` re-run on
+  2026-06-04 after a clean `pnpm install`: 88/88 Turbo tasks successful.
 - Last recorded hosted MVP smokes remain green from the 2026-05-22 production
-  run and the later preview/web deploy checks recorded in the changelog.
+  run and the later preview/web deploy checks recorded in the changelog. The
+  production deploy now runs the credential-free `pnpm smoke:prod:readonly`
+  canary in place of the removed authed smoke (AP-138).
 
 ## Components
 
@@ -66,7 +74,8 @@ Last updated: 2026-06-02 (AP-112 runbook).
 
 | Check                   | Latest known result | Date       | Notes                                                                                                                           |
 | ----------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm verify`           | Pass                | 2026-05-28 | 80 Turbo tasks on AP-33 branch.                                                                                                 |
+| CI `Validate` on `main` | Pass                | 2026-06-04 | `CI` + `Security` workflows green on `567e476`; `Deploy Production` succeeded on the same SHA.                                  |
+| `pnpm verify`           | Pass                | 2026-06-04 | 88 Turbo tasks successful on `main` (`567e476`) after a clean `pnpm install`.                                                   |
 | `pnpm smoke:local`      | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
 | `pnpm smoke:preview`    | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
 | `pnpm smoke:production` | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |
