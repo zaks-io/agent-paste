@@ -30,7 +30,7 @@ binary self-upgrade; phase 4 is the release-pipeline wiring.
 version; a compiled binary prints the same string; dev/test runs print
 `0.0.0-dev` without throwing.
 
-## Phase 2 — Background update check + per-channel nag
+## Phase 2 — Background update check + per-channel nag — DONE
 
 - API: add `cli.version` Route Contract in `packages/contracts`
   (`GET /v1/public/cli-version`, unauthenticated, response
@@ -97,29 +97,47 @@ network failure is invisible; stdout is never touched.
 `SHA256SUMS`, and atomically replaces the binary; a corrupted download is
 refused; invoked from npm/npx it prints the npm command instead.
 
-## Phase 4 — Release-pipeline wiring (close the loop)
+## Phase 4 — Release-pipeline wiring (close the loop) — DONE (npm + KV)
 
-- GitHub-driven KV write (ADR 0080 §6). Preferred: a `release: published`
-  -triggered Action step (or a step appended to the release flow) that runs
-  `wrangler kv key put` for the `CLI_RELEASE` value in each env, using the same
-  CI credentials that already deploy Workers. No `api` redeploy — it is a single
-  KV write. (Fallback, only if automation must live off GitHub Actions: an
-  operator-authenticated webhook endpoint in the `/admin/...` family that writes
-  KV on `release` events, with signature verification.)
-- Reconcile npm `version` ↔ `cli-vX.Y.Z` tag: derive the tag from
-  `package.json` (or vice versa) in the release flow so they cannot diverge, and
-  derive the KV `latest` value from the same source.
-- Docs: update `apps/cli/README.md` with `--version`, `upgrade`,
-  `AGENT_PASTE_NO_UPDATE_CHECK`, and the update-check behavior.
+- GitHub-driven KV write + npm publish (ADR 0080 §6): a separate
+  `release: published` workflow (`.github/workflows/cli-advertise.yml`, gated on
+  the `cli-v*` tag) publishes `@zaks-io/agent-paste` to npm (`--provenance`) and
+  then writes the `CLI_RELEASE` value in each env with
+  `wrangler kv key put cli-release --binding CLI_RELEASE --env <env>` (id resolved
+  from `wrangler.jsonc`, no hardcoded ids). npm auth is OIDC trusted publishing
+  (no stored token); the KV write reuses the deploy `CLOUDFLARE_API_TOKEN`/
+  `CLOUDFLARE_ACCOUNT_ID` secrets, scoped to that step. No `api` redeploy.
+- Single version source: `apps/cli/package.json` drives the baked binary version,
+  the npm version, and the KV `latest`. The build job and the advertise job both
+  assert the dispatch/release tag equals `cli-v<version>`, so the channels can't
+  diverge. `min_supported` is set equal to `latest` for now (no force-upgrade
+  floor yet; revisit when a real minimum is needed).
+- Remaining follow-up: update `apps/cli/README.md` with `--version`, `upgrade`,
+  `AGENT_PASTE_NO_UPDATE_CHECK`, and the update-check behavior (folds in with
+  Phase 3's `upgrade` command).
 
-**Done:** publishing a CLI release writes the `CLI_RELEASE` KV value with no
-manual step and no `api` redeploy; the release tag, npm version, and advertised
-`latest` all derive from one source; the README documents version/upgrade/opt-out.
+**Manual prerequisite (one-time, before the first automated release):** a `0.0.0`
+placeholder is already published to npm, so the trusted-publishing precondition
+(package must exist) is met. On npmjs.com → package → Settings → Trusted
+Publishers, add a GitHub Actions publisher: org `zaks-io`, repo `agent-paste`,
+workflow file `cli-advertise.yml` (leave Environment blank unless the job adds a
+matching `environment:`). After this, CI publishes via OIDC with no stored npm
+token.
+
+(`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` already exist as repo secrets
+from the deploy workflow — no new Cloudflare setup.)
+
+**Done:** publishing a `cli-v*` GitHub Release publishes the package to npm and
+advertises the new version in `CLI_RELEASE` KV with no manual step and no `api`
+redeploy; the tag, npm version, and advertised `latest` all derive from
+`package.json`.
 
 ## Out of scope / explicitly rejected
 
 - Silent binary self-update (ADR 0080 §4).
-- Auto-publishing to npm or auto-promoting the draft release.
+- Auto-promoting the draft release: a human still publishes the GitHub Release;
+  npm publish + KV advertise then fire on `release: published`. (npm publish
+  itself is now in scope — it runs automatically once the human publishes.)
 - Reading `package.json` at runtime for the version (ADR 0080 §1).
 
 ## Open questions for review

@@ -96,6 +96,18 @@ export const routeContracts = [
     errors: ["not_found", "invalid_request", "database_unavailable", "rate_limited_artifact"],
   },
   {
+    id: "cli.version",
+    app: "api",
+    method: "GET",
+    path: "/v1/public/cli-version",
+    auth: "none",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "none",
+    responseSchema: "CliVersionResponse",
+    errors: [],
+  },
+  {
     id: "ephemeral.provision",
     app: "api",
     method: "POST",

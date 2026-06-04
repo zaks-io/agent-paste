@@ -68,9 +68,7 @@ export class ApiClient {
 
   constructor(options: ApiClientOptions = {}) {
     this.auth = options.auth ?? authFromEnv();
-    this.apiBaseUrl = normalizeBaseUrl(
-      options.apiBaseUrl ?? process.env.AGENT_PASTE_API_URL ?? "https://api.agent-paste.sh",
-    );
+    this.apiBaseUrl = options.apiBaseUrl ? normalizeBaseUrl(options.apiBaseUrl) : resolveApiBaseUrl();
     this.uploadBaseUrl = normalizeBaseUrl(
       options.uploadBaseUrl ?? process.env.AGENT_PASTE_UPLOAD_URL ?? "https://upload.agent-paste.sh",
     );
@@ -298,6 +296,13 @@ function authFromEnv(): AgentPasteAuth | undefined {
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
+}
+
+// The API base URL the CLI talks to, from AGENT_PASTE_API_URL or the production
+// default. Exported so out-of-band callers (e.g. the CLI update check) resolve
+// it identically to the client itself.
+export function resolveApiBaseUrl(): string {
+  return normalizeBaseUrl(process.env.AGENT_PASTE_API_URL ?? "https://api.agent-paste.sh");
 }
 
 async function throwResponseError(response: Response): Promise<never> {

@@ -13,6 +13,7 @@ export const routeRepositorySurfaces = {
   "apiKeys.revokeCurrent": ["current_api_key_not_found"],
   "agentView.public": [],
   "accessLinks.resolve": [],
+  "cli.version": [],
   "ephemeral.provision": [],
   "ephemeral.claim": ["forbidden", "not_found"],
   "artifacts.list": ["invalid_cursor", "invalid_pagination_limit"],

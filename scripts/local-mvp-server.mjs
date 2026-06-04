@@ -11,9 +11,9 @@ import { createLocalServices } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { LOCAL_SERVER_PORT_ENV, listenHttpPort } from "./lib/smoke-port.mjs";
 import { loadWranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
-import { listenHttpPort, LOCAL_SERVER_PORT_ENV } from "./lib/smoke-port.mjs";
 import { smokeHarnessSecretFromEnv } from "./smoke-harness.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -343,6 +343,10 @@ const services = createLocalServices({
 });
 const artifacts = new MemoryR2Bucket();
 const denylist = new MemoryKVNamespace();
+const cliRelease = new MemoryKVNamespace();
+// Seed a non-zero `latest` (the published placeholder is 0.0.0) so a locally
+// built CLI sees a newer version and the update-check nag is exercisable in dev.
+await cliRelease.put("cli-release", JSON.stringify({ latest: "0.1.0", min_supported: "0.0.0" }));
 const jobsEnv = createJobsEnv({
   repo: services.repo,
   artifacts,
@@ -362,6 +366,7 @@ const apiEnv = {
   LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
+  CLI_RELEASE: cliRelease,
   EPHEMERAL_POW_SECRET: process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret",
   EPHEMERAL_PROVISION_IP_RATE_LIMIT: alwaysAllowRateLimit,
   EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: alwaysAllowRateLimit,

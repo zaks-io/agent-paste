@@ -75,6 +75,22 @@ describe("cli command dispatch", () => {
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"workspace"'));
   });
 
+  it("does not let the post-command update check corrupt --json output", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const payload = { actor: { id: "key_1" }, workspace: { name: "Demo" } };
+    const client = fakeClient({ whoami: vi.fn().mockResolvedValue(payload) });
+
+    // The check runs after dispatch; here it self-suppresses (non-TTY test env),
+    // so stdout is exactly the command payload and nothing leaks to stderr. The
+    // --json / --quiet suppression itself is proven in update-check.test.ts.
+    await main(["whoami", "--json"], client);
+
+    expect(stdout).toHaveBeenCalledTimes(1);
+    expect(stdout).toHaveBeenCalledWith(`${JSON.stringify(payload, null, 2)}\n`);
+    expect(stderr).not.toHaveBeenCalled();
+  });
+
   it("reports unauthenticated whoami without hitting the server (exit 0)", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const previousKey = process.env.AGENT_PASTE_API_KEY;

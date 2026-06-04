@@ -120,9 +120,17 @@ export function isCredentialExpired(credential: Credential, now: Date = new Date
   return credential.expires_at !== null && Date.parse(credential.expires_at) <= now.getTime();
 }
 
-export function defaultCredentialPath(): string {
+export function configDir(): string {
   const base = process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config");
-  return path.join(base, "agent-paste", "credentials.json");
+  return path.join(base, "agent-paste");
+}
+
+export function defaultCredentialPath(): string {
+  return path.join(configDir(), "credentials.json");
+}
+
+export function updateCheckCachePath(): string {
+  return path.join(configDir(), "update-check.json");
 }
 
 function parseCredential(raw: string): Credential | null {

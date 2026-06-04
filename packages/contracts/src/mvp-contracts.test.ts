@@ -25,6 +25,7 @@ describe("MVP route registry", () => {
       "apiKeys.revokeCurrent",
       "agentView.public",
       "accessLinks.resolve",
+      "cli.version",
       "ephemeral.provision",
       "ephemeral.claim",
       "artifacts.list",

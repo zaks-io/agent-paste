@@ -90,11 +90,18 @@ jobs:
         env:
           BUN_TARGET: ${{ matrix.target }}
           ASSET: ${{ matrix.asset }}
+          TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euo pipefail
           # Bake package.json's version into the binary (ADR 0080). package.json
-          # is the single source of truth; the release tag must match it.
+          # is the single source of truth: the binary, the npm publish, and the
+          # CLI_RELEASE KV value all derive from it, so the dispatch tag MUST be
+          # cli-v<version> or the channels would advertise mismatched versions.
           VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "cli-v$VERSION" ]; then
+            echo "::error::tag '$TAG' does not match apps/cli/package.json version '$VERSION' (expected 'cli-v$VERSION')"
+            exit 1
+          fi
           # --metafile records the exact module graph bundled into the binary;
           # the SBOM step (linux-x64 leg) turns it into a CycloneDX BOM of what
           # actually ships. Platform-independent, so one leg's metafile suffices.
