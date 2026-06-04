@@ -35,6 +35,10 @@
   "env": {
     "preview": {
       "name": "agent-paste-mcp-preview",
+      // Per ADR 0078; routing source of truth: scripts/lib/secret-routing.mjs.
+      "secrets": {
+        "required": ["WORKOS_API_KEY"]
+      },
       "workers_dev": true,
       "routes": [
         {
@@ -63,6 +67,9 @@
     },
     "production": {
       "name": "agent-paste-mcp-production",
+      "secrets": {
+        "required": ["WORKOS_API_KEY"]
+      },
       "workers_dev": false,
       "routes": [
         {

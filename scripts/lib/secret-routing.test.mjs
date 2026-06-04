@@ -20,17 +20,27 @@ describe("secret-routing", () => {
   it("excludes rotation-overlap and optional secrets from required set", () => {
     const required = requiredSecretsForApp("api", "production");
     expect(required).not.toContain("API_KEY_PEPPER_V2");
-    expect(required).not.toContain("WORKOS_API_KEY");
+    expect(required).not.toContain("CF_ACCESS_AUD");
     expect(required).toContain("API_KEY_PEPPER_V1");
+  });
+
+  it("requires WORKOS_API_KEY on every worker that verifies an MCP bearer", () => {
+    for (const app of ["api", "mcp", "upload"]) {
+      expect(requiredSecretsForApp(app, "preview")).toContain("WORKOS_API_KEY");
+      expect(requiredSecretsForApp(app, "production")).toContain("WORKOS_API_KEY");
+    }
   });
 
   it("required sets match the wrangler.jsonc secrets.required declarations", () => {
     expect(requiredSecretsForApp("api", "preview")).toEqual([
+      "ACCESS_LINK_SIGNING_KEY_V1",
       "API_KEY_PEPPER_V1",
       "CONTENT_SIGNING_SECRET",
       "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",
+      "WORKOS_API_KEY",
     ]);
+    expect(requiredSecretsForApp("mcp", "preview")).toEqual(["WORKOS_API_KEY"]);
     expect(requiredSecretsForApp("web", "production")).toEqual(["WORKOS_API_KEY", "WORKOS_COOKIE_PASSWORD"]);
     expect(requiredSecretsForApp("content", "preview")).toEqual([
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
@@ -41,6 +51,7 @@ describe("secret-routing", () => {
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
       "CONTENT_SIGNING_SECRET",
       "UPLOAD_SIGNING_SECRET",
+      "WORKOS_API_KEY",
     ]);
     expect(requiredSecretsForApp("stream", "production")).toEqual(["STREAM_INTERNAL_SECRET"]);
   });

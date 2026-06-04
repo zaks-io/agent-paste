@@ -110,7 +110,14 @@
       // Per ADR 0078: deploy fails if any of these are missing. Source of truth
       // for routing is scripts/lib/secret-routing.mjs.
       "secrets": {
-        "required": ["API_KEY_PEPPER_V1", "CONTENT_SIGNING_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]
+        "required": [
+          "ACCESS_LINK_SIGNING_KEY_V1",
+          "API_KEY_PEPPER_V1",
+          "CONTENT_SIGNING_SECRET",
+          "EPHEMERAL_POW_SECRET",
+          "STREAM_INTERNAL_SECRET",
+          "WORKOS_API_KEY"
+        ]
       },
       "routes": [
         {
@@ -230,7 +237,14 @@
       "name": "agent-paste-api-production",
       "workers_dev": false,
       "secrets": {
-        "required": ["API_KEY_PEPPER_V1", "CONTENT_SIGNING_SECRET", "EPHEMERAL_POW_SECRET", "STREAM_INTERNAL_SECRET"]
+        "required": [
+          "ACCESS_LINK_SIGNING_KEY_V1",
+          "API_KEY_PEPPER_V1",
+          "CONTENT_SIGNING_SECRET",
+          "EPHEMERAL_POW_SECRET",
+          "STREAM_INTERNAL_SECRET",
+          "WORKOS_API_KEY"
+        ]
       },
       "routes": [
         {
