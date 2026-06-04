@@ -186,3 +186,13 @@ pnpm hooks:install
 ## Git Hooks
 
 Lefthook is configured at the repo root. `pre-commit` runs Biome on staged files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and Turbo typecheck for packages affected since `origin/main` with a local `HEAD` fallback. `pre-push` runs `pnpm knip` and `pnpm test:coverage` so dead-code and global coverage checks run before local pushes.
+
+## Security
+
+Report vulnerabilities privately. See [`SECURITY.md`](./SECURITY.md). Do not open public issues for security reports.
+
+## License
+
+Apache License 2.0. See [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE). Copyright 2026 zaks-io.
+
+The source is open under Apache-2.0. The hosted service operated by zaks-io is a separate, commercial offering; this license covers the code, not access to the hosted product.

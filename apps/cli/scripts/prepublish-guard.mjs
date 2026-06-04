@@ -17,9 +17,9 @@ const fail = (message) => {
   process.exit(1);
 };
 
-// 1. License gate. The CLI ships UNLICENSED until the open-core decision lands;
-//    publishing proprietary code to a public registry is the mistake we are
-//    guarding against. Flip this once a real OSI license + LICENSE file exist.
+// 1. License gate. The open-core decision landed: the CLI ships under Apache-2.0
+//    with a LICENSE file. This gate stays as a regression guard so the package
+//    can never be published if the license is dropped back to UNLICENSED/missing.
 if (!pkg.license || pkg.license === "UNLICENSED") {
   fail(
     `publish is blocked while license is "${pkg.license ?? "missing"}". ` +

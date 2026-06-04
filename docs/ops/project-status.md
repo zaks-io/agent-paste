@@ -105,15 +105,20 @@ Highest-signal gaps:
 
 ## Publish / open-source gate
 
-The `@zaks-io/agent-paste` CLI is `license: "UNLICENSED"` and intentionally
-NOT publishable. `apps/cli/scripts/prepublish-guard.mjs` (wired as
-`prepublishOnly`) hard-blocks `npm publish` while unlicensed and also asserts
-the bundle is self-contained (no `@agent-paste/*` leak), the only runtime dep
-is `@napi-rs/keyring`, and `files` ships exactly `dist` + `README.md`.
+The open-core licensing decision landed (2026-06-04): the repo is licensed
+**Apache-2.0** (root `LICENSE` + `NOTICE`, `SECURITY.md`, and `license: "Apache-2.0"`
+on every package). `apps/cli/scripts/prepublish-guard.mjs` (wired as
+`prepublishOnly`) now passes the license gate; it stays as a regression guard
+that hard-blocks `npm publish` if the license is ever dropped to UNLICENSED/missing,
+and still asserts the bundle is self-contained (no `@agent-paste/*` leak), the
+only runtime dep is `@napi-rs/keyring`, and `files` ships `dist`, `README.md`,
+and `LICENSE`.
 
-To publish later: land the open-core licensing decision (ADR 0073 leans
-Apache-2.0), add a real OSI `license` field + `LICENSE` file, then the guard
-unblocks. Full git history is gitleaks-clean as of 2026-05-29.
+Full git history is gitleaks-clean (re-verified 2026-06-04, 1298 commits across
+all refs). Remaining go-public steps (post-flip, GitHub-side) per
+[ADR 0076](./../adr/0076-public-open-source-security-posture-and-badges.md):
+flip repo visibility, then enable CodeQL/secret scanning/Dependabot/OpenSSF
+Scorecard and configure npm trusted publishing (OIDC).
 
 See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
 [coverage.md](./status/coverage.md) for the spec/ADR ledger.

@@ -3,6 +3,19 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-04
+
+### Open-core license landed: Apache-2.0
+
+- Adopted Apache-2.0 for the repo. Added root `LICENSE` + `NOTICE`, `SECURITY.md`
+  (private reporting, no bounty), and `license: "Apache-2.0"` on every package
+  (CLI flipped from `UNLICENSED`).
+- CLI publish guard now passes the license gate and remains as a regression
+  guard; `LICENSE` is bundled into the published package.
+- Re-verified gitleaks over full history (1298 commits across all refs, clean).
+- Remaining go-public steps are GitHub-side per ADR 0076 (visibility flip,
+  CodeQL/secret scanning/Dependabot/Scorecard, npm OIDC publishing).
+
 ## 2026-06-02
 
 ### Ephemeral publish operator runbook (AP-112)
