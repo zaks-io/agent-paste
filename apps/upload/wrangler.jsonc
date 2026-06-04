@@ -61,7 +61,8 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "UPLOAD_SIGNING_SECRET"
+          "UPLOAD_SIGNING_SECRET",
+          "WORKOS_API_KEY"
         ]
       },
       "workers_dev": true,
@@ -79,7 +80,7 @@
         "UPLOAD_BASE_URL": "https://agent-paste-upload-preview.isaac-a46.workers.dev",
         "UPLOAD_URL_TTL_SECONDS": "900",
         "DOCS_BASE_URL": "",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh",
+        "WORKOS_MCP_AUDIENCE": "https://mcp.preview.agent-paste.sh",
         "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
         "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
         "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
@@ -123,7 +124,8 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "UPLOAD_SIGNING_SECRET"
+          "UPLOAD_SIGNING_SECRET",
+          "WORKOS_API_KEY"
         ]
       },
       "workers_dev": false,

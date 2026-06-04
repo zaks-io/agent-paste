@@ -29,10 +29,12 @@ export const SECRET_ROUTING = {
     CONTENT_SIGNING_SECRET: { required: true },
     API_KEY_PEPPER_V1: { required: true },
     API_KEY_PEPPER_V2: { required: false }, // rotation overlap window (ADR 0045)
+    ACCESS_LINK_SIGNING_KEY_V1: { required: true }, // signs Share/Revision Link URLs (ADR 0047); mint 503s without it
+    ACCESS_LINK_SIGNING_KEY_V2: { required: false }, // rotation overlap window
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" }, // non-production only
     EPHEMERAL_POW_SECRET: { required: true },
     STREAM_INTERNAL_SECRET: { required: true },
-    WORKOS_API_KEY: { required: false, source: "workos" }, // userinfo lookups; verifier works via JWKS without it
+    WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification (mcpVerifyOptions) returns null without it
     CF_ACCESS_AUD: { required: false, envs: "production", source: "workos" },
   },
   upload: {
@@ -41,7 +43,7 @@ export const SECRET_ROUTING = {
     API_KEY_PEPPER_V1: { required: true },
     API_KEY_PEPPER_V2: { required: false },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
-    WORKOS_API_KEY: { required: false, source: "workos" },
+    WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification on forwarded upload-session calls
   },
   content: {
     CONTENT_SIGNING_SECRET: { required: true },
@@ -56,7 +58,7 @@ export const SECRET_ROUTING = {
     STREAM_INTERNAL_SECRET: { required: true },
   },
   mcp: {
-    WORKOS_API_KEY: { required: false, source: "workos" },
+    WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification at the edge gate
   },
   web: {
     WORKOS_API_KEY: { required: true, source: "workos" },

@@ -9,10 +9,13 @@ const WORKOS_SECRETS = {
     secretName: "WORKOS_API_KEY",
     bindings: [
       { app: "api", worker: "agent-paste-api" },
+      { app: "mcp", worker: "agent-paste-mcp" },
+      { app: "upload", worker: "agent-paste-upload" },
       { app: "web", worker: "agent-paste-web" },
     ],
-    orderNote: "Write api first, then web, to narrow mixed-key propagation.",
-    drainHint: "Verify login and pnpm smoke:web plus the target environment smoke after both writes.",
+    orderNote: "Write api, mcp, then upload (the MCP bearer verifiers), then web, to narrow mixed-key propagation.",
+    drainHint:
+      "Verify login (pnpm smoke:web) and the MCP bearer path (pnpm smoke:mcp) plus the target environment smoke after all four writes.",
   },
   "workos-cookie-password": {
     id: "workos-cookie-password",
