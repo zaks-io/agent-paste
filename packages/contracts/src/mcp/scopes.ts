@@ -1,5 +1,5 @@
 import type { Scope } from "../enums.js";
-import { MCP_DELEGATED_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
+import { MCP_AUTHKIT_OAUTH_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
 import type { McpScope as McpScopeValue } from "./schemas.js";
 import { McpProtectedResourceMetadata } from "./schemas.js";
 
@@ -10,7 +10,7 @@ export function mcpProtectedResourceMetadata(
     resource: input.resource ?? MCP_RESOURCE_INDICATOR,
     authorization_servers: [...(input.authorizationServers ?? [])],
     bearer_methods_supported: ["header"],
-    scopes_supported: [...MCP_DELEGATED_SCOPES],
+    scopes_supported: [...MCP_AUTHKIT_OAUTH_SCOPES],
   });
 }
 

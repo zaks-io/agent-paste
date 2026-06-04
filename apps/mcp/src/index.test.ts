@@ -21,7 +21,7 @@ describe("mcp worker", () => {
       resource: "https://mcp.agent-paste.sh",
       authorization_servers: [],
       bearer_methods_supported: ["header"],
-      scopes_supported: ["write", "read", "share"],
+      scopes_supported: ["openid", "profile", "email", "offline_access"],
     });
   });
 

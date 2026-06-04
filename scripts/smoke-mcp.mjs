@@ -38,7 +38,7 @@ async function runHostedMcpSmoke(target) {
 
   const metadata = await fetchMcpProtectedResource(config.mcpBaseUrl);
   assert(metadata.resource === config.resource, `resource indicator is ${config.resource}`);
-  for (const scope of ["write", "read", "share"]) {
+  for (const scope of ["openid", "profile", "email", "offline_access"]) {
     assert(metadata.scopes_supported.includes(scope), `scopes_supported includes ${scope}`);
   }
   if (config.authorizationServers.length > 0) {

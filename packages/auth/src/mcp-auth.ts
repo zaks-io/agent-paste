@@ -58,12 +58,19 @@ export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | n
   return options;
 }
 
+// MCP clients append the resource URL with or without a trailing slash, and
+// AuthKit stamps aud from the requested resource verbatim, so compare normalized.
+function normalizeMcpResource(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
 export function audienceMatchesMcpResource(aud: unknown, resource: string): boolean {
+  const expected = normalizeMcpResource(resource);
   if (typeof aud === "string") {
-    return aud === resource;
+    return normalizeMcpResource(aud) === expected;
   }
   if (Array.isArray(aud)) {
-    return aud.some((entry) => typeof entry === "string" && entry === resource);
+    return aud.some((entry) => typeof entry === "string" && normalizeMcpResource(entry) === expected);
   }
   return false;
 }

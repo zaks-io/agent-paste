@@ -15,12 +15,19 @@ export type McpWorkOsEnv = {
 const WORKOS_JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
+// MCP clients append the resource URL with or without a trailing slash, and
+// AuthKit stamps aud from the requested resource verbatim, so compare normalized.
+function normalizeResource(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
 function audienceMatches(aud: unknown, resource: string): boolean {
+  const expected = normalizeResource(resource);
   if (typeof aud === "string") {
-    return aud === resource;
+    return normalizeResource(aud) === expected;
   }
   if (Array.isArray(aud)) {
-    return aud.some((entry) => typeof entry === "string" && entry === resource);
+    return aud.some((entry) => typeof entry === "string" && normalizeResource(entry) === expected);
   }
   return false;
 }

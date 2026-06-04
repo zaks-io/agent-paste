@@ -103,6 +103,13 @@ describe("MCP OAuth bearer verification", () => {
     expect(audienceMatchesMcpResource([123], MCP_RESOURCE_INDICATOR)).toBe(false);
   });
 
+  it("ignores a trailing slash mismatch between aud and resource", () => {
+    expect(audienceMatchesMcpResource(`${MCP_RESOURCE_INDICATOR}/`, MCP_RESOURCE_INDICATOR)).toBe(true);
+    expect(audienceMatchesMcpResource(MCP_RESOURCE_INDICATOR, `${MCP_RESOURCE_INDICATOR}/`)).toBe(true);
+    expect(audienceMatchesMcpResource([`${MCP_RESOURCE_INDICATOR}/`], MCP_RESOURCE_INDICATOR)).toBe(true);
+    expect(audienceMatchesMcpResource("https://other.example/", MCP_RESOURCE_INDICATOR)).toBe(false);
+  });
+
   it("rejects missing bearer tokens and unconfigured verification", async () => {
     expect(await authenticateMcpBearer(new Request("https://upload.test/v1/upload-sessions"), baseEnv())).toBeNull();
     expect(mcpVerifyOptions({})).toBeNull();

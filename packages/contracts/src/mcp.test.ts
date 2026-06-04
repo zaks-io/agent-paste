@@ -165,7 +165,7 @@ describe("MCP tool registry", () => {
 });
 
 describe("MCP auth and idempotency helpers", () => {
-  it("builds protected resource metadata with delegated scopes", () => {
+  it("advertises AuthKit OAuth scopes (not the capability vocabulary) in protected resource metadata", () => {
     expect(
       mcpProtectedResourceMetadata({
         authorizationServers: ["https://auth.example.test"],
@@ -174,7 +174,7 @@ describe("MCP auth and idempotency helpers", () => {
       resource: "https://mcp.agent-paste.sh",
       authorization_servers: ["https://auth.example.test"],
       bearer_methods_supported: ["header"],
-      scopes_supported: ["write", "read", "share"],
+      scopes_supported: ["openid", "profile", "email", "offline_access"],
     });
   });
 

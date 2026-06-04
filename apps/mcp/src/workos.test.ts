@@ -34,6 +34,13 @@ describe("MCP WorkOS token verification", () => {
     expect(audienceFromPayload({ aud: [123, MCP_RESOURCE_INDICATOR] }, MCP_RESOURCE_INDICATOR)).toBe(true);
   });
 
+  it("ignores a trailing slash mismatch between aud and resource", () => {
+    expect(audienceFromPayload({ aud: `${MCP_RESOURCE_INDICATOR}/` }, MCP_RESOURCE_INDICATOR)).toBe(true);
+    expect(audienceFromPayload({ aud: MCP_RESOURCE_INDICATOR }, `${MCP_RESOURCE_INDICATOR}/`)).toBe(true);
+    expect(audienceFromPayload({ aud: [`${MCP_RESOURCE_INDICATOR}/`] }, MCP_RESOURCE_INDICATOR)).toBe(true);
+    expect(audienceFromPayload({ aud: "https://other.example/" }, MCP_RESOURCE_INDICATOR)).toBe(false);
+  });
+
   it("returns null when verification prerequisites are missing", async () => {
     expect(isConfiguredMcpOAuthVerifier({})).toBe(false);
     expect(isConfiguredMcpOAuthVerifier({ WORKOS_API_KEY: "sk_test" })).toBe(false);
