@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { type Credential, fileStore, isCredentialExpired, keyringStore } from "../src/credentials.js";
+import { type Credential, credentialStore, fileStore, isCredentialExpired, keyringStore } from "../src/credentials.js";
 
 const credential: Credential = {
   api_key: "ap_pk_preview_secret",
@@ -119,6 +119,26 @@ describe("keyring credential store", () => {
 
     expect(await store.load()).toBeNull();
     expect(await fallback.load()).toBeNull();
+  });
+});
+
+describe("credentialStore platform selection", () => {
+  it("uses the bare file store on platforms without a keychain backend", async () => {
+    // win32 has no shell-backend keychain, so credentialStore() must resolve to
+    // a working file-backed store with no native module involved. Point
+    // XDG_CONFIG_HOME at an empty temp dir to keep the default path hermetic.
+    const previous = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cfg-"));
+    try {
+      const store = credentialStore("win32");
+      await expect(store.load()).resolves.toBeNull();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.XDG_CONFIG_HOME;
+      } else {
+        process.env.XDG_CONFIG_HOME = previous;
+      }
+    }
   });
 });
 

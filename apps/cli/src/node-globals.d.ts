@@ -77,6 +77,12 @@ declare module "node:child_process" {
     args: string[],
     callback?: (error: unknown, stdout: string, stderr: string) => void,
   ): unknown;
+
+  export function spawnSync(
+    command: string,
+    args: string[],
+    options: { encoding: "utf8"; input?: string | undefined },
+  ): { status: number | null; stdout: string; stderr: string; error?: Error | undefined };
 }
 
 declare module "node:net" {

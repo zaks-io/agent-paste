@@ -6,8 +6,8 @@ name: CLI Release
 # tooling (codesign + notarytool), and attaches everything to a single DRAFT
 # GitHub Release for human review before publishing.
 #
-# Native per-OS Blacksmith runners so each binary is built (and the keyring NAPI
-# addon validated) on its real target OS. See AP-36 / AP-41.
+# Native per-OS Blacksmith runners so each binary is built and smoke-checked on
+# its real target OS. See AP-36 / AP-41.
 
 on:
   workflow_dispatch:
@@ -90,29 +90,40 @@ jobs:
             --conditions=types \
             --target="$BUN_TARGET" \
             --outfile "$ASSET"
+          # bun --compile does not set the exec bit, and upload-artifact does not
+          # preserve it through its zip round-trip, so assert it here. Harmless on
+          # the Windows .exe (filename carries the executable semantics there).
+          chmod +x "$ASSET"
 
-      # Runs the binary on its own OS — proves the keyring NAPI addon loads and
-      # the CLI starts. `whoami` exercises credentials.ts (keyring -> file
-      # fallback); with no creds it reports "not signed in" and exits 0 (a
+      # Proves the binary is genuinely standalone: copy it OUTSIDE the repo to
+      # $RUNNER_TEMP (no node_modules ancestry) and run it there. Running from
+      # apps/cli would let any stray runtime dep resolve from node_modules and
+      # mask a missing bundle. `whoami` exercises credentials.ts (keychain ->
+      # file fallback); with no creds it reports "not signed in" and exits 0 (a
       # status query, not an authed action — no API key required).
       - name: Smoke-check binary
         if: runner.os != 'Windows'
-        working-directory: apps/cli
         shell: bash
         env:
           ASSET: ${{ matrix.asset }}
         run: |
           set -euo pipefail
+          cp "apps/cli/$ASSET" "$RUNNER_TEMP/$ASSET"
+          chmod +x "$RUNNER_TEMP/$ASSET"
+          cd "$RUNNER_TEMP"
           "./$ASSET" --help
           "./$ASSET" whoami
 
       - name: Smoke-check binary (Windows)
         if: runner.os == 'Windows'
-        working-directory: apps/cli
         shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
         run: |
-          & ".\${{ matrix.asset }}" --help
-          & ".\${{ matrix.asset }}" whoami
+          Copy-Item "apps/cli/$env:ASSET" "$env:RUNNER_TEMP/$env:ASSET"
+          Set-Location "$env:RUNNER_TEMP"
+          & ".\$env:ASSET" --help
+          & ".\$env:ASSET" whoami
 
       - name: Import Apple Developer certificate
         if: matrix.name == 'macos-arm64'
