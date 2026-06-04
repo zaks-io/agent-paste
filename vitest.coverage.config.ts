@@ -1,5 +1,9 @@
 import { defineConfig } from "vitest/config";
 
+// `scripts/` is intentionally absent from `projects` and coverage `include`.
+// Repo tooling under `scripts/` is gated by a pass/fail run (`pnpm test:scripts`,
+// wired into `pnpm verify`) rather than the 80% line/branch thresholds that apply
+// to shipped product code in `apps/*/src` and `packages/*/src`. See AP-145.
 export default defineConfig({
   test: {
     projects: ["apps/*", "packages/*"],

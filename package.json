@@ -64,10 +64,10 @@
     "setup:worktree": "node scripts/setup-worktree.mjs",
     "setup:codex": "node scripts/setup-worktree.mjs",
     "test": "turbo run test",
-    "test:scripts": "vitest run scripts",
+    "test:scripts": "vitest run --config vitest.scripts.config.ts",
     "test:coverage": "pnpm build && vitest run --coverage --config vitest.coverage.config.ts",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check"
+    "verify": "pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm test:scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
