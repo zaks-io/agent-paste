@@ -81,6 +81,38 @@ describe("apex worker", () => {
     expect(body).toContain("AGENT_PASTE_API_KEY");
   });
 
+  it("serves /install.sh as a POSIX shell script", async () => {
+    const response = await get("/install.sh");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/x-shellscript; charset=utf-8");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const body = await response.text();
+    expect(body.startsWith("#!/bin/sh")).toBe(true);
+    expect(body).toContain("zaks-io/agent-paste");
+    expect(body).toContain("SHA256SUMS");
+    // Must hard-fail rather than install unverified, and curl must use --fail
+    // so a 404 never lands as the binary.
+    expect(body).toContain("checksum mismatch");
+    expect(body).toContain("--fail");
+  });
+
+  it("serves /install.ps1 as a PowerShell script", async () => {
+    const response = await get("/install.ps1");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    const body = await response.text();
+    expect(body).toContain("Get-FileHash");
+    expect(body).toContain("agent-paste-windows-x64.exe");
+    expect(body).toContain("SHA256SUMS");
+  });
+
+  it("returns /install.sh with no body for HEAD", async () => {
+    const response = await handleRequest(new Request(`${APEX}/install.sh`, { method: "HEAD" }), emptyEnv());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/x-shellscript; charset=utf-8");
+    expect(await response.text()).toBe("");
+  });
+
   it("serves /robots.txt with sitemap pointer", async () => {
     const response = await get("/robots.txt");
     expect(response.status).toBe(200);
@@ -97,6 +129,7 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/llms.txt</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/install.sh</loc>");
   });
 
   it("redirects /dashboard to the app domain", async () => {
