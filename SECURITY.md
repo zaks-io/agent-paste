@@ -16,7 +16,7 @@ security fixes. There are no long-term support branches.
 **Do not open a public issue for security vulnerabilities.**
 
 Report privately through GitHub's [private vulnerability reporting](https://github.com/zaks-io/agent-paste/security/advisories/new).
-If you cannot use GitHub advisories, email **isaac@isaacsuttell.com** with
+If you cannot use GitHub advisories, email **isaac@zaks.io** with
 "SECURITY" in the subject line.
 
 Please include:
