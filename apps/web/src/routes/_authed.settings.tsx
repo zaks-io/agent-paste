@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { SettingsForm } from "../components/settings/SettingsForm";
 import { SectionLabel } from "../components/ui/Card";
@@ -5,17 +6,17 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { loadSettingsFn } from "../rpc/web-loaders";
+import { settingsQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/settings")({
-  loader: () => loadSettingsFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(settingsQuery()),
   head: ({ matches }) =>
     dashboardPageMeta("Workspace Settings", "Workspace name, retention, and usage caps.", "/settings", matches),
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const result = Route.useLoaderData();
+  const { data: result } = useSuspenseQuery(settingsQuery());
   const settings = result.data;
 
   return (

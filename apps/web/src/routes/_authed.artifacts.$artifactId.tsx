@@ -1,5 +1,6 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { AccessLinkLockdownToggle } from "../components/access-links/AccessLinkLockdownToggle";
@@ -17,17 +18,17 @@ import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { getArtifactFn, listArtifactAccessLinksFn, listArtifactRevisionsFn } from "../rpc/web-loaders";
+import { artifactAccessLinksQuery, artifactQuery, artifactRevisionsQuery, queryKeys } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
-  loader: async ({ params }) => {
-    const data = { artifactId: params.artifactId };
-    const [artifact, accessLinks, revisions] = await Promise.all([
-      getArtifactFn({ data }),
-      listArtifactAccessLinksFn({ data }),
-      listArtifactRevisionsFn({ data }),
+  loader: async ({ context, params }) => {
+    const { artifactId } = params;
+    const [artifact] = await Promise.all([
+      context.queryClient.ensureQueryData(artifactQuery(artifactId)),
+      context.queryClient.ensureQueryData(artifactAccessLinksQuery(artifactId)),
+      context.queryClient.ensureQueryData(artifactRevisionsQuery(artifactId)),
     ]);
-    return { artifact, accessLinks, revisions };
+    return { artifact };
   },
   head: ({ loaderData, params, matches }) => {
     const artifact = loaderData?.artifact?.data;
@@ -46,31 +47,49 @@ export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
 
 function ArtifactDetailPage() {
   const { artifactId } = Route.useParams();
-  const { artifact: result, accessLinks, revisions } = Route.useLoaderData();
-  const router = useRouter();
-  const refresh = useCallback(() => router.invalidate(), [router]);
+  const queryClient = useQueryClient();
+  const { data: result } = useSuspenseQuery(artifactQuery(artifactId));
+  const { data: accessLinks } = useSuspenseQuery(artifactAccessLinksQuery(artifactId));
+  const { data: revisions } = useSuspenseQuery(artifactRevisionsQuery(artifactId));
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.artifactAccessLinks(artifactId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.artifactRevisions(artifactId) }),
+    ]);
+  }, [queryClient, artifactId]);
   const artifact = result.data;
-  const [iframeSrc, setIframeSrc] = useState<string | null>(artifact?.viewer?.iframe_src ?? null);
-
-  useEffect(() => {
-    setIframeSrc(artifact?.viewer?.iframe_src ?? null);
-  }, [artifact?.viewer?.iframe_src]);
+  // A `platform_lockdown` (and `takedown`) revoke blocks content at the edge
+  // without touching the artifact row, so the refetch still reports the viewer.
+  // Track revocation locally so any revoke reason hides the viewer immediately.
+  const [revoked, setRevoked] = useState(false);
+  // The API also leaves `viewer` populated on access-link lockdown (it only
+  // flips `lockdown`), so derive visibility from both signals, not the src.
+  const iframeSrc = artifact && !artifact.lockdown && !revoked ? (artifact.viewer?.iframe_src ?? null) : null;
 
   useEffect(() => {
     if (!artifact) {
       return;
     }
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) });
+    };
     const connection = connectLiveUpdates({
       url: `/api/live/artifacts/${encodeURIComponent(artifactId)}`,
-      onPointer: (pointer: LiveUpdatePointer) => {
-        setIframeSrc(pointer.iframe_src);
+      // A publish event refetches the whole artifact, so the iframe and every
+      // other field (size, file count, last published, status) update together.
+      // A fresh revision also clears any prior revoked state.
+      onPointer: (_pointer: LiveUpdatePointer) => {
+        setRevoked(false);
+        invalidate();
       },
       onRevoked: () => {
-        setIframeSrc(null);
+        setRevoked(true);
+        invalidate();
       },
     });
     return () => connection.close();
-  }, [artifact, artifactId]);
+  }, [artifact, artifactId, queryClient]);
 
   if (result.error) {
     return (

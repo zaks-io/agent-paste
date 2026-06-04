@@ -1,6 +1,7 @@
 import type { WebSettingsResponse } from "@agent-paste/contracts";
-import { useRouter } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+import { queryKeys } from "../../lib/queries";
 import { saveSettingsFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { Card, CardHeader } from "../ui/Card";
@@ -9,7 +10,7 @@ import { errorToast, useToast } from "../ui/toast-context";
 
 export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
   const { push } = useToast();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [name, setName] = useState(settings.workspace_name);
   const [days, setDays] = useState(String(settings.auto_deletion_days));
   const [pending, setPending] = useState(false);
@@ -36,7 +37,7 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
       setName(result.data.workspace_name);
       setDays(String(result.data.auto_deletion_days));
       push({ tone: "success", title: "Settings saved", message: "Workspace settings updated." });
-      await router.invalidate();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings() });
     } finally {
       setPending(false);
     }

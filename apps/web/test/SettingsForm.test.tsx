@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const saveSettingsFn = vi.fn();
 vi.mock("../src/rpc/web-mutations", () => ({ saveSettingsFn: (...args: unknown[]) => saveSettingsFn(...args) }));
 
-const invalidate = vi.fn().mockResolvedValue(undefined);
-vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ invalidate }) }));
+const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+vi.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries }) }));
 
 import { SettingsForm } from "../src/components/settings/SettingsForm";
 import { ToastProvider } from "../src/components/ui/ToastProvider";
@@ -28,10 +28,10 @@ function renderForm() {
 describe("SettingsForm", () => {
   beforeEach(() => {
     saveSettingsFn.mockReset();
-    invalidate.mockClear();
+    invalidateQueries.mockClear();
   });
 
-  it("submits the edited name and days then invalidates the route", async () => {
+  it("submits the edited name and days then invalidates the settings query", async () => {
     saveSettingsFn.mockResolvedValue({ data: { ...settings, workspace_name: "Renamed" }, error: null });
     renderForm();
 
@@ -39,7 +39,7 @@ describe("SettingsForm", () => {
     fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "14" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(invalidate).toHaveBeenCalledOnce());
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledOnce());
     expect(saveSettingsFn).toHaveBeenCalledWith({ data: { workspace_name: "Renamed", auto_deletion_days: 14 } });
     expect(screen.getByText("Settings saved")).toBeInTheDocument();
   });
@@ -54,7 +54,7 @@ describe("SettingsForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.getByText("Couldn't save settings")).toBeInTheDocument());
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 
   it("rejects out-of-range auto-deletion days client-side without calling the server", async () => {

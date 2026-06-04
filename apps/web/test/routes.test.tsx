@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   liftLockdownFn: vi.fn(),
   setLockdownFn: vi.fn(),
   invalidate: vi.fn(),
+  ensureQueryData: vi.fn(),
+  invalidateQueries: vi.fn(),
   signInUrl: "https://workos.example.test/sign-in",
   signOut: vi.fn(),
 }));
@@ -41,6 +43,31 @@ vi.mock("@tanstack/react-router", () => ({
   useRouteContext: () => state.parentRouteContext,
   useRouter: () => ({ invalidate: state.invalidate }),
   useNavigate: () => vi.fn(),
+}));
+
+const emptyListEnvelope = {
+  data: { items: [], page_info: { next_cursor: null, has_more: false } },
+  empty: true,
+  error: null,
+};
+
+vi.mock("@tanstack/react-query", () => ({
+  // Migrated routes read through useSuspenseQuery; mirror the loader-data
+  // harness so components still render from state.loaderData. The artifact
+  // detail page also reads access-link/revision lists; return empty envelopes
+  // for those keys so the single state.loaderData drives the artifact read.
+  useSuspenseQuery: (options?: { queryKey?: readonly unknown[] }) => {
+    const key = options?.queryKey?.[0];
+    if (key === "artifact-access-links" || key === "artifact-revisions") {
+      return { data: emptyListEnvelope };
+    }
+    return { data: state.loaderData };
+  },
+  useQueryClient: () => ({
+    ensureQueryData: state.ensureQueryData,
+    invalidateQueries: state.invalidateQueries,
+  }),
+  queryOptions: (options: unknown) => options,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -100,6 +127,9 @@ vi.mock("../src/server/runtime", () => ({
   }),
 }));
 
+// Loaders migrated to TanStack Query read context.queryClient.ensureQueryData.
+const queryContext = () => ({ context: { queryClient: { ensureQueryData: state.ensureQueryData } } });
+
 describe("web routes", () => {
   beforeEach(() => {
     state.loaderData = undefined;
@@ -112,6 +142,13 @@ describe("web routes", () => {
     state.liftLockdownFn.mockReset();
     state.setLockdownFn.mockReset();
     state.invalidate.mockReset();
+    state.ensureQueryData.mockReset();
+    // Faithfully run the query's own fetcher so loader-level assertions on the
+    // underlying API calls keep working.
+    state.ensureQueryData.mockImplementation((options: { queryFn?: () => unknown } | undefined) =>
+      Promise.resolve(options?.queryFn ? options.queryFn() : state.loaderData),
+    );
+    state.invalidateQueries.mockReset();
     state.signOut.mockReset();
   });
 
@@ -176,7 +213,7 @@ describe("web routes", () => {
       });
     const { Route } = await import("../src/routes/_authed.dashboard");
 
-    await expect((Route.loader as () => Promise<unknown>)()).resolves.toMatchObject({
+    await expect((Route.loader as (input: unknown) => Promise<unknown>)(queryContext())).resolves.toMatchObject({
       workspace: { data: { workspace: { name: "Demo" } } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/workspace", { accessToken: "workos-token" });
@@ -250,7 +287,7 @@ describe("web routes", () => {
       empty: false,
       error: null,
     });
-    await (artifacts.Route.loader as () => Promise<unknown>)();
+    await (artifacts.Route.loader as (input: unknown) => Promise<unknown>)(queryContext());
     state.loaderData = {
       data: { items: [artifactRow()], page_info: { next_cursor: null, has_more: false } },
       empty: false,
@@ -260,6 +297,8 @@ describe("web routes", () => {
     expect(screen.getByText("Artifact One")).toBeInTheDocument();
     view.unmount();
 
+    // The migrated loader ensureQueryData's three queries (artifact, access
+    // links, revisions); feed their fetchers in array order.
     state.apiFetchOrEmpty
       .mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null })
       .mockResolvedValueOnce({
@@ -272,22 +311,11 @@ describe("web routes", () => {
         empty: false,
         error: null,
       });
-    await (artifactDetail.Route.loader as (input: { params: { artifactId: string } }) => Promise<unknown>)({
+    state.loaderData = { data: artifactDetailRow(), empty: false, error: null };
+    await (artifactDetail.Route.loader as (input: unknown) => Promise<unknown>)({
+      ...queryContext(),
       params: { artifactId: state.params.artifactId },
     });
-    state.loaderData = {
-      artifact: { data: artifactDetailRow(), empty: false, error: null },
-      accessLinks: {
-        data: { items: [], page_info: { next_cursor: null, has_more: false } },
-        empty: false,
-        error: null,
-      },
-      revisions: {
-        data: { artifact_id: state.params.artifactId, items: [], page_info: { next_cursor: null, has_more: false } },
-        empty: false,
-        error: null,
-      },
-    };
     view = render(
       <ToastProvider>
         <artifactDetail.Route.component />
@@ -374,12 +402,11 @@ describe("web routes", () => {
         error: null,
       });
     await expect(
-      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+      (admin.Route.loader as (input: unknown) => Promise<unknown>)({
+        ...queryContext(),
         location: { search: { focus: "security" } },
       }),
     ).resolves.toMatchObject({
-      lockdowns: { data: { items: [{ reason_code: "phishing_report" }] } },
-      events: { data: { items: [{ action: "platform.lockdown.set" }] } },
       eventSearch: { focus: "security" },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/lockdowns", {
@@ -389,6 +416,8 @@ describe("web routes", () => {
       accessToken: "workos-token",
     });
     state.loaderData = {
+      allowed: true,
+      lockdownPrefill: {},
       lockdowns: {
         data: { items: [lockdownRow("phishing_report")], page_info: { next_cursor: null, has_more: false } },
         empty: false,
@@ -440,7 +469,8 @@ describe("web routes", () => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "member" };
 
     await expect(
-      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+      (admin.Route.loader as (input: unknown) => Promise<unknown>)({
+        ...queryContext(),
         location: { search: {} },
       }),
     ).rejects.toMatchObject({
@@ -467,12 +497,12 @@ describe("web routes", () => {
       });
 
     await expect(
-      (admin.Route.loader as (input: { location: { search: Record<string, unknown> } }) => Promise<unknown>)({
+      (admin.Route.loader as (input: unknown) => Promise<unknown>)({
+        ...queryContext(),
         location: { search: {} },
       }),
     ).resolves.toMatchObject({
-      lockdowns: { data: { items: [] } },
-      events: { data: { items: [] } },
+      eventSearch: {},
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/admin/lockdowns", {
       accessToken: "workos-token",

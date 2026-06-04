@@ -1,5 +1,6 @@
 import type { WebApiKeyListResponse } from "@agent-paste/contracts";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { KeyCreateForm } from "../components/keys/KeyCreateForm";
 import { KeysTable } from "../components/keys/KeysTable";
@@ -8,22 +9,22 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { listKeysFn } from "../rpc/web-loaders";
+import { keysQuery, queryKeys } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/keys")({
-  loader: () => listKeysFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(keysQuery()),
   head: ({ matches }) =>
     dashboardPageMeta("API Keys", "Manage API keys for CI, headless use, and workspace automation.", "/keys", matches),
   component: KeysPage,
 });
 
 function KeysPage() {
-  const result = Route.useLoaderData();
-  const router = useRouter();
+  const { data: result } = useSuspenseQuery(keysQuery());
+  const queryClient = useQueryClient();
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const rows: WebApiKeyListResponse["items"] = result.data?.items ?? [];
 
-  const refresh = useCallback(() => router.invalidate(), [router]);
+  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: queryKeys.keys() }), [queryClient]);
 
   return (
     <>
