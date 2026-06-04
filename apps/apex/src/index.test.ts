@@ -36,6 +36,16 @@ describe("apex worker", () => {
     expect(body).not.toContain("View on GitHub");
   });
 
+  it("surfaces the standalone one-line installer", async () => {
+    const response = await get("/");
+    const body = await response.text();
+    expect(body).toContain("Install in one line");
+    expect(body).toContain("curl -fsSL https://agent-paste.sh/install.sh | sh");
+    expect(body).toContain("irm https://agent-paste.sh/install.ps1 | iex");
+    expect(body).toContain('href="/install.sh"');
+    expect(body).toContain('href="/install.ps1"');
+  });
+
   it("leads with the OAuth login flow, not manual API keys", async () => {
     const response = await get("/");
     const body = await response.text();
