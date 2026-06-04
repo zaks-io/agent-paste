@@ -17,6 +17,7 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
+import { CLI_VERSION } from "./version.js";
 
 export type GlobalFlags = {
   json: boolean;
@@ -33,6 +34,12 @@ type Parsed = {
 export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   const parsed = parseArgs(argv);
   const command = parsed.command.join(" ");
+  // `--version`/`-v` parse as a flag and a positional respectively, not as a
+  // subcommand, so detect them before the command switch (where a `--version`
+  // flag would otherwise fall through to the empty-command help case).
+  if (command === "version" || command === "-v" || booleanFlag(parsed, "version", false)) {
+    return output({ version: CLI_VERSION }, parsed.global, CLI_VERSION);
+  }
   switch (command) {
     case "":
     case "help":
@@ -380,6 +387,7 @@ Usage:
   agent-paste logout
   agent-paste whoami [--json]
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
+  agent-paste version [--json]
 `);
 }
 

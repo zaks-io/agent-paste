@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
@@ -12,6 +13,11 @@ import { build } from "esbuild";
 // self-contained: it does not require the workspace deps to be compiled first.
 const root = fileURLToPath(new URL(".", import.meta.url));
 
+// Bake package.json's version into the bundle so the CLI can report it (and, per
+// ADR 0080, detect staleness). The compile-time `--define` mirrors the bun build
+// in cli-release.yml so both build paths produce a version-aware binary.
+const { version } = JSON.parse(readFileSync(new URL("package.json", import.meta.url), "utf8"));
+
 await build({
   absWorkingDir: root,
   entryPoints: ["src/index.ts"],
@@ -21,5 +27,6 @@ await build({
   format: "esm",
   target: "node24",
   conditions: ["types"],
+  define: { __AGENT_PASTE_CLI_VERSION__: JSON.stringify(version) },
   logLevel: "info",
 });

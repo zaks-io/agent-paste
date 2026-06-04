@@ -92,12 +92,16 @@ jobs:
           ASSET: ${{ matrix.asset }}
         run: |
           set -euo pipefail
+          # Bake package.json's version into the binary (ADR 0080). package.json
+          # is the single source of truth; the release tag must match it.
+          VERSION="$(node -p "require('./package.json').version")"
           # --metafile records the exact module graph bundled into the binary;
           # the SBOM step (linux-x64 leg) turns it into a CycloneDX BOM of what
           # actually ships. Platform-independent, so one leg's metafile suffices.
           bun build src/index.ts \
             --compile \
             --conditions=types \
+            --define:__AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
             --target="$BUN_TARGET" \
             --outfile "$ASSET" \
             --metafile=meta.json
