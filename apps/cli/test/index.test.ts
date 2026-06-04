@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
 import { logout, main, parseArgs } from "../src/index.js";
+import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -40,6 +41,26 @@ describe("cli command dispatch", () => {
     await main(["--help"]);
 
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining("agent-paste publish <path>"));
+  });
+
+  it("reports its version without resolving a client", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    // No client passed: version must short-circuit before any auth/client
+    // resolution, so this resolves rather than throwing on a missing client.
+    await expect(main(["version"])).resolves.toBeUndefined();
+    await expect(main(["--version"])).resolves.toBeUndefined();
+    await expect(main(["-v"])).resolves.toBeUndefined();
+
+    expect(stdout).toHaveBeenCalledWith(`${CLI_VERSION}\n`);
+  });
+
+  it("reports its version as JSON", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    await main(["version", "--json"]);
+
+    expect(stdout).toHaveBeenCalledWith(`${JSON.stringify({ version: CLI_VERSION }, null, 2)}\n`);
   });
 
   it("prints whoami as JSON", async () => {
