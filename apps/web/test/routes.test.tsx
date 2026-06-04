@@ -260,12 +260,39 @@ describe("web routes", () => {
     expect(screen.getByText("Artifact One")).toBeInTheDocument();
     view.unmount();
 
-    state.apiFetchOrEmpty.mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null });
+    state.apiFetchOrEmpty
+      .mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null })
+      .mockResolvedValueOnce({
+        data: { items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { artifact_id: state.params.artifactId, items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      });
     await (artifactDetail.Route.loader as (input: { params: { artifactId: string } }) => Promise<unknown>)({
       params: { artifactId: state.params.artifactId },
     });
-    state.loaderData = { data: artifactDetailRow(), empty: false, error: null };
-    view = render(<artifactDetail.Route.component />);
+    state.loaderData = {
+      artifact: { data: artifactDetailRow(), empty: false, error: null },
+      accessLinks: {
+        data: { items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      },
+      revisions: {
+        data: { artifact_id: state.params.artifactId, items: [], page_info: { next_cursor: null, has_more: false } },
+        empty: false,
+        error: null,
+      },
+    };
+    view = render(
+      <ToastProvider>
+        <artifactDetail.Route.component />
+      </ToastProvider>,
+    );
     expect(screen.getByText("Latest revision")).toBeInTheDocument();
     view.unmount();
 
@@ -306,7 +333,16 @@ describe("web routes", () => {
     expect(screen.getByText("Usage policy")).toBeInTheDocument();
     view.unmount();
 
-    view = render(<accessLinks.Route.component />);
+    state.loaderData = {
+      data: { items: [], page_info: { next_cursor: null, has_more: false } },
+      empty: false,
+      error: null,
+    };
+    view = render(
+      <ToastProvider>
+        <accessLinks.Route.component />
+      </ToastProvider>,
+    );
     expect(screen.getByText("Access Links")).toBeInTheDocument();
     view.unmount();
 
@@ -548,12 +584,12 @@ describe("web routes", () => {
     expect(
       (
         artifactDetail.Route.head as (ctx: {
-          loaderData: { data?: { title?: string } };
+          loaderData: { artifact?: { data?: { title?: string } } };
           params: { artifactId: string };
           matches: Array<{ routeId: string; loaderData?: unknown }>;
         }) => unknown
       )({
-        loaderData: { data: { title: "Artifact One" } },
+        loaderData: { artifact: { data: { title: "Artifact One" } } },
         params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
         matches: rootMatches,
       }),

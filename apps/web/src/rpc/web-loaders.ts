@@ -45,6 +45,25 @@ export const listKeysFn = createServerFn({ method: "GET" }).handler(async () => 
   return listKeys();
 });
 
+export const listAccessLinksFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { listAccessLinks } = await import("../server/web-loaders");
+  return listAccessLinks();
+});
+
+export const listArtifactAccessLinksFn = createServerFn({ method: "GET" })
+  .inputValidator((input: { artifactId: string }) => input)
+  .handler(async ({ data }) => {
+    const { listArtifactAccessLinks } = await import("../server/web-loaders");
+    return listArtifactAccessLinks(data);
+  });
+
+export const listArtifactRevisionsFn = createServerFn({ method: "GET" })
+  .inputValidator((input: { artifactId: string }) => input)
+  .handler(async ({ data }) => {
+    const { listArtifactRevisions } = await import("../server/web-loaders");
+    return listArtifactRevisions(data);
+  });
+
 export const loadSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { loadSettings } = await import("../server/web-loaders");
   return loadSettings();

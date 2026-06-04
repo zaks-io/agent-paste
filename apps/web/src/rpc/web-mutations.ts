@@ -14,6 +14,34 @@ export const revokeKeyFn = createServerFn({ method: "POST" })
     return revokeKey(data);
   });
 
+export const createAccessLinkFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { artifactId: string; type: "share" | "revision"; revision_id?: string }) => input)
+  .handler(async ({ data }) => {
+    const { createAccessLink } = await import("../server/web-mutations");
+    return createAccessLink(data);
+  });
+
+export const mintAccessLinkFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { accessLinkId: string }) => input)
+  .handler(async ({ data }) => {
+    const { mintAccessLink } = await import("../server/web-mutations");
+    return mintAccessLink(data);
+  });
+
+export const revokeAccessLinkFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { accessLinkId: string }) => input)
+  .handler(async ({ data }) => {
+    const { revokeAccessLink } = await import("../server/web-mutations");
+    return revokeAccessLink(data);
+  });
+
+export const setAccessLinkLockdownFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { artifactId: string; locked: boolean }) => input)
+  .handler(async ({ data }) => {
+    const { setAccessLinkLockdown } = await import("../server/web-mutations");
+    return setAccessLinkLockdown(data);
+  });
+
 export const saveSettingsFn = createServerFn({ method: "POST" })
   .inputValidator((input: { workspace_name: string; auto_deletion_days: number }) => input)
   .handler(async ({ data }) => {

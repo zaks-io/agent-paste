@@ -114,6 +114,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebAccessLinkRow", WebAccessLinkRow);
   registry.register("WebAccessLinkListResponse", WebAccessLinkListResponse);
   registry.register("WebRevokeAccessLinkResponse", WebRevokeAccessLinkResponse);
+  registry.register("RevisionSummary", RevisionSummary);
+  registry.register("RevisionListResponse", RevisionListResponse);
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
   registry.register("WebOperatorEventRow", WebOperatorEventRow);

@@ -1,7 +1,10 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AccessLinkLockdownToggle } from "../components/access-links/AccessLinkLockdownToggle";
+import { AccessLinksTable } from "../components/access-links/AccessLinksTable";
+import { CreateAccessLinkPanel } from "../components/access-links/CreateAccessLinkPanel";
 import { Badge } from "../components/ui/Badge";
 import { Card, SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -14,12 +17,20 @@ import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { getArtifactFn } from "../rpc/web-loaders";
+import { getArtifactFn, listArtifactAccessLinksFn, listArtifactRevisionsFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
-  loader: ({ params }) => getArtifactFn({ data: { artifactId: params.artifactId } }),
+  loader: async ({ params }) => {
+    const data = { artifactId: params.artifactId };
+    const [artifact, accessLinks, revisions] = await Promise.all([
+      getArtifactFn({ data }),
+      listArtifactAccessLinksFn({ data }),
+      listArtifactRevisionsFn({ data }),
+    ]);
+    return { artifact, accessLinks, revisions };
+  },
   head: ({ loaderData, params, matches }) => {
-    const artifact = loaderData?.data;
+    const artifact = loaderData?.artifact?.data;
     const title = artifact?.title?.trim() || "Artifact";
     return dashboardPageMeta(
       title,
@@ -35,7 +46,9 @@ export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
 
 function ArtifactDetailPage() {
   const { artifactId } = Route.useParams();
-  const result = Route.useLoaderData();
+  const { artifact: result, accessLinks, revisions } = Route.useLoaderData();
+  const router = useRouter();
+  const refresh = useCallback(() => router.invalidate(), [router]);
   const artifact = result.data;
   const [iframeSrc, setIframeSrc] = useState<string | null>(artifact?.viewer?.iframe_src ?? null);
 
@@ -143,6 +156,29 @@ function ArtifactDetailPage() {
           </dl>
         </div>
       </div>
+
+      <section className="mt-10 grid gap-5">
+        <SectionLabel>Access Links</SectionLabel>
+        <AccessLinkLockdownToggle artifactId={artifact.id} locked={artifact.lockdown} onChanged={refresh} />
+        <CreateAccessLinkPanel
+          artifactId={artifact.id}
+          revisions={revisions.data?.items ?? []}
+          latestRevisionId={artifact.latest_revision_id}
+          locked={artifact.lockdown}
+          onChanged={refresh}
+        />
+        {accessLinks.error ? (
+          <ErrorBanner
+            title="Couldn't load access links"
+            message={accessLinks.error.message}
+            requestId={accessLinks.error.requestId}
+          />
+        ) : (accessLinks.data?.items.length ?? 0) === 0 ? (
+          <EmptyState title="No access links yet." body="Create a Share or Revision Link above." />
+        ) : (
+          <AccessLinksTable rows={accessLinks.data?.items ?? []} locked={artifact.lockdown} onChanged={refresh} />
+        )}
+      </section>
     </>
   );
 }

@@ -2,6 +2,8 @@ import "@tanstack/react-start/server-only";
 
 import type {
   LockdownListResponse,
+  RevisionListResponse,
+  WebAccessLinkListResponse,
   WebApiKeyListResponse,
   WebArtifactDetailResponse,
   WebArtifactListResponse,
@@ -100,6 +102,31 @@ export async function listKeys() {
   const auth = getServerAuth();
   if (!auth.user) return emptyFallback<WebApiKeyListResponse>();
   return apiFetchOrEmpty<WebApiKeyListResponse>("/v1/web/keys", {
+    accessToken: auth.accessToken,
+  });
+}
+
+export async function listAccessLinks() {
+  const auth = getServerAuth();
+  if (!auth.user) return emptyFallback<WebAccessLinkListResponse>();
+  return apiFetchOrEmpty<WebAccessLinkListResponse>("/v1/web/access-links", {
+    accessToken: auth.accessToken,
+  });
+}
+
+export async function listArtifactAccessLinks(input: { artifactId: string }) {
+  const auth = getServerAuth();
+  if (!auth.user) return emptyFallback<WebAccessLinkListResponse>();
+  return apiFetchOrEmpty<WebAccessLinkListResponse>(
+    `/v1/web/artifacts/${encodeURIComponent(input.artifactId)}/access-links`,
+    { accessToken: auth.accessToken },
+  );
+}
+
+export async function listArtifactRevisions(input: { artifactId: string }) {
+  const auth = getServerAuth();
+  if (!auth.user) return emptyFallback<RevisionListResponse>();
+  return apiFetchOrEmpty<RevisionListResponse>(`/v1/web/artifacts/${encodeURIComponent(input.artifactId)}/revisions`, {
     accessToken: auth.accessToken,
   });
 }

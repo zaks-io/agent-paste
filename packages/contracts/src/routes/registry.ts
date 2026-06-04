@@ -398,6 +398,18 @@ export const routeContracts = [
     errors: [...webActorReadErrors, "artifact_not_found"],
   },
   {
+    id: "web.revisions.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/artifacts/{artifact_id}/revisions",
+    auth: "workos_access_token",
+    scopes: ["read"],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "RevisionListResponse",
+    errors: [...webActorReadErrors, "artifact_not_found"],
+  },
+  {
     id: "web.accessLinks.create",
     app: "api",
     method: "POST",

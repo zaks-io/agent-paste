@@ -55,6 +55,7 @@ export const routeRepositorySurfaces = {
   "web.apiKeys.revoke": ["api_key_not_found"],
   "web.accessLinks.listAll": [],
   "web.accessLinks.listForArtifact": [],
+  "web.revisions.list": ["artifact_not_found"],
   "web.accessLinks.create": [
     "access_link_revision_requires_revision_id",
     "access_link_share_cannot_pin_revision",
