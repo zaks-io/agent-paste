@@ -115,10 +115,19 @@ Apply obvious mechanical updates in batches:
 - move issues from configured intake states such as `Triage` or equivalent to
   the configured ready state only when the user asked for intake cleanup or
   backfill and routing, labels, and the agent-ready body contract are complete
+- when backlog or intake states are explicitly in scope, move complete
+  `ready-for-agent` `kind-slice` issues to the configured ready state unless
+  config names a blocked-ready state; encode blockers separately
 - leave `Backlog` or equivalent future-work states alone unless the user
   explicitly asks for backlog review
 - move issues to the configured done state when linked PR, branch, release, or
   code-host evidence proves the work is merged or otherwise complete
+- for Linear + GitHub, assume linked PRs and tickets are synced when both exist;
+  refresh both before manually correcting status, because Linear may already have
+  advanced the ticket from PR state
+- before leaving an issue in `Done`, verify linked PR evidence satisfies the full
+  issue scope. If an auto-close integration moved a partial or multi-PR issue to
+  `Done`, reopen or recommend narrowing it according to config
 - remove `ready-for-agent` or the repo-configured readiness label when moving an
   issue to the configured done state
 - recommend moving issues out of done or merge-ready states when current external
@@ -291,6 +300,9 @@ For first-run backfill:
   repo-configured readiness label. Moving complete issues from configured intake
   states to the configured ready state is allowed only for requested intake
   cleanup or backfill.
+- When Linear and GitHub are linked, assume synced ticket/PR state when both
+  entities exist and avoid redundant manual status changes unless refreshed state
+  disagrees.
 - Do not create noisy comments for every small label edit. Prefer one summary
   comment when an issue needs explanation.
 - Do not create new label taxonomies unless config or the user explicitly names
