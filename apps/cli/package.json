@@ -28,6 +28,7 @@
     "lint": "biome lint .",
     "prepublishOnly": "node scripts/prepublish-guard.mjs",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {

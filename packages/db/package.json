@@ -17,6 +17,7 @@
     "lint": "biome lint .",
     "migrate": "node scripts/migrate.mjs",
     "test": "vitest run src scripts",
+    "test:coverage": "vitest run src scripts --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {
