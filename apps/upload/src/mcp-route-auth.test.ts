@@ -20,6 +20,13 @@ const memberActor = {
   scopes: ["publish"] as const,
 };
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+  };
+}
+
 function createUploadRequestBody() {
   return { title: "Demo", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] };
 }
@@ -37,6 +44,7 @@ function sessionRecord(): UploadSessionRecord {
 
 function mcpEnv(db: Env["DB"]): Env {
   return {
+    ...allowRateLimits(),
     UPLOAD_SIGNING_SECRET: "secret",
     WORKOS_API_KEY: "sk_test_123",
     WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
@@ -123,6 +131,7 @@ describe("Upload MCP route-boundary auth", () => {
           body: JSON.stringify(createUploadRequestBody()),
         }),
         {
+          ...allowRateLimits(),
           UPLOAD_SIGNING_SECRET: "secret",
           AUTH: {
             async verifyApiKey(token) {
@@ -280,6 +289,7 @@ describe("Upload MCP route-boundary auth", () => {
           },
         }),
         {
+          ...allowRateLimits(),
           UPLOAD_SIGNING_SECRET: "secret",
           AUTH: {
             async verifyApiKey(token) {

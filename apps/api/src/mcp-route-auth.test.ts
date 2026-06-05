@@ -18,8 +18,16 @@ const memberActor = {
   scopes: ["read", "publish", "admin"] as const,
 };
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+  };
+}
+
 function mcpEnv(db: Env["DB"]): Env {
   return {
+    ...allowRateLimits(),
     WORKOS_API_KEY: "sk_test_123",
     WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
     WORKOS_MCP_JWKS_URL: mcpJwksUrl,
@@ -117,6 +125,7 @@ describe("API MCP route-boundary auth", () => {
           headers: { authorization: "Bearer ap_pk_live_example" },
         }),
         {
+          ...allowRateLimits(),
           AUTH: {
             async verifyApiKey() {
               return { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["read"] };
@@ -173,19 +182,17 @@ describe("API MCP route-boundary auth", () => {
     }
 
     it("still accepts API keys on api_key_or_mcp_oauth routes", async () => {
-      const response = await handleRequest(
-        new Request(revisionsListUrl, { headers: { authorization: "Bearer ok" } }),
-        {
-          AUTH: {
-            async verifyApiKey(token) {
-              return token === "ok"
-                ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["read"] }
-                : null;
-            },
+      const response = await handleRequest(new Request(revisionsListUrl, { headers: { authorization: "Bearer ok" } }), {
+        ...allowRateLimits(),
+        AUTH: {
+          async verifyApiKey(token) {
+            return token === "ok"
+              ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["read"] }
+              : null;
           },
-          DB: revisionsDb(),
         },
-      );
+        DB: revisionsDb(),
+      });
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({ artifact_id: artifactId, items: [] });
