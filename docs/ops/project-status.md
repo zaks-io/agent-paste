@@ -1,6 +1,8 @@
 # Project Status
 
-Last updated: 2026-06-05 (main at `6c9fa35`; write-allowance binding fails closed (AP-170); ephemeral PoW assessed as a speed bump, abuse-lever follow-ups filed (AP-169 → AP-173/AP-174)).
+Project start: 2026-05-18 (first commit on `main`).
+
+Last updated: 2026-06-05. See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -8,73 +10,38 @@ and points to the smaller ledgers that own detail.
 
 ## Snapshot
 
-- `main` and `origin/main` are aligned at
-  `6c9fa35 feat(apex): add legal pages (#248)`.
-- Phase 1, the CLI-first MVP, is functionally complete.
-- Phase 3, public OAuth + web dashboard + CLI login, is complete.
-- `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
-  zip generation, and built-in safety warning replacement (AP-21/AP-23/AP-33).
-- App-layer encryption for Artifact bytes ships in
-  `packages/storage/src/artifact-bytes-encryption.ts`. Secret-rotation
-  automation (signing/content/pepper/WorkOS, with overlap windows) ships in
-  `packages/rotation` + `scripts/rotate-*.mjs` (AP-35); live secret writes stay
-  operator-approved per ticket.
-- `packages/billing` has plan tiers, the daily reconciliation backstop,
-  drift logging, and plan-derived usage caps (AP-4/AP-6); Checkout/webhooks
-  remain for AP-5 and stay post-launch. `apps/stream` implements ADR 0069 Live
-  Updates (AP-25), and scanner persistence exists in `packages/db`.
-- Agent-first ephemeral publish is implemented end-to-end on `main` through
-  AP-99/AP-101/AP-102/AP-103/AP-104/AP-105/AP-107/AP-108/AP-110/AP-111: data
-  model, Claim Token storage, proof-of-work provision, 24h auto-deletion,
-  noindex + script-disabled serving, ephemeral-tier scanner routing, daily write
-  allowance, claim/reparent API, CLI `publish --ephemeral`, web `/claim` UX, and
-  local + hosted smokes (PR preview workflow included). Artifact TTL is now a
-  purely server-side policy decision (AP-161), and returning web-member login
-  heals a stale null `claimed_at` (AP-162). Remaining product slice:
-  claim/upgrade funnel polish (AP-109) and billing upgrade surfaces (AP-5).
+Phases 1–5 are complete: the CLI-first MVP, public OAuth + web dashboard + CLI
+login, the Artifact lifecycle (revisions, Access Links, jobs, bundles, Live
+Updates), and the MCP surface. The hosted service is feature-complete for its
+launch shape; current work is post-launch/Phase 6 hardening.
+
+What stands today:
+
+- **Billing** — Free + Pro is implemented end-to-end behind the deploy-time
+  `BILLING_ENABLED` flag (off by default): plan-derived caps, the Stripe
+  `BillingProvider` (Checkout, idempotent webhooks, Portal, operator override,
+  invoices), the daily reconciliation backstop, and the `/settings/billing`
+  dashboard. Enforcement reads only local `workspaces.plan`; Stripe is a sync
+  layer, never the hot-path source of truth. Remaining: hosted Stripe test-mode
+  verification (needs credentials + approval).
+- **Ephemeral publish** — agent-first self-provision behind proof-of-work, daily
+  write allowance, Claim Token promotion, ephemeral-tier scanning, and
+  script-disabled serving are implemented end-to-end with local + hosted smokes.
   Operators: [`runbook-ephemeral-publish.md`](./runbook-ephemeral-publish.md).
-  Anti-abuse posture assessed (AP-169,
-  [`ap-169-pow-difficulty-assessment.md`](./ap-169-pow-difficulty-assessment.md)):
-  the write-allowance binding now fails closed (AP-170, #243), but PoW at
-  difficulty 20 is a speed bump, not the lever, and the "global" provision cap is
-  per-PoP eventually consistent. The real fix is a strongly-consistent global
-  provision counter (DO, AP-173) plus runtime-tunable caps (AP-174); containment
-  (script-disabled serving, 24h deletion, noindex, scanner → lockdown) already
-  bounds the blast radius. Do not raise PoW difficulty or migrate to memory-hard
-  PoW — neither closes the attacker asymmetry.
-- Dashboard Access Link management is implemented (AP-156): `/v1/web/*` member
-  routes plus list/create/mint/revoke/lockdown UI on `/access-links` and the
-  artifact detail route. Mint/revoke are `idempotency:none` by contract
-  (AP-163). The dashboard now uses a TanStack Query client cache with an
-  SSE-driven live UI (AP-164).
-- MCP publish chain mints a durable Revision Link per ADR 0061 and is
-  replay-safe for share links (AP-84/AP-88); member/MCP artifact delete now
-  runs the content-invalidation boundary (AP-87). MCP OAuth scopes derive from
-  the member role and AuthKit login is unblocked per ADR 0079 (AP-153); MCP
-  write-path secrets (`WORKOS_API_KEY`, `ACCESS_LINK_SIGNING_KEY`) are wired
-  into deploy routing (AP-159).
-- Signed-token key resolution is consolidated into one rotation seam in
-  `packages/rotation/src/signers.ts` (AP-90).
-- Secret scanning is split (ADR 0076): CI (`ci.yml`) runs a fast incremental
-  PR-range gitleaks scan, and the dedicated `Security` workflow
-  (`.github/workflows/security.yml`) runs the full-history scan on push to `main`,
-  a daily cron (09:00 UTC), and manual dispatch — all using `.gitleaks.toml`.
-  History verified clean on 2026-06-04.
-- Known security/ops debt: Cloudflare Access now gates the production operator
-  web/API paths, and the hosted API environments now carry the app-side
-  `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke passed for
-  `/v1/web/admin/lockdowns` on 2026-05-26, and the approved human browser
-  `/admin` check passed after the WorkOS `admin` role assignment. The repo-local
-  `ADMIN_TOKEN` `/admin/*` path is retired (AP-13); operator work uses WorkOS +
-  `/v1/web/admin/*`, operator event browsing is implemented (AP-16), and
-  non-production smokes use `SMOKE_HARNESS_SECRET`. The authed production
-  hosted-smoke gate stays removed: production deploys run the credential-free
-  `pnpm smoke:prod:readonly` canary instead, and AP-138 is closed on that
-  decision (the authed CI-vs-local 401 divergence is not chased). The artifact
-  rate-limit smoke probe was dropped (AP-143): Cloudflare's `ratelimits` binding
-  is permissive and per-edge by design, so an 80-request probe could not be
-  expected to trip it; the `429 rate_limited_artifact` envelope stays proven by
-  `apps/content` unit tests.
+- **Dashboard** — Access Link management (list/create/mint/revoke/lockdown) and a
+  TanStack Query cache with an SSE-driven live UI are implemented.
+- **CLI** — shipped via npm (`@zaks-io/agent-paste`) and standalone signed
+  binaries for linux-x64/arm64, macos-arm64, and windows-x64 (SBOM + Sigstore
+  provenance), with `agent-paste upgrade` self-update (ADR 0080).
+- **Security/ops** — app-layer Artifact-bytes encryption, automated secret
+  rotation with overlap windows (live writes operator-approved per ticket),
+  Cloudflare Access gating the production operator paths, and split secret
+  scanning (fast PR-range gitleaks in CI, full-history in the `Security`
+  workflow). The legacy `ADMIN_TOKEN` `/admin/*` path is retired; operator work
+  runs through WorkOS + `/v1/web/admin/*`.
+
+Open follow-ups live in the ledgers below. Recent dated changes are in the
+[changelog](./status/changelog.md).
 
 ## Status Ledgers
 
@@ -107,8 +74,9 @@ Feature-specific ledgers:
   Hyperdrive credential boundaries (AP-18).
 - [WorkOS runbook](./runbook-workos.md) - WorkOS project config, redirect URI
   drift, auth failures, and verification.
-- [Logpush runbook](./runbook-logpush.md) - parked Cloudflare Logpush -> Axiom
-  work.
+- [Logpush runbook](./runbook-logpush.md) - superseded by native Workers OTel ->
+  Axiom export, which is live; retained only if per-Worker Logpush datasets are
+  ever wanted.
 - [Ephemeral publish runbook](./runbook-ephemeral-publish.md) - provision,
   publish, claim, abuse, support, and smoke verification (AP-112).
 - [CLI release runbook](./runbook-cli-release.md) - bump, build signed binaries,
@@ -116,94 +84,56 @@ Feature-specific ledgers:
 
 ## Current Phase
 
-Phase 3 is complete. WorkOS project setup, web AuthKit integration, CLI
-login, dashboard data loaders, key lifecycle, audit reads, settings mutation,
-operator lockdown APIs, preview/production web deploys, hosted web auth smoke,
-and deep-link return paths are implemented. Phase 4 and Phase 5 are complete
-for the current Access Link, lifecycle/jobs/bundle, Live Updates, and MCP
-surfaces. Current active work is post-launch/Phase 6 hardening around billing
-surfaces, ephemeral claim/upgrade, and ops polish.
+Phases 1–5 are complete (see Snapshot). Current active work is
+post-launch/Phase 6 hardening: hosted Stripe verification, the ephemeral
+claim/upgrade funnel (AP-109), and security/ops polish.
+[phase-backlog.md](./status/phase-backlog.md) owns the ordered remaining work.
 
 ## Not Yet Implemented From The Docs
 
 Highest-signal gaps:
 
-- Post-launch/Phase 6 follow-ups: Stripe Checkout/webhooks/Portal (AP-5),
-  hosted billing UI, operator plan override, and ephemeral claim/upgrade funnel
-  polish (AP-109).
+- Post-launch/Phase 6 follow-ups: hosted Stripe test-mode verification (needs
+  credentials + approval) and ephemeral claim/upgrade funnel polish (AP-109).
+  The Stripe Checkout/webhooks/Portal API, operator plan override, and hosted
+  billing UI all shipped (AP-5/AP-176).
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
-- In progress: file-bytes hash-reputation malware scanner behind the scanner
-  interface (ADR 0080, AP-149).
+- File-bytes hash-reputation malware scanner: cancelled (AP-149) — too expensive
+  to operate for the value now. Containment (script-disabled ephemeral serving,
+  locked CSP on the Content Origin, 24h auto-deletion + noindex) already bounds
+  the distribution risk; the text/semantic + URL scanners stay in place.
 - Security triage backlog: triage Snyk Code (SAST) HIGH findings and enable the
   org SAST entitlement (AP-160); Snyk Code stays advisory until then.
 
-## Publish / open-source gate
+## Open-source gate
 
-The open-core licensing decision landed (2026-06-04): the repo is licensed
-**Apache-2.0** (root `LICENSE` + `NOTICE`, `SECURITY.md`, and `license: "Apache-2.0"`
-on every package). `apps/cli/scripts/prepublish-guard.mjs` (wired as
-`prepublishOnly`) now passes the license gate; it stays as a regression guard
-that hard-blocks `npm publish` if the license is ever dropped to UNLICENSED/missing,
-and still asserts the bundle is self-contained (no `@agent-paste/*` leak), the
-only runtime dep is `@napi-rs/keyring`, and `files` ships `dist`, `README.md`,
-and `LICENSE`.
-
-Full git history is gitleaks-clean (re-verified 2026-06-04, 1298 commits across
-all refs). The ADR 0076 private-phase
-[`security.yml`](../../.github/workflows/security.yml) workflow is now in place:
-PRs and `main` run a dedicated `Security` workflow with full-history gitleaks
-and Snyk Open Source (gating, using the org-wide `SNYK_TOKEN`), plus advisory
-Snyk Code/Semgrep/Trivy/Grype and a Syft SBOM artifact; `snyk monitor` reports
-`main`. Snyk Code is advisory pending the org SAST entitlement and triage of its
-initial findings (AP-160). SARIF-to-code-scanning and public badges stay deferred
-to the public phase. This satisfies the ADR's "private phase is done" criterion.
-
-Remaining go-public steps (post-flip, GitHub-side) per
-[ADR 0076](./../adr/0076-public-open-source-security-posture-and-badges.md):
-flip repo visibility, then enable CodeQL/secret scanning/Dependabot/OpenSSF
-Scorecard and configure npm trusted publishing (OIDC). Tracked in
+Repo is licensed **Apache-2.0** and the ADR 0076 private-phase security posture
+is complete (full-history gitleaks-clean, gating Snyk Open Source, advisory
+SAST/SBOM). Go-public steps (flip visibility, CodeQL/secret-scanning/Dependabot/
+Scorecard, npm trusted publishing) are tracked in
 [security-todo.md](./security-todo.md).
 
-See [phase-backlog.md](./status/phase-backlog.md) for implementation order and
-[coverage.md](./status/coverage.md) for the spec/ADR ledger.
-
-## Current Implementation Reality
-
-- Implemented: `apex`, `api`, `upload`, `content`, `cli`, most of `web`, `mcp`,
-  `stream`, `contracts`, `worker-runtime`, `db`, `tokens`, `rotation`, `auth`,
-  `api-client`, `commands`, `storage`, and repo guardrail packages.
-- Implemented: `billing` (plan tiers, reconciliation, drift, plan-derived caps;
-  Checkout/webhooks pending AP-5) and app-layer Artifact-bytes encryption in
-  `packages/storage`.
-- Partial: `jobs` only where future hardening adds new queue families beyond
-  the current lifecycle/bundle/safety-scan/billing-reconcile set.
-- Scaffolded only: none in the active app set.
-- Placeholder UI: none; dashboard Access Link management is implemented (AP-156).
-
-Full component map:
-[implementation.md](./status/implementation.md#components).
+Observability is live: all Workers (preview + production + PR previews) emit OTel
+traces to Axiom via native Workers Observability (`observability.enabled`), landing
+in the `cloudflare` dataset with status, latency, route, and structured app events.
 
 ## Parked For Later
 
-- Logpush -> Axiom wiring remains documented in
-  [runbook-logpush.md](./runbook-logpush.md).
-- Production deploy gate/wait-timer/vault posture remains parked in
-  [hosted-ops.md](./status/hosted-ops.md#open-ops-items).
-- Stripe Checkout + webhooks (AP-5, ADRs 0073/0074) are intentionally
-  post-launch; the local source of truth, `BillingProvider` seam, and
-  reconciliation backstop already exist.
-- Ephemeral publish code and smokes are on `main`; treat a specific environment
-  as live only after its hosted ephemeral smoke passes (see
-  `runbook-ephemeral-publish.md`). AP-109 claim/upgrade funnel polish remains.
+- Production deploy gate/wait-timer/vault posture
+  ([hosted-ops.md](./status/hosted-ops.md#open-ops-items)).
+- Hosted Stripe test-mode verification (billing code ships; needs credentials).
+
+(Ephemeral smoke is built and runs in CI: `smoke:preview:ephemeral` /
+`smoke:production:ephemeral` / `smoke:pr:ephemeral`. Running it against an env
+before declaring that env live is operational procedure, not parked work — see
+[runbook-ephemeral-publish.md](./runbook-ephemeral-publish.md).)
 
 ## Maintenance Rules
 
-- Keep this file short and current.
-- Move historical completion detail to [changelog.md](./status/changelog.md).
-- Move active and future implementation detail to
-  [phase-backlog.md](./status/phase-backlog.md).
-- Update [coverage.md](./status/coverage.md) when ADR/spec status changes.
-- Update [implementation.md](./status/implementation.md) when an app/package
-  changes state.
+Keep this file a short orientation snapshot. Push detail down to the ledgers:
+dated changes to [changelog.md](./status/changelog.md), remaining work to
+[phase-backlog.md](./status/phase-backlog.md), the component map to
+[implementation.md](./status/implementation.md), and spec/ADR status to
+[coverage.md](./status/coverage.md).

@@ -5,6 +5,54 @@ use `git log` for commit-level detail.
 
 ## 2026-06-05
 
+### Scope decisions: malware scanner cancelled, WATCH deferred, no public SDK
+
+- Cancelled the file-bytes hash-reputation malware scanner (AP-149): too
+  expensive to operate for the value at this stage. Not wiring the
+  MalwareBazaar/VirusTotal provider integration. Existing containment
+  (script-disabled ephemeral serving, locked CSP on the Content Origin, 24h
+  auto-deletion + noindex) already bounds the distribution risk; the
+  text/semantic + URL scanners stay in place.
+- Deferred the CLI `watch` auto-republish command (AP-167) to Backlog: an agent
+  can publish repeatedly; no current need for auto-republish-on-change.
+- Decided against a public SDK (ADR 0017 was already "no SDK in the MVP"). The
+  CLI (npm + standalone signed binaries) and the documented REST surface are the
+  supported client surfaces; ADR 0017 moved to Done.
+
+### Doc correction: Worker observability is live in Axiom (ADR 0011)
+
+- Corrected the docs that called Logpush -> Axiom "parked." All Workers (preview,
+  production, and PR previews) already emit OTel traces to the Axiom `cloudflare`
+  dataset via native Workers Observability (`observability.enabled`), carrying
+  response status, wall/CPU time, route, `outcome`, and structured app-level
+  events — verified live (~22.7k traces/24h across api/upload/content/web/apex/
+  mcp/jobs/stream). ADR 0011 moved to Done in `coverage.md`. The six-job
+  per-Worker Logpush design in `runbook-logpush.md` is superseded (not pursued);
+  the runbook is marked as such and kept only as a reference for dedicated
+  per-Worker datasets/retention if ever wanted.
+
+### Stripe billing end-to-end: Checkout/webhooks/Portal + dashboard
+
+- Landed the Stripe billing API surface (AP-5, #253): synchronous Checkout
+  activation, signature-verified idempotent webhooks, Customer Portal redirect,
+  billing status read, and operator plan override. Stripe is a sync layer over
+  local entitlement; enforcement reads only `workspaces.plan`. Routes mount and
+  Stripe is imported only when `BILLING_ENABLED` is set (off by default).
+- Shipped the web billing dashboard at `/settings/billing` (AP-176, #266): plan,
+  subscription status, live daily write allowance + remaining, renewal date,
+  upgrade/manage actions wired to the real Checkout/Portal endpoints, and a real
+  Stripe invoice table. Billing-off renders a friendly "not enabled" state and
+  never calls Stripe. Two small read-only API additions back the page:
+  `GET /v1/web/billing` now returns `daily_new_artifact_allowance` and
+  `daily_new_artifacts_remaining` (omitted when the counter is unavailable,
+  never faked), and new `GET /v1/web/billing/invoices` is backed by a
+  `listInvoices` provider method (Stripe/noop/fake adapters). Pro displays as
+  $12/mo and $120/yr app-side; Stripe stays the source of truth at checkout.
+- With this, the full Free + Pro billing path (AP-4/AP-5/AP-6/AP-176) is
+  implemented behind the deploy-time flag. Remaining billing work: hosted Stripe
+  test-mode verification (needs credentials + approval) and the ephemeral
+  claim/upgrade funnel (AP-109).
+
 ### Write-allowance fail-closed + ephemeral anti-abuse assessment
 
 - Made the write-allowance binding fail closed: a missing or unreachable
@@ -41,6 +89,17 @@ use `git log` for commit-level detail.
   ADR 0079 (AP-153, #205).
 - Wired MCP write-path secrets (`WORKOS_API_KEY`, `ACCESS_LINK_SIGNING_KEY`)
   into deploy routing (AP-159, #216).
+
+### CLI distribution: standalone signed binaries + self-upgrade (ADR 0080)
+
+- `cli-release.yml` cross-compiles the CLI into standalone binaries for four
+  targets (linux-x64/arm64, macos-arm64, windows-x64) via `bun build --compile`,
+  codesigns + notarizes the macOS binary, and attaches them to a draft GitHub
+  release alongside the npm publish (AP-36/AP-41). Version is baked into each
+  binary and the release tag derives from `package.json` (#232, #244, #254); the
+  keychain backend was fixed so the standalone binary runs (AP-147, #197).
+  `agent-paste upgrade` downloads + verifies + self-replaces a binary install.
+  Runbook: [`runbook-cli-release.md`](../runbook-cli-release.md).
 
 ### CLI release supply-chain (AP-154 Phase 1)
 
