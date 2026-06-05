@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-05 (Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed).
+Last updated: 2026-06-05 (`main@a419c29`; Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed; followed by standardized security headers + strict nonce CSP AP-184 and a post-launch correctness/security hardening wave).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
