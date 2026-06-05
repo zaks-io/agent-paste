@@ -40,8 +40,6 @@ Biome-measured count at snapshot time.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `reparentWorkspace`: 39.
-- [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
-      `handleKeyDown`: 32.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `formatPlan`: 31.
 
 ### Lines per function (> 100)
@@ -52,8 +50,6 @@ Biome-measured count at snapshot time.
       `localArtifacts`: 147.
 - [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 123.
 - [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
-- [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
-      `CommandPaletteDialog`: 124.
 
 ### Lines per file (> 600)
 
@@ -88,6 +84,11 @@ When the file limit ratchets below ~590, split the contract registries first.
 - [x] `apps/stream/src/memory-artifact-live.ts` — `fetch`: AP-230 split routing,
       notify, and connect handling into `memory-artifact-live-*.ts` helpers and
       removed the cognitive-complexity suppression.
+- [x] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx`:
+      AP-222 split keyboard/focus behavior into `use-command-palette-*.ts` and
+      `command-palette-keyboard.ts`, and rendering into `CommandPaletteDialogView`,
+      `CommandPaletteSearch`, `CommandPaletteResults`, and `CommandPaletteOption`.
+      Removed cognitive-complexity and function-length suppressions.
 
 ## Current target-wall areas
 
