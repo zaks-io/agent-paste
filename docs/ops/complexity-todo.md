@@ -66,6 +66,12 @@ When the file limit ratchets below ~590, split the contract registries first.
 
 ## Recently cleaned
 
+- [x] `apps/jobs/src/handlers/bundle-generate.ts` and `safety-scan.ts`: AP-232 split
+      queue batch handlers into orchestration helpers (`bundle-generate-orchestration.ts`,
+      `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,
+      `safety-ephemeral-url-scan.ts`) and refactored `apps/jobs/src/safety/url-scanner.ts`
+      submit/poll helpers. Touched functions now pass the 15 cognitive / 60 function-line
+      ratchet targets without suppressions.
 - [x] `apps/api/src/routes/revisions.ts` — `publishRevision` idempotent body:
       AP-142 moved publish orchestration into a Publish Coordinator and removed
       the cognitive-complexity suppression. The route and coordinator pass the

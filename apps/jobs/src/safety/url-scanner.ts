@@ -28,56 +28,89 @@ export async function scanPublishedUrlMalicious(input: {
   }
   const fetchFn = input.fetchImpl ?? fetch;
   try {
-    const submit = await fetchFn(`https://api.cloudflare.com/client/v4/accounts/${accountId}/urlscanner/v2/scan`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url }),
-    });
-    if (!submit.ok) {
-      return "unknown";
-    }
-    const submitBody = (await submit.json()) as UrlScanSubmitResponse;
-    const scanId = submitBody.result?.uuid;
+    const scanId = await submitUrlScan({ accountId, apiToken, url, fetchFn });
     if (!scanId) {
       return "unknown";
     }
-    for (let attempt = 0; attempt < SCAN_POLL_ATTEMPTS; attempt += 1) {
-      if (attempt > 0) {
-        await sleep(SCAN_POLL_DELAY_MS);
-      }
-      const resultResponse = await fetchFn(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/urlscanner/v2/result/${scanId}`,
-        {
-          headers: { Authorization: `Bearer ${apiToken}` },
-        },
-      );
-      if (resultResponse.status === 404) {
-        continue;
-      }
-      if (!resultResponse.ok) {
-        return "unknown";
-      }
-      const body = (await resultResponse.json()) as UrlScanResultResponse;
-      const status = body.result?.task?.status;
-      if (status && status !== "Finished") {
-        continue;
-      }
-      const malicious = body.result?.verdicts?.overall?.malicious;
-      if (malicious === true) {
-        return "malicious";
-      }
-      if (malicious === false) {
-        return "safe";
-      }
-      return "unknown";
-    }
-    return "unknown";
+    return await pollUrlScanVerdict({ accountId, apiToken, scanId, fetchFn });
   } catch {
     return "unknown";
   }
+}
+
+async function submitUrlScan(input: {
+  accountId: string;
+  apiToken: string;
+  url: string;
+  fetchFn: typeof fetch;
+}): Promise<string | null> {
+  const submit = await input.fetchFn(
+    `https://api.cloudflare.com/client/v4/accounts/${input.accountId}/urlscanner/v2/scan`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: input.url }),
+    },
+  );
+  if (!submit.ok) {
+    return null;
+  }
+  const submitBody = (await submit.json()) as UrlScanSubmitResponse;
+  return submitBody.result?.uuid ?? null;
+}
+
+async function pollUrlScanVerdict(input: {
+  accountId: string;
+  apiToken: string;
+  scanId: string;
+  fetchFn: typeof fetch;
+}): Promise<UrlScannerVerdict> {
+  for (let attempt = 0; attempt < SCAN_POLL_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(SCAN_POLL_DELAY_MS);
+    }
+    const verdict = await readUrlScanAttempt(input);
+    if (verdict !== "pending") {
+      return verdict;
+    }
+  }
+  return "unknown";
+}
+
+async function readUrlScanAttempt(input: {
+  accountId: string;
+  apiToken: string;
+  scanId: string;
+  fetchFn: typeof fetch;
+}): Promise<UrlScannerVerdict | "pending"> {
+  const resultResponse = await input.fetchFn(
+    `https://api.cloudflare.com/client/v4/accounts/${input.accountId}/urlscanner/v2/result/${input.scanId}`,
+    {
+      headers: { Authorization: `Bearer ${input.apiToken}` },
+    },
+  );
+  if (resultResponse.status === 404) {
+    return "pending";
+  }
+  if (!resultResponse.ok) {
+    return "unknown";
+  }
+  const body = (await resultResponse.json()) as UrlScanResultResponse;
+  const status = body.result?.task?.status;
+  if (status && status !== "Finished") {
+    return "pending";
+  }
+  const malicious = body.result?.verdicts?.overall?.malicious;
+  if (malicious === true) {
+    return "malicious";
+  }
+  if (malicious === false) {
+    return "safe";
+  }
+  return "unknown";
 }
 
 function sleep(ms: number): Promise<void> {
