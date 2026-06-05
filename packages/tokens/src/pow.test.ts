@@ -12,6 +12,8 @@ import {
 describe("pow", () => {
   const secret = "test-pow-secret";
 
+  // Brute-forcing 12 leading zero bits is ~4k hashes; under v8 coverage
+  // instrumentation that overruns the default 5s timeout. Give it headroom.
   it("issues and verifies a hashcash-style solution", async () => {
     const now = new Date("2026-06-01T12:00:00.000Z");
     const challenge = await issuePowChallenge({ secret, difficulty: 12, now });
@@ -26,7 +28,7 @@ describe("pow", () => {
       now,
     });
     expect(valid).toBe(true);
-  });
+  }, 30_000);
 
   it("rejects tampered signatures and expired challenges", async () => {
     const now = new Date("2026-06-01T12:00:00.000Z");

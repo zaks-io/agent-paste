@@ -1,82 +1,23 @@
-export const STYLES = `
-@font-face {
-  font-family: "Hanken Grotesk Variable";
-  src: url("/fonts/HankenGrotesk-Variable.woff2") format("woff2-variations");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
+import { cssVarsBlock, fontFaceCss, grainCss } from "@agent-paste/brand";
+
+// The apex stylesheet. Token layer (color/type/spacing), fonts, and the grain
+// overlay come from @agent-paste/brand so apex shares one source with the web
+// dashboard. Everything below the token layer is apex-specific component CSS.
+//
+// Discipline (style-guide.md): one flat violet accent, no gradient fills, no
+// second accent, square-ish corners, type and whitespace over chrome.
+
+const TOKENS = `${cssVarsBlock()}
 
 :root {
-  --neutral-50: 36 14% 98%;
-  --neutral-100: 36 10% 96%;
-  --neutral-200: 30 6% 88%;
-  --neutral-300: 28 5% 78%;
-  --neutral-400: 26 4% 60%;
-  --neutral-500: 24 4% 44%;
-  --neutral-800: 24 8% 12%;
-  --neutral-900: 24 10% 7%;
-  --neutral-950: 24 12% 4%;
+  --container: 920px;
+}`;
 
-  --accent-1: 162 60% 24%;
-  --accent-3: 158 50% 52%;
+const FONT_FACES = fontFaceCss();
 
-  --background: var(--neutral-50);
-  --surface: 36 16% 100%;
-  --surface-sunken: var(--neutral-100);
-  --foreground: var(--neutral-900);
-  --muted: var(--neutral-500);
-  --subtle: var(--neutral-400);
-  --rule: var(--neutral-200);
-  --primary: var(--neutral-900);
-  --primary-fg: var(--neutral-50);
-  --accent: var(--accent-1);
-  --accent-fg: var(--neutral-50);
-  --selection: 162 60% 24% / 0.16;
+const GRAIN = grainCss();
 
-  --font-ui: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --radius-sm: 4px;
-  --radius-md: 6px;
-
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  --container: 760px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--neutral-950);
-    --surface: var(--neutral-900);
-    --surface-sunken: 24 14% 2%;
-    --foreground: var(--neutral-100);
-    --muted: 24 5% 62%;
-    --subtle: 24 4% 44%;
-    --rule: 24 8% 16%;
-    --primary: var(--neutral-50);
-    --primary-fg: var(--neutral-900);
-    --accent: var(--accent-3);
-    --accent-fg: var(--neutral-950);
-    --selection: 158 50% 52% / 0.22;
-  }
-}
-
-*,
+const BASE = `*,
 *::before,
 *::after {
   box-sizing: border-box;
@@ -92,10 +33,17 @@ body {
 body {
   font-family: var(--font-ui);
   font-size: 15px;
-  line-height: 1.55;
-  font-feature-settings: "ss01", "cv11";
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  font-feature-settings: "ss01";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Lift content above the fixed grain overlay (z-index: 0). */
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 ::selection {
@@ -131,17 +79,27 @@ ul {
 
 .mono {
   font-family: var(--font-mono);
+  font-feature-settings: "zero";
   letter-spacing: 0;
 }
 
-.page {
+.font-display,
+.hero-headline,
+.legal-title,
+.feature-title,
+.prose-title,
+.pillar-title {
+  font-optical-sizing: auto;
+}`;
+
+const LAYOUT = `.page {
   min-height: 100svh;
   max-width: var(--container);
   margin-inline: auto;
   padding: 24px 24px 32px;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 56px;
+  gap: 64px;
 }
 
 @media (min-width: 640px) {
@@ -151,12 +109,32 @@ ul {
   }
 }
 
-/* ---- Header ---- */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
 
-.page-head {
+@media (min-width: 640px) {
+  .content {
+    gap: 72px;
+  }
+}`;
+
+const HEADER = `.page-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-mark {
+  display: block;
 }
 
 .head-nav {
@@ -176,8 +154,7 @@ ul {
   color: hsl(var(--accent));
 }
 
-/* ---- Wordmark (style-guide §6.2: Hanken 700, hyphen in accent) ---- */
-
+/* Wordmark (style-guide §6.2: 700, hyphen in accent). */
 .wordmark {
   font-weight: 700;
   font-size: 16px;
@@ -198,37 +175,91 @@ ul {
 
 .wordmark-sm {
   font-size: 14px;
+}`;
+
+// The gesture motif: chevron + line + node, the brand mark's grammar in pure CSS.
+// Reused as the pillar marker, the transcript result lead, and section dividers.
+const MOTIF = `.gesture {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* ---- Hero ---- */
+.g-chevron {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  color: hsl(var(--accent));
+}
 
-.content {
+.g-line {
+  width: 16px;
+  height: 1px;
+  background: hsl(var(--accent) / 0.55);
+}
+
+.g-node {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: hsl(var(--accent));
+}
+
+.motif-rule {
+  position: relative;
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: hsl(var(--rule));
+}
+
+.motif-rule::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: hsl(var(--accent));
+  transform: translateY(-50%);
+}`;
+
+const HERO = `.hero {
   display: flex;
   flex-direction: column;
-  gap: 80px;
+  align-items: flex-start;
 }
 
-.hero {
+.hero-text {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 22px;
+  width: 100%;
 }
 
 .eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: hsl(var(--subtle));
+  margin-bottom: -10px;
 }
 
 .hero-headline {
-  font-size: clamp(44px, 8vw, 72px);
-  line-height: 1;
-  letter-spacing: -0.03em;
+  font-family: var(--font-ui);
+  font-size: var(--text-hero);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  font-variation-settings: "opsz" 40;
+  font-feature-settings: "ss01", "tnum";
   color: hsl(var(--foreground));
-  max-width: 14ch;
+  max-width: 22ch;
+  text-wrap: balance;
 }
 
 .hero-stop {
@@ -236,10 +267,10 @@ ul {
 }
 
 .hero-lead {
-  font-size: clamp(16px, 1.4vw, 18px);
+  font-size: clamp(16px, 1.2vw, 19px);
   line-height: 1.55;
   color: hsl(var(--muted));
-  max-width: 56ch;
+  max-width: 54ch;
 }
 
 .hero-actions {
@@ -249,9 +280,20 @@ ul {
   margin-top: 2px;
 }
 
-/* ---- Buttons ---- */
+.transcript-figure {
+  margin: 36px 0 0;
+  width: 100%;
+  max-width: 760px;
+  min-width: 0;
+}
 
-.button {
+@media (min-width: 760px) {
+  .transcript-figure {
+    margin-top: 44px;
+  }
+}`;
+
+const BUTTONS = `.button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -265,6 +307,23 @@ ul {
   transition: background 80ms var(--ease-out), border-color 80ms var(--ease-out), color 80ms var(--ease-out);
   white-space: nowrap;
   cursor: pointer;
+}
+
+.button::after {
+  content: "";
+  width: 0;
+  height: 5px;
+  margin-left: 0;
+  border-radius: 50%;
+  background: hsl(var(--accent));
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out), width 120ms var(--ease-out), margin-left 120ms var(--ease-out);
+}
+
+.button:hover::after {
+  width: 5px;
+  margin-left: 8px;
+  opacity: 1;
 }
 
 .button-sm {
@@ -291,24 +350,22 @@ ul {
 .button-ghost {
   background: transparent;
   color: hsl(var(--foreground));
-  border-color: hsl(var(--rule));
+  border-color: hsl(var(--rule-strong));
 }
 
 .button-ghost:hover {
   background: hsl(var(--surface-sunken));
-  border-color: hsl(var(--rule));
-}
+  border-color: hsl(var(--rule-strong));
+}`;
 
-/* ---- Transcript / code block (matches dashboard §5.6) ---- */
-
-.transcript {
-  margin: 6px 0 0;
+const TRANSCRIPT = `.transcript {
+  margin: 0;
   width: 100%;
-  background: hsl(var(--surface-sunken));
+  background: hsl(var(--surface));
   color: hsl(var(--foreground));
   border: 1px solid hsl(var(--rule));
   border-radius: var(--radius-sm);
-  padding: 18px 20px;
+  padding: 16px 20px;
   font-size: 13px;
   line-height: 1.75;
   overflow-x: auto;
@@ -342,9 +399,18 @@ ul {
   font-weight: 500;
 }
 
-.transcript .t-arrow {
-  color: hsl(var(--subtle));
-  user-select: none;
+.transcript .t-gesture {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.transcript .t-gesture .g-line {
+  width: 12px;
+}
+
+.transcript .t-gesture .g-node {
+  width: 4px;
+  height: 4px;
 }
 
 .transcript .t-origin {
@@ -355,8 +421,13 @@ ul {
   color: hsl(var(--accent));
 }
 
-/* Silently copyable strings (style-guide §5.11). */
+/* Silently copyable strings (style-guide §5.11). Real <button>, chrome stripped. */
 .transcript .t-copy {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
   cursor: copy;
   padding: 0 4px;
   margin: 0 -4px;
@@ -366,7 +437,7 @@ ul {
 
 .transcript .t-cmd.t-copy {
   text-decoration: underline;
-  text-decoration-color: hsl(var(--rule));
+  text-decoration-color: hsl(var(--rule-strong));
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
@@ -380,16 +451,47 @@ ul {
 }
 
 .transcript .t-copy:hover {
-  background: hsl(var(--accent) / 0.1);
+  background: hsl(var(--accent-tint));
 }
 
 .transcript .t-copy[data-copied="true"] {
-  background: hsl(var(--accent) / 0.18);
+  background: hsl(var(--accent) / 0.22);
+}`;
+
+const PILLARS = `.pillars-section {
+  display: grid;
+  gap: 24px;
 }
 
-/* ---- Features ---- */
+.pillars-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
-.features {
+.pillars {
+  display: grid;
+  gap: 18px;
+  max-width: 56ch;
+}
+
+.pillar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 14px;
+}
+
+.pillar-title {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+}`;
+
+const FEATURES = `.features {
   display: grid;
   gap: 40px;
   max-width: 62ch;
@@ -397,7 +499,7 @@ ul {
 
 @media (min-width: 640px) {
   .features {
-    gap: 56px;
+    gap: 48px;
   }
 }
 
@@ -409,22 +511,23 @@ ul {
 }
 
 .feature-body {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 15px;
   line-height: 1.6;
   color: hsl(var(--muted));
 }
 
-.feature-body .code {
+.feature-body .code,
+.prose-body .code,
+.legal-body .code {
   font-family: var(--font-mono);
+  font-feature-settings: "zero";
   font-size: 0.9em;
   letter-spacing: 0;
   color: hsl(var(--foreground));
-}
+}`;
 
-/* ---- Prose (about page) ---- */
-
-.prose {
+const PROSE = `.prose {
   display: grid;
   gap: 40px;
   max-width: 64ch;
@@ -437,9 +540,9 @@ ul {
 }
 
 .prose-title {
-  font-size: 19px;
-  line-height: 1.3;
-  letter-spacing: -0.012em;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
   color: hsl(var(--foreground));
 }
 
@@ -451,32 +554,23 @@ ul {
 }
 
 .prose-body + .prose-body {
-  margin-top: 14px;
-}
+  margin-top: 12px;
+}`;
 
-.prose-body .code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  letter-spacing: 0;
-  color: hsl(var(--foreground));
-}
-
-/* ---- Legal pages ---- */
-
-.legal-page {
-  gap: 56px;
+const LEGAL = `.legal-page {
+  gap: 64px;
 }
 
 .legal-hero {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   max-width: 62ch;
 }
 
 .legal-title {
   font-size: 40px;
   line-height: 1.05;
-  letter-spacing: 0;
+  letter-spacing: -0.015em;
   color: hsl(var(--foreground));
 }
 
@@ -510,17 +604,10 @@ ul {
 .legal-body {
   display: grid;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 15px;
   line-height: 1.65;
   color: hsl(var(--muted));
-}
-
-.legal-body .code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  letter-spacing: 0;
-  color: hsl(var(--foreground));
 }
 
 .legal-list {
@@ -532,15 +619,13 @@ ul {
 
 .legal-list li::marker {
   color: hsl(var(--accent));
-}
+}`;
 
-/* ---- Footer ---- */
-
-.page-foot {
+const FOOTER = `.page-foot {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  padding-top: 28px;
+  padding-top: 32px;
   border-top: 1px solid hsl(var(--rule));
 }
 
@@ -577,21 +662,40 @@ ul {
 .foot-base {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
 }
 
 .foot-copy {
   font-size: 11.5px;
   color: hsl(var(--subtle));
   letter-spacing: 0.02em;
-}
+  margin-left: auto;
+}`;
 
-@media (prefers-reduced-motion: reduce) {
+const MOTION = `@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;
   }
-}
-`;
+}`;
+
+export const STYLES = [
+  FONT_FACES,
+  TOKENS,
+  GRAIN,
+  BASE,
+  LAYOUT,
+  HEADER,
+  MOTIF,
+  HERO,
+  BUTTONS,
+  TRANSCRIPT,
+  PILLARS,
+  FEATURES,
+  PROSE,
+  LEGAL,
+  FOOTER,
+  MOTION,
+].join("\n\n");

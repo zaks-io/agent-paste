@@ -1,9 +1,10 @@
 import { AGENTS_MD } from "./agents.js";
+import { renderAboutPage } from "./components/about.js";
+import { renderHomePage } from "./components/home.js";
 import { INSTALL_PS1 } from "./install-ps1.js";
 import { INSTALL_SH } from "./install-sh.js";
 import { legalDocumentForPath, renderLegalPage } from "./legal.js";
 import { LLMS_TXT } from "./llms.js";
-import { renderAboutPage, renderHomePage } from "./page.js";
 import { APP_ORIGIN, productRedirect } from "./redirects.js";
 
 const TEXT_PLAIN = "text/plain; charset=utf-8";

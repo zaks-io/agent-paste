@@ -16,7 +16,7 @@ The product is infrastructure. It should feel like infrastructure done well — 
 
 **One signature moment.** The product is fundamentally about addressable **Artifacts** and **Revisions**. The way we present identifiers — mono, tinted, silently copyable — is the signature interaction. Spend design budget here, not on hero animations.
 
-**What we are not.** We are not a glassmorphism dashboard. We are not a purple-gradient hero. We are not a neon dark mode. We are not editorial / archival / terminal-themed. We are not chasing a metaphor. If a design choice would feel out of place at Linear, Stripe, or Resend, look closer; if it would feel _identical_ to any of them, look closer still.
+**What we are not.** We are not a glassmorphism dashboard. We are not a gradient-mesh hero. We are not a neon dark mode. We are not editorial / archival / terminal-themed. We are not chasing a metaphor. The accent is a single electric blue-violet, drawn from the brand mark and deployed quietly — one flat color on links, focus, and live-state, never a gradient wash and never a second accent beside it. If a design choice would feel out of place at Linear, Stripe, or Resend, look closer; if it would feel _identical_ to any of them, look closer still.
 
 ---
 
@@ -26,12 +26,12 @@ The product is infrastructure. It should feel like infrastructure done well — 
 
 Two faces. No third without an ADR.
 
-| Role     | Family                    | Source       | Used For                                                                   |
-| -------- | ------------------------- | ------------ | -------------------------------------------------------------------------- |
-| **UI**   | Hanken Grotesk (variable) | Google Fonts | Everything: headings, body, labels, navigation, forms                      |
-| **Mono** | JetBrains Mono            | Google Fonts | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
+| Role     | Family                         | Source       | Used For                                                                   |
+| -------- | ------------------------------ | ------------ | -------------------------------------------------------------------------- |
+| **UI**   | Bricolage Grotesque (variable) | Google Fonts | Everything: headings, body, labels, navigation, forms                      |
+| **Mono** | IBM Plex Mono                  | Google Fonts | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
 
-Hanken Grotesk is a humanist grotesque with slightly warmer proportions than Inter and a more grounded feel than Geist. It carries display, body, and UI roles without needing a separate display face — the difference between a 48px page title and a 14px label is weight and size, not family. JetBrains Mono is the developer-standard mono with sane disambiguation (`0`, `O`, `l`, `1`) and a calm rhythm that holds up at small sizes.
+Bricolage Grotesque is a humanist grotesque with idiosyncratic display proportions and an optical-size axis, so the same family carries a 84px hero and a 14px label — the difference is weight, size, and `opsz`, not a second display face. Its character shows most at hero scale, which is where the landing page earns its voice. IBM Plex Mono is a calm, technical mono with sane disambiguation (`0`, `O`, `l`, `1`) that holds up at small sizes for IDs and URLs.
 
 **Why not Inter / Geist / Space Grotesk:** ubiquity. Modern minimalist done well needs typography that is its own voice, not the same voice as every other product in the category.
 
@@ -39,10 +39,12 @@ Hanken Grotesk is a humanist grotesque with slightly warmer proportions than Int
 
 Ship only the weights we use.
 
-- **Hanken Grotesk (variable):** weight axis 400–700. Load the variable file once; let CSS choose the weight.
-- **JetBrains Mono:** 400, 500.
+- **Bricolage Grotesque (variable):** weight axis 200–800 with the `opsz` optical-size axis. Load the variable file once; let CSS choose weight and optical size.
+- **IBM Plex Mono:** 400, 500.
 
-Self-host via `@fontsource-variable/hanken-grotesk` and `@fontsource/jetbrains-mono`. Do not call out to Google's CDN from production — the content origin's CSP (ADR 0030) forbids it, and the trusted origin should match for consistency.
+Self-host via `@fontsource-variable/bricolage-grotesque` and `@fontsource/ibm-plex-mono`. Do not call out to Google's CDN from production — the content origin's CSP (ADR 0030) forbids it, and the trusted origin should match for consistency.
+
+The shared token source is `@agent-paste/brand`. Both the web app (`apps/web/src/styles/globals.css`, guard-tested for parity) and the apex marketing worker derive their CSS variables and `@font-face` blocks from it, so the families above cannot drift between surfaces.
 
 ### 2.3 Scale
 
@@ -80,7 +82,7 @@ One `--text-hero` per marketing page, never elsewhere. One `--text-h1` per page.
 
 ### 2.6 Italics
 
-Hanken italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the _Published Revision_") or quoted phrases. Avoid italic in tables and form labels.
+Bricolage Grotesque italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the _Published Revision_") or quoted phrases. Avoid italic in tables and form labels.
 
 ---
 
@@ -106,10 +108,11 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
   --neutral-900: 24 10% 7%;
   --neutral-950: 24 12% 4%;
 
-  /* Brand accent — deep emerald-teal */
-  --accent-1: 162 60% 24%; /* #18553F — light mode primary */
-  --accent-2: 162 55% 36%;
-  --accent-3: 158 50% 52%; /* dark mode primary */
+  /* Brand accent — electric violet, drawn from the brand mark. Canonical
+     triples live in @agent-paste/brand; globals.css is guard-tested to match. */
+  --accent-1: 248 64% 56%; /* light mode primary */
+  --accent-2: 248 68% 60%;
+  --accent-3: 248 73% 64%; /* dark mode primary */
 
   /* Status — kept separate from accent */
   --signal-success: 152 48% 36%;
@@ -132,7 +135,7 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
 
   --accent: var(--accent-1); /* prose links, focus rings, selection */
   --accent-fg: var(--neutral-50);
-  --selection: 162 60% 24% / 0.16;
+  --selection: 248 64% 56% / 0.16;
 
   --success: var(--signal-success);
   --warning: var(--signal-warning);
@@ -155,7 +158,7 @@ Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@t
 
   --accent: var(--accent-3);
   --accent-fg: var(--neutral-950);
-  --selection: 158 50% 52% / 0.22;
+  --selection: 248 73% 64% / 0.24;
 
   --success: 152 44% 56%;
   --warning: 32 78% 60%;
@@ -567,7 +570,7 @@ Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same 
 
 ### 6.2 Logo
 
-The wordmark is **agent-paste** set in Hanken Grotesk 700 with `letter-spacing: -0.02em`. Hyphen included, no separation. Two registered colorings: solid `--foreground`, or `--foreground` with the hyphen colored `--accent`. Nothing else.
+The wordmark is **agent-paste** set in Bricolage Grotesque 700 with `letter-spacing: -0.02em`. Hyphen included, no separation. Two registered colorings: solid `--foreground`, or `--foreground` with the hyphen colored `--accent`. Nothing else.
 
 ### 6.3 Page chrome
 
@@ -577,9 +580,11 @@ The sidebar uses `--space-2` interior padding, items 30px tall, label left-align
 
 ### 6.4 No decoration
 
-There are no illustrations, mascots, sticker icons, or background patterns. There is no grain, no noise, no gradient mesh. The system earns its character through type, color discipline, and interaction quality — not through ornamentation.
+There are no illustrations, mascots, sticker icons, or background patterns. There is no gradient mesh and no gradient fill anywhere — the accent is one flat color. The system earns its character through type, color discipline, and interaction quality — not through ornamentation.
 
-If a surface feels like it needs decoration, it needs better typography and more whitespace.
+One exception, and only one: a single very low-opacity fractal-noise **grain overlay** on the page background (`body::before`, opacity ~0.035 dark / ~0.025 with `mix-blend-mode: multiply` light), emitted from `@agent-paste/brand` as an inline `data:` SVG so it stays CSP-safe. It is atmosphere, not illustration — it must never be legible as a texture, never tile a visible pattern, and never carry meaning. If you can _see_ the grain rather than just feel the surface settle, it is too strong.
+
+If a surface feels like it needs decoration beyond that, it needs better typography and more whitespace.
 
 ---
 
@@ -653,7 +658,7 @@ These render Markdown, text, and eventually directory listings for **Render Mode
 - **Text render:** mono at `--text-mono`, line numbers in `--subtle` if the file > 50 lines, wrap turned off.
 - **Directory render:** a single-column table with name, size (mono, tabular), modified timestamp. No icons — keep the renderer JS bundle minimal.
 
-These pages inherit the token system but ship a self-contained CSS file. They do not call into the trusted origin for fonts; subset Hanken Grotesk and JetBrains Mono into the renderer bundle.
+These pages inherit the token system but ship a self-contained CSS file. They do not call into the trusted origin for fonts; subset Bricolage Grotesque and IBM Plex Mono into the renderer bundle.
 
 ---
 
@@ -681,8 +686,9 @@ The dashboard uses Tailwind via the shadcn/ui convention (ADR 0033 leaves this o
 @import "tailwindcss";
 
 @theme {
-  --font-ui: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-ui:
+    "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   --color-background: hsl(var(--background));
   --color-surface: hsl(var(--surface));
@@ -712,7 +718,7 @@ Use Tailwind utilities for layout and spacing. Use CSS modules or shadcn's `cn()
 
 Things we have seen agents produce that violate the guide. Do not do these.
 
-- **Purple gradient backgrounds.** Banned on every surface.
+- **Gradient backgrounds or hero washes.** Banned on every surface. The violet accent is one flat color, never a gradient fill.
 - **Glassmorphism / backdrop-blur cards.** No.
 - **Inter, Geist, or Space Grotesk as UI font.** Pick a different system, not this one.
 - **"Hero with floating product screenshot"** marketing layouts. Replace with type.
