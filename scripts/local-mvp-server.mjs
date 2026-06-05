@@ -420,6 +420,8 @@ const uploadEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
   UPLOAD_BASE_URL: uploadBaseUrl,
   UPLOAD_URL_TTL_SECONDS: "900",
+  ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
+  WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
   WORKOS_API_KEY: process.env.WORKOS_API_KEY,
   WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
   WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh",
@@ -431,6 +433,7 @@ const uploadEnv = {
 const contentEnv = {
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
+  ARTIFACT_RATE_LIMIT: alwaysAllowRateLimit,
   CONTENT_SIGNING_SECRET: contentSecret,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
 };
