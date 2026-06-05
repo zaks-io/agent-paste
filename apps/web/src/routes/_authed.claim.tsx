@@ -92,9 +92,14 @@ function ClaimPage() {
     }
 
     let widgetId: string | undefined;
+    let retryTimer: number | undefined;
+    let active = true;
     const mount = () => {
+      if (!active) {
+        return;
+      }
       if (!window.turnstile) {
-        window.setTimeout(mount, 50);
+        retryTimer = window.setTimeout(mount, 50);
         return;
       }
       const container = document.getElementById("claim-turnstile");
@@ -110,6 +115,10 @@ function ClaimPage() {
     mount();
 
     return () => {
+      active = false;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
       if (widgetId && window.turnstile) {
         window.turnstile.reset(widgetId);
       }

@@ -3,7 +3,25 @@ import { routeContracts } from "@agent-paste/contracts";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
-import { type ApiDatabase, type Env, handleRequest, mountedRouteIds, nonContractRoutePaths } from "./index.js";
+import {
+  type ApiDatabase,
+  type Env,
+  mountedRouteIds,
+  nonContractRoutePaths,
+  handleRequest as rawHandleRequest,
+} from "./index.js";
+
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP" | "ARTIFACT_RATE_LIMIT"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+    ARTIFACT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+}
+
+function handleRequest(request: Request, env: Env = {}): Promise<Response> {
+  return rawHandleRequest(request, { ...allowRateLimits(), ...env });
+}
 
 describe("api worker", () => {
   it("mounts every api route contract", () => {
@@ -1325,7 +1343,7 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
   });
 
-  it("fails open when a rate limit binding errors", async () => {
+  it("fails closed when a rate limit binding errors", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const env: Env = {
       AUTH: {
@@ -1360,9 +1378,9 @@ describe("api worker", () => {
         env,
       );
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject({ actor: { id: "key_1" } });
-      expect(warn).toHaveBeenCalledWith("Rate limit actor binding failed; allowing request.", expect.any(Error));
+      expect(response.status).toBe(429);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
+      expect(warn).toHaveBeenCalledWith("Rate limit actor binding failed; denying request.", expect.any(Error));
     } finally {
       warn.mockRestore();
     }
@@ -1630,6 +1648,50 @@ describe("api worker", () => {
       agent_view: { artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
     });
     expect(resolveCalls).toEqual([{ publicId: "0123456789ABCDEF", blobScopes: 7 }]);
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const throwingRateLimit = await handleRequest(
+        new Request("https://api.test/v1/access-links/resolve", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ public_id: "0123456789ABCDEF", blob }),
+        }),
+        {
+          ...env,
+          ARTIFACT_RATE_LIMIT: {
+            async limit() {
+              throw new Error("binding unavailable");
+            },
+          },
+        },
+      );
+      expect(throwingRateLimit.status).toBe(429);
+      expect(throwingRateLimit.headers.get("retry-after")).toBe("60");
+      await expect(throwingRateLimit.json()).resolves.toMatchObject({
+        error: { code: "rate_limited_artifact" },
+      });
+      expect(warn).toHaveBeenCalledWith(
+        "Artifact rate limit binding failed; denying access link resolve.",
+        expect.any(Error),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+
+    const missingRateLimit = await handleRequest(
+      new Request("https://api.test/v1/access-links/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ public_id: "0123456789ABCDEF", blob }),
+      }),
+      { ...env, ARTIFACT_RATE_LIMIT: undefined },
+    );
+    expect(missingRateLimit.status).toBe(429);
+    expect(missingRateLimit.headers.get("retry-after")).toBe("60");
+    await expect(missingRateLimit.json()).resolves.toMatchObject({
+      error: { code: "rate_limited_artifact" },
+    });
 
     const missingSigningKey = await handleRequest(
       new Request("https://api.test/v1/access-links/resolve", {

@@ -29,6 +29,12 @@ function emptyArtifacts(): Env["ARTIFACTS"] {
   };
 }
 
+function allowArtifactRateLimit(): Pick<Env, "ARTIFACT_RATE_LIMIT"> {
+  return {
+    ARTIFACT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+}
+
 async function expectEnvelope(response: Response, code: string): Promise<EnvelopeBody> {
   const headerId = response.headers.get("x-request-id");
   expect(headerId).toMatch(REQUEST_ID_PATTERN);
@@ -41,14 +47,24 @@ async function expectEnvelope(response: Response, code: string): Promise<Envelop
 
 describe("content error envelope", () => {
   it("404 envelope on unknown route carries request_id", async () => {
-    const env: Env = { CONTENT_SIGNING_SECRET: "secret", DENYLIST: denylistAll(), ARTIFACTS: emptyArtifacts() };
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACTS: emptyArtifacts(),
+      ...allowArtifactRateLimit(),
+    };
     const response = await handleRequest(new Request("https://content.test/missing"), env);
     expect(response.status).toBe(404);
     await expectEnvelope(response, "not_found");
   });
 
   it("404 on invalid token returns envelope without docs", async () => {
-    const env: Env = { CONTENT_SIGNING_SECRET: "secret", DENYLIST: denylistAll(), ARTIFACTS: emptyArtifacts() };
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACTS: emptyArtifacts(),
+      ...allowArtifactRateLimit(),
+    };
     const response = await handleRequest(new Request("https://content.test/v/bogus.token/index.html"), env);
     expect(response.status).toBe(404);
     const body = await expectEnvelope(response, "not_found");
@@ -79,7 +95,12 @@ describe("content error envelope", () => {
       { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 60 },
       "secret",
     );
-    const env: Env = { CONTENT_SIGNING_SECRET: "secret", DENYLIST: denylistAll(), ARTIFACTS: emptyArtifacts() };
+    const env: Env = {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: denylistAll(),
+      ARTIFACTS: emptyArtifacts(),
+      ...allowArtifactRateLimit(),
+    };
     const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
     expect(response.status).toBe(404);
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
@@ -94,6 +115,7 @@ describe("content error envelope", () => {
     const env: Env = {
       CONTENT_SIGNING_SECRET: "secret",
       DENYLIST: denylistAll(),
+      ...allowArtifactRateLimit(),
       ARTIFACTS: {
         async get() {
           throw new Error("boom");
@@ -148,6 +170,7 @@ describe("content error envelope", () => {
       CONTENT_SIGNING_SECRET: "secret",
       ...artifactBytesEncryptionEnv,
       DENYLIST: denylistAll(),
+      ...allowArtifactRateLimit(),
       ARTIFACTS: {
         async get(key) {
           expect(key).toBe("artifacts/art_1/revisions/rev_1/files/index.html");

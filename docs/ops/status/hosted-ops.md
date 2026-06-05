@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-05-27.
+Last updated: 2026-06-05.
 
 ## Environment
 
@@ -83,6 +83,14 @@ Deferred secrets not created for the current app:
 
 ## GitHub / CI
 
+- AP-236 is in flight on
+  `codex/ap-236-fail-closed-rate-limit-deploy-hardening` and has not merged.
+  It hardens `.github/workflows/deploy-production.yml` by removing job-wide
+  Turbo/Cloudflare deploy secrets, validating that `workflow_run` deploys come
+  from a successful `main` run in this repository, checking out
+  `refs/heads/main`, and refusing to deploy if the checked-out SHA differs from
+  the CI head SHA. Before PR handoff, confirm `origin/main` has not moved beyond
+  `e0eabfb` and rerun the full repo gate.
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
   `DATABASE_URL_MIGRATIONS_PRODUCTION` (or legacy `PRODUCTION_DATABASE_URL`),
@@ -160,4 +168,6 @@ Smoke output redacts the Claim Token hash in the summary line and never logs API
 - Update hosted Hyperdrive configs to `app_role` URLs and store
   `DATABASE_URL_MIGRATIONS_PRODUCTION` in GitHub Production (operator action).
 - Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.
-- Revisit GitHub Production environment reviewer/wait-timer/admin-bypass posture.
+- Revisit GitHub Production environment reviewer/wait-timer/admin-bypass posture
+  after launch/users. Do not add hard production deploy limits as part of
+  AP-236.

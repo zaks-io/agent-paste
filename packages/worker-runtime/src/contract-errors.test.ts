@@ -20,6 +20,11 @@ if (!baseContract) {
   throw new Error("whoami.get contract missing");
 }
 
+const allowRateLimitBindings = () => ({
+  actor: { limit: async () => ({ success: true }) },
+  workspace: { limit: async () => ({ success: true }) },
+});
+
 beforeEach(() => {
   setContractErrorEnforcement(true);
 });
@@ -111,6 +116,7 @@ describe("contract error enforcement", () => {
           };
         },
       },
+      rateLimitBindings: allowRateLimitBindings,
     }).mount(baseContract, async (_context, _principal, guard) => guard.respondError("artifact_not_found"));
 
     const response = await app.fetch(new Request("https://worker.test/v1/whoami"));
@@ -133,6 +139,7 @@ describe("contract error enforcement", () => {
         },
       },
       db: () => ({ ok: true }),
+      rateLimitBindings: allowRateLimitBindings,
     }).mount(
       {
         ...baseContract,

@@ -10,6 +10,14 @@ const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
 };
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP" | "ARTIFACT_RATE_LIMIT"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+    ARTIFACT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+}
+
 class MemoryKv {
   readonly values = new Map<string, string>();
 
@@ -108,6 +116,7 @@ describe("member MCP artifact delete invalidation", () => {
       WORKOS_MCP_AUDIENCE: "https://mcp.agent-paste.sh",
       DB: repo,
       DENYLIST: denylist,
+      ...allowRateLimits(),
       BYTE_PURGE_QUEUE: { send: purgeSend },
       LOCAL_MVP_REPOSITORY: { revisions: repo.revisions },
       CONTENT_SIGNING_SECRET: "content-secret",

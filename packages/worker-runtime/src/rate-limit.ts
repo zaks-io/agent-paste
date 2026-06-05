@@ -14,6 +14,7 @@ export type RateLimitBindings = {
 };
 
 export type RateLimitResult = { ok: true } | { ok: false; code: ErrorCode; retryAfter: string };
+type RateLimitOutcome = "allowed" | "limited" | "unavailable";
 
 export type RateLimitContext = {
   clientIp?: string | undefined;
@@ -43,15 +44,17 @@ export async function applyEphemeralProvisionRateLimit(
 ): Promise<RateLimitResult> {
   const ipKey = clientIp?.trim() || "unknown";
 
-  // Global ceiling fails closed (503) when the binding is absent or errors — unlike actor/workspace caps.
-  const globalOutcome = await rateLimitOrFailClosed(bindings?.ephemeralProvisionGlobal, "global");
-  if (!globalOutcome.success) {
+  const globalOutcome = await checkRateLimit(bindings?.ephemeralProvisionGlobal, "global", "global");
+  if (globalOutcome !== "allowed") {
     return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
   }
 
-  const ipOutcome = await rateLimitOrFailOpen(bindings?.ephemeralProvisionIp, "actor", ipKey);
-  if (ipOutcome && !ipOutcome.success) {
+  const ipOutcome = await checkRateLimit(bindings?.ephemeralProvisionIp, "actor", ipKey);
+  if (ipOutcome === "limited") {
     return { ok: false, code: "ephemeral_provision_rate_limited", retryAfter: "3600" } as const;
+  }
+  if (ipOutcome === "unavailable") {
+    return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
   }
 
   return { ok: true } as const;
@@ -59,8 +62,8 @@ export async function applyEphemeralProvisionRateLimit(
 
 async function applyActorRateLimit(principal: Principal, bindings: RateLimitBindings | undefined) {
   if (principal.kind === "operator") {
-    const actorOutcome = await rateLimitOrFailOpen(bindings?.actor, "actor", `platform:${principal.actor.id}`);
-    if (actorOutcome && !actorOutcome.success) {
+    const actorOutcome = await checkRateLimit(bindings?.actor, "actor", `platform:${principal.actor.id}`);
+    if (actorOutcome !== "allowed") {
       return { ok: false, code: "rate_limited_actor", retryAfter: "60" } as const;
     }
     return { ok: true } as const;
@@ -71,13 +74,13 @@ async function applyActorRateLimit(principal: Principal, bindings: RateLimitBind
     return { ok: false, code: "not_authenticated", retryAfter: "60" } as const;
   }
 
-  const actorOutcome = await rateLimitOrFailOpen(bindings?.actor, "actor", `${actor.workspace_id}:${actor.id}`);
-  if (actorOutcome && !actorOutcome.success) {
+  const actorOutcome = await checkRateLimit(bindings?.actor, "actor", `${actor.workspace_id}:${actor.id}`);
+  if (actorOutcome !== "allowed") {
     return { ok: false, code: "rate_limited_actor", retryAfter: "60" } as const;
   }
 
-  const workspaceOutcome = await rateLimitOrFailOpen(bindings?.workspace, "workspace", actor.workspace_id);
-  if (workspaceOutcome && !workspaceOutcome.success) {
+  const workspaceOutcome = await checkRateLimit(bindings?.workspace, "workspace", actor.workspace_id);
+  if (workspaceOutcome !== "allowed") {
     return { ok: false, code: "rate_limited_workspace", retryAfter: "10" } as const;
   }
 
@@ -90,8 +93,8 @@ async function applyArtifactRateLimit(principal: Principal, bindings: RateLimitB
     return { ok: true } as const;
   }
 
-  const outcome = await rateLimitOrFailOpen(bindings?.artifact, "artifact", artifactId);
-  if (outcome && !outcome.success) {
+  const outcome = await checkRateLimit(bindings?.artifact, "artifact", artifactId);
+  if (outcome !== "allowed") {
     return { ok: false, code: "rate_limited_artifact", retryAfter: "60" } as const;
   }
 
@@ -120,35 +123,20 @@ function artifactIdForPrincipal(principal: Principal): string | null {
   return null;
 }
 
-async function rateLimitOrFailOpen(
+async function checkRateLimit(
   binding: RateLimitBinding | undefined,
-  scope: "actor" | "workspace" | "artifact",
+  scope: "actor" | "workspace" | "artifact" | "global",
   key: string,
-): Promise<{ success: boolean } | undefined> {
+): Promise<RateLimitOutcome> {
   if (!binding) {
-    return undefined;
+    return "unavailable";
   }
 
   try {
-    return await binding.limit({ key });
-  } catch (error) {
-    console.warn(`Rate limit ${scope} binding failed; allowing request.`, error);
-    return undefined;
-  }
-}
-
-async function rateLimitOrFailClosed(
-  binding: RateLimitBinding | undefined,
-  scope: "global",
-): Promise<{ success: boolean }> {
-  if (!binding) {
-    return { success: false };
-  }
-
-  try {
-    return await binding.limit({ key: scope });
+    const outcome = await binding.limit({ key });
+    return outcome.success ? "allowed" : "limited";
   } catch (error) {
     console.warn(`Rate limit ${scope} binding failed; denying request.`, error);
-    return { success: false };
+    return "unavailable";
   }
 }

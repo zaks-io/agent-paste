@@ -92,19 +92,52 @@ describe("applyRateLimit", () => {
     expect(artifact).toHaveBeenCalledWith({ key: "art_1" });
   });
 
-  it("fails open when bindings are missing or throw", async () => {
+  it("fails closed when actor or workspace bindings are missing or throw", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const failing = vi.fn().mockRejectedValue(new Error("limit unavailable"));
 
-    await expect(applyRateLimit(actorContract, apiKeyPrincipal(), undefined)).resolves.toEqual({ ok: true });
-    await expect(applyRateLimit(actorContract, apiKeyPrincipal(), { actor: { limit: failing } })).resolves.toEqual({
-      ok: true,
+    await expect(applyRateLimit(actorContract, apiKeyPrincipal(), undefined)).resolves.toEqual({
+      ok: false,
+      code: "rate_limited_actor",
+      retryAfter: "60",
     });
+    await expect(applyRateLimit(actorContract, apiKeyPrincipal(), { actor: { limit: failing } })).resolves.toEqual({
+      ok: false,
+      code: "rate_limited_actor",
+      retryAfter: "60",
+    });
+    await expect(
+      applyRateLimit(actorContract, apiKeyPrincipal(), {
+        actor: { limit: vi.fn().mockResolvedValue({ success: true }) },
+      }),
+    ).resolves.toEqual({ ok: false, code: "rate_limited_workspace", retryAfter: "10" });
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Rate limit actor binding failed"), expect.any(Error));
+  });
+
+  it("fails closed when an artifact binding is missing or throws for a resolved artifact", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failing = vi.fn().mockRejectedValue(new Error("limit unavailable"));
+
+    await expect(
+      applyRateLimit(
+        artifactContract,
+        { kind: "signed_content_token", payload: { artifact_id: "artifact_1" } },
+        undefined,
+      ),
+    ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
+    await expect(
+      applyRateLimit(
+        artifactContract,
+        { kind: "signed_content_token", payload: { artifact_id: "artifact_1" } },
+        { artifact: { limit: failing } },
+      ),
+    ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
     await expect(
       applyRateLimit(artifactContract, { kind: "signed_content_token", payload: null }, {}),
     ).resolves.toEqual({ ok: true });
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Rate limit actor binding failed"), expect.any(Error));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Rate limit artifact binding failed"), expect.any(Error));
   });
 
   it("routes ephemeral provision limits through the dedicated helper", async () => {
@@ -178,7 +211,7 @@ describe("applyEphemeralProvisionRateLimit", () => {
     });
   });
 
-  it("fails open when the per-ip binding is missing", async () => {
+  it("fails closed when the per-ip binding is missing", async () => {
     await expect(
       applyEphemeralProvisionRateLimit(
         {
@@ -186,7 +219,11 @@ describe("applyEphemeralProvisionRateLimit", () => {
         },
         "203.0.113.10",
       ),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({
+      ok: false,
+      code: "ephemeral_provision_unavailable",
+      retryAfter: "3600",
+    });
   });
 });
 

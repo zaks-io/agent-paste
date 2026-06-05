@@ -1,5 +1,9 @@
 # Native Cloudflare Rate-Limit Bindings for Authenticated Counters
 
+Status note: amended 2026-06-05 by AP-236. Missing or throwing rate-limit
+bindings are now treated as an availability failure and deny protected requests
+instead of allowing them.
+
 Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both the **Actor Rate Limit** and the **Workspace Burst Cap** are implemented as Cloudflare native rate-limit bindings (`ratelimits` entries in `wrangler.jsonc`), not Durable Object counters. The bindings live on `api` and `upload` only; `content` continues to enforce the unauthenticated **Artifact Rate Limit** per ADR 0039. ADR 0039 fixed the _model_ (two-layer cap, post-auth, with idempotency replays free); this ADR fixes the _storage_.
 
 ## Considered Options
@@ -46,6 +50,9 @@ Refines [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md). Both
 
 - `api` and `upload` call `env.ACTOR_RATE_LIMIT.limit({ key })` and `env.WORKSPACE_BURST_CAP.limit({ key })` _after_ authentication and scope checks, _before_ business logic. The order is fixed by ADR 0039.
 - A `{ success: false }` return triggers the `429` path with `Retry-After` and the `rate_limited_actor` / `rate_limited_workspace` error code per ADR 0039.
+- A missing binding or thrown binding call also denies the guarded request. The
+  public error remains the matching rate-limit code so clients back off; the
+  Worker logs the binding failure for operators.
 - The idempotency cache hit path from [ADR 0022](./0022-idempotency-keys-on-mutating-endpoints.md) resolves before either `limit()` call so replays do not consume budget. Already required by ADR 0039.
 - A breach is operational telemetry per ADR 0039, written to the structured-log surface from [ADR 0011](./0011-cloudflare-first-observability.md). It is not an **Audit Event**.
 
