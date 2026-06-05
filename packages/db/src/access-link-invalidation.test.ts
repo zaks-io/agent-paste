@@ -5,6 +5,7 @@ import {
   writeAccessLinkLockdownDenylist,
   writeAccessLinkRevocationDenylist,
 } from "./access-link-invalidation.js";
+import { LocalRepository } from "./local-repository.js";
 
 describe("access link denylist invalidation", () => {
   it("writes ald: keys for revocation with the max content-token TTL", async () => {
@@ -43,5 +44,37 @@ describe("access link denylist invalidation", () => {
     await expect(writeAccessLinkRevocationDenylist({}, "al_1")).resolves.toBe(false);
     await expect(writeAccessLinkLockdownDenylist({}, "art_1")).resolves.toBe(false);
     await expect(deleteAccessLinkLockdownDenylist({}, "art_1")).resolves.toBe(false);
+  });
+
+  it("retains ad: when platform artifact lockdown is still effective", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-platform-lock",
+      scope: "artifact",
+      targetId: "art_1",
+      reasonCode: "abuse",
+    });
+    const artifact = {
+      id: "art_1",
+      workspace_id: "workspace_1",
+      revision_id: "rev_1",
+      status: "active" as const,
+      title: "Demo",
+      entrypoint: "index.html",
+      file_count: 1,
+      size_bytes: 1,
+      expires_at: "2099-01-01T00:00:00.000Z",
+      pinned_at: null,
+      created_by_type: "api_key" as const,
+      created_by_id: "key_1",
+      access_link_lockdown_at: null,
+      deleted_at: null,
+      delete_reason: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    };
+    repo.artifacts.set(artifact.id, artifact);
+    await expect(repo.peekArtifactDenylistRetention("art_1")).resolves.toBe(true);
   });
 });

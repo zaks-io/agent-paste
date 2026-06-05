@@ -198,4 +198,97 @@ describe("access link denylist invalidation", () => {
     expect(liftResponse.status).toBe(200);
     expect(denylist.values.has(`ad:${artifactId}`)).toBe(false);
   });
+
+  it("keeps ad: when lifting access-link lockdown while platform lockdown remains", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const denylist = new MemoryKv();
+    const { member, artifactId } = await memberWithAccessLink(repo);
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-platform-lock",
+      scope: "artifact",
+      targetId: artifactId,
+      reasonCode: "abuse",
+    });
+    denylist.values.set(`ad:${artifactId}`, JSON.stringify({ reason: "platform_lockdown_artifact", at: "2026-01-01T00:00:00.000Z" }));
+    const env = webEnv(repo, denylist);
+
+    await repo.setMemberAccessLinkLockdown({
+      actor: member,
+      idempotencyKey: "idem-member-lock",
+      artifactId,
+      locked: true,
+    });
+
+    const liftResponse = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${artifactId}/access-link-lockdown/lift`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "idempotency-key": "idem-lift-with-platform-lock" },
+      }),
+      env,
+    );
+    expect(liftResponse.status).toBe(200);
+    expect(denylist.values.has(`ad:${artifactId}`)).toBe(true);
+  });
+
+  it("returns storage_unavailable when denylist writes fail after revoke commits", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const { accessLinkId } = await memberWithAccessLink(repo);
+    const env: Env = {
+      ...webEnv(repo, new MemoryKv()),
+      DENYLIST: {
+        async put() {
+          throw new Error("kv unavailable");
+        },
+      },
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${accessLinkId}/revoke`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+  });
+
+  it("retries denylist writes on idempotent revoke replay after a failed first attempt", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const denylist = new MemoryKv();
+    const { accessLinkId } = await memberWithAccessLink(repo);
+    let shouldFail = true;
+    const env: Env = {
+      ...webEnv(repo, denylist),
+      DENYLIST: {
+        async put(key: string, value: string) {
+          if (shouldFail) {
+            throw new Error("kv unavailable");
+          }
+          await denylist.put(key, value);
+        },
+      },
+    };
+
+    const failed = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${accessLinkId}/revoke`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(failed.status).toBe(503);
+
+    shouldFail = false;
+    const replay = await handleRequest(
+      new Request(`https://api.test/v1/web/access-links/${accessLinkId}/revoke`, {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+    expect(replay.status).toBe(200);
+    expect(denylist.values.get(`ald:${accessLinkId}`)).toEqual(expect.any(String));
+  });
 });

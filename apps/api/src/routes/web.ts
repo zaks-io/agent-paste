@@ -337,7 +337,7 @@ export async function webSetAccessLinkLockdown(
     if (locked) {
       await invalidateAccessLinkLockdown(context.env, artifactId);
     } else {
-      await clearAccessLinkLockdownDenylist(context.env, artifactId);
+      await clearAccessLinkLockdownDenylist(context.env, db, artifactId);
     }
     return result;
   });

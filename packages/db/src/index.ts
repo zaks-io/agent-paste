@@ -14,6 +14,7 @@ export {
 export { inferRenderMode } from "./agent-view.js";
 export {
   deleteAccessLinkLockdownDenylist,
+  peekArtifactDenylistRetention,
   writeAccessLinkLockdownDenylist,
   writeAccessLinkRevocationDenylist,
 } from "./access-link-invalidation.js";

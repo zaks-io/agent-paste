@@ -3253,6 +3253,9 @@ function lockdownDetail(overrides: Record<string, unknown> = {}) {
 function webMemberDbForTests(scopes: string[], overrides: Partial<ApiDatabase> = {}): ApiDatabase {
   return {
     ...baseDbForTests(),
+    async peekArtifactDenylistRetention() {
+      return false;
+    },
     async getWebMemberByWorkOsUserId() {
       return {
         type: "member",
