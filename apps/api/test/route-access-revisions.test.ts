@@ -84,13 +84,26 @@ describe("AP-91 access link route modules", () => {
     );
     expect(listed.status).toBe(404);
 
-    revokeMemberAccessLink.mockRejectedValueOnce(new RepositoryError("not_found"));
+    const denylist = { put: vi.fn(async () => {}) };
     const revoked = await revokeAccessLinkRoute(
+      contextFor({ env: { DENYLIST: denylist }, params: { access_link_id: "al_1" } }),
+      apiPrincipal(),
+      { ...db, revokeMemberAccessLink: vi.fn(async () => ({ access_link_id: "al_1", revoked_at: "2026-01-01T00:00:00.000Z" })) } as never,
+    );
+    expect(revoked.status).toBe(200);
+    expect(denylist.put).toHaveBeenCalledWith(
+      "ald:al_1",
+      expect.stringContaining('"reason":"revocation"'),
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
+
+    revokeMemberAccessLink.mockRejectedValueOnce(new RepositoryError("not_found"));
+    const missing = await revokeAccessLinkRoute(
       contextFor({ params: { access_link_id: "missing" } }),
       apiPrincipal(),
       db as never,
     );
-    expect(revoked.status).toBe(404);
+    expect(missing.status).toBe(404);
   });
 
   it("resolves signed access links with iframe fallback and artifact rate limiting", async () => {

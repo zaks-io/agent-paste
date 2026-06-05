@@ -2923,6 +2923,7 @@ describe("web Access Link routes", () => {
   });
 
   it("revokes an access link", async () => {
+    const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
     const env: Env = {
       AUTH: webAuthForTests(),
       DB: webMemberDbForTests(["read"], {
@@ -2931,6 +2932,11 @@ describe("web Access Link routes", () => {
           return { access_link_id: ACCESS_LINK_ID, revoked_at: "2026-01-02T00:00:00.000Z" };
         },
       }),
+      DENYLIST: {
+        async put(key, value, options) {
+          puts.push({ key, value, expirationTtl: options?.expirationTtl });
+        },
+      },
     };
 
     const response = await handleRequest(
@@ -2943,6 +2949,9 @@ describe("web Access Link routes", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ access_link_id: ACCESS_LINK_ID });
+    expect(puts).toHaveLength(1);
+    expect(puts[0]).toMatchObject({ key: `ald:${ACCESS_LINK_ID}` });
+    expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({ reason: "revocation", at: expect.any(String) });
   });
 
   // revoke self-dedupes through uow.command, so a concurrent collision still
@@ -2973,6 +2982,8 @@ describe("web Access Link routes", () => {
     ["set", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown`, true],
     ["lift", `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown/lift`, false],
   ])("%ss Access Link Lockdown for an artifact", async (_label, url, expectedLocked) => {
+    const puts: Array<{ key: string; value: string }> = [];
+    const deletes: string[] = [];
     const env: Env = {
       AUTH: webAuthForTests(),
       DB: webMemberDbForTests(["read"], {
@@ -2994,6 +3005,14 @@ describe("web Access Link routes", () => {
           };
         },
       }),
+      DENYLIST: {
+        async put(key, value) {
+          puts.push({ key, value });
+        },
+        async delete(key) {
+          deletes.push(key);
+        },
+      },
     };
 
     const response = await handleRequest(
@@ -3006,6 +3025,18 @@ describe("web Access Link routes", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ id: ARTIFACT_ID, lockdown: expectedLocked });
+    if (expectedLocked) {
+      expect(puts).toHaveLength(1);
+      expect(puts[0]).toMatchObject({ key: `ad:${ARTIFACT_ID}` });
+      expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({
+        reason: "access_link_lockdown",
+        at: expect.any(String),
+      });
+      expect(deletes).toEqual([]);
+    } else {
+      expect(deletes).toEqual([`ad:${ARTIFACT_ID}`]);
+      expect(puts).toEqual([]);
+    }
   });
 
   it.each([

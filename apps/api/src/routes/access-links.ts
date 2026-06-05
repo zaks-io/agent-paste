@@ -2,6 +2,7 @@ import type { Repository } from "@agent-paste/db";
 import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { invalidateRevokedAccessLink } from "../access-link-invalidation.js";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, Env } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
@@ -83,12 +84,15 @@ export async function revokeAccessLinkRoute(
   if (!actor) {
     return getBoundResponders(context).respondError("not_authenticated");
   }
-  return executeRepositoryRoute(context, () =>
-    db.revokeMemberAccessLink({
+  const accessLinkId = context.req.param("access_link_id") ?? "";
+  return executeRepositoryRoute(context, async () => {
+    const result = await db.revokeMemberAccessLink({
       actor,
-      accessLinkId: context.req.param("access_link_id") ?? "",
-    }),
-  );
+      accessLinkId,
+    });
+    await invalidateRevokedAccessLink(context.env, result.access_link_id);
+    return result;
+  });
 }
 
 export async function resolveAccessLinkRoute(

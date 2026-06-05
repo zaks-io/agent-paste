@@ -3,6 +3,11 @@ import type { CreateApiKeyRequest, UpdateWebSettingsRequest } from "@agent-paste
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
+import {
+  clearAccessLinkLockdownDenylist,
+  invalidateAccessLinkLockdown,
+  invalidateRevokedAccessLink,
+} from "../access-link-invalidation.js";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
@@ -297,12 +302,15 @@ export async function webRevokeAccessLink(
   if (!actor) {
     return getBoundResponders(context).respondError("forbidden");
   }
-  return runIdempotent(context, () =>
-    db.revokeMemberAccessLink({
+  const accessLinkId = params.accessLinkId ?? "";
+  return runIdempotent(context, async () => {
+    const result = await db.revokeMemberAccessLink({
       actor,
-      accessLinkId: params.accessLinkId ?? "",
-    }),
-  );
+      accessLinkId,
+    });
+    await invalidateRevokedAccessLink(context.env, result.access_link_id);
+    return result;
+  });
 }
 
 export async function webSetAccessLinkLockdown(
@@ -318,14 +326,21 @@ export async function webSetAccessLinkLockdown(
     return getBoundResponders(context).respondError("forbidden");
   }
   const idempotencyKey = guard.idempotencyKey;
-  return runIdempotent(context, () =>
-    db.setMemberAccessLinkLockdown({
+  const artifactId = params.artifactId ?? "";
+  return runIdempotent(context, async () => {
+    const result = await db.setMemberAccessLinkLockdown({
       actor,
       idempotencyKey,
-      artifactId: params.artifactId ?? "",
+      artifactId,
       locked,
-    }),
-  );
+    });
+    if (locked) {
+      await invalidateAccessLinkLockdown(context.env, artifactId);
+    } else {
+      await clearAccessLinkLockdownDenylist(context.env, artifactId);
+    }
+    return result;
+  });
 }
 
 export async function webAudit(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
