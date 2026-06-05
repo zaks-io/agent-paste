@@ -14,6 +14,7 @@
     "lint": "biome lint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "typegen": "wrangler types --config wrangler.jsonc --env preview"
   },

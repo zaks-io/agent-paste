@@ -15,6 +15,7 @@
     "check": "pnpm typecheck",
     "lint": "biome lint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {
