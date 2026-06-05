@@ -112,6 +112,49 @@ Markdown and text files may be included as downloadable files. Dedicated Markdow
 
 ## Caching
 
-After token verification, cache by `(artifact_id, revision_id, path)`. Responses carry `Cache-Control: private, max-age={remaining_token_seconds}`.
+Reloads of an unchanged artifact must not re-download bytes. Because a content
+token is a deterministic HMAC of its payload and `exp` is fixed from the
+artifact's `expires_at`, the signed URL is stable across reloads for the same
+`(artifact_id, revision_id, path)`, so the browser cache keys on it correctly.
+The content origin adds a validator so an unchanged reload costs a single
+zero-body round trip.
 
-Stable public signed URLs are not immutable forever. They expire at or before artifact expiration.
+**ETag.** Every file and bundle 200 carries a strong `ETag` derived from
+immutable revision identity: `"{sha256(revision_id "\n" path)}"`. A revision is
+append-only, so `(revision_id, path)` permanently identifies the exact served
+bytes. The value is computed from the token payload alone (no R2 read).
+
+**Conditional requests.** A request whose `If-None-Match` matches the ETag (or
+is `*`) returns `304 Not Modified` with no body, **before** any R2 read or
+decrypt. The 304 MUST carry the same headers the matching `200` would carry —
+the same per-path `Content-Security-Policy`, content type, `ETag`, and
+`Cache-Control` — minus `Content-Length`. A 304 replaces the cached response's
+headers ([RFC 9111 §4.3.4](https://www.rfc-editor.org/rfc/rfc9111#section-4.3.4)),
+so a 304 carrying only a permissive baseline CSP would weaken the locked-down
+policy of cached untrusted HTML on its next render; building the 304 from the
+exact `200` header set is what prevents that drift. The 304 still passes token,
+denylist, and artifact-read-limit checks first, and registers a zero-byte read
+event.
+
+**Cache-Control.** Every served file and the bundle use the same directive:
+`private, no-cache`. Errors use `no-store`. This follows from three best-practice
+rules for serving private, bearer-capped, revocable content:
+
+- **Always `private`** — the URL is a bearer cap, so a response MUST NOT enter a
+  shared cache.
+- **Always `no-cache`, never a no-revalidation `max-age` window** — a content URL
+  can be revoked (denylist) or expire at any time, so every load MUST revalidate
+  rather than serve from a warm cache that could keep handing back a revoked or
+  expired artifact. Paired with the strong ETag, that revalidation is a cheap
+  zero-body 304, so the validator (not a `max-age` window) does the
+  bandwidth-saving work.
+- **`no-store` for errors** — error bodies MUST NOT be cached at all.
+
+Stable public signed URLs are not immutable forever. They expire at or before
+artifact expiration. See ADR 0081.
+
+There is no edge cache (`caches.default`). Caching decrypted bytes near the
+worker was considered and deferred — it would persist user plaintext in a shared
+edge cache and open a denylist/expiry revocation gap that the `no-cache` posture
+exists to close. ADR 0081 records the rationale and the conditions under which to
+revisit.

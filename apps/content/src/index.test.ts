@@ -1,6 +1,7 @@
 import { routeContracts } from "@agent-paste/contracts";
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import { describe, expect, it, vi } from "vitest";
+import { contentEtag } from "./etag.js";
 import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, signContentToken } from "./index.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -836,6 +837,270 @@ describe("content worker", () => {
 
     const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
     expect(response.status).toBe(404);
+  });
+});
+
+describe("content conditional requests", () => {
+  async function tokenFor(path: string, overrides: Partial<Parameters<typeof signContentToken>[0]> = {}) {
+    return signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: [path],
+        exp: Math.floor(Date.now() / 1000) + 60,
+        ...overrides,
+      },
+      "secret",
+    );
+  }
+
+  async function cssEnv(): Promise<{ env: Env; get: ReturnType<typeof vi.fn> }> {
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "style.css",
+      plaintext: "body{}",
+    });
+    const get = vi.fn(async () => stored);
+    return { env: baseContentEnv({ ARTIFACTS: { get } }), get };
+  }
+
+  it("sets a strong ETag on a 200 file response", async () => {
+    const response = await fetchServedFile("style.css", "body{}");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toMatch(/^"[0-9a-f]{64}"$/);
+  });
+
+  it("returns 304 without reading R2 when If-None-Match matches", async () => {
+    const token = await tokenFor("style.css");
+    const { env, get } = await cssEnv();
+    const first = await handleRequest(new Request(`https://content.test/v/${token}/style.css`), env);
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+    expect(get).toHaveBeenCalledTimes(1);
+
+    const conditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+
+    expect(conditional.status).toBe(304);
+    expect(await conditional.text()).toBe("");
+    expect(conditional.headers.get("etag")).toBe(etag);
+    expect(conditional.headers.get("cache-control")).toBe("private, no-cache");
+    // The matching conditional request never touched R2.
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the body when If-None-Match does not match", async () => {
+    const token = await tokenFor("style.css");
+    const { env, get } = await cssEnv();
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": '"stale"' } }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("body{}");
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats If-None-Match: * as a match", async () => {
+    const token = await tokenFor("style.css");
+    const { env, get } = await cssEnv();
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": "*" } }),
+      env,
+    );
+    expect(response.status).toBe(304);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("404s a workspace-less token even when If-None-Match would match, mirroring the 200 path", async () => {
+    // A token minted without workspace_id is unservable: the 200 path 404s when
+    // prepareEncryptedObjectResponse sees no workspace, so the conditional path
+    // must 404 too instead of short-circuiting to a 304.
+    const token = await tokenFor("style.css", { workspace_id: undefined });
+    const { env, get } = await cssEnv();
+    const etag = await contentEtag("rev_1", "style.css");
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": etag } }),
+      env,
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("serves HTML with a no-cache directive and a matching HEAD ETag", async () => {
+    const getResponse = await fetchServedFile("index.html", "<h1>ok</h1>");
+    expect(getResponse.headers.get("cache-control")).toBe("private, no-cache");
+    const etag = getResponse.headers.get("etag");
+
+    const token = await tokenFor("index.html");
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "<h1>ok</h1>",
+    });
+    const head = vi.fn(async () => ({ body: null, size: stored.size, customMetadata: stored.customMetadata }));
+    const env = baseContentEnv({
+      ARTIFACTS: {
+        async get() {
+          throw new Error("HEAD should use R2 head");
+        },
+        head,
+      },
+    });
+    const headResponse = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { method: "HEAD" }),
+      env,
+    );
+    expect(headResponse.headers.get("etag")).toBe(etag);
+
+    const conditionalHead = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, {
+        method: "HEAD",
+        headers: { "if-none-match": etag as string },
+      }),
+      env,
+    );
+    expect(conditionalHead.status).toBe(304);
+    expect(head).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the same locked-down headers on a 304 as the 200 it revalidates", async () => {
+    // A 304 replaces the cached response's headers (RFC 9111 §4.3.4), so the
+    // revalidation must not hand back a weaker CSP/content-type than the 200.
+    const token = await tokenFor("index.html");
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "<h1>ok</h1>",
+    });
+    const get = vi.fn(async () => stored);
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+
+    const first = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+    const etag = first.headers.get("etag");
+    expect(first.status).toBe(200);
+    expect(first.headers.get("content-security-policy")).toContain("script-src 'none'");
+
+    const conditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+
+    expect(conditional.status).toBe(304);
+    // Locked-down, per-path headers survive the 304 instead of regressing to the
+    // permissive base policy.
+    expect(conditional.headers.get("content-security-policy")).toBe(first.headers.get("content-security-policy"));
+    expect(conditional.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(conditional.headers.get("content-type")).toBe(first.headers.get("content-type"));
+    expect(conditional.headers.get("cache-control")).toBe(first.headers.get("cache-control"));
+    expect(conditional.headers.get("cache-control")).toBe("private, no-cache");
+    // A 304 has no body, so it must not advertise a content-length.
+    expect(conditional.headers.get("content-length")).toBeNull();
+  });
+
+  it("preserves the strict SVG CSP on a 304", async () => {
+    const token = await tokenFor("chart.svg");
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "chart.svg",
+      plaintext: "<svg></svg>",
+    });
+    const get = vi.fn(async () => stored);
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+
+    const first = await handleRequest(new Request(`https://content.test/v/${token}/chart.svg`), env);
+    const etag = first.headers.get("etag");
+    const conditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/chart.svg`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+
+    expect(conditional.status).toBe(304);
+    expect(conditional.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    );
+    expect(conditional.headers.get("content-security-policy")).toBe(first.headers.get("content-security-policy"));
+  });
+
+  it("sets an ETag on bundle downloads and 304s a matching request without reading R2", async () => {
+    const bundleKey =
+      "env/dev/workspaces/00000000-0000-4000-8000-000000000001/artifacts/art_1/revisions/rev_1/bundle.zip";
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        workspace_id: workspaceId,
+        key_prefix: bundleKey,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const encryptedBundle = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("zip-bytes"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: { workspaceId, artifactId: "art_1", revisionId: "rev_1", normalizedPath: "bundle.zip" },
+    });
+    const get = vi.fn(async () => ({
+      body: new Blob([encryptedBundle.ciphertext]).stream(),
+      size: encryptedBundle.ciphertext.byteLength,
+      customMetadata: encryptedBundle.customMetadata,
+    }));
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+
+    const first = await handleRequest(new Request(`https://content.test/b/${token}`), env);
+    const etag = first.headers.get("etag");
+    expect(first.status).toBe(200);
+    expect(etag).toMatch(/^"[0-9a-f]{64}"$/);
+    expect(get).toHaveBeenCalledTimes(1);
+
+    const conditional = await handleRequest(
+      new Request(`https://content.test/b/${token}`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+    expect(conditional.status).toBe(304);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("still 404s a denylisted token even when If-None-Match would match", async () => {
+    const token = await tokenFor("style.css");
+    const etag = (await fetchServedFile("style.css", "body{}")).headers.get("etag");
+    const get = vi.fn();
+    const env = baseContentEnv({
+      DENYLIST: {
+        async get(key) {
+          return key === "ad:art_1" ? "1" : null;
+        },
+      },
+      ARTIFACTS: { get },
+    });
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("keeps the 304 path behind the artifact rate limit", async () => {
+    const token = await tokenFor("style.css");
+    const etag = (await fetchServedFile("style.css", "body{}")).headers.get("etag");
+    const get = vi.fn();
+    const limit = vi.fn(async () => ({ success: true }));
+    const env = baseContentEnv({ ARTIFACTS: { get }, ARTIFACT_RATE_LIMIT: { limit } });
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": etag as string } }),
+      env,
+    );
+    expect(response.status).toBe(304);
+    expect(limit).toHaveBeenCalledTimes(1);
+    expect(get).not.toHaveBeenCalled();
   });
 });
 

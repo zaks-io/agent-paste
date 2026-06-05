@@ -1,0 +1,29 @@
+# ETag Validators and Conditional 304s for Content Responses
+
+The content origin will answer a reload of unchanged artifact bytes with a single zero-body round trip instead of re-downloading the file. A content-gateway token is a deterministic HMAC of its payload, and `exp` is fixed from the artifact's non-null `expires_at`, so the signed URL is stable across reloads for the same `(artifact_id, revision_id, path)`. The browser cache therefore already keys correctly on the URL; what was missing was a validator, so a hard reload or a lapsed `max-age` forced a full re-download.
+
+Every file and bundle 200 carries a strong `ETag` of the form `"{sha256(revision_id "\n" path)}"`. Because a Revision is append-only and immutable ([ADR 0020](./0020-content-caching-by-revision-immutability.md)), `(revision_id, path)` permanently identifies the exact served bytes, so a strong validator is correct. The ETag is computed from the token payload alone, never from R2, so a conditional request can be answered before any read or decrypt. The `noindex` body rewrite does not need to enter the validator: the `noindex` bit is fixed per (immutable) token, so served bytes remain a pure function of `(revision_id, path)` for a given URL.
+
+A request whose `If-None-Match` matches the ETag (or is `*`) returns `304 Not Modified` with no body. The 304 is built from the exact headers the `200` would carry (the same per-path `Content-Security-Policy`, content type, `ETag`, and `Cache-Control`) minus `Content-Length`. This is deliberate: a 304 replaces the cached response's headers ([RFC 9111 §4.3.4](https://www.rfc-editor.org/rfc/rfc9111#section-4.3.4)), so a 304 that carried only a permissive baseline CSP would weaken the script-disabled or strict-SVG policy of the cached untrusted HTML on the next render. The 304 is emitted only after the existing token, denylist, and artifact-read-limit checks pass, so a denylisted or over-limit request never short-circuits to a 304.
+
+Every file and bundle uses the same directive: `private, no-cache`. `private` because the URL is a bearer cap that must never enter a shared cache. `no-cache` (not a `max-age` window) on _every_ served file, not just HTML, so denylist and expiry are re-checked on every load; with the ETag that revalidation is a cheap zero-body 304. We deliberately do not grant assets a no-revalidation `max-age` window: a warm browser cache holding a revoked or expired artifact would keep serving it until the window lapsed, and a uniform `no-cache` posture closes that revocation gap while the strong validator still does all the bandwidth-saving work. Error responses stay `no-store`.
+
+This realizes the client-facing half of [ADR 0020](./0020-content-caching-by-revision-immutability.md) through response validators. It does not add the edge cache (`caches.default`) that ADR 0020 and [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) anticipated; that remains future work and is not wired today.
+
+## Consequences
+
+- File, HEAD, and bundle responses carry a strong `ETag` derived from `(revision_id, path)`; no content-hash column or R2 ciphertext etag is introduced.
+- A matching `If-None-Match` (including `*`) returns `304` before R2 is read or decrypted, after auth, denylist, and the artifact read limit are checked.
+- A 304 still registers a `read` analytics event with `bytes: 0` and `detail: "304"`, since the request counted against the read limit.
+- Every served file and the bundle revalidate on every load (`private, no-cache`); none get a no-revalidation `max-age` window, so a revoked or expired artifact stops serving on the next request instead of lingering in a warm cache. All content responses stay `private`; errors stay `no-store`.
+- The anticipated edge cache keyed on Revision identity is still not implemented. Long-lived edge caching from ADR 0020/0028 describes a future mechanism, not current behavior.
+
+## Considered and deferred: a Workers edge cache (`caches.default`)
+
+We considered caching decrypted bytes near the worker with the Workers Cache API so that a hot artifact serves repeat viewers in a PoP without a fresh R2 GET + decrypt each time. We deferred it. The validator work above already makes a _reload_ cheap (a zero-body 304 answered before R2), so the only thing an edge cache adds is collapsing _distinct cold-cache viewers_ in one PoP onto one R2 read — a throughput/cost win for popular content, not a latency win for the reload case that motivated this ADR. Against that narrow benefit:
+
+- **Plaintext at the edge.** Artifact bytes are stored encrypted in R2 and decrypted transiently in the worker. Caching the decrypted body in `caches.default` persists user plaintext at rest in a shared edge cache, expanding the trust boundary for content whose whole posture is "untrusted, isolated origin, bearer-cap URL" (ADR 0014).
+- **Revocation gap.** The uniform `private, no-cache` posture exists so the KV denylist and expiry are re-checked every load. An edge entry that serves bytes without re-entering the pipeline would keep serving a denylisted or expired artifact until its own TTL lapsed, which would require a per-PoP cache-invalidation mechanism wired into the denylist write path — distributed invalidation we do not have and do not want pre-launch.
+- **Cap-model tension.** `caches.default` is a shared (per-PoP, cross-user) cache; `private` on these bearer-cap URLs says exactly "do not put this in a shared cache."
+
+If post-launch telemetry shows R2 read cost or latency driven by hot public artifacts, revisit with a narrowly scoped design: cache only inline, non-attachment content, behind the read limiter, with denylist-write invalidation, and a deliberate decision about whether plaintext-at-edge is acceptable for that content class. Until that evidence exists, the client-side validator is the whole caching story.
