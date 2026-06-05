@@ -150,7 +150,7 @@ export function accessLinkSigningSecret(env: Env): { secret: string; kid: number
 async function enforceArtifactRateLimit(context: AppContext, artifactId: string): Promise<Response | null> {
   const binding = context.env.ARTIFACT_RATE_LIMIT;
   if (!binding) {
-    return null;
+    return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
   }
   try {
     const outcome = await binding.limit({ key: artifactId });
@@ -158,7 +158,8 @@ async function enforceArtifactRateLimit(context: AppContext, artifactId: string)
       return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
     }
   } catch (error) {
-    console.warn("Artifact rate limit binding failed; allowing access link resolve.", error);
+    console.warn("Artifact rate limit binding failed; denying access link resolve.", error);
+    return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
   }
   return null;
 }

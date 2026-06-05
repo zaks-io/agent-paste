@@ -10,6 +10,14 @@ const artifactBytesEncryptionEnv = {
 
 const workosUserId = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP" | "ARTIFACT_RATE_LIMIT"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+    ARTIFACT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+}
+
 class MemoryKv {
   readonly values = new Map<string, string>();
 
@@ -113,6 +121,7 @@ function webEnv(repo: LocalRepository, denylist: MemoryKv): Env {
     },
     DB: repo,
     DENYLIST: denylist,
+    ...allowRateLimits(),
     CONTENT_SIGNING_SECRET: "content-secret",
     CONTENT_BASE_URL: "http://content.local",
   };
@@ -210,7 +219,10 @@ describe("access link denylist invalidation", () => {
       targetId: artifactId,
       reasonCode: "abuse",
     });
-    denylist.values.set(`ad:${artifactId}`, JSON.stringify({ reason: "platform_lockdown_artifact", at: "2026-01-01T00:00:00.000Z" }));
+    denylist.values.set(
+      `ad:${artifactId}`,
+      JSON.stringify({ reason: "platform_lockdown_artifact", at: "2026-01-01T00:00:00.000Z" }),
+    );
     const env = webEnv(repo, denylist);
 
     await repo.setMemberAccessLinkLockdown({

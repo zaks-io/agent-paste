@@ -88,7 +88,10 @@ describe("AP-91 access link route modules", () => {
     const revoked = await revokeAccessLinkRoute(
       contextFor({ env: { DENYLIST: denylist }, params: { access_link_id: "al_1" } }),
       apiPrincipal(),
-      { ...db, revokeMemberAccessLink: vi.fn(async () => ({ access_link_id: "al_1", revoked_at: "2026-01-01T00:00:00.000Z" })) } as never,
+      {
+        ...db,
+        revokeMemberAccessLink: vi.fn(async () => ({ access_link_id: "al_1", revoked_at: "2026-01-01T00:00:00.000Z" })),
+      } as never,
     );
     expect(revoked.status).toBe(200);
     expect(denylist.put).toHaveBeenCalledWith(
@@ -152,7 +155,14 @@ describe("AP-91 access link route modules", () => {
     };
     const resolveAccessLink = vi.fn(async () => resolvedView);
     const baseContext = contextFor({
-      env: { ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret" },
+      env: {
+        ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+        ARTIFACT_RATE_LIMIT: {
+          async limit() {
+            return { success: true };
+          },
+        },
+      },
       body: { public_id: "0123456789ABCDEF", blob },
     });
 

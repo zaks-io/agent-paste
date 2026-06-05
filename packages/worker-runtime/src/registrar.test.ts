@@ -131,17 +131,19 @@ describe("contract-driven registrar", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
   });
 
-  it("fails open when rate-limit bindings are missing or throw", async () => {
+  it("fails closed when rate-limit bindings are missing or throw", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
       const missing = await rateLimitedResponse({});
-      expect(missing.status).toBe(200);
+      expect(missing.status).toBe(429);
+      await expect(missing.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
 
       const throwing = await rateLimitedResponse({
         actor: new Error("binding unavailable"),
         workspace: { success: true },
       });
-      expect(throwing.status).toBe(200);
+      expect(throwing.status).toBe(429);
+      await expect(throwing.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();

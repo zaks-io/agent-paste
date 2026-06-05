@@ -49,6 +49,9 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 ## Provision Flow
 
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
+   If the provision rate-limit bindings are unavailable, the endpoint fails
+   closed with `ephemeral_provision_unavailable` and `Retry-After` instead of
+   minting credentials.
 2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
    - mints an **API Key** (`ap_pk_{env}_{publicId}_{secret}`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)) with `write` + `read` **Scopes**, short **Expiration**;

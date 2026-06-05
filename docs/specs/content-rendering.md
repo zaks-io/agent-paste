@@ -33,7 +33,10 @@ The content origin applies a platform-controlled unauthenticated read cap per Ar
 
 The throttle covers direct content-origin reads for every file in the Artifact. It is an abuse ceiling, not a billing meter; occasional eventual consistency across Cloudflare locations is acceptable.
 
-When the cap is exceeded, `content` returns the public error envelope with `error.code = "rate_limited_artifact"` and a `Retry-After` header. It does not reveal whether the Artifact exists beyond what a valid signed token already proves.
+When the cap is exceeded or the rate-limit binding is unavailable, `content`
+returns the public error envelope with `error.code = "rate_limited_artifact"`
+and a `Retry-After` header. It does not reveal whether the Artifact exists
+beyond what a valid signed token already proves.
 
 ## Extension Allowlist
 

@@ -130,7 +130,7 @@ async function authorizeAccessLink(
 async function enforceArtifactRateLimit(env: LiveUpdatesEnv, artifactId: string): Promise<Response | null> {
   const binding = env.ARTIFACT_RATE_LIMIT;
   if (!binding) {
-    return null;
+    return jsonError("rate_limited_artifact", 429, { "Retry-After": "60" });
   }
   try {
     const outcome = await binding.limit({ key: artifactId });
@@ -138,7 +138,8 @@ async function enforceArtifactRateLimit(env: LiveUpdatesEnv, artifactId: string)
       return jsonError("rate_limited_artifact", 429, { "Retry-After": "60" });
     }
   } catch (error) {
-    console.warn("Artifact rate limit binding failed; allowing live update authorize.", error);
+    console.warn("Artifact rate limit binding failed; denying live update authorize.", error);
+    return jsonError("rate_limited_artifact", 429, { "Retry-After": "60" });
   }
   return null;
 }

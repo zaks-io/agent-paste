@@ -28,9 +28,10 @@ the ADR.
   - Done: a test asserts every `ErrorCode` has a status and that the cap/expiry codes match the
     statuses the Workers return today.
 - [x] **`rate-limit.ts`.** Pure `applyRateLimit(contract, ctx, bindings)` over the `rateLimit`
-      field; `"actor"` does actor + workspace-burst, `"artifact"` does per-artifact; fails open when a
-      binding is absent.
-  - Done: tests cover allowed, limited (429 + `Retry-After`), missing-binding fail-open.
+      field; `"actor"` does actor + workspace-burst, `"artifact"` does per-artifact. AP-236 later
+      changed missing or throwing bindings from fail-open to fail-closed.
+  - Done: tests cover allowed, limited (429 + `Retry-After`), and missing or throwing binding
+    fail-closed behavior.
 - [x] **`guard.ts`.** The internal chain: resolve principal → apply rate-limit → check scopes →
       shape idempotency header → render envelope. Fixed order; rate-limit before scope check.
 - [x] **`registrar.ts`.** `createRegistrar(deps)` with `AuthResolvers`, `.mount(contract, handler)`,

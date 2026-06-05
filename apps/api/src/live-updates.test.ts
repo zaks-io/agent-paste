@@ -243,7 +243,7 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(rateLimited.headers.get("Retry-After")).toBe("60");
   });
 
-  it("allows access-link authorize when artifact rate limiting fails open", async () => {
+  it("fails closed when access-link authorize artifact rate limiting is unavailable", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     wireLiveUpdateDeps({
       signAgentView: async (view) => ({
@@ -295,7 +295,7 @@ describe("handleLiveUpdateAuthorize", () => {
       },
     } as unknown as Repository;
 
-    const response = await handleLiveUpdateAuthorize(
+    const throwing = await handleLiveUpdateAuthorize(
       streamAuthorizeRequest({
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -304,11 +304,24 @@ describe("handleLiveUpdateAuthorize", () => {
       env,
       db,
     );
-    expect(response.status).toBe(200);
+    expect(throwing.status).toBe(429);
+    await expect(throwing.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
     expect(warn).toHaveBeenCalledWith(
-      "Artifact rate limit binding failed; allowing live update authorize.",
+      "Artifact rate limit binding failed; denying live update authorize.",
       expect.any(Error),
     );
+
+    const missing = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "access_link", public_id: "0123456789ABCDEF", blob }),
+      }),
+      { ...env, ARTIFACT_RATE_LIMIT: undefined },
+      db,
+    );
+    expect(missing.status).toBe(429);
+    await expect(missing.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
     warn.mockRestore();
   });
 
@@ -446,6 +459,9 @@ describe("handleLiveUpdateAuthorize", () => {
       CONTENT_BASE_URL: "https://content.test",
       CONTENT_SIGNING_SECRET: contentSecret,
       STREAM_INTERNAL_SECRET: streamSecret,
+      ARTIFACT_RATE_LIMIT: {
+        limit: vi.fn(async () => ({ success: true })),
+      },
     } as Env;
     const db = {
       async resolveAccessLink() {

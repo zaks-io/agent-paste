@@ -2,12 +2,59 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-05 (`main@a419c29`). See
-[changelog.md](./status/changelog.md) for what shipped.
+Last updated: 2026-06-05 (`codex/ap-236-fail-closed-rate-limit-deploy-hardening`
+working tree; refreshed onto `origin/main@e0eabfb` before PR handoff).
+See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
 and points to the smaller ledgers that own detail.
+
+## Active Handoff
+
+Unmerged local branch:
+`codex/ap-236-fail-closed-rate-limit-deploy-hardening`.
+
+Tracking ticket:
+[AP-236](https://linear.app/zaks-io/issue/AP-236/fail-closed-on-rate-limit-binding-failures-and-harden-production).
+
+Current working tree state:
+
+- Rate-limit bindings now fail closed for actor, workspace, artifact, and
+  ephemeral provision paths when bindings are missing or throw.
+- Existing public error contracts are preserved where practical:
+  `rate_limited_actor`, `rate_limited_workspace`, `rate_limited_artifact`, and
+  `ephemeral_provision_unavailable`.
+- API/upload/content/local MVP tests and `scripts/local-mvp-server.mjs` now
+  configure explicit allow-limit bindings instead of relying on absent bindings
+  as an allow path.
+- `.github/workflows/deploy-production.yml` now validates `workflow_run` source
+  (`success`, `main`, same repository), checks out `refs/heads/main`, verifies
+  that checkout matches the CI head SHA, and scopes Turbo/Cloudflare secrets to
+  the steps that need them.
+- Hosted-content provenance badge is intentionally separate and tracked in
+  [AP-235](https://linear.app/zaks-io/issue/AP-235/add-hosted-content-provenance-badge-to-reduce-phishing-risk).
+
+Verification already run on this working tree before `main` advanced:
+
+- `pnpm --filter @agent-paste/worker-runtime check`
+- `pnpm --filter @agent-paste/api --filter @agent-paste/upload --filter @agent-paste/content test`
+- `pnpm --filter @agent-paste/api --filter @agent-paste/upload --filter @agent-paste/content typecheck`
+- `pnpm --filter @agent-paste/worker-runtime --filter @agent-paste/api --filter @agent-paste/upload --filter @agent-paste/content lint`
+- `git diff --check`
+- Targeted Semgrep on `.github/workflows/deploy-production.yml`
+
+Next agent should not redo the security audit from scratch. Resume by checking
+whether `origin/main` has moved beyond `e0eabfb`, rerunning the full repo gate
+(`pnpm verify` per workflow config), finishing `ziw-code-review`, then using
+`ziw-pr` to commit and open the ready-for-review PR for AP-236. Local review had
+started but was interrupted before a final review report was produced.
+
+Security decisions already recorded in the handoff context: file-bytes malware
+scanning is an accepted near-term risk, proof-of-work is not the primary
+long-term abuse lever, hard production deploy wait limits are deferred until
+launch/users, and the hosted provenance badge is a product/security follow-up
+instead of part of AP-236.
 
 ## Snapshot
 

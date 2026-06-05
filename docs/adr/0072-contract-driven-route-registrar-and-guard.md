@@ -1,6 +1,7 @@
 # Contract-Driven Route Registrar and Request Guard (`packages/worker-runtime`)
 
-Status: Accepted.
+Status: Accepted. Amended 2026-06-05 by AP-236: rate-limit binding
+unavailability now fails closed.
 
 `api`, `upload`, and `content` stop inlining their auth / scope / rate-limit / idempotency /
 error-envelope chains per route. A new `@agent-paste/worker-runtime` mounts each **Route
@@ -45,8 +46,10 @@ enforcement source rather than documentation read only by OpenAPI generation.
   ([ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md),
   [ADR 0064](./0064-native-ratelimit-bindings-for-authenticated-counters.md)); `"artifact"` is
   `content`'s per-artifact throttle. `applyRateLimit` is a pure function over the contract field
-  and the injected Cloudflare rate-limit bindings; it fails open when a binding is absent, as
-  today.
+  and the injected Cloudflare rate-limit bindings. AP-236 changed binding unavailability from
+  fail-open to fail-closed: missing or throwing actor/workspace/artifact bindings deny the guarded
+  request using the existing public rate-limit error codes; missing or throwing ephemeral provision
+  bindings deny provision with `ephemeral_provision_unavailable`.
 - Error status is a single `ERROR_STATUS: Record<ErrorCode, number>` table.
   `errorResponse(code, requestId, env)` derives the status from the code; call sites stop passing
   a status.
@@ -63,10 +66,11 @@ enforcement source rather than documentation read only by OpenAPI generation.
 - `AuthResolvers` is the one real seam: two-plus adapters exist (one set per Worker), and
   substituting fakes is how the guard is tested. It stays a port.
 - The rate-limit store is a real Cloudflare binding injected as a value, not a port;
-  `applyRateLimit` is pure and fails open. The clock and idempotency are not ports: header shaping
-  is pure and the durable claim lives in `runCommand`. The repository is an opaque generic `Deps`
-  pass-through, not a port the runtime understands; `content` omits it. Deleting any of these
-  would not concentrate complexity, so none earns a port.
+  `applyRateLimit` is pure except for warning logs on binding errors and fails closed when a
+  binding is unavailable. The clock and idempotency are not ports: header shaping is pure and the
+  durable claim lives in `runCommand`. The repository is an opaque generic `Deps` pass-through, not
+  a port the runtime understands; `content` omits it. Deleting any of these would not concentrate
+  complexity, so none earns a port.
 
 ### Reconciliations (verified at implementation, not assumed)
 

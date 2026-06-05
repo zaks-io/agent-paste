@@ -42,6 +42,11 @@ function baseContentEnv(overrides: Partial<Env> = {}): Env {
         return null;
       },
     },
+    ARTIFACT_RATE_LIMIT: {
+      async limit() {
+        return { success: true };
+      },
+    },
     ARTIFACTS: {
       async get() {
         return null;
@@ -417,7 +422,7 @@ describe("content worker", () => {
     expect(limitCalls).toBe(0);
   });
 
-  it("allows the read and logs a warning when the artifact rate-limit binding fails", async () => {
+  it("fails closed when the artifact rate-limit binding fails", async () => {
     const token = await signContentToken(
       {
         workspace_id: workspaceId,
@@ -451,9 +456,9 @@ describe("content worker", () => {
     try {
       const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
 
-      expect(response.status).toBe(200);
-      await expect(response.text()).resolves.toBe("<h1>ok</h1>");
-      expect(warn).toHaveBeenCalledWith("Rate limit artifact binding failed; allowing request.", expect.any(Error));
+      expect(response.status).toBe(429);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
+      expect(warn).toHaveBeenCalledWith("Rate limit artifact binding failed; denying request.", expect.any(Error));
     } finally {
       warn.mockRestore();
     }
