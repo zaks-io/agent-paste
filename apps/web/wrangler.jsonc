@@ -58,7 +58,7 @@
         "WORKOS_COOKIE_SAME_SITE": "lax",
         "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
         "TURNSTILE_SITE_KEY": "0x4AAAAAADdwTR9FFmnKY9lL",
-        "CF_WEB_ANALYTICS_TOKEN": ""
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
       },
       "services": [
         {

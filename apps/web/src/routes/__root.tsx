@@ -2,14 +2,15 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { ThemeProvider } from "../components/theme-provider";
-import { WebAnalyticsBeacon } from "../components/web-analytics-beacon";
+import { analyticsScripts } from "../lib/analytics-scripts";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
 import { captureBrowserException, initBrowserSentry } from "../lib/sentry-browser";
-import { loadRootEnvFn } from "../rpc/web-loaders";
+import { loadRootEnvFn, type RootLoaderData } from "../rpc/web-loaders";
 import "../styles/globals.css";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  // The head context carries loaderData at runtime (the public type omits it).
+  head: ({ loaderData }: { loaderData?: RootLoaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -20,8 +21,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "shortcut icon", href: "/favicon.ico" },
     ],
+    // Cloudflare Web Analytics beacon. Declared here (not as a JSX <script>) so
+    // TanStack renders it through <HeadContent> and stamps the per-request CSP
+    // nonce on it; an element-form <script src> is hoisted by React 19 and loses
+    // the nonce, which the dashboard's script-src 'strict-dynamic' then blocks.
+    scripts: analyticsScripts(loaderData?.analyticsToken),
   }),
-  loader: async () => {
+  loader: async (): Promise<RootLoaderData> => {
     const env = await loadRootEnvFn();
     return { webBaseUrl: env.webBaseUrl, sentry: env.sentry, analyticsToken: env.analyticsToken };
   },
@@ -31,13 +37,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootComponent() {
-  const { sentry, analyticsToken } = Route.useLoaderData();
+  const { sentry } = Route.useLoaderData();
   const router = useRouter();
   useEffect(() => {
     initBrowserSentry(sentry, router);
   }, [sentry, router]);
   return (
-    <RootDocument analyticsToken={analyticsToken}>
+    <RootDocument>
       <ThemeProvider>
         <Outlet />
       </ThemeProvider>
@@ -45,12 +51,11 @@ function RootComponent() {
   );
 }
 
-function RootDocument({ children, analyticsToken }: { children: ReactNode; analyticsToken?: string | undefined }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
-        <WebAnalyticsBeacon token={analyticsToken} />
       </head>
       <body>
         {children}

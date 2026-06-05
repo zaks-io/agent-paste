@@ -199,100 +199,99 @@ describe("upload worker", () => {
     ["api key", undefined] as const,
     ["MCP member", "write"] as const,
   ])("replays cached idempotent %s create before rate limits", async (_label, mcpScope) => {
-      const mcpFixture = mcpScope ? await mcpTokenFixture({ scope: mcpScope }) : null;
-      if (mcpFixture) {
-        stubMcpFetch(mcpFixture.publicJwk);
-      }
-      const session: UploadSessionRecord = {
-        session_id: "upl_replay",
-        workspace_id: "00000000-0000-4000-8000-000000000001",
-        artifact_id: "art_replay",
-        revision_id: "rev_replay",
-        expires_at: "2030-01-01T00:00:00.000Z",
-        files: [{ path: "index.html", size_bytes: 12 }],
-      };
-      const memberActor = {
-        type: "member" as const,
-        id: "mem_replay",
-        workspace_id: "00000000-0000-4000-8000-000000000001",
-        email: "user@example.com",
-        scopes: ["publish" as const],
-      };
-      const rateLimitCalls = { actor: 0, workspace: 0 };
-      const env: Env = {
-        UPLOAD_SIGNING_SECRET: "secret",
-        ...(mcpScope
-          ? {
-              WORKOS_API_KEY: "sk_test_123",
-              WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
-              WORKOS_MCP_JWKS_URL: mcpJwksUrl,
-              WORKOS_MCP_ISSUER: mcpIssuer,
-            }
-          : {}),
-        AUTH: {
-          async verifyApiKey(token) {
-            if (token === "ok") {
-              return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
-            }
-            return null;
-          },
+    const mcpFixture = mcpScope ? await mcpTokenFixture({ scope: mcpScope }) : null;
+    if (mcpFixture) {
+      stubMcpFetch(mcpFixture.publicJwk);
+    }
+    const session: UploadSessionRecord = {
+      session_id: "upl_replay",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
+      artifact_id: "art_replay",
+      revision_id: "rev_replay",
+      expires_at: "2030-01-01T00:00:00.000Z",
+      files: [{ path: "index.html", size_bytes: 12 }],
+    };
+    const memberActor = {
+      type: "member" as const,
+      id: "mem_replay",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
+      email: "user@example.com",
+      scopes: ["publish" as const],
+    };
+    const rateLimitCalls = { actor: 0, workspace: 0 };
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      ...(mcpScope
+        ? {
+            WORKOS_API_KEY: "sk_test_123",
+            WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
+            WORKOS_MCP_JWKS_URL: mcpJwksUrl,
+            WORKOS_MCP_ISSUER: mcpIssuer,
+          }
+        : {}),
+      AUTH: {
+        async verifyApiKey(token) {
+          if (token === "ok") {
+            return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
+          }
+          return null;
         },
-        DB: {
-          async createUploadSession() {
-            throw new Error("replayed requests must not create new sessions");
-          },
-          async getUploadSession() {
-            return null;
-          },
-          async finalizeUploadSession() {
-            return {};
-          },
-          async getWebMemberByWorkOsUserId() {
-            return memberActor;
-          },
-          async peekIdempotentReplay({ idempotencyKey, operation, actor }) {
-            if (operation === "upload.session.create" && idempotencyKey === "replay") {
-              expect(actor.type).toBe(mcpScope ? "member" : "api_key");
-              return { result: session };
-            }
-            return null;
-          },
+      },
+      DB: {
+        async createUploadSession() {
+          throw new Error("replayed requests must not create new sessions");
         },
-        ACTOR_RATE_LIMIT: {
-          async limit() {
-            rateLimitCalls.actor += 1;
-            return { success: false };
-          },
+        async getUploadSession() {
+          return null;
         },
-        WORKSPACE_BURST_CAP: {
-          async limit() {
-            rateLimitCalls.workspace += 1;
-            return { success: false };
-          },
+        async finalizeUploadSession() {
+          return {};
         },
-      };
+        async getWebMemberByWorkOsUserId() {
+          return memberActor;
+        },
+        async peekIdempotentReplay({ idempotencyKey, operation, actor }) {
+          if (operation === "upload.session.create" && idempotencyKey === "replay") {
+            expect(actor.type).toBe(mcpScope ? "member" : "api_key");
+            return { result: session };
+          }
+          return null;
+        },
+      },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          rateLimitCalls.actor += 1;
+          return { success: false };
+        },
+      },
+      WORKSPACE_BURST_CAP: {
+        async limit() {
+          rateLimitCalls.workspace += 1;
+          return { success: false };
+        },
+      },
+    };
 
-      const token = mcpFixture?.token ?? "ok";
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${token}`,
-            "idempotency-key": "replay",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        env,
-      );
+    const token = mcpFixture?.token ?? "ok";
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "idempotency-key": "replay",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(createUploadRequestBody()),
+      }),
+      env,
+    );
 
-      expect(response.status).toBe(200);
-      const body = (await response.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
-      expect(body.upload_session_id).toBe("upl_replay");
-      expect(body.files[0]?.put_url).toContain("upl_replay");
-      expect(rateLimitCalls).toEqual({ actor: 0, workspace: 0 });
-    },
-  );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
+    expect(body.upload_session_id).toBe("upl_replay");
+    expect(body.files[0]?.put_url).toContain("upl_replay");
+    expect(rateLimitCalls).toEqual({ actor: 0, workspace: 0 });
+  });
 
   it("replays cached idempotent finalize for MCP member before rate limits", async () => {
     const fixture = await mcpTokenFixture({ scope: "write" });
@@ -458,6 +457,24 @@ describe("upload worker", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "draft_revision_conflict" } });
+  });
+});
+
+describe("upload security headers", () => {
+  function expectBaseline(response: Response): void {
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  }
+
+  it("applies the baseline to /healthz", async () => {
+    expectBaseline(await handleRequest(new Request("https://upload.test/healthz"), {}));
+  });
+
+  it("applies the baseline to a 404 response", async () => {
+    expectBaseline(await handleRequest(new Request("https://upload.test/nope"), {}));
   });
 });
 

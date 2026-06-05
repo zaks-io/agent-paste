@@ -122,8 +122,8 @@ const TranscriptLineView: FC<{ line: TranscriptLine }> = ({ line }) => {
   );
 };
 
-const HomePage: FC = () => (
-  <Shell meta={HOME_META} inlineScript={INLINE_SCRIPT}>
+const HomePage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
+  <Shell meta={HOME_META} nonce={nonce} analyticsToken={analyticsToken} inlineScript={INLINE_SCRIPT}>
     <main class="content">
       <Hero />
       <hr class="motif-rule" />
@@ -134,8 +134,8 @@ const HomePage: FC = () => (
   </Shell>
 );
 
-export function renderHomePage(): string {
-  return renderDocument(<HomePage />);
+export function renderHomePage(nonce: string, analyticsToken?: string): string {
+  return renderDocument(<HomePage nonce={nonce} analyticsToken={analyticsToken} />);
 }
 
 const INLINE_SCRIPT = `(() => {

@@ -10,6 +10,7 @@ import {
   createRegistrar,
   getBoundResponders,
   type SignedUploadUrlPrincipal,
+  securityHeadersMiddleware,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
@@ -37,6 +38,7 @@ const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespo
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
+app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (c) => c.text("ok"));

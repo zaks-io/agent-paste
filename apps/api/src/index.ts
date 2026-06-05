@@ -6,6 +6,7 @@ import {
   boundRespondersMiddleware,
   createRegistrar,
   getBoundResponders,
+  securityHeadersMiddleware,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
@@ -91,6 +92,7 @@ const boundResponderConfig = {
   docsBaseUrl: (context: { env: Env }) => context.env.DOCS_BASE_URL,
 } as const;
 
+app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (context) => context.text("ok"));

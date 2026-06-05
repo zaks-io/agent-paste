@@ -5,6 +5,7 @@ import {
   LiveUpdateNotifyMessage,
   type LiveUpdatePointer,
 } from "@agent-paste/contracts";
+import { BASELINE_SECURITY_HEADERS } from "@agent-paste/worker-runtime";
 import { type ApiServiceBinding, parseConnectAuth, resignLiveUpdatePointer } from "./connection-auth.js";
 import { ArtifactLiveHub } from "./live-hub.js";
 import { createSseStream } from "./sse.js";
@@ -137,6 +138,7 @@ async function readJsonBody(request: Request): Promise<unknown | null> {
 
 export function sseResponseHeaders(): Headers {
   return new Headers({
+    ...BASELINE_SECURITY_HEADERS,
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache, no-transform",
     connection: "keep-alive",
@@ -150,7 +152,7 @@ export function liveUpdateAtCapResponse(): Response {
     }),
     {
       status: 503,
-      headers: { "content-type": "application/json; charset=utf-8" },
+      headers: { ...BASELINE_SECURITY_HEADERS, "content-type": "application/json; charset=utf-8" },
     },
   );
 }

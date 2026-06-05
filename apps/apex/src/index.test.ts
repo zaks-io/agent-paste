@@ -18,10 +18,16 @@ describe("apex worker", () => {
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(response.headers.get("x-frame-options")).toBe("DENY");
-    const csp = response.headers.get("content-security-policy");
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
+    // Strict, nonce-based CSP: no 'unsafe-inline' on scripts or styles.
+    expect(csp).not.toContain("'unsafe-inline'");
+    expect(csp).toMatch(/script-src 'nonce-[^']+' 'strict-dynamic'/);
+    expect(csp).toMatch(/style-src 'nonce-[^']+'/);
     const body = await response.text();
     expect(body).toContain("<!doctype html>");
     expect(body).toContain("Hand off what your agent made");
@@ -38,6 +44,49 @@ describe("apex worker", () => {
     expect(body).toContain('href="/privacy#data-storage-and-protection"');
     expect(body).not.toContain("github.com");
     expect(body).not.toContain("View on GitHub");
+  });
+
+  it("stamps the CSP nonce on the inline script and style so strict-dynamic trusts them", async () => {
+    const response = await get("/");
+    const csp = response.headers.get("content-security-policy") ?? "";
+    const nonce = csp.match(/script-src 'nonce-([^']+)'/)?.[1];
+    expect(nonce, "CSP must carry a script nonce").toBeTruthy();
+    // Same nonce appears on the style nonce token.
+    expect(csp).toContain(`style-src 'nonce-${nonce}'`);
+    const body = await response.text();
+    // The inline clipboard helper and the inline <style> both carry the nonce.
+    expect(body).toContain(`<script nonce="${nonce}">`);
+    expect(body).toContain(`<style nonce="${nonce}">`);
+  });
+
+  it("mints a fresh nonce per request", async () => {
+    const first = (await get("/")).headers.get("content-security-policy") ?? "";
+    const second = (await get("/")).headers.get("content-security-policy") ?? "";
+    const nonceOf = (csp: string) => csp.match(/script-src 'nonce-([^']+)'/)?.[1];
+    expect(nonceOf(first)).toBeTruthy();
+    expect(nonceOf(first)).not.toBe(nonceOf(second));
+  });
+
+  it("renders the Cloudflare Analytics beacon, nonce'd, when a token is configured", async () => {
+    const response = await get("/", { CF_WEB_ANALYTICS_TOKEN: "tok_apex_123" });
+    const csp = response.headers.get("content-security-policy") ?? "";
+    const nonce = csp.match(/script-src 'nonce-([^']+)'/)?.[1];
+    // Beacon reporting host must be allowed for the POST.
+    expect(csp).toContain("connect-src 'self' https://cloudflareinsights.com");
+    const body = await response.text();
+    expect(body).toContain("https://static.cloudflareinsights.com/beacon.min.js");
+    expect(body).toContain(`data-cf-beacon="{&quot;token&quot;:&quot;tok_apex_123&quot;}"`);
+    // The beacon <script> carries the same nonce as the policy. Use plain
+    // substring matching, not a RegExp: a base64 nonce can contain '+' or '/',
+    // which are regex metacharacters and would make the assertion flaky.
+    expect(body).toContain(
+      `<script nonce="${nonce}" defer="" src="https://static.cloudflareinsights.com/beacon.min.js"`,
+    );
+  });
+
+  it("omits the beacon when no analytics token is configured", async () => {
+    const body = await (await get("/")).text();
+    expect(body).not.toContain("cloudflareinsights.com");
   });
 
   it("leads with the cross-vendor handoff story and live updates", async () => {

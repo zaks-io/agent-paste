@@ -62,3 +62,21 @@ describe("mcp worker", () => {
     await expect(response.json()).resolves.toEqual({ error: { code: "not_found", message: "not_found" } });
   });
 });
+
+describe("mcp security headers", () => {
+  function expectBaseline(response: Response): void {
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  }
+
+  it("applies the baseline to /healthz", async () => {
+    expectBaseline(await request("/healthz"));
+  });
+
+  it("applies the baseline to a 404 response", async () => {
+    expectBaseline(await request("/missing"));
+  });
+});

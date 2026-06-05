@@ -14,8 +14,8 @@ const AboutBlock: FC<{ section: AboutSection }> = ({ section }) => (
   </article>
 );
 
-const AboutPage: FC = () => (
-  <Shell meta={ABOUT_META}>
+const AboutPage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
+  <Shell meta={ABOUT_META} nonce={nonce} analyticsToken={analyticsToken}>
     <main class="content">
       <section class="hero">
         <div class="hero-text">
@@ -37,6 +37,6 @@ const AboutPage: FC = () => (
   </Shell>
 );
 
-export function renderAboutPage(): string {
-  return renderDocument(<AboutPage />);
+export function renderAboutPage(nonce: string, analyticsToken?: string): string {
+  return renderDocument(<AboutPage nonce={nonce} analyticsToken={analyticsToken} />);
 }

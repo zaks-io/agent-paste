@@ -1,4 +1,4 @@
-import { sentryOptions } from "@agent-paste/worker-runtime";
+import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { runScheduledJobs, type ScheduledEvent } from "./cron.js";
@@ -35,6 +35,7 @@ export async function runQueueConsumer(batch: MessageBatch, env: Env): Promise<v
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", securityHeadersMiddleware());
 app.get("/healthz", (context) =>
   context.json({
     ok: true,

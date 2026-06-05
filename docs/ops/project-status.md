@@ -57,6 +57,8 @@ Open follow-ups live in the ledgers below. Recent dated changes are in the
 Feature-specific ledgers:
 
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
+- [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
+  nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).
 - [Live Updates todo](./live-updates-todo.md) - ADR 0069, shipped (AP-25 backend
   plus AP-164 live UI); two deferred-polish items tracked in AP-166.
 - [Repository todo](./repository-todo.md) - repository-core follow-ups.

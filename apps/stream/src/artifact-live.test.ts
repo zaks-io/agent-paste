@@ -137,7 +137,11 @@ describe("ArtifactLiveUpdates", () => {
     );
     expect(response.status).toBe(200);
     expect(sseResponseHeaders().get("content-type")).toContain("text/event-stream");
+    expect(sseResponseHeaders().get("x-frame-options")).toBe("DENY");
     expect(liveUpdateAtCapResponse().status).toBe(503);
+    expect(liveUpdateAtCapResponse().headers.get("strict-transport-security")).toBe(
+      "max-age=31536000; includeSubDomains; preload",
+    );
     const reader = response.body?.getReader();
     const chunk = await reader?.read();
     expect(new TextDecoder().decode(chunk?.value)).toContain("published_revision");

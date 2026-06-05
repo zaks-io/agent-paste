@@ -1,5 +1,5 @@
 import { mcpProtectedResourceMetadata } from "@agent-paste/contracts";
-import { sentryOptions } from "@agent-paste/worker-runtime";
+import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 import type { ApiServiceBinding } from "./forward.js";
@@ -16,6 +16,7 @@ export type Env = McpWorkOsEnv & {
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", securityHeadersMiddleware());
 app.get("/healthz", (context) => context.json({ ok: true, app: "mcp" }));
 app.get("/.well-known/oauth-protected-resource", (context) => context.json(protectedResourceMetadata(context.env)));
 app.get("/openapi.json", (context) => context.json(openApiDocument()));

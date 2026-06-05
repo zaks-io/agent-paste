@@ -72,6 +72,7 @@ export {
   collectRouteRepositoryDeclarationFailures,
   routeRepositorySurfaces,
 } from "./route-repository-errors.js";
+export { BASELINE_SECURITY_HEADERS, generateCspNonce, securityHeadersMiddleware } from "./security-headers.js";
 export { type SentryEnv, sentryOptions } from "./sentry.js";
 export {
   isAuthorizedStreamInternalRequest,

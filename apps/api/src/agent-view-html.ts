@@ -1,4 +1,5 @@
 import { getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
+import { BASELINE_SECURITY_HEADERS } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
 
 export function wantsHtml(request: Request): boolean {
@@ -51,16 +52,20 @@ export function htmlAgentViewResponse(context: AppContext, view: unknown): Respo
   </body>
 </html>`;
 
-  const headers: Record<string, string> = {
-    "cache-control": "no-store",
-    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
-    "content-type": "text/html; charset=utf-8",
-    "referrer-policy": "no-referrer",
-    "x-content-type-options": "nosniff",
-    [REQUEST_ID_HEADER]: getRequestId(context),
-  };
+  // Start from the baseline, then override (Headers is case-insensitive, so the
+  // stricter referrer-policy and the tailored CSP replace the baseline values).
+  const headers = new Headers(BASELINE_SECURITY_HEADERS);
+  headers.set("cache-control", "no-store");
+  headers.set(
+    "content-security-policy",
+    "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+  );
+  headers.set("content-type", "text/html; charset=utf-8");
+  headers.set("referrer-policy", "no-referrer");
+  headers.set("x-content-type-options", "nosniff");
+  headers.set(REQUEST_ID_HEADER, getRequestId(context));
   if (noindex) {
-    headers["x-robots-tag"] = "noindex, nofollow";
+    headers.set("x-robots-tag", "noindex, nofollow");
   }
   return new Response(body, { headers });
 }
