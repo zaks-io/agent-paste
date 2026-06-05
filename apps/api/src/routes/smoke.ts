@@ -1,4 +1,4 @@
-import type { AdminActor } from "@agent-paste/db";
+import type { AdminActor, Repository } from "@agent-paste/db";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { authenticateSmokeHarness, isNonProductionEnv } from "../auth.js";
 import {
@@ -6,27 +6,69 @@ import {
   resolveDeletionInvalidationExecutor,
   runPostCommitArtifactDeletionInvalidation,
 } from "../deletion-invalidation.js";
-import type { AppContext } from "../env.js";
+import type { AppContext, Env } from "../env.js";
 import { notifyLiveUpdateDisconnect } from "../live-updates.js";
 import { readJsonObject } from "../responses.js";
 import { apiDatabase } from "../runtime.js";
 
 const smokeHarnessActor: AdminActor = { type: "system", id: "smoke-harness" };
 
-export async function provisionSmoke(context: AppContext): Promise<Response> {
+type SmokeResponders = ReturnType<typeof getBoundResponders>;
+
+type SmokeHarnessContext = {
+  env: Env;
+  request: Request;
+  respondError: SmokeResponders["respondError"];
+  respondJson: SmokeResponders["respondJson"];
+};
+
+function resolveSmokeHarness(
+  context: AppContext,
+): { ok: true; ctx: SmokeHarnessContext } | { ok: false; response: Response } {
   const env = context.env;
   const request = context.req.raw;
+  const { respondError, respondJson } = getBoundResponders(context);
   if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return getBoundResponders(context).respondError("not_found");
+    return { ok: false, response: respondError("not_found") };
   }
-  const db = apiDatabase(env);
+  return { ok: true, ctx: { env, request, respondError, respondJson } };
+}
+
+function resolveSmokeDatabase(
+  ctx: SmokeHarnessContext,
+): { ok: true; db: Repository } | { ok: false; response: Response } {
+  const db = apiDatabase(ctx.env);
   if (!db) {
-    return getBoundResponders(context).respondError("database_unavailable");
+    return { ok: false, response: ctx.respondError("database_unavailable") };
   }
+  return { ok: true, db };
+}
+
+function resolveSmokeDatabaseRoute(
+  context: AppContext,
+): { ok: true; ctx: SmokeHarnessContext; db: Repository } | { ok: false; response: Response } {
+  const smoke = resolveSmokeHarness(context);
+  if (!smoke.ok) {
+    return smoke;
+  }
+  const database = resolveSmokeDatabase(smoke.ctx);
+  if (!database.ok) {
+    return database;
+  }
+  return { ok: true, ctx: smoke.ctx, db: database.db };
+}
+
+export async function provisionSmoke(context: AppContext): Promise<Response> {
+  const smoke = resolveSmokeDatabaseRoute(context);
+  if (!smoke.ok) {
+    return smoke.response;
+  }
+  const { request, respondError, respondJson } = smoke.ctx;
+  const { db } = smoke;
   const body = await readJsonObject(request);
   const email = typeof body.email === "string" ? body.email : "";
   if (!email) {
-    return getBoundResponders(context).respondError("invalid_request", "email is required");
+    return respondError("invalid_request", "email is required");
   }
   const name = typeof body.name === "string" ? body.name : undefined;
   const idempotencyKey = `smoke-provision:${email}`;
@@ -45,23 +87,20 @@ export async function provisionSmoke(context: AppContext): Promise<Response> {
     workspaceId: workspace.id,
     name: "smoke",
   });
-  return getBoundResponders(context).respondJson({ workspace, api_key: apiKey }, 201);
+  return respondJson({ workspace, api_key: apiKey }, 201);
 }
 
 export async function deleteSmokeArtifact(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return getBoundResponders(context).respondError("not_found");
+  const smoke = resolveSmokeDatabaseRoute(context);
+  if (!smoke.ok) {
+    return smoke.response;
   }
-  const db = apiDatabase(env);
-  if (!db) {
-    return getBoundResponders(context).respondError("database_unavailable");
-  }
+  const { env, request, respondError, respondJson } = smoke.ctx;
+  const { db } = smoke;
   const body = await readJsonObject(request);
   const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
   if (!artifactId) {
-    return getBoundResponders(context).respondError("invalid_request", "artifact_id is required");
+    return respondError("invalid_request", "artifact_id is required");
   }
   const idempotencyKey = `smoke-delete:${artifactId}`;
   const executor = resolveDeletionInvalidationExecutor(env);
@@ -101,7 +140,7 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
       console.warn(`Live update disconnect failed for deleted artifact ${result.artifact_id}.`, error);
     }
   }
-  return getBoundResponders(context).respondJson({
+  return respondJson({
     artifact_id: result.artifact_id,
     deleted_at: result.deleted_at,
     deleted_r2_objects: invalidation.deleted_r2_objects,
@@ -109,35 +148,33 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
 }
 
 export async function forceExpire(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return getBoundResponders(context).respondError("not_found");
+  const smoke = resolveSmokeHarness(context);
+  if (!smoke.ok) {
+    return smoke.response;
   }
+  const { env, request, respondError, respondJson } = smoke.ctx;
   const db = apiDatabase(env);
   if (!db?.forceExpireArtifact) {
-    return getBoundResponders(context).respondError("not_supported");
+    return respondError("not_supported");
   }
   const body = await readJsonObject(request);
   const artifactId = typeof body.artifact_id === "string" ? body.artifact_id : "";
   if (!artifactId) {
-    return getBoundResponders(context).respondError("invalid_request", "artifact_id is required");
+    return respondError("invalid_request", "artifact_id is required");
   }
   const expiresAt = new Date(Date.now() - 1000).toISOString();
   const result = await db.forceExpireArtifact({ artifactId, expiresAt });
-  return result
-    ? getBoundResponders(context).respondJson(result)
-    : getBoundResponders(context).respondError("not_found");
+  return result ? respondJson(result) : respondError("not_found");
 }
 
 export async function listR2Prefix(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return getBoundResponders(context).respondError("not_found");
+  const smoke = resolveSmokeHarness(context);
+  if (!smoke.ok) {
+    return smoke.response;
   }
+  const { env, request, respondJson } = smoke.ctx;
   if (!env.ARTIFACTS) {
-    return getBoundResponders(context).respondJson({ keys: [], r2_bound: false });
+    return respondJson({ keys: [], r2_bound: false });
   }
   const prefix = new URL(request.url).searchParams.get("prefix") ?? "";
   const keys: string[] = [];
@@ -153,22 +190,22 @@ export async function listR2Prefix(context: AppContext): Promise<Response> {
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
-  return getBoundResponders(context).respondJson({ keys, r2_bound: true });
+  return respondJson({ keys, r2_bound: true });
 }
 
 export async function getDenylistKey(context: AppContext): Promise<Response> {
-  const env = context.env;
-  const request = context.req.raw;
-  if (!isNonProductionEnv(env) || !authenticateSmokeHarness(request, env)) {
-    return getBoundResponders(context).respondError("not_found");
+  const smoke = resolveSmokeHarness(context);
+  if (!smoke.ok) {
+    return smoke.response;
   }
+  const { env, request, respondError, respondJson } = smoke.ctx;
   if (!env.DENYLIST?.get) {
-    return getBoundResponders(context).respondJson({ key: null, value: null, kv_bound: false });
+    return respondJson({ key: null, value: null, kv_bound: false });
   }
   const key = new URL(request.url).searchParams.get("key") ?? "";
   if (!key) {
-    return getBoundResponders(context).respondError("invalid_request", "key is required");
+    return respondError("invalid_request", "key is required");
   }
   const value = await env.DENYLIST.get(key);
-  return getBoundResponders(context).respondJson({ key, value, kv_bound: true });
+  return respondJson({ key, value, kv_bound: true });
 }

@@ -38,7 +38,6 @@ Biome-measured count at snapshot time.
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — `query` dispatcher: 102. Big
       SQL branch table; split per statement family.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
-- [ ] `packages/worker-runtime/src/registrar.ts` — `routeHandler`: 41.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `reparentWorkspace`: 39.
 - [ ] `apps/stream/src/memory-artifact-live.ts` — `fetch`: 35.
@@ -72,6 +71,10 @@ When the file limit ratchets below ~590, split the contract registries first.
       AP-142 moved publish orchestration into a Publish Coordinator and removed
       the cognitive-complexity suppression. The route and coordinator pass the
       final 15 cognitive / 60 function-line / 300 file-line targets.
+- [x] `packages/worker-runtime/src/registrar.ts` route handling: AP-233 moved
+      guard orchestration into `registrar-pipeline.ts` and request helpers into
+      `registrar-request.ts`, removed the cognitive-complexity suppression, and
+      kept each source file under 300 physical lines.
 
 ## Current target-wall areas
 
@@ -90,9 +93,7 @@ Measured against the final targets (15 cognitive complexity, 60 function lines,
 4. `apps/api`: publish/revision orchestration is split (AP-142). Remaining
    target-wall items are Agent View signing, API index wiring, Live Updates,
    operator filter parsing, and web route file size.
-5. `packages/worker-runtime`: the registrar's route handler is the shared guard
-   pipeline. Split guard phases without changing the Route Contract interface.
-6. `apps/web`: command palette and dashboard route components mix state,
+5. `apps/web`: command palette and dashboard route components mix state,
    keyboard/focus behavior, data derivation, and rendering. Move behavior into
    hooks and small render modules.
 

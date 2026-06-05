@@ -194,11 +194,9 @@ describe("web server loaders", () => {
     state.apiFetchOrEmpty.mockResolvedValueOnce(status).mockResolvedValueOnce(invoices);
 
     await expect(activateBillingReturn({ sessionId: "cs_test_123" })).resolves.toEqual({ status, invoices });
-    expect(state.apiFetchOrEmpty).toHaveBeenNthCalledWith(
-      1,
-      "/v1/web/billing/return?session_id=cs_test_123",
-      { accessToken: "access-token" },
-    );
+    expect(state.apiFetchOrEmpty).toHaveBeenNthCalledWith(1, "/v1/web/billing/return?session_id=cs_test_123", {
+      accessToken: "access-token",
+    });
     expect(state.apiFetchOrEmpty).toHaveBeenNthCalledWith(2, "/v1/web/billing/invoices", {
       accessToken: "access-token",
     });

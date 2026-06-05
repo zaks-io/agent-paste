@@ -57,7 +57,12 @@ const DocsPageView: FC<{ page: DocsPage; nonce: string; analyticsToken?: string 
   <Shell meta={docsPageMeta(page)} nonce={nonce} analyticsToken={analyticsToken}>
     <main class="content docs-layout">
       <section class="docs-hero">
-        <p class="eyebrow mono">Docs</p>
+        <a class="eyebrow eyebrow-link mono" href="/docs">
+          <span class="eyebrow-back" aria-hidden="true">
+            ←
+          </span>
+          Docs
+        </a>
         <h1 class="legal-title">{page.title}</h1>
         <p class="legal-lead">{page.summary}</p>
         <div class="docs-meta-links">

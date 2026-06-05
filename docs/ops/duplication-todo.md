@@ -29,27 +29,28 @@ lines today but are test support, not shipped runtime behavior.
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.5 (%)       | 2.3 (%)    | 1.5 (%)        |
+| `threshold` | 2.1 (%)       | 1.9 (%)    | 1.5 (%)        |
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
-the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate,
-AP-206 pulled it to **2.33%**, and AP-204 pulled it to **2.21%**. The next step
-(`2.3`) needs another offender cleanup or a decision to stop scanning
-`src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders are
-cleaned up and update this file.
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
+pulled it to **2.33%**, AP-207 plus the merged cleanup/test/docs train pulled it
+below the `2.1` gate, and AP-204 pulled it to **1.95%**. The current baseline is
+below the `2.1` gate but not yet low enough for `1.9`. The next step (`1.9`)
+needs another offender cleanup or a decision to stop scanning `src/test-helpers/`.
+Lower the threshold in `.jscpd.json` as offenders are cleaned up and update this
+file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
 Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`, after
-AP-203 repository workflow dedup, AP-206 MCP helper dedup, and AP-204 dashboard
-table/status UI cleanup:
+AP-204 was merged with the AP-207 baseline:
 
-- 519 files, 46,027 lines analyzed.
-- 104 clones, 1,018 duplicated lines = **2.21%** (2.64% by tokens).
-- Pre AP-204 (post AP-206, 2026-06-05): 507 files, 45,795 lines, 1,067
-  duplicated lines = **2.33%** (2.71% by tokens).
-- By format: TypeScript 2.51%, TSX 1.19%, JavaScript 0%.
+- 519 files, 46,947 lines analyzed.
+- 92 clones, 916 duplicated lines = **1.95%** (2.30% by tokens).
+- Pre AP-204 (post AP-207, 2026-06-05): 509 files, 46,746 lines, 936
+  duplicated lines = **2.00%** (2.37% by tokens).
+- By format: TypeScript 2.15%, TSX 1.60%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -101,6 +102,19 @@ This pass moved the gated baseline from 2.33% to 2.21%:
       `RevokedActionPlaceholder`) across Access Links and API Keys tables in
       `apps/web`.
 
+## Done: AP-207 API route helper dedup
+
+This pass, combined with the cleanup/test/docs train merged into `main`, moved
+the gated baseline from 2.33% to 2.00%:
+
+- [x] Shared Workspace Member resolution, forbidden response handling, and
+      paginated member route execution in `apps/api/src/routes/web.ts`.
+- [x] Shared member billing route execution and current-status response building
+      in `apps/api/src/routes/billing.ts`.
+- [x] Shared smoke harness authentication and smoke DB resolution in
+      `apps/api/src/routes/smoke.ts`.
+- [x] Collapsed repository route error mapping in `apps/api/src/responses.ts`.
+
 ## Where the duplication lives
 
 Cleaning these dirs is what moves the threshold:
@@ -109,9 +123,9 @@ Cleaning these dirs is what moves the threshold:
       `member-artifacts-workflow.ts`, `access-links-workflow.ts`, and siblings
       repeat row-mapping, pagination, command setup, and Audit Event boilerplate.
       Largest single runtime source of clones.
-- [ ] `apps/api/src/routes/*` — `web.ts`, `billing.ts`, `smoke.ts`, and
-      `responses.ts` repeat member resolution, pagination parsing, response
-      wrapping, and repository-error handling.
+- [ ] API Worker glue — AP-207 removed the route-local member, pagination,
+      response, smoke, and repository-error clones; non-route `index.ts` /
+      `env.ts` / deletion-invalidation clones remain.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
