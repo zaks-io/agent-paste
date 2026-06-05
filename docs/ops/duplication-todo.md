@@ -35,7 +35,7 @@ The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
 the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
 pulled it to **2.33%**, and AP-207 plus the merged cleanup/test/docs train
-pulled it below the `2.1` gate. The current baseline is **1.97%**, so `2.1` has
+pulled it below the `2.1` gate. The current baseline is **2.00%**, so `2.1` has
 little slack. The next step (`1.9`) needs another offender cleanup or a decision
 to stop scanning `src/test-helpers/`. Lower the threshold in `.jscpd.json` as
 offenders are cleaned up and update this file.
@@ -44,9 +44,9 @@ offenders are cleaned up and update this file.
 
 Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
 
-- 511 files, 46,035 lines analyzed.
-- 92 clones, 908 duplicated lines = **1.97%** (2.38% by tokens).
-- By format: TypeScript 2.17%, TSX 1.55%, JavaScript 0%.
+- 509 files, 46,746 lines analyzed.
+- 94 clones, 936 duplicated lines = **2.00%** (2.37% by tokens).
+- By format: TypeScript 2.17%, TSX 1.94%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -92,7 +92,7 @@ This pass moved the gated baseline from 2.45% to 2.33%:
 ## Done: AP-207 API route helper dedup
 
 This pass, combined with the cleanup/test/docs train merged into `main`, moved
-the gated baseline from 2.33% to 1.97%:
+the gated baseline from 2.33% to 2.00%:
 
 - [x] Shared Workspace Member resolution, forbidden response handling, and
       paginated member route execution in `apps/api/src/routes/web.ts`.
