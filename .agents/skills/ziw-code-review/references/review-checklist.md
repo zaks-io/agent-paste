@@ -40,6 +40,9 @@ Confidence guide:
 
 - New route, command, worker, job, or API path lacks the expected auth gate.
 - Authorization checks use identity but miss workspace, tenant, role, resource ownership, or capability scope.
+- Claim, bootstrap, invitation, or ownership flows trust a supplied `userId`,
+  owner ID, or tenant ID instead of binding the operation to the authenticated
+  actor and authorized tenant.
 - Tokens, session cookies, service credentials, or secrets are logged, returned to clients, written to artifacts, or committed.
 - A "local only" or "admin only" path is reachable from production routing.
 
@@ -70,6 +73,9 @@ Confidence guide:
 - Idempotent workflows cover the primary write but leave optional side effects
   outside the key, such as notifications, enqueueing, provider calls, or token
   minting.
+- One-use grants, bootstrap claims, invitation accepts, or custody transfers are
+  checked and consumed in separate non-atomic steps, allowing double claim,
+  replay, or actor swap under concurrent attempts.
 - Replay hooks work for one principal type but skip another principal accepted by the route contract; completed retries should replay before rate limiting for every accepted actor.
 
 ### API and contract compatibility
@@ -77,6 +83,8 @@ Confidence guide:
 - Public request or response schema changed without corresponding client, CLI, docs, OpenAPI, or tests.
 - New enum/status/type value is not handled in every switch, serializer, parser, renderer, and CLI output path.
 - Error shape, status code, retry behavior, or pagination semantics changed accidentally.
+- Error translation or route contracts are updated for one execution path but not
+  every wrapper, transport, CLI path, or worker path that exposes the same error.
 - Generated artifacts are stale.
 - Tool/API implementation diverges from the governing ADR, spec, tracker issue, or runbook. Either implement the documented contract or update the source of truth in the same change.
 - Forwarded-call metadata, route contracts, output schemas, implementation behavior, docs, and tests disagree about required side effects or returned fields.
@@ -107,6 +115,9 @@ Confidence guide:
 - Time comparisons mix local time and UTC, ignore DST, or use non-monotonic clocks for expiry.
 - Payment, quota, metering, billing, or rate-limit changes lack idempotency and retry handling.
 - External API calls ignore timeout, retry, partial failure, backoff, or duplicate delivery behavior.
+- External model, provider, or driver integration assumes a response or adapter
+  shape that was not verified against the real provider, driver, or generated
+  artifact.
 
 ### Configuration and operational limits
 
@@ -118,9 +129,18 @@ Confidence guide:
 ### Tests and verification
 
 - Risky behavior lacks a test that would fail for the bug being reviewed.
+- A required acceptance criterion or named required test has no direct evidence;
+  a test for nearby behavior is reported as coverage for the wrong item.
 - Tests assert implementation details while missing user-visible behavior.
 - Tests pass only in local order or share state across cases.
 - Smoke or integration checks are skipped where the changed path is cross-package or runtime-dependent.
+- Mock-based tests fabricate driver, provider, auth, or request internals in a way
+  that can mask the integration bug the change is meant to prevent.
+- CI env vars, feature flags, or test gates are set in workflow config but may be
+  stripped by the task runner, shell, or env filtering before reaching the test
+  process.
+- Local verification does not match CI scope, thresholds, cache mode, generated
+  artifact checks, or secret-scan range.
 - Idempotency tests only cover first success, not completed retry, in-flight retry, retry after optional side effects, and retry under rate-limit pressure.
 - Destructive or revocation tests assert database state but not the externally
   visible API behavior after invalidation, such as old URLs or handles failing.
