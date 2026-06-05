@@ -6,6 +6,9 @@ import {
 } from "./constants.js";
 import type { McpPublishRenderMode, McpToolName } from "./schemas.js";
 
+/** Reserved for hashed idempotency encodings; direct keys with this shape are re-hashed to stay disjoint (AP-201). */
+const MCP_HASHED_IDEMPOTENCY_BASE = /^h[0-9a-f]{8}$/;
+
 /** Derives an access-link create idempotency key from the publish tool key (ADR 0061, AP-84 seam). */
 export function mcpPublishAccessLinkIdempotencyKey(
   toolIdempotencyKey: IdempotencyKey,
@@ -14,7 +17,7 @@ export function mcpPublishAccessLinkIdempotencyKey(
   const suffix =
     kind === "revision" ? MCP_PUBLISH_REVISION_LINK_IDEMPOTENCY_SUFFIX : MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX;
   const direct = `${toolIdempotencyKey}${suffix}`;
-  if (direct.length <= 200) {
+  if (direct.length <= 200 && !MCP_HASHED_IDEMPOTENCY_BASE.test(toolIdempotencyKey)) {
     return IdempotencyKeySchema.parse(direct);
   }
   const hashedBase = `h${fnv1a32Hex(toolIdempotencyKey)}`;
