@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { ThemeProvider } from "../components/theme-provider";
+import { WebAnalyticsBeacon } from "../components/web-analytics-beacon";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
 import { captureBrowserException, initBrowserSentry } from "../lib/sentry-browser";
 import { loadRootEnvFn } from "../rpc/web-loaders";
@@ -22,7 +23,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   }),
   loader: async () => {
     const env = await loadRootEnvFn();
-    return { webBaseUrl: env.webBaseUrl, sentry: env.sentry };
+    return { webBaseUrl: env.webBaseUrl, sentry: env.sentry, analyticsToken: env.analyticsToken };
   },
   errorComponent: ({ error }) => <RootError error={error} />,
   notFoundComponent: NotFound,
@@ -30,13 +31,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootComponent() {
-  const { sentry } = Route.useLoaderData();
+  const { sentry, analyticsToken } = Route.useLoaderData();
   const router = useRouter();
   useEffect(() => {
     initBrowserSentry(sentry, router);
   }, [sentry, router]);
   return (
-    <RootDocument>
+    <RootDocument analyticsToken={analyticsToken}>
       <ThemeProvider>
         <Outlet />
       </ThemeProvider>
@@ -44,11 +45,12 @@ function RootComponent() {
   );
 }
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({ children, analyticsToken }: { children: ReactNode; analyticsToken?: string | undefined }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <WebAnalyticsBeacon token={analyticsToken} />
       </head>
       <body>
         {children}

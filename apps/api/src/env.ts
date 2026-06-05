@@ -1,6 +1,6 @@
 import type { RequestIdVariables, WebCallbackIdentity } from "@agent-paste/auth";
 import type { ApiKeyActor, HyperdriveBinding, Repository } from "@agent-paste/db";
-import type { BoundRespondersVariables } from "@agent-paste/worker-runtime";
+import type { AnalyticsEngineDataset, BoundRespondersVariables } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 
 export type AuthService = {
@@ -97,6 +97,7 @@ export type Env = {
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
   SENTRY_DSN?: string;
+  ARTIFACT_EVENTS?: AnalyticsEngineDataset;
 };
 
 export function billingEnabled(env: Env): boolean {

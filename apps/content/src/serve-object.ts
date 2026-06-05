@@ -11,7 +11,7 @@ import {
   servedContentForPath,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
@@ -135,7 +135,17 @@ async function prepareEncryptedObjectResponse(input: {
   } catch {
     return null;
   }
+  const emitRead = () =>
+    writeArtifactEvent(input.env.ARTIFACT_EVENTS, {
+      kind: "read",
+      workspaceId,
+      artifactId,
+      revisionId,
+      bytes: plaintextSize,
+      detail: input.method === "HEAD" ? "head" : "get",
+    });
   if (input.method === "HEAD") {
+    emitRead();
     return { body: null, plaintextSize };
   }
   const ciphertext = await bytesFromReadableBody(input.object.body);
@@ -151,6 +161,7 @@ async function prepareEncryptedObjectResponse(input: {
         normalizedPath,
       },
     });
+    emitRead();
     return {
       body: new Blob([plaintext as BlobPart]).stream(),
       plaintextSize,

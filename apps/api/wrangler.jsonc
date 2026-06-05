@@ -35,6 +35,12 @@
       "bucket_name": "agent-paste-artifacts-dev"
     }
   ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "ARTIFACT_EVENTS",
+      "dataset": "agent_paste_artifact_events_dev"
+    }
+  ],
   "kv_namespaces": [
     {
       // Denylist writes per ADR 0057.
@@ -168,6 +174,12 @@
         {
           "binding": "ARTIFACTS",
           "bucket_name": "agent-paste-artifacts-preview"
+        }
+      ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "ARTIFACT_EVENTS",
+          "dataset": "agent_paste_artifact_events_preview"
         }
       ],
       "kv_namespaces": [
@@ -306,6 +318,12 @@
         {
           "binding": "ARTIFACTS",
           "bucket_name": "agent-paste-artifacts-production"
+        }
+      ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "ARTIFACT_EVENTS",
+          "dataset": "agent_paste_artifact_events_production"
         }
       ],
       "kv_namespaces": [

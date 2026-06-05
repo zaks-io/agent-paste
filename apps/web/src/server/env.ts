@@ -16,6 +16,7 @@ export type WebEnv = {
   ASSETS: Fetcher;
   API?: Fetcher;
   SENTRY_DSN?: string;
+  CF_WEB_ANALYTICS_TOKEN?: string;
 };
 
 export const OPERATOR_ROLE_SLUG = "admin";

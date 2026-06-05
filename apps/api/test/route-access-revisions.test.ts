@@ -242,6 +242,45 @@ describe("AP-91 revision route modules", () => {
     warn.mockRestore();
   });
 
+  it("emits a publish analytics event once on a fresh publish but not on an idempotent replay", async () => {
+    const publishRevisionFn = vi.fn(async () => ({
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      title: "Published",
+      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      bundle: { status: "disabled" },
+    }));
+    const writeDataPoint = vi.fn();
+    const artifactEvents = { writeDataPoint };
+
+    const fresh = await publishRevision(
+      contextFor({ env: { ARTIFACT_EVENTS: artifactEvents as never } }),
+      apiPrincipal(),
+      { peekWorkspaceCommandReplay: vi.fn(async () => null), publishRevision: publishRevisionFn } as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(fresh.status).toBe(200);
+    expect(writeDataPoint).toHaveBeenCalledTimes(1);
+    expect(writeDataPoint).toHaveBeenCalledWith(
+      expect.objectContaining({ blobs: ["publish", "art_1", "rev_1", "standard"] }),
+    );
+
+    writeDataPoint.mockClear();
+    const replay = await publishRevision(
+      contextFor({ env: { ARTIFACT_EVENTS: artifactEvents as never } }),
+      apiPrincipal(),
+      {
+        peekWorkspaceCommandReplay: vi.fn(async () => ({ result: { artifact_id: "art_1", revision_id: "rev_1" } })),
+        publishRevision: publishRevisionFn,
+      } as never,
+      guardFor(),
+      { artifactId: "art_1", revisionId: "rev_1" },
+    );
+    expect(replay.status).toBe(200);
+    expect(writeDataPoint).not.toHaveBeenCalled();
+  });
+
   it("returns write_allowance_exceeded with Retry-After for new artifacts over the daily allowance", async () => {
     const writeAllowance = createMemoryWriteAllowanceNamespace();
     const publishRevisionFn = vi.fn(async () => ({

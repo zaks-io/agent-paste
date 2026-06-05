@@ -33,6 +33,7 @@ export function loadRootEnv() {
   return {
     webBaseUrl: env.WEB_BASE_URL,
     sentry: { dsn: env.SENTRY_DSN, environment: env.AGENT_PASTE_ENV },
+    analyticsToken: env.CF_WEB_ANALYTICS_TOKEN,
   };
 }
 
