@@ -10,18 +10,17 @@ name: CLI Release
 # its real target OS. See AP-36 / AP-41.
 
 on:
+  # No tag input: the release tag is derived from apps/cli/package.json's version
+  # (cli-v<version>), the single source of truth shared by the baked binary, the
+  # npm publish, and the CLI_RELEASE KV value. Bump package.json in a normal PR;
+  # dispatching this workflow then cuts the matching draft with no tag to type.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag to create/attach the draft to (e.g. cli-v0.1.0)."
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: cli-release-${{ github.event.inputs.tag }}
+  group: cli-release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -90,18 +89,13 @@ jobs:
         env:
           BUN_TARGET: ${{ matrix.target }}
           ASSET: ${{ matrix.asset }}
-          TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euo pipefail
           # Bake package.json's version into the binary (ADR 0080). package.json
-          # is the single source of truth: the binary, the npm publish, and the
-          # CLI_RELEASE KV value all derive from it, so the dispatch tag MUST be
-          # cli-v<version> or the channels would advertise mismatched versions.
+          # is the single source of truth: the binary, the npm publish, the
+          # CLI_RELEASE KV value, and the release tag all derive from it, so the
+          # channels cannot advertise mismatched versions.
           VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "cli-v$VERSION" ]; then
-            echo "::error::tag '$TAG' does not match apps/cli/package.json version '$VERSION' (expected 'cli-v$VERSION')"
-            exit 1
-          fi
           # --metafile records the exact module graph bundled into the binary;
           # the SBOM step (linux-x64 leg) turns it into a CycloneDX BOM of what
           # actually ships. Platform-independent, so one leg's metafile suffices.
@@ -316,14 +310,20 @@ jobs:
       - name: Create or update draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.inputs.tag }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if ! printf '%s' "$TAG" | grep -Eq '^[0-9A-Za-z._/-]+$'; then
-            echo "::error::Invalid release tag: $TAG"
+          # Derive the tag from package.json — the same source the binary baked
+          # its version from — so the draft, the binary, and the eventual npm/KV
+          # publish cannot disagree. Reject build-metadata (`+...`): valid npm but
+          # illegal in a git tag ref, which `gh release create` would only fail on
+          # opaquely later.
+          VERSION="$(node -p "require('./apps/cli/package.json').version")"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Invalid package.json version for a release tag: $VERSION"
             exit 1
           fi
+          TAG="cli-v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist-binaries/* --clobber
           else
