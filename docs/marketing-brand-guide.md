@@ -337,15 +337,17 @@ Transient by default. Revocable on demand.
 
 The full system lives in [`style-guide.md`](./specs/style-guide.md) and is the
 source of truth. This section states only the brand-level essentials and exists
-to prevent drift. (An earlier draft of this guide proposed a brutalist,
-system-font look. That part was wrong and contradicted the system below. The
-accent is a considered electric blue-violet, drawn from the brand mark — not the
-flat, generic blue that earlier draft reached for.)
+to prevent drift. The accent is a considered electric violet, drawn from the
+brand mark — not a flat, generic blue.
 
-- **Aesthetic:** Quiet Confidence. Restrained, type-led, monochrome by default,
-  warm-neutral palette. Color appears only where it carries meaning.
+- **Aesthetic:** dark-first, square, one voltage. A cool indigo-black canvas, a
+  faintly warm off-white ink, depth from a surface ladder and 1px hairlines (no
+  drop shadows), and hierarchy by scale — one big figure, the rest a quiet mono
+  rail. Color appears only where it carries meaning. The marketing site and the
+  dashboard are one design system (style-guide.md §0), not two.
 - **NOT:** brutalist, terminal-themed, glassmorphism, gradient hero, neon dark
-  mode, or anything that would look identical to the rest of the category.
+  mode, light-first, soft rounded "marketing-template," or anything that would
+  look identical to the rest of the category.
 - **Type:** Bricolage Grotesque (UI) and IBM Plex Mono (code, IDs, URLs,
   timestamps). Never Inter, Geist, Space Grotesk, or system fonts. Shared from
   `@agent-paste/brand` so web and the marketing site cannot drift.
@@ -361,7 +363,11 @@ flat, generic blue that earlier draft reached for.)
   fractal-noise grain on the page background (atmosphere, never legible as a
   pattern), shared from `@agent-paste/brand`. Character comes from type and
   restraint.
-- **Social / OG cards:** type-led on the warm-neutral background. Wordmark, one
+- **Wordmark:** `agent-paste.sh` — `agent`/`paste` in foreground, the hyphen in
+  the violet accent, `.sh` in subtle. The slash is never part of the mark, only a
+  breadcrumb separator in chrome. Identical on both surfaces; see
+  style-guide.md §6.2.
+- **Social / OG cards:** type-led on the dark indigo-black canvas. Wordmark, one
   line, and either the publish transcript or a single Artifact ID. Never a
   floating product screenshot, never a logo wall.
 
@@ -448,9 +454,9 @@ verifiable outcomes; if one fails, fix the copy or change the guide on purpose.
       emoji, no exclamation points in product voice.
 - [ ] Never calls the product a pastebin and never uses "GitHub-for-X" framing.
 - [ ] States any number (price, TTL, limit) only if it is true, or omits it.
-- [ ] Visuals defer to style-guide.md: Quiet Confidence, Bricolage Grotesque plus
-      IBM Plex Mono, single blue-violet accent, no decoration beyond the shared
-      grain.
+- [ ] Visuals defer to style-guide.md: dark-first / square / one-voltage,
+      Bricolage Grotesque plus IBM Plex Mono, single electric-violet accent, square
+      corners, no decoration beyond the shared grain and the one marketing hero aura.
 - [ ] Makes no public "open source" claim or GitHub link until the license and
       gitleaks pre-flight clears.
 - [ ] If it is a hero or headline, it earns the calm: the conviction is in the
