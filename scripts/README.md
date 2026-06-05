@@ -2,6 +2,18 @@
 
 Implementation and operations scripts live here. Root package scripts wrap the common entry points; call files here directly only when you need a lower-level option.
 
+## Testing policy
+
+Decision logic belongs in `scripts/lib/` and is unit-tested by import (call the
+exported function directly so v8 counts the coverage — `spawnSync` runs the code
+in a child process the parent's coverage cannot see). Orchestrators and the
+`smoke-*` scripts shell out to wrangler/gh/neon or boot real Workers; they are
+integration scripts, exercised by `pnpm smoke:*`, and are deliberately out of the
+`scripts/lib/**` unit-coverage scope in `vitest.scripts.config.ts`. Two harnesses
+that live under `lib/` (`smoke-mcp-local.mjs`, `smoke-port.mjs`) are excluded for
+the same reason — see the comment on the `coverage.exclude` list. With those
+exclusions, `scripts/lib/` sits around 90% lines.
+
 ## Worktree Setup
 
 ### `setup-worktree.mjs`

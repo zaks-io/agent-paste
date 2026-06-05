@@ -53,11 +53,12 @@ export function bindingsForTarget(profile, target) {
   }));
 }
 
-export async function collectSnapshot(profile, target) {
+export async function collectSnapshot(profile, target, deps = {}) {
+  const { listSecrets } = resolveDeps(deps);
   const listedByWorker = new Map();
   for (const binding of profile.bindings) {
     const worker = workerName(binding.app, target);
-    listedByWorker.set(worker, await listWorkerSecrets(worker));
+    listedByWorker.set(worker, await listSecrets(worker));
   }
   const names = new Set();
   for (const listed of listedByWorker.values()) {
@@ -180,8 +181,19 @@ export function formatPlan(profile, target, step, snapshot, operator, valuePlace
   throw new Error(`Unhandled step ${step}`);
 }
 
+/** Resolve injectable wrangler/audit dependencies, defaulting to the real implementations. */
+function resolveDeps(deps = {}) {
+  return {
+    runImpl: deps.run ?? run,
+    putSecret: deps.putWorkerSecret ?? putWorkerSecret,
+    appendAudit: deps.appendRotationAuditRecord ?? appendRotationAuditRecord,
+    listSecrets: deps.listWorkerSecrets ?? listWorkerSecrets,
+  };
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (44), pending ratchet toward 15 — see docs/ops/complexity-todo.md
-export async function executeStep(profile, target, options, snapshot) {
+export async function executeStep(profile, target, options, snapshot, deps = {}) {
+  const { runImpl, putSecret, appendAudit } = resolveDeps(deps);
   const generated = options.dryRun ? "<generated>" : secretBytes(48);
   const secondaryValue = options.value ?? generated;
 
@@ -193,7 +205,7 @@ export async function executeStep(profile, target, options, snapshot) {
     if (!options.dryRun && !options.printOnly) {
       for (const binding of profile.bindings) {
         const worker = workerName(binding.app, target);
-        await run("wrangler", [
+        await runImpl("wrangler", [
           "deploy",
           "--cwd",
           `apps/${binding.app}`,
@@ -205,7 +217,7 @@ export async function executeStep(profile, target, options, snapshot) {
           worker,
         ]);
       }
-      appendRotationAuditRecord({
+      appendAudit({
         at: new Date().toISOString(),
         operator: options.operator,
         profile: profile.id,
@@ -229,15 +241,15 @@ export async function executeStep(profile, target, options, snapshot) {
   }));
 
   if (!options.dryRun && !options.printOnly && options.step !== "flip") {
-    await assertSafeToWrite(profile, target, options, bindings, snapshot);
+    await assertSafeToWrite(profile, target, options, bindings, snapshot, deps);
   }
 
   if (options.step === "stage") {
     if (!options.dryRun && !options.printOnly) {
       for (const binding of bindings) {
-        await putWorkerSecret(binding.worker, profile.secondarySecretName, secondaryValue);
+        await putSecret(binding.worker, profile.secondarySecretName, secondaryValue);
       }
-      appendRotationAuditRecord({
+      appendAudit({
         at: new Date().toISOString(),
         operator: options.operator,
         profile: profile.id,
@@ -252,8 +264,8 @@ export async function executeStep(profile, target, options, snapshot) {
     if (!options.dryRun && !options.printOnly) {
       for (const binding of profile.bindings) {
         const worker = workerName(binding.app, target);
-        await run("wrangler", ["secret", "delete", profile.baseSecretName, "--name", worker]);
-        await run("wrangler", [
+        await runImpl("wrangler", ["secret", "delete", profile.baseSecretName, "--name", worker]);
+        await runImpl("wrangler", [
           "deploy",
           "--cwd",
           `apps/${binding.app}`,
@@ -265,7 +277,7 @@ export async function executeStep(profile, target, options, snapshot) {
           worker,
         ]);
       }
-      appendRotationAuditRecord({
+      appendAudit({
         at: new Date().toISOString(),
         operator: options.operator,
         profile: profile.id,
@@ -282,8 +294,8 @@ export async function executeStep(profile, target, options, snapshot) {
     if (!options.dryRun && !options.printOnly) {
       for (const binding of profile.bindings) {
         const worker = workerName(binding.app, target);
-        await putWorkerSecret(worker, profile.baseSecretName, primaryValue);
-        await run("wrangler", [
+        await putSecret(worker, profile.baseSecretName, primaryValue);
+        await runImpl("wrangler", [
           "deploy",
           "--cwd",
           `apps/${binding.app}`,
@@ -295,10 +307,10 @@ export async function executeStep(profile, target, options, snapshot) {
           worker,
         ]);
         if (snapshot.secondaryBound || options.step === "emergency") {
-          await run("wrangler", ["secret", "delete", profile.secondarySecretName, "--name", worker]);
+          await runImpl("wrangler", ["secret", "delete", profile.secondarySecretName, "--name", worker]);
         }
       }
-      appendRotationAuditRecord({
+      appendAudit({
         at: new Date().toISOString(),
         operator: options.operator,
         profile: profile.id,
@@ -310,10 +322,11 @@ export async function executeStep(profile, target, options, snapshot) {
   }
 }
 
-async function assertSafeToWrite(profile, target, options, bindings, snapshot) {
+async function assertSafeToWrite(profile, target, options, bindings, snapshot, deps = {}) {
+  const { listSecrets } = resolveDeps(deps);
   const existingByWorker = new Map();
   for (const binding of bindings) {
-    existingByWorker.set(binding.worker, new Set(await listWorkerSecrets(binding.worker)));
+    existingByWorker.set(binding.worker, new Set(await listSecrets(binding.worker)));
   }
 
   if (options.step === "stage" && snapshot.secondaryBound && options.value === undefined) {
