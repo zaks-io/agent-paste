@@ -115,6 +115,16 @@ export async function readUploadSessionInEntities(
   return toUploadSessionRecord(session, files);
 }
 
+export type UploadSessionState = { status: string; expiresAt: string };
+
+export async function readUploadSessionStateInEntities(
+  entities: Entities,
+  input: { workspaceId: string; sessionId: string },
+): Promise<UploadSessionState | null> {
+  const session = await entities.uploadSessions.findById(input.sessionId, input.workspaceId);
+  return session ? { status: session.status, expiresAt: session.expires_at } : null;
+}
+
 export async function finalizeUploadSessionInEntities(
   entities: Entities,
   input: {

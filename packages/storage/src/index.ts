@@ -10,6 +10,7 @@ export {
   type ArtifactBytesEncryptionMetadata,
   type ArtifactBytesKeyRing,
   bytesFromReadableBody,
+  bytesFromReadableBodyCapped,
   ciphertextByteLengthForPlaintext,
   composeArtifactBytesAad,
   decryptArtifactBytes,
@@ -20,6 +21,7 @@ export {
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
   plaintextByteLengthFromStoredObject,
+  ReadableBodyTooLargeError,
   type RevisionFileObjectKeyParts,
 } from "./artifact-bytes-encryption.js";
 

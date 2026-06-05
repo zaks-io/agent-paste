@@ -1,6 +1,7 @@
 import { mintUploadToken } from "@agent-paste/tokens/upload-url";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest } from "./index.js";
+import { uploadDbStub } from "./upload-db-test-stub.js";
 
 describe("upload put file encryption", () => {
   it("returns 401 for malformed percent-escape paths instead of 500", async () => {
@@ -39,11 +40,7 @@ describe("upload put file encryption", () => {
           return null;
         },
       },
-      DB: {
-        async recordUploadedFile() {
-          return undefined;
-        },
-      },
+      DB: uploadDbStub({ status: "pending" }),
     };
     const token = await mintUploadToken(
       {

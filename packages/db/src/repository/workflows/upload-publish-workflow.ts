@@ -10,6 +10,8 @@ import {
   createUploadSessionInEntities,
   finalizeUploadSessionInEntities,
   readUploadSessionInEntities,
+  readUploadSessionStateInEntities,
+  type UploadSessionState,
 } from "../upload-session-lifecycle.js";
 
 export async function createUploadSession(
@@ -66,6 +68,15 @@ export async function getUploadSession(ctx: RepositoryCoreContext, input: { acto
       workspaceId: input.actor.workspace_id,
       sessionId: input.sessionId,
     }),
+  );
+}
+
+export async function getUploadSessionState(
+  ctx: RepositoryCoreContext,
+  input: { workspaceId: string; sessionId: string },
+): Promise<UploadSessionState | null> {
+  return ctx.uow.read(workspaceScope(input.workspaceId), (entities) =>
+    readUploadSessionStateInEntities(entities, input),
   );
 }
 

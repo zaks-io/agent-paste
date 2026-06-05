@@ -151,6 +151,55 @@ describe("finalizeUploadSession Postgres lifecycle", () => {
     expect(second).toEqual(first);
   }, 30_000);
 
+  it("reports session state as pending before finalize and finalized after", async () => {
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-state",
+      request: {
+        title: "state-transition",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 12 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const before = await repo.getUploadSessionState({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+    });
+    expect(before?.status).toBe("pending");
+
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-state",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    const after = await repo.getUploadSessionState({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+    });
+    expect(after?.status).toBe("finalized");
+  }, 30_000);
+
+  it("returns null state for a session in another workspace", async () => {
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-cross-ws",
+      request: {
+        title: "cross-workspace",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 12 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const state = await repo.getUploadSessionState({
+      workspaceId: "00000000-0000-4000-8000-0000000000ff",
+      sessionId: session.upload_session_id,
+    });
+    expect(state).toBeNull();
+  }, 30_000);
+
   it("rejects finalize when the session is expired but upload bytes still exist", async () => {
     const session = await repo.createUploadSession({
       actor,
