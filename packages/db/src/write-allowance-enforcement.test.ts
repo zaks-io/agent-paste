@@ -1,6 +1,7 @@
 import {
   DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL,
   DAILY_NEW_ARTIFACT_ALLOWANCE_FREE,
+  DAILY_NEW_ARTIFACT_ALLOWANCE_PRO,
   LIFETIME_REVISION_CEILING,
   resolveDailyNewArtifactAllowance,
 } from "@agent-paste/config";
@@ -8,13 +9,28 @@ import { describe, expect, it } from "vitest";
 import { createLocalServices } from "./local-repository.js";
 
 describe("write allowance policy resolution", () => {
-  it("returns tier-specific daily new-artifact allowances", () => {
-    expect(resolveDailyNewArtifactAllowance({ claimedAt: null, plan: "free", billingEnabled: true })).toBe(
+  it("returns the ephemeral allowance for unclaimed workspaces regardless of plan", () => {
+    expect(resolveDailyNewArtifactAllowance({ claimed: false, plan: "free", billingEnabled: true })).toBe(
       DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL,
     );
-    expect(
-      resolveDailyNewArtifactAllowance({ claimedAt: "2026-01-01T00:00:00.000Z", plan: "free", billingEnabled: true }),
-    ).toBe(DAILY_NEW_ARTIFACT_ALLOWANCE_FREE);
+    expect(resolveDailyNewArtifactAllowance({ claimed: false, plan: "pro", billingEnabled: true })).toBe(
+      DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL,
+    );
+  });
+
+  it("resolves the plan tier for claimed workspaces when billing is on", () => {
+    expect(resolveDailyNewArtifactAllowance({ claimed: true, plan: "free", billingEnabled: true })).toBe(
+      DAILY_NEW_ARTIFACT_ALLOWANCE_FREE,
+    );
+    expect(resolveDailyNewArtifactAllowance({ claimed: true, plan: "pro", billingEnabled: true })).toBe(
+      DAILY_NEW_ARTIFACT_ALLOWANCE_PRO,
+    );
+  });
+
+  it("treats every claimed workspace as pro when billing is off", () => {
+    expect(resolveDailyNewArtifactAllowance({ claimed: true, plan: "free", billingEnabled: false })).toBe(
+      DAILY_NEW_ARTIFACT_ALLOWANCE_PRO,
+    );
   });
 });
 

@@ -1,14 +1,3 @@
-import type { BillingInterval } from "@agent-paste/contracts";
-
-/**
- * Pro price, shown in-app for orientation only. Stripe is the source of truth at
- * checkout, so these are display constants, not a charge authority.
- */
-export const PRO_PRICE: Record<BillingInterval, { amount: string; per: string }> = {
-  month: { amount: "$12", per: "/ mo" },
-  year: { amount: "$120", per: "/ yr" },
-};
-
 const DATE_FMT = new Intl.DateTimeFormat("en", {
   year: "numeric",
   month: "short",

@@ -1,4 +1,5 @@
 import type { BillingInterval, BillingStatusResponse } from "@agent-paste/contracts";
+import { PLANS } from "@agent-paste/plans";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/cn";
@@ -6,19 +7,14 @@ import { startCheckoutFn } from "../../rpc/web-mutations";
 import { Button } from "../ui/Button";
 import { SectionLabel } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
-import { PRO_PRICE } from "./format";
-
-const PLAN_FEATURES = {
-  free: ["100 new artifacts per day", "Unlimited reads, no egress cost", "Ephemeral + claimable artifacts"],
-  pro: ["2,000 new artifacts per day", "Priority artifact retention", "Customer Portal self-serve billing"],
-} as const;
 
 export function PlanPanel({ status }: { status: BillingStatusResponse }) {
   const { push } = useToast();
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [pending, setPending] = useState(false);
   const isFree = status.plan === "free";
-  const price = PRO_PRICE[interval];
+  const freePrice = PLANS.free.price?.[interval];
+  const proPrice = PLANS.pro.price?.[interval];
 
   async function upgrade() {
     if (pending) return;
@@ -61,15 +57,21 @@ export function PlanPanel({ status }: { status: BillingStatusResponse }) {
       ) : null}
 
       <div className="grid gap-3.5">
-        <PlanCard name="Free" price="$0" per="/ mo" current={isFree} features={PLAN_FEATURES.free} />
         <PlanCard
-          name="Pro"
-          price={price.amount}
-          per={price.per}
+          name={PLANS.free.name}
+          price={freePrice?.amount ?? "$0"}
+          per={freePrice?.per ?? "/ mo"}
+          current={isFree}
+          features={PLANS.free.features}
+        />
+        <PlanCard
+          name={PLANS.pro.name}
+          price={proPrice?.amount ?? ""}
+          per={proPrice?.per ?? ""}
           current={!isFree}
           featured={isFree}
           recommended={isFree}
-          features={PLAN_FEATURES.pro}
+          features={PLANS.pro.features}
         />
       </div>
 

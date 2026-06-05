@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBillingDate, formatMoney, PRO_PRICE } from "../src/components/billing/format";
+import { formatBillingDate, formatMoney } from "../src/components/billing/format";
 
 describe("billing format helpers", () => {
   it("formats a date in UTC", () => {
@@ -25,10 +25,5 @@ describe("billing format helpers", () => {
 
   it("falls back to a bare number for a malformed currency code", () => {
     expect(formatMoney(1200, "!!")).toBe("12.00");
-  });
-
-  it("exposes the $12 / $120 Pro price constants", () => {
-    expect(PRO_PRICE.month.amount).toBe("$12");
-    expect(PRO_PRICE.year.amount).toBe("$120");
   });
 });
