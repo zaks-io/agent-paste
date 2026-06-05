@@ -89,6 +89,10 @@ When the file limit ratchets below ~590, split the contract registries first.
       `command-palette-keyboard.ts`, and rendering into `CommandPaletteDialogView`,
       `CommandPaletteSearch`, `CommandPaletteResults`, and `CommandPaletteOption`.
       Removed cognitive-complexity and function-length suppressions.
+- [x] `apps/web/src/components/chrome/command-palette/use-command-items.ts`:
+      AP-223 split command item construction into `command-items-navigation.ts` and
+      `command-items-actions.ts`. The hook now composes focused builders and passes the
+      60 function-line / 15 cognitive-complexity ratchet targets.
 
 ## Current target-wall areas
 
