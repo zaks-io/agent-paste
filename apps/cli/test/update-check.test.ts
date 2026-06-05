@@ -1,4 +1,8 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { configDir } from "../src/credentials.js";
 import { compareSemver, detectChannel, runUpdateCheck, upgradeCommand } from "../src/update-check.js";
 
 function jsonResponse(body: unknown, ok = true): Response {
@@ -228,5 +232,28 @@ describe("runUpdateCheck", () => {
     });
     await runUpdateCheck(liveGlobal, deps);
     expect(stderr).not.toHaveBeenCalled();
+  });
+
+  it("creates the config dir at 0700 when it writes the cache before login", async () => {
+    const previous = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cfg-"));
+    try {
+      const { deps } = liveDeps({
+        channel: "binary",
+        writeCache: undefined,
+        fetchImpl: vi.fn(async () => {
+          throw new Error("offline");
+        }) as unknown as typeof fetch,
+      });
+      await runUpdateCheck(liveGlobal, deps);
+      const dirStat = await fs.stat(configDir());
+      expect(dirStat.mode & 0o777).toBe(0o700);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.XDG_CONFIG_HOME;
+      } else {
+        process.env.XDG_CONFIG_HOME = previous;
+      }
+    }
   });
 });

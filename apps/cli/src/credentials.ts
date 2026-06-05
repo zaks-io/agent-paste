@@ -62,7 +62,12 @@ export function fileStore(filePath = defaultCredentialPath()): CredentialStore {
       }
     },
     async save(credential) {
-      await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+      const dir = path.dirname(filePath);
+      if (dir === configDir()) {
+        await ensureConfigDir();
+      } else {
+        await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+      }
       await rejectSymlink(filePath);
       await fs.writeFile(filePath, JSON.stringify(credential), { mode: 0o600 });
       // writeFile's mode only applies when creating the file; an overwrite of a
@@ -123,6 +128,10 @@ export function isCredentialExpired(credential: Credential, now: Date = new Date
 export function configDir(): string {
   const base = process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config");
   return path.join(base, "agent-paste");
+}
+
+export async function ensureConfigDir(): Promise<void> {
+  await fs.mkdir(configDir(), { recursive: true, mode: 0o700 });
 }
 
 export function defaultCredentialPath(): string {
