@@ -23,11 +23,26 @@ export function envPrefix(env) {
 /**
  * Resolve the value for one secret name in an environment from process.env.
  * Returns the env-prefixed value if present, else the bare name, else undefined.
+ *
+ * An empty (or whitespace-only) value is treated as unset: a GitHub `${{ secrets.X }}`
+ * reference to a secret that does not exist injects an empty string, not nothing, so a
+ * deploy must read "" as "leave the Worker's existing value alone" rather than provision
+ * a blank/generated value over it. The empty env-prefixed value falls through to the bare
+ * name for the same reason.
  * @param {string} name
  * @param {"preview"|"production"} env
  * @param {NodeJS.ProcessEnv} [source]
  * @returns {string|undefined}
  */
 export function resolveSecretValue(name, env, source = process.env) {
-  return source[`${envPrefix(env)}_${name}`] ?? source[name];
+  return firstNonEmpty(source[`${envPrefix(env)}_${name}`], source[name]);
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value.trim() !== "") {
+      return value;
+    }
+  }
+  return undefined;
 }

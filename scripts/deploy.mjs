@@ -126,8 +126,10 @@ export function createSecretPlanner({
     if (generatedValues.has(name)) {
       return generatedValues.get(name);
     }
+    // resolveSecretValue already treats empty/whitespace as undefined, so a defined
+    // value here is a real one; no separate empty-string check needed.
     const fromEnv = resolveValue(name);
-    if (fromEnv !== undefined && fromEnv !== "") {
+    if (fromEnv !== undefined) {
       return fromEnv;
     }
     generatedValues.set(name, randomBytesFn(generatedByteLength(name)).toString("base64url"));

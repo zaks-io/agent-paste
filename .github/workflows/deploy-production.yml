@@ -127,6 +127,14 @@ jobs:
           PRODUCTION_CF_ACCESS_AUD: ${{ secrets.PRODUCTION_CF_ACCESS_AUD }}
           PRODUCTION_WORKOS_API_KEY: ${{ secrets.PRODUCTION_WORKOS_API_KEY }}
           PRODUCTION_WORKOS_COOKIE_PASSWORD: ${{ secrets.PRODUCTION_WORKOS_COOKIE_PASSWORD }}
+          # Stripe billing (ADR 0073/0074). Optional per scripts/lib/secret-routing.mjs:
+          # the deploy succeeds without them and the routes stay gated by BILLING_ENABLED
+          # (off in production until paid plans launch). Injected onto the api Worker so
+          # production carries the same Stripe secret surface as preview.
+          PRODUCTION_STRIPE_SECRET_KEY: ${{ secrets.PRODUCTION_STRIPE_SECRET_KEY }}
+          PRODUCTION_STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.PRODUCTION_STRIPE_WEBHOOK_SIGNING_SECRET }}
+          PRODUCTION_STRIPE_PRICE_ID_MONTHLY: ${{ secrets.PRODUCTION_STRIPE_PRICE_ID_MONTHLY }}
+          PRODUCTION_STRIPE_PRICE_ID_ANNUAL: ${{ secrets.PRODUCTION_STRIPE_PRICE_ID_ANNUAL }}
         run: node scripts/deploy.mjs production
 
       - name: Smoke production (read-only, no credentials)
