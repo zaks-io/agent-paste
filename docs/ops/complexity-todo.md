@@ -53,7 +53,6 @@ Biome-measured count at snapshot time.
       `query` 183.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `localArtifacts`: 147.
-- [ ] `scripts/smoke-mcp.mjs` — `runLocalMcpSmoke`: 149.
 - [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 123.
 - [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
@@ -75,6 +74,9 @@ When the file limit ratchets below ~590, split the contract registries first.
       guard orchestration into `registrar-pipeline.ts` and request helpers into
       `registrar-request.ts`, removed the cognitive-complexity suppression, and
       kept each source file under 300 physical lines.
+- [x] `scripts/smoke-mcp.mjs` — `runLocalMcpSmoke`: AP-229 split local MCP smoke
+      phases into `scripts/lib/smoke-mcp-local.mjs` and removed the function-length
+      suppression from the smoke driver.
 
 ## Current target-wall areas
 
