@@ -1850,6 +1850,77 @@ describe("LocalRepository", () => {
       }),
     ).rejects.toThrow("upload_incomplete");
   });
+
+  it("replays finalize for an already-finalized session", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-replay",
+      request: { title: "replay", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const observedFiles = [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }];
+    const first = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-replay-1",
+      sessionId: session.upload_session_id,
+      observedFiles,
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    const second = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-replay-2",
+      sessionId: session.upload_session_id,
+      observedFiles,
+      now: "2026-01-01T00:00:02.000Z",
+    });
+    expect(second).toEqual(first);
+  });
+
+  it("rejects finalize for pending sessions past expires_at", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-past-ttl",
+      request: { title: "past-ttl", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-finalize-past-ttl",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+        now: "2026-01-03T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_session_expired");
+  });
+
+  it("rejects finalize for expired upload sessions", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-expired",
+      request: { title: "expired", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    await repo.runCleanup({
+      actor: adminActor,
+      idempotencyKey: "idem-cleanup-expired-upload",
+      dryRun: false,
+      batchSize: 10,
+      now: "2026-01-03T00:00:00.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-finalize-expired",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+        now: "2026-01-03T00:00:01.000Z",
+      }),
+    ).rejects.toThrow("upload_session_expired");
+  });
 });
 
 describe("PostgresRepository", () => {

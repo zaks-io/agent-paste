@@ -128,6 +128,23 @@ export async function finalizeUploadSessionInEntities(
   if (!session) {
     repositoryError("upload_session_not_found");
   }
+  if (session.status === "finalized") {
+    return buildFinalizeResult({
+      uploadSessionId: session.id,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      title: session.title,
+      entrypoint: session.entrypoint,
+      fileCount: session.file_count,
+      sizeBytes: session.size_bytes,
+    });
+  }
+  if (session.status === "expired" || new Date(session.expires_at).getTime() <= new Date(input.now).getTime()) {
+    repositoryError("upload_session_expired");
+  }
+  if (session.status !== "pending") {
+    repositoryError("upload_session_not_found");
+  }
   const files = await entities.uploadSessionFiles.listForSession(session.id);
   const observed = new Set(input.observedFiles.map((file) => `${file.path}:${file.objectKey}:${file.sizeBytes}`));
   for (const file of files) {
