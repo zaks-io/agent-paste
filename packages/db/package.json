@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./test-helpers/route-boundary-fixture": {
+      "types": "./src/test-helpers/route-boundary-fixture.ts",
+      "import": "./src/test-helpers/route-boundary-fixture.ts"
     }
   },
   "scripts": {
