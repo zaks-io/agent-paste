@@ -21363,6 +21363,17 @@
           {
             "schema": {
               "type": "string",
+              "minLength": 1,
+              "description": "Stripe webhook signature (`t=...,v1=...`), verified before any processing."
+            },
+            "required": true,
+            "description": "Stripe webhook signature (`t=...,v1=...`), verified before any processing.",
+            "name": "Stripe-Signature",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
               "minLength": 8,
               "maxLength": 128,
               "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."

@@ -15,6 +15,13 @@ type Helpers = {
  */
 export function registerBillingPaths(registry: OpenAPIRegistry, helpers: Helpers): void {
   const { params, pathStringParam, idempotencyKeyHeader, requestIdHeader } = helpers;
+  const stripeSignatureHeader = z
+    .string()
+    .min(1)
+    .openapi({
+      param: { name: "Stripe-Signature", in: "header", required: true },
+      description: "Stripe webhook signature (`t=...,v1=...`), verified before any processing.",
+    });
 
   registry.registerPath({
     method: "get",
@@ -77,7 +84,7 @@ export function registerBillingPaths(registry: OpenAPIRegistry, helpers: Helpers
     path: "/v1/billing/webhook",
     operationId: "billing.webhook",
     summary: "Receive Stripe subscription lifecycle webhooks (Stripe-Signature verified).",
-    request: { headers: [requestIdHeader] },
+    request: { headers: [stripeSignatureHeader, requestIdHeader] },
     responses: {
       "200": jsonOk(schemaRef("WebhookReceivedResponse"), "Received (200)"),
       "400": errorResponse,

@@ -284,22 +284,26 @@ apiDbRegistrar.mount(contractById("web.admin.lockdown.lift"), async (context, pr
 apiDbRegistrar.mount(contractById("web.admin.events.list"), async (context, principal, db) =>
   webAdminListEvents(context as AppContext, principal, db),
 );
-apiDbRegistrar.mount(contractById("billing.status.get"), async (context, principal) =>
+// Billing handlers resolve their own RLS executor (Stripe is never on the hot path) and
+// short-circuit with `not_found` when billing is off. Mounting on the no-db registrar keeps
+// Hyperdrive resolution from running first, so a billing-off request 404s instead of leaking
+// `database_unavailable` when the DB is unreachable.
+apiNoDbRegistrar.mount(contractById("billing.status.get"), async (context, principal) =>
   billingStatus(context as AppContext, principal),
 );
-apiDbRegistrar.mount(contractById("billing.checkout.create"), async (context, principal, _db, guard) =>
+apiNoDbRegistrar.mount(contractById("billing.checkout.create"), async (context, principal, guard) =>
   billingCheckout(context as AppContext, principal, guard),
 );
-apiDbRegistrar.mount(contractById("billing.checkout.return"), async (context, principal) =>
+apiNoDbRegistrar.mount(contractById("billing.checkout.return"), async (context, principal) =>
   billingReturn(context as AppContext, principal),
 );
-apiDbRegistrar.mount(contractById("billing.portal.create"), async (context, principal) =>
+apiNoDbRegistrar.mount(contractById("billing.portal.create"), async (context, principal) =>
   billingPortal(context as AppContext, principal),
 );
-apiDbRegistrar.mount(contractById("billing.webhook"), async (context, principal) =>
+apiNoDbRegistrar.mount(contractById("billing.webhook"), async (context, principal) =>
   billingWebhook(context as AppContext, principal),
 );
-apiDbRegistrar.mount(contractById("billing.admin.setPlan"), async (context, principal, _db, guard) =>
+apiNoDbRegistrar.mount(contractById("billing.admin.setPlan"), async (context, principal, guard) =>
   webAdminSetWorkspacePlan(context as AppContext, principal, guard, {
     workspaceId: context.req.param("workspace_id") ?? "",
   }),

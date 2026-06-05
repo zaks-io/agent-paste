@@ -39,9 +39,10 @@ export async function setWorkspacePlanOverride(
     workspaceId: input.workspaceId,
     now: input.now,
     handler: async (tx) => {
-      const workspace = await tx.query<{ plan: WorkspacePlan }>(`select plan from workspaces where id = $1`, [
-        input.workspaceId,
-      ]);
+      const workspace = await tx.query<{ plan: WorkspacePlan }>(
+        `select plan from workspaces where id = $1 for update`,
+        [input.workspaceId],
+      );
       const previousPlan = workspace.rows[0]?.plan;
       if (!previousPlan) {
         throw new Error("workspace_not_found");
