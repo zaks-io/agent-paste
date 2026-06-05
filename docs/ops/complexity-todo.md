@@ -30,17 +30,15 @@ Measured by Biome's own counters (`skipBlankLines: true`):
 
 ## Suppressed offenders
 
-Each is flagged inline; clean up and remove the suppression. Values are the
-Biome-measured count at snapshot time.
+No current inline suppressions remain for these rules at the snapshot limits.
 
 ### Cognitive complexity (> 30)
 
-- [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
-- [ ] `scripts/lib/versioned-secret-rotation.mjs` — `formatPlan`: 31.
+None today.
 
 ### Lines per function (> 100)
 
-- [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
+None today.
 
 ### Lines per file (> 600)
 
@@ -64,6 +62,11 @@ When the file limit ratchets below ~590, split the contract registries first.
       artifact methods and postgres entity adapters into focused domain modules
       (`artifacts-*.ts`, `postgres-entities/*.ts`) and removed the function-length
       and `reparentWorkspace` cognitive-complexity suppressions.
+- [x] `packages/rotation/src/automation.ts` and `scripts/lib/versioned-secret-rotation.mjs`:
+      AP-231 split versioned-secret rotation plan builders into step helpers
+      (`rotation-plan-steps.ts`, `versioned-secret-rotation-format.mjs`,
+      `versioned-secret-rotation-execute.mjs`) and removed cognitive-complexity /
+      function-length suppressions from the touched rotation tooling.
 - [x] `apps/jobs/src/handlers/bundle-generate.ts` and `safety-scan.ts`: AP-232 split
       queue batch handlers into orchestration helpers (`bundle-generate-orchestration.ts`,
       `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,
@@ -102,12 +105,12 @@ Measured against the final targets (15 cognitive complexity, 60 function lines,
 1. `packages/contracts`: contract/OpenAPI registries dominate size. Split route
    contracts and OpenAPI path registration by resource group before lowering
    file/function line limits.
-2. `packages/db`: the local SQL executor and entity method bags dominate both
-   cognitive complexity and function length. Replace SQL-string branching with
-   statement handlers, then split local/postgres entity groups by domain.
-3. `scripts`: local server, smoke, deploy-preview, and versioned rotation scripts
-   are large orchestration modules. Extract step tables and reusable runners
-   before ratcheting repo-wide file limits.
+2. `packages/db`: the local SQL executor and entity method bags are split. The
+   remaining target-wall work is repository workflow duplication, schema size,
+   and query/helper consolidation before lowering final limits.
+3. `scripts`: local server, smoke, and deploy-preview remain large orchestration
+   modules. Versioned rotation scripts are split; extract step tables and reusable
+   runners in the remaining scripts before ratcheting repo-wide file limits.
 4. `apps/api`: publish/revision orchestration is split (AP-142). Remaining
    target-wall items are Agent View signing, API index wiring, Live Updates,
    operator filter parsing, and web route file size.

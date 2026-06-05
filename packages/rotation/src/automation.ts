@@ -2,6 +2,14 @@ import type { KeyRing } from "./key-ring.js";
 import { createKeyRingFromVersionedEnv, KeyRing as KeyRingClass } from "./key-ring.js";
 import { PepperRing } from "./pepper-ring.js";
 import { describeKeyRingState, type RotationStage } from "./playbook.js";
+import {
+  buildDrainRotationPlanPart,
+  buildDropRotationPlanPart,
+  buildEmergencyRotationPlanPart,
+  buildFlipRotationPlanPart,
+  buildStageRotationPlanPart,
+  type RotationPlanStepContext,
+} from "./rotation-plan-steps.js";
 
 /** Operator-facing rotation profile for ADR 0045 versioned Worker secrets. */
 export type VersionedSecretProfileId =
@@ -199,7 +207,23 @@ export function applyPepperRotationStep(ring: PepperRing, step: VersionedSecretR
   applyKeyRingRotationStep(ring.asKeyRing(), step, nextPepper);
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: rotation-plan builder (116 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
+const ROTATION_PLAN_STEP_BUILDERS: Record<
+  VersionedSecretRotationStep,
+  (
+    ctx: RotationPlanStepContext,
+    target: "preview" | "production",
+  ) => {
+    actions: WranglerSecretAction[];
+    notes: string[];
+  }
+> = {
+  stage: (ctx) => buildStageRotationPlanPart(ctx),
+  flip: (ctx, target) => buildFlipRotationPlanPart(ctx, target),
+  drain: (ctx) => buildDrainRotationPlanPart(ctx),
+  drop: (ctx, target) => buildDropRotationPlanPart(ctx, target),
+  emergency: (ctx, target) => buildEmergencyRotationPlanPart(ctx, target),
+};
+
 export function buildRotationPlan(input: {
   profile: VersionedSecretProfile;
   target: "preview" | "production";
@@ -213,140 +237,13 @@ export function buildRotationPlan(input: {
   const ring = simulatedRingFromSnapshot(input.profile, input.snapshot);
   const stage = describeKeyRingState(ring).stage;
   const valuePlaceholder = input.secondaryValuePlaceholder ?? "<generated-secret>";
-  const actions: WranglerSecretAction[] = [];
-  const notes: string[] = [
-    `Operator identity (audit): ${operatorIdentity}`,
-    `Environment: ${input.target}`,
-    `Profile: ${input.profile.id}`,
-  ];
-
-  switch (input.step) {
-    case "stage": {
-      if (!input.snapshot.primaryBound) {
-        notes.push("Primary secret is not bound; use bootstrap or first-deploy scripts instead of overlap rotation.");
-      }
-      if (input.snapshot.secondaryBound) {
-        notes.push(
-          `${input.profile.secondarySecretName} is already bound; skip stage unless recovering from a bad state.`,
-        );
-      }
-      for (const binding of bindings) {
-        actions.push({
-          type: "put",
-          worker: binding.worker,
-          name: input.profile.secondarySecretName,
-          valuePlaceholder,
-        });
-      }
-      notes.push(`Keep ${input.profile.kidVarName} at v1 on all Workers until stage completes.`);
-      notes.push("After stage, run flip, then drain, then drop.");
-      break;
-    }
-    case "flip": {
-      if (!input.snapshot.secondaryBound) {
-        notes.push(`Bind ${input.profile.secondarySecretName} on every Worker before flip.`);
-      }
-      for (const binding of bindings) {
-        actions.push({
-          type: "deploy-var",
-          worker: binding.worker,
-          cwd: `apps/${binding.app}`,
-          envName: input.target,
-          varName: input.profile.kidVarName,
-          varValue: "v2",
-        });
-      }
-      notes.push("New mints use kid 2; verifiers still accept kid 1 during overlap.");
-      notes.push(`Next: drain — ${input.profile.drainHint}`);
-      break;
-    }
-    case "drain": {
-      notes.push(input.profile.drainHint);
-      notes.push("Hosted smoke (preview/production) should pass before drop when credentials are approved.");
-      notes.push("Record completion in the ops log with operator, timestamp, and verification command.");
-      break;
-    }
-    case "drop": {
-      if (!input.snapshot.secondaryBound) {
-        notes.push(`${input.profile.secondarySecretName} must stay bound until drop completes.`);
-      }
-      if (profilePersistsKidInRecords(input.profile.id)) {
-        for (const binding of bindings) {
-          actions.push({
-            type: "delete",
-            worker: binding.worker,
-            name: input.profile.baseSecretName,
-          });
-          actions.push({
-            type: "deploy-var",
-            worker: binding.worker,
-            cwd: `apps/${binding.app}`,
-            envName: input.target,
-            varName: input.profile.kidVarName,
-            varValue: "v2",
-          });
-        }
-        notes.push(
-          "Drop kid 1 only: delete the primary (kid 1) secret, keep _V2 and active kid v2. Stored pepper_kid / enc_kid values are not relabeled.",
-        );
-      } else {
-        for (const binding of bindings) {
-          actions.push({
-            type: "put",
-            worker: binding.worker,
-            name: input.profile.baseSecretName,
-            valuePlaceholder: `<promoted-${input.profile.secondarySecretName}>`,
-          });
-          actions.push({
-            type: "deploy-var",
-            worker: binding.worker,
-            cwd: `apps/${binding.app}`,
-            envName: input.target,
-            varName: input.profile.kidVarName,
-            varValue: "v1",
-          });
-          actions.push({
-            type: "delete",
-            worker: binding.worker,
-            name: input.profile.secondarySecretName,
-          });
-        }
-        notes.push("Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.");
-      }
-      break;
-    }
-    case "emergency": {
-      for (const binding of bindings) {
-        actions.push({
-          type: "put",
-          worker: binding.worker,
-          name: input.profile.baseSecretName,
-          valuePlaceholder,
-        });
-        actions.push({
-          type: "deploy-var",
-          worker: binding.worker,
-          cwd: `apps/${binding.app}`,
-          envName: input.target,
-          varName: input.profile.kidVarName,
-          varValue: "v1",
-        });
-        if (input.snapshot.secondaryBound) {
-          actions.push({
-            type: "delete",
-            worker: binding.worker,
-            name: input.profile.secondarySecretName,
-          });
-        }
-      }
-      notes.push("Emergency cutover invalidates overlap; use only when staging is not possible.");
-      break;
-    }
-    default: {
-      const _exhaustive: never = input.step;
-      throw new Error(`rotation_unknown_step:${String(_exhaustive)}`);
-    }
-  }
+  const ctx: RotationPlanStepContext = {
+    profile: input.profile,
+    snapshot: input.snapshot,
+    bindings,
+    valuePlaceholder,
+  };
+  const { actions, notes: stepNotes } = ROTATION_PLAN_STEP_BUILDERS[input.step](ctx, input.target);
 
   return {
     profileId: input.profile.id,
@@ -354,7 +251,12 @@ export function buildRotationPlan(input: {
     stage,
     operatorIdentity,
     actions,
-    notes,
+    notes: [
+      `Operator identity (audit): ${operatorIdentity}`,
+      `Environment: ${input.target}`,
+      `Profile: ${input.profile.id}`,
+      ...stepNotes,
+    ],
   };
 }
 
