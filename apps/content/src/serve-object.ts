@@ -99,11 +99,17 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const bytes =
-    served.bytes && payload.noindex === true && isHtmlPath(path) ? injectNoindexMetaBytes(served.bytes) : served.bytes;
+  const injectsNoindex = payload.noindex === true && isHtmlPath(path);
+  const bytes = served.bytes && injectsNoindex ? injectNoindexMetaBytes(served.bytes) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
   const headers = responseHeadersForPath(path, size, payload.exp, payload);
+  // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
+  // When noindex injection would grow the GET body, that size is wrong, so drop
+  // content-length rather than advertise a length the GET would not match.
+  if (!bytes && injectsNoindex) {
+    headers.delete("content-length");
+  }
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(bodyFromBytes(bytes), { status: 200, headers });
@@ -112,7 +118,8 @@ export async function serveSignedObject(
 /**
  * Decrypted plaintext is the single source of truth for a GET response: `bytes`
  * carries the actual payload and its length. HEAD has no body, so it reports the
- * arithmetic `plaintextSize` derived from the stored ciphertext size instead.
+ * arithmetic `plaintextSize` derived from the stored ciphertext size instead
+ * (and drops the header entirely when noindex injection would grow the GET body).
  */
 type ServedObject = { bytes: Uint8Array | null; plaintextSize: number };
 

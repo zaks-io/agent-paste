@@ -326,6 +326,45 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("");
   });
 
+  it("drops content-length on a noindex HTML HEAD so it cannot understate the injected GET body", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        noindex: true,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "<html><head></head><body>ok</body></html>",
+    });
+    const env = baseContentEnv({
+      ARTIFACTS: {
+        async get() {
+          throw new Error("HEAD should use R2 head when available");
+        },
+        async head() {
+          return { body: null, size: stored.size, customMetadata: stored.customMetadata };
+        },
+      },
+    });
+
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { method: "HEAD" }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.has("content-length")).toBe(false);
+    await expect(response.text()).resolves.toBe("");
+  });
+
   it("returns rate_limited_artifact before reading R2 when the artifact limit is exceeded", async () => {
     const token = await signContentToken(
       {

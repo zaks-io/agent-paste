@@ -27,7 +27,7 @@ export function uploadDbStub(options: UploadDbStubOptions = {}): NonNullable<Env
     createUploadSession() {
       throw new Error("createUploadSession not implemented in stub");
     },
-    async getUploadSessionState() {
+    async getUploadSessionState(_input: { workspaceId: string; sessionId: string }) {
       return options.missing ? null : { status, expiresAt };
     },
     async recordUploadedFile(input: RecordUploadedFileInput) {
