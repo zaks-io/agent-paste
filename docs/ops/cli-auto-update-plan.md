@@ -113,10 +113,12 @@ refused; invoked from npm/npx it prints the npm command instead.
   (no stored token); the KV write reuses the deploy `CLOUDFLARE_API_TOKEN`/
   `CLOUDFLARE_ACCOUNT_ID` secrets, scoped to that step. No `api` redeploy.
 - Single version source: `apps/cli/package.json` drives the baked binary version,
-  the npm version, and the KV `latest`. The build job and the advertise job both
-  assert the dispatch/release tag equals `cli-v<version>`, so the channels can't
-  diverge. `min_supported` is set equal to `latest` for now (no force-upgrade
-  floor yet; revisit when a real minimum is needed).
+  the npm version, the KV `latest`, and the release tag. CLI Release derives the
+  tag (`cli-v<version>`) from `package.json` — there is no hand-typed dispatch tag
+  — and the advertise job re-asserts the published release tag equals
+  `cli-v<version>`, so the channels can't diverge. `min_supported` is set equal to
+  `latest` for now (no force-upgrade floor yet; revisit when a real minimum is
+  needed). Operator steps: [`runbook-cli-release.md`](./runbook-cli-release.md).
 - README follow-up: DONE — `apps/cli/README.md` documents `version`, `upgrade`,
   `AGENT_PASTE_NO_UPDATE_CHECK`, and the per-channel update-check behavior (landed
   with Phase 3).

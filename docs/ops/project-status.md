@@ -111,6 +111,8 @@ Feature-specific ledgers:
   work.
 - [Ephemeral publish runbook](./runbook-ephemeral-publish.md) - provision,
   publish, claim, abuse, support, and smoke verification (AP-112).
+- [CLI release runbook](./runbook-cli-release.md) - bump, build signed binaries,
+  publish npm, and advertise the new version (ADR 0080).
 
 ## Current Phase
 
