@@ -33,21 +33,20 @@ lines today but are test support, not shipped runtime behavior.
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
-the baseline below the `2.7` gate, and AP-203 pulled it below the `2.5` gate.
-The current baseline is **2.45%**, so `2.5` has little slack. The next step
-(`2.3`) needs another offender cleanup or a decision to stop scanning
-`src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders are
-cleaned up and update this file.
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, and
+AP-206 pulled it to **2.33%**. The next step (`2.3`) needs another offender
+cleanup or a decision to stop scanning `src/test-helpers/`. Lower the threshold
+in `.jscpd.json` as offenders are cleaned up and update this file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
 Measured by `pnpm dupes --reporters json --output /tmp/agent-paste-jscpd-final2` at
 `minTokens: 50` over `apps` + `packages`:
 
-- 507 files, 45,808 lines analyzed.
-- 109 clones, 1,124 duplicated lines = **2.45%** (2.84% by tokens).
-- Post AP-206 MCP dedup (2026-06-05): 507 files, 45,795 lines, 1,067 duplicated
-  lines = **2.33%** (2.71% by tokens).
+- 507 files, 45,795 lines analyzed.
+- 105 clones, 1,067 duplicated lines = **2.33%** (2.71% by tokens).
+- Pre AP-206 (post AP-203, 2026-06-05): 507 files, 45,808 lines, 1,124
+  duplicated lines = **2.45%** (2.84% by tokens).
 - By format: TypeScript 2.64%, TSX 1.27%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
@@ -65,10 +64,9 @@ These quick wins shipped with the gate (2.84% -> 2.59%):
       `enqueueBytePurge` into `packages/db/src/byte-purge-shared.ts`;
       `artifact-invalidation.ts` and `revision-invalidation.ts` are now thin
       callers that differ only by KV prefix / purge prefix.
-- [x] MCP Access Link + forwarding dedup (AP-206): extracted
-      `createAndMintAccessLink` in `apps/mcp/src/tools.ts` and
-      `forwardToBinding` in `apps/mcp/src/forward.ts`; gated baseline
-      **2.33%** (was 2.45%).
+- [x] `liveStreamProxyHeaders`: shared the SSE proxy header-copy across the two
+      `apps/web/src/routes/api/live/*` route files; lives in
+      `apps/web/src/security-headers.ts`.
 
 ## Done: AP-203 repository workflow dedup
 
@@ -81,6 +79,16 @@ This pass moved the gated baseline from 2.54% to 2.45%:
       workspace-admin workflows.
 - [x] Collapsed the workspace replay peek wrappers into one implementation with
       explicit exported aliases.
+
+## Done: AP-206 MCP helper dedup
+
+This pass moved the gated baseline from 2.45% to 2.33%:
+
+- [x] Extracted `createAndMintAccessLink` in `apps/mcp/src/tools.ts` for the
+      shared create-and-mint Access Link flow used by `create_share_link` and
+      `create_revision_link`.
+- [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
+      vs Upload request construction and error mapping.
 
 ## Where the duplication lives
 
