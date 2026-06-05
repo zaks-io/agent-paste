@@ -11,7 +11,15 @@ const UPLOAD_FILE_PATH_MARKER = "/files/";
 export function uploadFilePath(context: AppContext): string {
   const pathname = new URL(context.req.raw.url).pathname;
   const markerIndex = pathname.indexOf(UPLOAD_FILE_PATH_MARKER);
-  return markerIndex === -1 ? "" : decodeURIComponent(pathname.slice(markerIndex + UPLOAD_FILE_PATH_MARKER.length));
+  if (markerIndex === -1) {
+    return "";
+  }
+  const encodedPath = pathname.slice(markerIndex + UPLOAD_FILE_PATH_MARKER.length);
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return "";
+  }
 }
 
 export async function verifyUploadToken(token: string | null, env: Env): Promise<SignedUploadPayload | null> {
