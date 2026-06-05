@@ -140,8 +140,19 @@
         "API_KEY_ENV": "preview",
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
         "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
+        // Stripe Checkout/Portal redirect targets (webBaseUrl in runtime.ts) must point
+        // at the preview web app; without this the default falls back to production.
+        "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "preview",
+        // Billing (Free + Pro) routes mount only when this flag is "true"
+        // (apps/api/src/env.ts:billingEnabled). On in preview so the Stripe
+        // Checkout/webhook/Portal flow can be exercised against test-mode keys. The
+        // STRIPE_* secrets are deploy-injected (scripts/lib/secret-routing.mjs) and
+        // remain optional: with the flag on but secrets absent the routes still mount
+        // but degrade (no-op provider; checkout 404s on the missing price ID and the
+        // webhook 404s on the missing signing secret) until the secrets are present.
+        "BILLING_ENABLED": "true",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSAJTF1EX1YZCCXJS9B0GJ46",
         // AuthKit User Management session tokens (forwarded by the web app) are
@@ -277,8 +288,15 @@
         "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        // Stripe Checkout/Portal redirect targets (webBaseUrl in runtime.ts). Explicit
+        // rather than relying on the production default in runtime.ts.
+        "WEB_BASE_URL": "https://app.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "production",
+        // Off until paid plans launch. Flip to "true" in the same commit that turns
+        // billing on for real users; the PRODUCTION_STRIPE_* secrets are already
+        // deploy-injected so only this flag gates the routes.
+        "BILLING_ENABLED": "false",
         "DOCS_BASE_URL": "",
         "WORKOS_CLIENT_ID": "client_01KSED0F1X2MZ0WCKNNQR6FY2X",
         // AuthKit User Management session tokens (forwarded by the web app) are

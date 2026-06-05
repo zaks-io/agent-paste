@@ -36,4 +36,22 @@ describe("secret-values", () => {
   it("returns undefined when nothing is set", () => {
     expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "production", {})).toBeUndefined();
   });
+
+  it("treats an empty or whitespace-only value as unset (absent GitHub secret -> empty string)", () => {
+    expect(
+      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { PREVIEW_CONTENT_SIGNING_SECRET: "" }),
+    ).toBeUndefined();
+    expect(
+      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { PREVIEW_CONTENT_SIGNING_SECRET: "   " }),
+    ).toBeUndefined();
+  });
+
+  it("falls through an empty env-prefixed value to a set bare name", () => {
+    expect(
+      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", {
+        PREVIEW_CONTENT_SIGNING_SECRET: "",
+        CONTENT_SIGNING_SECRET: "bare",
+      }),
+    ).toBe("bare");
+  });
 });

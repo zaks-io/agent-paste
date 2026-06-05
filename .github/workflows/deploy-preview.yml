@@ -1,0 +1,137 @@
+name: Deploy Preview
+
+# Manual deploy of the STANDING preview environment (api.preview.agent-paste.sh and
+# its sibling Workers), mirroring Deploy Production. Per-PR previews are separate
+# (pr-preview.yml). This exists so the standing preview can be deployed from CI with
+# the GitHub Preview environment as the source of truth for secret VALUES, instead of
+# by hand from a local shell.
+#
+# Secret handling, by design: every PREVIEW_* value is declared below, but the
+# environment is NOT required to hold all of them. A secret that is not set injects an
+# empty string, which scripts/lib/secret-values.mjs treats as unset, so scripts/deploy.mjs
+# leaves the Worker's existing value alone (it is idempotent and generates only missing
+# symmetric secrets). Setting only PREVIEW_STRIPE_* therefore deploys Stripe without
+# disturbing the symmetric/provider secrets already on the Workers.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  TURBO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  deploy:
+    name: Deploy Preview
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 25
+    environment: Preview
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Validate dispatch
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+          TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+        run: pnpm verify
+
+      - name: Build preview artifacts
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+          TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+        run: pnpm build
+
+      # Migration needs the preview migration URL. When it is not configured in the
+      # Preview environment, skip the step rather than fail the deploy: preview schema
+      # migration stays a manual/local step until the URL is added. Detect via an env
+      # var so the secret value never reaches an `if:` expression.
+      - name: Detect preview migration URL
+        id: migrate_gate
+        env:
+          # Mirror migrationDatabaseUrlEnvName() (packages/db/scripts/credentials.mjs):
+          # migrate.mjs resolves the canonical name first, then falls back to the legacy
+          # PREVIEW_DATABASE_URL. Gating on only the canonical name would skip a migration
+          # that would actually run from the legacy URL, leaving a silently un-migrated DB.
+          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ secrets.DATABASE_URL_MIGRATIONS_PREVIEW }}
+          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DATABASE_URL_MIGRATIONS_PREVIEW:-}" ] || [ -n "${PREVIEW_DATABASE_URL:-}" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No preview migration URL set (DATABASE_URL_MIGRATIONS_PREVIEW or PREVIEW_DATABASE_URL); skipping preview migration."
+          fi
+
+      - name: Migrate preview database
+        if: ${{ steps.migrate_gate.outputs.run == 'true' }}
+        env:
+          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ secrets.DATABASE_URL_MIGRATIONS_PREVIEW }}
+          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+          # scripts/migrate.mjs runs the Hyperdrive branch guard, which shells out to
+          # `wrangler hyperdrive get`. Wrangler needs CLOUDFLARE_API_TOKEN in a
+          # non-interactive env or it exits 1 before any migration runs.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm migrate:preview
+
+      - name: Deploy preview Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Per ADR 0078: the Preview GitHub environment is the source of truth for
+          # secret VALUES. scripts/deploy.mjs injects present values onto each Worker
+          # (wrangler secret bulk over stdin). An absent secret injects "" and is treated
+          # as unset (scripts/lib/secret-values.mjs), so the Worker keeps its current
+          # value and missing symmetric secrets are generated in memory.
+          # Routing/required-set source of truth: scripts/lib/secret-routing.mjs.
+          PREVIEW_CONTENT_SIGNING_SECRET: ${{ secrets.PREVIEW_CONTENT_SIGNING_SECRET }}
+          PREVIEW_UPLOAD_SIGNING_SECRET: ${{ secrets.PREVIEW_UPLOAD_SIGNING_SECRET }}
+          PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY }}
+          PREVIEW_API_KEY_PEPPER_V1: ${{ secrets.PREVIEW_API_KEY_PEPPER_V1 }}
+          PREVIEW_API_KEY_PEPPER_V2: ${{ secrets.PREVIEW_API_KEY_PEPPER_V2 }}
+          PREVIEW_ACCESS_LINK_SIGNING_KEY_V1: ${{ secrets.PREVIEW_ACCESS_LINK_SIGNING_KEY_V1 }}
+          PREVIEW_ACCESS_LINK_SIGNING_KEY_V2: ${{ secrets.PREVIEW_ACCESS_LINK_SIGNING_KEY_V2 }}
+          PREVIEW_EPHEMERAL_POW_SECRET: ${{ secrets.PREVIEW_EPHEMERAL_POW_SECRET }}
+          PREVIEW_STREAM_INTERNAL_SECRET: ${{ secrets.PREVIEW_STREAM_INTERNAL_SECRET }}
+          PREVIEW_SMOKE_HARNESS_SECRET: ${{ secrets.PREVIEW_SMOKE_HARNESS_SECRET }}
+          PREVIEW_WORKOS_API_KEY: ${{ secrets.PREVIEW_WORKOS_API_KEY }}
+          PREVIEW_WORKOS_COOKIE_PASSWORD: ${{ secrets.PREVIEW_WORKOS_COOKIE_PASSWORD }}
+          # Stripe billing (ADR 0073/0074). Optional per scripts/lib/secret-routing.mjs;
+          # gated at runtime by BILLING_ENABLED (on in the preview api Worker vars).
+          PREVIEW_STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
+          PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET }}
+          PREVIEW_STRIPE_PRICE_ID_MONTHLY: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_MONTHLY }}
+          PREVIEW_STRIPE_PRICE_ID_ANNUAL: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_ANNUAL }}
+        run: node scripts/deploy.mjs preview
+
+      - name: Smoke preview (read-only, no credentials)
+        run: pnpm smoke:preview:readonly
