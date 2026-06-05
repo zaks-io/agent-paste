@@ -29,24 +29,23 @@ lines today but are test support, not shipped runtime behavior.
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.5 (%)       | 2.3 (%)    | 1.5 (%)        |
+| `threshold` | 2.3 (%)       | 2.1 (%)    | 1.5 (%)        |
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
-the baseline below the `2.7` gate, and AP-203 pulled it below the `2.5` gate.
-The current baseline is **2.45%**, so `2.5` has little slack. The next step
-(`2.3`) needs another offender cleanup or a decision to stop scanning
-`src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders are
-cleaned up and update this file.
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, and
+AP-207 pulled it below the `2.3` gate. The current baseline is **2.20%**, so
+`2.3` has little slack. The next step (`2.1`) needs another offender cleanup or
+a decision to stop scanning `src/test-helpers/`. Lower the threshold in
+`.jscpd.json` as offenders are cleaned up and update this file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
-Measured by `pnpm dupes --reporters json --output /tmp/agent-paste-jscpd-final2` at
-`minTokens: 50` over `apps` + `packages`:
+Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
 
-- 507 files, 45,808 lines analyzed.
-- 109 clones, 1,124 duplicated lines = **2.45%** (2.84% by tokens).
-- By format: TypeScript 2.79%, TSX 1.27%, JavaScript 0%.
+- 510 files, 45,970 lines analyzed.
+- 97 clones, 1,010 duplicated lines = **2.20%** (2.57% by tokens).
+- By format: TypeScript 2.44%, TSX 1.55%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -79,6 +78,18 @@ This pass moved the gated baseline from 2.54% to 2.45%:
 - [x] Collapsed the workspace replay peek wrappers into one implementation with
       explicit exported aliases.
 
+## Done: AP-207 API route helper dedup
+
+This pass moved the gated baseline from 2.45% to 2.20%:
+
+- [x] Shared Workspace Member resolution, forbidden response handling, and
+      paginated member route execution in `apps/api/src/routes/web.ts`.
+- [x] Shared member billing route execution and current-status response building
+      in `apps/api/src/routes/billing.ts`.
+- [x] Shared smoke harness authentication and smoke DB resolution in
+      `apps/api/src/routes/smoke.ts`.
+- [x] Collapsed repository route error mapping in `apps/api/src/responses.ts`.
+
 ## Where the duplication lives
 
 Cleaning these dirs is what moves the threshold:
@@ -87,9 +98,9 @@ Cleaning these dirs is what moves the threshold:
       `member-artifacts-workflow.ts`, `access-links-workflow.ts`, and siblings
       repeat row-mapping, pagination, command setup, and Audit Event boilerplate.
       Largest single runtime source of clones.
-- [ ] `apps/api/src/routes/*` — `web.ts`, `billing.ts`, `smoke.ts`, and
-      `responses.ts` repeat member resolution, pagination parsing, response
-      wrapping, and repository-error handling.
+- [ ] API Worker glue — AP-207 removed the route-local member, pagination,
+      response, smoke, and repository-error clones; non-route `index.ts` /
+      `env.ts` / deletion-invalidation clones remain.
 - [ ] `apps/mcp/src/*` — `tools.ts` repeats create-and-mint Access Link flow;
       `forward.ts` repeats API vs Upload forwarding.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
