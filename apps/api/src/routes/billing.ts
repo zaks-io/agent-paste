@@ -58,13 +58,53 @@ export function resolveApiBillingProvider(env: Env): BillingProvider {
   return createNoopBillingProvider();
 }
 
+type BillingResponders = ReturnType<typeof getBoundResponders>;
+
+/** The resolved request context every member-facing billing route needs. */
+type BillingMemberCtx = {
+  env: Env;
+  workspaceId: string;
+  /** Executor already RLS-scoped to this Workspace; never re-wrap it. */
+  db: SqlExecutor;
+  respondError: BillingResponders["respondError"];
+  respondJson: BillingResponders["respondJson"];
+};
+
+/**
+ * Resolves the shared preamble for member-facing billing routes: billing must be
+ * on, the principal must be a Workspace Member, and the DB must be reachable. On
+ * success the executor is already scoped to the member's Workspace. The webhook
+ * does not use this — it is signature-authed and scopes to the event's Workspace.
+ */
+export function resolveBillingMemberCtx(
+  context: AppContext,
+  principal: Principal,
+): { ok: true; ctx: BillingMemberCtx } | { ok: false; response: Response } {
+  const { respondError, respondJson } = getBoundResponders(context);
+  const env = context.env;
+  if (!billingEnabled(env)) {
+    return { ok: false, response: respondError("not_found") };
+  }
+  const actor = webMemberActor(principal);
+  if (!actor?.workspace_id) {
+    return { ok: false, response: respondError("forbidden") };
+  }
+  const executor = resolveBillingExecutor(env);
+  if (!executor) {
+    return { ok: false, response: respondError("database_unavailable") };
+  }
+  const workspaceId = actor.workspace_id;
+  const db = rlsExecutor(executor, { kind: "workspace", workspaceId });
+  return { ok: true, ctx: { env, workspaceId, db, respondError, respondJson } };
+}
+
 export function billingStatusFromRow(row: LocalBillingRow | null): BillingStatusResponse {
   const plan = row?.plan ?? "free";
   // The page is gated behind `billingEnabled`, and a member viewing billing is a
   // claimed workspace, so the ceiling is the plan tier (free=100, pro=2000) rather
   // than the ephemeral/billing-off fallbacks.
   const daily_new_artifact_allowance = resolveDailyNewArtifactAllowance({
-    claimedAt: row?.workspace_id ?? "claimed",
+    claimed: true,
     plan,
     billingEnabled: true,
   });
@@ -105,24 +145,13 @@ async function enrichBillingStatus(
 }
 
 export async function billingStatus(context: AppContext, principal: Principal): Promise<Response> {
-  const { respondError, respondJson } = getBoundResponders(context);
-  const env = context.env;
-  if (!billingEnabled(env)) {
-    return respondError("not_found");
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
   }
-  const actor = webMemberActor(principal);
-  if (!actor?.workspace_id) {
-    return respondError("forbidden");
-  }
-  const executor = resolveBillingExecutor(env);
-  if (!executor) {
-    return respondError("database_unavailable");
-  }
-  const row = await loadLocalBillingRow(
-    rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
-    actor.workspace_id,
-  );
-  return respondJson(await enrichBillingStatus(env, actor.workspace_id, billingStatusFromRow(row)));
+  const { env, workspaceId, db, respondJson } = resolved.ctx;
+  const row = await loadLocalBillingRow(db, workspaceId);
+  return respondJson(await enrichBillingStatus(env, workspaceId, billingStatusFromRow(row)));
 }
 
 export async function billingCheckout(
@@ -131,34 +160,23 @@ export async function billingCheckout(
   guard: GuardFor<"billing.checkout.create">,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const { respondError } = getBoundResponders(context);
-  const env = context.env;
-  if (!billingEnabled(env)) {
-    return respondError("not_found");
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
   }
-  const actor = webMemberActor(principal);
-  if (!actor?.workspace_id) {
-    return respondError("forbidden");
-  }
+  const { env, workspaceId, db, respondError } = resolved.ctx;
   const body: CreateCheckoutSessionRequest = guard.body;
   const priceId = body.interval === "year" ? env.STRIPE_PRICE_ID_ANNUAL : env.STRIPE_PRICE_ID_MONTHLY;
   if (!priceId) {
     return respondError("not_found");
   }
-  const executor = resolveBillingExecutor(env);
-  if (!executor) {
-    return respondError("database_unavailable");
-  }
-  const existing = await loadLocalBillingRow(
-    rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
-    actor.workspace_id,
-  );
+  const existing = await loadLocalBillingRow(db, workspaceId);
   const base = webBaseUrl(env);
   return runIdempotent(
     context,
     () =>
       provider.createCheckoutSession({
-        workspaceId: actor.workspace_id as string,
+        workspaceId,
         customerId: existing?.stripe_customer_id ?? null,
         priceId,
         successUrl: `${base}/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -174,30 +192,21 @@ export async function billingReturn(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const { respondError, respondJson } = getBoundResponders(context);
-  const env = context.env;
-  if (!billingEnabled(env)) {
-    return respondError("not_found");
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
   }
-  const actor = webMemberActor(principal);
-  if (!actor?.workspace_id) {
-    return respondError("forbidden");
-  }
+  const { env, workspaceId, db, respondError, respondJson } = resolved.ctx;
   const sessionId = new URL(context.req.raw.url).searchParams.get("session_id");
   if (!sessionId) {
     return respondError("invalid_request");
   }
-  const executor = resolveBillingExecutor(env);
-  if (!executor) {
-    return respondError("database_unavailable");
-  }
-  const workspaceId = actor.workspace_id;
   const session = await provider.getCheckoutSession(sessionId);
   if (session?.subscriptionId) {
     const snapshot = await provider.getSubscription(session.subscriptionId);
     if (snapshot && snapshot.workspaceId === workspaceId) {
       await applyBillingSnapshot({
-        executor: rlsExecutor(executor, { kind: "workspace", workspaceId }),
+        executor: db,
         actorId: "checkout_activation",
         workspaceId,
         snapshot,
@@ -205,7 +214,7 @@ export async function billingReturn(
       });
     }
   }
-  const row = await loadLocalBillingRow(rlsExecutor(executor, { kind: "workspace", workspaceId }), workspaceId);
+  const row = await loadLocalBillingRow(db, workspaceId);
   return respondJson(await enrichBillingStatus(env, workspaceId, billingStatusFromRow(row)));
 }
 
@@ -214,23 +223,12 @@ export async function billingPortal(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const { respondError } = getBoundResponders(context);
-  const env = context.env;
-  if (!billingEnabled(env)) {
-    return respondError("not_found");
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
   }
-  const actor = webMemberActor(principal);
-  if (!actor?.workspace_id) {
-    return respondError("forbidden");
-  }
-  const executor = resolveBillingExecutor(env);
-  if (!executor) {
-    return respondError("database_unavailable");
-  }
-  const row = await loadLocalBillingRow(
-    rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
-    actor.workspace_id,
-  );
+  const { env, workspaceId, db, respondError, respondJson } = resolved.ctx;
+  const row = await loadLocalBillingRow(db, workspaceId);
   if (!row?.stripe_customer_id) {
     return respondError("not_found");
   }
@@ -238,7 +236,7 @@ export async function billingPortal(
     customerId: row.stripe_customer_id,
     returnUrl: `${webBaseUrl(env)}/settings/billing`,
   });
-  return getBoundResponders(context).respondJson(session);
+  return respondJson(session);
 }
 
 function toContractInvoice(invoice: InvoiceSummary): BillingInvoiceSummary {
@@ -259,23 +257,12 @@ export async function billingInvoices(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const { respondError, respondJson } = getBoundResponders(context);
-  const env = context.env;
-  if (!billingEnabled(env)) {
-    return respondError("not_found");
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
   }
-  const actor = webMemberActor(principal);
-  if (!actor?.workspace_id) {
-    return respondError("forbidden");
-  }
-  const executor = resolveBillingExecutor(env);
-  if (!executor) {
-    return respondError("database_unavailable");
-  }
-  const row = await loadLocalBillingRow(
-    rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
-    actor.workspace_id,
-  );
+  const { workspaceId, db, respondJson } = resolved.ctx;
+  const row = await loadLocalBillingRow(db, workspaceId);
   // Free Workspaces have no Stripe customer yet, so there is nothing to list — an
   // empty history is the correct answer, not an error.
   if (!row?.stripe_customer_id) {

@@ -77,11 +77,11 @@ function buildPlanUsagePolicy(plan: WorkspacePlan) {
 }
 
 export function resolveWriteAllowanceTier(input: {
-  claimedAt: string | null;
+  claimed: boolean;
   plan?: WorkspacePlan | null;
   billingEnabled?: boolean;
 }): WriteAllowanceTier {
-  if (input.claimedAt === null) {
+  if (!input.claimed) {
     return "ephemeral";
   }
   const billingEnabled = input.billingEnabled ?? false;
@@ -92,7 +92,7 @@ export function resolveWriteAllowanceTier(input: {
 }
 
 export function resolveDailyNewArtifactAllowance(input: {
-  claimedAt: string | null;
+  claimed: boolean;
   plan?: WorkspacePlan | null;
   billingEnabled?: boolean;
 }): number {

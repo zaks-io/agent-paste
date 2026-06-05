@@ -49,7 +49,7 @@ export function usagePolicyForWorkspace(
   return {
     ...base,
     daily_new_artifact_allowance: resolveDailyNewArtifactAllowance({
-      claimedAt: workspace.claimed_at,
+      claimed: workspace.claimed_at != null,
       plan: workspace.plan,
       billingEnabled,
     }),

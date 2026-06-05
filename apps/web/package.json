@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/plans": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",
     "@fontsource/ibm-plex-mono": "^5.2.7",
