@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
 import { CliVersionResponse } from "@agent-paste/contracts";
-import { configDir } from "./credentials.js";
+import { configDir, ensureConfigDir } from "./credentials.js";
 import { type Channel, detectChannel, upgradeCommand } from "./update-check.js";
 
 // `agent-paste upgrade` (ADR 0080 §5): a standalone binary install downloads the
@@ -120,9 +120,8 @@ export type UpgradeDeps = {
 // (created 0o700 like the credential store) so the manual `sudo mv` has a real
 // source. Returns the absolute path of the staged file.
 async function defaultRescueStage(ops: FsOps, rand: () => string, bytes: Bytes, mode: number): Promise<string> {
-  const dir = configDir();
-  await ops.mkdir(dir, { recursive: true, mode: 0o700 });
-  const staged = path.join(dir, `agent-paste-upgrade-${rand()}`);
+  await ensureConfigDir();
+  const staged = path.join(configDir(), `agent-paste-upgrade-${rand()}`);
   await ops.writeFile(staged, bytes, { mode });
   await ops.chmod(staged, mode);
   return staged;

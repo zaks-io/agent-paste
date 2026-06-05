@@ -1,8 +1,7 @@
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
 import { CliVersionResponse } from "@agent-paste/contracts";
-import { updateCheckCachePath } from "./credentials.js";
+import { ensureConfigDir, updateCheckCachePath } from "./credentials.js";
 import type { GlobalFlags } from "./index.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -87,8 +86,8 @@ async function readCacheFile(): Promise<Cache | null> {
 }
 
 async function writeCacheFile(cache: Cache): Promise<void> {
+  await ensureConfigDir();
   const file = updateCheckCachePath();
-  await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, `${JSON.stringify(cache, null, 2)}\n`);
 }
 
