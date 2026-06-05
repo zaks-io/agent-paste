@@ -29,23 +29,24 @@ lines today but are test support, not shipped runtime behavior.
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.3 (%)       | 2.1 (%)    | 1.5 (%)        |
+| `threshold` | 2.1 (%)       | 1.9 (%)    | 1.5 (%)        |
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
-the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, and
-AP-207 pulled it below the `2.3` gate. The current baseline is **2.20%**, so
-`2.3` has little slack. The next step (`2.1`) needs another offender cleanup or
-a decision to stop scanning `src/test-helpers/`. Lower the threshold in
-`.jscpd.json` as offenders are cleaned up and update this file.
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
+pulled it to **2.33%**, and AP-207 plus the merged cleanup/test/docs train
+pulled it below the `2.1` gate. The current baseline is **1.97%**, so `2.1` has
+little slack. The next step (`1.9`) needs another offender cleanup or a decision
+to stop scanning `src/test-helpers/`. Lower the threshold in `.jscpd.json` as
+offenders are cleaned up and update this file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
 Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
 
-- 510 files, 45,971 lines analyzed.
-- 97 clones, 1,010 duplicated lines = **2.20%** (2.57% by tokens).
-- By format: TypeScript 2.44%, TSX 1.55%, JavaScript 0%.
+- 511 files, 46,035 lines analyzed.
+- 92 clones, 908 duplicated lines = **1.97%** (2.38% by tokens).
+- By format: TypeScript 2.17%, TSX 1.55%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -78,9 +79,20 @@ This pass moved the gated baseline from 2.54% to 2.45%:
 - [x] Collapsed the workspace replay peek wrappers into one implementation with
       explicit exported aliases.
 
+## Done: AP-206 MCP helper dedup
+
+This pass moved the gated baseline from 2.45% to 2.33%:
+
+- [x] Extracted `createAndMintAccessLink` in `apps/mcp/src/tools.ts` for the
+      shared create-and-mint Access Link flow used by `create_share_link` and
+      `create_revision_link`.
+- [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
+      vs Upload request construction and error mapping.
+
 ## Done: AP-207 API route helper dedup
 
-This pass moved the gated baseline from 2.45% to 2.20%:
+This pass, combined with the cleanup/test/docs train merged into `main`, moved
+the gated baseline from 2.33% to 1.97%:
 
 - [x] Shared Workspace Member resolution, forbidden response handling, and
       paginated member route execution in `apps/api/src/routes/web.ts`.
@@ -101,17 +113,14 @@ Cleaning these dirs is what moves the threshold:
 - [ ] API Worker glue — AP-207 removed the route-local member, pagination,
       response, smoke, and repository-error clones; non-route `index.ts` /
       `env.ts` / deletion-invalidation clones remain.
-- [ ] `apps/mcp/src/*` — `tools.ts` repeats create-and-mint Access Link flow;
-      `forward.ts` repeats API vs Upload forwarding.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
       scaffolding (`operation-events.ts`, `artifacts.ts`).
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — repeated statement-handler
       bodies (also a complexity offender; refactoring helps both gates).
-- [ ] `packages/contracts/src/openapi/*` and `mcp/registry.ts` — repeated
-      schema/registration blocks (largest single clone: 45 lines in
-      `mcp/registry.ts`).
+- [ ] `packages/contracts/src/openapi/*` — repeated schema/registration blocks
+      (MCP publish-chain clone in `mcp/registry.ts` deduped in AP-205).
 - [ ] `apps/web/src/components/*` — `AccessLinksTable` / `KeysTable`,
       `MintedUrlReveal` / `Identifier`, and a few route loaders repeat table
       state and small UI patterns.

@@ -1,7 +1,50 @@
 import { mcpToolErrorGroups } from "./error-codes.js";
-import type { McpToolContract } from "./types.js";
+import type { McpForwardedCall, McpToolContract } from "./types.js";
 
 const { publishChain: publishChainErrors, read: readErrors, shareLink: shareLinkErrors } = mcpToolErrorGroups;
+
+/** Shared upload → publish → access-link chain for `publish_artifact` and `add_revision`. */
+const publishChainForwardedCalls = [
+  {
+    routeId: "uploadSessions.create",
+    auth: "mcp_bearer",
+    idempotencyKey: "same_as_tool",
+  },
+  {
+    routeId: "uploadSessions.putFile",
+    auth: "signed_upload_url",
+  },
+  {
+    routeId: "uploadSessions.finalize",
+    auth: "mcp_bearer",
+    idempotencyKey: "same_as_tool",
+  },
+  {
+    routeId: "revisions.publish",
+    auth: "mcp_bearer",
+    idempotencyKey: "same_as_tool",
+  },
+  {
+    routeId: "accessLinks.create",
+    auth: "mcp_bearer",
+    idempotencyKey: "derived_revision_link",
+  },
+  {
+    routeId: "accessLinks.mint",
+    auth: "mcp_bearer",
+  },
+  {
+    routeId: "accessLinks.create",
+    auth: "mcp_bearer",
+    idempotencyKey: "derived_share_link",
+    optional: true,
+  },
+  {
+    routeId: "accessLinks.mint",
+    auth: "mcp_bearer",
+    optional: true,
+  },
+] as const satisfies readonly McpForwardedCall[];
 
 export const mcpToolContracts = [
   {
@@ -13,47 +56,7 @@ export const mcpToolContracts = [
     idempotency: "optional_override",
     inputSchema: "publish_artifact",
     outputSchema: "publish_artifact",
-    forwardedCalls: [
-      {
-        routeId: "uploadSessions.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "uploadSessions.putFile",
-        auth: "signed_upload_url",
-      },
-      {
-        routeId: "uploadSessions.finalize",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "revisions.publish",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "accessLinks.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "derived_revision_link",
-      },
-      {
-        routeId: "accessLinks.mint",
-        auth: "mcp_bearer",
-      },
-      {
-        routeId: "accessLinks.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "derived_share_link",
-        optional: true,
-      },
-      {
-        routeId: "accessLinks.mint",
-        auth: "mcp_bearer",
-        optional: true,
-      },
-    ],
+    forwardedCalls: publishChainForwardedCalls,
     errors: publishChainErrors,
   },
   {
@@ -65,47 +68,7 @@ export const mcpToolContracts = [
     idempotency: "optional_override",
     inputSchema: "add_revision",
     outputSchema: "add_revision",
-    forwardedCalls: [
-      {
-        routeId: "uploadSessions.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "uploadSessions.putFile",
-        auth: "signed_upload_url",
-      },
-      {
-        routeId: "uploadSessions.finalize",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "revisions.publish",
-        auth: "mcp_bearer",
-        idempotencyKey: "same_as_tool",
-      },
-      {
-        routeId: "accessLinks.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "derived_revision_link",
-      },
-      {
-        routeId: "accessLinks.mint",
-        auth: "mcp_bearer",
-      },
-      {
-        routeId: "accessLinks.create",
-        auth: "mcp_bearer",
-        idempotencyKey: "derived_share_link",
-        optional: true,
-      },
-      {
-        routeId: "accessLinks.mint",
-        auth: "mcp_bearer",
-        optional: true,
-      },
-    ],
+    forwardedCalls: publishChainForwardedCalls,
     errors: publishChainErrors,
   },
   {

@@ -94,6 +94,10 @@ Cut work into thin, independently shippable, one-PR vertical slices.
 - Each slice is scoped to one PR.
 - Prefer a tracer-bullet first slice that proves the path end to end, then
   slices that widen it.
+- Do not make a `kind-slice` whose Done state requires multiple PRs. Split
+  scaffold, CI gate, data migration, preview flip, and final wiring into separate
+  slices or keep them under a `kind-epic` container so a first linked PR cannot
+  falsely close the whole scope.
 - Leave vague ideas un-ticketed until scope is clear; record them as open
   questions rather than guessing scope.
 
@@ -116,11 +120,27 @@ If a required field is unknowable from the plan, add the heading, mark the ticke
 `needs-info`, leave the specific question, and do not mark it ready. Do not
 fabricate criteria to make a ticket look ready.
 
+Write acceptance criteria as proof obligations the implementer and reviewer can
+map one-for-one to evidence. If the requirement is structural, such as "derive,
+do not copy", "fail closed", "no production-path assertion", "real driver path",
+or "env var reaches the test process", name the exact behavior and regression
+test that must prove it.
+
+Record deploy prerequisites, runtime secrets, hosted gates, generated artifact
+updates, and CI env passthrough requirements as explicit acceptance criteria or
+required checks. Do not bury launch blockers only in background docs.
+
 Prefer slices that match known strong agent-fit work: docs, tests, build or CI
 updates, small refactors with clear checks, scoped bugs with reproduction, and
 isolated UI changes with target states. Mark high-risk or ambiguous work for
 human planning when the plan does not settle the security, product, data, or
 architecture decision.
+
+For auth, bootstrap, claim, invitation, one-use grant, custody, or ownership
+slices, make the security invariants concrete before marking the ticket ready.
+Name the authenticated actor, tenant or resource binding, replay behavior,
+atomic consume or claim requirement, and concurrency checks the worker must
+prove.
 
 ## Labels And Readiness
 
@@ -132,6 +152,9 @@ For each `kind-slice`:
   approval criteria are met; dependency state is not a reason to withhold it
 - apply `ready-for-agent` only when the slice is scoped to one PR, routed,
   type and risk labeled, and complete enough to verify
+- place ready `kind-slice` issues in the configured ready state, usually `Todo`,
+  unless config names a specific blocked-ready state; do not park
+  implementation-ready slices in `Backlog`
 - otherwise apply `needs-info` or `ready-for-human` with the exact gap
 
 `ready-for-agent` means no further human refinement is needed before agent
@@ -163,6 +186,9 @@ colliding slices concurrently.
 - List the files, directories, or packages the slice is most likely to change.
 - Keep it a prediction, not a guarantee; the worker may diverge.
 - Flag slices with heavy expected overlap so they are serialized or sequenced.
+- Compare sibling slices after assigning individual footprints. Record hot files
+  or packages and the safe fan-out pairs, so Orchestrator does not discover
+  obvious collisions only after workers are already in flight.
 
 ## Self-Healing
 
