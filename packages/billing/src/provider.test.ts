@@ -19,6 +19,77 @@ describe("BillingProvider adapters", () => {
     await expect(provider.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test" })).rejects.toThrow(
       "billing_disabled",
     );
+    await expect(provider.listInvoices({ customerId: "cus_1" })).resolves.toEqual([]);
+  });
+
+  it("fake provider records invoice calls and returns seeded invoices", async () => {
+    const provider = createFakeBillingProvider();
+    await expect(provider.listInvoices({ customerId: "cus_unknown" })).resolves.toEqual([]);
+    provider.setInvoices("cus_1", [
+      {
+        id: "in_1",
+        created: "2026-05-12T00:00:00.000Z",
+        amountDue: 1200,
+        currency: "usd",
+        status: "paid",
+        description: "Pro · monthly",
+        hostedInvoiceUrl: "https://invoice.stripe.com/i/in_1",
+        invoicePdf: "https://invoice.stripe.com/i/in_1.pdf",
+      },
+    ]);
+    const invoices = await provider.listInvoices({ customerId: "cus_1", limit: 5 });
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0]).toMatchObject({ id: "in_1", amountDue: 1200 });
+    expect(provider.invoiceCalls).toEqual([{ customerId: "cus_unknown" }, { customerId: "cus_1", limit: 5 }]);
+  });
+
+  it("stripe provider lists invoices for a customer and maps fields", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "in_1",
+              created: 1_747_008_000,
+              amount_due: 1200,
+              currency: "usd",
+              status: "paid",
+              description: "Pro · monthly",
+              hosted_invoice_url: "https://invoice.stripe.com/i/in_1",
+              invoice_pdf: "https://invoice.stripe.com/i/in_1.pdf",
+            },
+            { id: "in_2" },
+          ],
+          has_more: false,
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    const invoices = await provider.listInvoices({ customerId: "cus_1", limit: 3 });
+    expect(calls[0]).toBe("https://api.stripe.com/v1/invoices?customer=cus_1&limit=3");
+    expect(invoices[0]).toEqual({
+      id: "in_1",
+      created: "2025-05-12T00:00:00.000Z",
+      amountDue: 1200,
+      currency: "usd",
+      status: "paid",
+      description: "Pro · monthly",
+      hostedInvoiceUrl: "https://invoice.stripe.com/i/in_1",
+      invoicePdf: "https://invoice.stripe.com/i/in_1.pdf",
+    });
+    // Defaults applied when Stripe omits optional fields.
+    expect(invoices[1]).toMatchObject({ id: "in_2", created: null, amountDue: 0, currency: "usd", status: null });
+  });
+
+  it("stripe provider throws when the invoice list request fails", async () => {
+    const provider = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(async () => new Response("{}", { status: 500 })),
+    });
+    await expect(provider.listInvoices({ customerId: "cus_1" })).rejects.toThrow("stripe_invoice_list_failed:500");
   });
 
   it("fake provider records checkout and portal calls and returns deterministic urls", async () => {

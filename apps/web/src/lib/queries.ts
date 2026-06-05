@@ -7,6 +7,7 @@ import {
   listAuditFn,
   listKeysFn,
   loadAdminFn,
+  loadBillingFn,
   loadDashboardFn,
   loadSettingsFn,
 } from "../rpc/web-loaders";
@@ -26,6 +27,7 @@ export const queryKeys = {
   audit: () => ["audit"] as const,
   keys: () => ["keys"] as const,
   settings: () => ["settings"] as const,
+  billing: () => ["billing"] as const,
   admin: (search: OperatorEventSearch) => ["admin", search] as const,
 };
 
@@ -75,6 +77,12 @@ export const settingsQuery = () =>
   queryOptions({
     queryKey: queryKeys.settings(),
     queryFn: () => loadSettingsFn(),
+  });
+
+export const billingQuery = () =>
+  queryOptions({
+    queryKey: queryKeys.billing(),
+    queryFn: () => loadBillingFn(),
   });
 
 export const adminQuery = (search: OperatorEventSearch) =>

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env.js";
 import {
   billingCheckout,
+  billingInvoices,
   billingPortal,
   billingReturn,
   billingStatus,
@@ -67,6 +68,8 @@ describe("billing routes", () => {
     expect(checkout.status).toBe(404);
     const portal = await billingPortal(contextFor({ env }), memberPrincipal());
     expect(portal.status).toBe(404);
+    const invoices = await billingInvoices(contextFor({ env }), memberPrincipal());
+    expect(invoices.status).toBe(404);
   });
 
   it("returns not_found for the webhook when no signing secret is configured", async () => {
@@ -98,7 +101,63 @@ describe("billing routes", () => {
       plan: "pro",
       operator_override: false,
       subscription: { status: "active", price_interval: "month" },
+      daily_new_artifact_allowance: 2000,
     });
+  });
+
+  it("surfaces the live remaining write count when the allowance binding resolves", async () => {
+    const executor = stubExecutor(async () => ({
+      rows: [
+        {
+          workspace_id: workspaceId,
+          plan: "free",
+          plan_operator_override_at: null,
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          subscription_status: null,
+          current_period_end: null,
+          price_interval: null,
+        },
+      ],
+    }));
+    const WRITE_ALLOWANCE = {
+      idFromName: () => ({}) as DurableObjectId,
+      get: () => ({
+        fetch: async () =>
+          new Response(JSON.stringify({ consumed: 13, remaining: 87, retry_after_seconds: 0 }), {
+            headers: { "content-type": "application/json" },
+          }),
+      }),
+    } as unknown as Env["WRITE_ALLOWANCE"];
+    const response = await billingStatus(
+      contextFor({ env: billingEnv({ DB: executor, WRITE_ALLOWANCE }) }),
+      memberPrincipal(),
+    );
+    await expect(responseJson(response)).resolves.toMatchObject({
+      daily_new_artifact_allowance: 100,
+      daily_new_artifacts_remaining: 87,
+    });
+  });
+
+  it("omits the remaining write count when no allowance binding is bound", async () => {
+    const executor = stubExecutor(async () => ({
+      rows: [
+        {
+          workspace_id: workspaceId,
+          plan: "free",
+          plan_operator_override_at: null,
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          subscription_status: null,
+          current_period_end: null,
+          price_interval: null,
+        },
+      ],
+    }));
+    const response = await billingStatus(contextFor({ env: billingEnv({ DB: executor }) }), memberPrincipal());
+    const body = (await responseJson(response)) as Record<string, unknown>;
+    expect(body.daily_new_artifacts_remaining).toBeUndefined();
+    expect(body.daily_new_artifact_allowance).toBe(100);
   });
 
   it("creates a checkout session and returns the provider url", async () => {
@@ -167,6 +226,79 @@ describe("billing routes", () => {
     const response = await billingPortal(contextFor({ env }), memberPrincipal(), provider);
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toMatchObject({ url: "https://stripe.test/portal/cus_1" });
+  });
+
+  it("returns an empty invoice list for a workspace with no stripe customer", async () => {
+    const env = billingEnv({
+      DB: stubExecutor(async () => ({
+        rows: [
+          {
+            workspace_id: workspaceId,
+            plan: "free",
+            plan_operator_override_at: null,
+            stripe_customer_id: null,
+            stripe_subscription_id: null,
+            subscription_status: null,
+            current_period_end: null,
+            price_interval: null,
+          },
+        ],
+      })),
+    });
+    const provider = createFakeBillingProvider();
+    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), provider);
+    expect(response.status).toBe(200);
+    await expect(responseJson(response)).resolves.toEqual({ invoices: [] });
+    expect(provider.invoiceCalls).toHaveLength(0);
+  });
+
+  it("lists the workspace's stripe invoices mapped to the contract shape", async () => {
+    const provider = createFakeBillingProvider();
+    provider.setInvoices("cus_1", [
+      {
+        id: "in_1",
+        created: "2026-05-12T00:00:00.000Z",
+        amountDue: 1200,
+        currency: "usd",
+        status: "paid",
+        description: "Pro · monthly",
+        hostedInvoiceUrl: "https://invoice.stripe.com/i/in_1",
+        invoicePdf: "https://invoice.stripe.com/i/in_1.pdf",
+      },
+    ]);
+    const env = billingEnv({
+      DB: stubExecutor(async () => ({
+        rows: [
+          {
+            workspace_id: workspaceId,
+            plan: "pro",
+            plan_operator_override_at: null,
+            stripe_customer_id: "cus_1",
+            stripe_subscription_id: "sub_1",
+            subscription_status: "active",
+            current_period_end: null,
+            price_interval: "month",
+          },
+        ],
+      })),
+    });
+    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), provider);
+    expect(response.status).toBe(200);
+    await expect(responseJson(response)).resolves.toEqual({
+      invoices: [
+        {
+          id: "in_1",
+          created: "2026-05-12T00:00:00.000Z",
+          amount_due: 1200,
+          currency: "usd",
+          status: "paid",
+          description: "Pro · monthly",
+          hosted_invoice_url: "https://invoice.stripe.com/i/in_1",
+          invoice_pdf: "https://invoice.stripe.com/i/in_1.pdf",
+        },
+      ],
+    });
+    expect(provider.invoiceCalls).toEqual([{ customerId: "cus_1" }]);
   });
 
   it("requires a session_id on the checkout return", async () => {
@@ -251,7 +383,12 @@ describe("billing routes", () => {
   });
 
   it("billingStatusFromRow handles null rows and null subscription status", () => {
-    expect(billingStatusFromRow(null)).toEqual({ plan: "free", operator_override: false, subscription: null });
+    expect(billingStatusFromRow(null)).toEqual({
+      plan: "free",
+      operator_override: false,
+      subscription: null,
+      daily_new_artifact_allowance: 100,
+    });
     expect(
       billingStatusFromRow({
         workspace_id: workspaceId,
@@ -263,7 +400,22 @@ describe("billing routes", () => {
         current_period_end: null,
         price_interval: null,
       }),
-    ).toEqual({ plan: "free", operator_override: true, subscription: null });
+    ).toEqual({ plan: "free", operator_override: true, subscription: null, daily_new_artifact_allowance: 100 });
+  });
+
+  it("billingStatusFromRow reports the pro write ceiling", () => {
+    expect(
+      billingStatusFromRow({
+        workspace_id: workspaceId,
+        plan: "pro",
+        plan_operator_override_at: null,
+        stripe_customer_id: "cus_1",
+        stripe_subscription_id: "sub_1",
+        subscription_status: "active",
+        current_period_end: "2026-07-01T00:00:00.000Z",
+        price_interval: "month",
+      }).daily_new_artifact_allowance,
+    ).toBe(2000);
   });
 
   it("returns database_unavailable from each route when no executor is bound", async () => {

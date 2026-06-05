@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { OperationEvent } from "./admin.js";
-import { BillingStatusResponse, CreateCheckoutSessionRequest, SetWorkspacePlanRequest } from "./billing.js";
+import {
+  BillingInvoiceListResponse,
+  BillingStatusResponse,
+  CreateCheckoutSessionRequest,
+  SetWorkspacePlanRequest,
+} from "./billing.js";
 import { OperationEventAction } from "./enums.js";
 
 describe("billing contracts", () => {
@@ -35,12 +40,44 @@ describe("billing contracts", () => {
     expect(SetWorkspacePlanRequest.safeParse({ plan: "enterprise" }).success).toBe(false);
   });
 
-  it("shapes a billing status response", () => {
+  it("shapes a billing status response with the write allowance", () => {
     const status = BillingStatusResponse.parse({
       plan: "pro",
       operator_override: false,
       subscription: { status: "active", current_period_end: "2026-07-04T00:00:00.000Z", price_interval: "month" },
+      daily_new_artifact_allowance: 2000,
+      daily_new_artifacts_remaining: 1884,
     });
     expect(status.subscription?.status).toBe("active");
+    expect(status.daily_new_artifact_allowance).toBe(2000);
+    expect(status.daily_new_artifacts_remaining).toBe(1884);
+  });
+
+  it("treats the remaining write count as optional", () => {
+    const status = BillingStatusResponse.parse({
+      plan: "free",
+      operator_override: false,
+      subscription: null,
+      daily_new_artifact_allowance: 100,
+    });
+    expect(status.daily_new_artifacts_remaining).toBeUndefined();
+  });
+
+  it("shapes an invoice list response", () => {
+    const list = BillingInvoiceListResponse.parse({
+      invoices: [
+        {
+          id: "in_1",
+          created: "2026-05-12T00:00:00.000Z",
+          amount_due: 1200,
+          currency: "usd",
+          status: "paid",
+          description: "Pro · monthly",
+          hosted_invoice_url: "https://invoice.stripe.com/i/in_1",
+          invoice_pdf: "https://invoice.stripe.com/i/in_1.pdf",
+        },
+      ],
+    });
+    expect(list.invoices[0]?.amount_due).toBe(1200);
   });
 });

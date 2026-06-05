@@ -25,6 +25,7 @@ import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
 import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
 import { Route as ApiAccessLinksResolveRouteImport } from './routes/api/access-links/resolve'
+import { Route as AuthedSettingsBillingRouteImport } from './routes/_authed.settings.billing'
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
 import { Route as ApiLiveArtifactsArtifactIdRouteImport } from './routes/api/live/artifacts/$artifactId'
 import { Route as ApiLiveAccessLinksPublicIdRouteImport } from './routes/api/live/access-links/$publicId'
@@ -108,6 +109,11 @@ const ApiAccessLinksResolveRoute = ApiAccessLinksResolveRouteImport.update({
   path: '/api/access-links/resolve',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedSettingsBillingRoute = AuthedSettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AuthedSettingsRoute,
+} as any)
 const AuthedArtifactsArtifactIdRoute =
   AuthedArtifactsArtifactIdRouteImport.update({
     id: '/artifacts/$artifactId',
@@ -136,9 +142,10 @@ export interface FileRoutesByFullPath {
   '/claim': typeof AuthedClaimRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
-  '/settings': typeof AuthedSettingsRoute
+  '/settings': typeof AuthedSettingsRouteWithChildren
   '/al/$publicId': typeof AlPublicIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
+  '/settings/billing': typeof AuthedSettingsBillingRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
@@ -156,9 +163,10 @@ export interface FileRoutesByTo {
   '/claim': typeof AuthedClaimRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
-  '/settings': typeof AuthedSettingsRoute
+  '/settings': typeof AuthedSettingsRouteWithChildren
   '/al/$publicId': typeof AlPublicIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
+  '/settings/billing': typeof AuthedSettingsBillingRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
@@ -178,9 +186,10 @@ export interface FileRoutesById {
   '/_authed/claim': typeof AuthedClaimRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/keys': typeof AuthedKeysRoute
-  '/_authed/settings': typeof AuthedSettingsRoute
+  '/_authed/settings': typeof AuthedSettingsRouteWithChildren
   '/al/$publicId': typeof AlPublicIdRoute
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
+  '/_authed/settings/billing': typeof AuthedSettingsBillingRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/al/$publicId'
     | '/artifacts/$artifactId'
+    | '/settings/billing'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/al/$publicId'
     | '/artifacts/$artifactId'
+    | '/settings/billing'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/_authed/settings'
     | '/al/$publicId'
     | '/_authed/artifacts/$artifactId'
+    | '/_authed/settings/billing'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
@@ -380,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAccessLinksResolveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/settings/billing': {
+      id: '/_authed/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AuthedSettingsBillingRouteImport
+      parentRoute: typeof AuthedSettingsRoute
+    }
     '/_authed/artifacts/$artifactId': {
       id: '/_authed/artifacts/$artifactId'
       path: '/artifacts/$artifactId'
@@ -404,6 +423,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedSettingsRouteChildren {
+  AuthedSettingsBillingRoute: typeof AuthedSettingsBillingRoute
+}
+
+const AuthedSettingsRouteChildren: AuthedSettingsRouteChildren = {
+  AuthedSettingsBillingRoute: AuthedSettingsBillingRoute,
+}
+
+const AuthedSettingsRouteWithChildren = AuthedSettingsRoute._addFileChildren(
+  AuthedSettingsRouteChildren,
+)
+
 interface AuthedRouteChildren {
   AuthedAccessLinksRoute: typeof AuthedAccessLinksRoute
   AuthedAdminRoute: typeof AuthedAdminRoute
@@ -411,7 +442,7 @@ interface AuthedRouteChildren {
   AuthedClaimRoute: typeof AuthedClaimRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedKeysRoute: typeof AuthedKeysRoute
-  AuthedSettingsRoute: typeof AuthedSettingsRoute
+  AuthedSettingsRoute: typeof AuthedSettingsRouteWithChildren
   AuthedArtifactsArtifactIdRoute: typeof AuthedArtifactsArtifactIdRoute
   AuthedArtifactsIndexRoute: typeof AuthedArtifactsIndexRoute
 }
@@ -423,7 +454,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedClaimRoute: AuthedClaimRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedKeysRoute: AuthedKeysRoute,
-  AuthedSettingsRoute: AuthedSettingsRoute,
+  AuthedSettingsRoute: AuthedSettingsRouteWithChildren,
   AuthedArtifactsArtifactIdRoute: AuthedArtifactsArtifactIdRoute,
   AuthedArtifactsIndexRoute: AuthedArtifactsIndexRoute,
 }

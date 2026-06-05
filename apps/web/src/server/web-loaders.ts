@@ -1,6 +1,8 @@
 import "@tanstack/react-start/server-only";
 
 import type {
+  BillingInvoiceListResponse,
+  BillingStatusResponse,
   LockdownListResponse,
   RevisionListResponse,
   WebAccessLinkListResponse,
@@ -138,6 +140,39 @@ export async function loadSettings() {
   return apiFetchOrEmpty<WebSettingsResponse>("/v1/web/settings", {
     accessToken: auth.accessToken,
   });
+}
+
+export type BillingPageData = {
+  status: LoaderFallback<BillingStatusResponse>;
+  invoices: LoaderFallback<BillingInvoiceListResponse>;
+};
+
+export async function loadBilling(): Promise<BillingPageData> {
+  const auth = getServerAuth();
+  if (!auth.user) {
+    return { status: emptyFallback<BillingStatusResponse>(), invoices: emptyFallback<BillingInvoiceListResponse>() };
+  }
+  const token = { accessToken: auth.accessToken };
+  const [status, invoices] = await Promise.all([
+    apiFetchOrEmpty<BillingStatusResponse>("/v1/web/billing", token),
+    apiFetchOrEmpty<BillingInvoiceListResponse>("/v1/web/billing/invoices", token),
+  ]);
+  return { status, invoices };
+}
+
+/** Synchronously activates Pro on return from Stripe Checkout, then returns fresh status. */
+export async function activateBillingReturn(input: { sessionId: string }): Promise<BillingPageData> {
+  const auth = getServerAuth();
+  if (!auth.user) {
+    return { status: emptyFallback<BillingStatusResponse>(), invoices: emptyFallback<BillingInvoiceListResponse>() };
+  }
+  const token = { accessToken: auth.accessToken };
+  const status = await apiFetchOrEmpty<BillingStatusResponse>(
+    `/v1/web/billing/return?session_id=${encodeURIComponent(input.sessionId)}`,
+    token,
+  );
+  const invoices = await apiFetchOrEmpty<BillingInvoiceListResponse>("/v1/web/billing/invoices", token);
+  return { status, invoices };
 }
 
 export async function loadAdmin(search: OperatorEventSearch) {

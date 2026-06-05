@@ -5,14 +5,17 @@ import {
   type AccessLinkSignedUrl,
   ApiKeyId,
   ArtifactId,
+  type CheckoutSessionResponse,
   CreateAccessLinkRequest,
   type CreateAccessLinkResponse,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
+  CreateCheckoutSessionRequest,
   EphemeralClaimRequest,
   type EphemeralClaimResponse,
   LiftLockdownRequest,
   type LockdownDetail,
+  type PortalSessionResponse,
   type RevokeApiKeyResponse,
   SetLockdownRequest,
   UpdateWebSettingsRequest,
@@ -241,6 +244,28 @@ export function liftLockdown(data: { scope: string; target_id?: string }): Promi
         headers: { "idempotency-key": crypto.randomUUID() },
       },
     ),
+  );
+}
+
+export function startCheckout(data: { interval: "month" | "year" }): Promise<MutationResult<CheckoutSessionResponse>> {
+  const input = parseInput(CreateCheckoutSessionRequest, data);
+  if (input.error) return Promise.resolve({ data: null, error: input.error });
+  return runMutation<CheckoutSessionResponse>((accessToken) =>
+    apiFetch<CheckoutSessionResponse>("/v1/web/billing/checkout", {
+      method: "POST",
+      accessToken,
+      headers: { "idempotency-key": crypto.randomUUID() },
+      body: JSON.stringify(input.value),
+    }),
+  );
+}
+
+export function openPortal(): Promise<MutationResult<PortalSessionResponse>> {
+  return runMutation<PortalSessionResponse>((accessToken) =>
+    apiFetch<PortalSessionResponse>("/v1/web/billing/portal", {
+      method: "POST",
+      accessToken,
+    }),
   );
 }
 
