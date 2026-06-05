@@ -40,7 +40,6 @@ Biome-measured count at snapshot time.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `reparentWorkspace`: 39.
-- [ ] `apps/stream/src/memory-artifact-live.ts` — `fetch`: 35.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `handleKeyDown`: 32.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `formatPlan`: 31.
@@ -77,6 +76,9 @@ When the file limit ratchets below ~590, split the contract registries first.
 - [x] `scripts/smoke-mcp.mjs` — `runLocalMcpSmoke`: AP-229 split local MCP smoke
       phases into `scripts/lib/smoke-mcp-local.mjs` and removed the function-length
       suppression from the smoke driver.
+- [x] `apps/stream/src/memory-artifact-live.ts` — `fetch`: AP-230 split routing,
+      notify, and connect handling into `memory-artifact-live-*.ts` helpers and
+      removed the cognitive-complexity suppression.
 
 ## Current target-wall areas
 
