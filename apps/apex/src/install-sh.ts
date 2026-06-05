@@ -6,7 +6,7 @@
 // download non-executable), and installs to ~/.local/bin with no sudo.
 //
 // Targets #!/bin/sh (not bash): piping to `sh` runs under dash/busybox on many
-// systems, so the script stays POSIX — no [[ ]], no arrays, printf over echo.
+// systems, so the script stays POSIX: no [[ ]], no arrays, printf over echo.
 // Resolves "latest" via the releases/latest/download/ redirect (no GitHub API,
 // so no jq and no 60/hr rate limit). The redirect ignores draft/prerelease
 // releases, so the target release must be published.
