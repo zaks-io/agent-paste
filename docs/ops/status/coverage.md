@@ -1,6 +1,6 @@
 # Coverage Ledger
 
-Last updated: 2026-06-04 (AP-156 Access Link UI, AP-153/AP-159 MCP, AP-158 security workflow).
+Last updated: 2026-06-05 (AP-212 coverage exclusion audit).
 
 Status legend:
 
@@ -10,6 +10,48 @@ Status legend:
 - **Drift** - docs and implementation intentionally or accidentally diverge.
 - **Deferred** - accepted future work, not active in the current phase.
 - **Superseded** - historical decision replaced by a later ADR.
+
+## Coverage Exclusion Ledger
+
+Source of truth for `vitest.shared.config.ts` excludes. Every pattern below is
+either smoke-tested locally or documented with an explicit follow-up.
+
+### Shared patterns (`sharedCoverageExcludes`)
+
+| Pattern                                                          | Rationale                                                      |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `**/dist/**`, `**/build/**`, `**/.next/**`, `**/.output/**`      | Build output, not authored source.                             |
+| `**/coverage/**`                                                 | Istanbul report artifacts.                                     |
+| `**/*.d.ts`                                                      | Type declarations only.                                        |
+| `**/*.test.ts`, `**/*.test.tsx`, `**/*.spec.ts`, `**/*.spec.tsx` | Test files themselves.                                         |
+| `**/*.config.*`                                                  | Tooling config exercised by CI commands, not product behavior. |
+| `**/*.gen.ts`                                                    | Generated route trees and similar codegen output.              |
+| `**/worker-configuration.d.ts`                                   | Wrangler-generated Cloudflare binding types.                   |
+
+### Per-workspace source excludes (`workspaceCoverageExcludes`)
+
+| Workspace                                  | Excluded path                       | Test anchor / rationale                                                                                                                                         |
+| ------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agent-paste/api`                         | `src/index.ts`                      | `apps/api/src/index.test.ts` exercises `handleRequest`, route mounting, and health/OpenAPI wiring. Default `Sentry.withSentry` export is not unit-instrumented. |
+| `@agent-paste/content`                     | `src/index.ts`                      | `apps/content/src/index.test.ts` covers the same bootstrap surface.                                                                                             |
+| `@agent-paste/auth`                        | `src/index.ts`                      | Barrel re-export only; cache helpers in `packages/auth/src/index.test.ts`.                                                                                      |
+| `@agent-paste/auth`                        | `src/request-id.ts`                 | `packages/auth/src/request-id.test.ts` plus worker error-envelope tests.                                                                                        |
+| `@agent-paste/cli`, `@zaks-io/agent-paste` | `src/local.ts`, `src/loopback.ts`   | `apps/cli/test/local.test.ts`, `apps/cli/test/login.test.ts`. Node-only publish/login helpers.                                                                  |
+| `@agent-paste/contracts`                   | `src/openapi/**`                    | `packages/contracts/src/mvp-contracts.test.ts` and `pnpm --filter @agent-paste/contracts openapi:check` goldens.                                                |
+| `@agent-paste/db`                          | `src/schema.ts`                     | Declarative Drizzle DDL; enforced by migrations and repository integration tests.                                                                               |
+| `@agent-paste/db`                          | `src/validation.ts`                 | `packages/db/src/validation.test.ts` and upload-publish workflow tests.                                                                                         |
+| `@agent-paste/web`                         | `src/routes/**`                     | `apps/web/test/routes.test.tsx`, `route-proxy-smoke.test.ts`, and focused route/component tests.                                                                |
+| `@agent-paste/web`                         | `src/server/runtime.ts`             | `apps/web/test/runtime.test.ts` with mocked `cloudflare:workers` bindings.                                                                                      |
+| `@agent-paste/web`                         | `src/components/theme-provider.tsx` | `apps/web/test/theme-provider.test.tsx`.                                                                                                                        |
+| `@agent-paste/worker-runtime`              | `src/errors.ts`, `src/registrar.ts` | `packages/worker-runtime/src/errors.test.ts`, `registrar.test.ts`, and worker error-envelope suites.                                                            |
+
+### Remaining intentional blind spots (follow-ups)
+
+| Area                                           | Why excluded / thin today                                                                                                   | Proposed follow-up                                                                                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/routes/__root.tsx` full render   | Root layout couples Sentry init, analytics scripts, and TanStack `Scripts`/`HeadContent`; only head meta is asserted today. | Add a throwaway Vite harness that renders `RootComponent` with mocked analytics/Sentry when UI-only checks are needed (see `CLAUDE.md` WorkOS-free harness guidance). |
+| WorkOS-authed browser flows                    | Requires real WorkOS secrets; out of scope for unit coverage.                                                               | Keep hosted/preview smoke and document in `docs/ops/runbook-workos.md`; no unit threshold credit.                                                                     |
+| `packages/db/src/schema.ts` column constraints | DDL is not executed in Vitest; behavior is indirect.                                                                        | Optional migration snapshot test if schema drift becomes painful (not needed for current phase).                                                                      |
 
 ## Spec Coverage
 

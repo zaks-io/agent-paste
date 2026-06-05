@@ -29,31 +29,52 @@ const sharedTestExcludes = [
   "**/coverage/**",
 ];
 
+// Patterns omitted from every workspace coverage report. Rationale ledger:
+// docs/ops/status/coverage.md#coverage-exclusion-ledger
 const sharedCoverageExcludes = [
-  "**/dist/**",
-  "**/build/**",
-  "**/.next/**",
-  "**/.output/**",
-  "**/coverage/**",
-  "**/*.d.ts",
-  "**/*.test.ts",
+  "**/dist/**", // compiled output, not authored source
+  "**/build/**", // package build artifacts
+  "**/.next/**", // framework output
+  "**/.output/**", // Nitro/TanStack build output
+  "**/coverage/**", // Istanbul reports, not product code
+  "**/*.d.ts", // type declarations only
+  "**/*.test.ts", // test files themselves
   "**/*.test.tsx",
   "**/*.spec.ts",
   "**/*.spec.tsx",
-  "**/*.config.*",
-  "**/*.gen.ts",
-  "**/worker-configuration.d.ts",
+  "**/*.config.*", // tooling config exercised by CI, not product behavior
+  "**/*.gen.ts", // generated route trees and similar
+  "**/worker-configuration.d.ts", // Wrangler-generated Cloudflare binding types
 ];
 
+// Per-workspace source excludes. Paths here are smoke-tested elsewhere but
+// excluded when v8 under-counts thin entrypoints or coverage would duplicate
+// generated/schema noise. See the ledger for each file's test anchor.
 const workspaceCoverageExcludes: Record<string, string[]> = {
+  // Worker bootstrap: `handleRequest` and route wiring tested in src/index.test.ts;
+  // default Sentry export is not instrumented in unit runs.
   "@agent-paste/api": ["src/index.ts"],
+  // Barrel re-exports only; cache helpers tested via index.test.ts. request-id
+  // helpers tested in request-id.test.ts and worker error-envelope tests.
   "@agent-paste/auth": ["src/index.ts", "src/request-id.ts"],
+  // Node-only publish/login helpers tested in apps/cli/test/local.test.ts and
+  // login.test.ts; excluded to keep CLI coverage focused on command surfaces.
   "@agent-paste/cli": ["src/local.ts", "src/loopback.ts"],
+  // Same bootstrap pattern as api: index.test.ts covers handleRequest wiring.
   "@agent-paste/content": ["src/index.ts"],
+  // OpenAPI document builders checked by mvp-contracts.test.ts and openapi goldens.
   "@agent-paste/contracts": ["src/openapi/**"],
+  // schema.ts is declarative Drizzle DDL; validation.ts helpers tested in
+  // validation.test.ts and upload-publish integration paths.
   "@agent-paste/db": ["src/schema.ts", "src/validation.ts"],
+  // TanStack file routes and Cloudflare runtime glue tested in apps/web/test/*
+  // without counting every loader/component line toward package thresholds.
   "@agent-paste/web": ["src/routes/**", "src/server/runtime.ts", "src/components/theme-provider.tsx"],
+  // Registrar and error responder wiring heavily integration-tested in
+  // registrar.test.ts and errors.test.ts; excluded to avoid double-counting
+  // against worker entrypoint coverage.
   "@agent-paste/worker-runtime": ["src/errors.ts", "src/registrar.ts"],
+  // Published npm package name for apps/cli; same local/loopback exclusions.
   "@zaks-io/agent-paste": ["src/local.ts", "src/loopback.ts"],
 };
 
