@@ -81,6 +81,54 @@ describe("apex worker", () => {
     expect(body).not.toContain("border-radius: 9999");
   });
 
+  it("renders the about page with the wedge and an honest scope section", async () => {
+    const response = await get("/about");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    const csp = response.headers.get("content-security-policy");
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    const body = await response.text();
+    expect(body).toContain("<!doctype html>");
+    expect(body).toContain("Where agents publish");
+    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/about">');
+    // The honest-about-scope sections the user asked for.
+    expect(body).toContain("Why it exists");
+    expect(body).toContain("How it is built and run");
+    expect(body).toContain("What to expect");
+    expect(body).toContain("AI was used heavily");
+    expect(body).toContain("pre-launch");
+    // No repo / open-source claims while the gate is closed.
+    expect(body).not.toContain("github.com");
+    expect(body).not.toContain("open source");
+  });
+
+  it("does not include style-guide banned tokens on the about page", async () => {
+    const response = await get("/about");
+    const body = (await response.text()).toLowerCase();
+    expect(body).not.toContain("ai-powered");
+    expect(body).not.toContain("revolutionary");
+    expect(body).not.toContain("game-changing");
+    expect(body).not.toContain("seamless");
+    expect(body).not.toContain("gradient");
+    expect(body).not.toContain("—"); // em dash
+  });
+
+  it("links to the about page from nav and footer", async () => {
+    const home = await get("/");
+    const homeBody = await home.text();
+    expect(homeBody).toContain('<a class="head-link" href="/about">About</a>');
+    expect(homeBody).toContain('<a class="foot-link" href="/about">About</a>');
+  });
+
+  it("lists /about in the sitemap", async () => {
+    const response = await get("/sitemap.xml");
+    const body = await response.text();
+    expect(body).toContain("<loc>https://agent-paste.sh/about</loc>");
+  });
+
   it("serves /llms.txt as text/plain", async () => {
     const response = await get("/llms.txt");
     expect(response.status).toBe(200);
@@ -238,6 +286,7 @@ describe("apex worker", () => {
   it("never sets cookies on any apex response", async () => {
     const paths = [
       "/",
+      "/about",
       "/llms.txt",
       "/agents.md",
       "/install.sh",

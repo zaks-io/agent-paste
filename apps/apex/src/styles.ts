@@ -422,6 +422,45 @@ ul {
   color: hsl(var(--foreground));
 }
 
+/* ---- Prose (about page) ---- */
+
+.prose {
+  display: grid;
+  gap: 40px;
+  max-width: 64ch;
+}
+
+@media (min-width: 640px) {
+  .prose {
+    gap: 48px;
+  }
+}
+
+.prose-title {
+  font-size: 19px;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  color: hsl(var(--foreground));
+}
+
+.prose-body {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: hsl(var(--muted));
+}
+
+.prose-body + .prose-body {
+  margin-top: 14px;
+}
+
+.prose-body .code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  letter-spacing: 0;
+  color: hsl(var(--foreground));
+}
+
 /* ---- Footer ---- */
 
 .page-foot {

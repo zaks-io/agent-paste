@@ -106,4 +106,8 @@ export const FOOTER: FooterColumn[] = [
       { label: "install.ps1", href: "/install.ps1" },
     ],
   },
+  {
+    heading: "Project",
+    links: [{ label: "About", href: "/about" }],
+  },
 ];
