@@ -80,6 +80,25 @@ SVG responses override CSP with:
 Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:
 ```
 
+### Framing the viewer
+
+The dashboard and Access Link viewer render artifact content in a sandboxed iframe
+(`sandbox="allow-scripts allow-popups"`, never `allow-same-origin`; see [`web.md`](./web.md))
+hosted on the app origin, which is a separate hardened origin from this content subdomain
+(ADR 0014). To let that one trusted page host the sandbox while still refusing every other
+framer, **inline** content responses scope `frame-ancestors` to the app origin for the
+current environment and **omit** `X-Frame-Options` (its origin-blind `DENY` cannot
+allowlist a single origin, and `frame-ancestors` supersedes it in modern browsers):
+
+| `AGENT_PASTE_ENV` | `frame-ancestors`                    |
+| ----------------- | ------------------------------------ |
+| `production`      | `https://app.agent-paste.sh`         |
+| `preview`         | `https://app.preview.agent-paste.sh` |
+| `dev` / unset     | `'none'` (XFO `DENY` retained)       |
+
+This relaxation applies only to inline-served content. Bundle downloads, attachments,
+error envelopes, and non-content routes keep `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+
 ## Render Modes
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:

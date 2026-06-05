@@ -101,11 +101,8 @@ function contentSecurityPolicyDirectiveOrder(csp: string): string[] {
   return order;
 }
 
-/** Derives the ephemeral script-disabled policy from the base policy by disabling script execution only. */
-export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): string {
-  const directives = parseContentSecurityPolicyDirectives(baseCsp);
-  directives.set("script-src", "'none'");
-  return contentSecurityPolicyDirectiveOrder(baseCsp)
+function serializeContentSecurityPolicy(order: string[], directives: Map<string, string>): string {
+  return order
     .map((name) => {
       const value = directives.get(name);
       if (value === undefined) {
@@ -115,6 +112,31 @@ export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): stri
     })
     .filter((segment): segment is string => segment !== null)
     .join("; ");
+}
+
+/** Derives the ephemeral script-disabled policy from the base policy by disabling script execution only. */
+export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): string {
+  const directives = parseContentSecurityPolicyDirectives(baseCsp);
+  directives.set("script-src", "'none'");
+  return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(baseCsp), directives);
+}
+
+/**
+ * Rewrites the `frame-ancestors` directive so the trusted app origin(s) may frame
+ * this otherwise-locked content. The served HTML is still sandboxed by the viewer
+ * (`sandbox="allow-scripts"`, no `allow-same-origin`); this only relaxes which page
+ * may host that sandbox. An empty list restores `frame-ancestors 'none'`.
+ */
+export function withFrameAncestors(csp: string, ancestors: readonly string[]): string {
+  const directives = parseContentSecurityPolicyDirectives(csp);
+  directives.set("frame-ancestors", ancestors.length > 0 ? ancestors.join(" ") : "'none'");
+  // Always emit the directive: callers that relax framing also drop X-Frame-Options,
+  // so an absent frame-ancestors would otherwise leave the content frameable by all.
+  const order = contentSecurityPolicyDirectiveOrder(csp);
+  if (!order.includes("frame-ancestors")) {
+    order.push("frame-ancestors");
+  }
+  return serializeContentSecurityPolicy(order, directives);
 }
 
 export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY =

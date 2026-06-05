@@ -9,10 +9,12 @@ import {
   parseRevisionFileObjectKey,
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
+  withFrameAncestors,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
+import { frameAncestorsForEnv } from "./frame-ancestors.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
@@ -103,7 +105,7 @@ export async function serveSignedObject(
   const bytes = served.bytes && injectsNoindex ? injectNoindexMetaBytes(served.bytes) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload.exp, payload);
+  const headers = responseHeadersForPath(path, size, payload.exp, payload, frameAncestorsForEnv(env));
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When noindex injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -237,6 +239,7 @@ export function responseHeadersForPath(
   size: number,
   tokenExpiresAt: number,
   payload: ContentTokenPayload,
+  frameAncestors: readonly string[] = [],
 ): Headers {
   const scriptDisabled = payload.script_disabled !== false;
   const served = servedContentForPath(path, { scriptDisabled });
@@ -244,7 +247,15 @@ export function responseHeadersForPath(
   headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
-  headers.set("content-security-policy", served.csp);
+  // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
+  // app origin frame it via CSP and drop the origin-blind XFO that would re-block
+  // it. Attachments are downloads and stay frame-denied.
+  if (served.disposition === "inline" && frameAncestors.length > 0) {
+    headers.set("content-security-policy", withFrameAncestors(served.csp, frameAncestors));
+    headers.delete("x-frame-options");
+  } else {
+    headers.set("content-security-policy", served.csp);
+  }
   if (served.disposition === "attachment") {
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }

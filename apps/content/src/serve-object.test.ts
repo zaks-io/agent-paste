@@ -110,6 +110,38 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-disposition")).toBe('attachment; filename="bundle.zip"');
   });
 
+  it("opens framing to the app origin for inline content and drops XFO", () => {
+    const headers = responseHeadersForPath("index.html", 3, exp, basePayload({ script_disabled: false }), [
+      "https://app.agent-paste.sh",
+    ]);
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(headers.get("content-security-policy")).not.toContain("frame-ancestors 'none'");
+    expect(headers.get("x-frame-options")).toBeNull();
+  });
+
+  it("supports multiple framing origins", () => {
+    const headers = responseHeadersForPath("index.html", 3, exp, basePayload({ script_disabled: false }), [
+      "https://app.agent-paste.sh",
+      "https://app.preview.agent-paste.sh",
+    ]);
+    expect(headers.get("content-security-policy")).toContain(
+      "frame-ancestors https://app.agent-paste.sh https://app.preview.agent-paste.sh",
+    );
+  });
+
+  it("keeps attachments frame-denied even when framing origins are provided", () => {
+    const headers = responseHeadersForPath("payload.bin", 6, exp, basePayload(), ["https://app.agent-paste.sh"]);
+    expect(headers.get("content-disposition")).toBe('attachment; filename="payload.bin"');
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("stays frame-denied for inline content when no framing origins are provided", () => {
+    const headers = responseHeadersForPath("index.html", 3, exp, basePayload({ script_disabled: false }));
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("x-frame-options")).toBe("DENY");
+  });
+
   it("carries the baseline plus the content security headers", () => {
     for (const headers of [
       responseHeadersForPath("notes.txt", 4, exp, basePayload()),
