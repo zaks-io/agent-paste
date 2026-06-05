@@ -4,6 +4,7 @@ import {
   apiScopesToMcpScopes,
   buildMcpToolList,
   deriveMcpIdempotencyKey,
+  McpAddRevisionInput,
   McpPublishArtifactInput,
   McpToolName,
   McpUpdateDisplayMetadataInput,
@@ -205,6 +206,50 @@ describe("MCP auth and idempotency helpers", () => {
       "mcp:user_01:42:publish_artifact:revision-link",
     );
     expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "share")).toBe("mcp:user_01:42:publish_artifact:share-link");
+  });
+
+  it("derives valid access-link keys for max-length publish tool idempotency keys", () => {
+    const maxToolKey = IdempotencyKey.parse("a".repeat(200));
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "revision");
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "share");
+
+    expect(revisionKey.length).toBeLessThanOrEqual(200);
+    expect(shareKey.length).toBeLessThanOrEqual(200);
+    expect(IdempotencyKey.safeParse(revisionKey).success).toBe(true);
+    expect(IdempotencyKey.safeParse(shareKey).success).toBe(true);
+    expect(revisionKey).not.toBe(shareKey);
+    expect(revisionKey).toMatch(/:revision-link$/);
+    expect(shareKey).toMatch(/:share-link$/);
+  });
+
+  it("accepts max-length idempotency_key on publish and add_revision inputs", () => {
+    const maxKey = "a".repeat(200);
+    expect(
+      McpPublishArtifactInput.safeParse({
+        title: "Demo",
+        body: "hello",
+        render_mode: "text",
+        idempotency_key: maxKey,
+      }).success,
+    ).toBe(true);
+    expect(
+      McpPublishArtifactInput.safeParse({
+        title: "Demo",
+        body: "hello",
+        render_mode: "text",
+        idempotency_key: maxKey,
+        share: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      McpAddRevisionInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        body: "hello",
+        render_mode: "text",
+        idempotency_key: maxKey,
+        share: true,
+      }).success,
+    ).toBe(true);
   });
 
   it("derives idempotency keys from token sub, json rpc id, and tool name", () => {
