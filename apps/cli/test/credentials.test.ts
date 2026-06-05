@@ -94,6 +94,27 @@ describe("keyring credential store", () => {
     expect(await store.load()).toEqual(credential);
   });
 
+  it("prefers file fallback over a stale keyring entry after setPassword fails", async () => {
+    const staleCredential: Credential = {
+      ...credential,
+      api_key: "ap_pk_stale_keyring",
+      member_email: "stale@example.com",
+    };
+    const freshCredential: Credential = {
+      ...credential,
+      api_key: "ap_pk_fresh_file",
+      member_email: "fresh@example.com",
+    };
+    const entry = shadowingEntry(JSON.stringify(staleCredential));
+    const filePath = await tempPath();
+    const store = keyringStore(entry, fileStore(filePath), () => {});
+
+    await store.save(freshCredential);
+
+    expect(await fileStore(filePath).load()).toEqual(freshCredential);
+    expect(await store.load()).toEqual(freshCredential);
+  });
+
   it("falls back to file storage and warns when keyring save fails", async () => {
     const warnings: string[] = [];
     const filePath = await tempPath();
@@ -173,6 +194,19 @@ function failingEntry() {
     },
     deletePassword: () => {
       throw new Error("missing keyring");
+    },
+  };
+}
+
+function shadowingEntry(stalePassword: string) {
+  let value: string | null = stalePassword;
+  return {
+    getPassword: () => value,
+    setPassword: () => {
+      throw new Error("keyring locked");
+    },
+    deletePassword: () => {
+      value = null;
     },
   };
 }
