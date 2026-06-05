@@ -49,6 +49,33 @@ describe("securityHeadersMiddleware", () => {
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
+  it("skips X-Frame-Options when CSP frame-ancestors opens framing to an origin", async () => {
+    const app = new Hono();
+    app.use("*", securityHeadersMiddleware());
+    app.get("/framed", (context) => {
+      context.header("content-security-policy", "default-src 'none'; frame-ancestors https://app.agent-paste.sh");
+      return context.json({ ok: true });
+    });
+
+    const response = await app.fetch(new Request("https://worker.test/framed"));
+
+    expect(response.headers.get("x-frame-options")).toBeNull();
+    // Other baseline headers are still applied.
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("keeps X-Frame-Options when frame-ancestors is 'none'", async () => {
+    const app = new Hono();
+    app.use("*", securityHeadersMiddleware());
+    app.get("/locked", (context) => {
+      context.header("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+      return context.json({ ok: true });
+    });
+
+    const response = await app.fetch(new Request("https://worker.test/locked"));
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+  });
+
   it("covers notFound responses", async () => {
     const app = new Hono();
     app.use("*", securityHeadersMiddleware());

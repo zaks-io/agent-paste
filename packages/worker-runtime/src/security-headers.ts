@@ -24,8 +24,32 @@ export function securityHeadersMiddleware(): MiddlewareHandler {
   };
 }
 
+// A response that opens framing to a trusted origin does so via CSP
+// `frame-ancestors`, which modern browsers honor over the legacy, origin-blind
+// `X-Frame-Options`. Stamping `DENY` here would re-block that frame, so skip the
+// XFO baseline whenever the handler set a `frame-ancestors` that is not 'none'.
+function frameAncestorsAllowsFraming(headers: Headers): boolean {
+  const csp = headers.get("content-security-policy");
+  if (!csp) {
+    return false;
+  }
+  const directive = csp
+    .split(";")
+    .map((segment) => segment.trim())
+    .find((segment) => segment.toLowerCase().startsWith("frame-ancestors"));
+  if (!directive) {
+    return false;
+  }
+  const value = directive.slice("frame-ancestors".length).trim();
+  return value.length > 0 && value.toLowerCase() !== "'none'";
+}
+
 function setBaselineHeadersIfAbsent(headers: Headers): void {
+  const framingOpenedByCsp = frameAncestorsAllowsFraming(headers);
   for (const [name, value] of Object.entries(BASELINE_SECURITY_HEADERS)) {
+    if (framingOpenedByCsp && name === "X-Frame-Options") {
+      continue;
+    }
     if (!headers.has(name)) {
       headers.set(name, value);
     }

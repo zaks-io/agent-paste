@@ -6,6 +6,7 @@ import {
   deriveScriptDisabledContentSecurityPolicy,
   SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
   servedContentForPath,
+  withFrameAncestors,
 } from "./index";
 
 function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
@@ -86,5 +87,27 @@ describe("storage helpers", () => {
     expect(servedContentForPath("chart.svg", { scriptDisabled: true }).csp).toBe(
       "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
     );
+  });
+});
+
+describe("withFrameAncestors", () => {
+  it("replaces frame-ancestors 'none' with the given origins, preserving order", () => {
+    const result = withFrameAncestors(BASE_CONTENT_SECURITY_POLICY, [
+      "https://app.agent-paste.sh",
+      "https://app.preview.agent-paste.sh",
+    ]);
+    expect(result).toContain("frame-ancestors https://app.agent-paste.sh https://app.preview.agent-paste.sh");
+    expect(result).not.toContain("frame-ancestors 'none'");
+    // Every other directive is untouched and the order is stable.
+    expect(result.replace(/frame-ancestors[^;]*/u, "frame-ancestors 'none'")).toBe(BASE_CONTENT_SECURITY_POLICY);
+  });
+
+  it("restores 'none' for an empty origin list", () => {
+    expect(withFrameAncestors(BASE_CONTENT_SECURITY_POLICY, [])).toBe(BASE_CONTENT_SECURITY_POLICY);
+  });
+
+  it("adds a frame-ancestors directive when the source policy omits it", () => {
+    const result = withFrameAncestors("default-src 'none'; img-src data:", ["https://app.agent-paste.sh"]);
+    expect(result).toBe("default-src 'none'; img-src data:; frame-ancestors https://app.agent-paste.sh");
   });
 });

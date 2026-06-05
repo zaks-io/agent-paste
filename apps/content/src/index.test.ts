@@ -164,6 +164,42 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
   });
 
+  it("lets the production app origin frame served HTML and drops X-Frame-Options", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html"],
+        script_disabled: false,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "<h1>ok</h1>",
+    });
+    const env = baseContentEnv({
+      AGENT_PASTE_ENV: "production",
+      ARTIFACTS: {
+        async get() {
+          return stored;
+        },
+      },
+    });
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(response.headers.get("content-security-policy")).not.toContain("frame-ancestors 'none'");
+    // The middleware must not re-stamp the origin-blind XFO over the CSP allowance.
+    expect(response.headers.get("x-frame-options")).toBeNull();
+  });
+
   it("adds noindex headers and meta for ephemeral content tokens", async () => {
     const token = await signContentToken(
       {
