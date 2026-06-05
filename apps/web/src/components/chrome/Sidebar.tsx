@@ -43,7 +43,7 @@ const SECTIONS: ReadonlyArray<Section> = [
       { to: "/keys", label: "API Keys", Icon: KeyRound },
       { to: "/audit", label: "Audit Log", Icon: ScrollText },
       { to: "/settings", label: "Workspace", Icon: SlidersHorizontal },
-      { to: "/settings/billing", label: "Billing", Icon: CreditCard },
+      { to: "/billing", label: "Billing", Icon: CreditCard },
     ],
   },
 ];

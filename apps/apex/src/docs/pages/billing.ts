@@ -39,7 +39,7 @@ export const BILLING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Open `/settings/billing` in the dashboard and choose the Pro interval. The dashboard creates a Stripe Checkout session and redirects you to Stripe.",
+          text: "Open `/billing` in the dashboard and choose the Pro interval. The dashboard creates a Stripe Checkout session and redirects you to Stripe.",
         },
         {
           kind: "paragraph",

@@ -1,5 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import {
+  CreditCard,
   FileStack,
   KeyRound,
   LayoutGrid,
@@ -13,10 +14,52 @@ import {
   Sparkles,
   Sun,
 } from "lucide-react";
+import type { ComponentType } from "react";
 import { useCallback, useMemo } from "react";
 import { useTheme } from "../../theme-provider";
 import type { CommandItem } from "./types";
 import { signOut } from "./utils";
+
+type NavDescriptor = {
+  id: string;
+  label: string;
+  keywords: string[];
+  Icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  to: string;
+  operatorOnly?: boolean;
+};
+
+// Pure data: ordered as the human reads them, with /admin gated to operators.
+const NAV_ITEMS: ReadonlyArray<NavDescriptor> = [
+  { id: "dashboard", label: "Overview", keywords: ["home", "dashboard"], Icon: LayoutGrid, to: "/dashboard" },
+  { id: "artifacts", label: "Artifacts", keywords: ["files", "publish"], Icon: FileStack, to: "/artifacts" },
+  { id: "access-links", label: "Access Links", keywords: ["links", "share"], Icon: LinkIcon, to: "/access-links" },
+  { id: "keys", label: "API Keys", keywords: ["api", "credentials"], Icon: KeyRound, to: "/keys" },
+  { id: "audit", label: "Audit Log", keywords: ["events", "history"], Icon: ScrollText, to: "/audit" },
+  { id: "settings", label: "Workspace", keywords: ["settings", "workspace"], Icon: SlidersHorizontal, to: "/settings" },
+  {
+    id: "billing",
+    label: "Billing",
+    keywords: ["plan", "subscription", "upgrade", "pro", "stripe"],
+    Icon: CreditCard,
+    to: "/billing",
+  },
+  {
+    id: "claim",
+    label: "Claim workspace",
+    keywords: ["claim", "ephemeral", "token", "redeem"],
+    Icon: Sparkles,
+    to: "/claim",
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    keywords: ["operator", "lockdown"],
+    Icon: ShieldAlert,
+    to: "/admin",
+    operatorOnly: true,
+  },
+];
 
 export function useCommandItems(isOperator: boolean, close: () => void): CommandItem[] {
   const router = useRouter();
@@ -31,75 +74,19 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
   );
 
   return useMemo(() => {
-    const navigation: CommandItem[] = [
-      {
-        id: "dashboard",
-        label: "Overview",
-        keywords: ["home", "dashboard"],
-        Icon: LayoutGrid,
-        group: "navigation",
-        onSelect: () => navigate("/dashboard"),
-      },
-      {
-        id: "artifacts",
-        label: "Artifacts",
-        keywords: ["files", "publish"],
-        Icon: FileStack,
-        group: "navigation",
-        onSelect: () => navigate("/artifacts"),
-      },
-      {
-        id: "access-links",
-        label: "Access Links",
-        keywords: ["links", "share"],
-        Icon: LinkIcon,
-        group: "navigation",
-        onSelect: () => navigate("/access-links"),
-      },
-      {
-        id: "keys",
-        label: "API Keys",
-        keywords: ["api", "credentials"],
-        Icon: KeyRound,
-        group: "navigation",
-        onSelect: () => navigate("/keys"),
-      },
-      {
-        id: "audit",
-        label: "Audit Log",
-        keywords: ["events", "history"],
-        Icon: ScrollText,
-        group: "navigation",
-        onSelect: () => navigate("/audit"),
-      },
-      {
-        id: "settings",
-        label: "Workspace",
-        keywords: ["settings", "workspace"],
-        Icon: SlidersHorizontal,
-        group: "navigation",
-        onSelect: () => navigate("/settings"),
-      },
-      {
-        id: "claim",
-        label: "Claim workspace",
-        keywords: ["claim", "ephemeral", "token", "redeem"],
-        Icon: Sparkles,
-        group: "navigation",
-        onSelect: () => navigate("/claim"),
-      },
-    ];
+    const navigation: CommandItem[] = NAV_ITEMS.filter((item) => isOperator || !item.operatorOnly).map((item) => ({
+      id: item.id,
+      label: item.label,
+      keywords: item.keywords,
+      Icon: item.Icon,
+      group: "navigation",
+      onSelect: () => navigate(item.to),
+    }));
 
-    if (isOperator) {
-      navigation.push({
-        id: "admin",
-        label: "Admin",
-        keywords: ["operator", "lockdown"],
-        Icon: ShieldAlert,
-        group: "navigation",
-        onSelect: () => navigate("/admin"),
-      });
-    }
+    const setTheme = (preference: "light" | "dark" | "system") => () => {
+      setPreference(preference);
+      close();
+    };
 
     const actions: CommandItem[] = [
       {
@@ -108,10 +95,7 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
         keywords: ["theme", "appearance", "color"],
         Icon: Sun,
         group: "actions",
-        onSelect: () => {
-          setPreference("light");
-          close();
-        },
+        onSelect: setTheme("light"),
       },
       {
         id: "theme-dark",
@@ -119,10 +103,7 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
         keywords: ["theme", "appearance", "color"],
         Icon: Moon,
         group: "actions",
-        onSelect: () => {
-          setPreference("dark");
-          close();
-        },
+        onSelect: setTheme("dark"),
       },
       {
         id: "theme-system",
@@ -130,10 +111,7 @@ export function useCommandItems(isOperator: boolean, close: () => void): Command
         keywords: ["theme", "appearance", "color"],
         Icon: Monitor,
         group: "actions",
-        onSelect: () => {
-          setPreference("system");
-          close();
-        },
+        onSelect: setTheme("system"),
       },
       {
         id: "sign-out",

@@ -12,7 +12,7 @@ import { activateBillingReturnFn } from "../rpc/web-loaders";
 
 type BillingSearch = { status?: "success" | "cancelled"; session_id?: string };
 
-export const Route = createFileRoute("/_authed/settings/billing")({
+export const Route = createFileRoute("/_authed/billing")({
   validateSearch: (search: Record<string, unknown>): BillingSearch => {
     const status = search.status === "success" || search.status === "cancelled" ? search.status : undefined;
     const sessionId = typeof search.session_id === "string" ? search.session_id : undefined;
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authed/settings/billing")({
   },
   loader: ({ context }) => context.queryClient.ensureQueryData(billingQuery()),
   head: ({ matches }) =>
-    dashboardPageMeta("Billing", "Your plan, usage allowance, and Stripe subscription.", "/settings/billing", matches),
+    dashboardPageMeta("Billing", "Your plan, usage allowance, and Stripe subscription.", "/billing", matches),
   component: BillingPage,
 });
 
@@ -31,7 +31,7 @@ function BillingPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Workspace · Settings"
+        eyebrow="Workspace"
         title="Billing"
         description="Your plan decides your daily write allowance. Reads are always free. Upgrade, manage, or cancel any time — changes apply the instant Stripe confirms them."
       />
@@ -70,7 +70,7 @@ function useBillingReturn() {
     if (handled.current || !search.status) return;
     handled.current = true;
 
-    const clear = () => navigate({ to: "/settings/billing", search: {}, replace: true });
+    const clear = () => navigate({ to: "/billing", search: {}, replace: true });
 
     if (search.status === "cancelled") {
       push({ tone: "success", title: "Checkout cancelled", message: "No changes were made to your plan." });

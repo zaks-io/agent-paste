@@ -37,7 +37,7 @@ vi.mock("../src/rpc/web-loaders", () => ({
 vi.mock("../src/rpc/web-mutations", () => ({ startCheckoutFn: vi.fn(), openPortalFn: vi.fn() }));
 
 import { ToastProvider } from "../src/components/ui/ToastProvider";
-import { Route } from "../src/routes/_authed.settings.billing";
+import { Route } from "../src/routes/_authed.billing";
 
 function proStatus(): BillingStatusResponse {
   return {
@@ -110,7 +110,7 @@ describe("billing route", () => {
 
     await waitFor(() => expect(h.activateBillingReturnFn).toHaveBeenCalledWith({ data: { sessionId: "cs_123" } }));
     await waitFor(() => expect(h.invalidateQueries).toHaveBeenCalled());
-    expect(h.navigate).toHaveBeenCalledWith({ to: "/settings/billing", search: {}, replace: true });
+    expect(h.navigate).toHaveBeenCalledWith({ to: "/billing", search: {}, replace: true });
   });
 
   it("clears the query params and skips activation on a cancelled return", async () => {
@@ -121,9 +121,7 @@ describe("billing route", () => {
     };
     renderRoute();
 
-    await waitFor(() =>
-      expect(h.navigate).toHaveBeenCalledWith({ to: "/settings/billing", search: {}, replace: true }),
-    );
+    await waitFor(() => expect(h.navigate).toHaveBeenCalledWith({ to: "/billing", search: {}, replace: true }));
     expect(h.activateBillingReturnFn).not.toHaveBeenCalled();
   });
 });

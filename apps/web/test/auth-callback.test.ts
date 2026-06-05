@@ -25,7 +25,7 @@ describe("auth callback route", () => {
     clearPendingVerifier.mockReset();
     clearPendingVerifier.mockResolvedValue({ response: new Response(), headers: {} });
     handleCallback.mockResolvedValue({
-      returnPathname: "/settings/billing",
+      returnPathname: "/billing",
       authResponse: {
         accessToken: "access_token",
         refreshToken: "refresh_token",
@@ -39,13 +39,11 @@ describe("auth callback route", () => {
   it("redirects to the OAuth returnPathname instead of forcing /dashboard", async () => {
     const callback = await import("../src/routes/api/auth/callback");
     const response = await callback.Route.server.handlers.GET({
-      request: new Request(
-        "https://app.agent-paste.sh/api/auth/callback?code=oauth_code&state=oauth_state",
-      ),
+      request: new Request("https://app.agent-paste.sh/api/auth/callback?code=oauth_code&state=oauth_state"),
     });
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://app.agent-paste.sh/settings/billing");
+    expect(response.headers.get("location")).toBe("https://app.agent-paste.sh/billing");
     expect(response.headers.get("location")).not.toContain("/dashboard");
   });
 });
