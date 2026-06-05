@@ -693,7 +693,13 @@ describe("web routes", () => {
     expect(signOutResponse.status).toBe(303);
     expect(signOutResponse.headers.get("location")).toBe("https://workos.example.test/sign-out");
     expect(state.signOut).toHaveBeenCalledWith("session_1");
-    await expect(callback.Route.server.handlers.GET()).resolves.toBeInstanceOf(Response);
+    const callbackResponse = await callback.Route.server.handlers.GET({
+      request: new Request("https://app.test/api/auth/callback"),
+    });
+    expect(callbackResponse).toBeInstanceOf(Response);
+    await expect(callbackResponse.json()).resolves.toEqual({
+      errorRedirectUrl: "/?auth_error=callback_failed",
+    });
   });
 });
 

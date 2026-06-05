@@ -6,7 +6,6 @@ export const Route = createFileRoute("/api/auth/callback")({
       GET: async (input) => {
         const { handleCallbackRoute } = await import("@workos/authkit-tanstack-react-start");
         return handleCallbackRoute({
-          returnPathname: "/dashboard",
           errorRedirectUrl: "/?auth_error=callback_failed",
         })(input);
       },
