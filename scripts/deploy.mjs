@@ -123,13 +123,14 @@ export function createSecretPlanner({
   }
 
   function valueFor(name) {
+    if (generatedValues.has(name)) {
+      return generatedValues.get(name);
+    }
     const fromEnv = resolveValue(name);
     if (fromEnv !== undefined && fromEnv !== "") {
       return fromEnv;
     }
-    if (!generatedValues.has(name)) {
-      generatedValues.set(name, randomBytesFn(generatedByteLength(name)).toString("base64url"));
-    }
+    generatedValues.set(name, randomBytesFn(generatedByteLength(name)).toString("base64url"));
     return generatedValues.get(name);
   }
 
@@ -182,6 +183,31 @@ export function createSecretPlanner({
     valueFor,
     generatedValues,
   };
+}
+
+export async function runDeployPlan({
+  target,
+  planner,
+  provisionPlan,
+  apps = APPS,
+  runFn,
+  deployFn,
+  failFn = fail,
+  write = (message) => process.stdout.write(message),
+}) {
+  planner.reportMissingProviderSecrets(provisionPlan, failFn);
+
+  for (const app of apps) {
+    const worker = workerName(app, target);
+    const toSet = provisionPlan.get(app) ?? [];
+    if (toSet.length > 0) {
+      write(`Provisioning ${worker} secrets: ${toSet.join(", ")}\n`);
+      await planner.bulkSetSecrets(worker, toSet, runFn);
+    }
+    write(`Deploying ${worker}...\n`);
+    await deployFn(app, target);
+    write("\n");
+  }
 }
 
 async function deployApp(app, target) {
@@ -324,19 +350,7 @@ async function main() {
   await ensureJobQueues(hostedJobQueues(target).creationOrder);
 
   const provisionPlan = await planner.buildProvisionPlan();
-  planner.reportMissingProviderSecrets(provisionPlan);
-
-  for (const app of APPS) {
-    const worker = workerName(app, target);
-    const toSet = provisionPlan.get(app) ?? [];
-    if (toSet.length > 0) {
-      process.stdout.write(`Provisioning ${worker} secrets: ${toSet.join(", ")}\n`);
-      await planner.bulkSetSecrets(worker, toSet, run);
-    }
-    process.stdout.write(`Deploying ${worker}...\n`);
-    await deployApp(app, target);
-    process.stdout.write("\n");
-  }
+  await runDeployPlan({ target, planner, provisionPlan, runFn: run, deployFn: deployApp });
 
   process.stdout.write(`${target} deploy complete. No secret values were displayed.\n`);
 

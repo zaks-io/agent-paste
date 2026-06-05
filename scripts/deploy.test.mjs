@@ -5,6 +5,7 @@ import {
   createSecretPlanner,
   formatMissingProviderSecretsMessage,
   generatedByteLength,
+  runDeployPlan,
 } from "./deploy.mjs";
 import { workerName } from "./wrangler-secrets.mjs";
 
@@ -46,6 +47,7 @@ describe("deploy secret planning", () => {
   describe("missing required provider secrets", () => {
     it("fails before any mocked secret write when a required provider secret is absent", async () => {
       const bulkRun = vi.fn(async () => {});
+      const deployFn = vi.fn(async () => {});
       const failFn = vi.fn((message) => {
         throw new Error(message);
       });
@@ -61,10 +63,22 @@ describe("deploy secret planning", () => {
       expect(plan.missingProvider.length).toBeGreaterThan(0);
       expect(plan.missingProvider.some((entry) => entry.includes("WORKOS_API_KEY"))).toBe(true);
 
-      expect(() => planner.reportMissingProviderSecrets(plan, failFn)).toThrow(/WORKOS_API_KEY/);
+      await expect(
+        runDeployPlan({
+          target: "preview",
+          planner,
+          provisionPlan: plan,
+          apps: ["api"],
+          runFn: bulkRun,
+          deployFn,
+          failFn,
+          write: () => {},
+        }),
+      ).rejects.toThrow(/WORKOS_API_KEY/);
       expect(failFn).toHaveBeenCalledOnce();
       expect(failFn.mock.calls[0][0]).toBe(formatMissingProviderSecretsMessage(plan.missingProvider));
       expect(bulkRun).not.toHaveBeenCalled();
+      expect(deployFn).not.toHaveBeenCalled();
     });
   });
 
@@ -143,7 +157,7 @@ describe("deploy secret planning", () => {
       const withSmoke = createSecretPlanner({
         target: "preview",
         runSmoke: true,
-        env: previewEnv(),
+        env: previewEnv({ PREVIEW_SMOKE_HARNESS_SECRET: "stale-harness-secret" }),
         listSecretsForWorker: allSecretsPresent,
         randomBytesFn: deterministicRandomBytes,
       });
@@ -152,6 +166,8 @@ describe("deploy secret planning", () => {
       expect(planWithSmoke.get("jobs")).toContain("SMOKE_HARNESS_SECRET");
       expect(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET")).toMatch(/^[A-Za-z0-9_-]+$/);
       expect(Buffer.from(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"), "base64url").length).toBe(32);
+      expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).toBe(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"));
+      expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).not.toBe("stale-harness-secret");
     });
   });
 
