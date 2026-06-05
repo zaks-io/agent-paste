@@ -140,6 +140,9 @@
         "API_KEY_ENV": "preview",
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
         "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
+        // Stripe Checkout/Portal redirect targets (webBaseUrl in runtime.ts) must point
+        // at the preview web app; without this the default falls back to production.
+        "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "preview",
         // Billing (Free + Pro) routes mount only when this flag is "true"
@@ -285,6 +288,9 @@
         "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        // Stripe Checkout/Portal redirect targets (webBaseUrl in runtime.ts). Explicit
+        // rather than relying on the production default in runtime.ts.
+        "WEB_BASE_URL": "https://app.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
         "AGENT_PASTE_ENV": "production",
         // Off until paid plans launch. Flip to "true" in the same commit that turns
