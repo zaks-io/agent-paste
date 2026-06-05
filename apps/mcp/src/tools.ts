@@ -248,19 +248,23 @@ async function callUpdateDisplayMetadata(
   return parseForwardResult(forwarded, DisplayMetadata);
 }
 
-async function callCreateShareLink(
-  input: McpCreateShareLinkInput,
+async function createAndMintAccessLink(
+  input: {
+    toolName: "create_share_link" | "create_revision_link";
+    artifactId: string;
+    createBody: { type: "share" } | { type: "revision"; revision_id: string };
+  },
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const idempotencyKey = resolveIdempotencyKey("create_share_link", auth, deps);
+  const idempotencyKey = resolveIdempotencyKey(input.toolName, auth, deps);
   const created = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.create",
-    params: { artifact_id: input.artifact_id },
+    params: { artifact_id: input.artifactId },
     bearerToken: deps.bearerToken,
     idempotencyKey,
-    body: JSON.stringify({ type: "share" }),
+    body: JSON.stringify(input.createBody),
   });
   if (!created.ok) {
     return created;
@@ -281,37 +285,36 @@ async function callCreateShareLink(
   return parseForwardResult(minted, AccessLinkSignedUrl);
 }
 
+async function callCreateShareLink(
+  input: McpCreateShareLinkInput,
+  auth: McpAuthContext,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
+  return createAndMintAccessLink(
+    {
+      toolName: "create_share_link",
+      artifactId: input.artifact_id,
+      createBody: { type: "share" },
+    },
+    auth,
+    deps,
+  );
+}
+
 async function callCreateRevisionLink(
   input: McpCreateRevisionLinkInput,
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const idempotencyKey = resolveIdempotencyKey("create_revision_link", auth, deps);
-  const created = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.create",
-    params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
-    idempotencyKey,
-    body: JSON.stringify({ type: "revision", revision_id: input.revision_id }),
-  });
-  if (!created.ok) {
-    return created;
-  }
-  const linkId =
-    created.body && typeof created.body === "object" && "id" in created.body && typeof created.body.id === "string"
-      ? created.body.id
-      : null;
-  if (!linkId) {
-    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
-  }
-  const minted = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.mint",
-    params: { access_link_id: linkId },
-    bearerToken: deps.bearerToken,
-  });
-  return parseForwardResult(minted, AccessLinkSignedUrl);
+  return createAndMintAccessLink(
+    {
+      toolName: "create_revision_link",
+      artifactId: input.artifact_id,
+      createBody: { type: "revision", revision_id: input.revision_id },
+    },
+    auth,
+    deps,
+  );
 }
 
 async function callListAccessLinks(input: McpListAccessLinksInput, deps: McpToolDeps): Promise<McpToolResult> {

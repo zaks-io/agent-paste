@@ -33,20 +33,21 @@ lines today but are test support, not shipped runtime behavior.
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
-the baseline below the `2.7` gate, and AP-203 pulled it below the `2.5` gate.
-The current baseline is **2.45%**, so `2.5` has little slack. The next step
-(`2.3`) needs another offender cleanup or a decision to stop scanning
-`src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders are
-cleaned up and update this file.
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, and
+AP-206 pulled it to **2.33%**. The next step (`2.3`) needs another offender
+cleanup or a decision to stop scanning `src/test-helpers/`. Lower the threshold
+in `.jscpd.json` as offenders are cleaned up and update this file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
 Measured by `pnpm dupes --reporters json --output /tmp/agent-paste-jscpd-final2` at
 `minTokens: 50` over `apps` + `packages`:
 
-- 507 files, 45,808 lines analyzed.
-- 109 clones, 1,124 duplicated lines = **2.45%** (2.84% by tokens).
-- By format: TypeScript 2.79%, TSX 1.27%, JavaScript 0%.
+- 507 files, 45,795 lines analyzed.
+- 105 clones, 1,067 duplicated lines = **2.33%** (2.71% by tokens).
+- Pre AP-206 (post AP-203, 2026-06-05): 507 files, 45,808 lines, 1,124
+  duplicated lines = **2.45%** (2.84% by tokens).
+- By format: TypeScript 2.64%, TSX 1.27%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -79,6 +80,16 @@ This pass moved the gated baseline from 2.54% to 2.45%:
 - [x] Collapsed the workspace replay peek wrappers into one implementation with
       explicit exported aliases.
 
+## Done: AP-206 MCP helper dedup
+
+This pass moved the gated baseline from 2.45% to 2.33%:
+
+- [x] Extracted `createAndMintAccessLink` in `apps/mcp/src/tools.ts` for the
+      shared create-and-mint Access Link flow used by `create_share_link` and
+      `create_revision_link`.
+- [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
+      vs Upload request construction and error mapping.
+
 ## Where the duplication lives
 
 Cleaning these dirs is what moves the threshold:
@@ -90,8 +101,6 @@ Cleaning these dirs is what moves the threshold:
 - [ ] `apps/api/src/routes/*` — `web.ts`, `billing.ts`, `smoke.ts`, and
       `responses.ts` repeat member resolution, pagination parsing, response
       wrapping, and repository-error handling.
-- [ ] `apps/mcp/src/*` — `tools.ts` repeats create-and-mint Access Link flow;
-      `forward.ts` repeats API vs Upload forwarding.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
