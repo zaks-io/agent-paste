@@ -41,15 +41,6 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "output", text: "Claim: https://app.agent-paste.sh/claim#ap_ct_… (open it signed in to keep it)" },
 ];
 
-// The four canonical "reasons to believe" (marketing-brand-guide.md section 4).
-// The page leads with these, ahead of the feature detail.
-export const PILLARS: string[] = [
-  "One ID, every surface.",
-  "A URL for humans, a manifest for agents.",
-  "Safe to host what you did not write.",
-  "Transient by default, revocable on demand.",
-];
-
 export type Feature = {
   title: string;
   // Body prose; `backtick` spans render as inline <code> (see renderFeature).

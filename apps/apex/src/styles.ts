@@ -1,4 +1,5 @@
 import { cssVarsBlock, fontFaceCss, grainCss } from "@agent-paste/brand";
+import { HOME_STYLES } from "./home-styles.js";
 
 // The apex stylesheet. Token layer (color/type/spacing), fonts, and the grain
 // overlay come from @agent-paste/brand so apex shares one source with the web
@@ -249,6 +250,29 @@ const HERO = `.hero {
   text-transform: uppercase;
   color: hsl(var(--subtle));
   margin-bottom: -10px;
+}
+
+.eyebrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  width: fit-content;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.eyebrow-link:hover,
+.eyebrow-link:focus-visible {
+  color: hsl(var(--foreground));
+}
+
+.eyebrow-link .eyebrow-back {
+  transition: transform 0.15s ease;
+}
+
+.eyebrow-link:hover .eyebrow-back,
+.eyebrow-link:focus-visible .eyebrow-back {
+  transform: translateX(-2px);
 }
 
 .hero-headline {
@@ -897,3 +921,8 @@ export const STYLES = [
   FOOTER,
   MOTION,
 ].join("\n\n");
+
+// The marketing CSS, re-exported. Shell injects it on every apex page (all set
+// `<body class="home">`); the home page renders full-bleed, while docs/legal/about
+// reuse the shared chrome and constrain their content to `.page-body`.
+export { HOME_STYLES };

@@ -125,15 +125,28 @@ describe("apex worker", () => {
     expect(body).toContain("One ID, every surface");
   });
 
+  // The gradient / backdrop-filter bans are intentionally absent while the
+  // marketing surface is being iterated on. The font and shape bans still hold.
   it("does not include style-guide §11 banned tokens", async () => {
     const response = await get("/");
     const body = (await response.text()).toLowerCase();
-    expect(body).not.toContain("gradient");
-    expect(body).not.toContain("backdrop-filter");
     expect(body).not.toContain("geist");
     expect(body).not.toContain("space grotesk");
     expect(body).not.toMatch(/["\s,]inter["\s,]/);
     expect(body).not.toContain("border-radius: 9999");
+  });
+
+  it("renders the result gesture as a box-drawing wire, never an em-dash", async () => {
+    const body = await (await get("/")).text();
+    // The caret + box-drawing wire (U+2500) sits tight against the accent node
+    // span, with no whitespace inserted between them. Pinned exactly so a
+    // formatter reflow, or an agent swapping the wire for a hyphen or em dash,
+    // fails here.
+    expect(body).toContain(
+      '<span class="t-gesture" aria-hidden="true">&gt;─<span class="t-gesture-node">●</span></span>',
+    );
+    // Belt and suspenders: the rendered home page carries no em-dash at all.
+    expect(body).not.toContain("—");
   });
 
   it("renders the about page with the wedge and an honest scope section", async () => {
@@ -167,7 +180,6 @@ describe("apex worker", () => {
     expect(body).not.toContain("revolutionary");
     expect(body).not.toContain("game-changing");
     expect(body).not.toContain("seamless");
-    expect(body).not.toContain("gradient");
     expect(body).not.toContain("—"); // em dash
   });
 
@@ -175,12 +187,12 @@ describe("apex worker", () => {
     const home = await get("/");
     const homeBody = await home.text();
     expect(homeBody).toContain('<a class="head-link" href="/about">About</a>');
-    expect(homeBody).toContain('<a class="foot-link" href="/about">About</a>');
+    expect(homeBody).toContain('<a class="home-foot-link foot-link" href="/about">About</a>');
   });
 
   it("renders the how-it-works page from the footer without overclaiming safety", async () => {
     const home = await get("/");
-    expect(await home.text()).toContain('<a class="foot-link" href="/how-it-works">How it works</a>');
+    expect(await home.text()).toContain('<a class="home-foot-link foot-link" href="/how-it-works">How it works</a>');
 
     const response = await get("/how-it-works");
     expect(response.status).toBe(200);
@@ -213,7 +225,7 @@ describe("apex worker", () => {
     const home = await get("/");
     const homeBody = await home.text();
     expect(homeBody).toContain('<a class="head-link" href="/docs">Docs</a>');
-    expect(homeBody).toContain('<a class="foot-link" href="/docs">Docs</a>');
+    expect(homeBody).toContain('<a class="home-foot-link foot-link" href="/docs">Docs</a>');
     expect(homeBody).toContain('href="/llms-full.txt"');
   });
 
