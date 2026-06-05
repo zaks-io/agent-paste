@@ -14,6 +14,7 @@ import {
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
+import { contentEtag, etagMatches } from "./etag.js";
 import { frameAncestorsForEnv } from "./frame-ancestors.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
@@ -50,6 +51,16 @@ export async function serveSignedBundle(context: AppContext, payload: ContentTok
     return getBoundResponders(context).respondError("not_found");
   }
 
+  const etag = await contentEtag(payload.revision_id, BUNDLE_FILENAME);
+  // Mirror the 200 path's contract: a workspace-less token 404s below, so a
+  // conditional request must not short-circuit to a 304 the client could never
+  // have received a 200 for.
+  if (payload.workspace_id && etagMatches(request.headers.get("if-none-match"), etag)) {
+    // Validate against the exact headers the 200 would carry so the 304 cannot
+    // drift from them (RFC 9111 §4.3.4 lets a 304 replace the cached headers).
+    return notModifiedResponse(context, payload, bundleResponseHeaders(0, payload.noindex === true, etag));
+  }
+
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
@@ -68,7 +79,7 @@ export async function serveSignedBundle(context: AppContext, payload: ContentTok
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const headers = bundleResponseHeaders(served.plaintextSize, payload.exp, payload.noindex === true);
+  const headers = bundleResponseHeaders(served.plaintextSize, payload.noindex === true, etag);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
   return new Response(bodyFromBytes(served.bytes), { status: 200, headers });
@@ -81,6 +92,22 @@ export async function serveSignedObject(
 ): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
+
+  const etag = await contentEtag(payload.revision_id, path);
+  // Only short-circuit when the 200 path would actually serve: a workspace-less
+  // token 404s below (prepareEncryptedObjectResponse), so a conditional request
+  // must 404 too, not return a 304 the client could never have a 200 for.
+  if (payload.workspace_id && etagMatches(request.headers.get("if-none-match"), etag)) {
+    // Validate against the exact headers the 200 would carry (per-path CSP
+    // including the inline frame-ancestors relaxation, content-type,
+    // cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
+    // replace the cached response's headers.
+    return notModifiedResponse(
+      context,
+      payload,
+      responseHeadersForPath(path, 0, payload, etag, frameAncestorsForEnv(env)),
+    );
+  }
 
   const key = objectKeyFor(payload, path);
   const object =
@@ -105,7 +132,7 @@ export async function serveSignedObject(
   const bytes = served.bytes && injectsNoindex ? injectNoindexMetaBytes(served.bytes) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload.exp, payload, frameAncestorsForEnv(env));
+  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestorsForEnv(env));
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When noindex injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -222,9 +249,10 @@ export function objectKeyFor(payload: ContentTokenPayload, path: string): string
   return `${prefix.replace(/\/+$/, "")}/${path}`;
 }
 
-export function bundleResponseHeaders(size: number, tokenExpiresAt: number, noindex: boolean): Headers {
+export function bundleResponseHeaders(size: number, noindex: boolean, etag: string): Headers {
   const headers = new Headers(securityHeaders);
-  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
+  headers.set("cache-control", CONTENT_CACHE_CONTROL);
+  headers.set("etag", etag);
   headers.set("content-length", String(size));
   headers.set("content-type", "application/zip");
   headers.set("content-disposition", `attachment; filename="${BUNDLE_FILENAME}"`);
@@ -237,14 +265,15 @@ export function bundleResponseHeaders(size: number, tokenExpiresAt: number, noin
 export function responseHeadersForPath(
   path: string,
   size: number,
-  tokenExpiresAt: number,
   payload: ContentTokenPayload,
+  etag: string,
   frameAncestors: readonly string[] = [],
 ): Headers {
   const scriptDisabled = payload.script_disabled !== false;
   const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
-  headers.set("cache-control", `private, max-age=${Math.max(0, tokenExpiresAt - Math.floor(Date.now() / 1000))}`);
+  headers.set("cache-control", CONTENT_CACHE_CONTROL);
+  headers.set("etag", etag);
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
   // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
@@ -263,6 +292,36 @@ export function responseHeadersForPath(
     headers.set("x-robots-tag", NOINDEX_HEADER);
   }
   return headers;
+}
+
+// Every served file and bundle revalidates on every load (`no-cache`): paired
+// with the strong ETag, an unchanged reload is a zero-body 304 instead of a full
+// re-download, while denylist and expiry are still re-checked each time so a
+// revoked or expired artifact stops serving immediately rather than lingering in
+// a warm browser cache. `private` always: the URL is a bearer cap and must never
+// enter a shared cache. The validator does the caching work; we deliberately do
+// not grant a no-revalidation `max-age` window.
+export const CONTENT_CACHE_CONTROL = "private, no-cache";
+
+// 304 serves no bytes, but the request already counted against the artifact read
+// limit, so it still registers a read (bytes: 0). It reuses the exact headers the
+// 200 would carry (built by the caller) minus the now-meaningless content-length,
+// so the validated cache entry keeps the same CSP, content-type, and cache
+// directives instead of inheriting a weaker set from a hand-maintained 304 list.
+function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, headers: Headers): Response {
+  if (payload.workspace_id) {
+    writeArtifactEvent(context.env.ARTIFACT_EVENTS, {
+      kind: "read",
+      workspaceId: payload.workspace_id,
+      artifactId: payload.artifact_id,
+      revisionId: payload.revision_id,
+      bytes: 0,
+      detail: "304",
+    });
+  }
+  headers.delete("content-length");
+  headers.set(REQUEST_ID_HEADER, getRequestId(context));
+  return new Response(null, { status: 304, headers });
 }
 
 function injectNoindexMetaBytes(bytes: Uint8Array): Uint8Array {
