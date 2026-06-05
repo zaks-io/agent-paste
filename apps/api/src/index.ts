@@ -25,6 +25,7 @@ import {
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
 import { billingCheckout, billingPortal, billingReturn, billingStatus, billingWebhook } from "./routes/billing.js";
+import { getCliVersion } from "./routes/cli-version.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import {
   deleteMemberArtifactRoute,
@@ -103,6 +104,17 @@ const apiDbRegistrar = createRegistrar<Repository>({
   },
 });
 
+// Routes that read no database (e.g. the public CLI-version advert, which only
+// touches KV) mount here so the registrar never resolves Hyperdrive for them.
+const apiNoDbRegistrar = createRegistrar({
+  app,
+  auth: createApiAuthResolvers(),
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
+  onMount: (contract) => {
+    mountedRouteIds.add(contract.id);
+  },
+});
+
 apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) =>
   whoami(context as AppContext, principal, db),
 );
@@ -142,6 +154,7 @@ apiDbRegistrar.mount(contractById("agentView.public"), async (context, principal
 apiDbRegistrar.mount(contractById("accessLinks.resolve"), async (context, _principal, db, guard) =>
   resolveAccessLinkRoute(context as AppContext, db, guard),
 );
+apiNoDbRegistrar.mount(contractById("cli.version"), async (context) => getCliVersion(context as AppContext));
 apiDbRegistrar.mount(contractById("ephemeral.provision"), async (context, _principal, db, guard) =>
   ephemeralProvisionRoute(context as AppContext, db, guard),
 );

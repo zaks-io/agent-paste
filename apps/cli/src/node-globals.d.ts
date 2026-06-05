@@ -2,7 +2,9 @@ declare const process: {
   argv: string[];
   env: Record<string, string | undefined>;
   platform: string;
-  stdout: { write(value: string): void };
+  arch: string;
+  execPath: string;
+  stdout: { write(value: string): void; isTTY?: boolean };
   stderr: { write(value: string): void };
   exitCode: number | undefined;
 };
@@ -38,6 +40,7 @@ declare module "node:fs" {
     writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;
     symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
+    rename(oldPath: string, newPath: string): Promise<void>;
     rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };
 }

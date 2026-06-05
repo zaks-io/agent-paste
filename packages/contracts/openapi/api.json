@@ -566,6 +566,23 @@
           "lifetime_revision_ceiling"
         ]
       },
+      "CliVersionResponse": {
+        "type": "object",
+        "properties": {
+          "latest": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+          },
+          "min_supported": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+          }
+        },
+        "required": [
+          "latest",
+          "min_supported"
+        ]
+      },
       "AgentView": {
         "type": "object",
         "properties": {
@@ -5855,6 +5872,38 @@
                   "required": [
                     "error"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/public/cli-version": {
+      "get": {
+        "operationId": "cli.version",
+        "summary": "Advertise the latest and minimum-supported CLI versions.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliVersionResponse"
                 }
               }
             }

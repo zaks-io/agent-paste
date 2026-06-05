@@ -30,7 +30,7 @@ binary self-upgrade; phase 4 is the release-pipeline wiring.
 version; a compiled binary prints the same string; dev/test runs print
 `0.0.0-dev` without throwing.
 
-## Phase 2 — Background update check + per-channel nag
+## Phase 2 — Background update check + per-channel nag — DONE
 
 - API: add `cli.version` Route Contract in `packages/contracts`
   (`GET /v1/public/cli-version`, unauthenticated, response
@@ -72,54 +72,77 @@ version; a compiled binary prints the same string; dev/test runs print
 hint to stderr at most once per 24h; CI/`--json`/non-TTY/agents see nothing;
 network failure is invisible; stdout is never touched.
 
-## Phase 3 — `agent-paste upgrade` (binary self-update)
+## Phase 3 — `agent-paste upgrade` (binary self-update) — DONE
 
-- `apps/cli/src/upgrade.ts` (new): port the download+verify flow from
-  `apps/apex/src/install-sh.ts`:
-  - OS/arch → asset name (reuse the installer's mapping; factor the table so the
-    two cannot drift, or mirror with a test asserting parity).
-  - Resolve version (latest from phase 2, or `--version <tag>` to pin).
-  - Download asset + `SHA256SUMS` from the GitHub Release, `https`-only, fail on
-    any HTTP error.
-  - Verify bytes against `SHA256SUMS`; refuse on mismatch or missing sha256
-    capability.
-  - Atomic replace: temp file in the **same dir** as the running binary →
-    `chmod +x` → `rename` over self. Windows: rename running exe aside, then
-    move new into place.
-  - Refuse / redirect to npm guidance when `detectChannel() !== "binary"`.
-- `apps/cli/src/index.ts`: route `upgrade` (with `--version`).
-- Tests (no real network): verification rejects a tampered byte; mismatch and
-  missing-checksum paths error and do not write; an npm/npx invocation prints the
-  npm guidance instead of touching the filesystem; the atomic-replace helper
-  writes the temp in the binary's own directory.
+- `apps/cli/src/upgrade.ts`: OS/arch → asset name (ported from
+  `apps/apex/src/install-{sh,ps1}.ts`, with a parity test asserting the asset
+  strings still appear in both installers so the three cannot drift). Resolves
+  the version (latest from the Phase-2 endpoint, or a pinned tag) and downloads
+  the asset + `SHA256SUMS` from the GitHub Release `https`-only, failing on any
+  HTTP error. Verifies the bytes against `SHA256SUMS` (refuses on mismatch or a
+  missing entry, writing nothing). Atomic replace writes a temp file in the
+  **same dir** as the running binary (no EXDEV), then a rename-aside dance on all
+  platforms (current → `.old`, new → target, drop `.old`) so a running exe is
+  replaceable on Windows and ETXTBSY-strict Linux; the original is restored if
+  the final rename fails. A true permission wall (sudo'd install dir) is the one
+  unrecoverable case: the verified bytes stay staged and the CLI prints the exact
+  `sudo mv` to finish. Off the binary channel it redirects to the npm/npx
+  guidance and exits 1 without touching the filesystem.
+- `apps/cli/src/index.ts`: routes `upgrade [<tag>]` before auth resolution. The
+  pinned version is a **positional** tag (`agent-paste upgrade cli-v1.2.3`), not
+  a `--version` flag, to avoid colliding with the `--version`/`-v` print flag.
+- Tests (no real network): asset-name table + installer parity; SHA256SUMS
+  parsing (text/binary forms, prefix non-match, missing); happy-path atomic swap
+  (temp in the binary's own dir, rename-aside, success line); tampered-byte and
+  missing-checksum refuse-and-don't-write; HTTP error; permission-wall manual
+  hint; final-rename rollback; non-binary redirect; default fetch/resolve path
+  via injected `fetchImpl` (https guard + HTTP-status handling).
 
 **Done:** on a binary install, `agent-paste upgrade` downloads, verifies against
 `SHA256SUMS`, and atomically replaces the binary; a corrupted download is
 refused; invoked from npm/npx it prints the npm command instead.
 
-## Phase 4 — Release-pipeline wiring (close the loop)
+## Phase 4 — Release-pipeline wiring (close the loop) — DONE (npm + KV)
 
-- GitHub-driven KV write (ADR 0080 §6). Preferred: a `release: published`
-  -triggered Action step (or a step appended to the release flow) that runs
-  `wrangler kv key put` for the `CLI_RELEASE` value in each env, using the same
-  CI credentials that already deploy Workers. No `api` redeploy — it is a single
-  KV write. (Fallback, only if automation must live off GitHub Actions: an
-  operator-authenticated webhook endpoint in the `/admin/...` family that writes
-  KV on `release` events, with signature verification.)
-- Reconcile npm `version` ↔ `cli-vX.Y.Z` tag: derive the tag from
-  `package.json` (or vice versa) in the release flow so they cannot diverge, and
-  derive the KV `latest` value from the same source.
-- Docs: update `apps/cli/README.md` with `--version`, `upgrade`,
-  `AGENT_PASTE_NO_UPDATE_CHECK`, and the update-check behavior.
+- GitHub-driven KV write + npm publish (ADR 0080 §6): a separate
+  `release: published` workflow (`.github/workflows/cli-advertise.yml`, gated on
+  the `cli-v*` tag) publishes `@zaks-io/agent-paste` to npm (`--provenance`) and
+  then writes the `CLI_RELEASE` value in each env with
+  `wrangler kv key put cli-release --binding CLI_RELEASE --env <env>` (id resolved
+  from `wrangler.jsonc`, no hardcoded ids). npm auth is OIDC trusted publishing
+  (no stored token); the KV write reuses the deploy `CLOUDFLARE_API_TOKEN`/
+  `CLOUDFLARE_ACCOUNT_ID` secrets, scoped to that step. No `api` redeploy.
+- Single version source: `apps/cli/package.json` drives the baked binary version,
+  the npm version, and the KV `latest`. The build job and the advertise job both
+  assert the dispatch/release tag equals `cli-v<version>`, so the channels can't
+  diverge. `min_supported` is set equal to `latest` for now (no force-upgrade
+  floor yet; revisit when a real minimum is needed).
+- README follow-up: DONE — `apps/cli/README.md` documents `version`, `upgrade`,
+  `AGENT_PASTE_NO_UPDATE_CHECK`, and the per-channel update-check behavior (landed
+  with Phase 3).
 
-**Done:** publishing a CLI release writes the `CLI_RELEASE` KV value with no
-manual step and no `api` redeploy; the release tag, npm version, and advertised
-`latest` all derive from one source; the README documents version/upgrade/opt-out.
+**Manual prerequisite (one-time, before the first automated release):** a `0.0.0`
+placeholder is already published to npm, so the trusted-publishing precondition
+(package must exist) is met. On npmjs.com → package → Settings → Trusted
+Publishers, add a GitHub Actions publisher: org `zaks-io`, repo `agent-paste`,
+workflow file `cli-advertise.yml` (leave Environment blank unless the job adds a
+matching `environment:`). After this, CI publishes via OIDC with no stored npm
+token.
+
+(`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` already exist as repo secrets
+from the deploy workflow — no new Cloudflare setup.)
+
+**Done:** publishing a `cli-v*` GitHub Release publishes the package to npm and
+advertises the new version in `CLI_RELEASE` KV with no manual step and no `api`
+redeploy; the tag, npm version, and advertised `latest` all derive from
+`package.json`.
 
 ## Out of scope / explicitly rejected
 
 - Silent binary self-update (ADR 0080 §4).
-- Auto-publishing to npm or auto-promoting the draft release.
+- Auto-promoting the draft release: a human still publishes the GitHub Release;
+  npm publish + KV advertise then fire on `release: published`. (npm publish
+  itself is now in scope — it runs automatically once the human publishes.)
 - Reading `package.json` at runtime for the version (ADR 0080 §1).
 
 ## Open questions for review

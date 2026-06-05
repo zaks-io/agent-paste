@@ -17,6 +17,8 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
+import { runUpdateCheck } from "./update-check.js";
+import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
 
 export type GlobalFlags = {
@@ -36,8 +38,10 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   const command = parsed.command.join(" ");
   // `--version`/`-v` parse as a flag and a positional respectively, not as a
   // subcommand, so detect them before the command switch (where a `--version`
-  // flag would otherwise fall through to the empty-command help case).
-  if (command === "version" || command === "-v" || booleanFlag(parsed, "version", false)) {
+  // flag would otherwise fall through to the empty-command help case). Gate the
+  // bare `--version` flag on there being no real subcommand, so `upgrade
+  // --version` is not hijacked into printing the version.
+  if (command === "version" || command === "-v" || (command === "" && booleanFlag(parsed, "version", false))) {
     return output({ version: CLI_VERSION }, parsed.global, CLI_VERSION);
   }
   switch (command) {
@@ -51,6 +55,8 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
       return;
     case "logout":
       return logout(parsed.global);
+    case "upgrade":
+      return runUpgrade(parsed.positionals[0] ? { version: parsed.positionals[0] } : {});
   }
 
   if (!client && command === "whoami" && !(await hasResolvableAuth())) {
@@ -62,7 +68,9 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   }
 
   const apiClient = client ?? (await resolveClient());
-  return dispatch(command, parsed, apiClient);
+  const result = await dispatch(command, parsed, apiClient);
+  await runUpdateCheck(parsed.global);
+  return result;
 }
 
 async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
@@ -388,6 +396,7 @@ Usage:
   agent-paste whoami [--json]
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
   agent-paste version [--json]
+  agent-paste upgrade [<tag>]
 `);
 }
 

@@ -24,6 +24,7 @@ import {
   BundleAvailabilityPending,
   BundleAvailabilityReady,
 } from "../bundle.js";
+import { CliVersionResponse } from "../cliVersion.js";
 import { EmptyObject, ErrorEnvelope } from "../common.js";
 import {
   EphemeralClaimRequest,
@@ -83,6 +84,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
+  registry.register("CliVersionResponse", CliVersionResponse);
   const registeredAgentView = registry.register("AgentView", AgentView);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
   registry.register("PowChallenge", PowChallenge);

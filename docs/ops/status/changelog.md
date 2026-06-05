@@ -3,6 +3,21 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-05
+
+### Write-allowance fail-closed + ephemeral anti-abuse assessment
+
+- Made the write-allowance binding fail closed: a missing or unreachable
+  new-Artifact allowance counter now returns 503 (`storage_unavailable`) instead
+  of silently admitting the publish (AP-170, #243).
+- Assessed ephemeral proof-of-work as the anti-abuse lever (AP-169 spike,
+  [`ap-169-pow-difficulty-assessment.md`](../ap-169-pow-difficulty-assessment.md)):
+  PoW at difficulty 20 is a speed bump (one GPU ≈ 0.2 ms/solve), the honest JS
+  agent path is ~12 s not "a few hundred ms," and the "global" provision cap is
+  per-PoP eventually consistent. Recommendation: keep PoW, do not migrate to
+  memory-hard hashing, and move the lever to a strongly-consistent global
+  provision counter (DO, AP-173) plus runtime-tunable caps (AP-174).
+
 ## 2026-06-04
 
 ### Dashboard Access Link management + live dashboard

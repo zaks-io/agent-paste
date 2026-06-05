@@ -6,6 +6,7 @@ import { z } from "../zod.js";
 import { registerBillingPaths } from "./api.billing.js";
 import { artifactRateLimitResponse, errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerApiSchemas, requestIdHeader, securitySchemes } from "./shared.js";
+import { applyWebCursorParameterBounds } from "./web-cursor-bounds.js";
 
 const pathStringParam = (name: string, description: string) =>
   z.string().openapi({
@@ -122,6 +123,19 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       "429": artifactRateLimitResponse,
       "500": errorResponse,
       "503": errorResponse,
+    },
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/public/cli-version",
+    operationId: "cli.version",
+    summary: "Advertise the latest and minimum-supported CLI versions.",
+    request: { headers: [requestIdHeader] },
+    // The handler is total — it serves a safe default on missing/malformed/
+    // erroring KV (contract errors: []), so it only ever returns 200.
+    responses: {
+      "200": jsonOk(schemaRef("CliVersionResponse"), "Success (200)"),
     },
   });
 
@@ -615,34 +629,4 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   });
   applyWebCursorParameterBounds(document as unknown as Record<string, unknown>);
   return document as unknown as Record<string, unknown>;
-}
-
-function applyWebCursorParameterBounds(document: Record<string, unknown>) {
-  const paths = document.paths;
-  if (!isRecord(paths)) {
-    return;
-  }
-  for (const path of ["/v1/web/artifacts", "/v1/web/audit", "/v1/web/admin/lockdowns", "/v1/web/admin/events"]) {
-    const webListPath = paths[path];
-    if (!isRecord(webListPath)) {
-      continue;
-    }
-    const getOperation = webListPath.get;
-    if (!isRecord(getOperation) || !Array.isArray(getOperation.parameters)) {
-      continue;
-    }
-
-    const cursorParameter = getOperation.parameters.find(
-      (parameter): parameter is { schema: Record<string, unknown> } =>
-        isRecord(parameter) && parameter.name === "cursor" && parameter.in === "query" && isRecord(parameter.schema),
-    );
-    if (cursorParameter) {
-      cursorParameter.schema.minLength = 1;
-      cursorParameter.schema.maxLength = 500;
-    }
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -54,6 +54,7 @@ export type Env = {
   AGENT_VIEW_SIGNING_SECRET?: string;
   CLEANUP_BATCH_SIZE?: string;
   DENYLIST?: KVNamespace;
+  CLI_RELEASE?: KVNamespace;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;

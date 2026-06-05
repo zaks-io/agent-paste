@@ -99,12 +99,14 @@ The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query 
 
 ## Commands
 
-| Command                      | Purpose                                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `agent-paste login`          | Mint a publish/read API key via browser loopback login.                       |
-| `agent-paste logout`         | Revoke the stored API key when possible, then remove the local credential.    |
-| `agent-paste whoami`         | Show the resolved **Workspace**, actor, and granted scopes.                   |
-| `agent-paste publish <path>` | Walk a local file or directory, upload bytes, finalize, and print the result. |
+| Command                       | Purpose                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| `agent-paste login`           | Mint a publish/read API key via browser loopback login.                          |
+| `agent-paste logout`          | Revoke the stored API key when possible, then remove the local credential.       |
+| `agent-paste whoami`          | Show the resolved **Workspace**, actor, and granted scopes.                      |
+| `agent-paste publish <path>`  | Walk a local file or directory, upload bytes, finalize, and print the result.    |
+| `agent-paste version`         | Print the CLI version baked in at build time.                                    |
+| `agent-paste upgrade [<tag>]` | Self-update a standalone binary install: download, verify, and replace in place. |
 
 ## Flags
 
@@ -200,11 +202,20 @@ The `code` field is the stable identifier; `message` is human-readable.
 
 ## Configuration
 
-| Variable              | Purpose                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `AGENT_PASTE_API_KEY` | API key for CI and headless use. Takes precedence over stored login.                                                |
-| `AGENT_PASTE_API_URL` | Override the API base URL. Defaults to `https://api.agent-paste.sh`.                                                |
-| `AGENT_PASTE_WEB_URL` | Override the web app base URL used to build the `--ephemeral` claim link. Defaults to `https://app.agent-paste.sh`. |
+| Variable                      | Purpose                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_PASTE_API_KEY`         | API key for CI and headless use. Takes precedence over stored login.                                                |
+| `AGENT_PASTE_API_URL`         | Override the API base URL. Defaults to `https://api.agent-paste.sh`.                                                |
+| `AGENT_PASTE_WEB_URL`         | Override the web app base URL used to build the `--ephemeral` claim link. Defaults to `https://app.agent-paste.sh`. |
+| `AGENT_PASTE_NO_UPDATE_CHECK` | Set to any value to disable the background update check entirely.                                                   |
+
+## Staying up to date
+
+After a real command (not `help`/`version`), the CLI checks at most once per 24h whether a newer version has been published and prints a single hint to **stderr**. It is silent in CI, with `--json`, with `--quiet`, on a non-TTY, and when `AGENT_PASTE_NO_UPDATE_CHECK` is set; a network failure is swallowed and never affects the command's result or exit code. The hint is tailored to how you installed it:
+
+- **Standalone binary** → `agent-paste upgrade`. This downloads the matching release asset from GitHub, verifies it against `SHA256SUMS`, and atomically replaces the running binary in place. Pin a specific release with `agent-paste upgrade cli-v1.2.3`. If the install directory is not writable by your user (a `sudo`-installed binary), the verified download is left staged and the CLI prints the exact `sudo mv` to finish.
+- **`npm i -g`** → `npm i -g @zaks-io/agent-paste@latest`.
+- **`npx`** → nothing; `npx` already runs the latest published version.
 
 ## When not to use the CLI
 

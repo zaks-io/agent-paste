@@ -5,6 +5,7 @@ export * from "./apiKeys.js";
 export * from "./artifacts.js";
 export * from "./billing.js";
 export * from "./bundle.js";
+export * from "./cliVersion.js";
 export * from "./common.js";
 export * from "./enums.js";
 export * from "./ephemeral.js";

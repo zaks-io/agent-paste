@@ -1,8 +1,8 @@
 # Live Updates — remaining work
 
-Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-live-updates-via-stream-worker-and-per-artifact-durable-object.md). Owner: Isaac. Snapshot date: 2026-05-27.
+Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-live-updates-via-stream-worker-and-per-artifact-durable-object.md). Owner: Isaac. Snapshot date: 2026-06-04.
 
-Scope: implemented in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies). Remaining polish is operator tunability for the viewer cap and hosted-route cutover.
+Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies); the SSE-driven live UI landed in AP-164 (publishing a revision live-updates the whole artifact card / iframe with no reload, verified on preview 2026-06-04). Two deferred-polish items remain, tracked in [AP-166](https://linear.app/zaks-io/issue/AP-166): the Access Link Lockdown disconnect hook and an operator-tunable viewer cap.
 
 ## Dependencies
 
@@ -36,14 +36,15 @@ Scope: implemented in AP-25 (`apps/stream`, api notify/authorize, web SSE proxie
 - [x] Swap iframe `src` on new pointer (`/al/*` and dashboard artifact detail).
 - [x] Reconcile-on-reconnect via initial SSE event on connect.
 - [x] Live Update client lives in `apps/web/src/lib/live-updates.ts` (no session imports on `/al/*` routes).
+- [x] Dashboard artifact detail invalidates the TanStack Query cache on a new pointer, so the iframe and every card field (size, file count, last published, status) update together — not just `iframeSrc` (AP-164).
 
 ## Cost bound and revocation
 
 - [x] Per-artifact concurrent-viewer cap (`LIVE_UPDATE_VIEWER_CAP = 10` in contracts).
 - [x] At-cap refusal returns 503 `live_update_at_cap` (client treats as unavailable and keeps current iframe).
 - [x] Proactive drop on artifact deletion and platform lockdown (workspace lockdown fans out to active artifacts).
-- [ ] Access Link Lockdown disconnect hook when workspace lockdown API for access links ships.
-- [ ] Operator-tunable cap via hosted config (currently constant in contracts).
+- [ ] Access Link Lockdown disconnect hook when workspace lockdown API for access links ships ([AP-166](https://linear.app/zaks-io/issue/AP-166)).
+- [ ] Operator-tunable cap via hosted config (currently constant in contracts) ([AP-166](https://linear.app/zaks-io/issue/AP-166)).
 
 ## Docs wiring
 
