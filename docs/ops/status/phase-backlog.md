@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-04 (AP-156 Access Link UI; AP-11/AP-17 ops decisions closed).
+Last updated: 2026-06-05 (Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -10,10 +10,12 @@ Phase 1 is complete for the hosted CLI-first MVP. Phase 3 is complete. Phase 4
 and Phase 5 are complete for the current Access Link, jobs/lifecycle/bundle,
 Live Updates, and MCP surfaces; the dashboard Access Link management UI and its
 member `/v1/web/*` routes shipped in AP-156, and the dashboard moved to a
-TanStack Query cache with an SSE-driven live UI in AP-164. Active product work
-is now post-launch/Phase 6: billing surfaces, ephemeral publish claim/upgrade,
-the in-progress file-bytes malware scanner (ADR 0080, AP-149), and security/ops
-polish.
+TanStack Query cache with an SSE-driven live UI in AP-164. The Stripe billing
+path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
+shipped behind the deploy-time billing flag. Active product work is now
+post-launch/Phase 6: hosted Stripe verification, ephemeral publish
+claim/upgrade (AP-109) and security/ops polish. (The file-bytes malware scanner,
+AP-149, was cancelled as too expensive; containment already bounds the risk.)
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
@@ -62,7 +64,12 @@ Nice-to-have but not a Phase 3 gate:
 
 Goal: operational depth without changing the product surface.
 
-1. [ ] Logpush -> Axiom wiring per `docs/ops/runbook-logpush.md`.
+1. [x] Worker observability -> Axiom. Landed via native Workers Observability
+       (`observability.enabled`), not the per-Worker Logpush job design in
+       `docs/ops/runbook-logpush.md`: all Workers (preview + production + PR
+       previews) emit OTel traces to the Axiom `cloudflare` dataset with status,
+       latency, route, and structured app events. The Logpush runbook is
+       superseded and kept only if per-Worker datasets are ever wanted.
 2. [x] Finish Cloudflare Access app-side follow-up for production operator
        paths. The Access app/policy exists and gates `/admin` on
        `app.agent-paste.sh` plus `/v1/web/admin/lockdowns` on
@@ -167,8 +174,16 @@ usage.
        overlap windows (`scripts/rotate-versioned-secret.mjs`,
        `scripts/rotate-workos-secrets.mjs`, `@agent-paste/rotation` automation
        tests).
-5. [ ] Public SDK and standalone CLI binaries only if product demand warrants
-       them.
+5. [x] Standalone CLI binaries (ADR 0080, AP-36/AP-41). `cli-release.yml`
+       cross-compiles four targets (linux-x64/arm64, macos-arm64, windows-x64)
+       via `bun build --compile`, codesigns + notarizes the macOS binary,
+       emits a CycloneDX SBOM + grype scan + Sigstore provenance, and attaches
+       them to a draft GitHub release; `agent-paste upgrade` self-replaces a
+       binary install. See `runbook-cli-release.md`.
+
+No public SDK: decided out of scope (2026-06-05). The CLI is the supported
+client surface; the generated OpenAPI + internal `api-client` cover programmatic
+use. Removed from the backlog rather than parked.
 
 ## Post-Launch / Billing
 
@@ -178,18 +193,26 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        deploy-time billing flag that is off by default.
 2. [x] Create severable `packages/billing` with a `BillingProvider` seam and a
        no-op adapter.
-3. [ ] Add Stripe Checkout, synchronous activation, idempotent webhooks, and
-       Customer Portal routes mounted in `api` only when billing is enabled.
+3. [x] Add Stripe Checkout, synchronous activation, idempotent webhooks, and
+       Customer Portal routes mounted in `api` only when billing is enabled
+       (AP-5, #253). Operator plan override and invoice listing landed here too.
 4. [x] Add `workspace_billing` and daily jobs reconciliation so local
        entitlements converge even if webhooks are delayed or disabled.
-5. [ ] Add hosted web billing UI and operator plan override.
+5. [x] Add hosted web billing UI and operator plan override. The
+       `/settings/billing` dashboard surfaces plan, subscription status, live
+       daily write allowance, renewal date, upgrade/manage actions, and a real
+       Stripe invoice table; billing-off renders a friendly "not enabled" state
+       (AP-176, #266). Operator plan override shipped with the AP-5 API.
+       Remaining: hosted Stripe test-mode verification (needs credentials +
+       approval).
 6. [x] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
        `docs/specs/ephemeral-publish.md`). Self-provisioned Ephemeral Workspace
        behind proof-of-work, daily new-artifact write allowance, Claim Token
        promotion, ephemeral-tier scanning, and script-disabled serving are
        implemented (AP-99–AP-108, AP-107 CLI, AP-110 local smoke, AP-111 hosted
        smoke). Operator runbook: `docs/ops/runbook-ephemeral-publish.md` (AP-112).
-       Remaining: claim/upgrade funnel polish (AP-109) and Stripe checkout (AP-5).
+       Stripe checkout shipped (AP-5/AP-176); remaining: claim/upgrade funnel
+       polish (AP-109).
 
 ## Codebase Follow-Ups
 
@@ -206,4 +229,3 @@ These are not phase gates, but they are documented cleanup:
       purge (AP-40).
 - [ ] Split `RepositoryCore` if growth continues, without reintroducing backend
       orchestration duplication.
-- [ ] Automate SDK regeneration if public SDK work becomes real.

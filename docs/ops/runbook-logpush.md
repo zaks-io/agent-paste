@@ -1,5 +1,17 @@
 # Logpush to Axiom Runbook
 
+> **Superseded (2026-06-05).** Worker observability already reaches Axiom via the
+> native Workers Observability export (`observability.enabled` in each
+> `wrangler.jsonc`): every Worker — preview, production, and PR previews — emits
+> OTel traces into the shared `cloudflare` dataset, carrying response status,
+> wall/CPU time, route (`url.path`, query split into `url.query`), `outcome`, and
+> structured app-level `data.*` events. That covers the 5xx-rate, p95-latency, and
+> request-by-route use cases this runbook was written for. The per-Worker Logpush
+> design below (six `workers_trace_events` jobs into six dedicated datasets) is
+> **not implemented and not planned**; keep it only as a reference if dedicated
+> per-Worker datasets, custom field banlists, or longer per-env retention are ever
+> wanted beyond what the native export provides.
+
 Click-ops runbook for wiring Cloudflare Workers Logpush into Axiom for `api`, `upload`, and `content`. Drives ADR 0011 and the parked Phase 2 ops item in [`status/phase-backlog.md`](./status/phase-backlog.md#parked-ops--phase-2).
 
 Scope:
