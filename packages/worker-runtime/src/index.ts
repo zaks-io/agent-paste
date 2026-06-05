@@ -1,4 +1,12 @@
 export {
+  type AnalyticsEngineDataPoint,
+  type AnalyticsEngineDataset,
+  type ArtifactEvent,
+  type ArtifactEventKind,
+  artifactEventDataPoint,
+  writeArtifactEvent,
+} from "./analytics.js";
+export {
   type ApiKeyAuthEnv,
   type ApiKeyAuthService,
   createAuthenticateApiKey,

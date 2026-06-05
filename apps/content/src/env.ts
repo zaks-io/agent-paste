@@ -1,5 +1,5 @@
 import type { RequestIdVariables } from "@agent-paste/auth";
-import type { BoundRespondersVariables } from "@agent-paste/worker-runtime";
+import type { AnalyticsEngineDataset, BoundRespondersVariables } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 
 export type R2ObjectBody = {
@@ -39,6 +39,7 @@ export type Env = {
   DOCS_BASE_URL?: string;
   AGENT_PASTE_ENV?: string;
   SENTRY_DSN?: string;
+  ARTIFACT_EVENTS?: AnalyticsEngineDataset;
 };
 
 export type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>;

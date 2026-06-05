@@ -1,7 +1,7 @@
 import type { ApiActor, Repository } from "@agent-paste/db";
 import type { AgentViewTokenPayload } from "@agent-paste/tokens/agent-view";
 import type { Principal } from "@agent-paste/worker-runtime";
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import { entrypointPathFromViewUrl, signAgentViewContentUrls, signPublishResult } from "../agent-view.js";
 import { htmlAgentViewResponse, wantsHtml } from "../agent-view-html.js";
 import type { AppContext } from "../env.js";
@@ -140,6 +140,20 @@ export async function publishRevision(
         throw error;
       }
 
+      const isEphemeral =
+        result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true;
+      // Only the first publish counts; an idempotent replay returns the stored
+      // result without doing real work, so emitting here would inflate the metric.
+      if (!isReplay) {
+        writeArtifactEvent(context.env.ARTIFACT_EVENTS, {
+          kind: "publish",
+          workspaceId: actor.workspace_id,
+          artifactId: params.artifactId ?? "",
+          revisionId: params.revisionId ?? "",
+          detail: isEphemeral ? "ephemeral" : "standard",
+        });
+      }
+
       const bundleStatus = bundleStatusFromPublishResult(result);
       try {
         await enqueuePostPublishJobs(context.env, {
@@ -148,11 +162,7 @@ export async function publishRevision(
           revisionId: params.revisionId ?? "",
           bundleStatus: bundleStatus === "pending" ? "pending" : "disabled",
           requestedAt: now,
-          ephemeralTier:
-            result !== null &&
-            typeof result === "object" &&
-            "ephemeral_tier" in result &&
-            result.ephemeral_tier === true,
+          ephemeralTier: isEphemeral,
         });
       } catch (error) {
         console.warn("Post-publish job enqueue failed after publish; revision remains published.", {
@@ -164,8 +174,7 @@ export async function publishRevision(
       }
       const signed = await signPublishResult(result, context.env, {
         workspaceId: actor.workspace_id,
-        ephemeralTier:
-          result !== null && typeof result === "object" && "ephemeral_tier" in result && result.ephemeral_tier === true,
+        ephemeralTier: isEphemeral,
       });
       if (result && typeof result === "object" && "artifact_id" in result) {
         const publish = result as { artifact_id: string; title?: string };

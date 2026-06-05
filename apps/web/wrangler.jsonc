@@ -30,7 +30,8 @@
     "WORKOS_COOKIE_NAME": "__agp_session",
     "WORKOS_COOKIE_SAME_SITE": "lax",
     "WEB_BASE_URL": "http://localhost:5173",
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "CF_WEB_ANALYTICS_TOKEN": ""
   },
   "env": {
     "preview": {
@@ -56,7 +57,8 @@
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
         "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
-        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwTR9FFmnKY9lL"
+        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwTR9FFmnKY9lL",
+        "CF_WEB_ANALYTICS_TOKEN": ""
       },
       "services": [
         {
@@ -87,7 +89,8 @@
         "WORKOS_COOKIE_NAME": "__agp_session",
         "WORKOS_COOKIE_SAME_SITE": "lax",
         "WEB_BASE_URL": "https://app.agent-paste.sh",
-        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwQJT2MNI2Fcve"
+        "TURNSTILE_SITE_KEY": "0x4AAAAAADdwQJT2MNI2Fcve",
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
       },
       "services": [
         {
