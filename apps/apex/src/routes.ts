@@ -2,6 +2,7 @@ import { AGENTS_MD } from "./agents.js";
 import { renderAboutPage } from "./components/about.js";
 import { renderDocsIndexPage, renderDocsPage } from "./components/docs.js";
 import { renderHomePage } from "./components/home.js";
+import { renderHowItWorksPage } from "./components/how-it-works.js";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "./docs/markdown.js";
 import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath, docsPageForSlug } from "./docs/registry.js";
 import { INSTALL_PS1 } from "./install-ps1.js";
@@ -55,6 +56,10 @@ export function routeApex(request: Request, context: ApexRouteContext): Response
 
   if (url.pathname === "/about") {
     return htmlResponse(renderAboutPage(context.nonce, context.analyticsToken), request.method, security);
+  }
+
+  if (url.pathname === "/how-it-works") {
+    return htmlResponse(renderHowItWorksPage(context.nonce, context.analyticsToken), request.method, security);
   }
 
   if (url.pathname === "/docs") {
@@ -153,6 +158,7 @@ function sitemapXml(origin: string): string {
   const urls = [
     "/",
     "/about",
+    "/how-it-works",
     "/docs",
     "/docs.md",
     ...DOCS_PAGES.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),

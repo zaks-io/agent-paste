@@ -178,6 +178,37 @@ describe("apex worker", () => {
     expect(homeBody).toContain('<a class="foot-link" href="/about">About</a>');
   });
 
+  it("renders the how-it-works page from the footer without overclaiming safety", async () => {
+    const home = await get("/");
+    expect(await home.text()).toContain('<a class="foot-link" href="/how-it-works">How it works</a>');
+
+    const response = await get("/how-it-works");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const body = await response.text();
+    expect(body).toContain("Protected handoffs for agent work");
+    expect(body).toContain("Your Workspace stays separate");
+    expect(body).toContain("Files stay private until shared");
+    expect(body).toContain("Generated content is isolated");
+    expect(body).toContain("Sharing can be revoked");
+    expect(body).toContain("What this does not promise");
+    expect(body).toContain("does not inspect or certify uploaded content as safe");
+    expect(body).toContain("does not promise malware detection");
+    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/how-it-works"/>');
+    const main = body.match(/<main class="content">[\s\S]*<\/main>/)?.[0] ?? "";
+    expect(main).not.toContain("Operator");
+    expect(main).not.toContain("operator");
+    expect(main).not.toContain("Platform Lockdown");
+    expect(main).not.toContain("MCP server");
+    expect(main).not.toContain("REST API");
+    expect(main).not.toContain("proof-of-work");
+    expect(main).not.toContain("Safety Scanner");
+    expect(main).not.toContain("secure hosting");
+    expect(main).not.toContain("malware-free");
+    expect(main).not.toContain("—");
+  });
+
   it("links to docs from the home page and footer", async () => {
     const home = await get("/");
     const homeBody = await home.text();
@@ -190,6 +221,7 @@ describe("apex worker", () => {
     const response = await get("/sitemap.xml");
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/about</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/how-it-works</loc>");
   });
 
   it("serves /llms.txt as text/plain", async () => {
@@ -367,6 +399,7 @@ describe("apex worker", () => {
     expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8");
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/how-it-works</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/docs</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/docs.md</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/docs/billing</loc>");

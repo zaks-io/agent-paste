@@ -16,3 +16,13 @@ export const ABOUT_META: PageMeta = {
   description: ABOUT_DESCRIPTION,
   canonicalPath: "/about",
 };
+
+export const HOW_IT_WORKS_TITLE = "How agent-paste works";
+export const HOW_IT_WORKS_DESCRIPTION =
+  "How agent-paste keeps workspaces separate, stores files privately, isolates generated content, and makes shared handoffs revocable.";
+
+export const HOW_IT_WORKS_META: PageMeta = {
+  title: HOW_IT_WORKS_TITLE,
+  description: HOW_IT_WORKS_DESCRIPTION,
+  canonicalPath: "/how-it-works",
+};

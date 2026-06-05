@@ -14,6 +14,8 @@ Read these first when you are new to the repo or resuming after a long gap:
 - [`CONTEXT.md`](../../CONTEXT.md) - domain language and the app/worker contact
   map.
 - [`docs/specs/README.md`](../specs/README.md) - spec reading order.
+- [`docs/specs/architecture.md`](../specs/architecture.md) - current system map,
+  trust boundaries, primary flows, and owner lookup table.
 - [`docs/adr/README.md`](../adr/README.md) - active architecture decisions and
   conflict resolutions.
 - [`docs/agents/workflow.md`](./workflow.md) and
@@ -28,29 +30,30 @@ the README for any app or package you will edit.
 Use this map to find the first files to inspect. The READMEs in each directory
 carry the local contract summary and commands.
 
-| Area               | Start Here                                                                                           | Owns                                                                                   |
-| ------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Product language   | [`CONTEXT.md`](../../CONTEXT.md)                                                                     | Canonical terms, avoided synonyms, app/worker vocabulary, and relationship rules.      |
-| Current status     | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Project snapshot, active phase, deferred work, and status ledger links.                |
-| Product specs      | [`docs/specs/README.md`](../specs/README.md)                                                         | User-facing contracts, acceptance criteria, data model, API, web, jobs, and local dev. |
-| Architecture       | [`docs/adr/README.md`](../adr/README.md)                                                             | Decision history, current conflict resolutions, and implementation constraints.        |
-| Public contracts   | [`packages/contracts`](../../packages/contracts)                                                     | Zod schemas, route registries, OpenAPI goldens, and shared wire types.                 |
-| Runtime guardrails | [`packages/worker-runtime`](../../packages/worker-runtime)                                           | Route registrar, request guard, principals, errors, rate limiting, and Sentry helpers. |
-| Auth helpers       | [`packages/auth`](../../packages/auth)                                                               | Request IDs, auth response helpers, and shared auth lookup/cache helpers.              |
-| Durable state      | [`packages/db`](../../packages/db)                                                                   | Drizzle schema, migrations, RLS, repository core, Postgres adapter, and local adapter. |
-| Command sequencing | [`packages/commands`](../../packages/commands)                                                       | `runCommand`, idempotency claim/replay, audit sequencing, and queue target helpers.    |
-| Token crypto       | [`packages/tokens`](../../packages/tokens), [`packages/rotation`](../../packages/rotation)           | Signed token codecs, key/pepper rings, token kinds, and rotation playbooks.            |
-| API control plane  | [`apps/api`](../../apps/api)                                                                         | Authenticated mutations, web API, Agent View, Access Link resolution, and operators.   |
-| Upload path        | [`apps/upload`](../../apps/upload)                                                                   | Upload Sessions, signed PUT URLs, R2 writes, and finalize.                             |
-| Content serving    | [`apps/content`](../../apps/content)                                                                 | Signed content reads, denylist checks, MIME/CSP/cache headers, and R2 streaming.       |
-| Dashboard          | [`apps/web`](../../apps/web)                                                                         | TanStack Start routes, WorkOS session handling, dashboard UI, and server mutations.    |
-| Lifecycle jobs     | [`apps/jobs`](../../apps/jobs)                                                                       | Queue consumers, cron discovery, bundle generation, byte purge, retention, and scans.  |
-| Live Updates       | [`apps/stream`](../../apps/stream)                                                                   | Artifact Durable Object, SSE fan-out, and viewer authorization through `api`.          |
-| CLI                | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, credentials, publish flow, local admin commands, and API client calls.          |
-| Marketing surface  | [`apps/apex`](../../apps/apex)                                                                       | Public homepage, `/llms.txt`, `/agents.md`, and app redirects.                         |
-| MCP scaffold       | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Future OAuth-only MCP transport, tool registry, and forwarded API call plans.          |
-| Storage helpers    | [`packages/storage`](../../packages/storage), [`packages/config`](../../packages/config)             | Served content type mapping, security headers, paths, limits, and expiration helpers.  |
-| Repo policy        | [`packages/repo-lint`](../../packages/repo-lint), [`scripts/README.md`](../../scripts/README.md)     | Monorepo guardrails, deployment scripts, smoke scripts, and maintenance commands.      |
+| Area                | Start Here                                                                                           | Owns                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Product language    | [`CONTEXT.md`](../../CONTEXT.md)                                                                     | Canonical terms, avoided synonyms, app/worker vocabulary, and relationship rules.      |
+| Current status      | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Project snapshot, active phase, deferred work, and status ledger links.                |
+| Product specs       | [`docs/specs/README.md`](../specs/README.md)                                                         | User-facing contracts, acceptance criteria, data model, API, web, jobs, and local dev. |
+| System architecture | [`docs/specs/architecture.md`](../specs/architecture.md)                                             | Current system map, trust boundaries, primary flows, and owner lookup table.           |
+| Decision history    | [`docs/adr/README.md`](../adr/README.md)                                                             | Rationale, conflict resolutions, and implementation constraints.                       |
+| Public contracts    | [`packages/contracts`](../../packages/contracts)                                                     | Zod schemas, route registries, OpenAPI goldens, and shared wire types.                 |
+| Runtime guardrails  | [`packages/worker-runtime`](../../packages/worker-runtime)                                           | Route registrar, request guard, principals, errors, rate limiting, and Sentry helpers. |
+| Auth helpers        | [`packages/auth`](../../packages/auth)                                                               | Request IDs, auth response helpers, and shared auth lookup/cache helpers.              |
+| Durable state       | [`packages/db`](../../packages/db)                                                                   | Drizzle schema, migrations, RLS, repository core, Postgres adapter, and local adapter. |
+| Command sequencing  | [`packages/commands`](../../packages/commands)                                                       | `runCommand`, idempotency claim/replay, audit sequencing, and queue target helpers.    |
+| Token crypto        | [`packages/tokens`](../../packages/tokens), [`packages/rotation`](../../packages/rotation)           | Signed token codecs, key/pepper rings, token kinds, and rotation playbooks.            |
+| API control plane   | [`apps/api`](../../apps/api)                                                                         | Authenticated mutations, web API, Agent View, Access Link resolution, and operators.   |
+| Upload path         | [`apps/upload`](../../apps/upload)                                                                   | Upload Sessions, signed PUT URLs, R2 writes, and finalize.                             |
+| Content serving     | [`apps/content`](../../apps/content)                                                                 | Signed content reads, denylist checks, MIME/CSP/cache headers, and R2 streaming.       |
+| Dashboard           | [`apps/web`](../../apps/web)                                                                         | TanStack Start routes, WorkOS session handling, dashboard UI, and server mutations.    |
+| Lifecycle jobs      | [`apps/jobs`](../../apps/jobs)                                                                       | Queue consumers, cron discovery, bundle generation, byte purge, retention, and scans.  |
+| Live Updates        | [`apps/stream`](../../apps/stream)                                                                   | Artifact Durable Object, SSE fan-out, and viewer authorization through `api`.          |
+| CLI                 | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, credentials, publish flow, local admin commands, and API client calls.          |
+| Marketing surface   | [`apps/apex`](../../apps/apex)                                                                       | Public homepage, `/llms.txt`, `/agents.md`, and app redirects.                         |
+| MCP scaffold        | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Future OAuth-only MCP transport, tool registry, and forwarded API call plans.          |
+| Storage helpers     | [`packages/storage`](../../packages/storage), [`packages/config`](../../packages/config)             | Served content type mapping, security headers, paths, limits, and expiration helpers.  |
+| Repo policy         | [`packages/repo-lint`](../../packages/repo-lint), [`scripts/README.md`](../../scripts/README.md)     | Monorepo guardrails, deployment scripts, smoke scripts, and maintenance commands.      |
 
 ## Common Lookups
 

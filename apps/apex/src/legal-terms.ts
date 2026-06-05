@@ -56,7 +56,7 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "You keep ownership of the files, metadata, and other content you publish. You grant Zaks.io, LLC the limited rights needed to host, process, secure, display, transmit, cache, scan, back up, and delete that content as part of operating the service.",
+          text: "You keep ownership of the files, metadata, and other content you publish. You grant Zaks.io, LLC the limited rights needed to host, process, secure, display, transmit, cache, back up, and delete that content as part of operating the service.",
         },
         {
           kind: "paragraph",
@@ -74,14 +74,14 @@ export const TERMS: LegalDocument = {
           items: [
             "malware, credential theft, phishing, spam, fraud, or deceptive impersonation",
             "content that violates law, privacy rights, intellectual property rights, or a person's safety",
-            "attempts to bypass limits, scans, authentication, authorization, rate limits, or platform lockdowns",
+            "attempts to bypass limits, authentication, authorization, rate limits, revocation, or abuse-response controls",
             "testing against accounts, Workspaces, Artifacts, Access Links, or systems you do not own or have permission to test",
             "bulk scraping, denial-of-service activity, resource exhaustion, or attempts to degrade the service for others",
           ],
         },
         {
           kind: "paragraph",
-          text: "We may suspend access, remove or disable content, revoke credentials, apply lockdowns, or preserve records when needed to protect the service, users, third parties, or the public.",
+          text: "We may suspend access, remove or disable content, revoke credentials, or preserve records when needed to protect the service, users, third parties, or the public.",
         },
       ],
     },
@@ -95,7 +95,7 @@ export const TERMS: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "Artifacts are transient by default. Auto Deletion, expiration, revocation, and platform lockdown controls may make content unavailable before physical storage cleanup completes.",
+          text: "Artifacts are transient by default. Auto Deletion, expiration, revocation, and abuse-response controls may make content unavailable before physical storage cleanup completes.",
         },
       ],
     },

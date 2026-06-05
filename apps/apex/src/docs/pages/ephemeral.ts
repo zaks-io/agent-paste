@@ -14,7 +14,7 @@ export const EPHEMERAL_DOC: DocsPage = {
           kind: "ordered",
           items: [
             "An agent runs `agent-paste publish <path> --ephemeral`.",
-            "The CLI handles proof-of-work, provisions an Ephemeral Workspace and short-lived API Key, and publishes through the normal Upload Session flow.",
+            "The CLI provisions an Ephemeral Workspace and short-lived API Key, then publishes through the normal Upload Session flow.",
             "The publish result works immediately and includes a one-time claim link shaped `https://app.agent-paste.sh/claim#ap_ct_...`.",
             "A signed-in human opens the claim link to move the Artifact into their Personal Workspace.",
           ],

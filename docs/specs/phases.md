@@ -86,7 +86,10 @@ Goal: graduate from standalone publishes to managed artifacts.
 - Fragment-based Access Link Signed URLs.
 - Access Link Lockdown.
 - Bundle generation/download.
-- Agent-first ephemeral publish: self-provisioned **Ephemeral Workspace** + proof-of-work, write-gated tiers, and **Claim Token** promotion ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md), [`ephemeral-publish.md`](./ephemeral-publish.md)). Depends on Phase 3 auth + billing; can slip to a later phase if lifecycle work crowds it out.
+- Agent-first ephemeral publish: self-provisioned **Ephemeral Workspace** with
+  write-gated tiers and **Claim Token** promotion ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md),
+  [`ephemeral-publish.md`](./ephemeral-publish.md)). Depends on Phase 3 auth +
+  billing; can slip to a later phase if lifecycle work crowds it out.
 
 Exit criteria:
 
@@ -115,7 +118,7 @@ Goal: take the security, abuse, and enterprise-shaped pieces seriously once ther
 
 - App-layer encryption.
 - Key rotation.
-- Real safety scanner integration.
+- File-bytes hash-reputation malware scanner integration is not part of the current trust model.
 - Abuse/takedown operator flows.
 - Stronger audit log semantics.
 - Billing, quotas, and plans only when costs or external users force the issue.

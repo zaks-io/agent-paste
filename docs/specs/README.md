@@ -13,6 +13,8 @@ records implementation status; these specs own the behavioral contract.
 - [`product-judgment.md`](./product-judgment.md): why to build, why not to build, and the product posture behind the narrower MVP.
 - [`features.md`](./features.md): quick shipped feature inventory and explicit
   out-of-scope list.
+- [`architecture.md`](./architecture.md): system map, trust boundaries, primary
+  flows, security controls, and where to find owning code.
 - [`api.md`](./api.md): route, auth, idempotency, and publish-flow contract.
 - [`data-model.md`](./data-model.md): Postgres table target, indexes, and invariants.
 - [`content-rendering.md`](./content-rendering.md): content origin URL, token, MIME, CSP, and cache rules.
@@ -44,6 +46,7 @@ Use [`CONTEXT.md`](../../CONTEXT.md) for domain language.
 3. [`mvp.md`](./mvp.md)
 4. [`phases.md`](./phases.md)
 5. [`features.md`](./features.md)
-6. [`api.md`](./api.md), [`admin.md`](./admin.md), [`data-model.md`](./data-model.md), and [`content-rendering.md`](./content-rendering.md)
-7. [`local-dev.md`](./local-dev.md)
-8. [`acceptance.md`](./acceptance.md)
+6. [`architecture.md`](./architecture.md)
+7. [`api.md`](./api.md), [`admin.md`](./admin.md), [`data-model.md`](./data-model.md), and [`content-rendering.md`](./content-rendering.md)
+8. [`local-dev.md`](./local-dev.md)
+9. [`acceptance.md`](./acceptance.md)
