@@ -72,26 +72,31 @@ version; a compiled binary prints the same string; dev/test runs print
 hint to stderr at most once per 24h; CI/`--json`/non-TTY/agents see nothing;
 network failure is invisible; stdout is never touched.
 
-## Phase 3 — `agent-paste upgrade` (binary self-update)
+## Phase 3 — `agent-paste upgrade` (binary self-update) — DONE
 
-- `apps/cli/src/upgrade.ts` (new): port the download+verify flow from
-  `apps/apex/src/install-sh.ts`:
-  - OS/arch → asset name (reuse the installer's mapping; factor the table so the
-    two cannot drift, or mirror with a test asserting parity).
-  - Resolve version (latest from phase 2, or `--version <tag>` to pin).
-  - Download asset + `SHA256SUMS` from the GitHub Release, `https`-only, fail on
-    any HTTP error.
-  - Verify bytes against `SHA256SUMS`; refuse on mismatch or missing sha256
-    capability.
-  - Atomic replace: temp file in the **same dir** as the running binary →
-    `chmod +x` → `rename` over self. Windows: rename running exe aside, then
-    move new into place.
-  - Refuse / redirect to npm guidance when `detectChannel() !== "binary"`.
-- `apps/cli/src/index.ts`: route `upgrade` (with `--version`).
-- Tests (no real network): verification rejects a tampered byte; mismatch and
-  missing-checksum paths error and do not write; an npm/npx invocation prints the
-  npm guidance instead of touching the filesystem; the atomic-replace helper
-  writes the temp in the binary's own directory.
+- `apps/cli/src/upgrade.ts`: OS/arch → asset name (ported from
+  `apps/apex/src/install-{sh,ps1}.ts`, with a parity test asserting the asset
+  strings still appear in both installers so the three cannot drift). Resolves
+  the version (latest from the Phase-2 endpoint, or a pinned tag) and downloads
+  the asset + `SHA256SUMS` from the GitHub Release `https`-only, failing on any
+  HTTP error. Verifies the bytes against `SHA256SUMS` (refuses on mismatch or a
+  missing entry, writing nothing). Atomic replace writes a temp file in the
+  **same dir** as the running binary (no EXDEV), then a rename-aside dance on all
+  platforms (current → `.old`, new → target, drop `.old`) so a running exe is
+  replaceable on Windows and ETXTBSY-strict Linux; the original is restored if
+  the final rename fails. A true permission wall (sudo'd install dir) is the one
+  unrecoverable case: the verified bytes stay staged and the CLI prints the exact
+  `sudo mv` to finish. Off the binary channel it redirects to the npm/npx
+  guidance and exits 1 without touching the filesystem.
+- `apps/cli/src/index.ts`: routes `upgrade [<tag>]` before auth resolution. The
+  pinned version is a **positional** tag (`agent-paste upgrade cli-v1.2.3`), not
+  a `--version` flag, to avoid colliding with the `--version`/`-v` print flag.
+- Tests (no real network): asset-name table + installer parity; SHA256SUMS
+  parsing (text/binary forms, prefix non-match, missing); happy-path atomic swap
+  (temp in the binary's own dir, rename-aside, success line); tampered-byte and
+  missing-checksum refuse-and-don't-write; HTTP error; permission-wall manual
+  hint; final-rename rollback; non-binary redirect; default fetch/resolve path
+  via injected `fetchImpl` (https guard + HTTP-status handling).
 
 **Done:** on a binary install, `agent-paste upgrade` downloads, verifies against
 `SHA256SUMS`, and atomically replaces the binary; a corrupted download is
@@ -112,9 +117,9 @@ refused; invoked from npm/npx it prints the npm command instead.
   assert the dispatch/release tag equals `cli-v<version>`, so the channels can't
   diverge. `min_supported` is set equal to `latest` for now (no force-upgrade
   floor yet; revisit when a real minimum is needed).
-- Remaining follow-up: update `apps/cli/README.md` with `--version`, `upgrade`,
-  `AGENT_PASTE_NO_UPDATE_CHECK`, and the update-check behavior (folds in with
-  Phase 3's `upgrade` command).
+- README follow-up: DONE — `apps/cli/README.md` documents `version`, `upgrade`,
+  `AGENT_PASTE_NO_UPDATE_CHECK`, and the per-channel update-check behavior (landed
+  with Phase 3).
 
 **Manual prerequisite (one-time, before the first automated release):** a `0.0.0`
 placeholder is already published to npm, so the trusted-publishing precondition
