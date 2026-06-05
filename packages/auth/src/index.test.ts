@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cachedLookup, cachedNegativeLookup, cacheKeyForSecret } from "./index";
 
+const MEMORY_CACHE_MAX_ENTRIES = 1000;
+
 describe("auth helpers", () => {
   it("caches lookup results by hashed secret key", async () => {
     let calls = 0;
@@ -87,6 +89,100 @@ describe("auth helpers", () => {
 
     expect(second).toBeNull();
     expect(calls).toBe(2);
+  });
+
+  it("bounds the L1 memory cache at 1000 entries with insertion-order eviction", async () => {
+    const namespace = `lru-cap-${crypto.randomUUID()}`;
+    const keyCount = 1500;
+    const keys: string[] = [];
+
+    for (let index = 0; index < keyCount; index += 1) {
+      const key = `key-${String(index).padStart(4, "0")}`;
+      keys.push(key);
+      await cachedNegativeLookup({
+        namespace,
+        key,
+        ttlSeconds: 60,
+        lookup: async () => null,
+      });
+    }
+
+    const newestLookupCalls: number[] = [];
+    await cachedNegativeLookup({
+      namespace,
+      key: keys[keyCount - 1]!,
+      ttlSeconds: 60,
+      lookup: async () => {
+        newestLookupCalls.push(1);
+        return null;
+      },
+    });
+    expect(newestLookupCalls).toHaveLength(0);
+
+    const firstRetainedIndex = keyCount - MEMORY_CACHE_MAX_ENTRIES;
+    const boundaryLookupCalls: number[] = [];
+    await cachedNegativeLookup({
+      namespace,
+      key: keys[firstRetainedIndex]!,
+      ttlSeconds: 60,
+      lookup: async () => {
+        boundaryLookupCalls.push(1);
+        return null;
+      },
+    });
+    expect(boundaryLookupCalls).toHaveLength(0);
+
+    const oldestLookupCalls: number[] = [];
+    await cachedNegativeLookup({
+      namespace,
+      key: keys[0]!,
+      ttlSeconds: 60,
+      lookup: async () => {
+        oldestLookupCalls.push(1);
+        return null;
+      },
+    });
+    expect(oldestLookupCalls).toHaveLength(1);
+  });
+
+  it("evicts the oldest insertion when the cache is full", async () => {
+    const namespace = `lru-order-${crypto.randomUUID()}`;
+    const keys = Array.from({ length: MEMORY_CACHE_MAX_ENTRIES + 1 }, (_, index) =>
+      `key-${String(index).padStart(4, "0")}`,
+    );
+
+    for (const key of keys) {
+      await cachedNegativeLookup({
+        namespace,
+        key,
+        ttlSeconds: 60,
+        lookup: async () => null,
+      });
+    }
+
+    const evictedLookupCalls: number[] = [];
+    await cachedNegativeLookup({
+      namespace,
+      key: keys[0]!,
+      ttlSeconds: 60,
+      lookup: async () => {
+        evictedLookupCalls.push(1);
+        return null;
+      },
+    });
+    expect(evictedLookupCalls).toHaveLength(1);
+
+    const retainedLookupCalls: number[] = [];
+    await cachedNegativeLookup({
+      namespace,
+      key: keys[MEMORY_CACHE_MAX_ENTRIES - 1]!,
+      ttlSeconds: 60,
+      lookup: async () => {
+        retainedLookupCalls.push(1);
+        return null;
+      },
+    });
+    expect(retainedLookupCalls).toHaveLength(0);
   });
 
   it("shows cachedLookup would keep serving a revoked API key", async () => {

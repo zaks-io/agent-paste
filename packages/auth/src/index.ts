@@ -49,8 +49,20 @@ type EdgeCache = {
   put(request: Request, response: Response): Promise<void>;
 };
 
+const MEMORY_CACHE_MAX_ENTRIES = 1000;
 const memoryCache = new Map<string, CacheEntry>();
 const NEGATIVE_CACHE_SENTINEL = "null";
+
+function setMemoryCacheEntry(cacheKey: string, entry: CacheEntry): void {
+  memoryCache.set(cacheKey, entry);
+  while (memoryCache.size > MEMORY_CACHE_MAX_ENTRIES) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey === undefined) {
+      break;
+    }
+    memoryCache.delete(oldestKey);
+  }
+}
 
 export async function cacheKeyForSecret(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -120,7 +132,7 @@ async function readCachedPayload(
   }
 
   const value = await edgeResponse.text();
-  memoryCache.set(cacheKey, {
+  setMemoryCacheEntry(cacheKey, {
     expiresAt: now + memoryTtlFromEdgeResponse(edgeResponse, requestedTtlSeconds) * 1000,
     value,
   });
@@ -135,7 +147,7 @@ async function writeCachedPayload(
   now: number,
 ): Promise<void> {
   const cacheKey = cacheEntryKey(namespace, key);
-  memoryCache.set(cacheKey, { expiresAt: now + ttlSeconds * 1000, value: encoded });
+  setMemoryCacheEntry(cacheKey, { expiresAt: now + ttlSeconds * 1000, value: encoded });
   const edgeCache = getEdgeCache();
   const edgeRequest = edgeCacheRequest(namespace, key);
   try {
