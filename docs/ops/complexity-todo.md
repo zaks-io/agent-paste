@@ -46,8 +46,6 @@ Biome-measured count at snapshot time.
 
 ### Lines per function (> 100)
 
-- [ ] `packages/contracts/src/openapi/api.ts` — `buildApiOpenApiDocument`: 448.
-      Mostly flat schema registration; could split per resource group.
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — outer factory 192, inner
       `query` 183.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
@@ -65,6 +63,11 @@ When the file limit ratchets below ~590, split the contract registries first.
 
 ## Recently cleaned
 
+- [x] `packages/contracts/src/openapi/api.ts` — `buildApiOpenApiDocument`: AP-225 split
+      OpenAPI path registration into resource-group modules (`api.actor.ts`,
+      `api.public.ts`, `api.ephemeral.ts`, `api.web.ts`, `api.web-admin.ts`,
+      `api.artifacts.ts`, `api.billing.ts`) and removed the function-length
+      suppression.
 - [x] `apps/jobs/src/handlers/bundle-generate.ts` and `safety-scan.ts`: AP-232 split
       queue batch handlers into orchestration helpers (`bundle-generate-orchestration.ts`,
       `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,

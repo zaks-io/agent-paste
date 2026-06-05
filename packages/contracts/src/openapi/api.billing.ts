@@ -1,19 +1,13 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod.js";
+import type { ApiPathHelpers } from "./api.helpers.js";
 import { errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
-
-type Helpers = {
-  params: (paramSchemas: Record<string, z.ZodTypeAny>) => z.ZodObject<z.ZodRawShape>;
-  pathStringParam: (name: string, description: string) => z.ZodTypeAny;
-  idempotencyKeyHeader: z.ZodTypeAny;
-  requestIdHeader: z.ZodTypeAny;
-};
 
 /**
  * Stripe billing OpenAPI paths (ADR 0073/0074), split out of `api.ts` to keep each file
  * under the `noExcessiveLinesPerFile` limit.
  */
-export function registerBillingPaths(registry: OpenAPIRegistry, helpers: Helpers): void {
+export function registerBillingPaths(registry: OpenAPIRegistry, helpers: ApiPathHelpers): void {
   const { params, pathStringParam, idempotencyKeyHeader, requestIdHeader } = helpers;
   const stripeSignatureHeader = z
     .string()
