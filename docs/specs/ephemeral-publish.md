@@ -1,6 +1,6 @@
 # Ephemeral Publish Spec
 
-The decision and rationale are [ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md). This spec is the shipped post-MVP shape for agent-first ephemeral publish, Claim Token promotion, write-gated tiers, and anti-abuse controls.
+The decision and rationale are [ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md). This spec is the shipped post-MVP shape for agent-first ephemeral publish, Claim Token promotion, write-gated tiers, and abuse containment.
 
 ## Product Promise
 
@@ -28,7 +28,7 @@ Unchanged from [`mvp.md`](./mvp.md) - a human or agent with a share URL, viewing
 **API Worker** (`api`):
 Adds two unauthenticated-entry routes through the route registrar ([ADR 0072](../adr/0072-contract-driven-route-registrar-and-guard.md)):
 
-- `POST /v1/ephemeral/provision` - proof-of-work gated; mints **Ephemeral Workspace** + **API Key** + **Claim Token**.
+- `POST /v1/ephemeral/provision` - mints **Ephemeral Workspace** + **API Key** + **Claim Token**.
 - `POST /v1/ephemeral/claim` - requires `workos_access_token`; promotes the tenant.
 
 The ephemeral **Publish** itself reuses the existing authenticated **Upload Session** and **Publish** routes with the minted **API Key**. No new write surface.
@@ -37,21 +37,24 @@ The ephemeral **Publish** itself reuses the existing authenticated **Upload Sess
 Unchanged. `content` stays DB-free ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); ephemeral status is carried on rows the authenticated paths already load.
 
 **Jobs Worker** (`jobs`):
-Routes ephemeral content to stronger **Safety Scanner** rules under a new `scanner_id` and honors the shorter ephemeral **Auto Deletion** in the existing sweep.
+Honors the shorter ephemeral **Auto Deletion** in the existing sweep and
+consumes warning metadata jobs. For `ephemeral_tier`, warning metadata can
+include built-in text rules, dormant-script warnings, Llama Guard, and
+Cloudflare URL Scanner. These are advisory and abuse-response signals, not
+content certification or the trust boundary.
 
 **Web** (`apps/web`):
 Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 ## Provision Flow
 
-1. The client requests a proof-of-work challenge (or receives one in a `401`-style envelope on a bare `provision` call) - a hashcash-style nonce + difficulty issued and signed by `api`.
-2. The client solves it (a few hundred ms of CPU) and calls `POST /v1/ephemeral/provision` with the solution.
-3. `api` verifies the solution, then under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)):
+1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
+2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
    - mints an **API Key** (`ap_pk_{env}_{publicId}_{secret}`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)) with `write` + `read` **Scopes**, short **Expiration**;
    - generates a one-time **Claim Token** (signed, single-use, stored hashed);
    - emits an **Audit Event**.
-4. Response returns the **API Key** secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
+3. Response returns the **API Key** secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
 
 ## Claim Flow
 
@@ -79,11 +82,10 @@ Ordered by priority; each is invisible to honest agents or felt only at volume.
 1. **Isolated Content Origin + Execution Policy** - already in place ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
 2. **Shortest ephemeral Auto Deletion** - caps content dwell time; primary lever against phishing/malware/SEO value.
 3. **Native `[[ratelimits]]` write dampening** per source ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)), with a Durable Object counter for any cap needing a strongly consistent global ceiling. A global circuit breaker on aggregate ephemeral writes is the backstop when per-source is evaded.
-4. **Proof-of-work on provision** - headless-solvable, scales pain with volume. Hand-rolled; Cloudflare exposes no PoW primitive.
-5. **Safety Scanner ephemeral rules** ([ADR 0051](../adr/0051-safety-scanner-lifecycle.md)) under a new `scanner_id`: Workers AI Llama Guard 3 on submitted text at scan time, async Cloudflare URL Scanner verdict on the published URL. Advisory; a malicious verdict drives **Platform Lockdown** ([ADR 0040](../adr/0040-platform-lockdown-for-operator-initiated-takedown.md)).
-6. **`noindex`/`nofollow`** on ephemeral content.
+4. **`noindex`/`nofollow`** on ephemeral content.
+5. **Advisory warning and URL Scanner signals** - built-in warning rules, dormant-script warnings, Llama Guard, and Cloudflare URL Scanner can support reader warnings or abuse response. Containment does not depend on them.
 
-Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case), Cloudflare Bot Management score / JA3 / JA4 (Enterprise-only), WAF Content Scanning (Enterprise + files-only). Turnstile is used only on the human claim/upgrade surfaces.
+Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case), Cloudflare Bot Management score / JA3 / JA4 (Enterprise-only), WAF Content Scanning (Enterprise + files-only), and file-bytes hash-reputation malware scanning such as VirusTotal or MalwareBazaar provider checks. Turnstile is used only on the human claim/upgrade surfaces. The lightweight provisioning challenge is intentionally not counted as a security control.
 
 ## Script Execution by Tier
 
@@ -97,7 +99,6 @@ Executable JavaScript requires a claimed tenant, so the platform only runs agent
 
 - **Two Execution Policies.** Ephemeral content is served under a script-disabled policy (`script-src 'none'`, no inline, no event handlers), overriding the base CDN-allowlisted policy ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md)) the same way the SVG case overrides it today ([ADR 0042](../adr/0042-strict-extension-based-served-content-type.md)). Embedded script is allowed to be _present_ but never _runs_; it fails closed against unknown smuggling vectors.
 - **`content` stays DB-free.** The tier signal rides in the verified content-gateway token payload as a script-disabled bit set by `api` at mint time. `content` selects the CSP from the token with no lookup ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); an absent or unverifiable bit defaults to script-disabled.
-- **Advisory warning, not a gate.** A publish-time detector may raise a **Safety Warning** that script is present and dormant until the tenant is claimed ([ADR 0051](../adr/0051-safety-scanner-lifecycle.md)), as a conversion nudge. It is never the security control.
 - **Claiming upgrades the policy.** Promotion to a claimed **Workspace** mints subsequent content-gateway tokens without the script-disabled bit, so script executes.
 
 ## Data-Model Deltas
@@ -110,7 +111,7 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 
 ## Acceptance Criteria
 
-- An unauthenticated `provision` call without a valid proof-of-work solution is rejected; with a valid solution it returns a working **API Key** and a one-time **Claim Token**.
+- A valid `provision` call returns a working **API Key** and a one-time **Claim Token**.
 - A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop and the share URL resolves.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
@@ -118,4 +119,6 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 - A **Claim Token** that is redeemed, expired, or absent from the public share URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
 - An ephemeral **Artifact** containing script renders inert: static markup and CSS display, and no `<script>`, inline handler, or `.js` asset executes, because the content-gateway token carries the script-disabled bit and `content` selects the script-disabled **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted tokens omit the bit and script executes.
-- Provision and claim emit **Audit Events**; a malicious **Safety Scanner** verdict drives **Platform Lockdown**.
+- Provision and claim emit **Audit Events**. A malicious Cloudflare URL Scanner
+  verdict on ephemeral content can drive artifact-scoped **Platform Lockdown**;
+  operator review can also drive **Platform Lockdown**.

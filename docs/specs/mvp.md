@@ -219,7 +219,7 @@ for the current state.
 - Fragment-based Access Link Signed URLs.
 - Link revoke/mint/lockdown lifecycle.
 - Bundle generation and download.
-- Real safety scanner integration.
+- File-bytes hash-reputation malware scanner integration.
 - App-layer encryption and key rotation.
 - Billing, quotas, and plans.
 - Public TypeScript SDK.

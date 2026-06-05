@@ -41,12 +41,12 @@ export const SAFETY_DOC: DocsPage = {
       ],
     },
     {
-      id: "scanning",
-      title: "Scanning and lockdown",
+      id: "revocation",
+      title: "Revocation",
       blocks: [
         {
           kind: "paragraph",
-          text: "Publishes enqueue asynchronous Safety Scanner work. Warnings are advisory to readers and operators. Serious abuse can drive Platform Lockdown or Access Link Lockdown without exposing secrets.",
+          text: "agent-paste does not inspect or certify uploaded content as safe. Access Links can be revoked, and abusive content can be disabled without exposing private storage URLs.",
         },
       ],
     },

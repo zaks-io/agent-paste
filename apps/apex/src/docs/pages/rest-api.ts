@@ -70,7 +70,7 @@ export const REST_API_DOC: DocsPage = {
               "Read Revision-pinned authenticated Agent View.",
             ],
             ["`GET /v1/public/agent-view/{token}`", "Read public signed Agent View."],
-            ["`POST /v1/ephemeral/provision`", "Provision an Ephemeral Workspace and key after proof-of-work."],
+            ["`POST /v1/ephemeral/provision`", "Provision an Ephemeral Workspace and short-lived key."],
           ],
         },
         {

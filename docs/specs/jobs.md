@@ -9,7 +9,7 @@ The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports
 | Queue             | Consumer | Batch | DLQ                   | DLQ Consumer | Purpose                                                          |
 | ----------------- | -------- | ----: | --------------------- | ------------ | ---------------------------------------------------------------- |
 | `byte-purge`      | `jobs`   |    50 | `byte-purge-dlq`      | none         | Delete R2 prefixes after Deletion, Retention, or Upload Cleanup. |
-| `safety-scan`     | `jobs`   |     1 | `safety-scan-dlq`     | none         | Run async scanner and replace warnings.                          |
+| `safety-scan`     | `jobs`   |     1 | `safety-scan-dlq`     | none         | Run warning scanners and replace warning metadata.               |
 | `bundle-generate` | `jobs`   |     1 | `bundle-generate-dlq` | yes          | Generate revision bundle zip.                                    |
 
 Only `bundle-generate-dlq` has a consumer because terminal bundle failure must update public product state to `failed`.
@@ -53,6 +53,10 @@ Handler behavior:
 
 ### `safety-scan`
 
+This queue is product warning metadata and abuse-response support. It is not
+malware certification, and warning results are not part of the content isolation
+trust boundary.
+
 ```json
 {
   "type": "safety.scan.v1",
@@ -68,12 +72,17 @@ Handler behavior:
 Handler behavior:
 
 - Return idempotently if Revision is retained or Artifact is deleted.
-- Run the replaceable built-in content scanner over `revision_files`.
+- Resolve `scanner_id` and run warning rules over `revision_files`.
+  `builtin_content` uses built-in text warning rules. `ephemeral_tier` adds
+  dormant-script warnings and optional Llama Guard text moderation.
 - Replace all warnings in `(revision_id, scanner_id)` inside `runCommand`.
 - Include `scanner_version` in the idempotency key so rule changes can re-scan
   the same Revision.
 - Create an Audit Event with added/removed/unchanged counts when warnings
   change.
+- For `ephemeral_tier`, submit the public Agent View URL to Cloudflare URL
+  Scanner when configured. A malicious verdict writes artifact-scoped
+  **Platform Lockdown**; scanner failures fail quiet.
 - DLQ has no consumer; alerts drive operator triage.
 
 ### `byte-purge`

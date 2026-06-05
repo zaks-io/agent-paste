@@ -81,4 +81,4 @@ These should not be required for MVP acceptance:
 - Fragment-based Access Link Signed URLs.
 - Bundle generation/download.
 - App-layer encryption.
-- Real safety scanner integration.
+- File-bytes hash-reputation malware scanner integration.

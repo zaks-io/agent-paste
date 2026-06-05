@@ -96,8 +96,9 @@ Put the anti-abuse weight where it actually binds, in priority order:
    single-shard DO; keep the per-IP cap on the native binding (fail-open is fine there).
 2. **Lean on the layers that already scale with the threat, not with hash rate:** short
    ephemeral Auto Deletion (1 day), script-disabled execution policy for ephemeral content
-   (the actual containment), `noindex`/`nofollow`, and the Safety Scanner seam → Platform
-   Lockdown. These are what make a successful flood low-value; PoW never was.
+   (the actual containment), `noindex`/`nofollow`, rate limits, advisory Llama
+   Guard/URL Scanner signals, and Platform Lockdown. These are what make a
+   successful flood low-value; PoW never was.
 3. **Make the limits operator-tunable for real.** Today difficulty is hardcoded
    (`pow.ts:4`) and the rate-limit values live in `wrangler.jsonc` (edit + redeploy). ADR
    0056 frames these as operator-tunable caps. If we want to respond to an active flood
@@ -161,9 +162,10 @@ signals or Turnstile) is _deliberately unavailable on our agent path._ ADR 0075 
 Turnstile and bot-score on the agent write precisely because the hero user is a headless
 agent that cannot solve a browser challenge. So we cannot adopt the one thing that makes PoW
 work elsewhere. That makes the **strongly-consistent global cap + the containment layers**
-(short Auto Deletion, script-disabled execution policy, scanner → lockdown) the _only_ place
-real defense can live on this path — reinforcing recommendation 1, and arguing _against_
-investing in a fancier PoW algorithm.
+(short Auto Deletion, script-disabled execution policy, advisory scanner signals,
+and lockdown) the _only_ place real defense can live on this path. That
+reinforces recommendation 1 and argues _against_ investing in a fancier PoW
+algorithm.
 
 **Bottom line on the algorithm question:** keep SHA-256 hashcash as the cheap bot speed bump;
 do **not** migrate to Argon2/Equihash. A better hash does not fix an asymmetry that is about
