@@ -1,22 +1,11 @@
-import { IdempotencyInFlightError } from "@agent-paste/commands";
-import {
-  type AuthRequirement,
-  type ErrorCode,
-  type RequestBodyFor,
-  type RouteContract,
-  requestSchemaFor,
-  type Scope,
-} from "@agent-paste/contracts";
+import type { AuthRequirement, RequestBodyFor, RouteContract } from "@agent-paste/contracts";
 import type { Context } from "hono";
-import { boundResponderOptions, createBoundResponders } from "./bound-responders.js";
-import {
-  assertRegistrarGuardErrorsDeclared,
-  contractErrorResponse,
-  createContractErrorResponder,
-} from "./contract-errors.js";
-import { type ErrorResponseOptions, jsonResponse, unknownErrorToCode } from "./errors.js";
-import type { AuthResult, Principal, PrincipalFor, ScopedActor } from "./principal.js";
-import { applyRateLimit, type RateLimitBindings } from "./rate-limit.js";
+import { boundResponderOptions } from "./bound-responders.js";
+import { assertRegistrarGuardErrorsDeclared } from "./contract-errors.js";
+import { type ErrorResponseOptions, jsonResponse } from "./errors.js";
+import type { AuthResult, Principal, PrincipalFor } from "./principal.js";
+import type { RateLimitBindings } from "./rate-limit.js";
+import { createRouteHandler } from "./registrar-pipeline.js";
 
 export type AuthResolver<P extends Principal = Principal> = (
   context: Context,
@@ -98,178 +87,12 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
         return boundResponderOptions(context, config);
       };
 
-      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: known offender (41), pending ratchet toward 15 — see docs/ops/complexity-todo.md
-      const routeHandler = async (context: Context) => {
-        const auth = await resolver(context, contract);
-        if (!auth.ok) {
-          return contractErrorResponse(context, contract, auth.code, {
-            message: auth.message,
-            ...errorOptions(context),
-          });
-        }
-
-        const guard = idempotencyGuard(context, contract);
-        if (!guard.ok) {
-          return contractErrorResponse(context, contract, guard.code, errorOptions(context));
-        }
-
-        const db = deps.db?.(context);
-        if (deps.db && db === undefined) {
-          return contractErrorResponse(context, contract, "database_unavailable", errorOptions(context));
-        }
-
-        if (deps.replay && db !== undefined) {
-          const replay = await deps.replay({
-            context,
-            contract,
-            principal: auth.principal,
-            db,
-            guard: guard.state,
-          });
-          if (replay) {
-            return replay;
-          }
-        }
-
-        const rateLimit = await applyRateLimit(contract, auth.principal, deps.rateLimitBindings?.(context), {
-          clientIp: clientIpFromRequest(context.req.raw),
-        });
-        if (!rateLimit.ok) {
-          return contractErrorResponse(context, contract, rateLimit.code, {
-            headers: { "Retry-After": rateLimit.retryAfter },
-            ...errorOptions(context),
-          });
-        }
-
-        if (!hasScopes(auth.principal, contract.scopes)) {
-          return contractErrorResponse(context, contract, "forbidden", errorOptions(context));
-        }
-
-        const body = await parseRequestBody(context, contract);
-        if (!body.ok) {
-          return contractErrorResponse(context, contract, "invalid_request", errorOptions(context));
-        }
-
-        const bound = createBoundResponders(context, errorOptions(context));
-        const respondError = createContractErrorResponder(context, contract, errorOptions(context));
-        const finalGuard = {
-          ...guard.state,
-          body: body.value,
-          params: context.req.param(),
-          respondError,
-          respondJson: bound.respondJson,
-        } as GuardState<typeof contract>;
-
-        try {
-          if (deps.db) {
-            return await (
-              handler as (
-                context: Context,
-                principal: PrincipalFor<typeof contract.auth>,
-                db: Db,
-                guard: GuardState<typeof contract>,
-              ) => Promise<Response>
-            )(context, auth.principal as PrincipalFor<typeof contract.auth>, db as Db, finalGuard);
-          }
-          return await (
-            handler as (
-              context: Context,
-              principal: PrincipalFor<typeof contract.auth>,
-              guard: GuardState<typeof contract>,
-            ) => Promise<Response>
-          )(context, auth.principal as PrincipalFor<typeof contract.auth>, finalGuard);
-        } catch (error) {
-          if (error instanceof IdempotencyInFlightError) {
-            return contractErrorResponse(context, contract, "idempotency_in_flight", errorOptions(context));
-          }
-          const code = unknownErrorToCode(error);
-          if (code) {
-            return contractErrorResponse(context, contract, code, errorOptions(context));
-          }
-          throw error;
-        }
-      };
+      const routeHandler = createRouteHandler({ deps, contract, resolver, handler, errorOptions });
 
       deps.app.on(contract.method, honoPath(contract.path), routeHandler);
       deps.onMount?.(contract);
     },
   };
-}
-
-function idempotencyGuard<Contract extends RouteContract>(
-  context: Context,
-  contract: Contract,
-): { ok: true; state: HeaderGuardState<Contract> } | { ok: false; code: ErrorCode } {
-  if (contract.idempotency === "none") {
-    return { ok: true, state: {} as HeaderGuardState<Contract> };
-  }
-  const idempotencyKey = context.req.raw.headers.get("idempotency-key");
-  const normalized = idempotencyKey?.trim();
-  if (!normalized) {
-    return { ok: false, code: "invalid_idempotency_key" };
-  }
-  return { ok: true, state: { idempotencyKey: normalized } as HeaderGuardState<Contract> };
-}
-
-async function parseRequestBody<Contract extends RouteContract>(
-  context: Context,
-  contract: Contract,
-): Promise<{ ok: true; value: RequestBodyFor<Contract> } | { ok: false }> {
-  const schema = requestSchemaFor(contract);
-  if (!schema) {
-    return { ok: true, value: undefined as RequestBodyFor<Contract> };
-  }
-  let raw: unknown;
-  const bodyText = await context.req.raw.text();
-  if (!bodyText.trim()) {
-    if (contract.allowEmptyBody) {
-      raw = {};
-    } else {
-      return { ok: false };
-    }
-  } else {
-    try {
-      raw = JSON.parse(bodyText);
-    } catch {
-      return { ok: false };
-    }
-  }
-  const parsed = schema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false };
-  }
-  return { ok: true, value: parsed.data as unknown as RequestBodyFor<Contract> };
-}
-
-function hasScopes(principal: Principal, requiredScopes: readonly Scope[]): boolean {
-  if (requiredScopes.length === 0) {
-    return true;
-  }
-  const actor = scopedActorForPrincipal(principal);
-  if (!actor) {
-    return false;
-  }
-  const scopes = new Set(actor.scopes ?? []);
-  return requiredScopes.every((scope) => scopes.has(scope));
-}
-
-function scopedActorForPrincipal(principal: Principal): ScopedActor | null {
-  if (principal.kind === "api_key") {
-    return principal.actor;
-  }
-  if (principal.kind === "workos_access_token" && principal.actor) {
-    return principal.actor;
-  }
-  return null;
-}
-
-function clientIpFromRequest(request: Request): string | undefined {
-  const connecting = request.headers.get("CF-Connecting-IP")?.trim();
-  if (connecting) {
-    return connecting;
-  }
-  const forwarded = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
-  return forwarded || undefined;
 }
 
 function honoPath(path: string): string {
