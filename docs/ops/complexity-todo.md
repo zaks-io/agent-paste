@@ -37,12 +37,10 @@ Biome-measured count at snapshot time.
 
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — `query` dispatcher: 102. Big
       SQL branch table; split per statement family.
-- [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `reparentWorkspace`: 39.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `handleKeyDown`: 32.
-- [ ] `scripts/lib/versioned-secret-rotation.mjs` — `formatPlan`: 31.
 
 ### Lines per function (> 100)
 
@@ -53,7 +51,6 @@ Biome-measured count at snapshot time.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `localArtifacts`: 147.
 - [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 123.
-- [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `CommandPaletteDialog`: 124.
 
@@ -65,6 +62,11 @@ When the file limit ratchets below ~590, split the contract registries first.
 
 ## Recently cleaned
 
+- [x] `packages/rotation/src/automation.ts` and `scripts/lib/versioned-secret-rotation.mjs`:
+      AP-231 split versioned-secret rotation plan builders into step helpers
+      (`rotation-plan-steps.ts`, `versioned-secret-rotation-format.mjs`,
+      `versioned-secret-rotation-execute.mjs`) and removed cognitive-complexity /
+      function-length suppressions from the touched rotation tooling.
 - [x] `apps/jobs/src/handlers/bundle-generate.ts` and `safety-scan.ts`: AP-232 split
       queue batch handlers into orchestration helpers (`bundle-generate-orchestration.ts`,
       `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,
