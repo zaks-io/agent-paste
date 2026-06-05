@@ -9,5 +9,25 @@ export default defineConfig({
     include: ["scripts/**/*.test.mjs"],
     exclude: [...configDefaults.exclude, "**/dist/**", "**/.claude/**", "**/.codex/**"],
     testTimeout: 20_000,
+    coverage: {
+      // The `scripts/lib/` extraction tier holds the decision logic that deserves
+      // unit coverage. The top-level orchestrators and `smoke-*` scripts shell out
+      // to wrangler/gh/neon or boot real Workers, so they are integration scripts,
+      // not units — they correctly read ~0% under a unit runner and are left out of
+      // this scope on purpose. With the two excludes below, `scripts/lib/` is ~90%.
+      include: ["scripts/lib/**/*.mjs"],
+      exclude: [
+        "scripts/lib/**/*.test.mjs",
+        // Integration harnesses, NOT untested logic. Both stand up real I/O that a
+        // unit runner cannot drive, so line coverage here is meaningless:
+        //   - smoke-mcp-local: spawns servers + boots the in-process MCP Worker
+        //     (imports apps/mcp/dist) and stubs WorkOS over real HTTP.
+        //   - smoke-port: its pure helpers are unit-tested; the rest only runs
+        //     inside the spawned local smoke harnesses.
+        // They are exercised by the `smoke:*` scripts, not by `pnpm test`.
+        "scripts/lib/smoke-mcp-local.mjs",
+        "scripts/lib/smoke-port.mjs",
+      ],
+    },
   },
 });
