@@ -24,7 +24,14 @@ import {
   revokeAccessLinkRoute,
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
-import { billingCheckout, billingPortal, billingReturn, billingStatus, billingWebhook } from "./routes/billing.js";
+import {
+  billingCheckout,
+  billingInvoices,
+  billingPortal,
+  billingReturn,
+  billingStatus,
+  billingWebhook,
+} from "./routes/billing.js";
 import { getCliVersion } from "./routes/cli-version.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "./routes/ephemeral.js";
 import {
@@ -290,6 +297,9 @@ apiDbRegistrar.mount(contractById("web.admin.events.list"), async (context, prin
 // `database_unavailable` when the DB is unreachable.
 apiNoDbRegistrar.mount(contractById("billing.status.get"), async (context, principal) =>
   billingStatus(context as AppContext, principal),
+);
+apiNoDbRegistrar.mount(contractById("billing.invoices.list"), async (context, principal) =>
+  billingInvoices(context as AppContext, principal),
 );
 apiNoDbRegistrar.mount(contractById("billing.checkout.create"), async (context, principal, guard) =>
   billingCheckout(context as AppContext, principal, guard),

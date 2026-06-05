@@ -34,6 +34,16 @@ export function registerBillingPaths(registry: OpenAPIRegistry, helpers: Helpers
   });
 
   registry.registerPath({
+    method: "get",
+    path: "/v1/web/billing/invoices",
+    operationId: "billing.invoices.list",
+    summary: "List the Workspace's Stripe invoices (receipts).",
+    security: [{ WorkOsBearer: [] }],
+    request: { headers: [requestIdHeader] },
+    responses: standardJsonResponses(schemaRef("BillingInvoiceListResponse")),
+  });
+
+  registry.registerPath({
     method: "post",
     path: "/v1/web/billing/checkout",
     operationId: "billing.checkout.create",

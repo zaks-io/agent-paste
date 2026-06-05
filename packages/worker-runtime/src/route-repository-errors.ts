@@ -81,6 +81,7 @@ export const routeRepositorySurfaces = {
   "web.admin.lockdown.lift": ["not_found"],
   "web.admin.events.list": ["invalid_cursor", "invalid_pagination_limit"],
   "billing.status.get": [],
+  "billing.invoices.list": [],
   "billing.checkout.create": [],
   "billing.checkout.return": [],
   "billing.portal.create": [],

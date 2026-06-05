@@ -33,7 +33,7 @@ describe("Sidebar", () => {
   it("renders the primary nav in importance order", () => {
     render(<Sidebar isOperator={false} />);
     const links = screen.getAllByRole("link").map((a) => a.textContent);
-    expect(links).toEqual(["Overview", "Artifacts", "Access Links", "API Keys", "Audit Log", "Workspace"]);
+    expect(links).toEqual(["Overview", "Artifacts", "Access Links", "API Keys", "Audit Log", "Workspace", "Billing"]);
     expect(screen.queryByText("Claim")).not.toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });

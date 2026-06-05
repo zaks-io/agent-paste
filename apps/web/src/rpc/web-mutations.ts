@@ -63,6 +63,18 @@ export const liftLockdownFn = createServerFn({ method: "POST" })
     return liftLockdown(data);
   });
 
+export const startCheckoutFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { interval: "month" | "year" }) => input)
+  .handler(async ({ data }) => {
+    const { startCheckout } = await import("../server/web-mutations");
+    return startCheckout(data);
+  });
+
+export const openPortalFn = createServerFn({ method: "POST" }).handler(async () => {
+  const { openPortal } = await import("../server/web-mutations");
+  return openPortal();
+});
+
 export const claimEphemeralFn = createServerFn({ method: "POST" })
   .inputValidator((input: { claim_token: string; turnstile_token: string }) => input)
   .handler(async ({ data }) => {

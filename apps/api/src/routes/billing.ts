@@ -3,12 +3,19 @@ import {
   type BillingProvider,
   createNoopBillingProvider,
   createStripeBillingProvider,
+  type InvoiceSummary,
   type LocalBillingRow,
   loadLocalBillingRow,
   snapshotFromStripeEvent,
   verifyStripeSignature,
 } from "@agent-paste/billing";
-import type { BillingStatusResponse, CreateCheckoutSessionRequest } from "@agent-paste/contracts";
+import { resolveDailyNewArtifactAllowance } from "@agent-paste/config";
+import type {
+  BillingInvoiceListResponse,
+  BillingInvoiceSummary,
+  BillingStatusResponse,
+  CreateCheckoutSessionRequest,
+} from "@agent-paste/contracts";
 import { createHyperdriveExecutor, type HyperdriveBinding, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
@@ -17,6 +24,7 @@ import { webMemberActor } from "../principals.js";
 import { runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 import { webBaseUrl } from "../runtime.js";
+import { readWriteAllowanceRemaining } from "../write-allowance.js";
 
 function isHyperdriveDb(value: unknown): value is HyperdriveBinding {
   return typeof value === "object" && value !== null && "connectionString" in value;
@@ -51,8 +59,17 @@ export function resolveApiBillingProvider(env: Env): BillingProvider {
 }
 
 export function billingStatusFromRow(row: LocalBillingRow | null): BillingStatusResponse {
+  const plan = row?.plan ?? "free";
+  // The page is gated behind `billingEnabled`, and a member viewing billing is a
+  // claimed workspace, so the ceiling is the plan tier (free=100, pro=2000) rather
+  // than the ephemeral/billing-off fallbacks.
+  const daily_new_artifact_allowance = resolveDailyNewArtifactAllowance({
+    claimedAt: row?.workspace_id ?? "claimed",
+    plan,
+    billingEnabled: true,
+  });
   if (!row) {
-    return { plan: "free", operator_override: false, subscription: null };
+    return { plan: "free", operator_override: false, subscription: null, daily_new_artifact_allowance };
   }
   const subscription =
     row.subscription_status === null
@@ -63,10 +80,28 @@ export function billingStatusFromRow(row: LocalBillingRow | null): BillingStatus
           price_interval: row.price_interval,
         };
   return {
-    plan: row.plan,
+    plan,
     operator_override: row.plan_operator_override_at !== null,
     subscription,
+    daily_new_artifact_allowance,
   };
+}
+
+/** Adds the live `daily_new_artifacts_remaining` counter when the allowance binding resolves. */
+async function enrichBillingStatus(
+  env: Env,
+  workspaceId: string,
+  status: BillingStatusResponse,
+): Promise<BillingStatusResponse> {
+  const remaining = await readWriteAllowanceRemaining(
+    env.WRITE_ALLOWANCE,
+    workspaceId,
+    status.daily_new_artifact_allowance,
+  );
+  if (remaining === undefined) {
+    return status;
+  }
+  return { ...status, daily_new_artifacts_remaining: remaining };
 }
 
 export async function billingStatus(context: AppContext, principal: Principal): Promise<Response> {
@@ -87,7 +122,7 @@ export async function billingStatus(context: AppContext, principal: Principal): 
     rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
     actor.workspace_id,
   );
-  return respondJson(billingStatusFromRow(row));
+  return respondJson(await enrichBillingStatus(env, actor.workspace_id, billingStatusFromRow(row)));
 }
 
 export async function billingCheckout(
@@ -171,7 +206,7 @@ export async function billingReturn(
     }
   }
   const row = await loadLocalBillingRow(rlsExecutor(executor, { kind: "workspace", workspaceId }), workspaceId);
-  return respondJson(billingStatusFromRow(row));
+  return respondJson(await enrichBillingStatus(env, workspaceId, billingStatusFromRow(row)));
 }
 
 export async function billingPortal(
@@ -204,6 +239,50 @@ export async function billingPortal(
     returnUrl: `${webBaseUrl(env)}/settings/billing`,
   });
   return getBoundResponders(context).respondJson(session);
+}
+
+function toContractInvoice(invoice: InvoiceSummary): BillingInvoiceSummary {
+  return {
+    id: invoice.id,
+    created: invoice.created,
+    amount_due: invoice.amountDue,
+    currency: invoice.currency,
+    status: invoice.status,
+    description: invoice.description,
+    hosted_invoice_url: invoice.hostedInvoiceUrl,
+    invoice_pdf: invoice.invoicePdf,
+  };
+}
+
+export async function billingInvoices(
+  context: AppContext,
+  principal: Principal,
+  provider: BillingProvider = resolveApiBillingProvider(context.env),
+): Promise<Response> {
+  const { respondError, respondJson } = getBoundResponders(context);
+  const env = context.env;
+  if (!billingEnabled(env)) {
+    return respondError("not_found");
+  }
+  const actor = webMemberActor(principal);
+  if (!actor?.workspace_id) {
+    return respondError("forbidden");
+  }
+  const executor = resolveBillingExecutor(env);
+  if (!executor) {
+    return respondError("database_unavailable");
+  }
+  const row = await loadLocalBillingRow(
+    rlsExecutor(executor, { kind: "workspace", workspaceId: actor.workspace_id }),
+    actor.workspace_id,
+  );
+  // Free Workspaces have no Stripe customer yet, so there is nothing to list — an
+  // empty history is the correct answer, not an error.
+  if (!row?.stripe_customer_id) {
+    return respondJson({ invoices: [] } satisfies BillingInvoiceListResponse);
+  }
+  const invoices = await provider.listInvoices({ customerId: row.stripe_customer_id });
+  return respondJson({ invoices: invoices.map(toContractInvoice) } satisfies BillingInvoiceListResponse);
 }
 
 export async function billingWebhook(context: AppContext, _principal: Principal): Promise<Response> {

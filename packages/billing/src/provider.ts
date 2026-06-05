@@ -28,12 +28,30 @@ export type CreatePortalSessionInput = {
   returnUrl: string;
 };
 
+export type ListInvoicesInput = {
+  customerId: string;
+  limit?: number;
+};
+
+export type InvoiceSummary = {
+  id: string;
+  created: string | null;
+  /** Amount due in the currency's minor unit (cents); formatted by the consumer. */
+  amountDue: number;
+  currency: string;
+  status: string | null;
+  description: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+};
+
 export type BillingProvider = {
   getSubscription(subscriptionId: string): Promise<BillingSubscriptionSnapshot | null>;
   listReconciliationSubscriptions(): Promise<BillingSubscriptionSnapshot[]>;
   createCheckoutSession(input: CreateCheckoutSessionInput): Promise<{ url: string }>;
   getCheckoutSession(sessionId: string): Promise<CheckoutSessionSnapshot | null>;
   createPortalSession(input: CreatePortalSessionInput): Promise<{ url: string }>;
+  listInvoices(input: ListInvoicesInput): Promise<InvoiceSummary[]>;
 };
 
 export function createNoopBillingProvider(): BillingProvider {
@@ -53,6 +71,9 @@ export function createNoopBillingProvider(): BillingProvider {
     async createPortalSession() {
       throw new Error("billing_disabled");
     },
+    async listInvoices() {
+      return [];
+    },
   };
 }
 
@@ -61,6 +82,8 @@ export type FakeBillingProviderState = {
   checkoutSessions: Map<string, CheckoutSessionSnapshot>;
   checkoutCalls: CreateCheckoutSessionInput[];
   portalCalls: CreatePortalSessionInput[];
+  invoices: Map<string, InvoiceSummary[]>;
+  invoiceCalls: ListInvoicesInput[];
 };
 
 export function createFakeBillingProvider(
@@ -69,13 +92,17 @@ export function createFakeBillingProvider(
     checkoutSessions: new Map(),
     checkoutCalls: [],
     portalCalls: [],
+    invoices: new Map(),
+    invoiceCalls: [],
   },
 ): BillingProvider & {
   setSubscription(snapshot: BillingSubscriptionSnapshot): void;
   updateStatus(subscriptionId: string, status: SubscriptionStatus): void;
   setCheckoutSession(sessionId: string, snapshot: CheckoutSessionSnapshot): void;
+  setInvoices(customerId: string, invoices: InvoiceSummary[]): void;
   checkoutCalls: CreateCheckoutSessionInput[];
   portalCalls: CreatePortalSessionInput[];
+  invoiceCalls: ListInvoicesInput[];
 } {
   return {
     async getSubscription(subscriptionId) {
@@ -95,6 +122,10 @@ export function createFakeBillingProvider(
       state.portalCalls.push(input);
       return { url: `https://stripe.test/portal/${input.customerId}` };
     },
+    async listInvoices(input) {
+      state.invoiceCalls.push(input);
+      return state.invoices.get(input.customerId) ?? [];
+    },
     setSubscription(snapshot) {
       state.subscriptions.set(snapshot.stripeSubscriptionId, snapshot);
     },
@@ -108,8 +139,12 @@ export function createFakeBillingProvider(
     setCheckoutSession(sessionId, snapshot) {
       state.checkoutSessions.set(sessionId, snapshot);
     },
+    setInvoices(customerId, invoices) {
+      state.invoices.set(customerId, invoices);
+    },
     checkoutCalls: state.checkoutCalls,
     portalCalls: state.portalCalls,
+    invoiceCalls: state.invoiceCalls,
   };
 }
 
@@ -186,6 +221,17 @@ export function createStripeBillingProvider(config: StripeBillingProviderConfig)
       }
       return { url };
     },
+    async listInvoices(input) {
+      const params = new URLSearchParams({ customer: input.customerId, limit: String(input.limit ?? 12) });
+      const response = await fetchImpl(`https://api.stripe.com/v1/invoices?${params}`, {
+        headers: { Authorization: authHeader },
+      });
+      if (!response.ok) {
+        throw new Error(`stripe_invoice_list_failed:${response.status}`);
+      }
+      const body = (await response.json()) as StripeListResponse<StripeInvoiceResponse>;
+      return body.data.map(mapStripeInvoice);
+    },
     async getSubscription(subscriptionId) {
       const response = await fetchImpl(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
         headers: { Authorization: authHeader },
@@ -244,6 +290,30 @@ function mapCheckoutSession(body: StripeCheckoutSessionResponse): CheckoutSessio
   const subscriptionId = typeof body.subscription === "string" ? body.subscription : (body.subscription?.id ?? null);
   const customerId = typeof body.customer === "string" ? body.customer : (body.customer?.id ?? null);
   return { subscriptionId, customerId };
+}
+
+type StripeInvoiceResponse = {
+  id: string;
+  created?: number | null;
+  amount_due?: number | null;
+  currency?: string | null;
+  status?: string | null;
+  description?: string | null;
+  hosted_invoice_url?: string | null;
+  invoice_pdf?: string | null;
+};
+
+function mapStripeInvoice(body: StripeInvoiceResponse): InvoiceSummary {
+  return {
+    id: body.id,
+    created: epochSecondsToIso(body.created),
+    amountDue: typeof body.amount_due === "number" ? body.amount_due : 0,
+    currency: body.currency ?? "usd",
+    status: body.status ?? null,
+    description: body.description ?? null,
+    hostedInvoiceUrl: body.hosted_invoice_url ?? null,
+    invoicePdf: body.invoice_pdf ?? null,
+  };
 }
 
 type StripeSubscriptionResponse = {

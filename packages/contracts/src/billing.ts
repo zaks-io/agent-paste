@@ -46,8 +46,30 @@ export const BillingStatusResponse = z.object({
   plan: WorkspacePlan,
   operator_override: z.boolean(),
   subscription: BillingSubscriptionSummary.nullable(),
+  /** Daily new-Artifact write ceiling for the current Plan (the rail's "Writes / day"). */
+  daily_new_artifact_allowance: z.number().int().positive(),
+  /** Live remaining writes today; omitted when the allowance counter binding is absent. */
+  daily_new_artifacts_remaining: z.number().int().nonnegative().optional(),
 });
 export type BillingStatusResponse = z.infer<typeof BillingStatusResponse>;
+
+export const BillingInvoiceSummary = z.object({
+  id: z.string(),
+  created: IsoDateTime.nullable(),
+  /** Amount due in the currency's minor unit (e.g. cents); formatted by the client. */
+  amount_due: z.number().int(),
+  currency: z.string(),
+  status: z.string().nullable(),
+  description: z.string().nullable(),
+  hosted_invoice_url: UrlString.nullable(),
+  invoice_pdf: UrlString.nullable(),
+});
+export type BillingInvoiceSummary = z.infer<typeof BillingInvoiceSummary>;
+
+export const BillingInvoiceListResponse = z.object({
+  invoices: z.array(BillingInvoiceSummary),
+});
+export type BillingInvoiceListResponse = z.infer<typeof BillingInvoiceListResponse>;
 
 export const WebhookReceivedResponse = z.object({
   received: z.boolean(),

@@ -25,6 +25,18 @@ export const billingRouteContracts = [
     errors: [...webActorReadErrors, "not_found"],
   },
   {
+    id: "billing.invoices.list",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/billing/invoices",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "BillingInvoiceListResponse",
+    errors: [...webActorReadErrors, "not_found"],
+  },
+  {
     id: "billing.checkout.create",
     app: "api",
     method: "POST",

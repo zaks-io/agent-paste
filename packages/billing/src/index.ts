@@ -20,6 +20,8 @@ export {
   createNoopBillingProvider,
   createStripeBillingProvider,
   type FakeBillingProviderState,
+  type InvoiceSummary,
+  type ListInvoicesInput,
   type StripeBillingProviderConfig,
 } from "./provider.js";
 export {

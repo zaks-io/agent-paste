@@ -5,6 +5,7 @@ const listArtifactsFn = vi.fn();
 const listAuditFn = vi.fn();
 const listKeysFn = vi.fn();
 const loadAdminFn = vi.fn();
+const loadBillingFn = vi.fn();
 const loadDashboardFn = vi.fn();
 const loadSettingsFn = vi.fn();
 
@@ -14,6 +15,7 @@ vi.mock("../src/rpc/web-loaders", () => ({
   listAuditFn: (...args: unknown[]) => listAuditFn(...args),
   listKeysFn: (...args: unknown[]) => listKeysFn(...args),
   loadAdminFn: (...args: unknown[]) => loadAdminFn(...args),
+  loadBillingFn: (...args: unknown[]) => loadBillingFn(...args),
   loadDashboardFn: (...args: unknown[]) => loadDashboardFn(...args),
   loadSettingsFn: (...args: unknown[]) => loadSettingsFn(...args),
 }));
@@ -23,6 +25,7 @@ import {
   artifactQuery,
   artifactsQuery,
   auditQuery,
+  billingQuery,
   dashboardQuery,
   keysQuery,
   queryKeys,
@@ -36,6 +39,7 @@ beforeEach(() => {
     listAuditFn,
     listKeysFn,
     loadAdminFn,
+    loadBillingFn,
     loadDashboardFn,
     loadSettingsFn,
   ]) {
@@ -52,6 +56,7 @@ describe("queryKeys", () => {
     expect(queryKeys.audit()).toEqual(["audit"]);
     expect(queryKeys.keys()).toEqual(["keys"]);
     expect(queryKeys.settings()).toEqual(["settings"]);
+    expect(queryKeys.billing()).toEqual(["billing"]);
     expect(queryKeys.admin({ workspace_id: "ws_1" })).toEqual(["admin", { workspace_id: "ws_1" }]);
   });
 
@@ -101,6 +106,13 @@ describe("query option builders", () => {
     expect(opts.queryKey).toEqual(queryKeys.settings());
     await opts.queryFn?.({} as never);
     expect(loadSettingsFn).toHaveBeenCalledOnce();
+  });
+
+  it("billingQuery delegates to loadBillingFn", async () => {
+    const opts = billingQuery();
+    expect(opts.queryKey).toEqual(queryKeys.billing());
+    await opts.queryFn?.({} as never);
+    expect(loadBillingFn).toHaveBeenCalledOnce();
   });
 
   it("adminQuery passes the search through to loadAdminFn", async () => {

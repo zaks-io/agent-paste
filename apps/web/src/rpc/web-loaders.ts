@@ -69,6 +69,18 @@ export const loadSettingsFn = createServerFn({ method: "GET" }).handler(async ()
   return loadSettings();
 });
 
+export const loadBillingFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { loadBilling } = await import("../server/web-loaders");
+  return loadBilling();
+});
+
+export const activateBillingReturnFn = createServerFn({ method: "GET" })
+  .inputValidator((input: { sessionId: string }) => input)
+  .handler(async ({ data }) => {
+    const { activateBillingReturn } = await import("../server/web-loaders");
+    return activateBillingReturn(data);
+  });
+
 export const loadAdminFn = createServerFn({ method: "GET" })
   .inputValidator((search: OperatorEventSearch) => search)
   .handler(async ({ data }) => {

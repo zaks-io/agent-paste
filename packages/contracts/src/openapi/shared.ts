@@ -10,6 +10,7 @@ import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import {
+  BillingInvoiceListResponse,
   BillingStatusResponse,
   CheckoutSessionResponse,
   CreateCheckoutSessionRequest,
@@ -139,6 +140,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("CheckoutSessionResponse", CheckoutSessionResponse);
   registry.register("PortalSessionResponse", PortalSessionResponse);
   registry.register("BillingStatusResponse", BillingStatusResponse);
+  registry.register("BillingInvoiceListResponse", BillingInvoiceListResponse);
   registry.register("WebhookReceivedResponse", WebhookReceivedResponse);
   registry.register("SetWorkspacePlanRequest", SetWorkspacePlanRequest);
 }
