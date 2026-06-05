@@ -58,7 +58,11 @@ export async function forwardToApiRoute(input: ForwardToApiRouteInput): Promise<
   });
 }
 
-export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToApiResult> {
+type ForwardToBindingInput = Omit<ForwardToApiInput, "api"> & {
+  binding: ServiceBinding;
+};
+
+async function forwardToBinding(input: ForwardToBindingInput): Promise<ForwardToApiResult> {
   const headers = new Headers(input.headers);
   headers.set("authorization", `Bearer ${input.bearerToken}`);
   if (input.idempotencyKey) {
@@ -70,7 +74,7 @@ export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToA
 
   let response: Response;
   try {
-    response = await input.api.fetch(
+    response = await input.binding.fetch(
       new Request(`https://agent-paste.internal${input.path}`, {
         method: input.method,
         headers,
@@ -85,6 +89,11 @@ export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToA
   }
 
   return mapForwardResponse(response);
+}
+
+export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToApiResult> {
+  const { api, ...forward } = input;
+  return forwardToBinding({ ...forward, binding: api });
 }
 
 export type ForwardToUploadInput = Omit<ForwardToApiInput, "api"> & { upload: UploadServiceBinding };
@@ -109,32 +118,8 @@ export async function forwardToUploadRoute(input: ForwardToUploadRouteInput): Pr
 }
 
 export async function forwardToUpload(input: ForwardToUploadInput): Promise<ForwardToApiResult> {
-  const headers = new Headers(input.headers);
-  headers.set("authorization", `Bearer ${input.bearerToken}`);
-  if (input.idempotencyKey) {
-    headers.set("idempotency-key", input.idempotencyKey);
-  }
-  if (input.body !== undefined && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
-
-  let response: Response;
-  try {
-    response = await input.upload.fetch(
-      new Request(`https://agent-paste.internal${input.path}`, {
-        method: input.method,
-        headers,
-        ...(input.body !== undefined ? { body: input.body } : {}),
-      }),
-    );
-  } catch {
-    return {
-      ok: false,
-      error: mapApiErrorToMcp({ code: "database_unavailable", message: "database_unavailable" }),
-    };
-  }
-
-  return mapForwardResponse(response);
+  const { upload, ...forward } = input;
+  return forwardToBinding({ ...forward, binding: upload });
 }
 
 export function buildRoutePath(template: string, params: RoutePathParams = {}, query: RouteQueryParams = {}): string {
