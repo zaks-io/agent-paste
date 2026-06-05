@@ -2,7 +2,8 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-05. See [changelog.md](./status/changelog.md) for what shipped.
+Last updated: 2026-06-05 (`main@a419c29`). See
+[changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -38,10 +39,18 @@ What stands today:
   Cloudflare Access gating the production operator paths, and split secret
   scanning (fast PR-range gitleaks in CI, full-history in the `Security`
   workflow). The legacy `ADMIN_TOKEN` `/admin/*` path is retired; operator work
-  runs through WorkOS + `/v1/web/admin/*`.
+  runs through WorkOS + `/v1/web/admin/*`. A shared baseline of HTTP security
+  headers ships across all eight Workers, and the two public HTML surfaces
+  (dashboard, apex) enforce a strict per-request-nonce CSP with no script
+  `'unsafe-inline'` (AP-184); one CSP follow-up (style `'unsafe-inline'`) is
+  open in [`web-csp-todo.md`](./web-csp-todo.md).
 
-Open follow-ups live in the ledgers below. Recent dated changes are in the
-[changelog](./status/changelog.md).
+A post-launch hardening wave then closed correctness/security gaps surfaced by
+review — Access Link denylist completeness (AP-186), upload finalize and
+malformed-escape guards (AP-187/AP-190), jobs RLS scoping under `app_role`, a
+bounded auth L1 cache, MCP idempotency-key overflow, and CLI keyring/config-dir
+fixes. Open follow-ups live in the ledgers below; recent dated changes are in
+the [changelog](./status/changelog.md).
 
 ## Status Ledgers
 
