@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // One command to deploy everything, secrets and all. Per ADR 0078.
 //
 //   node scripts/deploy.mjs preview
@@ -135,6 +136,7 @@ export function createSecretPlanner({
   }
 
   async function buildProvisionPlan() {
+    /** @type {Map<string, string[]> & { missingProvider?: string[] }} */
     const plan = new Map();
     const missingProvider = [];
     for (const app of secretConsumingApps()) {
@@ -294,6 +296,10 @@ function run(command, args, stdin = null, envOverride = null) {
   });
 }
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);

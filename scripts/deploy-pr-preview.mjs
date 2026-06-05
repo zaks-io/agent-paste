@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

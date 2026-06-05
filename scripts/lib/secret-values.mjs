@@ -1,3 +1,4 @@
+// @ts-check
 // Resolves secret VALUES for a deploy target from the process environment, per
 // ADR 0078. At deploy time the environment the deploy runs in (GitHub environment
 // secrets in CI) is the source of truth for any provider-issued or externally

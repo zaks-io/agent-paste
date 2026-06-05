@@ -14,6 +14,22 @@ that live under `lib/` (`smoke-mcp-local.mjs`, `smoke-port.mjs`) are excluded fo
 the same reason — see the comment on the `coverage.exclude` list. With those
 exclusions, `scripts/lib/` sits around 90% lines.
 
+## Typing policy
+
+These files stay plain ESM (`.mjs`) — no transpile in the deploy hot path — but the
+decision-logic tier is type-checked via `// @ts-check` + JSDoc. `pnpm typecheck:scripts`
+(`tsc -p tsconfig.scripts.json`, wired into `pnpm verify` and so into CI `Validate`)
+checks the files listed in `tsconfig.scripts.json`: the deploy orchestrators plus the
+pure `scripts/lib/` modules. The posture is relaxed (`noImplicitAny` off) so un-annotated
+params don't force a `.ts` conversion — the goal is catching real bugs (a Map carrying a
+stray field, a guard that didn't narrow), not 100% annotation coverage.
+
+The smoke/integration scripts are out of this scope on purpose: they read
+`await res.json()` (typed `unknown`) throughout, which is all false positives on the same
+tier already excluded from unit coverage. To bring a new file under the gate, add
+`// @ts-check` to it, list it in `tsconfig.scripts.json`, and make `pnpm typecheck:scripts`
+pass.
+
 ## Worktree Setup
 
 ### `setup-worktree.mjs`

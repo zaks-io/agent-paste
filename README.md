@@ -89,23 +89,24 @@ pnpm hooks:install
 
 ### Quality
 
-| Command                  | Purpose                                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`             | Run `turbo run build`.                                                                                                       |
-| `pnpm check`             | Run package `check` tasks where defined.                                                                                     |
-| `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                                          |
-| `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                                   |
-| `pnpm test`              | Run `turbo run test`.                                                                                                        |
-| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers (deploy and queue provisioning).                                                |
-| `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                               |
-| `pnpm knip`              | Run Knip unused file, dependency, and export checks.                                                                         |
-| `pnpm dupes`             | Run jscpd copy-paste duplication gate over `apps/` and `packages/`.                                                          |
-| `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                                           |
-| `pnpm format:code`       | Format non-doc files with Biome.                                                                                             |
-| `pnpm format:docs`       | Format Markdown files with Prettier.                                                                                         |
-| `pnpm format:docs:check` | Check Markdown formatting.                                                                                                   |
-| `pnpm verify`            | Full CI-style local verification: docs format check, Knip, duplication, lint, typecheck, tests, OpenAPI check, and DB check. |
-| `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                                     |
+| Command                  | Purpose                                                                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`             | Run `turbo run build`.                                                                                                                          |
+| `pnpm check`             | Run package `check` tasks where defined.                                                                                                        |
+| `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                                                             |
+| `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                                                      |
+| `pnpm typecheck:scripts` | Type-check the root `scripts/` decision-logic tier via `tsc` against `tsconfig.scripts.json` (the `@ts-check` files).                           |
+| `pnpm test`              | Run `turbo run test`.                                                                                                                           |
+| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers (deploy and queue provisioning).                                                                   |
+| `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                                                  |
+| `pnpm knip`              | Run Knip unused file, dependency, and export checks.                                                                                            |
+| `pnpm dupes`             | Run jscpd copy-paste duplication gate over `apps/` and `packages/`.                                                                             |
+| `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                                                              |
+| `pnpm format:code`       | Format non-doc files with Biome.                                                                                                                |
+| `pnpm format:docs`       | Format Markdown files with Prettier.                                                                                                            |
+| `pnpm format:docs:check` | Check Markdown formatting.                                                                                                                      |
+| `pnpm verify`            | Full CI-style local verification: docs format check, Knip, duplication, lint, typecheck, tests, scripts typecheck, OpenAPI check, and DB check. |
+| `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                                                        |
 
 ### Contracts and Database
 

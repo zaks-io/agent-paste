@@ -1,3 +1,4 @@
+// @ts-check
 /** Keep in sync with `packages/rotation/src/automation.ts` VERSIONED_SECRET_PROFILES. */
 
 export const VERSIONED_SECRET_PROFILES = {
