@@ -98,9 +98,8 @@ Cleaning these dirs is what moves the threshold:
       scaffolding (`operation-events.ts`, `artifacts.ts`).
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — repeated statement-handler
       bodies (also a complexity offender; refactoring helps both gates).
-- [ ] `packages/contracts/src/openapi/*` and `mcp/registry.ts` — repeated
-      schema/registration blocks (largest single clone: 45 lines in
-      `mcp/registry.ts`).
+- [ ] `packages/contracts/src/openapi/*` — repeated schema/registration blocks
+      (MCP publish-chain clone in `mcp/registry.ts` deduped in AP-205).
 - [ ] `apps/web/src/components/*` — `AccessLinksTable` / `KeysTable`,
       `MintedUrlReveal` / `Identifier`, and a few route loaders repeat table
       state and small UI patterns.
