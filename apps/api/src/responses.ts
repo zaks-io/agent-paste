@@ -92,6 +92,15 @@ export async function executeRepositoryRoute<T>(
   try {
     return respondJson(await run(), successStatus);
   } catch (error) {
+    if (error instanceof RepositoryRouteError) {
+      return repositoryErrorResponse(
+        context,
+        error.code as ErrorCode,
+        options.respondError,
+        error.message,
+        error.headers,
+      );
+    }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
       return repositoryErrorResponse(context, repositoryCode, options.respondError);

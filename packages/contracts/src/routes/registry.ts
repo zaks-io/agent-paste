@@ -219,7 +219,7 @@ export const routeContracts = [
     idempotency: "none",
     rateLimit: "actor",
     responseSchema: "McpRevokeAccessLinkOutput",
-    errors: [...apiKeyMutationErrors, "forbidden", "not_found"],
+    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "storage_unavailable"],
   },
   {
     id: "agentView.getLatest",

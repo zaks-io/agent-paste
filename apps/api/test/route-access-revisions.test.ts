@@ -97,6 +97,28 @@ describe("AP-91 access link route modules", () => {
       expect.objectContaining({ expirationTtl: expect.any(Number) }),
     );
 
+    const kvFailure = await revokeAccessLinkRoute(
+      contextFor({
+        env: {
+          DENYLIST: {
+            put: vi.fn(async () => {
+              throw new Error("kv unavailable");
+            }),
+          },
+        },
+        params: { access_link_id: "al_1" },
+      }),
+      apiPrincipal(),
+      {
+        revokeMemberAccessLink: vi.fn(async () => ({
+          access_link_id: "al_1",
+          revoked_at: "2026-01-01T00:00:00.000Z",
+        })),
+      } as never,
+    );
+    expect(kvFailure.status).toBe(503);
+    await expect(responseJson(kvFailure)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+
     revokeMemberAccessLink.mockRejectedValueOnce(new RepositoryError("not_found"));
     const missing = await revokeAccessLinkRoute(
       contextFor({ params: { access_link_id: "missing" } }),
