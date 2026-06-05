@@ -28,6 +28,15 @@ export default defineConfig({
         "scripts/lib/smoke-mcp-local.mjs",
         "scripts/lib/smoke-port.mjs",
       ],
+      // Floors, not targets. Actuals sit ~90% lines / 84% branch; the gate is set a
+      // few points under so a real regression fails CI while normal churn doesn't
+      // trip it. Raise these as coverage climbs — don't lower them to make red green.
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 80,
+        branches: 75,
+      },
     },
   },
 });
