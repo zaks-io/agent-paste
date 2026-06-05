@@ -1,5 +1,5 @@
 import { Check, Copy, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useClipboardCopy } from "../../lib/use-clipboard-copy";
 import { Button } from "../ui/Button";
 
 type Props = {
@@ -11,30 +11,7 @@ type Props = {
 // lives in the URL fragment; it is never persisted or re-rendered from storage,
 // so dismissing or navigating away loses it permanently (re-mint for a new one).
 export function MintedUrlReveal({ url, onDismiss }: Props) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  const copy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        setCopied(false);
-        timerRef.current = null;
-      }, 1200);
-    } catch {
-      // clipboard may be unavailable (insecure context / no gesture); the URL
-      // stays visible for manual selection.
-    }
-  }, [url]);
+  const { copied, copy } = useClipboardCopy(url, 1200);
 
   return (
     <div className="grid gap-2 rounded-[var(--radius-sm)] border border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))] p-3">

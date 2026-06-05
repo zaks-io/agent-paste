@@ -6,10 +6,13 @@ import { useHydrated } from "../../lib/use-hydrated";
 import { mintAccessLinkFn, revokeAccessLinkFn } from "../../rpc/web-mutations";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
+import { DataTable } from "../ui/DataTable";
 import { Identifier } from "../ui/Identifier";
+import { OptionalRelativeTime } from "../ui/OptionalRelativeTime";
 import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
+import { RevokedActionPlaceholder } from "../ui/RevokedActionPlaceholder";
+import { StateBadge } from "../ui/StateBadge";
+import { TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 import { MintedUrlReveal } from "./MintedUrlReveal";
 
@@ -85,94 +88,90 @@ export function AccessLinksTable({ rows, showArtifact = false, locked = false, o
   const columnCount = showArtifact ? 6 : 5;
 
   return (
-    <Card flush className="overflow-hidden">
-      <Table>
-        <THead>
-          <TR>
-            <TH>Type</TH>
-            {showArtifact ? <TH>Artifact</TH> : null}
-            <TH>Pinned revision</TH>
-            <TH>Created</TH>
-            <TH>Expires</TH>
-            <TH>State</TH>
-            <TH className="text-right">Actions</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {rows.map((row) => {
-            const state = accessLinkState(row, hydrated);
-            const minted = mintedUrls[row.id];
-            return (
-              <Fragment key={row.id}>
-                <TR>
+    <DataTable>
+      <THead>
+        <TR>
+          <TH>Type</TH>
+          {showArtifact ? <TH>Artifact</TH> : null}
+          <TH>Pinned revision</TH>
+          <TH>Created</TH>
+          <TH>Expires</TH>
+          <TH>State</TH>
+          <TH className="text-right">Actions</TH>
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((row) => {
+          const state = accessLinkState(row, hydrated);
+          const minted = mintedUrls[row.id];
+          return (
+            <Fragment key={row.id}>
+              <TR>
+                <TD>
+                  <Badge tone={TYPE_TONE[row.type]}>{row.type}</Badge>
+                </TD>
+                {showArtifact ? (
                   <TD>
-                    <Badge tone={TYPE_TONE[row.type]}>{row.type}</Badge>
+                    <Link
+                      to="/artifacts/$artifactId"
+                      params={{ artifactId: row.artifact_id }}
+                      className="font-mono text-[12px] text-[hsl(var(--subtle))] hover:text-[hsl(var(--accent))]"
+                    >
+                      {row.artifact_id}
+                    </Link>
                   </TD>
-                  {showArtifact ? (
-                    <TD>
-                      <Link
-                        to="/artifacts/$artifactId"
-                        params={{ artifactId: row.artifact_id }}
-                        className="font-mono text-[12px] text-[hsl(var(--subtle))] hover:text-[hsl(var(--accent))]"
+                ) : null}
+                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                  {row.revision_id ? <Identifier value={row.revision_id} /> : "latest"}
+                </TD>
+                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                  <RelativeTime value={row.created_at} />
+                </TD>
+                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                  <OptionalRelativeTime value={row.expires_at} />
+                </TD>
+                <TD>
+                  <StateBadge state={state} />
+                </TD>
+                <TD className="text-right">
+                  {row.revoked ? (
+                    <RevokedActionPlaceholder />
+                  ) : (
+                    <div className="inline-flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={mintingId === row.id}
+                        disabled={busy || locked}
+                        title={locked ? "Lift Access Link Lockdown to mint a URL." : undefined}
+                        onClick={() => onMint(row)}
                       >
-                        {row.artifact_id}
-                      </Link>
-                    </TD>
-                  ) : null}
-                  <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                    {row.revision_id ? <Identifier value={row.revision_id} /> : "latest"}
-                  </TD>
-                  <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                    <RelativeTime value={row.created_at} />
-                  </TD>
-                  <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                    {row.expires_at ? <RelativeTime value={row.expires_at} /> : "never"}
-                  </TD>
-                  <TD>
-                    <Badge tone={state.tone} dot>
-                      {state.label}
-                    </Badge>
-                  </TD>
-                  <TD className="text-right">
-                    {row.revoked ? (
-                      <span className="text-[hsl(var(--subtle))]">—</span>
-                    ) : (
-                      <div className="inline-flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={mintingId === row.id}
-                          disabled={busy || locked}
-                          title={locked ? "Lift Access Link Lockdown to mint a URL." : undefined}
-                          onClick={() => onMint(row)}
-                        >
-                          Copy URL
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          loading={revokingId === row.id}
-                          disabled={busy}
-                          onClick={() => onRevoke(row)}
-                        >
-                          Revoke
-                        </Button>
-                      </div>
-                    )}
+                        Copy URL
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        loading={revokingId === row.id}
+                        disabled={busy}
+                        onClick={() => onRevoke(row)}
+                      >
+                        Revoke
+                      </Button>
+                    </div>
+                  )}
+                </TD>
+              </TR>
+              {minted ? (
+                <TR>
+                  <TD colSpan={columnCount} className="bg-[hsl(var(--surface-2))]">
+                    <MintedUrlReveal url={minted} onDismiss={() => dismissMinted(row.id)} />
                   </TD>
                 </TR>
-                {minted ? (
-                  <TR>
-                    <TD colSpan={columnCount} className="bg-[hsl(var(--surface-2))]">
-                      <MintedUrlReveal url={minted} onDismiss={() => dismissMinted(row.id)} />
-                    </TD>
-                  </TR>
-                ) : null}
-              </Fragment>
-            );
-          })}
-        </TBody>
-      </Table>
-    </Card>
+              ) : null}
+            </Fragment>
+          );
+        })}
+      </TBody>
+    </DataTable>
   );
 }

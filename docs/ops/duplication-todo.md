@@ -34,19 +34,23 @@ lines today but are test support, not shipped runtime behavior.
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
 the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
-pulled it to **2.33%**, and AP-207 plus the merged cleanup/test/docs train
-pulled it below the `2.1` gate. The current baseline is **2.00%**, so `2.1` has
-little slack. The next step (`1.9`) needs another offender cleanup or a decision
-to stop scanning `src/test-helpers/`. Lower the threshold in `.jscpd.json` as
-offenders are cleaned up and update this file.
+pulled it to **2.33%**, AP-207 plus the merged cleanup/test/docs train pulled it
+below the `2.1` gate, and AP-204 pulled it to **1.95%**. The current baseline is
+below the `2.1` gate but not yet low enough for `1.9`. The next step (`1.9`)
+needs another offender cleanup or a decision to stop scanning `src/test-helpers/`.
+Lower the threshold in `.jscpd.json` as offenders are cleaned up and update this
+file.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
-Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
+Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`, after
+AP-204 was merged with the AP-207 baseline:
 
-- 509 files, 46,746 lines analyzed.
-- 94 clones, 936 duplicated lines = **2.00%** (2.37% by tokens).
-- By format: TypeScript 2.17%, TSX 1.94%, JavaScript 0%.
+- 519 files, 46,947 lines analyzed.
+- 92 clones, 916 duplicated lines = **1.95%** (2.30% by tokens).
+- Pre AP-204 (post AP-207, 2026-06-05): 509 files, 46,746 lines, 936
+  duplicated lines = **2.00%** (2.37% by tokens).
+- By format: TypeScript 2.15%, TSX 1.60%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -89,6 +93,15 @@ This pass moved the gated baseline from 2.45% to 2.33%:
 - [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
       vs Upload request construction and error mapping.
 
+## Done: AP-204 dashboard table/status UI dedup
+
+This pass moved the gated baseline from 2.33% to 2.21%:
+
+- [x] Shared clipboard-copy hook, revocable entity state, and presentational
+      table helpers (`DataTable`, `StateBadge`, `OptionalRelativeTime`,
+      `RevokedActionPlaceholder`) across Access Links and API Keys tables in
+      `apps/web`.
+
 ## Done: AP-207 API route helper dedup
 
 This pass, combined with the cleanup/test/docs train merged into `main`, moved
@@ -121,9 +134,8 @@ Cleaning these dirs is what moves the threshold:
       bodies (also a complexity offender; refactoring helps both gates).
 - [ ] `packages/contracts/src/openapi/*` — repeated schema/registration blocks
       (MCP publish-chain clone in `mcp/registry.ts` deduped in AP-205).
-- [ ] `apps/web/src/components/*` — `AccessLinksTable` / `KeysTable`,
-      `MintedUrlReveal` / `Identifier`, and a few route loaders repeat table
-      state and small UI patterns.
+- [ ] `apps/web/src/components/*` — a few route loaders and admin panels still
+      repeat small UI patterns.
 - [ ] `apps/upload/src/create-session.ts` and `finalize.ts` — repeated
       authenticated upload-route repository error handling.
 - [ ] `apps/jobs/src/test-helpers/*` and `packages/billing/src/test-helpers/*`
