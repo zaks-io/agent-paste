@@ -41,14 +41,6 @@ export function parseOptions(argv) {
   return { dryRun, printOnly, force, value, step, operator };
 }
 
-export function bindingsForTarget(profile, target) {
-  return profile.bindings.map((binding) => ({
-    app: binding.app,
-    worker: workerName(binding.app, target),
-    names: [profile.baseSecretName, profile.secondarySecretName],
-  }));
-}
-
 export async function collectSnapshot(profile, target) {
   const listedByWorker = new Map();
   for (const binding of profile.bindings) {
