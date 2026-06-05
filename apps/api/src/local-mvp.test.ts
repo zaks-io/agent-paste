@@ -8,6 +8,18 @@ const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
 };
 
+const allowRateLimit = {
+  async limit() {
+    return { success: true };
+  },
+};
+
+const rateLimitEnv = {
+  ACTOR_RATE_LIMIT: allowRateLimit,
+  WORKSPACE_BURST_CAP: allowRateLimit,
+  ARTIFACT_RATE_LIMIT: allowRateLimit,
+};
+
 class MemoryR2 {
   readonly objects = new Map<
     string,
@@ -317,6 +329,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
@@ -341,6 +354,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
       },
@@ -356,6 +370,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
@@ -379,6 +394,7 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ...rateLimitEnv,
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
@@ -389,6 +405,7 @@ describe("local MVP vertical slice", () => {
     const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
       AUTH: auth,
       DB: db,
+      ...rateLimitEnv,
       CONTENT_BASE_URL: "http://content.local",
       CONTENT_SIGNING_SECRET: "content-secret",
     });
@@ -398,6 +415,7 @@ describe("local MVP vertical slice", () => {
     const contentResponse = await contentWorker.fetch(new Request(published.view_url), {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
+      ...rateLimitEnv,
       CONTENT_SIGNING_SECRET: "content-secret",
       ...artifactBytesEncryptionEnv,
     });
@@ -411,6 +429,7 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ...rateLimitEnv,
         CONTENT_BASE_URL: "http://content.local",
       },
     );
@@ -436,6 +455,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
@@ -465,6 +485,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
       },
@@ -479,6 +500,7 @@ describe("local MVP vertical slice", () => {
         AUTH: auth,
         DB: db,
         ARTIFACTS: artifacts,
+        ...rateLimitEnv,
         UPLOAD_SIGNING_SECRET: "upload-secret",
         ...artifactBytesEncryptionEnv,
         CONTENT_SIGNING_SECRET: "content-secret",
@@ -501,6 +523,7 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ...rateLimitEnv,
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
@@ -512,7 +535,7 @@ describe("local MVP vertical slice", () => {
       new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {
         headers: { authorization: "Bearer api-key" },
       }),
-      { AUTH: auth, DB: db, CONTENT_BASE_URL: "http://content.local" },
+      { AUTH: auth, DB: db, ...rateLimitEnv, CONTENT_BASE_URL: "http://content.local" },
     );
     expect(updatedRevisionsResponse.status).toBe(200);
     await expect(updatedRevisionsResponse.json()).resolves.toMatchObject({

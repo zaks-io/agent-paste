@@ -26,6 +26,13 @@ function workspaceAuth(): NonNullable<Env["AUTH"]> {
   };
 }
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+  };
+}
+
 function createUploadRequestBody(
   files: Array<{ path: string; size_bytes: number }> = [{ path: "index.html", size_bytes: 12 }],
 ) {
@@ -68,6 +75,7 @@ describe("upload error envelope", () => {
       DOCS_BASE_URL: "https://docs.agent-paste.sh",
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: workspaceAuth(),
+      ...allowRateLimits(),
       DB: {
         async createUploadSession() {
           throw new IdempotencyInFlightError("upload.session.create", "k");
@@ -106,6 +114,7 @@ describe("upload error envelope", () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: workspaceAuth(),
+      ...allowRateLimits(),
       DB: {
         async createUploadSession() {
           return workspaceSession();
@@ -142,6 +151,7 @@ describe("upload error envelope", () => {
       DOCS_BASE_URL: "https://docs.agent-paste.sh/",
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: workspaceAuth(),
+      ...allowRateLimits(),
       DB: {
         async createUploadSession() {
           throw new Error("should not run when rate limited");
@@ -189,6 +199,7 @@ describe("upload error envelope", () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: workspaceAuth(),
+      ...allowRateLimits(),
       DB: {
         async createUploadSession() {
           throw new Error("boom");
@@ -239,6 +250,7 @@ describe("upload error envelope", () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
       AUTH: workspaceAuth(),
+      ...allowRateLimits(),
       DB: {
         async createUploadSession() {
           return { ...workspaceSession(), put_urls: [] };

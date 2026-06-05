@@ -1,6 +1,6 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { describe, expect, it } from "vitest";
-import { type Env, handleRequest } from "./index.js";
+import { type Env, handleRequest as rawHandleRequest } from "./index.js";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
@@ -42,6 +42,18 @@ function authStub(): NonNullable<Env["AUTH"]> {
       return { workos_user_id: "user_1", email: "user@example.com", token_id: "jti_1", role: "admin" };
     },
   };
+}
+
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP" | "ARTIFACT_RATE_LIMIT"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+    ARTIFACT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+}
+
+function handleRequest(request: Request, env: Env = {}): Promise<Response> {
+  return rawHandleRequest(request, { ...allowRateLimits(), ...env });
 }
 
 async function expectEnvelope(response: Response, code: string): Promise<EnvelopeBody> {

@@ -14,6 +14,13 @@ function createUploadRequestBody(
   return { title: "Demo", entrypoint: "index.html", files };
 }
 
+function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"> {
+  return {
+    ACTOR_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    WORKSPACE_BURST_CAP: { limit: async () => ({ success: true }) },
+  };
+}
+
 describe("upload worker", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -66,6 +73,7 @@ describe("upload worker", () => {
     };
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
       AUTH: {
         async verifyApiKey() {
           return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
@@ -104,6 +112,7 @@ describe("upload worker", () => {
   it("returns 429 when the workspace rate limit fires", async () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
       AUTH: {
         async verifyApiKey() {
           return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
@@ -162,6 +171,7 @@ describe("upload worker", () => {
   ])("requires publish scope for upload session %s", async (_label, url, init) => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
       AUTH: {
         async verifyApiKey() {
           return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["read"] };
@@ -372,7 +382,7 @@ describe("upload worker", () => {
     expect(rateLimitCalls).toEqual({ actor: 0, workspace: 0 });
   });
 
-  it("fails open when a rate limit binding errors", async () => {
+  it("fails closed when a rate limit binding errors", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const session: UploadSessionRecord = {
       session_id: "upl_1",
@@ -403,6 +413,11 @@ describe("upload worker", () => {
           return null;
         },
       },
+      ACTOR_RATE_LIMIT: {
+        async limit() {
+          return { success: true };
+        },
+      },
       WORKSPACE_BURST_CAP: {
         async limit() {
           throw new Error("binding unavailable");
@@ -420,9 +435,9 @@ describe("upload worker", () => {
         env,
       );
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject({ upload_session_id: "upl_1" });
-      expect(warn).toHaveBeenCalledWith("Rate limit workspace binding failed; allowing request.", expect.any(Error));
+      expect(response.status).toBe(429);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_workspace" } });
+      expect(warn).toHaveBeenCalledWith("Rate limit workspace binding failed; denying request.", expect.any(Error));
     } finally {
       warn.mockRestore();
     }
@@ -431,6 +446,7 @@ describe("upload worker", () => {
   it("maps draft revision conflicts to 409", async () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
       AUTH: {
         async verifyApiKey() {
           return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };

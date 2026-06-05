@@ -1,6 +1,7 @@
 # Phase Backlog
 
-Last updated: 2026-06-05 (`main@a419c29`; Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed; followed by standardized security headers + strict nonce CSP AP-184 and a post-launch correctness/security hardening wave).
+Last updated: 2026-06-05 (`codex/ap-236-fail-closed-rate-limit-deploy-hardening`
+working tree; refreshed onto `origin/main@e0eabfb` before PR handoff).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -24,6 +25,15 @@ app-side `CF_ACCESS_AUD` Wrangler secret. Production service-token/JWT smoke and
 the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TOKEN` `/admin/*` path was retired in AP-13.
 Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
+
+Active local handoff: AP-236 is in flight to fail closed when rate-limit
+bindings are missing or throw, update local/test harnesses to configure explicit
+allow-limit bindings, and harden the production deploy workflow source/secret
+posture. Focused tests, typecheck, lint, `git diff --check`, and targeted
+Semgrep already passed before the branch was refreshed onto `origin/main@e0eabfb`.
+Next agent should confirm main has not moved, run `pnpm verify`, finish
+`ziw-code-review`, then open the PR through `ziw-pr`. Hosted-content provenance
+badge is separate AP-235.
 
 ## Phase 3 Close-Out
 
