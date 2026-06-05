@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-05 (Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed).
+Last updated: 2026-06-05 (`main@a419c29`; Stripe billing shipped end-to-end — Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176; AP-156 Access Link UI; AP-11/AP-17 ops decisions closed; followed by standardized security headers + strict nonce CSP AP-184 and a post-launch correctness/security hardening wave).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -15,7 +15,8 @@ path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
 shipped behind the deploy-time billing flag. Active product work is now
 post-launch/Phase 6: hosted Stripe verification, ephemeral publish
 claim/upgrade (AP-109) and security/ops polish. (The file-bytes malware scanner,
-AP-149, was cancelled as too expensive; containment already bounds the risk.)
+AP-149, was cancelled as too expensive; containment already bounds the risk.
+Built-in warnings, Llama Guard, and URL Scanner remain advisory signals.)
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
@@ -165,10 +166,11 @@ usage.
        Implemented in `packages/storage/src/artifact-bytes-encryption.ts` with
        Worker env key-ring resolution, encrypted upload/bundle paths, and
        content/job decrypt support.
-2. [x] Real safety scanner integration behind the scanner interface.
-       Publishes enqueue `safety-scan`, the jobs worker runs the replaceable
-       built-in content scanner, and warnings are stored with scanner
-       versioning for Agent View reads.
+2. [x] Product warning metadata behind the existing queue/interface.
+       Publishes may enqueue `safety-scan`, and the jobs worker can store
+       built-in warning metadata plus ephemeral Llama Guard/URL Scanner signals
+       for Agent View reads and abuse response. This is not malware
+       certification and is not part of the trust model.
 3. [x] Stronger audit semantics and operator abuse workflows.
 4. [x] Automated signing-key, content-key, API-pepper, and WorkOS rotation with
        overlap windows (`scripts/rotate-versioned-secret.mjs`,
@@ -207,8 +209,8 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        approval).
 6. [x] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
        `docs/specs/ephemeral-publish.md`). Self-provisioned Ephemeral Workspace
-       behind proof-of-work, daily new-artifact write allowance, Claim Token
-       promotion, ephemeral-tier scanning, and script-disabled serving are
+       with short-lived low-cap keys, daily new-artifact write allowance, Claim
+       Token promotion, 24h cleanup, `noindex`, and script-disabled serving are
        implemented (AP-99–AP-108, AP-107 CLI, AP-110 local smoke, AP-111 hosted
        smoke). Operator runbook: `docs/ops/runbook-ephemeral-publish.md` (AP-112).
        Stripe checkout shipped (AP-5/AP-176); remaining: claim/upgrade funnel

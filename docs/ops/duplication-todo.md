@@ -1,7 +1,7 @@
 # Code duplication limit: ratchet plan
 
 Source of truth for the jscpd copy-paste gate and the duplication that is
-currently tolerated. Owner: Isaac. Snapshot date: 2026-06-02.
+currently tolerated. Owner: Isaac. Snapshot date: 2026-06-05.
 
 jscpd 4.2.x enforces a single duplication `threshold` in `.jscpd.json` (run via
 `pnpm dupes` -> `node scripts/jscpd-check.mjs`, wired into `pnpm verify` after
@@ -22,30 +22,38 @@ The gate covers **shipped code only**: `apps/` and `packages/`. It does not scan
 Ignored globs (in `.jscpd.json`): `node_modules`, `dist`, `.turbo`,
 `.wrangler`, `coverage`, `*.gen.ts`, `worker-configuration.d.ts`,
 `openapi/*.json`, and all `*.test.*` / `*.spec.*` / `__tests__` / `test`.
+Known friction: helpers under `src/test-helpers/` are currently scanned because
+that path is not covered by the ignore list. They contribute real duplicated
+lines today but are test support, not shipped runtime behavior.
 
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.7 (%)       | 2.5 (%)    | 1.5 (%)        |
+| `threshold` | 2.1 (%)       | 1.9 (%)    | 1.5 (%)        |
 
-The threshold was set to the tightest value that is **green today without a wave
-of refactors**. It started at `3` (baseline 2.84%); an initial round of quick-win
-extractions (see below) pulled the baseline to **2.59%**, so the gate was
-ratcheted to `2.7`. The next step (`2.5`) needs the workflow row-mapping dedup
-in `packages/db/src/repository/workflows/*`. Lower the threshold in
-`.jscpd.json` as offenders are cleaned up and update this file.
+The threshold is set to the tightest value that is **green today without a wave
+of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
+the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
+pulled it to **2.33%**, AP-207 plus the merged cleanup/test/docs train pulled it
+below the `2.1` gate, and AP-204 pulled it to **1.95%**. The current baseline is
+below the `2.1` gate but not yet low enough for `1.9`. The next step (`1.9`)
+needs another offender cleanup or a decision to stop scanning `src/test-helpers/`.
+Lower the threshold in `.jscpd.json` as offenders are cleaned up and update this
+file.
 
-## Baseline distribution (gated scope, 2026-06-02)
+## Baseline distribution (gated scope, 2026-06-05)
 
-Measured by jscpd at `minTokens: 50` over `apps` + `packages`, after the first
-dedup round:
+Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`, after
+AP-204 was merged with the AP-207 baseline:
 
-- 393 files, 35,784 lines analyzed.
-- 91 clones, 927 duplicated lines = **2.59%** (2.87% by tokens).
-- By format: TypeScript ~2.9%, TSX 1.23%, JavaScript 0%.
+- 519 files, 46,947 lines analyzed.
+- 92 clones, 916 duplicated lines = **1.95%** (2.30% by tokens).
+- Pre AP-204 (post AP-207, 2026-06-05): 509 files, 46,746 lines, 936
+  duplicated lines = **2.00%** (2.37% by tokens).
+- By format: TypeScript 2.15%, TSX 1.60%, JavaScript 0%.
 
-For reference, the whole repo including `scripts/` is ~3.9% (the scripts alone
-are ~8.5%). That gap is why `scripts/` is out of scope.
+For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
+8,558 lines). That gap is why `scripts/` is out of scope.
 
 ## Done: first dedup round
 
@@ -63,30 +71,84 @@ These quick wins shipped with the gate (2.84% -> 2.59%):
       `apps/web/src/routes/api/live/*` route files; lives in
       `apps/web/src/security-headers.ts`.
 
+## Done: AP-203 repository workflow dedup
+
+This pass moved the gated baseline from 2.54% to 2.45%:
+
+- [x] Shared active-artifact lookup, artifact audit insertion, delete-result
+      mapping, and web artifact pagination in
+      `packages/db/src/repository/workflows/artifact-workflow-helpers.ts`.
+- [x] Reused those helpers from member artifact, web dashboard, access-link, and
+      workspace-admin workflows.
+- [x] Collapsed the workspace replay peek wrappers into one implementation with
+      explicit exported aliases.
+
+## Done: AP-206 MCP helper dedup
+
+This pass moved the gated baseline from 2.45% to 2.33%:
+
+- [x] Extracted `createAndMintAccessLink` in `apps/mcp/src/tools.ts` for the
+      shared create-and-mint Access Link flow used by `create_share_link` and
+      `create_revision_link`.
+- [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
+      vs Upload request construction and error mapping.
+
+## Done: AP-204 dashboard table/status UI dedup
+
+This pass moved the gated baseline from 2.33% to 2.21%:
+
+- [x] Shared clipboard-copy hook, revocable entity state, and presentational
+      table helpers (`DataTable`, `StateBadge`, `OptionalRelativeTime`,
+      `RevokedActionPlaceholder`) across Access Links and API Keys tables in
+      `apps/web`.
+
+## Done: AP-207 API route helper dedup
+
+This pass, combined with the cleanup/test/docs train merged into `main`, moved
+the gated baseline from 2.33% to 2.00%:
+
+- [x] Shared Workspace Member resolution, forbidden response handling, and
+      paginated member route execution in `apps/api/src/routes/web.ts`.
+- [x] Shared member billing route execution and current-status response building
+      in `apps/api/src/routes/billing.ts`.
+- [x] Shared smoke harness authentication and smoke DB resolution in
+      `apps/api/src/routes/smoke.ts`.
+- [x] Collapsed repository route error mapping in `apps/api/src/responses.ts`.
+
 ## Where the duplication lives
 
-Diffuse across `packages/db`, not a few fat offenders. Cleaning these dirs is
-what moves the threshold:
+Cleaning these dirs is what moves the threshold:
 
 - [ ] `packages/db/src/repository/workflows/*` — `web-dashboard-workflow.ts`,
-      `member-artifacts-workflow.ts`, and siblings repeat row-mapping and
-      pagination boilerplate. Largest single source of clones.
+      `member-artifacts-workflow.ts`, `access-links-workflow.ts`, and siblings
+      repeat row-mapping, pagination, command setup, and Audit Event boilerplate.
+      Largest single runtime source of clones.
+- [ ] API Worker glue — AP-207 removed the route-local member, pagination,
+      response, smoke, and repository-error clones; non-route `index.ts` /
+      `env.ts` / deletion-invalidation clones remain.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
       scaffolding (`operation-events.ts`, `artifacts.ts`).
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — repeated statement-handler
       bodies (also a complexity offender; refactoring helps both gates).
-- [ ] `packages/contracts/src/openapi/*` and `mcp/registry.ts` — repeated
-      schema/registration blocks (largest single clone: 45 lines in
-      `mcp/registry.ts`).
+- [ ] `packages/contracts/src/openapi/*` — repeated schema/registration blocks
+      (MCP publish-chain clone in `mcp/registry.ts` deduped in AP-205).
+- [ ] `apps/web/src/components/*` — a few route loaders and admin panels still
+      repeat small UI patterns.
+- [ ] `apps/upload/src/create-session.ts` and `finalize.ts` — repeated
+      authenticated upload-route repository error handling.
+- [ ] `apps/jobs/src/test-helpers/*` and `packages/billing/src/test-helpers/*`
+      — repeated PGlite migration/RLS helper setup. Either extract a shared test
+      helper or stop scanning `src/test-helpers/`.
 - [ ] `packages/rotation/src/automation.ts` — 2 clones in plan-building.
 
 Some jscpd hits are intentional parallel implementations, not copy-paste, and
 should be left alone: `apps/stream/src/artifact-live.ts` vs
 `memory-artifact-live.ts` (DurableObject vs in-memory), the per-domain jobs
 queue/discovery handlers, and `schema.ts` column blocks (clearer flat than
-abstracted).
+abstracted). The repeated smoke-script helpers under `scripts/` are also outside
+the gate by design.
 
 ## How to ratchet
 

@@ -5,6 +5,65 @@ use `git log` for commit-level detail.
 
 ## 2026-06-05
 
+### Post-launch hardening wave: correctness + security fixes
+
+A cluster of focused fixes closed gaps surfaced by review on the now
+feature-complete surface (most delegated to Cursor):
+
+- **Access Link denylist completeness (AP-186, #292):** access-link revoke and
+  member lockdown now write the KV denylist keys (`ald:`/`ad:`) post-commit, so
+  already-minted content URLs stop resolving instead of staying valid until
+  token expiry. Lift re-derives retention before deleting the shared
+  `ad:{artifactId}` key, and revoke/lockdown fail closed with
+  `storage_unavailable` (503) when the KV write fails after retries. ADR 0057
+  updated to document the fail-closed retry instead of a phantom cron sweep.
+- **Upload finalize guard (AP-187, #295):** `finalizeUploadSession` inspects
+  status and `expires_at` before inserting revisions — idempotent replay for
+  already-finalized sessions, `upload_session_expired` for expired ones.
+- **Jobs RLS scoping (#296):** safety-scan / bundle-generate queue consumers and
+  malicious-URL lockdown now run inside `withWorkspaceScope` / `withPlatformScope`
+  so they satisfy FORCE RLS under `app_role`, matching the cron handlers.
+- **Auth L1 cache bound (#289):** the module-scope token cache now LRU-evicts at
+  1000 entries per ADR 0062, so an invalid-token flood can't grow it unbounded.
+- **Upload malformed-escape handling (AP-190, #293):** a malformed percent-escape
+  in the signed PUT path now returns 401 (not 500) by falling through to
+  `not_authenticated`.
+- **MCP idempotency key overflow (#290):** a max-length client idempotency key no
+  longer overflows `IdempotencyKey.max` when the `:revision-link`/`:share-link`
+  suffix is appended — long keys are hashed via fnv1a32 first.
+- **CLI fixes:** config dir is created `0700` even when update-check runs before
+  login (AP-192, #291); a stale keyring entry is cleared when `setPassword`
+  falls back to the file store so `load()` can't return an older credential
+  (AP-194, #298).
+- **Web OAuth deep-link (#294):** the WorkOS callback honors the validated
+  `returnPathname` from OAuth state instead of always redirecting to
+  `/dashboard`.
+
+### Standardized security headers + strict nonce CSP on public surfaces (AP-184)
+
+- Applied one shared baseline of HTTP security headers (HSTS, nosniff,
+  X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP) across all eight
+  Workers via `packages/worker-runtime/src/security-headers.ts`, preserving each
+  Worker's existing stricter CSP/cache-control (#271). The two public HTML
+  surfaces — dashboard and apex — went strict-CSP with per-request nonces and no
+  script `'unsafe-inline'`; browser-verified on preview with zero violations.
+  The dashboard nonce threads to TanStack via an AsyncLocalStorage bridge; the
+  CF Analytics beacon is declared through `head().scripts` so the nonce sticks.
+  Follow-up: drop style `'unsafe-inline'` (the one open item in
+  [`web-csp-todo.md`](../web-csp-todo.md)).
+- Reconciled `content-rendering.md` with the content Worker's emitted HSTS and
+  X-Frame-Options headers (AP-193, #288).
+
+### Billing seam cleanup (AP-183)
+
+- Localized architecture cleanup of the billing system with no behavior change
+  (#269): the write-allowance tier resolver now takes an honest `claimed:
+boolean` instead of a fabricated workspace id; the five member-facing billing
+  handlers share a pre-RLS-scoped `resolveBillingMemberCtx`; and a new
+  `@agent-paste/plans` package owns the presentational half of a Plan, sourcing
+  the allowance bullet from the enforced config constants instead of re-typing
+  the number as prose.
+
 ### Scope decisions: malware scanner cancelled, WATCH deferred, no public SDK
 
 - Cancelled the file-bytes hash-reputation malware scanner (AP-149): too
@@ -12,7 +71,7 @@ use `git log` for commit-level detail.
   MalwareBazaar/VirusTotal provider integration. Existing containment
   (script-disabled ephemeral serving, locked CSP on the Content Origin, 24h
   auto-deletion + noindex) already bounds the distribution risk; the
-  text/semantic + URL scanners stay in place.
+  built-in text warnings, Llama Guard, and URL Scanner stay in place.
 - Deferred the CLI `watch` auto-republish command (AP-167) to Backlog: an agent
   can publish repeatedly; no current need for auto-republish-on-change.
 - Decided against a public SDK (ADR 0017 was already "no SDK in the MVP"). The

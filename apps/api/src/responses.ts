@@ -49,6 +49,17 @@ function repositoryErrorResponse(
   return bound.respondError(code);
 }
 
+function routeErrorResponse(context: AppContext, error: unknown, respondError?: ContractRespondError): Response | null {
+  if (error instanceof RepositoryRouteError) {
+    return repositoryErrorResponse(context, error.code as ErrorCode, respondError, error.message, error.headers);
+  }
+  const repositoryCode = repositoryErrorToAppError(error);
+  if (repositoryCode) {
+    return repositoryErrorResponse(context, repositoryCode, respondError);
+  }
+  return null;
+}
+
 export async function runIdempotent(
   context: AppContext,
   run: () => Promise<unknown>,
@@ -65,18 +76,9 @@ export async function runIdempotent(
       }
       return boundRespondError("idempotency_in_flight");
     }
-    if (error instanceof RepositoryRouteError) {
-      return repositoryErrorResponse(
-        context,
-        error.code as ErrorCode,
-        options.respondError,
-        error.message,
-        error.headers,
-      );
-    }
-    const repositoryCode = repositoryErrorToAppError(error);
-    if (repositoryCode) {
-      return repositoryErrorResponse(context, repositoryCode, options.respondError);
+    const response = routeErrorResponse(context, error, options.respondError);
+    if (response) {
+      return response;
     }
     throw error;
   }
@@ -92,18 +94,9 @@ export async function executeRepositoryRoute<T>(
   try {
     return respondJson(await run(), successStatus);
   } catch (error) {
-    if (error instanceof RepositoryRouteError) {
-      return repositoryErrorResponse(
-        context,
-        error.code as ErrorCode,
-        options.respondError,
-        error.message,
-        error.headers,
-      );
-    }
-    const repositoryCode = repositoryErrorToAppError(error);
-    if (repositoryCode) {
-      return repositoryErrorResponse(context, repositoryCode, options.respondError);
+    const response = routeErrorResponse(context, error, options.respondError);
+    if (response) {
+      return response;
     }
     throw error;
   }

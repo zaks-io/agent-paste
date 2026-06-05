@@ -7,9 +7,9 @@ customer data.
 
 Scope:
 
-- Proof-of-work provision, CLI `publish --ephemeral`, claim redemption, content policy
-  (24h **Auto Deletion**, `noindex`, script-disabled serving), ephemeral-tier **Safety Scanner**
-  routing, and **Platform Lockdown**
+- Provision, CLI `publish --ephemeral`, claim redemption, content policy
+  (24h **Auto Deletion**, `noindex`, script-disabled serving), advisory warning
+  metadata, Llama Guard/URL Scanner signals, and **Platform Lockdown**
 - Local and hosted smoke evidence (AP-110/AP-111)
 - Support responses for lost, expired, or redeemed **Claim Tokens**
 
@@ -31,10 +31,11 @@ Related docs:
 
 | Layer                               | Status                  | How to confirm                                      |
 | ----------------------------------- | ----------------------- | --------------------------------------------------- |
-| API provision + claim routes        | Shipped                 | PoW probe and smokes (below)                        |
+| API provision + claim routes        | Shipped                 | Provision probe and smokes (below)                  |
 | CLI `publish --ephemeral`           | Shipped (AP-107)        | `pnpm smoke:local` ephemeral section                |
 | Web claim UX                        | Shipped (AP-108)        | `/claim#…` redemption in browser                    |
 | Script-disabled + `noindex` serving | Shipped (AP-102/AP-104) | Content/agent-view policy assertions in smokes      |
+| Ephemeral advisory warning path     | Shipped (AP-104)        | `safety-scan` with `scanner_id=ephemeral_tier`      |
 | Local end-to-end smoke              | Shipped (AP-110)        | `pnpm smoke:local`                                  |
 | Hosted preview/PR smoke             | Shipped (AP-111)        | `pnpm smoke:preview:ephemeral`, PR preview workflow |
 | Hosted production smoke             | Operator-run (AP-111)   | `pnpm smoke:production:ephemeral` with approval     |
@@ -56,7 +57,7 @@ sequenceDiagram
   participant Member as Claimer
   participant Jobs as jobs Worker
 
-  Agent->>API: POST /v1/ephemeral/provision (PoW solution)
+  Agent->>API: POST /v1/ephemeral/provision
   API-->>Agent: API Key + Claim Token (one-time)
   Agent->>Upload: Upload Session + finalize (API Key)
   Agent->>API: Publish revision (API Key)
@@ -67,10 +68,10 @@ sequenceDiagram
   API-->>Member: Artifacts reparented to Personal Workspace
 ```
 
-1. **Provision** — `POST /v1/ephemeral/provision` after solving a hashcash-style proof-of-work
-   challenge. Creates an **Ephemeral Workspace** (`workspaces.claimed_at IS NULL`), a short-lived
-   **API Key** (`write` + `read` only), and a one-time **Claim Token** (stored hashed; plaintext
-   returned once).
+1. **Provision** — `POST /v1/ephemeral/provision` creates an **Ephemeral Workspace**
+   (`workspaces.claimed_at IS NULL`), a short-lived **API Key** (`write` + `read` only), and a
+   one-time **Claim Token** (stored hashed; plaintext returned once). The endpoint may require a
+   lightweight provisioning challenge, but that is friction, not a security boundary.
 2. **Publish** — Standard **Upload Session** → finalize → publish using the minted **API Key**
    (CLI: `agent-paste publish <path> --ephemeral`).
 3. **Share** — Public **Agent View** and content URLs never embed the **Claim Token**. The CLI
@@ -83,24 +84,29 @@ sequenceDiagram
 
 ## Policy and abuse controls
 
-| Control                          | Ephemeral (unclaimed)                                                  | After claim (`free`+)       |
-| -------------------------------- | ---------------------------------------------------------------------- | --------------------------- |
-| Daily new **Artifact** allowance | 20                                                                     | 100 (`free`) / higher tiers |
-| **Auto Deletion**                | 24h cap                                                                | Platform default (30d+)     |
-| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML                    | Default                     |
-| Script execution                 | Script-disabled **Execution Policy** (`script-src 'none'`)             | CDN-allowlisted policy      |
-| **Safety Scanner**               | `scanner_id` = `ephemeral_tier` (Llama Guard 3 + URL Scanner advisory) | Built-in scanner path       |
-| Malicious verdict                | **Platform Lockdown** (workspace or artifact scope)                    | Same                        |
+| Control                          | Ephemeral (unclaimed)                                        | After claim (`free`+)       |
+| -------------------------------- | ------------------------------------------------------------ | --------------------------- |
+| Daily new **Artifact** allowance | 20                                                           | 100 (`free`) / higher tiers |
+| **Auto Deletion**                | 24h cap                                                      | Platform default (30d+)     |
+| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML          | Default                     |
+| Script execution                 | Script-disabled **Execution Policy** (`script-src 'none'`)   | CDN-allowlisted policy      |
+| Warning metadata                 | Built-in rules, dormant-script warning, optional Llama Guard | Built-in rules              |
+| URL Scanner signal               | Malicious verdict can trigger artifact **Platform Lockdown** | Not on default claimed path |
+| Abuse response                   | Operator **Platform Lockdown** (workspace or artifact scope) | Same                        |
 
-Proof-of-work and dedicated rate-limit bindings on provision dampen provision abuse. Reads stay
-gated only by the existing **Artifact Rate Limit** — not by publisher tier.
+Provision rate limits dampen provision abuse. Reads stay gated only by the existing **Artifact
+Rate Limit** — not by publisher tier.
+
+Warning metadata and URL Scanner verdicts are advisory and abuse-response signals. They do not
+certify content as safe, promise malware detection, or replace the isolation, signed access,
+rate limits, revocation, and deletion controls.
 
 ## Is ephemeral live?
 
 Use these checks in order. None require pasting a **Claim Token** or API key into tickets,
 logs, or docs.
 
-### 1. PoW readiness probe (safe, read-only)
+### 1. Provision readiness probe (safe, read-only)
 
 ```sh
 curl -sS -X POST "${API_BASE}/v1/ephemeral/provision" \
@@ -111,7 +117,7 @@ curl -sS -X POST "${API_BASE}/v1/ephemeral/provision" \
 
 | Response                                                   | Meaning                                                               |
 | ---------------------------------------------------------- | --------------------------------------------------------------------- |
-| `401` + `error.code` = `pow_required` + `challenge` object | Ephemeral provision is configured (`EPHEMERAL_POW_SECRET` present)    |
+| `401` + `error.code` = `pow_required` + `challenge` object | Provision route is configured and requires its lightweight challenge  |
 | `database_unavailable` or missing challenge                | `EPHEMERAL_POW_SECRET` not set on the API Worker for this environment |
 | Unexpected 5xx                                             | Investigate API health, DB/Hyperdrive, or recent deploy               |
 
@@ -187,8 +193,10 @@ email, or this runbook.
 ### 5. Operator UI and lockdown
 
 - **Platform Lockdown** — Use the web `/admin` operator UI (WorkOS `admin` + Cloudflare Access)
-  to set workspace- or artifact-scoped lockdown after a malicious **Safety Scanner** verdict or
-  abuse report. See [ADR 0040](../adr/0040-platform-lockdown-for-operator-initiated-takedown.md).
+  to set workspace- or artifact-scoped lockdown after an abuse report. See
+  [ADR 0040](../adr/0040-platform-lockdown-for-operator-initiated-takedown.md).
+- **Scanner-triggered lockdown** — A malicious Cloudflare URL Scanner verdict on an ephemeral
+  public Agent View URL can apply artifact-scoped **Platform Lockdown** automatically.
 - **Audit / operator events** — AP-16 operator event browsing can corroborate provision, claim,
   and lockdown actions without exposing **Claim Token** plaintext.
 
@@ -198,13 +206,12 @@ email, or this runbook.
    the reporter for their **Claim Token**.
 2. **Assess tier** — Fetch public **Agent View** or content headers (above). Ephemeral content
    should already be `noindex` and script-disabled.
-3. **Lock down** — Apply **Platform Lockdown** at artifact or workspace scope via operator APIs/UI.
+3. **Check advisory signals** — Review Agent View **Safety Warnings**, queue logs, and any URL
+   Scanner-triggered lockdown evidence. Treat warnings as hints, not proof of safety or harm.
+4. **Lock down** — Apply **Platform Lockdown** at artifact or workspace scope via operator APIs/UI.
    Ephemeral viral links do not grant claim power; lockdown is independent of claim state.
-4. **Scanner follow-up** — Check whether `ephemeral_tier` safety scan enqueued a warning or drove
-   automatic lockdown. Jobs consumer uses `scanner_id` `ephemeral_tier` per
-   `packages/contracts/src/jobs.ts`.
 5. **Provision abuse** — If provision volume spikes, review ephemeral provision rate-limit metrics
-   and PoW difficulty config before considering manual blocks. Do not disable PoW without an ADR.
+   before considering manual blocks.
 6. **Retention** — Unclaimed content ages out on the 24h ephemeral **Auto Deletion** schedule even
    without manual delete. Prefer lockdown for active harm; rely on TTL for cleanup.
 
@@ -233,8 +240,8 @@ agent-paste publish <path> --ephemeral [--title <text>] [--ttl 1d] [--json]
 - Default TTL is one day (ephemeral cap). `--json` prints `artifact_id`, `view_url`,
   `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.
-- PoW failures and rate limits surface as stable CLI error codes (for example
-  `ephemeral_provision_rate_limited`).
+- Provision challenge failures and rate limits surface as stable CLI error codes
+  (for example `ephemeral_provision_rate_limited`).
 
 Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephemeral` with
 `AGENT_PASTE_*_URL` exports from the harness banner.
@@ -243,9 +250,12 @@ Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephem
 
 | Secret / binding                                  | Worker     | Purpose                                                    |
 | ------------------------------------------------- | ---------- | ---------------------------------------------------------- |
-| `EPHEMERAL_POW_SECRET`                            | `api`      | Sign and verify PoW challenges                             |
+| `EPHEMERAL_POW_SECRET`                            | `api`      | Sign and verify lightweight provision challenges           |
 | `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                 |
 | `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Global provision backstop                                  |
+| `AI`                                              | `jobs`     | Optional Llama Guard warning signal                        |
+| `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                   |
+| `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                 |
 | `AGENT_PASTE_*_SMOKE_HARNESS_SECRET`              | smoke only | Preview/PR artifact cleanup via `__test__/delete-artifact` |
 | `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` | smoke only | Optional hosted claim redemption check                     |
 
@@ -255,18 +265,18 @@ Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 
 ## Failure modes
 
-| Symptom                                  | Likely cause                                          | Action                                                   |
-| ---------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| PoW probe returns `database_unavailable` | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                 |
-| Hosted smoke exits 0 with "skipped"      | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof |
-| CLI `--ephemeral` rate limited           | Provision abuse or per-IP cap                         | Retry with backoff; investigate source IP volume         |
-| Claim returns 404                        | Redeemed, expired, or invalid token                   | See support table; no token recovery                     |
-| Content executes script                  | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL       |
-| Scanner lockdown loop                    | Malicious verdict on ephemeral content                | Review warning payload; lift only after remediation      |
+| Symptom                                        | Likely cause                                          | Action                                                   |
+| ---------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| Provision probe returns `database_unavailable` | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                 |
+| Hosted smoke exits 0 with "skipped"            | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof |
+| CLI `--ephemeral` rate limited                 | Provision abuse or per-IP cap                         | Retry with backoff; investigate source IP volume         |
+| Claim returns 404                              | Redeemed, expired, or invalid token                   | See support table; no token recovery                     |
+| Content executes script                        | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL       |
+| Unexpected scanner lockdown                    | Malicious URL Scanner verdict on ephemeral content    | Review Artifact and lift only after remediation          |
 
 ## Verification boundary
 
-- Safe for CI and remote agents: `pnpm smoke:local`, unit tests, PoW probe, public header checks.
+- Safe for CI and remote agents: `pnpm smoke:local`, unit tests, provision probe, public header checks.
 - Requires hosted credentials or operator approval: `pnpm smoke:preview:ephemeral`,
   `pnpm smoke:production:ephemeral`, production deploys.
 - Never commit **Claim Tokens**, API keys, or `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN`

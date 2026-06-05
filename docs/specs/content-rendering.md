@@ -8,7 +8,10 @@ The `content` Worker serves untrusted artifact files from `usercontent.agent-pas
 | ------------------- | -------------------------------------------- |
 | `/v/{token}/{path}` | File bytes for one signed artifact revision. |
 
-The token is an opaque signed content token minted during publish. MVP tokens live in the URL path. Fragment-based access links are future work.
+The token is an opaque signed content token minted during publish. Content tokens
+live in the URL path. Access Link Signed URLs use a separate
+`/al/{publicId}#{blob}` shape on the app origin and resolve to signed content
+tokens.
 
 ## Token Checks
 

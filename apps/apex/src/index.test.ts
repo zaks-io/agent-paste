@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DOCS_PAGES, docsMarkdownPath } from "./docs/registry.js";
 import { type Env, handleRequest } from "./index.js";
 
 const APEX = "https://agent-paste.sh";
@@ -37,7 +38,8 @@ describe("apex worker", () => {
     expect(body).toContain("/fonts/BricolageGrotesque-Variable.woff2");
     expect(body).toContain("/fonts/IBMPlexMono-Regular.woff2");
     expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
-    expect(body).toContain('href="/agents.md"');
+    expect(body).toContain('href="/docs"');
+    expect(body).toContain(">Docs<");
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
     expect(body).toContain('href="/terms"');
     expect(body).toContain('href="/privacy"');
@@ -106,6 +108,7 @@ describe("apex worker", () => {
     expect(body).toContain("Install in one line");
     expect(body).toContain("curl -fsSL https://agent-paste.sh/install.sh | sh");
     expect(body).toContain("irm https://agent-paste.sh/install.ps1 | iex");
+    expect(body).toContain('href="/docs"');
     expect(body).toContain('href="/install.sh"');
     expect(body).toContain('href="/install.ps1"');
   });
@@ -122,15 +125,28 @@ describe("apex worker", () => {
     expect(body).toContain("One ID, every surface");
   });
 
+  // The gradient / backdrop-filter bans are intentionally absent while the
+  // marketing surface is being iterated on. The font and shape bans still hold.
   it("does not include style-guide §11 banned tokens", async () => {
     const response = await get("/");
     const body = (await response.text()).toLowerCase();
-    expect(body).not.toContain("gradient");
-    expect(body).not.toContain("backdrop-filter");
     expect(body).not.toContain("geist");
     expect(body).not.toContain("space grotesk");
     expect(body).not.toMatch(/["\s,]inter["\s,]/);
     expect(body).not.toContain("border-radius: 9999");
+  });
+
+  it("renders the result gesture as a box-drawing wire, never an em-dash", async () => {
+    const body = await (await get("/")).text();
+    // The caret + box-drawing wire (U+2500) sits tight against the accent node
+    // span, with no whitespace inserted between them. Pinned exactly so a
+    // formatter reflow, or an agent swapping the wire for a hyphen or em dash,
+    // fails here.
+    expect(body).toContain(
+      '<span class="t-gesture" aria-hidden="true">&gt;─<span class="t-gesture-node">●</span></span>',
+    );
+    // Belt and suspenders: the rendered home page carries no em-dash at all.
+    expect(body).not.toContain("—");
   });
 
   it("renders the about page with the wedge and an honest scope section", async () => {
@@ -164,7 +180,6 @@ describe("apex worker", () => {
     expect(body).not.toContain("revolutionary");
     expect(body).not.toContain("game-changing");
     expect(body).not.toContain("seamless");
-    expect(body).not.toContain("gradient");
     expect(body).not.toContain("—"); // em dash
   });
 
@@ -172,13 +187,53 @@ describe("apex worker", () => {
     const home = await get("/");
     const homeBody = await home.text();
     expect(homeBody).toContain('<a class="head-link" href="/about">About</a>');
-    expect(homeBody).toContain('<a class="foot-link" href="/about">About</a>');
+    expect(homeBody).toContain('<a class="home-foot-link foot-link" href="/about">About</a>');
+  });
+
+  it("renders the how-it-works page from the footer without overclaiming safety", async () => {
+    const home = await get("/");
+    expect(await home.text()).toContain('<a class="home-foot-link foot-link" href="/how-it-works">How it works</a>');
+
+    const response = await get("/how-it-works");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const body = await response.text();
+    expect(body).toContain("Protected handoffs for agent work");
+    expect(body).toContain("Your Workspace stays separate");
+    expect(body).toContain("Files stay private until shared");
+    expect(body).toContain("Generated content is isolated");
+    expect(body).toContain("Sharing can be revoked");
+    expect(body).toContain("What this does not promise");
+    expect(body).toContain("does not inspect or certify uploaded content as safe");
+    expect(body).toContain("does not promise malware detection");
+    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/how-it-works"/>');
+    const main = body.match(/<main class="content">[\s\S]*<\/main>/)?.[0] ?? "";
+    expect(main).not.toContain("Operator");
+    expect(main).not.toContain("operator");
+    expect(main).not.toContain("Platform Lockdown");
+    expect(main).not.toContain("MCP server");
+    expect(main).not.toContain("REST API");
+    expect(main).not.toContain("proof-of-work");
+    expect(main).not.toContain("Safety Scanner");
+    expect(main).not.toContain("secure hosting");
+    expect(main).not.toContain("malware-free");
+    expect(main).not.toContain("—");
+  });
+
+  it("links to docs from the home page and footer", async () => {
+    const home = await get("/");
+    const homeBody = await home.text();
+    expect(homeBody).toContain('<a class="head-link" href="/docs">Docs</a>');
+    expect(homeBody).toContain('<a class="home-foot-link foot-link" href="/docs">Docs</a>');
+    expect(homeBody).toContain('href="/llms-full.txt"');
   });
 
   it("lists /about in the sitemap", async () => {
     const response = await get("/sitemap.xml");
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/about</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/how-it-works</loc>");
   });
 
   it("serves /llms.txt as text/plain", async () => {
@@ -190,6 +245,7 @@ describe("apex worker", () => {
     expect(body).toContain("# agent-paste");
     expect(body).toContain("npx @zaks-io/agent-paste publish");
     expect(body).toContain("agent-paste login");
+    expect(body).toContain("/llms-full.txt");
   });
 
   it("serves /agents.md as text/markdown", async () => {
@@ -201,6 +257,82 @@ describe("apex worker", () => {
     expect(body).toContain("Mental model");
     expect(body).toContain("npx @zaks-io/agent-paste login");
     expect(body).toContain("AGENT_PASTE_API_KEY");
+    expect(body).toContain("https://agent-paste.sh/docs");
+    expect(body).toContain("https://agent-paste.sh/llms-full.txt");
+  });
+
+  it("serves docs index as human HTML and Markdown from the same page registry", async () => {
+    const html = await get("/docs");
+    expect(html.status).toBe(200);
+    expect(html.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(html.headers.get("set-cookie")).toBeNull();
+    const htmlBody = await html.text();
+    expect(htmlBody).toContain("Use agent-paste");
+    expect(htmlBody).toContain('href="/docs.md"');
+    expect(htmlBody).toContain('href="/llms-full.txt"');
+
+    const markdown = await get("/docs.md");
+    expect(markdown.status).toBe(200);
+    expect(markdown.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    const markdownBody = await markdown.text();
+    expect(markdownBody).toContain("# agent-paste docs");
+
+    for (const page of DOCS_PAGES) {
+      expect(htmlBody).toContain(page.title);
+      expect(markdownBody).toContain(`[${page.title}](${docsMarkdownPath(page)})`);
+    }
+  });
+
+  it("serves docs child pages and Markdown twins", async () => {
+    const html = await get("/docs/billing");
+    expect(html.status).toBe(200);
+    expect(html.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const htmlBody = await html.text();
+    expect(htmlBody).toContain("Billing and Plans");
+    expect(htmlBody).toContain("Stripe Checkout");
+    expect(htmlBody).toContain("2000");
+    expect(htmlBody).toContain('href="/docs/billing.md"');
+
+    const markdown = await get("/docs/billing.md");
+    expect(markdown.status).toBe(200);
+    expect(markdown.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    const markdownBody = await markdown.text();
+    expect(markdownBody).toContain("# Billing and Plans");
+    expect(markdownBody).toContain("| Pro | 2000 | 25 MB | 100 MB | 30d default, 90d max | 1000 | Yes |");
+  });
+
+  it("returns the generic 404 for unknown docs pages", async () => {
+    const response = await get("/docs/not-a-page");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    await expect(response.text()).resolves.toBe("not_found");
+  });
+
+  it("returns docs pages with no body for HEAD", async () => {
+    const response = await handleRequest(new Request(`${APEX}/docs/getting-started`, { method: "HEAD" }), emptyEnv());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(await response.text()).toBe("");
+
+    const markdown = await handleRequest(
+      new Request(`${APEX}/docs/getting-started.md`, { method: "HEAD" }),
+      emptyEnv(),
+    );
+    expect(markdown.status).toBe(200);
+    expect(markdown.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(await markdown.text()).toBe("");
+  });
+
+  it("serves /llms-full.txt with the complete docs corpus", async () => {
+    const response = await get("/llms-full.txt");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    const body = await response.text();
+    expect(body).toContain("# agent-paste full docs");
+    expect(body).toContain("# Getting Started");
+    expect(body).toContain("# Billing and Plans");
+    expect(body).toContain("# MCP Server");
+    expect(body).toContain("Per-page Markdown twins live under /docs/{slug}.md");
   });
 
   it.each([
@@ -279,9 +411,15 @@ describe("apex worker", () => {
     expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8");
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/how-it-works</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/docs</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/docs.md</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/docs/billing</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/docs/billing.md</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/terms</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/privacy</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/llms.txt</loc>");
+    expect(body).toContain("<loc>https://agent-paste.sh/llms-full.txt</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/install.sh</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/install.ps1</loc>");
   });
@@ -370,9 +508,14 @@ describe("apex worker", () => {
     const paths = [
       "/",
       "/about",
+      "/docs",
+      "/docs.md",
+      "/docs/billing",
+      "/docs/billing.md",
       "/terms",
       "/privacy",
       "/llms.txt",
+      "/llms-full.txt",
       "/agents.md",
       "/install.sh",
       "/install.ps1",

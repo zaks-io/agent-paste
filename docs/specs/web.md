@@ -1,6 +1,8 @@
 # Web Surface Spec
 
-This is a future-phase spec. The CLI-first MVP has no dashboard, no admin UI, and no Access Link viewer. Keep this file for Phase 3+ self-serve login, Phase 4 Access Link viewer work, and Phase 6 dashboard work.
+This is the current web surface spec for the dashboard, Access Link viewer,
+claim flow, billing page, and operator UI. The CLI-first MVP had no dashboard,
+but the hosted service now ships these routes.
 
 The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no Postgres, R2, KV, or queue bindings. All durable reads and writes go through `api`.
 

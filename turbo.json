@@ -39,6 +39,15 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest.shared.config.ts",
+        "$TURBO_ROOT$/vitest.coverage.node.config.ts"
+      ],
+      "outputs": ["coverage/**"]
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []

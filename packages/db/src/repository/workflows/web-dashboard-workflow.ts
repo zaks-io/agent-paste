@@ -6,15 +6,14 @@ import type { RepositoryCoreContext } from "../core-context.js";
 import { apiCommandActor, expiresAtFromSeconds, memberCommandActor, nowIso, workspaceScope } from "../core-helpers.js";
 import { buildApiKey, toWorkspaceMemberSummary } from "../shared.js";
 import {
-  decodeWebArtifactCursor,
   decodeWebAuditCursor,
-  encodeWebArtifactCursor,
   encodeWebAuditCursor,
   normalizeWebArtifactLimit,
   normalizeWebAuditLimit,
   toWebArtifactRow,
   toWebAuditRow,
 } from "../web-transforms.js";
+import { insertArtifactAuditEvent, mustActiveArtifact, readWebArtifactPage } from "./artifact-workflow-helpers.js";
 
 function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig) {
   return {
@@ -47,19 +46,14 @@ export async function listWebArtifacts(
 ) {
   const limit = normalizeWebArtifactLimit(pagination.limit);
   return ctx.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
-    const rows = await entities.artifacts.listWebPage({
+    const { page, page_info } = await readWebArtifactPage(entities, {
       workspaceId: actor.workspace_id,
-      limit: limit + 1,
-      ...(pagination.cursor ? { cursor: decodeWebArtifactCursor(pagination.cursor) } : {}),
+      limit,
+      ...(pagination.cursor ? { cursor: pagination.cursor } : {}),
     });
-    const page = rows.slice(0, limit);
-    const last = page.at(-1);
     return {
       items: page.map(toWebArtifactRow),
-      page_info: {
-        next_cursor: rows.length > limit && last ? encodeWebArtifactCursor(last) : null,
-        has_more: rows.length > limit,
-      },
+      page_info,
     };
   });
 }
@@ -92,10 +86,11 @@ export async function pinWebArtifact(
     },
     async (entities) => {
       const member = await ctx.mustMember(entities, input.actor.id);
-      const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
-      if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
-        repositoryError("artifact_not_found");
-      }
+      const artifact = await mustActiveArtifact(entities, {
+        artifactId: input.artifactId,
+        workspaceId: member.workspace_id,
+        requirePublishedRevision: true,
+      });
       if (artifact.pinned_at) {
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
       }
@@ -113,14 +108,10 @@ export async function pinWebArtifact(
       if (pinResult === "not_found") {
         repositoryError("artifact_not_found");
       }
-      await entities.operationEvents.insert({
-        actorType: "member",
-        actorId: member.id,
+      await insertArtifactAuditEvent(entities, {
+        actor: input.actor,
         action: "artifact.pinned",
-        targetType: "artifact",
-        targetId: artifact.id,
-        workspaceId: member.workspace_id,
-        details: {},
+        artifact,
         occurredAt: now,
       });
       const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);
@@ -150,22 +141,18 @@ export async function unpinWebArtifact(
     },
     async (entities) => {
       const member = await ctx.mustMember(entities, input.actor.id);
-      const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
-      if (!artifact || artifact.status !== "active") {
-        repositoryError("artifact_not_found");
-      }
+      const artifact = await mustActiveArtifact(entities, {
+        artifactId: input.artifactId,
+        workspaceId: member.workspace_id,
+      });
       if (!artifact.pinned_at) {
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
       }
       await entities.artifacts.setPinnedAt(artifact.id, null, now);
-      await entities.operationEvents.insert({
-        actorType: "member",
-        actorId: member.id,
+      await insertArtifactAuditEvent(entities, {
+        actor: input.actor,
         action: "artifact.unpinned",
-        targetType: "artifact",
-        targetId: artifact.id,
-        workspaceId: member.workspace_id,
-        details: {},
+        artifact,
         occurredAt: now,
       });
       const updated = await entities.artifacts.findById(artifact.id, member.workspace_id);

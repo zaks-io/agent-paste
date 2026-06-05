@@ -1,6 +1,10 @@
 import { AGENTS_MD } from "./agents.js";
 import { renderAboutPage } from "./components/about.js";
+import { renderDocsIndexPage, renderDocsPage } from "./components/docs.js";
 import { renderHomePage } from "./components/home.js";
+import { renderHowItWorksPage } from "./components/how-it-works.js";
+import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "./docs/markdown.js";
+import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath, docsPageForSlug } from "./docs/registry.js";
 import { INSTALL_PS1 } from "./install-ps1.js";
 import { INSTALL_SH } from "./install-sh.js";
 import { legalDocumentForPath, renderLegalPage } from "./legal.js";
@@ -52,6 +56,34 @@ export function routeApex(request: Request, context: ApexRouteContext): Response
 
   if (url.pathname === "/about") {
     return htmlResponse(renderAboutPage(context.nonce, context.analyticsToken), request.method, security);
+  }
+
+  if (url.pathname === "/how-it-works") {
+    return htmlResponse(renderHowItWorksPage(context.nonce, context.analyticsToken), request.method, security);
+  }
+
+  if (url.pathname === "/docs") {
+    return htmlResponse(renderDocsIndexPage(context.nonce, context.analyticsToken), request.method, security);
+  }
+
+  if (url.pathname === "/docs.md") {
+    return textResponse(renderDocsIndexMarkdown(), TEXT_MARKDOWN, request.method, security);
+  }
+
+  if (url.pathname === "/llms-full.txt") {
+    return textResponse(renderLlmsFullText(), TEXT_PLAIN, request.method, security);
+  }
+
+  const docsRoute = docsRouteForPath(url.pathname);
+  if (docsRoute?.kind === "html") {
+    return htmlResponse(
+      renderDocsPage(docsRoute.page, context.nonce, context.analyticsToken),
+      request.method,
+      security,
+    );
+  }
+  if (docsRoute?.kind === "markdown") {
+    return textResponse(renderDocsPageMarkdown(docsRoute.page), TEXT_MARKDOWN, request.method, security);
   }
 
   const legalDocument = legalDocumentForPath(url.pathname);
@@ -123,9 +155,42 @@ function robotsTxt(origin: string): string {
 }
 
 function sitemapXml(origin: string): string {
-  const urls = ["/", "/about", "/terms", "/privacy", "/llms.txt", "/agents.md", "/install.sh", "/install.ps1"];
+  const urls = [
+    "/",
+    "/about",
+    "/how-it-works",
+    "/docs",
+    "/docs.md",
+    ...DOCS_PAGES.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),
+    "/terms",
+    "/privacy",
+    "/llms.txt",
+    "/llms-full.txt",
+    "/agents.md",
+    "/install.sh",
+    "/install.ps1",
+  ];
   const entries = urls.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+}
+
+function docsRouteForPath(pathname: string): {
+  kind: "html" | "markdown";
+  page: NonNullable<ReturnType<typeof docsPageForSlug>>;
+} | null {
+  const match = pathname.match(/^\/docs\/([^/]+?)(\.md)?$/);
+  if (!match) {
+    return null;
+  }
+  const slug = match[1];
+  if (!slug) {
+    return null;
+  }
+  const page = docsPageForSlug(slug);
+  if (!page) {
+    return null;
+  }
+  return { kind: match[2] ? "markdown" : "html", page };
 }
 
 export { APP_ORIGIN };

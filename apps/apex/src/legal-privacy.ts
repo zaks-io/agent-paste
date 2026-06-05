@@ -73,9 +73,9 @@ export const PRIVACY: LegalDocument = {
             "API Key secrets are shown only when created, stored in non-recoverable verifier form, and must be replaced if lost.",
             "Access Links use signed, revocable URLs. Sensitive link material is designed to avoid normal server-side logs where practical.",
             "Operational logs and audit summaries are designed to exclude request bodies, credential secrets, full signed URLs, and other high-risk values.",
-            "Human access uses a dedicated authentication provider. Operator actions are limited, audited, and separated from normal API Key access.",
+            "Human access uses a dedicated authentication provider. Abuse-response controls are separated from normal API Key access.",
             "Security-sensitive secrets are handled through managed secret storage and rotation procedures, not committed to the repository.",
-            "Automated and manual controls may rate-limit, scan, revoke, lock down, or delete content when needed for security, abuse response, or policy enforcement.",
+            "Automated and manual controls may rate-limit, revoke, disable, or delete content when needed for security, abuse response, or policy enforcement.",
           ],
         },
         {

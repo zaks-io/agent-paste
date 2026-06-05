@@ -19,7 +19,7 @@ export const HERO = {
   headline: "Hand off what your agent made",
   lead: "An agent renders an HTML report. You want a URL to open, not a Vercel project or a repo. And the agent that made it in one tool has no way to pass it to an agent in another. agent-paste closes that gap: one command, one ID, a URL a human opens and a manifest another agent reads.",
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
-  secondary: { label: "Read the agent guide", href: "/agents.md" },
+  secondary: { label: "Read the docs", href: "/docs" },
 };
 
 export type TranscriptLine =
@@ -39,15 +39,6 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report --ephemeral" },
   { kind: "result", origin: "https://agent-paste.sh/", id: "art_01J2QK8R4DZ0WX5NT3YBE7MCFG" },
   { kind: "output", text: "Claim: https://app.agent-paste.sh/claim#ap_ct_… (open it signed in to keep it)" },
-];
-
-// The four canonical "reasons to believe" (marketing-brand-guide.md section 4).
-// The page leads with these, ahead of the feature detail.
-export const PILLARS: string[] = [
-  "One ID, every surface.",
-  "A URL for humans, a manifest for agents.",
-  "Safe to host what you did not write.",
-  "Transient by default, revocable on demand.",
 ];
 
 export type Feature = {
@@ -96,6 +87,7 @@ export const FOOTER: FooterColumn[] = [
   {
     heading: "Product",
     links: [
+      { label: "Docs", href: "/docs" },
       { label: "Dashboard", href: APP_BASE_URL },
       { label: "REST API", href: API_BASE_URL },
       { label: "MCP server", href: MCP_BASE_URL },
@@ -106,6 +98,7 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "/agents.md", href: "/agents.md" },
       { label: "/llms.txt", href: "/llms.txt" },
+      { label: "/llms-full.txt", href: "/llms-full.txt" },
     ],
   },
   {
@@ -117,7 +110,10 @@ export const FOOTER: FooterColumn[] = [
   },
   {
     heading: "Project",
-    links: [{ label: "About", href: "/about" }],
+    links: [
+      { label: "About", href: "/about" },
+      { label: "How it works", href: "/how-it-works" },
+    ],
   },
   {
     heading: "Legal",

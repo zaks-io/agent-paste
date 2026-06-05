@@ -98,6 +98,18 @@ export function resolveBillingMemberCtx(
   return { ok: true, ctx: { env, workspaceId, db, respondError, respondJson } };
 }
 
+async function runBillingMemberRoute(
+  context: AppContext,
+  principal: Principal,
+  run: (ctx: BillingMemberCtx) => Promise<Response> | Response,
+): Promise<Response> {
+  const resolved = resolveBillingMemberCtx(context, principal);
+  if (!resolved.ok) {
+    return resolved.response;
+  }
+  return run(resolved.ctx);
+}
+
 export function billingStatusFromRow(row: LocalBillingRow | null): BillingStatusResponse {
   const plan = row?.plan ?? "free";
   // The page is gated behind `billingEnabled`, and a member viewing billing is a
@@ -144,14 +156,13 @@ async function enrichBillingStatus(
   return { ...status, daily_new_artifacts_remaining: remaining };
 }
 
+async function respondBillingStatus(ctx: BillingMemberCtx): Promise<Response> {
+  const row = await loadLocalBillingRow(ctx.db, ctx.workspaceId);
+  return ctx.respondJson(await enrichBillingStatus(ctx.env, ctx.workspaceId, billingStatusFromRow(row)));
+}
+
 export async function billingStatus(context: AppContext, principal: Principal): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
-  if (!resolved.ok) {
-    return resolved.response;
-  }
-  const { env, workspaceId, db, respondJson } = resolved.ctx;
-  const row = await loadLocalBillingRow(db, workspaceId);
-  return respondJson(await enrichBillingStatus(env, workspaceId, billingStatusFromRow(row)));
+  return runBillingMemberRoute(context, principal, respondBillingStatus);
 }
 
 export async function billingCheckout(
@@ -160,31 +171,28 @@ export async function billingCheckout(
   guard: GuardFor<"billing.checkout.create">,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
-  if (!resolved.ok) {
-    return resolved.response;
-  }
-  const { env, workspaceId, db, respondError } = resolved.ctx;
-  const body: CreateCheckoutSessionRequest = guard.body;
-  const priceId = body.interval === "year" ? env.STRIPE_PRICE_ID_ANNUAL : env.STRIPE_PRICE_ID_MONTHLY;
-  if (!priceId) {
-    return respondError("not_found");
-  }
-  const existing = await loadLocalBillingRow(db, workspaceId);
-  const base = webBaseUrl(env);
-  return runIdempotent(
-    context,
-    () =>
-      provider.createCheckoutSession({
-        workspaceId,
-        customerId: existing?.stripe_customer_id ?? null,
-        priceId,
-        successUrl: `${base}/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${base}/settings/billing?status=cancelled`,
-        idempotencyKey: guard.idempotencyKey,
-      }),
-    { successStatus: 200 },
-  );
+  return runBillingMemberRoute(context, principal, async ({ env, workspaceId, db, respondError }) => {
+    const body: CreateCheckoutSessionRequest = guard.body;
+    const priceId = body.interval === "year" ? env.STRIPE_PRICE_ID_ANNUAL : env.STRIPE_PRICE_ID_MONTHLY;
+    if (!priceId) {
+      return respondError("not_found");
+    }
+    const existing = await loadLocalBillingRow(db, workspaceId);
+    const base = webBaseUrl(env);
+    return runIdempotent(
+      context,
+      () =>
+        provider.createCheckoutSession({
+          workspaceId,
+          customerId: existing?.stripe_customer_id ?? null,
+          priceId,
+          successUrl: `${base}/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${base}/settings/billing?status=cancelled`,
+          idempotencyKey: guard.idempotencyKey,
+        }),
+      { successStatus: 200 },
+    );
+  });
 }
 
 export async function billingReturn(
@@ -192,30 +200,27 @@ export async function billingReturn(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
-  if (!resolved.ok) {
-    return resolved.response;
-  }
-  const { env, workspaceId, db, respondError, respondJson } = resolved.ctx;
-  const sessionId = new URL(context.req.raw.url).searchParams.get("session_id");
-  if (!sessionId) {
-    return respondError("invalid_request");
-  }
-  const session = await provider.getCheckoutSession(sessionId);
-  if (session?.subscriptionId) {
-    const snapshot = await provider.getSubscription(session.subscriptionId);
-    if (snapshot && snapshot.workspaceId === workspaceId) {
-      await applyBillingSnapshot({
-        executor: db,
-        actorId: "checkout_activation",
-        workspaceId,
-        snapshot,
-        now: new Date().toISOString(),
-      });
+  return runBillingMemberRoute(context, principal, async (ctx) => {
+    const { workspaceId, db, respondError } = ctx;
+    const sessionId = new URL(context.req.raw.url).searchParams.get("session_id");
+    if (!sessionId) {
+      return respondError("invalid_request");
     }
-  }
-  const row = await loadLocalBillingRow(db, workspaceId);
-  return respondJson(await enrichBillingStatus(env, workspaceId, billingStatusFromRow(row)));
+    const session = await provider.getCheckoutSession(sessionId);
+    if (session?.subscriptionId) {
+      const snapshot = await provider.getSubscription(session.subscriptionId);
+      if (snapshot && snapshot.workspaceId === workspaceId) {
+        await applyBillingSnapshot({
+          executor: db,
+          actorId: "checkout_activation",
+          workspaceId,
+          snapshot,
+          now: new Date().toISOString(),
+        });
+      }
+    }
+    return respondBillingStatus(ctx);
+  });
 }
 
 export async function billingPortal(
@@ -223,20 +228,17 @@ export async function billingPortal(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
-  if (!resolved.ok) {
-    return resolved.response;
-  }
-  const { env, workspaceId, db, respondError, respondJson } = resolved.ctx;
-  const row = await loadLocalBillingRow(db, workspaceId);
-  if (!row?.stripe_customer_id) {
-    return respondError("not_found");
-  }
-  const session = await provider.createPortalSession({
-    customerId: row.stripe_customer_id,
-    returnUrl: `${webBaseUrl(env)}/settings/billing`,
+  return runBillingMemberRoute(context, principal, async ({ env, workspaceId, db, respondError, respondJson }) => {
+    const row = await loadLocalBillingRow(db, workspaceId);
+    if (!row?.stripe_customer_id) {
+      return respondError("not_found");
+    }
+    const session = await provider.createPortalSession({
+      customerId: row.stripe_customer_id,
+      returnUrl: `${webBaseUrl(env)}/settings/billing`,
+    });
+    return respondJson(session);
   });
-  return respondJson(session);
 }
 
 function toContractInvoice(invoice: InvoiceSummary): BillingInvoiceSummary {
@@ -257,19 +259,16 @@ export async function billingInvoices(
   principal: Principal,
   provider: BillingProvider = resolveApiBillingProvider(context.env),
 ): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
-  if (!resolved.ok) {
-    return resolved.response;
-  }
-  const { workspaceId, db, respondJson } = resolved.ctx;
-  const row = await loadLocalBillingRow(db, workspaceId);
-  // Free Workspaces have no Stripe customer yet, so there is nothing to list — an
-  // empty history is the correct answer, not an error.
-  if (!row?.stripe_customer_id) {
-    return respondJson({ invoices: [] } satisfies BillingInvoiceListResponse);
-  }
-  const invoices = await provider.listInvoices({ customerId: row.stripe_customer_id });
-  return respondJson({ invoices: invoices.map(toContractInvoice) } satisfies BillingInvoiceListResponse);
+  return runBillingMemberRoute(context, principal, async ({ workspaceId, db, respondJson }) => {
+    const row = await loadLocalBillingRow(db, workspaceId);
+    // Free Workspaces have no Stripe customer yet, so there is nothing to list — an
+    // empty history is the correct answer, not an error.
+    if (!row?.stripe_customer_id) {
+      return respondJson({ invoices: [] } satisfies BillingInvoiceListResponse);
+    }
+    const invoices = await provider.listInvoices({ customerId: row.stripe_customer_id });
+    return respondJson({ invoices: invoices.map(toContractInvoice) } satisfies BillingInvoiceListResponse);
+  });
 }
 
 export async function billingWebhook(context: AppContext, _principal: Principal): Promise<Response> {

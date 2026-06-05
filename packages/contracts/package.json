@@ -17,6 +17,7 @@
     "openapi:check": "node ../../scripts/openapi-goldens.mjs",
     "openapi:write": "node ../../scripts/openapi-goldens.mjs --write",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
