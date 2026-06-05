@@ -16,8 +16,8 @@ Host onboarding and smoke commands: [`docs/ops/runbook-mcp-hosts.md`](../../docs
 
 Current endpoints:
 
-- `POST /` — Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
-- `GET /` — returns `405` in stateless v1 (no standalone SSE stream)
+- `POST /` - Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
+- `GET /` - returns `405` in stateless v1 (no standalone SSE stream)
 - `GET /healthz`
 - `GET /.well-known/oauth-protected-resource`
 - `GET /openapi.json`
@@ -29,8 +29,10 @@ schema validation, scope checks, and API error mapping.
 
 ## Tools
 
-Twelve tools, gated by the OAuth token's granted MCP scopes (`read`, `write`,
-`share`). Canonical contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
+Twelve tools, gated by MCP capabilities (`read`, `write`, `share`) derived by
+`api` from the authenticated Workspace Member. WorkOS AuthKit tokens carry
+standard OAuth scopes; they do not directly grant these capabilities. Canonical
+contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
 
 | Tool                      | Scopes               | Purpose                                                  |
 | ------------------------- | -------------------- | -------------------------------------------------------- |

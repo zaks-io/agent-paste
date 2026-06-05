@@ -2,6 +2,11 @@
 
 Implementation progress is tracked in [`docs/ops/project-status.md`](../ops/project-status.md). This file remains the product/contract target; the project status doc records what is implemented, verified, blocked, or intentionally deferred across all phases.
 
+This file is the original CLI-first MVP baseline. The shipped hosted service has
+since added the later dashboard, Access Link, lifecycle, billing, ephemeral
+publish, and MCP phases listed in [`features.md`](./features.md) and
+[`docs/ops/project-status.md`](../ops/project-status.md).
+
 agent-paste is a hosted artifact handoff service for agents. The MVP proves one loop:
 
 ```sh
@@ -19,7 +24,9 @@ The MVP is intentionally smaller than the original platform plan:
 - Hosted from day one on Cloudflare.
 - Public product surface is the `agent-paste` CLI.
 - Public CLI auth is API-key only.
-- OAuth, dashboard, MCP, access-link lifecycle, bundles, multi-revision artifacts, billing, and app-layer encryption are future phases.
+- OAuth, dashboard, MCP, Access Link lifecycle, Bundles, multi-Revision
+  Artifacts, billing, and app-layer encryption were later phases and are no
+  longer absent from the shipped service.
 - Retention is part of the MVP.
 
 ## Actors
@@ -135,7 +142,7 @@ Public CLI auth is API-key only:
 AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site
 ```
 
-`agent-paste login` (WorkOS loopback PKCE, [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md)) and member routes under `/v1/web/*` are Phase 3. They mint or manage credentials through the web API but are not required for MVP acceptance; the MVP public surface stays API-key-only via `AGENT_PASTE_API_KEY`.
+`agent-paste login` (WorkOS loopback PKCE, [ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md)) and member routes under `/v1/web/*` shipped after this MVP baseline. They mint or manage credentials through the web API; headless callers can still use `AGENT_PASTE_API_KEY`.
 
 Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web operator surface. See [admin operations](./admin.md).
 
@@ -195,7 +202,11 @@ Required events:
 
 Secrets, content tokens, signed URLs, and API-key secret material are never stored in event details.
 
-## Out Of MVP
+## Out Of Initial MVP
+
+Many items below have since shipped in later phases. Use
+[`features.md`](./features.md) and [`docs/ops/project-status.md`](../ops/project-status.md)
+for the current state.
 
 - Dashboard and admin UI.
 - `agent-paste login` and member `/v1/web/*` dashboard APIs (Phase 3; see [phases](./phases.md)).

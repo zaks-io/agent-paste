@@ -88,6 +88,8 @@ ul {
 .legal-title,
 .feature-title,
 .prose-title,
+.docs-section-title,
+.docs-card-title,
 .pillar-title {
   font-optical-sizing: auto;
 }`;
@@ -519,7 +521,11 @@ const FEATURES = `.features {
 
 .feature-body .code,
 .prose-body .code,
-.legal-body .code {
+.legal-body .code,
+.docs-paragraph .code,
+.docs-list .code,
+.docs-table .code,
+.docs-note .code {
   font-family: var(--font-mono);
   font-feature-settings: "zero";
   font-size: 0.9em;
@@ -555,6 +561,197 @@ const PROSE = `.prose {
 
 .prose-body + .prose-body {
   margin-top: 12px;
+}`;
+
+const DOCS = `.docs-layout {
+  gap: 56px;
+}
+
+.docs-hero {
+  display: grid;
+  gap: 16px;
+  max-width: 68ch;
+}
+
+.docs-actions,
+.docs-meta-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 4px;
+}
+
+.docs-meta-links a,
+.docs-inline-link,
+.docs-link-list a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--accent) / 0.4);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.docs-meta-links a {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: hsl(var(--muted));
+}
+
+.docs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .docs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.docs-card {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 18px;
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius-sm);
+  background: hsl(var(--surface));
+  transition: border-color 80ms var(--ease-out), background 80ms var(--ease-out);
+}
+
+.docs-card:hover {
+  border-color: hsl(var(--rule-strong));
+  background: hsl(var(--surface-sunken));
+}
+
+.docs-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+
+.docs-card-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: hsl(var(--muted));
+}
+
+.docs-body {
+  display: grid;
+  gap: 44px;
+  max-width: 76ch;
+}
+
+.docs-section {
+  scroll-margin-top: 24px;
+}
+
+.docs-section-title {
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+}
+
+.docs-paragraph,
+.docs-list,
+.docs-note,
+.docs-link-list {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: hsl(var(--muted));
+}
+
+.docs-list,
+.docs-link-list {
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.docs-ordered {
+  list-style: decimal;
+}
+
+.docs-list li,
+.docs-link-list li {
+  margin-top: 6px;
+}
+
+.docs-list li::marker,
+.docs-link-list li::marker {
+  color: hsl(var(--accent));
+}
+
+.docs-link-list span {
+  display: block;
+  color: hsl(var(--muted));
+}
+
+.docs-code {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius-sm);
+  background: hsl(var(--surface));
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.docs-table-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius-sm);
+}
+
+.docs-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.docs-table th,
+.docs-table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid hsl(var(--rule));
+}
+
+.docs-table th {
+  color: hsl(var(--foreground));
+  background: hsl(var(--surface));
+  font-weight: 600;
+}
+
+.docs-table td {
+  color: hsl(var(--muted));
+}
+
+.docs-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.docs-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-left: 2px solid hsl(var(--accent));
+  background: hsl(var(--accent-tint));
+  border-radius: var(--radius-sm);
+}
+
+.docs-note-title {
+  color: hsl(var(--foreground));
+  font-weight: 600;
 }`;
 
 const LEGAL = `.legal-page {
@@ -695,6 +892,7 @@ export const STYLES = [
   PILLARS,
   FEATURES,
   PROSE,
+  DOCS,
   LEGAL,
   FOOTER,
   MOTION,

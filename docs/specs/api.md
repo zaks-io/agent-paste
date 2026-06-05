@@ -1,21 +1,18 @@
 # API Contract
 
-This document describes the CLI-first MVP route contract. The canonical code registry lives in `packages/contracts`.
+This document describes the hosted route contract. The canonical code registry
+lives in `packages/contracts`.
 
 ## Hosts
 
-| Surface   | Host                                 | Owns                                                                                                |
-| --------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`         | API-key auth, public Agent View, artifact metadata, web/operator routes, operation events, cleanup. |
-| `upload`  | `https://upload.agent-paste.sh`      | Upload sessions, signed upload-worker PUT URLs, R2 writes, finalize validation.                     |
-| `content` | `https://usercontent.agent-paste.sh` | Signed-token content reads from private R2.                                                         |
-
-Future hosts:
-
-| Surface | Status                                    |
-| ------- | ----------------------------------------- |
-| `web`   | Future dashboard/viewer surface, not MVP. |
-| `mcp`   | Future OAuth-only MCP server, not MVP.    |
+| Surface   | Host                                 | Owns                                                                                          |
+| --------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`         | API-key auth, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
+| `upload`  | `https://upload.agent-paste.sh`      | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.           |
+| `content` | `https://usercontent.agent-paste.sh` | Signed file and Bundle reads from private R2.                                                 |
+| `web`     | `https://app.agent-paste.sh`         | Dashboard, Access Link viewer, WorkOS auth, claim, and billing UI.                            |
+| `mcp`     | `https://mcp.agent-paste.sh`         | OAuth-only Streamable HTTP MCP.                                                               |
+| `apex`    | `https://agent-paste.sh`             | Marketing, legal, install scripts, agent text surfaces, and public docs.                      |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
@@ -151,4 +148,5 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 5. `upload` verifies files and completes the artifact through the API worker boundary.
 6. CLI prints `PublishResult`.
 
-MVP publish creates a new artifact every time. Updating an existing artifact is a future phase.
+Publishing without `--artifact-id` creates a new Artifact. Publishing with an
+existing `artifact_id` creates and publishes a new Revision for that Artifact.

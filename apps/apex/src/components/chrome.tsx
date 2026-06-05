@@ -36,8 +36,8 @@ export const Header: FC = () => (
       <a class="head-link" href="/about">
         About
       </a>
-      <a class="head-link" href="/agents.md">
-        agents.md
+      <a class="head-link" href="/docs">
+        Docs
       </a>
       <a class="button button-ghost button-sm" href={SIGN_IN_URL}>
         Sign in
@@ -128,7 +128,9 @@ export const Shell: FC<ShellProps> = ({ meta, nonce, analyticsToken, inlineScrip
         <meta name="twitter:description" content={meta.description} />
         <link rel="canonical" href={canonical} />
         <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
+        <link rel="alternate" type="text/plain" href="/llms-full.txt" title="llms-full.txt" />
         <link rel="alternate" type="text/markdown" href="/agents.md" title="agents.md" />
+        <link rel="alternate" type="text/markdown" href="/docs.md" title="docs.md" />
         <style nonce={nonce}>{raw(STYLES)}</style>
         <AnalyticsBeacon nonce={nonce} token={analyticsToken} />
       </head>

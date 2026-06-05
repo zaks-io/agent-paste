@@ -4,12 +4,12 @@ export const LLMS_TXT = `# agent-paste
 
 > Durable, addressable artifacts for AI agents. One publish call returns a stable
 > Artifact ID that the CLI prints, the REST API returns, the dashboard renders,
-> and an MCP tool consumes — the same string across every interface.
+> and an MCP tool consumes - the same string across every interface.
 
 agent-paste gives agents a stable, addressable place to publish work products.
 An Artifact is a folder of one or more files. Each publish returns an Artifact
-ID (\`art_…\`) that resolves the same artifact from any actor — human, agent, or
-another platform — without translation tables.
+ID (\`art_…\`) that resolves the same artifact from any actor - human, agent, or
+another platform - without translation tables.
 
 ## What you can do here
 
@@ -29,7 +29,7 @@ another platform — without translation tables.
 
 ## Entry points
 
-- CLI: \`npx @zaks-io/agent-paste publish <path>\` — primary publish path
+- CLI: \`npx @zaks-io/agent-paste publish <path>\` - primary publish path
 - REST API: ${API_BASE_URL}
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
@@ -41,14 +41,15 @@ takes a WorkOS-issued bearer token, not an API key.
 
 ## Mental model
 
-- Artifact — addressable, named container (folder).
-- Revision — immutable saved state. New publishes append a new Revision.
-- Access Link — revocable, signed URL pointing at an Artifact or Revision;
+- Artifact - addressable, named container (folder).
+- Revision - immutable saved state. New publishes append a new Revision.
+- Access Link - revocable, signed URL pointing at an Artifact or Revision;
   opened at \`/al/{public_id}\` by a human or via the public agent-view token
   by an agent.
 
 ## Longer agent guide
 
-See /agents.md for the full guide: object model, CLI examples, REST shape,
-auth model, and the twelve MCP tools.
+See /agents.md for the compact agent guide. The complete public docs are
+available as human HTML at /docs, a Markdown index at /docs.md, per-page
+Markdown twins under /docs/{slug}.md, and one full corpus at /llms-full.txt.
 `;

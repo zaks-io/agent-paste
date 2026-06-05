@@ -10,12 +10,12 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 - WorkOS AuthKit via [`@workos/authkit-tanstack-react-start`](https://github.com/workos/authkit-tanstack-start). Middleware in `src/start.ts` validates and refreshes sessions on every request; route loaders call `getAuth()` directly to read the authenticated user.
 - Sealed `__agp_session` cookie owned by AuthKit (iron-session blob, HttpOnly, Secure, SameSite=Lax, no `Domain`). Cookie name is set via `WORKOS_COOKIE_NAME`. PKCE state lives in short-lived AuthKit-owned cookies cleared on callback.
 - Service binding `API` to `agent-paste-api-{preview,production}`; the WorkOS access token is forwarded as `Authorization: Bearer`.
-- Tailwind v4 with style-guide `@theme` tokens. Hand-rolled component primitives (no shadcn dependency at runtime — only the pattern).
+- Tailwind v4 with style-guide `@theme` tokens. Hand-rolled component primitives (no shadcn dependency at runtime - only the pattern).
 - Self-hosted Bricolage Grotesque + IBM Plex Mono via `@fontsource*`.
 
 ## Routes
 
-Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, audit, and settings flows. Deferred surfaces such as Access Links still render `EmptyState`; see [`docs/ops/web-app-todo.md`](../../docs/ops/web-app-todo.md).
+Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, Access Link, audit, settings, claim, and billing flows.
 
 ```
 /                          → redirect by session
@@ -27,9 +27,12 @@ Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutati
 /dashboard                 _authed
 /artifacts                 _authed
 /artifacts/:artifactId     _authed
+/access-links              _authed
 /keys                      _authed
 /audit                     _authed
 /settings                  _authed
+/settings/billing          _authed
+/claim                     _authed/guest handoff
 /admin                     _authed + is_operator guard
 ```
 
@@ -57,13 +60,13 @@ Admin routes require the signed-in WorkOS session to carry the `admin` role slug
 
 ## Scripts
 
-- `pnpm --filter @agent-paste/web dev` — Vite dev server with HMR.
-- `pnpm --filter @agent-paste/web build` — produces `dist/client` + worker entry.
-- `pnpm --filter @agent-paste/web typecheck` — `tsc --noEmit`.
-- `pnpm --filter @agent-paste/web lint` — Biome lint (includes the Access Link import guard).
-- `pnpm --filter @agent-paste/web test` — Vitest component, loader, formatting, and mutation tests.
-- `pnpm --filter @agent-paste/web typegen` — regenerate Cloudflare binding types.
-- `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` — `wrangler deploy --env ...`.
+- `pnpm --filter @agent-paste/web dev` - Vite dev server with HMR.
+- `pnpm --filter @agent-paste/web build` - produces `dist/client` + worker entry.
+- `pnpm --filter @agent-paste/web typecheck` - `tsc --noEmit`.
+- `pnpm --filter @agent-paste/web lint` - Biome lint (includes the Access Link import guard).
+- `pnpm --filter @agent-paste/web test` - Vitest component, loader, formatting, and mutation tests.
+- `pnpm --filter @agent-paste/web typegen` - regenerate Cloudflare binding types.
+- `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` - `wrangler deploy --env ...`.
 
 ## Lint rules
 
