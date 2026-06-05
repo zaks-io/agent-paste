@@ -3,7 +3,13 @@ import { toArtifactSummary } from "../../transforms.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import { nowIso, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
-import { decodeWebArtifactCursor, encodeWebArtifactCursor, normalizeWebArtifactLimit } from "../web-transforms.js";
+import { normalizeWebArtifactLimit } from "../web-transforms.js";
+import {
+  insertArtifactAuditEvent,
+  mustActiveArtifact,
+  readWebArtifactPage,
+  toDeletedArtifactResult,
+} from "./artifact-workflow-helpers.js";
 
 export async function listMemberArtifacts(
   ctx: RepositoryCoreContext,
@@ -12,20 +18,15 @@ export async function listMemberArtifacts(
 ) {
   const limit = normalizeWebArtifactLimit(pagination.limit);
   return ctx.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
-    const rows = await entities.artifacts.listWebPage({
+    const { page, page_info } = await readWebArtifactPage(entities, {
       workspaceId: actor.workspace_id,
-      limit: limit + 1,
-      ...(pagination.cursor ? { cursor: decodeWebArtifactCursor(pagination.cursor) } : {}),
+      limit,
+      ...(pagination.cursor ? { cursor: pagination.cursor } : {}),
+      filter: (row) => row.status === "active" && !row.deleted_at,
     });
-    const active = rows.filter((row) => row.status === "active" && !row.deleted_at);
-    const page = active.slice(0, limit);
-    const last = page.at(-1);
     return {
       data: page.map(toArtifactSummary),
-      page_info: {
-        next_cursor: active.length > limit && last ? encodeWebArtifactCursor(last) : null,
-        has_more: active.length > limit,
-      },
+      page_info,
     };
   });
 }
@@ -44,27 +45,18 @@ export async function deleteMemberArtifact(
       now: deletedAt,
     },
     async (entities) => {
-      const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-      if (!artifact || artifact.status !== "active") {
-        repositoryError("artifact_not_found");
-      }
+      const artifact = await mustActiveArtifact(entities, {
+        artifactId: input.artifactId,
+        workspaceId: input.actor.workspace_id,
+      });
       await entities.artifacts.markDeleted(artifact.id, deletedAt);
-      await entities.operationEvents.insert({
-        actorType: input.actor.type,
-        actorId: input.actor.id,
+      await insertArtifactAuditEvent(entities, {
+        actor: input.actor,
         action: "artifact.deleted",
-        targetType: "artifact",
-        targetId: artifact.id,
-        workspaceId: artifact.workspace_id,
-        details: {},
+        artifact,
         occurredAt: deletedAt,
       });
-      return {
-        artifact_id: artifact.id,
-        workspace_id: artifact.workspace_id,
-        revision_id: artifact.revision_id,
-        deleted_at: deletedAt,
-      };
+      return toDeletedArtifactResult(artifact, deletedAt);
     },
   );
 }

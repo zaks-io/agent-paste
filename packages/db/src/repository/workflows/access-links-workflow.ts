@@ -4,6 +4,7 @@ import { resolveAccessLinkFromEntities } from "../../resolve-access-link.js";
 import type { ApiActor } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import { memberCommandActor, nowIso, PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
+import { insertArtifactAuditEvent, mustActiveArtifact } from "./artifact-workflow-helpers.js";
 
 export async function resolveAccessLink(
   ctx: RepositoryCoreContext,
@@ -33,10 +34,11 @@ export async function createMemberAccessLink(
       now,
     },
     async (entities) => {
-      const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-      if (!artifact || artifact.status !== "active" || !artifact.revision_id) {
-        repositoryError("artifact_not_found");
-      }
+      const artifact = await mustActiveArtifact(entities, {
+        artifactId: input.artifactId,
+        workspaceId: input.actor.workspace_id,
+        requirePublishedRevision: true,
+      });
       const revisionId = input.type === "revision" ? (input.revisionId ?? null) : null;
       if (input.type === "revision") {
         const revision = revisionId ? await entities.revisions.findById(revisionId, input.actor.workspace_id) : null;
@@ -120,21 +122,17 @@ export async function setMemberAccessLinkLockdown(
     },
     async (entities) => {
       const member = await ctx.mustMember(entities, input.actor.id);
-      const artifact = await entities.artifacts.findById(input.artifactId, member.workspace_id);
-      if (!artifact || artifact.status !== "active") {
-        repositoryError("artifact_not_found");
-      }
+      const artifact = await mustActiveArtifact(entities, {
+        artifactId: input.artifactId,
+        workspaceId: member.workspace_id,
+      });
       const alreadyLocked = artifact.access_link_lockdown_at !== null;
       if (alreadyLocked !== input.locked) {
         await entities.artifacts.setAccessLinkLockdown(artifact.id, input.locked ? now : null);
-        await entities.operationEvents.insert({
-          actorType: "member",
-          actorId: member.id,
+        await insertArtifactAuditEvent(entities, {
+          actor: input.actor,
           action: input.locked ? "access_link.lockdown.set" : "access_link.lockdown.lifted",
-          targetType: "artifact",
-          targetId: artifact.id,
-          workspaceId: member.workspace_id,
-          details: {},
+          artifact,
           occurredAt: now,
         });
       }

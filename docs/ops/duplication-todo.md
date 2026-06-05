@@ -1,7 +1,7 @@
 # Code duplication limit: ratchet plan
 
 Source of truth for the jscpd copy-paste gate and the duplication that is
-currently tolerated. Owner: Isaac. Snapshot date: 2026-06-02.
+currently tolerated. Owner: Isaac. Snapshot date: 2026-06-05.
 
 jscpd 4.2.x enforces a single duplication `threshold` in `.jscpd.json` (run via
 `pnpm dupes` -> `node scripts/jscpd-check.mjs`, wired into `pnpm verify` after
@@ -22,30 +22,34 @@ The gate covers **shipped code only**: `apps/` and `packages/`. It does not scan
 Ignored globs (in `.jscpd.json`): `node_modules`, `dist`, `.turbo`,
 `.wrangler`, `coverage`, `*.gen.ts`, `worker-configuration.d.ts`,
 `openapi/*.json`, and all `*.test.*` / `*.spec.*` / `__tests__` / `test`.
+Known friction: helpers under `src/test-helpers/` are currently scanned because
+that path is not covered by the ignore list. They contribute real duplicated
+lines today but are test support, not shipped runtime behavior.
 
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.7 (%)       | 2.5 (%)    | 1.5 (%)        |
+| `threshold` | 2.5 (%)       | 2.3 (%)    | 1.5 (%)        |
 
-The threshold was set to the tightest value that is **green today without a wave
-of refactors**. It started at `3` (baseline 2.84%); an initial round of quick-win
-extractions (see below) pulled the baseline to **2.59%**, so the gate was
-ratcheted to `2.7`. The next step (`2.5`) needs the workflow row-mapping dedup
-in `packages/db/src/repository/workflows/*`. Lower the threshold in
-`.jscpd.json` as offenders are cleaned up and update this file.
+The threshold is set to the tightest value that is **green today without a wave
+of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
+the baseline below the `2.7` gate, and AP-203 pulled it below the `2.5` gate.
+The current baseline is **2.45%**, so `2.5` has little slack. The next step
+(`2.3`) needs another offender cleanup or a decision to stop scanning
+`src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders are
+cleaned up and update this file.
 
-## Baseline distribution (gated scope, 2026-06-02)
+## Baseline distribution (gated scope, 2026-06-05)
 
-Measured by jscpd at `minTokens: 50` over `apps` + `packages`, after the first
-dedup round:
+Measured by `pnpm dupes --reporters json --output /tmp/agent-paste-jscpd-final2` at
+`minTokens: 50` over `apps` + `packages`:
 
-- 393 files, 35,784 lines analyzed.
-- 91 clones, 927 duplicated lines = **2.59%** (2.87% by tokens).
-- By format: TypeScript ~2.9%, TSX 1.23%, JavaScript 0%.
+- 507 files, 45,808 lines analyzed.
+- 109 clones, 1,124 duplicated lines = **2.45%** (2.84% by tokens).
+- By format: TypeScript 2.79%, TSX 1.27%, JavaScript 0%.
 
-For reference, the whole repo including `scripts/` is ~3.9% (the scripts alone
-are ~8.5%). That gap is why `scripts/` is out of scope.
+For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
+8,558 lines). That gap is why `scripts/` is out of scope.
 
 ## Done: first dedup round
 
@@ -63,14 +67,31 @@ These quick wins shipped with the gate (2.84% -> 2.59%):
       `apps/web/src/routes/api/live/*` route files; lives in
       `apps/web/src/security-headers.ts`.
 
+## Done: AP-203 repository workflow dedup
+
+This pass moved the gated baseline from 2.54% to 2.45%:
+
+- [x] Shared active-artifact lookup, artifact audit insertion, delete-result
+      mapping, and web artifact pagination in
+      `packages/db/src/repository/workflows/artifact-workflow-helpers.ts`.
+- [x] Reused those helpers from member artifact, web dashboard, access-link, and
+      workspace-admin workflows.
+- [x] Collapsed the workspace replay peek wrappers into one implementation with
+      explicit exported aliases.
+
 ## Where the duplication lives
 
-Diffuse across `packages/db`, not a few fat offenders. Cleaning these dirs is
-what moves the threshold:
+Cleaning these dirs is what moves the threshold:
 
 - [ ] `packages/db/src/repository/workflows/*` — `web-dashboard-workflow.ts`,
-      `member-artifacts-workflow.ts`, and siblings repeat row-mapping and
-      pagination boilerplate. Largest single source of clones.
+      `member-artifacts-workflow.ts`, `access-links-workflow.ts`, and siblings
+      repeat row-mapping, pagination, command setup, and Audit Event boilerplate.
+      Largest single runtime source of clones.
+- [ ] `apps/api/src/routes/*` — `web.ts`, `billing.ts`, `smoke.ts`, and
+      `responses.ts` repeat member resolution, pagination parsing, response
+      wrapping, and repository-error handling.
+- [ ] `apps/mcp/src/*` — `tools.ts` repeats create-and-mint Access Link flow;
+      `forward.ts` repeats API vs Upload forwarding.
 - [ ] `packages/db/src/repository/web-transforms.ts` — repeated transform
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
@@ -80,13 +101,22 @@ what moves the threshold:
 - [ ] `packages/contracts/src/openapi/*` and `mcp/registry.ts` — repeated
       schema/registration blocks (largest single clone: 45 lines in
       `mcp/registry.ts`).
+- [ ] `apps/web/src/components/*` — `AccessLinksTable` / `KeysTable`,
+      `MintedUrlReveal` / `Identifier`, and a few route loaders repeat table
+      state and small UI patterns.
+- [ ] `apps/upload/src/create-session.ts` and `finalize.ts` — repeated
+      authenticated upload-route repository error handling.
+- [ ] `apps/jobs/src/test-helpers/*` and `packages/billing/src/test-helpers/*`
+      — repeated PGlite migration/RLS helper setup. Either extract a shared test
+      helper or stop scanning `src/test-helpers/`.
 - [ ] `packages/rotation/src/automation.ts` — 2 clones in plan-building.
 
 Some jscpd hits are intentional parallel implementations, not copy-paste, and
 should be left alone: `apps/stream/src/artifact-live.ts` vs
 `memory-artifact-live.ts` (DurableObject vs in-memory), the per-domain jobs
 queue/discovery handlers, and `schema.ts` column blocks (clearer flat than
-abstracted).
+abstracted). The repeated smoke-script helpers under `scripts/` are also outside
+the gate by design.
 
 ## How to ratchet
 

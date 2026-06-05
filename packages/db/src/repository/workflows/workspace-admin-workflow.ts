@@ -13,6 +13,7 @@ import {
   workspaceScope,
 } from "../core-helpers.js";
 import { buildApiKey } from "../shared.js";
+import { insertArtifactAuditEvent, toDeletedArtifactResult } from "./artifact-workflow-helpers.js";
 
 export async function createWorkspace(
   ctx: RepositoryCoreContext,
@@ -192,7 +193,7 @@ export async function getUsagePolicy(ctx: RepositoryCoreContext, actor: ApiKeyAc
   });
 }
 
-export async function peekIdempotentReplay(
+async function peekWorkspaceReplay(
   ctx: RepositoryCoreContext,
   input: { actor: ApiActor; operation: string; idempotencyKey: string },
 ) {
@@ -204,17 +205,9 @@ export async function peekIdempotentReplay(
   });
 }
 
-export async function peekWorkspaceCommandReplay(
-  ctx: RepositoryCoreContext,
-  input: { actor: ApiActor; operation: string; idempotencyKey: string },
-) {
-  return ctx.uow.peekReplay<unknown>({
-    actor: workspaceCommandActor(input.actor),
-    operation: input.operation,
-    idempotencyKey: input.idempotencyKey,
-    scope: workspaceScope(input.actor.workspace_id),
-  });
-}
+export const peekIdempotentReplay = peekWorkspaceReplay;
+
+export const peekWorkspaceCommandReplay = peekWorkspaceReplay;
 
 export async function listArtifacts(ctx: RepositoryCoreContext, workspaceId?: string, status?: string) {
   const scope = workspaceId ? workspaceScope(workspaceId) : PLATFORM_SCOPE;
@@ -270,22 +263,13 @@ export async function deleteArtifact(
         repositoryError("artifact_not_found");
       }
       await entities.artifacts.markDeleted(artifact.id, deletedAt);
-      await entities.operationEvents.insert({
-        actorType: input.actor.type,
-        actorId: input.actor.id,
+      await insertArtifactAuditEvent(entities, {
+        actor: input.actor,
         action: "artifact.deleted",
-        targetType: "artifact",
-        targetId: artifact.id,
-        workspaceId: artifact.workspace_id,
-        details: {},
+        artifact,
         occurredAt: deletedAt,
       });
-      return {
-        artifact_id: artifact.id,
-        workspace_id: artifact.workspace_id,
-        revision_id: artifact.revision_id,
-        deleted_at: deletedAt,
-      };
+      return toDeletedArtifactResult(artifact, deletedAt);
     },
   );
 }
