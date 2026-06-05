@@ -24,7 +24,9 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@agent-paste/brand": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
-    "@sentry/cloudflare": "^10.53.1"
+    "@sentry/cloudflare": "^10.53.1",
+    "hono": "^4.12.21"
   }
 }

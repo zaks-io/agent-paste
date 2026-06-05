@@ -78,8 +78,9 @@ safe place for the things agents make.**
 - **Personality:** precise, calm, technical, unhurried, quietly ambitious.
 - **Archetype:** the infrastructure craftsperson. The team that obsesses over
   the part nobody is supposed to notice, so that it never has to be noticed.
-- **The flex is restraint.** In a category full of purple gradients and the word
-  "magic," our power move is to refuse all of it and let the product speak.
+- **The flex is restraint.** In a category full of gradient washes and the word
+  "magic," our power move is to refuse the theatrics and let the product speak. We
+  use one flat accent and a lot of whitespace, not a light show.
 
 ### What we are
 
@@ -307,7 +308,7 @@ Transient by default. Revocable on demand.
 - **Product name:** `agent-paste`. Lowercase, hyphenated, always. Never "Agent
   Paste," "AgentPaste," "agentpaste," or "Agent-Paste." Avoid opening a sentence
   with the name; if unavoidable, keep it lowercase rather than capitalize it.
-- **Wordmark:** `agent-paste` in Hanken Grotesk 700, `letter-spacing: -0.02em`.
+- **Wordmark:** `agent-paste` in Bricolage Grotesque 700, `letter-spacing: -0.02em`.
   Two registered colorings only: solid foreground, or foreground with the hyphen
   in `--accent`. When the domain is shown, the `.sh` is set in `--subtle`. See
   style-guide.md section 6.2.
@@ -337,23 +338,29 @@ Transient by default. Revocable on demand.
 The full system lives in [`style-guide.md`](./specs/style-guide.md) and is the
 source of truth. This section states only the brand-level essentials and exists
 to prevent drift. (An earlier draft of this guide proposed a brutalist,
-system-font, blue-accent look. That was wrong and contradicted the system below.
-It is corrected here.)
+system-font look. That part was wrong and contradicted the system below. The
+accent is a considered electric blue-violet, drawn from the brand mark — not the
+flat, generic blue that earlier draft reached for.)
 
 - **Aesthetic:** Quiet Confidence. Restrained, type-led, monochrome by default,
   warm-neutral palette. Color appears only where it carries meaning.
 - **NOT:** brutalist, terminal-themed, glassmorphism, gradient hero, neon dark
   mode, or anything that would look identical to the rest of the category.
-- **Type:** Hanken Grotesk (UI) and JetBrains Mono (code, IDs, URLs, timestamps).
-  Never Inter, Geist, Space Grotesk, or system fonts.
-- **Accent:** one color, a deep emerald-teal (`#18553F` light, brighter in dark).
-  Never blue, never a multi-color palette. The accent means "go," "valid,"
+- **Type:** Bricolage Grotesque (UI) and IBM Plex Mono (code, IDs, URLs,
+  timestamps). Never Inter, Geist, Space Grotesk, or system fonts. Shared from
+  `@agent-paste/brand` so web and the marketing site cannot drift.
+- **Accent:** one color, an electric violet drawn from the brand mark
+  (`hsl(248 64% 56%)` light, `hsl(248 73% 64%)` dark). One flat color, never a
+  gradient, never a second accent beside it. The accent means "go," "valid,"
   "published," plus links and focus rings. It is the brand color, used quietly.
 - **Signature interaction:** the identifier. Artifact and Revision IDs rendered
   in mono, tinted, silently copyable. The product is about addressable objects,
   so this is where design budget goes, not hero animation.
 - **No decoration:** no mascots, illustrations, stock photos, AI-generated
-  images, grain, or background patterns. Character comes from type and restraint.
+  images, or background patterns. The one permitted texture is a barely-there
+  fractal-noise grain on the page background (atmosphere, never legible as a
+  pattern), shared from `@agent-paste/brand`. Character comes from type and
+  restraint.
 - **Social / OG cards:** type-led on the warm-neutral background. Wordmark, one
   line, and either the publish transcript or a single Artifact ID. Never a
   floating product screenshot, never a logo wall.
@@ -392,8 +399,8 @@ Things that have shown up in drafts. Do not do them.
    not do (we are not production hosting).
 6. **Do not chase feature parity** with deploy platforms or file hosts. We do
    artifact handoff well. We do not do everything.
-7. **Do not contradict the style guide.** No brutalism, no system fonts, no blue,
-   no gradients, no mascots.
+7. **Do not contradict the style guide.** No brutalism, no system fonts, no
+   gradients, no second accent, no mascots.
 8. **Do not snark at incumbents in public.** Substance reads as confidence;
    dunking reads as insecurity.
 9. **Do not invent product facts in copy.** Use the real key format, TTL bounds,
@@ -441,8 +448,9 @@ verifiable outcomes; if one fails, fix the copy or change the guide on purpose.
       emoji, no exclamation points in product voice.
 - [ ] Never calls the product a pastebin and never uses "GitHub-for-X" framing.
 - [ ] States any number (price, TTL, limit) only if it is true, or omits it.
-- [ ] Visuals defer to style-guide.md: Quiet Confidence, Hanken plus JetBrains
-      Mono, single emerald accent, no decoration.
+- [ ] Visuals defer to style-guide.md: Quiet Confidence, Bricolage Grotesque plus
+      IBM Plex Mono, single blue-violet accent, no decoration beyond the shared
+      grain.
 - [ ] Makes no public "open source" claim or GitHub link until the license and
       gitleaks pre-flight clears.
 - [ ] If it is a hero or headline, it earns the calm: the conviction is in the

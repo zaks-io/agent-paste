@@ -28,8 +28,8 @@ describe("apex worker", () => {
     expect(body).toContain("Where agents publish");
     expect(body).toContain('<span class="wordmark-tld">.sh</span>');
     expect(body).toContain("npx @zaks-io/agent-paste publish ./report");
-    expect(body).toContain("/fonts/HankenGrotesk-Variable.woff2");
-    expect(body).toContain("/fonts/JetBrainsMono-Regular.woff2");
+    expect(body).toContain("/fonts/BricolageGrotesque-Variable.woff2");
+    expect(body).toContain("/fonts/IBMPlexMono-Regular.woff2");
     expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
     expect(body).toContain('href="/agents.md"');
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
@@ -96,7 +96,7 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("<!doctype html>");
     expect(body).toContain("Where agents publish");
-    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/about">');
+    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/about"/>');
     // The honest-about-scope sections the user asked for.
     expect(body).toContain("Why it exists");
     expect(body).toContain("How it is built and run");
@@ -305,7 +305,7 @@ describe("apex worker", () => {
       },
     };
 
-    const response = await handleRequest(new Request(`${APEX}/fonts/HankenGrotesk-Variable.woff2`), env);
+    const response = await handleRequest(new Request(`${APEX}/fonts/BricolageGrotesque-Variable.woff2`), env);
     expect(assetCalls).toBe(1);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("font/woff2");

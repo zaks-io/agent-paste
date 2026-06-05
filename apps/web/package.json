@@ -36,6 +36,7 @@
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
+    "@agent-paste/brand": "workspace:*",
     "@cloudflare/vite-plugin": "^1.13.0",
     "@cloudflare/workers-types": "^4.20260521.1",
     "@tailwindcss/vite": "^4.1.7",
