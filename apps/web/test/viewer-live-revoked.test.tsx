@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../src/components/ui/ToastProvider";
 
@@ -146,7 +146,9 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
     await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));
 
-    liveUpdates.lastInput?.onRevoked?.();
+    await act(async () => {
+      liveUpdates.lastInput?.onRevoked?.();
+    });
 
     await waitFor(() => expect(screen.queryByTitle("Artifact content")).not.toBeInTheDocument());
     expect(screen.getByText("Not found.")).toBeInTheDocument();
@@ -167,7 +169,9 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
     await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));
 
-    liveUpdates.lastInput?.onRevoked?.();
+    await act(async () => {
+      liveUpdates.lastInput?.onRevoked?.();
+    });
 
     await waitFor(() => expect(screen.queryByTitle("Artifact content")).not.toBeInTheDocument());
     expect(screen.queryByText("Published viewer")).not.toBeInTheDocument();
@@ -188,7 +192,9 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
     await waitFor(() => expect(liveUpdates.lastInput?.onRevoked).toBeTypeOf("function"));
 
-    liveUpdates.lastInput?.onRevoked?.("platform_lockdown");
+    await act(async () => {
+      liveUpdates.lastInput?.onRevoked?.("platform_lockdown");
+    });
 
     await waitFor(() => expect(screen.queryByTitle("Artifact content")).not.toBeInTheDocument());
     expect(screen.getByText("No published viewer.")).toBeInTheDocument();
@@ -209,7 +215,9 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", contentIframeSrc));
     await waitFor(() => expect(liveUpdates.lastInput?.onPointer).toBeTypeOf("function"));
 
-    liveUpdates.lastInput?.onPointer?.({ iframe_src: nextIframeSrc });
+    await act(async () => {
+      liveUpdates.lastInput?.onPointer?.({ iframe_src: nextIframeSrc });
+    });
 
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc));
   });
