@@ -41,9 +41,11 @@ async function contextFor(env: Partial<Env>): Promise<AppContext> {
 }
 
 describe("resolveBillingMemberCtx", () => {
-  it("rejects with not_found when billing is disabled", async () => {
-    const ctx = await contextFor({ BILLING_ENABLED: "false", DB: fakeExecutor as never });
-    const result = resolveBillingMemberCtx(ctx, memberPrincipal);
+  it("rejects with not_found when billing is disabled, even before the executor", async () => {
+    const ctx = await contextFor({ BILLING_ENABLED: "false" });
+    // No executor is passed: the billing-off gate must still win so a disabled
+    // surface 404s instead of leaking database_unavailable.
+    const result = resolveBillingMemberCtx(ctx, memberPrincipal, undefined);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.response.status).toBe(404);
@@ -51,26 +53,26 @@ describe("resolveBillingMemberCtx", () => {
   });
 
   it("rejects with forbidden when the principal is not a Workspace Member", async () => {
-    const ctx = await contextFor({ BILLING_ENABLED: "true", DB: fakeExecutor as never });
-    const result = resolveBillingMemberCtx(ctx, apiKeyPrincipal);
+    const ctx = await contextFor({ BILLING_ENABLED: "true" });
+    const result = resolveBillingMemberCtx(ctx, apiKeyPrincipal, fakeExecutor as never);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.response.status).toBe(403);
     }
   });
 
-  it("rejects with database_unavailable when no executor resolves", async () => {
+  it("rejects with database_unavailable when the registrar resolved no executor", async () => {
     const ctx = await contextFor({ BILLING_ENABLED: "true" });
-    const result = resolveBillingMemberCtx(ctx, memberPrincipal);
+    const result = resolveBillingMemberCtx(ctx, memberPrincipal, undefined);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.response.status).toBe(503);
     }
   });
 
-  it("resolves a workspace-scoped context for a member when billing is on", async () => {
-    const ctx = await contextFor({ BILLING_ENABLED: "true", DB: fakeExecutor as never });
-    const result = resolveBillingMemberCtx(ctx, memberPrincipal);
+  it("scopes the registrar's executor to the member's workspace when billing is on", async () => {
+    const ctx = await contextFor({ BILLING_ENABLED: "true" });
+    const result = resolveBillingMemberCtx(ctx, memberPrincipal, fakeExecutor as never);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.ctx.workspaceId).toBe("ws_1");

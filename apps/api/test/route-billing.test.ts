@@ -166,7 +166,8 @@ describe("billing routes", () => {
       contextFor({ env: billingEnv({ DB: stubExecutor(noRows) }) }),
       memberPrincipal(),
       guardFor({ interval: "month" }),
-      provider,
+      undefined,
+      { provider },
     );
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toMatchObject({ url: `https://stripe.test/checkout/${workspaceId}` });
@@ -179,7 +180,8 @@ describe("billing routes", () => {
       contextFor({ env }),
       memberPrincipal(),
       guardFor({ interval: "month" }),
-      createFakeBillingProvider(),
+      undefined,
+      { provider: createFakeBillingProvider() },
     );
     expect(response.status).toBe(404);
   });
@@ -201,7 +203,9 @@ describe("billing routes", () => {
         ],
       })),
     });
-    const response = await billingPortal(contextFor({ env }), memberPrincipal(), createFakeBillingProvider());
+    const response = await billingPortal(contextFor({ env }), memberPrincipal(), undefined, {
+      provider: createFakeBillingProvider(),
+    });
     expect(response.status).toBe(404);
   });
 
@@ -223,7 +227,7 @@ describe("billing routes", () => {
         ],
       })),
     });
-    const response = await billingPortal(contextFor({ env }), memberPrincipal(), provider);
+    const response = await billingPortal(contextFor({ env }), memberPrincipal(), undefined, { provider });
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toMatchObject({ url: "https://stripe.test/portal/cus_1" });
   });
@@ -246,7 +250,7 @@ describe("billing routes", () => {
       })),
     });
     const provider = createFakeBillingProvider();
-    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), provider);
+    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), undefined, { provider });
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toEqual({ invoices: [] });
     expect(provider.invoiceCalls).toHaveLength(0);
@@ -282,7 +286,7 @@ describe("billing routes", () => {
         ],
       })),
     });
-    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), provider);
+    const response = await billingInvoices(contextFor({ env }), memberPrincipal(), undefined, { provider });
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toEqual({
       invoices: [
@@ -305,7 +309,8 @@ describe("billing routes", () => {
     const response = await billingReturn(
       contextFor({ env: billingEnv({ DB: stubExecutor(noRows) }), url: "https://api.test/v1/web/billing/return" }),
       memberPrincipal(),
-      createFakeBillingProvider(),
+      undefined,
+      { provider: createFakeBillingProvider() },
     );
     expect(response.status).toBe(400);
   });
@@ -423,21 +428,25 @@ describe("billing routes", () => {
     expect((await billingStatus(contextFor({ env }), memberPrincipal())).status).toBe(503);
     expect(
       (
-        await billingCheckout(
-          contextFor({ env }),
-          memberPrincipal(),
-          guardFor({ interval: "month" }),
-          createFakeBillingProvider(),
-        )
+        await billingCheckout(contextFor({ env }), memberPrincipal(), guardFor({ interval: "month" }), undefined, {
+          provider: createFakeBillingProvider(),
+        })
       ).status,
     ).toBe(503);
-    expect((await billingPortal(contextFor({ env }), memberPrincipal(), createFakeBillingProvider())).status).toBe(503);
+    expect(
+      (
+        await billingPortal(contextFor({ env }), memberPrincipal(), undefined, {
+          provider: createFakeBillingProvider(),
+        })
+      ).status,
+    ).toBe(503);
     expect(
       (
         await billingReturn(
           contextFor({ env, url: "https://api.test/v1/web/billing/return?session_id=cs_1" }),
           memberPrincipal(),
-          createFakeBillingProvider(),
+          undefined,
+          { provider: createFakeBillingProvider() },
         )
       ).status,
     ).toBe(503);
@@ -449,16 +458,17 @@ describe("billing routes", () => {
     expect((await billingStatus(contextFor({ env }), operator)).status).toBe(403);
     expect(
       (
-        await billingCheckout(
-          contextFor({ env }),
-          operator,
-          guardFor({ interval: "month" }),
-          createFakeBillingProvider(),
-        )
+        await billingCheckout(contextFor({ env }), operator, guardFor({ interval: "month" }), undefined, {
+          provider: createFakeBillingProvider(),
+        })
       ).status,
     ).toBe(403);
-    expect((await billingPortal(contextFor({ env }), operator, createFakeBillingProvider())).status).toBe(403);
-    expect((await billingReturn(contextFor({ env }), operator, createFakeBillingProvider())).status).toBe(403);
+    expect(
+      (await billingPortal(contextFor({ env }), operator, undefined, { provider: createFakeBillingProvider() })).status,
+    ).toBe(403);
+    expect(
+      (await billingReturn(contextFor({ env }), operator, undefined, { provider: createFakeBillingProvider() })).status,
+    ).toBe(403);
   });
 
   it("uses the annual price id for a yearly checkout", async () => {
@@ -467,7 +477,8 @@ describe("billing routes", () => {
       contextFor({ env: billingEnv({ DB: stubExecutor(noRows) }) }),
       memberPrincipal(),
       guardFor({ interval: "year" }),
-      provider,
+      undefined,
+      { provider },
     );
     expect(provider.checkoutCalls[0]).toMatchObject({ priceId: "price_year" });
   });
@@ -487,7 +498,8 @@ describe("billing routes", () => {
     const response = await billingReturn(
       contextFor({ env: billingEnv({ DB: executor }), url: "https://api.test/v1/web/billing/return?session_id=cs_1" }),
       memberPrincipal(),
-      provider,
+      undefined,
+      { provider },
     );
     expect(response.status).toBe(200);
     // No applyBillingSnapshot ran (mismatched workspace), so only the status read hit the db.
@@ -547,7 +559,8 @@ describe("billing routes", () => {
     const response = await billingReturn(
       contextFor({ env: billingEnv({ DB: executor }), url: "https://api.test/v1/web/billing/return?session_id=cs_2" }),
       memberPrincipal(),
-      provider,
+      undefined,
+      { provider },
     );
     expect(response.status).toBe(200);
     await expect(responseJson(response)).resolves.toMatchObject({ plan: "free" });

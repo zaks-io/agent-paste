@@ -1,6 +1,6 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
-import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
+import { type Repository, repositoryErrorToAppError, type SqlExecutor } from "@agent-paste/db";
 import {
   type BoundRespondersVariables,
   boundRespondersMiddleware,
@@ -32,6 +32,7 @@ import {
   billingReturn,
   billingStatus,
   billingWebhook,
+  resolveBillingExecutor,
 } from "./routes/billing.js";
 import { getCliVersion } from "./routes/cli-version.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "./routes/ephemeral.js";
@@ -113,11 +114,29 @@ const apiDbRegistrar = createRegistrar<Repository>({
   },
 });
 
-// Routes that read no database (e.g. the public CLI-version advert, which only
-// touches KV) mount here so the registrar never resolves Hyperdrive for them.
+// Routes that read no database and need no rate limiting (the public CLI-version
+// advert, which only touches KV) mount here so the registrar never resolves
+// Hyperdrive for them. Every route mounted here must be `rateLimit: "none"` —
+// the registrar tripwire enforces that, since it has no rate-limit bindings.
 const apiNoDbRegistrar = createRegistrar({
   app,
   auth: createApiAuthResolvers(),
+  docsBaseUrl: boundResponderConfig.docsBaseUrl,
+  onMount: (contract) => {
+    mountedRouteIds.add(contract.id);
+  },
+});
+
+// Billing routes need a raw RLS-capable SQL executor (Stripe writes go through the
+// command layer, not the Repository), plus actor rate limiting. The registrar
+// resolves the executor once and hands it to each handler, which scopes it to the
+// member / event / target Workspace. `database_unavailable` is the registrar's job;
+// the `billingEnabled` (→ not_found) gate stays in the handlers as policy.
+const apiBillingRegistrar = createRegistrar<SqlExecutor>({
+  app,
+  auth: createApiAuthResolvers(),
+  db: (context) => resolveBillingExecutor(context.env as Env),
+  rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
   docsBaseUrl: boundResponderConfig.docsBaseUrl,
   onMount: (contract) => {
     mountedRouteIds.add(contract.id);
@@ -293,32 +312,32 @@ apiDbRegistrar.mount(contractById("web.admin.lockdown.lift"), async (context, pr
 apiDbRegistrar.mount(contractById("web.admin.events.list"), async (context, principal, db) =>
   webAdminListEvents(context as AppContext, principal, db),
 );
-// Billing handlers resolve their own RLS executor (Stripe is never on the hot path) and
-// short-circuit with `not_found` when billing is off. Mounting on the no-db registrar keeps
-// Hyperdrive resolution from running first, so a billing-off request 404s instead of leaking
-// `database_unavailable` when the DB is unreachable.
-apiNoDbRegistrar.mount(contractById("billing.status.get"), async (context, principal) =>
-  billingStatus(context as AppContext, principal),
+apiBillingRegistrar.mount(contractById("billing.status.get"), async (context, principal, db) =>
+  billingStatus(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.invoices.list"), async (context, principal) =>
-  billingInvoices(context as AppContext, principal),
+apiBillingRegistrar.mount(contractById("billing.invoices.list"), async (context, principal, db) =>
+  billingInvoices(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.checkout.create"), async (context, principal, guard) =>
-  billingCheckout(context as AppContext, principal, guard),
+apiBillingRegistrar.mount(contractById("billing.checkout.create"), async (context, principal, db, guard) =>
+  billingCheckout(context as AppContext, principal, guard, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.checkout.return"), async (context, principal) =>
-  billingReturn(context as AppContext, principal),
+apiBillingRegistrar.mount(contractById("billing.checkout.return"), async (context, principal, db) =>
+  billingReturn(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.portal.create"), async (context, principal) =>
-  billingPortal(context as AppContext, principal),
+apiBillingRegistrar.mount(contractById("billing.portal.create"), async (context, principal, db) =>
+  billingPortal(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.webhook"), async (context, principal) =>
-  billingWebhook(context as AppContext, principal),
+apiBillingRegistrar.mount(contractById("billing.webhook"), async (context, principal, db) =>
+  billingWebhook(context as AppContext, principal, db),
 );
-apiNoDbRegistrar.mount(contractById("billing.admin.setPlan"), async (context, principal, guard) =>
-  webAdminSetWorkspacePlan(context as AppContext, principal, guard, {
-    workspaceId: context.req.param("workspace_id") ?? "",
-  }),
+apiBillingRegistrar.mount(contractById("billing.admin.setPlan"), async (context, principal, db, guard) =>
+  webAdminSetWorkspacePlan(
+    context as AppContext,
+    principal,
+    guard,
+    { workspaceId: context.req.param("workspace_id") ?? "" },
+    db,
+  ),
 );
 
 app.post("/__test__/provision-smoke", (context) => provisionSmoke(context as AppContext));

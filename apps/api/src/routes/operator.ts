@@ -10,7 +10,7 @@ import {
   WebOperatorEventFocus,
   WorkspaceId,
 } from "@agent-paste/contracts";
-import { type Repository, rlsExecutor } from "@agent-paste/db";
+import { type Repository, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { type AppContext, billingEnabled, type Env } from "../env.js";
@@ -134,6 +134,7 @@ export async function webAdminSetWorkspacePlan(
   principal: Principal,
   guard: GuardFor<"billing.admin.setPlan">,
   params: { workspaceId: string },
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
 ): Promise<Response> {
   const { respondError } = getBoundResponders(context);
   const actor = platformActor(principal);
@@ -148,7 +149,6 @@ export async function webAdminSetWorkspacePlan(
   if (!workspaceId.success) {
     return respondError("not_found");
   }
-  const executor = resolveBillingExecutor(env);
   if (!executor) {
     return respondError("database_unavailable");
   }

@@ -93,6 +93,7 @@ describe("contract error enforcement", () => {
             };
           },
         },
+        rateLimitBindings: allowRateLimitBindings,
       }).mount(
         {
           ...baseContract,
@@ -168,6 +169,7 @@ describe("contract error enforcement", () => {
           return { ok: false, code: "not_authenticated" };
         },
       },
+      rateLimitBindings: allowRateLimitBindings,
     }).mount(baseContract, async () => new Response(null, { status: 200 }));
 
     const response = await app.fetch(new Request("https://worker.test/v1/whoami"));

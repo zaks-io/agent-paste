@@ -74,6 +74,13 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
         throw new Error(`No auth resolver registered for ${contract.auth} (${contract.id})`);
       }
 
+      if (contract.rateLimit !== "none" && !deps.rateLimitBindings) {
+        throw new Error(
+          `Route ${contract.id} requires the '${contract.rateLimit}' rate limit, but this registrar has no rateLimitBindings provider. ` +
+            `A missing binding would fail every request closed; wire rateLimitBindings into the registrar.`,
+        );
+      }
+
       assertRegistrarGuardErrorsDeclared(contract, { hasDb: deps.db !== undefined });
 
       const errorOptions = (context: Context) => {
