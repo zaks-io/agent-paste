@@ -13,6 +13,7 @@ const AUTH_FAILURE_CODES: Record<AuthRequirement, readonly ErrorCode[]> = {
   signed_agent_view_token: ["not_found"],
   signed_upload_url: ["not_found", "not_authenticated"],
   signed_content_token: ["not_found"],
+  stripe_webhook_signature: ["not_found", "invalid_request"],
 };
 
 export class ContractErrorViolation extends Error {
@@ -98,10 +99,7 @@ export function registrarGuardErrorCodes(
   return [...codes];
 }
 
-export function assertRegistrarGuardErrorsDeclared(
-  contract: RouteContract,
-  options: { hasDb?: boolean } = {},
-): void {
+export function assertRegistrarGuardErrorsDeclared(contract: RouteContract, options: { hasDb?: boolean } = {}): void {
   const declared = new Set(contract.errors);
   for (const code of registrarGuardErrorCodes(contract, options)) {
     if (!declared.has(code)) {

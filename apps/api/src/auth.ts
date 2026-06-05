@@ -8,11 +8,11 @@ import {
 import type { RouteContract } from "@agent-paste/contracts";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
+  type AuthResolvers,
   bearerToken,
   createApiKeyOrMcpOAuthResolver,
   createAuthenticateApiKey,
   createMcpOAuthResolver,
-  type AuthResolvers,
 } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 import { verifyAgentViewTokenForEnv } from "./agent-view.js";
@@ -90,6 +90,19 @@ export function createApiAuthResolvers(): AuthResolvers {
       return id
         ? ({ ok: true, principal: { kind: "operator", actor: { type: "platform", id } } } as const)
         : ({ ok: false, code: "not_found" } as const);
+    },
+    async stripe_webhook_signature(context: Context) {
+      const env = context.env as Env;
+      // Off-by-config: with no signing secret the route does not exist to callers.
+      if (!env.STRIPE_WEBHOOK_SIGNING_SECRET) {
+        return { ok: false, code: "not_found" } as const;
+      }
+      // Header presence only. The handler reads the raw body once and verifies the
+      // HMAC there; reading the stream here would consume it before the handler.
+      if (!context.req.raw.headers.get("Stripe-Signature")) {
+        return { ok: false, code: "invalid_request" } as const;
+      }
+      return { ok: true, principal: { kind: "stripe_webhook_signature" } } as const;
     },
   } satisfies AuthResolvers;
 }

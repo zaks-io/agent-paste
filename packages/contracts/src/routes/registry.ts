@@ -1,4 +1,5 @@
 import { routeErrorGroups } from "./errors.js";
+import { billingRouteContracts } from "./registry.billing.js";
 import { storageRouteContracts } from "./registry.storage.js";
 import type { RouteContract } from "./types.js";
 
@@ -559,6 +560,7 @@ export const routeContracts = [
     responseSchema: "WebOperatorEventListResponse",
     errors: operatorReadErrors,
   },
+  ...billingRouteContracts,
   ...storageRouteContracts,
 ] as const satisfies readonly RouteContract[];
 

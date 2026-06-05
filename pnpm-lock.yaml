@@ -135,6 +135,9 @@ importers:
       '@agent-paste/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@agent-paste/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@agent-paste/commands':
         specifier: workspace:*
         version: link:../../packages/commands

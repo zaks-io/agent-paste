@@ -1,22 +1,25 @@
 import { getRequestId } from "@agent-paste/auth";
+import { loadLocalBillingRow, setWorkspacePlanOverride } from "@agent-paste/billing";
 import {
   ActorType,
   LockdownScope,
   OperationEventAction,
   OperationEventTargetType,
   type SetLockdownRequest,
+  type SetWorkspacePlanRequest,
   WebOperatorEventFocus,
   WorkspaceId,
 } from "@agent-paste/contracts";
-import type { Repository } from "@agent-paste/db";
+import { type Repository, rlsExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import type { AppContext, Env } from "../env.js";
+import { type AppContext, billingEnabled, type Env } from "../env.js";
 import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { platformActor } from "../principals.js";
-import { executeRepositoryRoute, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
+import { billingStatusFromRow, resolveBillingExecutor } from "./billing.js";
 
 type OperatorEventFilterInput = {
   workspaceId?: string;
@@ -124,6 +127,52 @@ export async function webAdminSetLockdown(
     },
     { successStatus: 201 },
   );
+}
+
+export async function webAdminSetWorkspacePlan(
+  context: AppContext,
+  principal: Principal,
+  guard: GuardFor<"billing.admin.setPlan">,
+  params: { workspaceId: string },
+): Promise<Response> {
+  const { respondError } = getBoundResponders(context);
+  const actor = platformActor(principal);
+  if (!actor) {
+    return respondError("not_found");
+  }
+  const env = context.env;
+  if (!billingEnabled(env)) {
+    return respondError("not_found");
+  }
+  const workspaceId = WorkspaceId.safeParse(params.workspaceId);
+  if (!workspaceId.success) {
+    return respondError("not_found");
+  }
+  const executor = resolveBillingExecutor(env);
+  if (!executor) {
+    return respondError("database_unavailable");
+  }
+  const scoped = rlsExecutor(executor, { kind: "workspace", workspaceId: workspaceId.data });
+  const body: SetWorkspacePlanRequest = guard.body;
+  return runIdempotent(context, async () => {
+    try {
+      await setWorkspacePlanOverride({
+        executor: scoped,
+        actorId: actor.id,
+        workspaceId: workspaceId.data,
+        plan: body.plan,
+        idempotencyKey: guard.idempotencyKey,
+        now: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "workspace_not_found") {
+        throw new RepositoryRouteError("not_found", "workspace not found", { cause: error });
+      }
+      throw error;
+    }
+    const row = await loadLocalBillingRow(scoped, workspaceId.data);
+    return billingStatusFromRow(row);
+  });
 }
 
 export async function webAdminLiftLockdown(

@@ -6,6 +6,160 @@ describe("BillingProvider adapters", () => {
     const provider = createNoopBillingProvider();
     await expect(provider.getSubscription("sub_x")).resolves.toBeNull();
     await expect(provider.listReconciliationSubscriptions()).resolves.toEqual([]);
+    await expect(provider.getCheckoutSession("cs_x")).resolves.toBeNull();
+    await expect(
+      provider.createCheckoutSession({
+        workspaceId: "ws-1",
+        priceId: "price_1",
+        successUrl: "https://app.test/ok",
+        cancelUrl: "https://app.test/cancel",
+        idempotencyKey: "idem-1",
+      }),
+    ).rejects.toThrow("billing_disabled");
+    await expect(provider.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test" })).rejects.toThrow(
+      "billing_disabled",
+    );
+  });
+
+  it("fake provider records checkout and portal calls and returns deterministic urls", async () => {
+    const provider = createFakeBillingProvider();
+    const checkout = await provider.createCheckoutSession({
+      workspaceId: "ws-1",
+      priceId: "price_1",
+      successUrl: "https://app.test/ok",
+      cancelUrl: "https://app.test/cancel",
+      idempotencyKey: "idem-1",
+    });
+    expect(checkout.url).toBe("https://stripe.test/checkout/ws-1");
+    expect(provider.checkoutCalls).toHaveLength(1);
+    expect(provider.checkoutCalls[0]).toMatchObject({ priceId: "price_1", idempotencyKey: "idem-1" });
+
+    provider.setCheckoutSession("cs_1", { subscriptionId: "sub_1", customerId: "cus_1" });
+    await expect(provider.getCheckoutSession("cs_1")).resolves.toMatchObject({ subscriptionId: "sub_1" });
+
+    const portal = await provider.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test" });
+    expect(portal.url).toBe("https://stripe.test/portal/cus_1");
+    expect(provider.portalCalls).toHaveLength(1);
+  });
+
+  it("stripe provider posts a checkout session with workspace metadata and idempotency key", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init: init ?? {} });
+      return new Response(JSON.stringify({ url: "https://checkout.stripe.com/c/session_1" }), { status: 200 });
+    });
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    const result = await provider.createCheckoutSession({
+      workspaceId: "ws-1",
+      customerId: "cus_1",
+      priceId: "price_month",
+      successUrl: "https://app.test/return?session_id={CHECKOUT_SESSION_ID}",
+      cancelUrl: "https://app.test/cancel",
+      idempotencyKey: "idem-checkout",
+    });
+    expect(result.url).toBe("https://checkout.stripe.com/c/session_1");
+    const call = calls[0];
+    expect(call?.url).toBe("https://api.stripe.com/v1/checkout/sessions");
+    expect((call?.init.headers as Record<string, string>)["Idempotency-Key"]).toBe("idem-checkout");
+    const body = String(call?.init.body);
+    expect(body).toContain("metadata%5Bworkspace_id%5D=ws-1");
+    expect(body).toContain("subscription_data%5Bmetadata%5D%5Bworkspace_id%5D=ws-1");
+    expect(body).toContain("line_items%5B0%5D%5Bprice%5D=price_month");
+    expect(body).toContain("customer=cus_1");
+  });
+
+  it("stripe provider expands the subscription when fetching a checkout session", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(url).toContain("/v1/checkout/sessions/cs_1");
+      expect(url).toContain("expand[]=subscription");
+      return new Response(JSON.stringify({ customer: "cus_1", subscription: { id: "sub_1" } }), { status: 200 });
+    });
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    await expect(provider.getCheckoutSession("cs_1")).resolves.toEqual({
+      subscriptionId: "sub_1",
+      customerId: "cus_1",
+    });
+  });
+
+  it("stripe provider returns null for a missing checkout session", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 404 }));
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    await expect(provider.getCheckoutSession("cs_missing")).resolves.toBeNull();
+  });
+
+  it("stripe provider creates a portal session", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ url: "https://portal.stripe.com/p/1" }), { status: 200 }),
+    );
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    await expect(
+      provider.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test/billing" }),
+    ).resolves.toEqual({ url: "https://portal.stripe.com/p/1" });
+  });
+
+  it("stripe provider throws when checkout/portal requests fail or omit a url", async () => {
+    const failing = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(async () => new Response("{}", { status: 500 })),
+    });
+    await expect(
+      failing.createCheckoutSession({
+        workspaceId: "ws-1",
+        priceId: "price_1",
+        successUrl: "https://app.test/ok",
+        cancelUrl: "https://app.test/cancel",
+        idempotencyKey: "idem-1",
+      }),
+    ).rejects.toThrow("stripe_request_failed:/v1/checkout/sessions:500");
+
+    const urlless = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    });
+    await expect(urlless.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test" })).rejects.toThrow(
+      "stripe_portal_session_missing_url",
+    );
+    await expect(
+      urlless.createCheckoutSession({
+        workspaceId: "ws-1",
+        priceId: "price_1",
+        successUrl: "https://app.test/ok",
+        cancelUrl: "https://app.test/cancel",
+        idempotencyKey: "idem-1",
+      }),
+    ).rejects.toThrow("stripe_checkout_session_missing_url");
+  });
+
+  it("stripe provider surfaces a failed checkout-session fetch and maps string ids", async () => {
+    const failing = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(async () => new Response("{}", { status: 500 })),
+    });
+    await expect(failing.getCheckoutSession("cs_x")).rejects.toThrow("stripe_checkout_session_fetch_failed:500");
+
+    const stringIds = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(
+        async () => new Response(JSON.stringify({ customer: "cus_2", subscription: "sub_2" }), { status: 200 }),
+      ),
+    });
+    await expect(stringIds.getCheckoutSession("cs_2")).resolves.toEqual({
+      subscriptionId: "sub_2",
+      customerId: "cus_2",
+    });
+
+    const nullIds = createStripeBillingProvider({
+      secretKey: "sk_test",
+      fetchImpl: vi.fn(
+        async () => new Response(JSON.stringify({ customer: null, subscription: null }), { status: 200 }),
+      ),
+    });
+    await expect(nullIds.getCheckoutSession("cs_3")).resolves.toEqual({ subscriptionId: null, customerId: null });
+  });
+
+  it("fake provider throws when updating an unknown subscription status", () => {
+    const provider = createFakeBillingProvider();
+    expect(() => provider.updateStatus("sub_missing", "canceled")).toThrow("unknown_subscription:sub_missing");
   });
 
   it("fake provider round-trips subscription state", async () => {
@@ -44,6 +198,26 @@ describe("BillingProvider adapters", () => {
       workspaceId: "ws-1",
       status: "active",
       priceInterval: "year",
+    });
+  });
+
+  it("stripe provider maps a null currentPeriodEnd when Stripe omits current_period_end", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "sub_no_period",
+            status: "active",
+            customer: "cus_1",
+            metadata: { workspace_id: "ws-1" },
+          }),
+          { status: 200 },
+        ),
+    );
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    await expect(provider.getSubscription("sub_no_period")).resolves.toMatchObject({
+      workspaceId: "ws-1",
+      currentPeriodEnd: null,
     });
   });
 

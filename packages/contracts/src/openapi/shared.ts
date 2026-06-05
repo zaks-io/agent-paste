@@ -10,6 +10,14 @@ import { AgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import {
+  BillingStatusResponse,
+  CheckoutSessionResponse,
+  CreateCheckoutSessionRequest,
+  PortalSessionResponse,
+  SetWorkspacePlanRequest,
+  WebhookReceivedResponse,
+} from "../billing.js";
+import {
   BundleAvailability,
   BundleAvailabilityDisabled,
   BundleAvailabilityFailed,
@@ -125,6 +133,12 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("SetLockdownRequest", SetLockdownRequest);
   registry.register("LockdownDetail", LockdownDetail);
   registry.register("LockdownListResponse", LockdownListResponse);
+  registry.register("CreateCheckoutSessionRequest", CreateCheckoutSessionRequest);
+  registry.register("CheckoutSessionResponse", CheckoutSessionResponse);
+  registry.register("PortalSessionResponse", PortalSessionResponse);
+  registry.register("BillingStatusResponse", BillingStatusResponse);
+  registry.register("WebhookReceivedResponse", WebhookReceivedResponse);
+  registry.register("SetWorkspacePlanRequest", SetWorkspacePlanRequest);
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {

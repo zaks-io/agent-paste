@@ -26,6 +26,7 @@ export const OperationEventAction = z.enum([
   "artifact.deleted",
   "artifact.expired",
   "revision.draft_created",
+  "workspace.plan.updated",
   "platform.lockdown.set",
   "platform.lockdown.lifted",
   "cleanup.run",

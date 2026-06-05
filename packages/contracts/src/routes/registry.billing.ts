@@ -1,0 +1,89 @@
+import { routeErrorGroups } from "./errors.js";
+
+const {
+  webActorRead: webActorReadErrors,
+  webIdempotentMutation: webIdempotentMutationErrors,
+  operatorMutation: operatorMutationErrors,
+} = routeErrorGroups;
+
+/**
+ * Stripe billing route contracts (ADR 0073/0074), split out of `registry.ts` to keep
+ * each file under the `noExcessiveLinesPerFile` limit. Spread into `routeContracts` with
+ * `as const` so route-id literal inference is preserved.
+ */
+export const billingRouteContracts = [
+  {
+    id: "billing.status.get",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/billing",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "BillingStatusResponse",
+    errors: [...webActorReadErrors, "not_found"],
+  },
+  {
+    id: "billing.checkout.create",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/billing/checkout",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "CreateCheckoutSessionRequest",
+    responseSchema: "CheckoutSessionResponse",
+    errors: [...webIdempotentMutationErrors, "not_found"],
+  },
+  {
+    id: "billing.checkout.return",
+    app: "api",
+    method: "GET",
+    path: "/v1/web/billing/return",
+    auth: "workos_access_token",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "BillingStatusResponse",
+    errors: [...webActorReadErrors, "not_found", "invalid_request"],
+  },
+  {
+    id: "billing.portal.create",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/billing/portal",
+    auth: "workos_access_token",
+    scopes: ["admin"],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "PortalSessionResponse",
+    errors: [...webActorReadErrors, "not_found"],
+  },
+  {
+    id: "billing.webhook",
+    app: "api",
+    method: "POST",
+    path: "/v1/billing/webhook",
+    auth: "stripe_webhook_signature",
+    scopes: [],
+    idempotency: "none",
+    rateLimit: "none",
+    responseSchema: "WebhookReceivedResponse",
+    errors: ["not_found", "invalid_request", "database_unavailable"],
+  },
+  {
+    id: "billing.admin.setPlan",
+    app: "api",
+    method: "POST",
+    path: "/v1/web/admin/workspaces/{workspace_id}/plan",
+    auth: "operator",
+    scopes: [],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "SetWorkspacePlanRequest",
+    responseSchema: "BillingStatusResponse",
+    errors: [...operatorMutationErrors, "not_found"],
+  },
+] as const;
