@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Identifier } from "../src/components/ui/Identifier";
 
@@ -30,7 +30,7 @@ describe("Identifier", () => {
     render(<Identifier value={value} />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
-    await vi.waitFor(() => expect(button.dataset.copied).toBe("true"));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(value);
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(value));
+    await waitFor(() => expect(button).toHaveAttribute("data-copied", "true"));
   });
 });
