@@ -63,6 +63,33 @@ describe("cli command dispatch", () => {
     expect(stdout).toHaveBeenCalledWith(`${JSON.stringify({ version: CLI_VERSION }, null, 2)}\n`);
   });
 
+  it("routes upgrade without resolving a client and redirects off the binary channel", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const previousExit = process.exitCode;
+
+    // No client passed: upgrade must dispatch before auth resolution. Under
+    // vitest the process is not a compiled binary, so it redirects to npm.
+    await expect(main(["upgrade"])).resolves.toBeUndefined();
+
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("standalone binary installs"));
+    process.exitCode = previousExit;
+  });
+
+  it("does not let `upgrade --version` print the CLI version", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const previousExit = process.exitCode;
+
+    // The bare-flag version shortcut is gated on having no subcommand, so this
+    // dispatches to upgrade (redirected off-binary here), not the version print.
+    await main(["upgrade", "--version"]);
+
+    expect(stdout).not.toHaveBeenCalledWith(`${CLI_VERSION}\n`);
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("standalone binary installs"));
+    process.exitCode = previousExit;
+  });
+
   it("prints whoami as JSON", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const client = fakeClient({
