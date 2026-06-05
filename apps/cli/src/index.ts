@@ -17,6 +17,7 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
+import { runUpdateCheck } from "./update-check.js";
 import { CLI_VERSION } from "./version.js";
 
 export type GlobalFlags = {
@@ -62,7 +63,9 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   }
 
   const apiClient = client ?? (await resolveClient());
-  return dispatch(command, parsed, apiClient);
+  const result = await dispatch(command, parsed, apiClient);
+  await runUpdateCheck(parsed.global);
+  return result;
 }
 
 async function dispatch(command: string, parsed: Parsed, client: ApiClient) {

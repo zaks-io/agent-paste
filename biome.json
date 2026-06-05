@@ -9,6 +9,7 @@
       "!**/dist",
       "!.turbo",
       "!.wrangler",
+      "!**/coverage",
       "!**/worker-configuration.d.ts",
       "!**/routeTree.gen.ts",
       "!packages/contracts/openapi/*.json"

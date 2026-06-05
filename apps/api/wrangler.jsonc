@@ -40,6 +40,11 @@
       // Denylist writes per ADR 0057.
       "binding": "DENYLIST",
       "id": "00000000000000000000000000000000"
+    },
+    {
+      // Advertised CLI version (latest / min_supported) per ADR 0080.
+      "binding": "CLI_RELEASE",
+      "id": "00000000000000000000000000000000"
     }
   ],
   "durable_objects": {
@@ -169,6 +174,10 @@
         {
           "binding": "DENYLIST",
           "id": "5780695433d4494897dcbb78bcb4f180"
+        },
+        {
+          "binding": "CLI_RELEASE",
+          "id": "d73e83b2c1244f489c8a3f006d56f51b"
         }
       ],
       "ratelimits": [
@@ -303,6 +312,10 @@
         {
           "binding": "DENYLIST",
           "id": "86d8b139223e45108d320533277a235d"
+        },
+        {
+          "binding": "CLI_RELEASE",
+          "id": "2584a9e4d1a54ffa97056a52d106d49f"
         }
       ],
       "ratelimits": [

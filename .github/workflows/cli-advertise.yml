@@ -1,0 +1,122 @@
+name: CLI Advertise Release
+
+# Closes the CLI release loop (ADR 0080 §6) the moment a human publishes a
+# `cli-v*` GitHub Release: publish the package to npm, then advertise the new
+# version in the CLI_RELEASE KV namespace so `agent-paste`'s update check starts
+# pointing users at it. No `api` redeploy — KV writes are pure data.
+#
+# apps/cli/package.json is the single source of truth: the binary baked its
+# version from it (cli-release.yml), npm publishes it, and KV advertises it, so
+# every channel agrees by construction. The release tag MUST be cli-v<version>;
+# the build job already enforces that on draft creation, and we re-assert here.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-advertise-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  advertise:
+    name: Publish npm + advertise KV
+    # Guard at job level, not the trigger: `release: published` is the point (it
+    # fires only when a human publishes a draft), so a `push: tags` trigger would
+    # be wrong, and GitHub has no workflow-level `if:`. Non-`cli-v` releases queue
+    # an instantly-skipped run, which is harmless.
+    if: startsWith(github.event.release.tag_name, 'cli-v')
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Mint the Sigstore OIDC token so `npm publish --provenance` can attach a
+      # build-provenance statement, matching the binaries' attestations.
+      id-token: write
+    steps:
+      - name: Checkout the released tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing (OIDC) needs npm >= 11.5.1; Node 24 ships an older npm.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Resolve and verify version
+        id: version
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./apps/cli/package.json').version")"
+          if [ "$TAG" != "cli-v$VERSION" ]; then
+            echo "::error::release tag '$TAG' does not match apps/cli/package.json version '$VERSION'"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Auth is OIDC trusted publishing (no NODE_AUTH_TOKEN): npm >= 11.5.1 with
+      # `id-token: write` mints the publish token automatically. Requires a
+      # trusted publisher configured on npmjs.com (org zaks-io, repo agent-paste,
+      # this workflow file); the package already exists (a 0.0.0 placeholder), so
+      # no manual bootstrap publish is needed.
+      #
+      # prepublishOnly (scripts/prepublish-guard.mjs) rebuilds the self-contained
+      # bundle and gates on license/bundle/files, so the build is implicit here.
+      # Skip if this version is already on npm so a re-published release (the
+      # event fires again on any edit) advertises to KV instead of aborting on
+      # npm's duplicate-version rejection. The KV write below is idempotent.
+      - name: Publish to npm
+        working-directory: apps/cli
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$(npm view "@zaks-io/agent-paste@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
+            echo "@zaks-io/agent-paste@$VERSION already published; skipping npm publish."
+            exit 0
+          fi
+          npm publish --provenance --access public
+
+      # latest == min_supported for now (no force-upgrade floor yet); revisit when
+      # a real minimum is needed. One JSON value under the `cli-release` key.
+      # Target the namespace by --binding + --env so the id is resolved from
+      # apps/api/wrangler.jsonc (single source of truth — no hardcoded ids to
+      # drift if a namespace is ever rotated).
+      - name: Advertise version in CLI_RELEASE KV
+        working-directory: apps/api
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          # Scoped to this step only (not job-level) so the write-capable
+          # Cloudflare token never enters npm publish / pnpm install, where
+          # third-party lifecycle scripts run.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          VALUE="$(node -e 'process.stdout.write(JSON.stringify({latest:process.env.VERSION,min_supported:process.env.VERSION}))')"
+          for ENV in preview production; do
+            pnpm exec wrangler kv key put cli-release "$VALUE" --binding CLI_RELEASE --env "$ENV"
+          done

@@ -2,7 +2,8 @@ declare const process: {
   argv: string[];
   env: Record<string, string | undefined>;
   platform: string;
-  stdout: { write(value: string): void };
+  execPath: string;
+  stdout: { write(value: string): void; isTTY?: boolean };
   stderr: { write(value: string): void };
   exitCode: number | undefined;
 };
