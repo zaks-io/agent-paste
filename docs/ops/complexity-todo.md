@@ -38,8 +38,6 @@ Biome-measured count at snapshot time.
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — `query` dispatcher: 102. Big
       SQL branch table; split per statement family.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
-- [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
-      `reparentWorkspace`: 39.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `handleKeyDown`: 32.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `formatPlan`: 31.
@@ -50,9 +48,6 @@ Biome-measured count at snapshot time.
       Mostly flat schema registration; could split per resource group.
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — outer factory 192, inner
       `query` 183.
-- [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
-      `localArtifacts`: 147.
-- [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 123.
 - [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `CommandPaletteDialog`: 124.
@@ -65,6 +60,11 @@ When the file limit ratchets below ~590, split the contract registries first.
 
 ## Recently cleaned
 
+- [x] `packages/db/src/repository/local-entities/artifacts.ts` and
+      `packages/db/src/repository/postgres-entities.ts`: AP-228 split local
+      artifact methods and postgres entity adapters into focused domain modules
+      (`artifacts-*.ts`, `postgres-entities/*.ts`) and removed the function-length
+      and `reparentWorkspace` cognitive-complexity suppressions.
 - [x] `apps/jobs/src/handlers/bundle-generate.ts` and `safety-scan.ts`: AP-232 split
       queue batch handlers into orchestration helpers (`bundle-generate-orchestration.ts`,
       `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,
