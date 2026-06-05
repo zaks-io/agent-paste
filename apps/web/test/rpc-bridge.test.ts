@@ -179,9 +179,10 @@ describe("web RPC bridge", () => {
       data: { ok: true },
       error: null,
     });
-    await expect(
-      createAccessLinkFn({ data: { artifactId: ARTIFACT_ID, type: "share" } }),
-    ).resolves.toMatchObject({ data: { ok: true }, error: null });
+    await expect(createAccessLinkFn({ data: { artifactId: ARTIFACT_ID, type: "share" } })).resolves.toMatchObject({
+      data: { ok: true },
+      error: null,
+    });
     await expect(mintAccessLinkFn({ data: { accessLinkId: ACCESS_LINK_ID } })).resolves.toMatchObject({
       data: { ok: true },
       error: null,
@@ -190,12 +191,14 @@ describe("web RPC bridge", () => {
       data: { ok: true },
       error: null,
     });
-    await expect(
-      setAccessLinkLockdownFn({ data: { artifactId: ARTIFACT_ID, locked: true } }),
-    ).resolves.toMatchObject({ data: { ok: true }, error: null });
-    await expect(
-      saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 14 } }),
-    ).resolves.toMatchObject({ data: { ok: true }, error: null });
+    await expect(setAccessLinkLockdownFn({ data: { artifactId: ARTIFACT_ID, locked: true } })).resolves.toMatchObject({
+      data: { ok: true },
+      error: null,
+    });
+    await expect(saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 14 } })).resolves.toMatchObject({
+      data: { ok: true },
+      error: null,
+    });
     await expect(
       setLockdownFn({
         data: {
@@ -219,7 +222,10 @@ describe("web RPC bridge", () => {
       }),
     ).resolves.toMatchObject({ data: { ok: true }, error: null });
 
-    expect(state.apiFetch).toHaveBeenCalledWith("/v1/web/billing/checkout", expect.objectContaining({ method: "POST" }));
+    expect(state.apiFetch).toHaveBeenCalledWith(
+      "/v1/web/billing/checkout",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(state.apiFetch).toHaveBeenCalledWith("/v1/web/billing/portal", expect.objectContaining({ method: "POST" }));
     expect(state.apiFetch).toHaveBeenCalledWith("/v1/ephemeral/claim", expect.objectContaining({ method: "POST" }));
   });
