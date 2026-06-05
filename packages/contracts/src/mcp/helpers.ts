@@ -13,7 +13,12 @@ export function mcpPublishAccessLinkIdempotencyKey(
 ): IdempotencyKey {
   const suffix =
     kind === "revision" ? MCP_PUBLISH_REVISION_LINK_IDEMPOTENCY_SUFFIX : MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX;
-  return IdempotencyKeySchema.parse(`${toolIdempotencyKey}${suffix}`);
+  const direct = `${toolIdempotencyKey}${suffix}`;
+  if (direct.length <= 200) {
+    return IdempotencyKeySchema.parse(direct);
+  }
+  const hashedBase = `h${fnv1a32Hex(toolIdempotencyKey)}`;
+  return IdempotencyKeySchema.parse(`${hashedBase}${suffix}`);
 }
 
 const MCP_IDEMPOTENCY_SEGMENT_MAX = 64;

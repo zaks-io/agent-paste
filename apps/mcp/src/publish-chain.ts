@@ -43,6 +43,10 @@ export async function runTextPublishChain(
   input: McpPublishArtifactInput | McpAddRevisionInput,
   deps: PublishChainDeps,
 ): Promise<ForwardToApiResult> {
+  const revisionLinkIdempotencyKey = mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision");
+  const shareLinkIdempotencyKey =
+    input.share === true ? mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share") : undefined;
+
   const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
   const bodyBytes = new TextEncoder().encode(input.body);
   // TTL is a server-side policy decision derived from the workspace tier (ephemeral
@@ -121,18 +125,18 @@ export async function runTextPublishChain(
     artifactId: finalizeBody.data.artifact_id,
     type: "revision",
     revisionId: publishResult.data.revision_id,
-    createIdempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "revision"),
+    createIdempotencyKey: revisionLinkIdempotencyKey,
   });
   if (!revisionLinkMinted.ok) {
     return revisionLinkMinted;
   }
 
   let shareLinkUrl: string | undefined;
-  if (input.share) {
+  if (input.share && shareLinkIdempotencyKey) {
     const shareMinted = await mintAccessLink(deps, {
       artifactId: finalizeBody.data.artifact_id,
       type: "share",
-      createIdempotencyKey: mcpPublishAccessLinkIdempotencyKey(deps.idempotencyKey, "share"),
+      createIdempotencyKey: shareLinkIdempotencyKey,
     });
     if (!shareMinted.ok) {
       return shareMinted;

@@ -480,6 +480,94 @@ describe("runTextPublishChain", () => {
     );
   });
 
+  it("completes publish and add_revision when the tool idempotency key is max length", async () => {
+    const maxToolKey = IdempotencyKey.parse("a".repeat(200));
+    const maxDeps = { ...deps, idempotencyKey: maxToolKey };
+    const revisionKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "revision");
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "share");
+    expect(IdempotencyKey.safeParse(revisionKey).success).toBe(true);
+    expect(IdempotencyKey.safeParse(shareKey).success).toBe(true);
+
+    mockUploadChain("content.txt", 5);
+    vi.mocked(forward.forwardToApiRoute)
+      .mockResolvedValueOnce({ ok: true, status: 200, body: publishBody })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          id: revisionLinkId,
+          type: "revision",
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          created_at: expiresAt,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: "https://revision.example/al_01" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          id: shareLinkId,
+          type: "share",
+          artifact_id: artifactId,
+          revision_id: null,
+          created_at: expiresAt,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: "https://share.example/al_01" } });
+
+    const publishResult = await runTextPublishChain(
+      { title: "Note", body: "hello", render_mode: "text", share: true },
+      maxDeps,
+    );
+    expect(publishResult.ok).toBe(true);
+
+    vi.resetAllMocks();
+    mockUploadChain("content.txt", 7);
+    vi.mocked(forward.forwardToApiRoute)
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { ...publishBody, title: "Revision" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          id: revisionLinkId,
+          type: "revision",
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          created_at: expiresAt,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: "https://revision.example/al_02" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          id: shareLinkId,
+          type: "share",
+          artifact_id: artifactId,
+          revision_id: null,
+          created_at: expiresAt,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: "https://share.example/al_02" } });
+
+    const addRevisionResult = await runTextPublishChain(
+      {
+        artifact_id: artifactId,
+        body: "updated",
+        render_mode: "text",
+        share: true,
+      },
+      maxDeps,
+    );
+    expect(addRevisionResult.ok).toBe(true);
+
+    const publishRevisionCreate = vi.mocked(forward.forwardToApiRoute).mock.calls[1]?.[0];
+    expect(publishRevisionCreate?.idempotencyKey).toBe(revisionKey);
+    const addRevisionShareCreate = vi.mocked(forward.forwardToApiRoute).mock.calls[3]?.[0];
+    expect(addRevisionShareCreate?.idempotencyKey).toBe(shareKey);
+  });
+
   it("returns upload failures without calling publish", async () => {
     vi.mocked(forward.forwardToUploadRoute).mockResolvedValue({
       ok: false,
