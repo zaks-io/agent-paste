@@ -175,10 +175,9 @@ describe("jobs worker", () => {
   });
 
   it("skips safety scans for retained revisions", async () => {
-    const executor = {
-      query: vi.fn(async () => ({ rows: [{ status: "retained", artifact_status: "active" }] })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async () => ({
+      rows: [{ status: "retained", artifact_status: "active" }],
+    }));
     const ack = vi.fn();
     await handleQueueBatch(
       {
@@ -244,12 +243,9 @@ describe("jobs worker", () => {
   });
 
   it("routes bundle-generate preview queue names", async () => {
-    const executor = {
-      query: vi.fn(async () => ({
-        rows: [{ status: "published", artifact_status: "active", bundle_status: "ready" }],
-      })),
-      transaction: vi.fn(),
-    };
+    const executor = createTransactionalSqlExecutor(async () => ({
+      rows: [{ status: "published", artifact_status: "active", bundle_status: "ready" }],
+    }));
     const ack = vi.fn();
     await handleQueueBatch(
       {

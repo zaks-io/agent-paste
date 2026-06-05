@@ -13,7 +13,7 @@ import {
 import { ZodError } from "zod";
 import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
 import { buildRevisionZip } from "../bundle/generate-zip.js";
-import { resolveSqlExecutor } from "../db.js";
+import { resolveSqlExecutor, withWorkspaceScope } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 
@@ -69,7 +69,8 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
   for (const message of messages) {
     try {
       const payload = BundleGenerateMessage.parse(message.body);
-      const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
+      const scoped = withWorkspaceScope(executor, payload.workspace_id);
+      const state = await loadRevisionState(scoped, payload.workspace_id, payload.revision_id);
       if (!state) {
         message.ack();
         continue;
@@ -96,7 +97,7 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         throw new Error("artifacts_bucket_missing");
       }
 
-      const files = await loadRevisionFiles(executor, payload.artifact_id, payload.revision_id);
+      const files = await loadRevisionFiles(scoped, payload.artifact_id, payload.revision_id);
       const fileBytes: Array<{ path: string; bytes: Uint8Array }> = [];
       for (const file of files) {
         const object = await getObject(file.r2_key);
@@ -114,10 +115,10 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         });
       }
 
-      const usagePolicy = await loadWorkspaceUsagePolicy(executor, payload.workspace_id, env);
+      const usagePolicy = await loadWorkspaceUsagePolicy(scoped, payload.workspace_id, env);
       const zipBytes = buildRevisionZip(fileBytes);
       if (zipBytes.byteLength > usagePolicy.bundle_size_cap_bytes) {
-        await markBundleFailed(executor, payload.workspace_id, payload.revision_id);
+        await markBundleFailed(scoped, payload.workspace_id, payload.revision_id);
         logOpError("queue.bundle_generate.size_cap_exceeded", {
           revision_id: payload.revision_id,
           bundle_size_bytes: zipBytes.byteLength,
@@ -148,7 +149,7 @@ export async function handleBundleGenerateBatch(messages: readonly QueueMessage[
         httpMetadata: { contentType: "application/octet-stream" },
         customMetadata: encryptedBundle.customMetadata,
       });
-      await markBundleReady(executor, payload.workspace_id, payload.revision_id, zipBytes.byteLength);
+      await markBundleReady(scoped, payload.workspace_id, payload.revision_id, zipBytes.byteLength);
       logOp("queue.bundle_generate.ready", {
         revision_id: payload.revision_id,
         bundle_size_bytes: zipBytes.byteLength,
@@ -172,7 +173,11 @@ export async function handleBundleGenerateDlqBatch(messages: readonly QueueMessa
   for (const message of messages) {
     try {
       const payload = BundleGenerateMessage.parse(message.body);
-      await markBundleFailed(executor, payload.workspace_id, payload.revision_id);
+      await markBundleFailed(
+        withWorkspaceScope(executor, payload.workspace_id),
+        payload.workspace_id,
+        payload.revision_id,
+      );
       logOpError("queue.bundle_generate.final_failure", {
         revision_id: payload.revision_id,
         workspace_id: payload.workspace_id,

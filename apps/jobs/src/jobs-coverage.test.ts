@@ -260,7 +260,7 @@ describe("queue handler failure isolation", () => {
           },
         ],
       },
-      { DB: { query: vi.fn(async () => ({ rows: [] })), transaction: vi.fn() } },
+      { DB: createTransactionalSqlExecutor(async () => ({ rows: [] })) },
     );
     expect(ack).toHaveBeenCalled();
   });

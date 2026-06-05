@@ -1,6 +1,7 @@
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import { describe, expect, it, vi } from "vitest";
 import * as generateZip from "../bundle/generate-zip.js";
+import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { handleBundleGenerateBatch, handleBundleGenerateDlqBatch } from "./bundle-generate.js";
 
 const artifactBytesEncryptionEnv = {
@@ -36,30 +37,29 @@ function makeDb(overrides: {
   revision?: { status: string; artifact_status: string; bundle_status: string } | null;
   files?: Array<{ path: string; r2_key: string }>;
   plan?: "free" | "pro";
+  txQuery?: (sql: string) => Promise<{ rows: unknown[] }>;
 }) {
-  return {
-    query: async (sql: string) => {
-      if (sql.includes("from workspaces")) {
-        return { rows: [{ plan: overrides.plan ?? "free" }] };
-      }
-      if (sql.includes("from revisions r")) {
-        return { rows: overrides.revision ? [overrides.revision] : [] };
-      }
-      if (sql.includes("from artifact_files")) {
-        return { rows: overrides.files ?? [] };
+  const outerQuery = async (sql: string) => {
+    if (sql.includes("from workspaces")) {
+      return { rows: [{ plan: overrides.plan ?? "free" }] };
+    }
+    if (sql.includes("from revisions r")) {
+      return { rows: overrides.revision ? [overrides.revision] : [] };
+    }
+    if (sql.includes("from artifact_files")) {
+      return { rows: overrides.files ?? [] };
+    }
+    return { rows: [] };
+  };
+  const txQuery =
+    overrides.txQuery ??
+    (async (sql: string) => {
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [{ workspace_id: workspaceId }] };
       }
       return { rows: [] };
-    },
-    transaction: async (fn: (tx: { query: (sql: string) => Promise<{ rows: unknown[] }> }) => Promise<unknown>) =>
-      fn({
-        query: async (sql: string) => {
-          if (sql.includes("insert into idempotency_records")) {
-            return { rows: [{ workspace_id: workspaceId }] };
-          }
-          return { rows: [] };
-        },
-      }),
-  };
+    });
+  return createMockSqlExecutor(outerQuery, txQuery);
 }
 
 describe("handleBundleGenerateBatch integration", () => {
@@ -120,44 +120,27 @@ describe("handleBundleGenerateBatch integration", () => {
         {
           ...artifactBytesEncryptionEnv,
           AGENT_PASTE_ENV: "dev",
-          DB: {
-            query: async (sql: string) => {
-              if (sql.includes("from workspaces")) {
-                return { rows: [{ plan: "free" }] };
+          DB: makeDb({
+            revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
+            files: [
+              {
+                path: "big.bin",
+                r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
+              },
+            ],
+            txQuery: async (sql: string) => {
+              if (sql.includes("bundle_status = 'ready'")) {
+                readyUpdates.push(sql);
               }
-              if (sql.includes("from revisions r")) {
-                return {
-                  rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
-                };
+              if (sql.includes("bundle_status = 'failed'")) {
+                failedUpdates.push(sql);
               }
-              if (sql.includes("from artifact_files")) {
-                return {
-                  rows: [
-                    {
-                      path: "big.bin",
-                      r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
-                    },
-                  ],
-                };
+              if (sql.includes("insert into idempotency_records")) {
+                return { rows: [{ workspace_id: workspaceId }] };
               }
               return { rows: [] };
             },
-            transaction: async (fn) =>
-              fn({
-                query: async (sql: string) => {
-                  if (sql.includes("bundle_status = 'ready'")) {
-                    readyUpdates.push(sql);
-                  }
-                  if (sql.includes("bundle_status = 'failed'")) {
-                    failedUpdates.push(sql);
-                  }
-                  if (sql.includes("insert into idempotency_records")) {
-                    return { rows: [{ workspace_id: workspaceId }] };
-                  }
-                  return { rows: [] };
-                },
-              }),
-          },
+          }),
           ARTIFACTS: {
             list: vi.fn(),
             delete: vi.fn(),
@@ -205,41 +188,24 @@ describe("handleBundleGenerateBatch integration", () => {
           ...artifactBytesEncryptionEnv,
           AGENT_PASTE_ENV: "dev",
           BILLING_ENABLED: "true",
-          DB: {
-            query: async (sql: string) => {
-              if (sql.includes("from workspaces")) {
-                return { rows: [{ plan: "free" }] };
+          DB: makeDb({
+            revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
+            files: [
+              {
+                path: "big.bin",
+                r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
+              },
+            ],
+            txQuery: async (sql: string) => {
+              if (sql.includes("bundle_status = 'failed'")) {
+                updates.push(sql);
               }
-              if (sql.includes("from revisions r")) {
-                return {
-                  rows: [{ status: "published", artifact_status: "active", bundle_status: "pending" }],
-                };
-              }
-              if (sql.includes("from artifact_files")) {
-                return {
-                  rows: [
-                    {
-                      path: "big.bin",
-                      r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/big.bin`,
-                    },
-                  ],
-                };
+              if (sql.includes("insert into idempotency_records")) {
+                return { rows: [{ workspace_id: workspaceId }] };
               }
               return { rows: [] };
             },
-            transaction: async (fn) =>
-              fn({
-                query: async (sql: string) => {
-                  if (sql.includes("bundle_status = 'failed'")) {
-                    updates.push(sql);
-                  }
-                  if (sql.includes("insert into idempotency_records")) {
-                    return { rows: [{ workspace_id: workspaceId }] };
-                  }
-                  return { rows: [] };
-                },
-              }),
-          },
+          }),
           ARTIFACTS: {
             list: vi.fn(),
             delete: vi.fn(),
@@ -500,12 +466,12 @@ describe("handleBundleGenerateDlqBatch", () => {
         },
       ],
       {
-        DB: {
-          query: vi.fn(async () => ({ rows: [] })),
-          transaction: async () => {
+        DB: createMockSqlExecutor(
+          vi.fn(async () => ({ rows: [] })),
+          async () => {
             throw new Error("db down");
           },
-        },
+        ),
         ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(), put: vi.fn() },
       },
     );
