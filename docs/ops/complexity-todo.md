@@ -10,9 +10,20 @@ legitimately run long.
 
 | Rule                             | Group      | Current limit                | Ratchet target                              |
 | -------------------------------- | ---------- | ---------------------------- | ------------------------------------------- |
-| `noExcessiveLinesPerFile`        | nursery    | 600 lines (`skipBlankLines`) | 300 (matches the repo file-size convention) |
-| `noExcessiveLinesPerFunction`    | complexity | 100 lines (`skipBlankLines`) | 60                                          |
+| `noExcessiveLinesPerFile`        | nursery    | 510 lines (`skipBlankLines`) | 300 (matches the repo file-size convention) |
+| `noExcessiveLinesPerFunction`    | complexity | 97 lines (`skipBlankLines`)  | 60                                          |
 | `noExcessiveCognitiveComplexity` | complexity | 30                           | 15 (Biome default)                          |
+
+The file-line limit ratcheted 600 -> 510 on 2026-06-05 with no refactor: nothing
+in non-test source exceeds 506 lines (`scripts/local-mvp-server.mjs`), so 510 was
+free headroom. The function-line limit ratcheted 100 -> 97 on 2026-06-05: AP-231
+split `scripts/lib/versioned-secret-rotation.mjs` (its `executeStep` was the old
+100-line wall), so the new wall is 96 lines
+(`packages/contracts/src/openapi/api.web-admin.ts`) and 97 was free headroom. The
+cognitive-complexity (30) limit is still pinned to its wall — an unsuppressed
+function sits at exactly 30 cognitive
+(`packages/repo-lint/src/monorepo-policy.mjs`) — so it cannot drop without a
+refactor.
 
 The limits were set to the tightest values that are **green today without a wave
 of refactors**, with the known offenders below carrying inline
@@ -36,15 +47,17 @@ No current inline suppressions remain for these rules at the snapshot limits.
 
 None today.
 
-### Lines per function (> 100)
+### Lines per function (> 97)
 
-None today.
+None today. The wall is 96 (`packages/contracts/src/openapi/api.web-admin.ts`).
 
-### Lines per file (> 600)
+### Lines per file (> 510)
 
-None today. Worst source files are `packages/contracts/src/openapi/api.ts` and
-`packages/contracts/src/routes/registry.ts` at 583 Biome-counted nonblank lines.
-When the file limit ratchets below ~590, split the contract registries first.
+None today (limit is 510 as of 2026-06-05). The next file-line wall is
+`scripts/local-mvp-server.mjs` at 506 Biome-counted nonblank lines, then
+`packages/db/src/schema.ts` (432) and `packages/db/src/repository/interface.ts`
+(407). To ratchet below ~508, split the local MVP server (extract its route/handler
+tables) first; the contract/OpenAPI registries are already under 510 after AP-225.
 
 ## Recently cleaned
 

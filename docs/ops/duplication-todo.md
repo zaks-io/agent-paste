@@ -29,28 +29,39 @@ lines today but are test support, not shipped runtime behavior.
 | Setting     | Current value | Next step  | Ratchet target |
 | ----------- | ------------- | ---------- | -------------- |
 | `minTokens` | 50            | stay at 50 | stay at 50     |
-| `threshold` | 2.1 (%)       | 1.9 (%)    | 1.5 (%)        |
+| `threshold` | 2.0 (%)       | 1.9 (%)    | 1.5 (%)        |
 
 The threshold is set to the tightest value that is **green today without a wave
 of refactors**. It started at `3` (baseline 2.84%); quick-win extractions pulled
 the baseline below the `2.7` gate, AP-203 pulled it below the `2.5` gate, AP-206
 pulled it to **2.33%**, AP-207 plus the merged cleanup/test/docs train pulled it
-below the `2.1` gate, and AP-204 pulled it to **1.95%**. The current baseline is
-below the `2.1` gate but not yet low enough for `1.9`. The next step (`1.9`)
-needs another offender cleanup or a decision to stop scanning `src/test-helpers/`.
-Lower the threshold in `.jscpd.json` as offenders are cleaned up and update this
-file.
+below the `2.1` gate, AP-204 pulled it to **1.95%**, and the threshold ratcheted
+`2.1 -> 2.0` on 2026-06-05 (no refactor; AP-226's local SQL executor split plus
+AP-228's DB entity-bag split pulled the baseline to **1.88%**). The current
+baseline (**1.88%**) is below the `2.0` gate but not yet low enough for `1.9`.
+The next step (`1.9`) needs another offender cleanup or a decision to stop
+scanning `src/test-helpers/`. Lower the threshold in `.jscpd.json` as offenders
+are cleaned up and update this file.
+
+Gate mechanics note: jscpd's `ThresholdReporter` compares the threshold against
+`statistic.total.percentage` (the **Total** row, 1.88%), not any per-format row.
+The per-format console table can show TypeScript at 2.06% while the gate still
+passes, because only the total is checked. Run the gate via `pnpm dupes` (which
+puts `node_modules/.bin` on PATH) — invoking `node scripts/jscpd-check.mjs`
+directly from a shell without that PATH makes the bare `jscpd` spawn fail with a
+misleading exit 1.
 
 ## Baseline distribution (gated scope, 2026-06-05)
 
-Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`, after
-AP-204 was merged with the AP-207 baseline:
+Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
 
-- 519 files, 46,947 lines analyzed.
-- 92 clones, 916 duplicated lines = **1.95%** (2.30% by tokens).
-- Pre AP-204 (post AP-207, 2026-06-05): 509 files, 46,746 lines, 936
-  duplicated lines = **2.00%** (2.37% by tokens).
-- By format: TypeScript 2.15%, TSX 1.60%, JavaScript 0%.
+- Current (2026-06-05, post AP-226 SQL executor + AP-228 entity-bag splits): 593
+  files, 50,024 lines analyzed; 93 clones, 941 duplicated lines = **1.88%**
+  (2.31% by tokens).
+- By format (current): TypeScript 2.06%, TSX 1.58%, JavaScript 0%. Only the
+  Total (1.88%) is gated — see the gate-mechanics note above.
+- Prior (AP-204): 519 files, 46,947 lines, 92 clones, 916 duplicated lines =
+  **1.95%** (2.30% by tokens). TypeScript 2.15%, TSX 1.60%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -130,8 +141,10 @@ Cleaning these dirs is what moves the threshold:
       shapes (3 clones).
 - [ ] `packages/db/src/queries/*` and `local-entities/*` — repeated query
       scaffolding (`operation-events.ts`, `artifacts.ts`).
-- [ ] `packages/db/src/local-mvp-sql-executor.ts` — repeated statement-handler
-      bodies (also a complexity offender; refactoring helps both gates).
+- [x] `packages/db/src/local-mvp-sql-executor.ts` — AP-226 split the monolithic
+      branch table into focused statement handlers under
+      `packages/db/src/local-mvp-sql-executor/`, removing the repeated handler
+      bodies and the complexity suppressions in one pass.
 - [ ] `packages/contracts/src/openapi/*` — repeated schema/registration blocks
       (MCP publish-chain clone in `mcp/registry.ts` deduped in AP-205).
 - [ ] `apps/web/src/components/*` — a few route loaders and admin panels still
