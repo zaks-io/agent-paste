@@ -22,6 +22,7 @@
     "API_KEY_ENV": "preview",
     "API_BASE_URL": "http://127.0.0.1:8787",
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
+    "WEB_BASE_URL": "http://localhost:5173",
     "CLEANUP_BATCH_SIZE": "100",
     "DOCS_BASE_URL": "",
     "WORKOS_CLIENT_ID": "",
