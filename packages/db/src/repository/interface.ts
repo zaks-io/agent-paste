@@ -272,6 +272,10 @@ export type Repository = {
     uploadedAt: string;
   }): Promise<void>;
   getUploadSession(input: { actor: ApiActor; sessionId: string }): Promise<UploadSessionRecord | null>;
+  getUploadSessionState(input: {
+    workspaceId: string;
+    sessionId: string;
+  }): Promise<{ status: string; expiresAt: string } | null>;
   finalizeUploadSession(input: {
     actor: ApiActor;
     idempotencyKey: string;

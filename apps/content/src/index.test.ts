@@ -256,6 +256,25 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe('<meta name="robots" content="noindex,nofollow"><p>plain</p>');
   });
 
+  it.each([
+    ["<html><head><title>x</title></head><body>ok</body></html>", "head present"],
+    ["<p>plain</p>", "no head element"],
+    ['<html><head><meta name="robots" content="noindex,nofollow"></head><body>ok</body></html>', "already present"],
+  ])("sets content-length to the served body byte length after noindex injection (%s)", async (html) => {
+    const response = await fetchServedFile("index.html", html, { noindex: true });
+    const served = await response.text();
+    const expected = new TextEncoder().encode(served).byteLength;
+    expect(response.headers.get("content-length")).toBe(String(expected));
+  });
+
+  it("keeps content-length matching the raw body for non-HTML noindex assets", async () => {
+    const css = "body{color:red}";
+    const response = await fetchServedFile("style.css", css, { noindex: true });
+    const served = await response.text();
+    expect(served).toBe(css);
+    expect(response.headers.get("content-length")).toBe(String(new TextEncoder().encode(css).byteLength));
+  });
+
   it("serves signed HEAD metadata under the artifact read limit", async () => {
     const token = await signContentToken(
       {

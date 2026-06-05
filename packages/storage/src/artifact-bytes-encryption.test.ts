@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
   bytesFromReadableBody,
+  bytesFromReadableBodyCapped,
   ciphertextByteLengthForPlaintext,
   composeArtifactBytesAad,
   decryptArtifactBytes,
@@ -12,7 +13,30 @@ import {
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
   plaintextByteLengthFromStoredObject,
+  ReadableBodyTooLargeError,
 } from "./artifact-bytes-encryption.js";
+
+function chunkedStream(chunks: Uint8Array[]): { stream: ReadableStream<Uint8Array>; cancelled: () => boolean } {
+  let cancelled = false;
+  let index = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (index < chunks.length) {
+        const chunk = chunks[index];
+        if (chunk) {
+          controller.enqueue(chunk);
+        }
+        index += 1;
+        return;
+      }
+      controller.close();
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  return { stream, cancelled: () => cancelled };
+}
 
 const context = {
   workspaceId: "00000000-0000-4000-8000-000000000001",
@@ -206,6 +230,22 @@ describe("artifact-bytes encryption", () => {
       },
     });
     expect(await bytesFromReadableBody(stream)).toEqual(new TextEncoder().encode("from-stream"));
+  });
+
+  it("reads capped bodies that fit within the limit", async () => {
+    expect(await bytesFromReadableBodyCapped(null, 10)).toEqual(new Uint8Array());
+    const { stream } = chunkedStream([new Uint8Array([1, 2]), new Uint8Array([3, 4, 5])]);
+    expect(await bytesFromReadableBodyCapped(stream, 5)).toEqual(new Uint8Array([1, 2, 3, 4, 5]));
+  });
+
+  it("throws and cancels the stream once the cap is exceeded mid-stream", async () => {
+    const { stream, cancelled } = chunkedStream([
+      new Uint8Array([1, 2, 3]),
+      new Uint8Array([4, 5, 6, 7]),
+      new Uint8Array([8, 9]),
+    ]);
+    await expect(bytesFromReadableBodyCapped(stream, 5)).rejects.toBeInstanceOf(ReadableBodyTooLargeError);
+    expect(cancelled()).toBe(true);
   });
 
   it("parses revision file object keys and stored plaintext sizes", () => {

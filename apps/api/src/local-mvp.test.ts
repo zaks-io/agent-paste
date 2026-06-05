@@ -187,6 +187,10 @@ class MemoryDb {
     return this.session ? { ...this.session, session_id: this.session.upload_session_id } : null;
   }
 
+  async getUploadSessionState() {
+    return this.session ? { status: "pending", expiresAt: this.session.expires_at } : null;
+  }
+
   async finalizeUploadSession() {
     const session = this.mustSession();
     return {

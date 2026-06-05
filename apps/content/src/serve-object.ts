@@ -69,7 +69,7 @@ export async function serveSignedBundle(context: AppContext, payload: ContentTok
   const headers = bundleResponseHeaders(served.plaintextSize, payload.exp, payload.noindex === true);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(served.body, { status: 200, headers });
+  return new Response(bodyFromBytes(served.bytes), { status: 200, headers });
 }
 
 export async function serveSignedObject(
@@ -99,14 +99,25 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const headers = responseHeadersForPath(path, served.plaintextSize, payload.exp, payload);
+  const bytes =
+    served.bytes && payload.noindex === true && isHtmlPath(path) ? injectNoindexMetaBytes(served.bytes) : served.bytes;
+  const size = bytes ? bytes.byteLength : served.plaintextSize;
+
+  const headers = responseHeadersForPath(path, size, payload.exp, payload);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  let body = served.body;
-  if (payload.noindex === true && served.body && request.method !== "HEAD") {
-    body = await maybeInjectNoindexMetaBody(served.body, path);
-  }
-  return new Response(body, { status: 200, headers });
+  return new Response(bodyFromBytes(bytes), { status: 200, headers });
+}
+
+/**
+ * Decrypted plaintext is the single source of truth for a GET response: `bytes`
+ * carries the actual payload and its length. HEAD has no body, so it reports the
+ * arithmetic `plaintextSize` derived from the stored ciphertext size instead.
+ */
+type ServedObject = { bytes: Uint8Array | null; plaintextSize: number };
+
+function bodyFromBytes(bytes: Uint8Array | null): ReadableStream | null {
+  return bytes ? new Blob([bytes as BlobPart]).stream() : null;
 }
 
 async function prepareEncryptedObjectResponse(input: {
@@ -116,7 +127,7 @@ async function prepareEncryptedObjectResponse(input: {
   path: string;
   objectKey: string;
   method: string;
-}): Promise<{ body: ReadableStream | null; plaintextSize: number } | null> {
+}): Promise<ServedObject | null> {
   const encryptionRing = artifactBytesEncryptionRingFromEnv(input.env);
   if (!encryptionRing || !isArtifactBytesEncryptionMetadata(input.object.customMetadata)) {
     return null;
@@ -129,24 +140,24 @@ async function prepareEncryptedObjectResponse(input: {
   const keyParts = normalizedPath === BUNDLE_FILENAME ? null : parseRevisionFileObjectKey(input.objectKey);
   const artifactId = keyParts?.artifactId ?? input.payload.artifact_id;
   const revisionId = keyParts?.revisionId ?? input.payload.revision_id;
-  let plaintextSize: number;
-  try {
-    plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
-  } catch {
-    return null;
-  }
-  const emitRead = () =>
+  const emitRead = (bytes: number) =>
     writeArtifactEvent(input.env.ARTIFACT_EVENTS, {
       kind: "read",
       workspaceId,
       artifactId,
       revisionId,
-      bytes: plaintextSize,
+      bytes,
       detail: input.method === "HEAD" ? "head" : "get",
     });
   if (input.method === "HEAD") {
-    emitRead();
-    return { body: null, plaintextSize };
+    let plaintextSize: number;
+    try {
+      plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
+    } catch {
+      return null;
+    }
+    emitRead(plaintextSize);
+    return { bytes: null, plaintextSize };
   }
   const ciphertext = await bytesFromReadableBody(input.object.body);
   try {
@@ -161,11 +172,8 @@ async function prepareEncryptedObjectResponse(input: {
         normalizedPath,
       },
     });
-    emitRead();
-    return {
-      body: new Blob([plaintext as BlobPart]).stream(),
-      plaintextSize,
-    };
+    emitRead(plaintext.byteLength);
+    return { bytes: plaintext, plaintextSize: plaintext.byteLength };
   } catch {
     return null;
   }
@@ -239,12 +247,9 @@ export function responseHeadersForPath(
   return headers;
 }
 
-async function maybeInjectNoindexMetaBody(body: ReadableStream, path: string): Promise<ReadableStream> {
-  if (!isHtmlPath(path)) {
-    return body;
-  }
-  const html = await new Response(body).text();
-  return new Blob([injectNoindexMeta(html)]).stream();
+function injectNoindexMetaBytes(bytes: Uint8Array): Uint8Array {
+  const html = new TextDecoder().decode(bytes);
+  return new TextEncoder().encode(injectNoindexMeta(html));
 }
 
 export function isHtmlPath(path: string): boolean {

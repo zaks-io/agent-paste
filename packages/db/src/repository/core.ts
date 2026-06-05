@@ -1,10 +1,10 @@
+import { peekArtifactDenylistRetention as peekArtifactDenylistRetentionCore } from "../access-link-invalidation.js";
 import type { UsagePolicyConfig } from "../policy.js";
 import type { AdminActor, ApiActor, ApiKeyActor, PlatformActor, RepositoryOptions, Workspace } from "../types.js";
 import { RepositoryCoreContext } from "./core-context.js";
 import type { Repository } from "./interface.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { UnitOfWork } from "./ports.js";
-import { peekArtifactDenylistRetention as peekArtifactDenylistRetentionCore } from "../access-link-invalidation.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
@@ -210,6 +210,10 @@ export class RepositoryCore implements Repository {
 
   async getUploadSession(input: { actor: ApiActor; sessionId: string }) {
     return uploadPublishWorkflow.getUploadSession(this.ctx, input);
+  }
+
+  async getUploadSessionState(input: { workspaceId: string; sessionId: string }) {
+    return uploadPublishWorkflow.getUploadSessionState(this.ctx, input);
   }
 
   async finalizeUploadSession(input: {

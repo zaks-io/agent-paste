@@ -223,3 +223,55 @@ export async function bytesFromReadableBody(
   }
   return new Uint8Array(await new Response(body).arrayBuffer());
 }
+
+export class ReadableBodyTooLargeError extends Error {
+  constructor() {
+    super("readable_body_exceeds_limit");
+    this.name = "ReadableBodyTooLargeError";
+  }
+}
+
+/**
+ * Reads a request stream while refusing to buffer more than `maxBytes`. The cap
+ * is enforced as chunks arrive so a body that lies about its `content-length`
+ * cannot exhaust memory before any size check runs. Throws
+ * {@link ReadableBodyTooLargeError} the moment the cumulative length exceeds the
+ * cap; the stream is cancelled rather than drained.
+ */
+export async function bytesFromReadableBodyCapped(
+  body: ReadableStream<Uint8Array> | null | undefined,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  if (body === null || body === undefined) {
+    return new Uint8Array();
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new ReadableBodyTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
