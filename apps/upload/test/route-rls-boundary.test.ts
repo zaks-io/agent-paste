@@ -6,7 +6,7 @@ import {
 import { ciphertextByteLengthForPlaintext } from "@agent-paste/storage";
 import { beforeAll, describe, expect, it } from "vitest";
 import { finalizeUploadSession } from "../src/finalize.js";
-import { handleRequest, type Env } from "../src/index.js";
+import { type Env, handleRequest } from "../src/index.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 function uploadRequestBody() {
@@ -17,10 +17,16 @@ function uploadRequestBody() {
   };
 }
 
+function allowRateLimitBinding(): NonNullable<Env["ACTOR_RATE_LIMIT"]> {
+  return {
+    async limit() {
+      return { success: true };
+    },
+  };
+}
+
 function uploadEnv(fixture: RouteBoundaryFixture, seed: WorkspaceActorSeed): Env {
-  const secrets = new Map<string, WorkspaceActorSeed>([
-    [seed.apiKeySecret, seed],
-  ]);
+  const secrets = new Map<string, WorkspaceActorSeed>([[seed.apiKeySecret, seed]]);
   return {
     UPLOAD_SIGNING_SECRET: "upload-signing-secret",
     AUTH: {
@@ -30,6 +36,8 @@ function uploadEnv(fixture: RouteBoundaryFixture, seed: WorkspaceActorSeed): Env
       },
     },
     DB: fixture.repo,
+    ACTOR_RATE_LIMIT: allowRateLimitBinding(),
+    WORKSPACE_BURST_CAP: allowRateLimitBinding(),
     ARTIFACTS: {
       async head(key) {
         return key.includes("index.html") ? { size: ciphertextByteLengthForPlaintext(12) } : null;
