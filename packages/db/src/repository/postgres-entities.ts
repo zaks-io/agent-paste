@@ -23,7 +23,7 @@ export type PostgresContext = { sql: SqlExecutor; drizzle: DrizzleDb };
 // Bind the grouped Entities accessor to one scope-bound, drizzle-aware transaction.
 // Most methods forward to the existing query objects; the cleanup/delete helpers
 // keep the original raw SQL so RLS-scoped batch updates stay byte-for-byte identical.
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: entity method bag (122 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: entity method bag (123 lines), pending ratchet toward 60 — see docs/ops/complexity-todo.md
 export function postgresEntities(ctx: PostgresContext): Entities {
   const { sql, drizzle } = ctx;
   return {
