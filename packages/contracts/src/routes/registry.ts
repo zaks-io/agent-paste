@@ -261,6 +261,8 @@ export const routeContracts = [
       "entrypoint_not_in_revision",
       "revision_retained",
       "revision_unpublished",
+      "write_allowance_exceeded",
+      "storage_unavailable",
     ],
   },
   {

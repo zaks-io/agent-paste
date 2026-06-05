@@ -283,6 +283,34 @@ describe("AP-91 revision route modules", () => {
     expect(publishRevisionFn).toHaveBeenCalledTimes(1);
   });
 
+  it("fails closed with 503 when a new artifact has no write-allowance binding", async () => {
+    const publishRevisionFn = vi.fn(async () => ({
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      title: "Published",
+      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      bundle: { status: "disabled" },
+    }));
+    const db = {
+      peekWorkspaceCommandReplay: vi.fn(async () => null),
+      peekPublishWriteGate: vi.fn(async () => ({
+        is_already_published: false,
+        is_new_artifact: true,
+        daily_new_artifact_allowance: 1,
+      })),
+      publishRevision: publishRevisionFn,
+    };
+
+    const response = await publishRevision(contextFor({ env: {} }), apiPrincipal(), db as never, guardFor(), {
+      artifactId: "art_1",
+      revisionId: "rev_1",
+    });
+
+    expect(response.status).toBe(503);
+    await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+    expect(publishRevisionFn).not.toHaveBeenCalled();
+  });
+
   it("releases write allowance when publish fails so a fresh idempotency key can retry", async () => {
     const writeAllowance = createMemoryWriteAllowanceNamespace();
     const publishRevisionFn = vi
