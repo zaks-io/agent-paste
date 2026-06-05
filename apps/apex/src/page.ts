@@ -1,88 +1,15 @@
 import { ABOUT, ABOUT_SECTIONS, type AboutSection } from "./about.js";
-import {
-  FEATURES,
-  type Feature,
-  FOOTER,
-  type FooterColumn,
-  HERO,
-  META_DESCRIPTION,
-  SIGN_IN_URL,
-  TITLE,
-  TRANSCRIPT,
-  type TranscriptLine,
-  WORDMARK,
-} from "./copy.js";
-import { STYLES } from "./styles.js";
+import { esc, HOME_META, renderProse, renderShell } from "./chrome.js";
+import { FEATURES, type Feature, HERO, TRANSCRIPT, type TranscriptLine } from "./copy.js";
 
 const ABOUT_TITLE = "About agent-paste.sh: where agents publish";
 const ABOUT_DESCRIPTION =
   "Why agent-paste exists, the wedge it fills, the boundaries it keeps, and an honest account of how it is built and run. Pre-launch, solo, transient by default.";
 
-type PageMeta = {
-  title: string;
-  description: string;
-  canonicalPath: string;
-};
-
-function shell(meta: PageMeta, main: string): string {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${esc(meta.title)}</title>
-    <meta name="description" content="${esc(meta.description)}">
-    <meta name="color-scheme" content="light dark">
-    <link rel="icon" type="image/png" href="/favicon.png">
-    <link rel="shortcut icon" href="/favicon.ico">
-    <link rel="preload" href="/fonts/HankenGrotesk-Variable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="agent-paste.sh">
-    <meta property="og:description" content="${esc(meta.description)}">
-    <meta property="og:url" content="https://agent-paste.sh${esc(meta.canonicalPath)}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="agent-paste.sh">
-    <meta name="twitter:description" content="${esc(meta.description)}">
-    <link rel="canonical" href="https://agent-paste.sh${esc(meta.canonicalPath)}">
-    <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
-    <link rel="alternate" type="text/markdown" href="/agents.md" title="agents.md">
-    <style>${STYLES}</style>
-  </head>
-  <body>
-    <div class="page">
-      <header class="page-head">
-        ${renderWordmark()}
-        <nav class="head-nav">
-          <a class="head-link" href="/about">About</a>
-          <a class="head-link" href="${esc(HERO.secondary.href)}">agents.md</a>
-          <a class="button button-ghost button-sm" href="${esc(SIGN_IN_URL)}">Sign in</a>
-        </nav>
-      </header>
-
-${main}
-
-      <footer class="page-foot">
-        <div class="foot-cols">
-          ${FOOTER.map(renderFooterColumn).join("\n          ")}
-        </div>
-        <div class="foot-base">
-          ${renderWordmark("wordmark-sm")}
-          <span class="foot-copy mono">© ${new Date().getFullYear().toString()}</span>
-        </div>
-      </footer>
-    </div>
-
-    <script>
-${INLINE_SCRIPT}
-    </script>
-  </body>
-</html>
-`;
-}
-
 export function renderHomePage(): string {
-  const main = `      <main class="content">
+  return renderShell({
+    meta: HOME_META,
+    main: `<main class="content">
         <section class="hero">
           <p class="eyebrow mono">${esc(HERO.eyebrow)}</p>
           <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-stop">.</span></h1>
@@ -97,12 +24,19 @@ export function renderHomePage(): string {
         <section class="features" aria-label="What agent-paste gives you">
           ${FEATURES.map(renderFeature).join("\n          ")}
         </section>
-      </main>`;
-  return shell({ title: TITLE, description: META_DESCRIPTION, canonicalPath: "/" }, main);
+      </main>`,
+    inlineScript: INLINE_SCRIPT,
+  });
 }
 
 export function renderAboutPage(): string {
-  const main = `      <main class="content">
+  return renderShell({
+    meta: {
+      title: ABOUT_TITLE,
+      description: ABOUT_DESCRIPTION,
+      canonicalPath: "/about",
+    },
+    main: `<main class="content">
         <section class="hero">
           <p class="eyebrow mono">${esc(ABOUT.eyebrow)}</p>
           <h1 class="hero-headline">${esc(ABOUT.headline)}<span class="hero-stop">.</span></h1>
@@ -112,13 +46,8 @@ export function renderAboutPage(): string {
         <section class="prose" aria-label="About agent-paste">
           ${ABOUT_SECTIONS.map(renderAboutSection).join("\n          ")}
         </section>
-      </main>`;
-  return shell({ title: ABOUT_TITLE, description: ABOUT_DESCRIPTION, canonicalPath: "/about" }, main);
-}
-
-function renderWordmark(extraClass = ""): string {
-  const cls = extraClass ? `wordmark ${extraClass}` : "wordmark";
-  return `<a class="${cls}" href="/" aria-label="${esc(WORDMARK.base)}${esc(WORDMARK.tld)}">agent<span class="wordmark-hyphen" aria-hidden="true">-</span>paste<span class="wordmark-tld">${esc(WORDMARK.tld)}</span></a>`;
+      </main>`,
+  });
 }
 
 function renderFeature(feature: Feature): string {
@@ -128,19 +57,6 @@ function renderFeature(feature: Feature): string {
 function renderAboutSection(section: AboutSection): string {
   const paragraphs = section.body.map((paragraph) => `<p class="prose-body">${renderProse(paragraph)}</p>`).join("");
   return `<article class="prose-block"><h2 class="prose-title">${esc(section.title)}</h2>${paragraphs}</article>`;
-}
-
-// Escapes first, then turns `backtick` spans into inline <code>. Because the
-// span contents are already escaped, the wrapped markup is injection-safe.
-function renderProse(text: string): string {
-  return esc(text).replace(/`([^`]+)`/g, '<code class="code">$1</code>');
-}
-
-function renderFooterColumn(column: FooterColumn): string {
-  const links = column.links
-    .map((link) => `<li><a class="foot-link" href="${esc(link.href)}">${esc(link.label)}</a></li>`)
-    .join("");
-  return `<div class="foot-col"><p class="foot-heading mono">${esc(column.heading)}</p><ul class="foot-list">${links}</ul></div>`;
 }
 
 function renderTranscript(lines: TranscriptLine[]): string {
@@ -176,15 +92,6 @@ function renderTranscript(lines: TranscriptLine[]): string {
       ><span class="t-origin">${esc(line.origin)}</span><span class="t-id">${esc(line.id)}</span></span></span>`;
     })
     .join("\n");
-}
-
-function esc(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 const INLINE_SCRIPT = `(() => {

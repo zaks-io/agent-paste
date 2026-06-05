@@ -110,4 +110,12 @@ export const FOOTER: FooterColumn[] = [
     heading: "Project",
     links: [{ label: "About", href: "/about" }],
   },
+  {
+    heading: "Legal",
+    links: [
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Data protection", href: "/privacy#data-storage-and-protection" },
+    ],
+  },
 ];
