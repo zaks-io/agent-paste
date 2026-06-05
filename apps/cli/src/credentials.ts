@@ -104,6 +104,11 @@ export function keyringStore(
       try {
         entry.setPassword(JSON.stringify(credential));
       } catch {
+        try {
+          entry.deletePassword();
+        } catch {
+          // Best-effort: a stale keyring entry must not outrank the file fallback.
+        }
         warn("agent-paste: OS keyring unavailable; storing credential in a 0600 file fallback.\n");
         await fallback.save(credential);
         return;
