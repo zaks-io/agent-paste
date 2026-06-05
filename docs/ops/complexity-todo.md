@@ -1,7 +1,7 @@
 # Code complexity limits: ratchet plan
 
 Source of truth for the Biome complexity/size gates and the offenders that are
-currently suppressed. Owner: Isaac. Snapshot date: 2026-06-02.
+currently suppressed. Owner: Isaac. Snapshot date: 2026-06-05.
 
 Biome 2.4.x enforces three rules in `biome.json` (part of `pnpm lint` ->
 `biome lint .`). Tests are exempt via an override
@@ -37,7 +37,6 @@ Biome-measured count at snapshot time.
 
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — `query` dispatcher: 102. Big
       SQL branch table; split per statement family.
-- [ ] `apps/api/src/routes/revisions.ts` — `publishRevision` idempotent body: 62.
 - [ ] `scripts/lib/versioned-secret-rotation.mjs` — `executeStep`: 44.
 - [ ] `packages/worker-runtime/src/registrar.ts` — `routeHandler`: 41.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
@@ -49,22 +48,53 @@ Biome-measured count at snapshot time.
 
 ### Lines per function (> 100)
 
-- [ ] `packages/contracts/src/openapi/api.ts` — `buildApiOpenApiDocument`: 360.
+- [ ] `packages/contracts/src/openapi/api.ts` — `buildApiOpenApiDocument`: 448.
       Mostly flat schema registration; could split per resource group.
 - [ ] `packages/db/src/local-mvp-sql-executor.ts` — outer factory 192, inner
       `query` 183.
 - [ ] `packages/db/src/repository/local-entities/artifacts.ts` —
       `localArtifacts`: 147.
-- [ ] `scripts/smoke-mcp.mjs` — `runLocalMcpSmoke`: 133.
-- [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 122.
+- [ ] `scripts/smoke-mcp.mjs` — `runLocalMcpSmoke`: 149.
+- [ ] `packages/db/src/repository/postgres-entities.ts` — `postgresEntities`: 123.
 - [ ] `packages/rotation/src/automation.ts` — `buildRotationPlan`: 116.
 - [ ] `apps/web/src/components/chrome/command-palette/CommandPaletteDialog.tsx` —
       `CommandPaletteDialog`: 124.
 
 ### Lines per file (> 600)
 
-None today. Worst source file is `apps/upload/src/index.ts` at 584. When the
-file limit ratchets below ~590 it becomes the first to address.
+None today. Worst source files are `packages/contracts/src/openapi/api.ts` and
+`packages/contracts/src/routes/registry.ts` at 583 Biome-counted nonblank lines.
+When the file limit ratchets below ~590, split the contract registries first.
+
+## Recently cleaned
+
+- [x] `apps/api/src/routes/revisions.ts` — `publishRevision` idempotent body:
+      AP-142 moved publish orchestration into a Publish Coordinator and removed
+      the cognitive-complexity suppression. The route and coordinator pass the
+      final 15 cognitive / 60 function-line / 300 file-line targets.
+
+## Current target-wall areas
+
+Measured against the final targets (15 cognitive complexity, 60 function lines,
+300 file lines) on non-test source with inline suppressions disabled:
+
+1. `packages/contracts`: contract/OpenAPI registries dominate size. Split route
+   contracts and OpenAPI path registration by resource group before lowering
+   file/function line limits.
+2. `packages/db`: the local SQL executor and entity method bags dominate both
+   cognitive complexity and function length. Replace SQL-string branching with
+   statement handlers, then split local/postgres entity groups by domain.
+3. `scripts`: local server, smoke, deploy-preview, and versioned rotation scripts
+   are large orchestration modules. Extract step tables and reusable runners
+   before ratcheting repo-wide file limits.
+4. `apps/api`: publish/revision orchestration is split (AP-142). Remaining
+   target-wall items are Agent View signing, API index wiring, Live Updates,
+   operator filter parsing, and web route file size.
+5. `packages/worker-runtime`: the registrar's route handler is the shared guard
+   pipeline. Split guard phases without changing the Route Contract interface.
+6. `apps/web`: command palette and dashboard route components mix state,
+   keyboard/focus behavior, data derivation, and rendering. Move behavior into
+   hooks and small render modules.
 
 ## How to ratchet
 
