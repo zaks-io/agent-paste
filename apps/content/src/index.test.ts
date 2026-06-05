@@ -152,6 +152,10 @@ describe("content worker", () => {
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    // Baseline headers layered under the content-specific set.
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
   });
 

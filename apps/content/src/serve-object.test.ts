@@ -109,6 +109,25 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-type")).toBe("application/zip");
     expect(headers.get("content-disposition")).toBe('attachment; filename="bundle.zip"');
   });
+
+  it("carries the baseline plus the content security headers", () => {
+    for (const headers of [
+      responseHeadersForPath("notes.txt", 4, exp, basePayload()),
+      bundleResponseHeaders(100, exp, false),
+    ]) {
+      // Baseline additions
+      expect(headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+      expect(headers.get("x-frame-options")).toBe("DENY");
+      // Content-specific headers still present and winning where they overlap
+      expect(headers.get("referrer-policy")).toBe("no-referrer");
+      expect(headers.get("x-content-type-options")).toBe("nosniff");
+      expect(headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+      expect(headers.get("cross-origin-opener-policy")).toBe("same-origin");
+      expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+      // No permissive CORS.
+      expect(headers.get("access-control-allow-origin")).toBeNull();
+    }
+  });
 });
 
 describe("serve-object noindex meta injection", () => {

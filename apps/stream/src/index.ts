@@ -1,4 +1,4 @@
-import { sentryOptions } from "@agent-paste/worker-runtime";
+import { BASELINE_SECURITY_HEADERS, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { ArtifactLiveUpdates } from "./artifact-live.js";
 import { authorizeLiveUpdate, parseAuthorizeAccessLinkBody } from "./authorize.js";
@@ -114,7 +114,7 @@ async function connectToArtifact(
 function notFound(): Response {
   return new Response(JSON.stringify({ error: { code: "not_found", message: "not_found" } }), {
     status: 404,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: { ...BASELINE_SECURITY_HEADERS, "content-type": "application/json; charset=utf-8" },
   });
 }
 

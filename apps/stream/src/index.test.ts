@@ -28,6 +28,9 @@ describe("stream worker", () => {
   it("returns not_found for unknown routes", async () => {
     const response = await handleRequest(new Request("https://stream.test/unknown"), envWithApi(vi.fn()));
     expect(response.status).toBe(404);
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
 
   it("connects access-link clients when authorization succeeds", async () => {
@@ -50,6 +53,10 @@ describe("stream worker", () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
+    // SSE responses carry the baseline while keeping their streaming cache-control.
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
   });
 
   it("returns not_found for invalid access-link bodies or failed authorization", async () => {

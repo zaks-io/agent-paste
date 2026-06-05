@@ -1,6 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { OperatorEventSearch } from "../lib/operator-events";
 
+export type RootLoaderData = {
+  webBaseUrl: string;
+  sentry: { dsn: string | undefined; environment: string };
+  analyticsToken: string | undefined;
+};
+
 export const loadRootEnvFn = createServerFn({ method: "GET" }).handler(async () => {
   const { loadRootEnv } = await import("../server/web-loaders");
   return loadRootEnv();

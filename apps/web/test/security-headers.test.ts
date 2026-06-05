@@ -4,6 +4,7 @@ import {
   accessLinkSecurityHeadersForPath,
   accessLinkViewerHeaders,
   applyAccessLinkSecurityHeaders,
+  applyDashboardSecurityHeaders,
 } from "../src/security-headers";
 
 const productionEnv = {
@@ -82,5 +83,62 @@ describe("Access Link security headers", () => {
 
     expect(response.headers.get("cache-control")).toBe("no-store, no-cache, no-transform");
     expect(response.headers.get("content-type")).toBe("text/event-stream");
+  });
+});
+
+describe("Dashboard security headers", () => {
+  const nonce = "dGVzdC1ub25jZS0xMjM0";
+
+  it("applies the baseline and the enforcing dashboard CSP to a generic response", () => {
+    const response = applyDashboardSecurityHeaders(
+      new Response("<!doctype html>", { headers: { "content-type": "text/html; charset=utf-8" } }),
+      productionEnv,
+      nonce,
+    );
+
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+    expect(response.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    // Nonce-based strict CSP: trusted inline scripts + strict-dynamic, no unsafe-inline.
+    expect(csp).toContain(`script-src 'nonce-${nonce}' 'strict-dynamic'`);
+    expect(csp).not.toContain("'unsafe-inline' https://challenges.cloudflare.com");
+    expect(csp.match(/script-src[^;]*'unsafe-inline'/)).toBeNull();
+    // style-src still needs 'unsafe-inline' (SSR-injected <style>, no style nonce path).
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    // Sentry ingest host: the real DSN is o<org>.ingest.us.sentry.io, which a single
+    // *.ingest.sentry.io wildcard does NOT match (two labels before ingest).
+    expect(csp).toContain("https://*.ingest.us.sentry.io");
+    expect(csp).toContain("https://cloudflareinsights.com");
+    // The artifact viewer iframe loads from the content origin, so frame-src must allow it.
+    expect(csp).toContain("frame-src https://challenges.cloudflare.com https://usercontent.agent-paste.sh");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("lets the access-link CSP win when layered after the dashboard headers", () => {
+    const request = new Request("https://app.test/al/pub_1");
+    const baselined = applyDashboardSecurityHeaders(
+      new Response("ok", { headers: { "content-type": "text/html; charset=utf-8" } }),
+      productionEnv,
+      nonce,
+    );
+    const response = applyAccessLinkSecurityHeaders(request, baselined, productionEnv);
+
+    // Access-link routes keep their stricter CSP and referrer policy.
+    const csp = response.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("frame-src https://usercontent.agent-paste.sh");
+    expect(csp).toContain("script-src 'self'");
+    // The dashboard nonce CSP does not leak onto access-link responses.
+    expect(csp).not.toContain(`nonce-${nonce}`);
+    expect(csp).not.toContain("strict-dynamic");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    // Baseline still present where access-link does not override.
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
   });
 });

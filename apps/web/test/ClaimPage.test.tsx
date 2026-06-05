@@ -99,4 +99,25 @@ describe("ClaimPage", () => {
     expect(window.location.hash).toBe("");
     expect(sessionStorage.getItem(PENDING_CLAIM_TOKEN_STORAGE_KEY)).toBeNull();
   });
+
+  it("stamps the CSP nonce on the injected Turnstile loader script", async () => {
+    const meta = document.createElement("meta");
+    meta.setAttribute("property", "csp-nonce");
+    meta.content = "test-nonce-123";
+    document.head.appendChild(meta);
+    state.loaderData = { turnstileSiteKey: "1x00000000000000000000AA" };
+
+    render(<Route.component />);
+
+    let script: HTMLScriptElement | null = null;
+    await waitFor(() => {
+      script = document.getElementById("cf-turnstile-script") as HTMLScriptElement | null;
+      expect(script).not.toBeNull();
+    });
+    expect(script?.nonce).toBe("test-nonce-123");
+    expect(script?.src).toContain("challenges.cloudflare.com/turnstile/v0/api.js");
+
+    script?.remove();
+    meta.remove();
+  });
 });

@@ -4,11 +4,13 @@ import { resolveContentTokenSigner } from "@agent-paste/rotation";
 import { CONTENT_SECURITY_HEADERS } from "@agent-paste/storage";
 import { type ContentTokenPayload, mintContentToken } from "@agent-paste/tokens/content";
 import {
+  BASELINE_SECURITY_HEADERS,
   type BoundRespondersVariables,
   boundRespondersMiddleware,
   createRegistrar,
   getBoundResponders,
   type SignedContentTokenPrincipal,
+  securityHeadersMiddleware,
   sentryOptions,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
@@ -28,7 +30,7 @@ export type { ContentTokenPayload };
 export { mintContentToken as signContentToken };
 
 const contractById = routeContractById;
-const securityHeaders = CONTENT_SECURITY_HEADERS;
+const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
 const boundResponderConfig = {
   docsBaseUrl: (context: AppContext) => context.env.DOCS_BASE_URL,
   defaultErrorHeaders: () => securityHeaders,
@@ -37,6 +39,7 @@ const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespo
 export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 
+app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.get("/healthz", (c) => c.text("ok"));

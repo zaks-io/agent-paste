@@ -11,6 +11,7 @@ import {
   clearClaimTokenFromLocation,
   consumePendingClaimToken,
 } from "../lib/claim-redemption";
+import { readCspNonce } from "../lib/csp-nonce-client";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { LOCAL_TURNSTILE_BYPASS_TOKEN } from "../lib/turnstile-constants";
 import { loadClaimPageFn } from "../rpc/web-loaders";
@@ -81,6 +82,12 @@ function ClaimPage() {
       script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
       script.async = true;
       script.defer = true;
+      // Stamp the per-request CSP nonce so script-src 'strict-dynamic' trusts the
+      // loader directly (Turnstile then injects its own widget scripts/iframe).
+      const nonce = readCspNonce();
+      if (nonce) {
+        script.nonce = nonce;
+      }
       document.head.appendChild(script);
     }
 

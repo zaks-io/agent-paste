@@ -80,11 +80,26 @@ const FooterCol: FC<{ column: FooterColumn }> = ({ column }) => (
 
 type ShellProps = {
   meta: PageMeta;
+  nonce: string;
+  analyticsToken?: string | undefined;
   inlineScript?: string;
   children?: Child;
 };
 
-export const Shell: FC<ShellProps> = ({ meta, inlineScript, children }) => {
+const BEACON_SRC = "https://static.cloudflareinsights.com/beacon.min.js";
+
+// Cloudflare Web Analytics beacon. A plain nonce'd <script src> works here (apex
+// is server-rendered hono/jsx, not React, so nothing strips the nonce); the
+// dashboard's script-src 'strict-dynamic' trusts it via the nonce.
+const AnalyticsBeacon: FC<{ nonce: string; token?: string | undefined }> = ({ nonce, token }) => {
+  const trimmed = token?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return <script nonce={nonce} defer src={BEACON_SRC} data-cf-beacon={JSON.stringify({ token: trimmed })} />;
+};
+
+export const Shell: FC<ShellProps> = ({ meta, nonce, analyticsToken, inlineScript, children }) => {
   const canonical = canonicalUrl(meta.canonicalPath);
   return (
     <html lang="en">
@@ -114,7 +129,8 @@ export const Shell: FC<ShellProps> = ({ meta, inlineScript, children }) => {
         <link rel="canonical" href={canonical} />
         <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
         <link rel="alternate" type="text/markdown" href="/agents.md" title="agents.md" />
-        <style>{raw(STYLES)}</style>
+        <style nonce={nonce}>{raw(STYLES)}</style>
+        <AnalyticsBeacon nonce={nonce} token={analyticsToken} />
       </head>
       <body>
         <div class="page">
@@ -122,7 +138,7 @@ export const Shell: FC<ShellProps> = ({ meta, inlineScript, children }) => {
           {children}
           <Footer />
         </div>
-        {inlineScript ? <script>{raw(inlineScript)}</script> : null}
+        {inlineScript ? <script nonce={nonce}>{raw(inlineScript)}</script> : null}
       </body>
     </html>
   );

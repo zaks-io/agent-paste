@@ -11,11 +11,11 @@ import {
   servedContentForPath,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
-import { getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
+import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
-const securityHeaders = CONTENT_SECURITY_HEADERS;
+const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
 const NOINDEX_HEADER = "noindex, nofollow";
 
 export function contentTokenFromRequest(context: AppContext): string {

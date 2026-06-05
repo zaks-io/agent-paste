@@ -2672,6 +2672,58 @@ describe("api worker", () => {
   });
 });
 
+describe("api security headers", () => {
+  function expectBaseline(response: Response): void {
+    expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(response.headers.get("permissions-policy")).toContain("camera=()");
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  }
+
+  it("applies the baseline to /healthz and /openapi.json", async () => {
+    expectBaseline(await handleRequest(new Request("https://api.test/healthz"), {}));
+    expectBaseline(await handleRequest(new Request("https://api.test/openapi.json"), {}));
+  });
+
+  it("applies the baseline to 404 responses", async () => {
+    expectBaseline(await handleRequest(new Request("https://api.test/nope"), {}));
+  });
+
+  it("applies the baseline to a 2xx JSON response and keeps no-store", async () => {
+    const env: Env = {
+      AUTH: {
+        async verifyApiKey(apiKey) {
+          return apiKey === "ok" ? { type: "api_key", id: "key_1", workspace_id: "w_1" } : null;
+        },
+      },
+      DB: {
+        async getWhoami(actor) {
+          return { actor };
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup() {
+          return {};
+        },
+      },
+    };
+    const response = await handleRequest(
+      new Request("https://api.test/v1/whoami", { headers: { authorization: "Bearer ok" } }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expectBaseline(response);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
 describe("web Access Link routes", () => {
   const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
   const ACCESS_LINK_ID = "al_test_link";

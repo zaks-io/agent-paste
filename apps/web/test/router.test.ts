@@ -14,6 +14,7 @@ vi.mock("@tanstack/react-router-ssr-query", () => ({
 vi.mock("../src/routeTree.gen", () => ({ routeTree: { id: "__root__" } }));
 
 import { getRouter } from "../src/router";
+import { runWithCspNonce } from "../src/server/csp-nonce";
 
 describe("getRouter", () => {
   it("builds a router with a QueryClient in context and wires the SSR-query integration", () => {
@@ -29,5 +30,15 @@ describe("getRouter", () => {
     const router = getRouter();
     expect(router.options.defaultPreload).toBe("intent");
     expect(router.options.scrollRestoration).toBe(true);
+  });
+
+  it("sets ssr.nonce from the request-scoped CSP nonce so injected scripts are stamped", () => {
+    const router = runWithCspNonce("test-nonce-xyz", () => getRouter());
+    expect(router.options.ssr).toEqual({ nonce: "test-nonce-xyz" });
+  });
+
+  it("omits the ssr option entirely when no nonce is in scope", () => {
+    const router = getRouter();
+    expect(router.options.ssr).toBeUndefined();
   });
 });

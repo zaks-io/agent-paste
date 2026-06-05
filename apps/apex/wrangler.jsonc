@@ -37,7 +37,8 @@
         }
       ],
       "vars": {
-        "AGENT_PASTE_ENV": "preview"
+        "AGENT_PASTE_ENV": "preview",
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
       }
     },
     "production": {
@@ -50,7 +51,8 @@
         }
       ],
       "vars": {
-        "AGENT_PASTE_ENV": "production"
+        "AGENT_PASTE_ENV": "production",
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
       }
     }
   }
