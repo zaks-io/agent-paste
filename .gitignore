@@ -14,4 +14,9 @@ coverage/
 var/ops/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/launch.json
 .codex/worktrees/
+
+# Local design-iteration scratch: rendered apex snapshots, fonts, brand assets
+# pulled down for offline preview. Never part of a commit.
+/preview/
