@@ -46,8 +46,9 @@ Measured by `pnpm dupes --reporters json --output /tmp/agent-paste-jscpd-final2`
 
 - 507 files, 45,808 lines analyzed.
 - 109 clones, 1,124 duplicated lines = **2.45%** (2.84% by tokens).
-- Post AP-206 MCP dedup (2026-06-05): re-measure with `pnpm dupes` after merge.
-- By format: TypeScript 2.79%, TSX 1.27%, JavaScript 0%.
+- Post AP-206 MCP dedup (2026-06-05): 507 files, 45,795 lines, 1,067 duplicated
+  lines = **2.33%** (2.71% by tokens).
+- By format: TypeScript 2.64%, TSX 1.27%, JavaScript 0%.
 
 For reference, `scripts/` alone is 9.46% (62 clones, 810 duplicated lines over
 8,558 lines). That gap is why `scripts/` is out of scope.
@@ -67,7 +68,7 @@ These quick wins shipped with the gate (2.84% -> 2.59%):
 - [x] MCP Access Link + forwarding dedup (AP-206): extracted
       `createAndMintAccessLink` in `apps/mcp/src/tools.ts` and
       `forwardToBinding` in `apps/mcp/src/forward.ts`; gated baseline
-      **2.42%** (was 2.59%).
+      **2.33%** (was 2.45%).
 
 ## Done: AP-203 repository workflow dedup
 
