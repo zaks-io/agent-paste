@@ -1,80 +1,65 @@
 # Feature Index
 
-This index separates the actual CLI-first MVP from later platform phases. If another spec describes a feature as MVP but this file marks it future, resolve the conflict before implementation.
+This index lists the shipped user-facing feature set. The original CLI-first MVP
+baseline still lives in [`mvp.md`](./mvp.md), but the hosted service now includes
+the later dashboard, Access Link, lifecycle, billing, ephemeral publish, and MCP
+phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 
-## MVP Features
+## Shipped User-Facing Features
 
 ### CLI
 
-| Feature               | MVP behavior                                                                                       | Primary users     |
-| --------------------- | -------------------------------------------------------------------------------------------------- | ----------------- |
-| `agent-paste publish` | Publishes one HTML file or one folder with `index.html`. Returns signed human and Agent View URLs. | API Key Publisher |
-| `agent-paste whoami`  | Verifies the API key and returns workspace/key identity.                                           | API Key Publisher |
-| API-key auth          | Reads `AGENT_PASTE_API_KEY`. No public OAuth login in MVP.                                         | API Key Publisher |
-| TTL option            | `--ttl` sets artifact expiration within platform bounds. Default `30d`, max `90d`.                 | API Key Publisher |
-| Title option          | `--title` sets plain-text title. If omitted, CLI infers from file/folder name.                     | API Key Publisher |
+| Feature                      | Current behavior                                                                      | Primary users     |
+| ---------------------------- | ------------------------------------------------------------------------------------- | ----------------- |
+| `agent-paste login`          | Runs browser OAuth, mints a scoped API Key, and stores it locally.                    | Humans, agents    |
+| `agent-paste logout`         | Revokes the stored key when possible and removes local credentials.                   | Humans, agents    |
+| `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                  | Humans, agents    |
+| `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`.                   | Agents, CI        |
+| `--ephemeral`                | Publishes with no login/key, then prints a hash-only Claim Token link.                | Unattended agents |
+| Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets. | Humans, agents    |
+| `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset. | Humans, agents    |
 
-### Hosted Workers
+### Hosted Surfaces
 
-| Feature        | MVP behavior                                                                                                       | Primary users             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------- |
-| API Worker     | Owns API-key auth, artifact metadata, public Agent View, admin REST APIs, operation events, and scheduled cleanup. | CLI, Operator             |
-| Upload Worker  | Owns upload sessions, signed upload-worker PUT URLs, validation, and private R2 writes.                            | CLI                       |
-| Content Worker | Serves untrusted content from private R2 through signed URLs. No database binding.                                 | Unauthenticated Recipient |
+| Surface        | Current behavior                                                                                 | Primary users                  |
+| -------------- | ------------------------------------------------------------------------------------------------ | ------------------------------ |
+| API Worker     | API-key auth, Artifact metadata, Agent View, web/operator routes, billing, and ephemeral routes. | CLI, REST clients, dashboard   |
+| Upload Worker  | Upload Sessions, signed upload-worker PUT URLs, validation, and private R2 writes.               | CLI, REST clients, MCP publish |
+| Content Worker | Signed file and Bundle reads from private R2 on the isolated content origin.                     | Recipients                     |
+| Web Dashboard  | Workspace, Artifacts, Revisions, Access Links, keys, audit, settings, billing, and claim UI.     | Humans                         |
+| Stream Worker  | Live Update SSE fan-out for authorized viewers.                                                  | Viewers                        |
+| MCP Worker     | OAuth-only Streamable HTTP MCP with twelve text-focused tools.                                   | Hosted agents                  |
+| Apex Worker    | Marketing, legal, install scripts, `/llms.txt`, `/agents.md`, and public docs.                   | Humans, agents                 |
 
-### Publishing
+### Artifact Lifecycle
 
-| Feature                   | MVP behavior                                                                                    | Primary users              |
-| ------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------- |
-| Artifact                  | A durable uploaded work product. MVP artifacts have exactly one revision.                       | All readers and publishers |
-| Revision                  | The immutable file tree created by publish. MVP creates one revision per artifact.              | API Key Publisher          |
-| Upload Session            | Temporary workflow for collecting expected files before finalize.                               | CLI                        |
-| HTML entrypoint inference | Single `.html` files are accepted. Folders require `index.html`.                                | CLI                        |
-| Publish result            | Includes `artifact_id`, `revision_id`, `title`, `view_url`, `agent_view_url`, and `expires_at`. | CLI                        |
-| Idempotent publish        | Durable publish steps use idempotency keys so CLI retries do not duplicate artifacts.           | CLI                        |
+| Feature        | Current behavior                                                                              | Primary users              |
+| -------------- | --------------------------------------------------------------------------------------------- | -------------------------- |
+| Artifact       | Durable, addressable package owned by one Workspace.                                          | All readers and publishers |
+| Revision       | Immutable saved state. Publishing to an existing Artifact appends a new Published Revision.   | Publishers                 |
+| Upload Session | Temporary workflow for collecting expected files before finalize.                             | CLI, REST, MCP             |
+| Access Link    | Revocable signed URL using `/al/{publicId}#{blob}` with fragment-carried credential material. | Humans, agents             |
+| Share Link     | Access Link for the latest Published Revision.                                                | Humans, agents             |
+| Revision Link  | Access Link pinned to a specific Revision.                                                    | Humans, agents             |
+| Bundle         | Generated archive for a complete Revision file tree.                                          | Humans, agents             |
+| Live Updates   | Pro viewers advance to the latest Published Revision without manual refresh.                  | Humans                     |
 
-### Reading
+### Billing And Limits
 
-| Feature                        | MVP behavior                                                                                                  | Primary users             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| Direct signed view URL         | `https://usercontent.agent-paste.sh/v/{token}/{entrypoint}` opens the exact revision.                         | Unauthenticated Recipient |
-| Public signed Agent View       | `https://api.agent-paste.sh/v1/public/agent-view/{token}` returns manifest JSON.                              | Agents, CLI               |
-| Full file URLs                 | Agent View includes one signed URL per file. No `content_prefix` in MVP.                                      | Agents                    |
-| Extension-derived content type | Content type is chosen from a fixed extension allowlist. Unknown extensions download.                         | Viewers                   |
-| HTML CSP                       | Inline JS/styles are allowed, network egress is tightly restricted, and content is isolated on `usercontent`. | Viewers                   |
+| Feature               | Current behavior                                                                          | Primary users |
+| --------------------- | ----------------------------------------------------------------------------------------- | ------------- |
+| Free and Pro Plans    | `workspaces.plan` selects plan-derived Usage Policy values when billing is enabled.       | Members       |
+| Stripe Checkout       | Dashboard creates Checkout sessions and activates Pro synchronously on successful return. | Members       |
+| Stripe Portal         | Dashboard opens Customer Portal for subscription management.                              | Members       |
+| Invoices              | Dashboard lists Stripe invoices with hosted invoice/PDF links when Stripe provides them.  | Members       |
+| Daily write allowance | New-Artifact writes are capped by tier: Ephemeral 20, Free 100, Pro 2000 per day.         | Publishers    |
+| Reads                 | Recipient reads stay free and are gated only by Artifact rate-limit abuse ceilings.       | Recipients    |
 
-### Retention And Operations
+## Still Out Of Scope
 
-| Feature            | MVP behavior                                                                               | Primary users |
-| ------------------ | ------------------------------------------------------------------------------------------ | ------------- |
-| Artifact TTL       | Every artifact expires. Default `30d`, min `1d`, max `90d`.                                | CLI, Operator |
-| Upload session TTL | Partial uploads expire and are cleaned up.                                                 | System        |
-| Scheduled cleanup  | API Worker scheduled handler expires artifacts and upload sessions, then deletes R2 bytes. | System        |
-| Manual cleanup     | Admin CLI can trigger cleanup.                                                             | Operator      |
-| Artifact read cap  | Unauthenticated content reads are throttled per Artifact as an abuse ceiling.              | System        |
-| Built-in scanner   | Async non-blocking Safety Warnings surface through Agent View.                             | System        |
-| Operation events   | Lightweight event log for workspace, key, upload, artifact, cleanup, and admin actions.    | Operator      |
-
-### Operator (web)
-
-| Feature             | MVP behavior                                                                     | Primary users |
-| ------------------- | -------------------------------------------------------------------------------- | ------------- |
-| Operator auth       | WorkOS `admin` role + Cloudflare Access on web operator routes.                  | Operator      |
-| Platform lockdown   | Set/lift/list lockdowns via `/v1/web/admin/lockdowns`.                           | Operator      |
-| Member self-service | Workspace, keys, artifacts, and audit via `/v1/web/*` after `agent-paste login`. | Members       |
-
-## Future Features
-
-| Feature                          | Earliest phase | Notes                                                         |
-| -------------------------------- | -------------: | ------------------------------------------------------------- |
-| Public OAuth login               |        Phase 3 | Adds `agent-paste login` after API-key flow is proven.        |
-| Self-serve signup                |        Phase 3 | WorkOS-backed workspace creation.                             |
-| Dashboard                        |        Phase 6 | Build only after repeated workflows justify UI.               |
-| Multi-revision artifacts         |        Phase 4 | Adds update, revision history, rollback/diff possibilities.   |
-| Latest-moving share links        |        Phase 4 | Distinct from revision-pinned links.                          |
-| Fragment-based access links      |        Phase 4 | Moves credential material out of request paths.               |
-| Access-link revoke/mint/lockdown |        Phase 4 | Requires durable link records and viewer/resolve flow.        |
-| Bundle generation/download       |        Phase 4 | Useful once artifacts become larger or multi-revision.        |
-| MCP server                       |        Phase 5 | OAuth-only hosted agent integration after core API is stable. |
-| App-layer encryption             |        Phase 6 | Adds key management and rotation after usage proves need.     |
-| Billing and usage tiers          |       Phase 6+ | Add only when external usage or cost pressure requires it.    |
+| Feature             | Status                                                                    |
+| ------------------- | ------------------------------------------------------------------------- |
+| Public SDK          | Intentionally out of scope; CLI, OpenAPI, and internal client are enough. |
+| Multi-workspace UI  | The dashboard models one Personal Workspace per member for now.           |
+| Permanent storage   | Artifacts remain transient by default with Plan-bounded TTLs.             |
+| Social/discovery UI | No public feed, profiles, stars, or directory browsing.                   |

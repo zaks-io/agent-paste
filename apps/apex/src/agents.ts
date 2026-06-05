@@ -4,21 +4,24 @@ export const AGENTS_MD = `# agent-paste for agents
 
 agent-paste gives AI agents a durable, addressable place to publish work
 products. Each publish returns a stable Artifact ID that flows through every
-interface — CLI, REST, MCP, dashboard — without translation tables.
+interface - CLI, REST, MCP, dashboard - without translation tables.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
+
+For complete public usage docs, fetch [/docs.md](/docs.md) or the full corpus at
+[/llms-full.txt](/llms-full.txt). Human-readable docs start at [/docs](/docs).
 
 ## Mental model
 
 agent-paste has three objects an agent needs to know:
 
-- **Artifact** — A named, addressable container. Identified by an Artifact ID
+- **Artifact** - A named, addressable container. Identified by an Artifact ID
   shaped like \`art_01HZ8K2X9NPQR3VW7TYBE5MCDF\`. Belongs to one Workspace.
-- **Revision** — An immutable saved state of an Artifact. A new publish
+- **Revision** - An immutable saved state of an Artifact. A new publish
   appends a new Published Revision. Old Revisions stay reachable through
   Revision Links.
-- **Access Link** — A revocable, signed URL pointing at an Artifact or a
+- **Access Link** - A revocable, signed URL pointing at an Artifact or a
   Revision. A human opens it at \`${APP_BASE_URL}/al/{public_id}\`; an agent
   reads the same link through \`GET /v1/public/agent-view/{token}\`. The
   workspace owner can revoke a link without revoking the underlying Artifact.
@@ -59,14 +62,14 @@ query string or in any public share URL. \`--ephemeral\` ignores
 
 Base: \`${API_BASE_URL}\`
 
-- \`GET /v1/whoami\` — verify the calling API key, return actor + workspace.
-- \`GET /v1/artifacts/{id}/agent-view\` — agent-optimized JSON view of an
+- \`GET /v1/whoami\` - verify the calling API key, return actor + workspace.
+- \`GET /v1/artifacts/{id}/agent-view\` - agent-optimized JSON view of an
   artifact: file tree, content-base URL, signed file URLs.
-- \`GET /v1/artifacts/{id}/revisions/{rev}/agent-view\` — same view, pinned to
+- \`GET /v1/artifacts/{id}/revisions/{rev}/agent-view\` - same view, pinned to
   a specific Revision.
-- \`GET /v1/public/agent-view/{token}\` — public counterpart, no auth, scoped
+- \`GET /v1/public/agent-view/{token}\` - public counterpart, no auth, scoped
   by an Access Link token.
-- \`GET /v1/usage-policy\` — current quotas and TTL bounds.
+- \`GET /v1/usage-policy\` - current quotas and TTL bounds.
 
 ## Authentication
 
@@ -95,33 +98,36 @@ flows through them as everywhere else.
 
 Read (\`read\`):
 
-- \`whoami\` — return the authenticated member, workspace, and granted scopes
+- \`whoami\` - return the authenticated member, workspace, and granted scopes
   (no scope required).
-- \`list_artifacts\` — list Artifacts in the authenticated workspace.
-- \`read_artifact\` — read the latest Agent View for an Artifact.
-- \`list_revisions\` — list Revisions for an Artifact.
+- \`list_artifacts\` - list Artifacts in the authenticated workspace.
+- \`read_artifact\` - read the latest Agent View for an Artifact.
+- \`list_revisions\` - list Revisions for an Artifact.
 
 Write (\`write\`):
 
-- \`publish_artifact\` — publish a new text-only Artifact and mint its Revision
+- \`publish_artifact\` - publish a new text-only Artifact and mint its Revision
   Link (also needs \`read\`, \`share\`).
-- \`add_revision\` — add and publish a new Revision to an Artifact (also needs
+- \`add_revision\` - add and publish a new Revision to an Artifact (also needs
   \`read\`, \`share\`).
-- \`delete_artifact\` — delete an Artifact.
-- \`update_display_metadata\` — update an Artifact's display title.
+- \`delete_artifact\` - delete an Artifact.
+- \`update_display_metadata\` - update an Artifact's display title.
 
 Links (\`share\`):
 
-- \`create_share_link\` — create and mint a Share Link for the latest published
+- \`create_share_link\` - create and mint a Share Link for the latest published
   Revision (also needs \`read\`).
-- \`create_revision_link\` — create and mint a Revision Link for a specific
+- \`create_revision_link\` - create and mint a Revision Link for a specific
   Revision (also needs \`read\`).
-- \`list_access_links\` — list an Artifact's Share Links and Revision Links
+- \`list_access_links\` - list an Artifact's Share Links and Revision Links
   (also needs \`read\`).
-- \`revoke_access_link\` — revoke a Share Link or Revision Link.
+- \`revoke_access_link\` - revoke a Share Link or Revision Link.
 
 ## Where to find more
 
+- Human docs: [https://agent-paste.sh/docs](https://agent-paste.sh/docs)
+- Markdown docs: [https://agent-paste.sh/docs.md](https://agent-paste.sh/docs.md)
+- Full machine-readable docs: [https://agent-paste.sh/llms-full.txt](https://agent-paste.sh/llms-full.txt)
 - Dashboard (humans): [${APP_BASE_URL}](${APP_BASE_URL})
 - REST API: [${API_BASE_URL}](${API_BASE_URL})
 - MCP server: [${MCP_BASE_URL}](${MCP_BASE_URL})

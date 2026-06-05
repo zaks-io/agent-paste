@@ -19,7 +19,7 @@ export const HERO = {
   headline: "Hand off what your agent made",
   lead: "An agent renders an HTML report. You want a URL to open, not a Vercel project or a repo. And the agent that made it in one tool has no way to pass it to an agent in another. agent-paste closes that gap: one command, one ID, a URL a human opens and a manifest another agent reads.",
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
-  secondary: { label: "Read the agent guide", href: "/agents.md" },
+  secondary: { label: "Read the docs", href: "/docs" },
 };
 
 export type TranscriptLine =
@@ -96,6 +96,7 @@ export const FOOTER: FooterColumn[] = [
   {
     heading: "Product",
     links: [
+      { label: "Docs", href: "/docs" },
       { label: "Dashboard", href: APP_BASE_URL },
       { label: "REST API", href: API_BASE_URL },
       { label: "MCP server", href: MCP_BASE_URL },
@@ -106,6 +107,7 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "/agents.md", href: "/agents.md" },
       { label: "/llms.txt", href: "/llms.txt" },
+      { label: "/llms-full.txt", href: "/llms-full.txt" },
     ],
   },
   {
