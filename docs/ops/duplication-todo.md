@@ -43,7 +43,7 @@ a decision to stop scanning `src/test-helpers/`. Lower the threshold in
 
 Measured by `pnpm dupes` at `minTokens: 50` over `apps` + `packages`:
 
-- 510 files, 45,970 lines analyzed.
+- 510 files, 45,971 lines analyzed.
 - 97 clones, 1,010 duplicated lines = **2.20%** (2.57% by tokens).
 - By format: TypeScript 2.44%, TSX 1.55%, JavaScript 0%.
 

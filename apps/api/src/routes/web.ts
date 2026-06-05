@@ -58,11 +58,12 @@ async function runWebMemberRoute(
   principal: Principal,
   run: (actor: ApiActor, responders: WebResponders) => Promise<Response> | Response,
 ): Promise<Response> {
+  const responders = getBoundResponders(context);
   const actor = webMemberActor(principal);
   if (!actor) {
-    return getBoundResponders(context).respondError("forbidden");
+    return responders.respondError("forbidden");
   }
-  return run(actor, getBoundResponders(context));
+  return run(actor, responders);
 }
 
 function respondWebMemberJson<T>(
