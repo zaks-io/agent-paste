@@ -3,6 +3,20 @@ import { describe, expect, it } from "vitest";
 import { type Env, handleRequest } from "./index.js";
 
 describe("upload put file encryption", () => {
+  it("returns 401 for malformed percent-escape paths instead of 500", async () => {
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions/upl_1/files/%ZZ?token=not-a-token", {
+        method: "PUT",
+        headers: { "content-length": "5" },
+        body: "hello",
+      }),
+      { UPLOAD_SIGNING_SECRET: "secret" },
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+  });
+
   it("stores encrypted bytes with R2 encryption metadata", async () => {
     const objectKey = "artifacts/art_1/revisions/rev_1/files/index.html";
     const putCalls: Array<{

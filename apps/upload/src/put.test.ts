@@ -20,6 +20,10 @@ describe("put upload path and token verification", () => {
     expect(uploadFilePath(mockContext("/v1/upload-sessions/upl_1/finalize") as never)).toBe("");
   });
 
+  it.each(["%ZZ", "%", "%E0%A4%A"])("returns empty string for malformed percent-escape %j", (encodedPath) => {
+    expect(uploadFilePath(mockContext(`/v1/upload-sessions/upl_1/files/${encodedPath}`, "?token=x") as never)).toBe("");
+  });
+
   it("returns null for missing or invalid tokens", async () => {
     const env: Env = { UPLOAD_SIGNING_SECRET: "secret" };
     expect(await verifyUploadToken(null, env)).toBeNull();
