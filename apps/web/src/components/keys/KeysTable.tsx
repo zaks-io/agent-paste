@@ -1,13 +1,15 @@
 import type { WebApiKeyRow } from "@agent-paste/contracts";
 import { useState } from "react";
+import { revocableEntityState } from "../../lib/revocable-entity-state";
 import { useHydrated } from "../../lib/use-hydrated";
 import { revokeKeyFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
+import { DataTable } from "../ui/DataTable";
 import { Identifier } from "../ui/Identifier";
-import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
+import { OptionalRelativeTime } from "../ui/OptionalRelativeTime";
+import { RevokedActionPlaceholder } from "../ui/RevokedActionPlaceholder";
+import { StateBadge } from "../ui/StateBadge";
+import { TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {
@@ -37,76 +39,56 @@ export function KeysTable({ rows, onRevoked }: Props) {
   }
 
   return (
-    <Card flush className="overflow-hidden">
-      <Table>
-        <THead>
-          <TR>
-            <TH>Name</TH>
-            <TH>Public ID</TH>
-            <TH>Scopes</TH>
-            <TH>Last used</TH>
-            <TH>Expires</TH>
-            <TH>State</TH>
-            <TH className="text-right">Actions</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {rows.map((row) => {
-            const state = keyState(row, hydrated);
-            return (
-              <TR key={row.id}>
-                <TD className="font-medium">{row.name}</TD>
-                <TD>
-                  <Identifier value={row.public_id} />
-                </TD>
-                <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
-                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                  {row.last_used_at ? <RelativeTime value={row.last_used_at} /> : "never"}
-                </TD>
-                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
-                  {row.expires_at ? <RelativeTime value={row.expires_at} /> : "never"}
-                </TD>
-                <TD>
-                  <Badge tone={state.tone} dot>
-                    {state.label}
-                  </Badge>
-                </TD>
-                <TD className="text-right">
-                  {row.revoked ? (
-                    <span className="text-[hsl(var(--subtle))]">-</span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      loading={revokingId === row.id}
-                      disabled={revokingId !== null}
-                      onClick={() => onRevoke(row)}
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </TD>
-              </TR>
-            );
-          })}
-        </TBody>
-      </Table>
-    </Card>
+    <DataTable>
+      <THead>
+        <TR>
+          <TH>Name</TH>
+          <TH>Public ID</TH>
+          <TH>Scopes</TH>
+          <TH>Last used</TH>
+          <TH>Expires</TH>
+          <TH>State</TH>
+          <TH className="text-right">Actions</TH>
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((row) => {
+          const state = revocableEntityState(row, hydrated);
+          return (
+            <TR key={row.id}>
+              <TD className="font-medium">{row.name}</TD>
+              <TD>
+                <Identifier value={row.public_id} />
+              </TD>
+              <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
+              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                <OptionalRelativeTime value={row.last_used_at} />
+              </TD>
+              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                <OptionalRelativeTime value={row.expires_at} />
+              </TD>
+              <TD>
+                <StateBadge state={state} />
+              </TD>
+              <TD className="text-right">
+                {row.revoked ? (
+                  <RevokedActionPlaceholder placeholder="-" />
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    loading={revokingId === row.id}
+                    disabled={revokingId !== null}
+                    onClick={() => onRevoke(row)}
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </TD>
+            </TR>
+          );
+        })}
+      </TBody>
+    </DataTable>
   );
-}
-
-// `hydrated` gates the wall-clock expiry check: on the server and first client
-// paint we never read Date.now(), so SSR and hydration agree. The Expired badge
-// settles in once the client has mounted.
-function keyState(
-  row: WebApiKeyRow,
-  hydrated: boolean,
-): { label: string; tone: "success" | "warning" | "destructive" } {
-  if (row.revoked) {
-    return { label: "Revoked", tone: "destructive" };
-  }
-  if (hydrated && row.expires_at && Date.parse(row.expires_at) <= Date.now()) {
-    return { label: "Expired", tone: "warning" };
-  }
-  return { label: "Active", tone: "success" };
 }
