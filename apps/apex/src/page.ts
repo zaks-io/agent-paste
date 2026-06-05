@@ -1,3 +1,4 @@
+import { ABOUT, ABOUT_SECTIONS, type AboutSection } from "./about.js";
 import {
   FEATURES,
   type Feature,
@@ -13,14 +14,24 @@ import {
 } from "./copy.js";
 import { STYLES } from "./styles.js";
 
-export function renderHomePage(): string {
+const ABOUT_TITLE = "About agent-paste.sh: where agents publish";
+const ABOUT_DESCRIPTION =
+  "Why agent-paste exists, the wedge it fills, the boundaries it keeps, and an honest account of how it is built and run. Pre-launch, solo, transient by default.";
+
+type PageMeta = {
+  title: string;
+  description: string;
+  canonicalPath: string;
+};
+
+function shell(meta: PageMeta, main: string): string {
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${esc(TITLE)}</title>
-    <meta name="description" content="${esc(META_DESCRIPTION)}">
+    <title>${esc(meta.title)}</title>
+    <meta name="description" content="${esc(meta.description)}">
     <meta name="color-scheme" content="light dark">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="shortcut icon" href="/favicon.ico">
@@ -28,12 +39,12 @@ export function renderHomePage(): string {
     <link rel="preload" href="/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta property="og:type" content="website">
     <meta property="og:title" content="agent-paste.sh">
-    <meta property="og:description" content="${esc(META_DESCRIPTION)}">
-    <meta property="og:url" content="https://agent-paste.sh">
+    <meta property="og:description" content="${esc(meta.description)}">
+    <meta property="og:url" content="https://agent-paste.sh${esc(meta.canonicalPath)}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="agent-paste.sh">
-    <meta name="twitter:description" content="${esc(META_DESCRIPTION)}">
-    <link rel="canonical" href="https://agent-paste.sh/">
+    <meta name="twitter:description" content="${esc(meta.description)}">
+    <link rel="canonical" href="https://agent-paste.sh${esc(meta.canonicalPath)}">
     <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
     <link rel="alternate" type="text/markdown" href="/agents.md" title="agents.md">
     <style>${STYLES}</style>
@@ -43,27 +54,13 @@ export function renderHomePage(): string {
       <header class="page-head">
         ${renderWordmark()}
         <nav class="head-nav">
+          <a class="head-link" href="/about">About</a>
           <a class="head-link" href="${esc(HERO.secondary.href)}">agents.md</a>
           <a class="button button-ghost button-sm" href="${esc(SIGN_IN_URL)}">Sign in</a>
         </nav>
       </header>
 
-      <main class="content">
-        <section class="hero">
-          <p class="eyebrow mono">${esc(HERO.eyebrow)}</p>
-          <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-stop">.</span></h1>
-          <p class="hero-lead">${esc(HERO.lead)}</p>
-          <div class="hero-actions">
-            <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
-            <a class="button button-ghost button-lg" href="${esc(HERO.secondary.href)}">${esc(HERO.secondary.label)}</a>
-          </div>
-          <pre class="transcript mono" aria-label="Example agent-paste session">${renderTranscript(TRANSCRIPT)}</pre>
-        </section>
-
-        <section class="features" aria-label="What agent-paste gives you">
-          ${FEATURES.map(renderFeature).join("\n          ")}
-        </section>
-      </main>
+${main}
 
       <footer class="page-foot">
         <div class="foot-cols">
@@ -84,6 +81,41 @@ ${INLINE_SCRIPT}
 `;
 }
 
+export function renderHomePage(): string {
+  const main = `      <main class="content">
+        <section class="hero">
+          <p class="eyebrow mono">${esc(HERO.eyebrow)}</p>
+          <h1 class="hero-headline">${esc(HERO.headline)}<span class="hero-stop">.</span></h1>
+          <p class="hero-lead">${esc(HERO.lead)}</p>
+          <div class="hero-actions">
+            <a class="button button-primary button-lg" href="${esc(HERO.primary.href)}">${esc(HERO.primary.label)}</a>
+            <a class="button button-ghost button-lg" href="${esc(HERO.secondary.href)}">${esc(HERO.secondary.label)}</a>
+          </div>
+          <pre class="transcript mono" aria-label="Example agent-paste session">${renderTranscript(TRANSCRIPT)}</pre>
+        </section>
+
+        <section class="features" aria-label="What agent-paste gives you">
+          ${FEATURES.map(renderFeature).join("\n          ")}
+        </section>
+      </main>`;
+  return shell({ title: TITLE, description: META_DESCRIPTION, canonicalPath: "/" }, main);
+}
+
+export function renderAboutPage(): string {
+  const main = `      <main class="content">
+        <section class="hero">
+          <p class="eyebrow mono">${esc(ABOUT.eyebrow)}</p>
+          <h1 class="hero-headline">${esc(ABOUT.headline)}<span class="hero-stop">.</span></h1>
+          <p class="hero-lead">${esc(ABOUT.lead)}</p>
+        </section>
+
+        <section class="prose" aria-label="About agent-paste">
+          ${ABOUT_SECTIONS.map(renderAboutSection).join("\n          ")}
+        </section>
+      </main>`;
+  return shell({ title: ABOUT_TITLE, description: ABOUT_DESCRIPTION, canonicalPath: "/about" }, main);
+}
+
 function renderWordmark(extraClass = ""): string {
   const cls = extraClass ? `wordmark ${extraClass}` : "wordmark";
   return `<a class="${cls}" href="/" aria-label="${esc(WORDMARK.base)}${esc(WORDMARK.tld)}">agent<span class="wordmark-hyphen" aria-hidden="true">-</span>paste<span class="wordmark-tld">${esc(WORDMARK.tld)}</span></a>`;
@@ -91,6 +123,11 @@ function renderWordmark(extraClass = ""): string {
 
 function renderFeature(feature: Feature): string {
   return `<article class="feature"><h2 class="feature-title">${esc(feature.title)}</h2><p class="feature-body">${renderProse(feature.body)}</p></article>`;
+}
+
+function renderAboutSection(section: AboutSection): string {
+  const paragraphs = section.body.map((paragraph) => `<p class="prose-body">${renderProse(paragraph)}</p>`).join("");
+  return `<article class="prose-block"><h2 class="prose-title">${esc(section.title)}</h2>${paragraphs}</article>`;
 }
 
 // Escapes first, then turns `backtick` spans into inline <code>. Because the

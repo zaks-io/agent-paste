@@ -2,7 +2,7 @@ import { AGENTS_MD } from "./agents.js";
 import { INSTALL_PS1 } from "./install-ps1.js";
 import { INSTALL_SH } from "./install-sh.js";
 import { LLMS_TXT } from "./llms.js";
-import { renderHomePage } from "./page.js";
+import { renderAboutPage, renderHomePage } from "./page.js";
 import { APP_ORIGIN, productRedirect } from "./redirects.js";
 
 const TEXT_PLAIN = "text/plain; charset=utf-8";
@@ -59,6 +59,10 @@ export function routeApex(request: Request): Response | null {
 
   if (url.pathname === "/") {
     return htmlResponse(renderHomePage(), request.method);
+  }
+
+  if (url.pathname === "/about") {
+    return htmlResponse(renderAboutPage(), request.method);
   }
 
   if (url.pathname === "/llms.txt") {
@@ -121,7 +125,7 @@ function robotsTxt(origin: string): string {
 }
 
 function sitemapXml(origin: string): string {
-  const urls = ["/", "/llms.txt", "/agents.md", "/install.sh", "/install.ps1"];
+  const urls = ["/", "/about", "/llms.txt", "/agents.md", "/install.sh", "/install.ps1"];
   const entries = urls.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }
