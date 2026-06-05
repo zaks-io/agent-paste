@@ -14,7 +14,8 @@ export type AuthRequirement =
   | "operator"
   | "signed_agent_view_token"
   | "signed_upload_url"
-  | "signed_content_token";
+  | "signed_content_token"
+  | "stripe_webhook_signature";
 export type IdempotencyRequirement = "none" | "required";
 export type RateLimitRequirement = "none" | "actor" | "artifact" | "ephemeral_provision";
 

@@ -47,6 +47,7 @@ export type {
   SignedAgentViewTokenPrincipal,
   SignedContentTokenPrincipal,
   SignedUploadUrlPrincipal,
+  StripeWebhookSignaturePrincipal,
   WorkOsAccessTokenPrincipal,
 } from "./principal.js";
 export { applyRateLimit, type RateLimitBinding, type RateLimitBindings } from "./rate-limit.js";

@@ -15,8 +15,9 @@
  * @typedef {Object} SecretBinding
  * @property {boolean} required Whether the consuming Worker hard-requires the secret.
  * @property {"all"|"production"|"preview"} [envs] Environment scope (default: all).
- * @property {"symmetric"|"workos"} [source] Where the value originates. `workos` values
- *   come from the WorkOS console / GitHub env, not the symmetric generator.
+ * @property {"symmetric"|"workos"|"stripe"} [source] Where the value originates. `workos`
+ *   and `stripe` values come from their provider console / GitHub env, not the symmetric
+ *   generator.
  */
 
 /**
@@ -36,6 +37,13 @@ export const SECRET_ROUTING = {
     STREAM_INTERNAL_SECRET: { required: true },
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification (mcpVerifyOptions) returns null without it
     CF_ACCESS_AUD: { required: false, envs: "production", source: "workos" },
+    // Stripe billing (ADR 0073/0074). All optional: billing is off-by-default
+    // behind BILLING_ENABLED, so a deploy without Stripe configured must succeed
+    // and the routes 404. Written when a value is present in the environment.
+    STRIPE_SECRET_KEY: { required: false, source: "stripe" },
+    STRIPE_WEBHOOK_SIGNING_SECRET: { required: false, source: "stripe" },
+    STRIPE_PRICE_ID_MONTHLY: { required: false, source: "stripe" },
+    STRIPE_PRICE_ID_ANNUAL: { required: false, source: "stripe" },
   },
   upload: {
     CONTENT_SIGNING_SECRET: { required: true },

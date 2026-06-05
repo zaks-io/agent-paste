@@ -3,6 +3,7 @@ import { ActorType, OperationEventAction, OperationEventTargetType } from "../en
 import { Cursor, WorkspaceId } from "../primitives.js";
 import { WebOperatorEventFocus } from "../web.js";
 import { z } from "../zod.js";
+import { registerBillingPaths } from "./api.billing.js";
 import { artifactRateLimitResponse, errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerApiSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 import { applyWebCursorParameterBounds } from "./web-cursor-bounds.js";
@@ -554,6 +555,8 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
     },
     responses: standardJsonResponses(schemaRef("WebOperatorEventListResponse"), 200, { authenticated: false }),
   });
+
+  registerBillingPaths(registry, { params, pathStringParam, idempotencyKeyHeader, requestIdHeader });
 
   registry.registerPath({
     method: "get",

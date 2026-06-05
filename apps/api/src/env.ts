@@ -90,9 +90,17 @@ export type Env = {
   WORKOS_MCP_JWKS_URL?: string;
   WORKOS_MCP_ISSUER?: string;
   BILLING_ENABLED?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SIGNING_SECRET?: string;
+  STRIPE_PRICE_ID_MONTHLY?: string;
+  STRIPE_PRICE_ID_ANNUAL?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
   SENTRY_DSN?: string;
 };
+
+export function billingEnabled(env: Env): boolean {
+  return env.BILLING_ENABLED === "true";
+}
 
 export type AppContext = Context<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>;

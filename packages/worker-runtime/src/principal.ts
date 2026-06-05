@@ -38,6 +38,10 @@ export type SignedContentTokenPrincipal<Payload = unknown> = {
   payload: Payload;
 };
 
+export type StripeWebhookSignaturePrincipal = {
+  kind: "stripe_webhook_signature";
+};
+
 export type AnonymousPrincipal = {
   kind: "none";
 };
@@ -49,6 +53,7 @@ export type Principal =
   | SignedAgentViewTokenPrincipal
   | SignedUploadUrlPrincipal
   | SignedContentTokenPrincipal
+  | StripeWebhookSignaturePrincipal
   | AnonymousPrincipal;
 
 export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
@@ -67,9 +72,11 @@ export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
               ? SignedUploadUrlPrincipal
               : Auth extends "signed_content_token"
                 ? SignedContentTokenPrincipal
-                : Auth extends "none"
-                  ? AnonymousPrincipal
-                  : Principal;
+                : Auth extends "stripe_webhook_signature"
+                  ? StripeWebhookSignaturePrincipal
+                  : Auth extends "none"
+                    ? AnonymousPrincipal
+                    : Principal;
 
 export type AuthSuccess<P extends Principal = Principal> = { ok: true; principal: P };
 export type AuthFailure = { ok: false; code: ErrorCode; message?: string };

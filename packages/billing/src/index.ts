@@ -1,5 +1,10 @@
 export { type BillingDriftEvent, type BillingDriftLogger, detectBillingDrift, logBillingDrift } from "./drift.js";
 export {
+  type SetWorkspacePlanOverrideInput,
+  type SetWorkspacePlanOverrideResult,
+  setWorkspacePlanOverride,
+} from "./override.js";
+export {
   billingSyncIdempotencyKey,
   planFromSubscriptionStatus,
   type SubscriptionStatus,
@@ -8,6 +13,9 @@ export {
 export {
   type BillingProvider,
   type BillingSubscriptionSnapshot,
+  type CheckoutSessionSnapshot,
+  type CreateCheckoutSessionInput,
+  type CreatePortalSessionInput,
   createFakeBillingProvider,
   createNoopBillingProvider,
   createStripeBillingProvider,
@@ -27,3 +35,10 @@ export {
   type LocalBillingRow,
   loadLocalBillingRow,
 } from "./sync.js";
+export {
+  type StripeEvent,
+  type StripeSignatureResult,
+  snapshotFromStripeEvent,
+  type VerifyStripeSignatureInput,
+  verifyStripeSignature,
+} from "./webhook.js";

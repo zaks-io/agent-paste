@@ -48,7 +48,8 @@ export async function applyBillingSnapshot(input: ApplyBillingSnapshotInput): Pr
       }>(
         `select plan, plan_operator_override_at
          from workspaces
-         where id = $1`,
+         where id = $1
+         for update`,
         [input.workspaceId],
       );
       const row = workspace.rows[0];
@@ -101,11 +102,11 @@ export async function applyBillingSnapshot(input: ApplyBillingSnapshotInput): Pr
 
       const planChanged = previousPlan !== targetPlan;
       if (planChanged) {
-        await tx.query(`update workspaces set plan = $2, updated_at = $3 where id = $1`, [
-          input.workspaceId,
-          targetPlan,
-          input.now,
-        ]);
+        await tx.query(
+          `update workspaces set plan = $2, updated_at = $3
+           where id = $1 and plan_operator_override_at is null`,
+          [input.workspaceId, targetPlan, input.now],
+        );
       }
 
       const audit = planChanged

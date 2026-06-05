@@ -61,4 +61,21 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production", { source: "symmetric" })).not.toContain("WORKOS_API_KEY");
     expect(secretsForApp("api", "production", { source: "symmetric" })).toContain("CONTENT_SIGNING_SECRET");
   });
+
+  it("routes the four Stripe billing secrets as optional, stripe-sourced, on api both envs", () => {
+    const stripeNames = [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SIGNING_SECRET",
+      "STRIPE_PRICE_ID_MONTHLY",
+      "STRIPE_PRICE_ID_ANNUAL",
+    ];
+    for (const env of ["preview", "production"]) {
+      const stripeForEnv = secretsForApp("api", env, { source: "stripe" });
+      expect(stripeForEnv).toEqual(expect.arrayContaining(stripeNames));
+      // Off-by-default: never hard-required, so a no-Stripe deploy still succeeds.
+      for (const name of stripeNames) {
+        expect(requiredSecretsForApp("api", env)).not.toContain(name);
+      }
+    }
+  });
 });
