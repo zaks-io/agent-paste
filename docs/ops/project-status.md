@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-04 (main at AP-154 Phase 1; web Access Link UI + TanStack/SSE live UI landed; Live Updates marked shipped, deferred polish in AP-166).
+Last updated: 2026-06-05 (main at `6c9fa35`; write-allowance binding fails closed (AP-170); ephemeral PoW assessed as a speed bump, abuse-lever follow-ups filed (AP-169 → AP-173/AP-174)).
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
 `docs/specs/README.md`, and `docs/adr/README.md`. It answers the current state
@@ -9,7 +9,7 @@ and points to the smaller ledgers that own detail.
 ## Snapshot
 
 - `main` and `origin/main` are aligned at
-  `567e476 feat(ci): capture SBOM + provenance + scan metadata for CLI release (AP-154 Phase 1) (#226)`.
+  `6c9fa35 feat(apex): add legal pages (#248)`.
 - Phase 1, the CLI-first MVP, is functionally complete.
 - Phase 3, public OAuth + web dashboard + CLI login, is complete.
 - `apps/jobs` has queue/cron/DLQ topology, lifecycle purge/retention, bundle
@@ -33,6 +33,15 @@ and points to the smaller ledgers that own detail.
   heals a stale null `claimed_at` (AP-162). Remaining product slice:
   claim/upgrade funnel polish (AP-109) and billing upgrade surfaces (AP-5).
   Operators: [`runbook-ephemeral-publish.md`](./runbook-ephemeral-publish.md).
+  Anti-abuse posture assessed (AP-169,
+  [`ap-169-pow-difficulty-assessment.md`](./ap-169-pow-difficulty-assessment.md)):
+  the write-allowance binding now fails closed (AP-170, #243), but PoW at
+  difficulty 20 is a speed bump, not the lever, and the "global" provision cap is
+  per-PoP eventually consistent. The real fix is a strongly-consistent global
+  provision counter (DO, AP-173) plus runtime-tunable caps (AP-174); containment
+  (script-disabled serving, 24h deletion, noindex, scanner → lockdown) already
+  bounds the blast radius. Do not raise PoW difficulty or migrate to memory-hard
+  PoW — neither closes the attacker asymmetry.
 - Dashboard Access Link management is implemented (AP-156): `/v1/web/*` member
   routes plus list/create/mint/revoke/lockdown UI on `/access-links` and the
   artifact detail route. Mint/revoke are `idempotency:none` by contract
