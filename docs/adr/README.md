@@ -1,6 +1,8 @@
 # Architecture Decision Records
 
-This directory is the implementation-facing decision log for agent-paste. ADRs are historical records, but the set must still be navigable enough that an implementer can find the current decision without reconstructing the whole conversation.
+This directory is the decision log for agent-paste: it records _why_ choices were made and the trade-offs behind them. ADRs are historical records, but the set must still be navigable enough that an implementer can find the current decision without reconstructing the whole conversation.
+
+**ADRs are not the current source of truth for how the system behaves — `docs/specs/` is.** To check whether something is enforced or how a surface works today, read the spec. An ADR's conclusion should already be folded into the relevant spec; if you find an ADR that conflicts with a spec, the spec wins and the gap should be closed by updating the spec (with a note here pointing the rationale back to it). Do not assert current behavior from an ADR alone.
 
 ## Maintenance Rules
 

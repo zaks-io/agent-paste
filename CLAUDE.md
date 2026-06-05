@@ -6,6 +6,10 @@ Read `docs/ops/project-status.md` first. It is the status entrypoint and links t
 
 Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
 
+**Specs are the current truth; ADRs are the decision trail.** When you need to know how the system behaves now — whether something is enforced, what a table holds, what a route does — read `docs/specs/`. The spec is the consolidated answer so you never have to read N ADRs to reconstruct the latest decision. ADRs record _why_ a decision was made; their conclusions should already be folded into the relevant spec. If a spec and an ADR conflict, the spec wins — but flag the conflict to a human, because it usually means the spec went stale and needs updating. Do not assert "the system doesn't do X" or "X isn't enforced" from an ADR (or from a Drizzle `schema.ts` read) without checking the spec first.
+
+**Flag doc friction; fix the root cause.** When a doc is wrong, misleading, out of date, or missing — or when you hit the same friction a doc should have prevented — surface it to a human and propose the doc or process fix in the same turn. Do not silently work around a bad doc and move on; the workaround leaves the next agent to hit the same wall. The fix to the documentation is part of the task, not a separate chore.
+
 If you need to get oriented or find the owner of a workflow quickly, use
 `docs/agents/repo-navigation.md`.
 

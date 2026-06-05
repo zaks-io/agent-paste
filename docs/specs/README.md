@@ -21,7 +21,11 @@ Future-facing specs remain useful but are not MVP build gates:
 - [`contracts.md`](./contracts.md): implementation contract source-of-truth rules and ID formats.
 - [`ephemeral-publish.md`](./ephemeral-publish.md): agent-first ephemeral publish, claim/promote flow, write-gated tiers, and anti-abuse stack ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). Post-MVP; lands with or after Phase 3.
 
-Use [`CONTEXT.md`](../../CONTEXT.md) for domain language. Use [`docs/adr/`](../adr/) for architectural decisions, trade-offs, and implementation-facing detail. Some ADRs still describe the broader future platform; when implementation starts, either narrow those ADRs or create superseding ADRs for the MVP.
+**These specs are the current source of truth for how the system behaves.** To learn whether something is enforced, what a table holds, or what a route does, read the spec — it is the consolidated answer, so you do not have to read through the ADR log to reconstruct the latest decision. The specs scoped "current MVP" above are authoritative for present behavior; the "future-facing" specs are marked and are not yet build gates.
+
+Use [`docs/adr/`](../adr/) for the _decision trail_ — why a choice was made and the trade-offs behind it. ADRs are history; their conclusions should already be folded into the relevant spec. If an ADR conflicts with a spec, the spec wins, and the conflict should be fixed by updating the spec (and noting in the ADR that the rationale flows back to it) rather than leaving readers to discover the contradiction. Some ADRs still describe the broader future platform; when implementation starts, either narrow those ADRs or create superseding ADRs for the MVP.
+
+Use [`CONTEXT.md`](../../CONTEXT.md) for domain language.
 
 ## Reading Order
 
