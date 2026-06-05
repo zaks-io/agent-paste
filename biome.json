@@ -32,13 +32,13 @@
         },
         "noExcessiveLinesPerFunction": {
           "level": "error",
-          "options": { "maxLines": 100, "skipBlankLines": true }
+          "options": { "maxLines": 97, "skipBlankLines": true }
         }
       },
       "nursery": {
         "noExcessiveLinesPerFile": {
           "level": "error",
-          "options": { "maxLines": 600, "skipBlankLines": true }
+          "options": { "maxLines": 510, "skipBlankLines": true }
         }
       }
     }

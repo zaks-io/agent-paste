@@ -120,9 +120,10 @@ Feature-specific ledgers:
   plus AP-164 live UI); two deferred-polish items tracked in AP-166.
 - [Repository todo](./repository-todo.md) - repository-core follow-ups.
 - [Complexity todo](./complexity-todo.md) - Biome file/function/complexity
-  limits and the ratchet plan toward 300 lines / 60 func-lines / 15 complexity.
+  limits (now 510 file-lines / 97 func-lines / 30 complexity) and the ratchet
+  plan toward 300 lines / 60 func-lines / 15 complexity.
 - [Duplication todo](./duplication-todo.md) - jscpd copy-paste gate (shipped
-  code only) and the ratchet plan from 2.7% toward 1.5%.
+  code only), now at 2.0% and the ratchet plan toward 1.5%.
 - [Operator Access smoke plan (AP-10)](./ap-10-access-smoke-plan.md) -
   production Cloudflare Access + app-side operator auth smoke plan.
 - [Admin route migration plan (AP-12)](./ap-12-migration-plan.md) - retire

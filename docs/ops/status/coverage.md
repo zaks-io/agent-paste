@@ -1,6 +1,25 @@
 # Coverage Ledger
 
-Last updated: 2026-06-05 (AP-212 coverage exclusion audit).
+Last updated: 2026-06-05 (coverage-floor ratchet + AP-212 exclusion audit).
+
+## Coverage floors (ratchet)
+
+Two independent v8 coverage gates. Floors are **just under today's actuals** so a
+real regression fails CI while normal churn doesn't trip it — raise as coverage
+climbs toward the 90% lines goal, never lower to turn red green.
+
+| Gate                                         | Stmts | Branch | Funcs | Lines | Actuals (2026-06-05)      |
+| -------------------------------------------- | ----- | ------ | ----- | ----- | ------------------------- |
+| Global merged (`scripts/merge-coverage.mjs`) | 88    | 82     | 88    | 88    | 91.0 / 82.7 / 91.5 / 91.2 |
+| Scripts (`vitest.scripts.config.ts`)         | 88    | 82     | 85    | 88    | 90.0 / 83.0 / 89.8 / 90.1 |
+
+Ratcheted 2026-06-05 from 80/80/80/80 (global) and 80/80/80/75 (scripts).
+**Branches is the limiter and the noisiest metric** — v8 over/under-counts `?.`,
+`??`, and JSX ternaries, and the merged number is dragged down by low-coverage
+packages (`config` ~66%, `contracts` ~66%, `rotation` ~75%) whose branches sit in
+a large shared denominator. So branches carries a tight +2 just under its wall
+while the stable metrics carry a ~3pt buffer. The only knobs are the four numbers
+in each file; there are no per-package inline thresholds.
 
 Status legend:
 

@@ -11,11 +11,17 @@ const reports = require("istanbul-reports");
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
 const coverageDir = join(root, "coverage");
 const workspaceDirs = ["apps", "packages"];
+// Floors, not targets. Merged actuals (2026-06-05) sit at stmts 91.0 / branch
+// 82.7 / funcs 91.5 / lines 91.2. Branches is the limiter and the noisiest
+// metric (v8 over/under-counts ?., ??, JSX ternaries) and is dragged by low-
+// coverage packages (config, contracts, rotation), so it gets a tight +2 just
+// under its wall; the stable metrics carry a ~3pt buffer. Raise as coverage
+// climbs — never lower to make red green. Ratchet plan: docs/ops/status/coverage.md.
 const thresholds = {
-  branches: 80,
-  functions: 80,
-  lines: 80,
-  statements: 80,
+  branches: 82,
+  functions: 88,
+  lines: 88,
+  statements: 88,
 };
 
 function readWorkspaceCoverageReports() {
