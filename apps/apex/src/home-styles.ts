@@ -6,9 +6,13 @@
 // `.page-body` column. Every apex page sets `<body class="home">` and gets this
 // stylesheet (see chrome.tsx), so all rules are `.home`-scoped.
 //
-// NOTE: this surface intentionally uses gradients, backdrop-filter, and soft
-// shadows. Those style-guide bans are deliberately not enforced here while the
-// marketing design is being iterated on; the dashboard still bans them.
+// Discipline (unified with the dashboard, see docs/specs/style-guide.md): one
+// shared token system, square corners (--radius-xs/sm/md), depth from the surface
+// ladder + 1px hairlines — no decorative drop shadows, no accent glows, no card
+// hover-lifts, no gradient fills. The single permitted atmospheric exception is
+// the faint hero aura in HOME_ATMOSPHERE, which must stay below "legible" like the
+// grain. The sticky topbar's scroll-state backdrop-filter is the same treatment
+// the web Topbar uses, so it stays.
 
 const HOME_TOKENS = `.home {
   --container-home: 1080px;
@@ -113,8 +117,7 @@ const HOME_TOPBAR = `.topbar {
 .topbar .brand-mark {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
-  box-shadow: 0 0 0 1px hsl(var(--rule-strong));
+  border-radius: var(--radius-sm);
 }
 
 .head-center {
@@ -163,10 +166,6 @@ const HOME_BUTTONS = `.home .button-lg {
   height: 5px;
 }
 
-.home .button-primary:hover {
-  transform: translateY(-1px);
-}
-
 .button-accent {
   background: hsl(var(--accent));
   color: hsl(var(--accent-fg));
@@ -174,7 +173,6 @@ const HOME_BUTTONS = `.home .button-lg {
 
 .button-accent:hover {
   background: hsl(var(--accent-dim));
-  transform: translateY(-1px);
 }
 
 /* Secondary action as a link with a trailing arrow, not an equal-weight button. */
@@ -224,45 +222,8 @@ const HOME_HERO = `.home-hero {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 24px;
-  box-shadow:
-    0 1px 0 hsl(var(--foreground) / 0.06),
-    0 20px 60px -24px hsl(var(--accent) / 0.55),
-    0 0 0 1px hsl(var(--rule));
-}
-
-/* Orbiting node: one accent dot tracing the capture frame. */
-.hero-art::before {
-  content: "";
-  position: absolute;
-  inset: -14px;
-  border-radius: 32px;
-  border: 1px dashed hsl(var(--accent) / 0.28);
-  animation: home-spin 28s linear infinite;
-}
-
-.hero-orbit {
-  position: absolute;
-  inset: -14px;
-  animation: home-spin 14s linear infinite;
-}
-
-.hero-orbit span {
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: hsl(var(--accent));
-  box-shadow: 0 0 14px 1px hsl(var(--accent) / 0.8);
-}
-
-@keyframes home-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--rule));
 }
 
 .home-eyebrow {
@@ -283,7 +244,6 @@ const HOME_HERO = `.home-hero {
   height: 6px;
   border-radius: 50%;
   background: hsl(var(--success));
-  box-shadow: 0 0 0 4px hsl(var(--success) / 0.16);
   animation: home-live-pulse 2.4s var(--ease-out) infinite;
 }
 
@@ -344,9 +304,8 @@ const HOME_TRANSCRIPT = `.transcript-stage {
   margin: 0 auto;
   background: hsl(var(--surface));
   border: 1px solid hsl(var(--rule));
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 40px 120px -48px hsl(248 73% 30% / 0.55), 0 2px 0 hsl(var(--foreground) / 0.03) inset;
 }
 
 .transcript-bar {
@@ -581,18 +540,17 @@ const HOME_USECASES = `.usecases {
 .usecase {
   position: relative;
   border: 1px solid hsl(var(--rule));
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: hsl(var(--surface));
   padding: 24px 22px 26px;
   display: grid;
   gap: 14px;
   align-content: start;
-  transition: border-color 180ms var(--ease-out), transform 180ms var(--ease-out), background 180ms var(--ease-out);
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out);
 }
 
 .usecase:hover {
   border-color: hsl(var(--rule-strong));
-  transform: translateY(-3px);
   background: hsl(var(--surface-2));
 }
 
@@ -636,7 +594,7 @@ const HOME_PILLARS = `.home-pillars {
   gap: 1px;
   background: hsl(var(--rule));
   border: 1px solid hsl(var(--rule));
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -691,7 +649,7 @@ const HOME_DIAGRAM = `.diagram {
 .diagram-id {
   border: 1px solid hsl(var(--accent) / 0.5);
   background: hsl(var(--accent-tint));
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 22px 24px;
   text-align: center;
 }
@@ -736,14 +694,14 @@ const HOME_DIAGRAM = `.diagram {
 .diagram-card {
   border: 1px solid hsl(var(--rule));
   background: hsl(var(--surface));
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 18px 20px;
   display: grid;
   gap: 6px;
-  transition: border-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
 }
 
-.diagram-card:hover { border-color: hsl(var(--rule-strong)); transform: translateX(4px); }
+.diagram-card:hover { border-color: hsl(var(--rule-strong)); background: hsl(var(--surface-2)); }
 
 .diagram-card .head {
   display: flex;
@@ -766,7 +724,7 @@ const HOME_FEATURES = `.home-features {
   gap: 1px;
   background: hsl(var(--rule));
   border: 1px solid hsl(var(--rule));
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -819,7 +777,7 @@ const HOME_FEATURES = `.home-features {
   color: hsl(var(--foreground));
   background: hsl(var(--surface-3));
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }`;
 
 const HOME_CTA = `.home-cta {
@@ -832,18 +790,10 @@ const HOME_CTA = `.home-cta {
   max-width: 820px;
   margin: 0 auto;
   border: 1px solid hsl(var(--rule));
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: hsl(var(--surface));
   padding: clamp(40px, 6vw, 72px) 32px;
   overflow: hidden;
-}
-
-.cta-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(60% 80% at 50% 0%, hsl(var(--accent) / 0.18), transparent 70%);
 }
 
 .cta-card > * { position: relative; }
@@ -879,11 +829,10 @@ const HOME_CTA = `.home-cta {
 }
 
 /*
- * Mobile-first: a left-aligned box, not a pill. The $ is a fixed gutter, the
- * command wraps in the remaining column, and "click to copy" sits on its own
- * row. A pill only works while the command fits on one line, so the rounded-rect
- * + wrapping layout is the small-screen default; >=560px (below) restores the
- * single-line pill.
+ * Mobile-first: a left-aligned square box. The $ is a fixed gutter, the command
+ * wraps in the remaining column, and "click to copy" sits on its own row. At
+ * >=560px (below) it collapses to a single inline row once the command fits on
+ * one line; the corners stay square (--radius-md) on both, matching web inputs.
  */
 .cta-install {
   margin-top: 26px;
@@ -899,7 +848,7 @@ const HOME_CTA = `.home-cta {
   font-size: 13px;
   color: hsl(var(--muted));
   border: 1px solid hsl(var(--rule));
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   background: hsl(var(--background) / 0.5);
   cursor: copy;
@@ -920,7 +869,6 @@ const HOME_CTA = `.home-cta {
     gap: 10px;
     width: auto;
     max-width: none;
-    border-radius: 999px;
     padding: 9px 16px;
   }
   .cta-install .copyhint { grid-column: auto; margin-top: 0; }
@@ -1028,9 +976,7 @@ const HOME_REVEAL = `.home .reveal {
 @media (prefers-reduced-motion: reduce) {
   .home .reveal { opacity: 1 !important; transform: none !important; }
   .t-cursor,
-  .home-eyebrow .dot,
-  .hero-art::before,
-  .hero-orbit { animation: none !important; }
+  .home-eyebrow .dot { animation: none !important; }
 }`;
 
 export const HOME_STYLES = [

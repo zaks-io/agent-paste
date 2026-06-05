@@ -76,10 +76,11 @@ describe("ThemeToggle", () => {
 });
 
 describe("Wordmark", () => {
-  it("renders with the seal by default", () => {
+  it("renders the canonical agent-paste.sh mark with the seal by default", () => {
     const { container } = render(<Wordmark />);
-    expect(container.textContent).toContain("agent");
-    expect(container.textContent).toContain("paste");
+    // Canonical mark: hyphen-joined name plus the .sh TLD, never a slash.
+    expect(container.textContent).toBe("agent-paste.sh");
+    expect(container.textContent).not.toContain("/");
   });
 
   it("omits the seal when withMark is false", () => {

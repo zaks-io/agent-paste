@@ -125,15 +125,24 @@ describe("apex worker", () => {
     expect(body).toContain("One ID, every surface");
   });
 
-  // The gradient / backdrop-filter bans are intentionally absent while the
-  // marketing surface is being iterated on. The font and shape bans still hold.
+  // Marketing shares the dashboard's discipline (see docs/specs/style-guide.md):
+  // square corners (no pills), no decorative accent glows, no gradient fills. The
+  // one permitted atmosphere is the faint hero aura (.home::before, kept faint
+  // like the grain) and the topbar scroll-state backdrop-filter, which the web
+  // Topbar uses too. The font and shape bans still hold.
   it("does not include style-guide §11 banned tokens", async () => {
     const response = await get("/");
     const body = (await response.text()).toLowerCase();
     expect(body).not.toContain("geist");
     expect(body).not.toContain("space grotesk");
     expect(body).not.toMatch(/["\s,]inter["\s,]/);
-    expect(body).not.toContain("border-radius: 9999");
+    // No pills: the only round radius is 50% (pips/dots), never a 999px capsule.
+    expect(body).not.toContain("9999px");
+    expect(body).not.toContain("999px");
+    // No decorative accent glow: an accent-tinted box-shadow is a glow, not a
+    // hairline. The transcript dots' `inset 0 0 0 1px hsl(var(--rule-strong))`
+    // ring is fine because it is a neutral rule, not the accent.
+    expect(body).not.toMatch(/box-shadow:[^;]*var\(--accent\)/);
   });
 
   it("renders the result gesture as a box-drawing wire, never an em-dash", async () => {

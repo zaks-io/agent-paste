@@ -17,9 +17,6 @@ const Hero: FC = () => (
   <section class="home-hero wrap">
     <div class="hero-art reveal d1">
       <img src={`/${BRAND_MARK}`} alt="agent-paste mark: a capture frame around a hand-off gesture" />
-      <span class="hero-orbit" aria-hidden="true">
-        <span />
-      </span>
     </div>
     <span class="home-eyebrow reveal d1">
       <span class="dot" aria-hidden="true" />

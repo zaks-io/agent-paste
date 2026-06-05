@@ -2,21 +2,35 @@
 
 The visual and interaction standard for everything humans see in **agent-paste**: the marketing surface, the workspace dashboard, the public **Artifact** view, and the renderer pages in the content origin. This document is the source of truth. If a component does not exist here, design it to extend this guide; do not invent a parallel system.
 
-The audience is technical and discerning. Developers, agent builders, security-minded operators. They expect the UI to feel like a piece of professional software, not a marketing pitch. They expect dark mode to be as considered as light mode. They expect interactions to feel correct, not clever. This guide commits to that audience.
+The audience is technical and discerning. Developers, agent builders, security-minded operators. They expect the UI to feel like a piece of professional software, not a marketing pitch. They expect interactions to feel correct, not clever. This guide commits to that audience.
 
 ---
 
-## 1. Aesthetic Direction: Quiet Confidence
+## 0. Unified surfaces
 
-The product is infrastructure. It should feel like infrastructure done well — restrained, considered, the kind of interface that gets out of the way and lets people work. Three commitments shape every decision below.
+The marketing worker (`apps/apex`) and the dashboard (`apps/web`) share **one** visual language. They are different code stacks — apex is a server-rendered hono/jsx worker with inlined CSS, web is React + Tailwind v4 — but they pull from a single token source and read as one product.
 
-**Monochrome by default.** The system is built on a tight warm-neutral palette with high-contrast primary actions in straight foreground-on-background. Color appears only where it carries information: a single brand accent, three status hues, the user's content. A page can have zero non-neutral pixels and still feel finished.
+- **One token source:** `@agent-paste/brand` (`packages/brand/src/tokens.ts`) is the single source of truth for color, type, spacing, radii, and easing. The web app derives `globals.css` from it (guard-tested by `apps/web/test/brand-tokens-parity.test.ts`); apex builds its inline `<style>` from the same package's helpers (`cssVarsBlock`, `fontFaceCss`, `grainCss`). Neither surface hardcodes a brand value.
+- **One of everything that matters:** one type system, one accent (electric violet), one radius scale (2/3/4px), one wordmark (`agent-paste.sh`), one grain overlay.
+- **What differs is content layout, not visual language.** The dashboard is data-dense (the overview's big-figure composition, §8.2); marketing is a wide editorial column (§8.1). Same tokens, same chrome, same discipline — different information density.
 
-**Typography over chrome.** Information hierarchy is established by type weight, size, and spacing — not by drop-shadowed cards, gradient backgrounds, or decorative borders. The default visual separator is whitespace; the secondary separator is a hairline rule; only modal layers earn shadows.
+When you touch one surface, assume the other inherits the same rule. If you need a new token or a new shape, add it to `@agent-paste/brand` so both surfaces get it, never to one app's CSS.
 
-**One signature moment.** The product is fundamentally about addressable **Artifacts** and **Revisions**. The way we present identifiers — mono, tinted, silently copyable — is the signature interaction. Spend design budget here, not on hero animations.
+---
 
-**What we are not.** We are not a glassmorphism dashboard. We are not a gradient-mesh hero. We are not a neon dark mode. We are not editorial / archival / terminal-themed. We are not chasing a metaphor. The accent is a single electric blue-violet, drawn from the brand mark and deployed quietly — one flat color on links, focus, and live-state, never a gradient wash and never a second accent beside it. If a design choice would feel out of place at Linear, Stripe, or Resend, look closer; if it would feel _identical_ to any of them, look closer still.
+## 1. Aesthetic Direction: Dark, square, one voltage
+
+The product is infrastructure — a control room for addressable **Artifacts** and **Revisions**. It should feel like infrastructure done well: precise, dense where it earns it, quiet everywhere else. Four commitments shape every decision below.
+
+**Dark is the product.** The canvas is a cool indigo-tinted near-black (`--ink-0`, `240 16% 6%`), and the bare `:root` is dark so first paint is correct without JS. Light is a supported warm-paper alternate (`[data-theme="light"]`), not the default. Design dark first; verify light second.
+
+**Depth from a surface ladder and 1px hairlines, not shadows.** One hue stepped by lightness (`--ink-0…3`, `--line`/`--line-2`) builds every layer. The default separator is a hairline rule; the secondary separator is a tone step. Drop shadows are reserved for overlays that genuinely float (modals, dropdowns, popovers) — never on a card, never as decoration.
+
+**Hierarchy by scale.** One big figure dominates a view (the overview's hero stat, the marketing headline); everything else recedes to a tiny mono rail with tabular figures. We earn interest from the size jump between the one loud element and the quiet data around it — not from color, not from ornament. This is the composition the dashboard overview makes canonical (§8.2).
+
+**One voltage, square corners.** A single electric violet accent (`--violet`, `248 73% 64%`) does one job: primary action, focus ring, live-state. Never a gradient wash, never a second accent. Corners are square-ish — radius is the exception (2/3/4px), never the rule. The signature interaction is the identifier: mono, tinted, silently copyable (§5.11). Spend design budget there, not on hero animations.
+
+**What we are not.** Not a glassmorphism dashboard. Not a gradient-mesh hero. Not a neon dark mode. Not editorial / archival / terminal-themed. Not chasing a metaphor. If a design choice would feel out of place at Linear, Stripe, or Vercel's cleaner work, look closer; if it would feel _identical_ to any of them, look closer still.
 
 ---
 
@@ -26,10 +40,10 @@ The product is infrastructure. It should feel like infrastructure done well — 
 
 Two faces. No third without an ADR.
 
-| Role     | Family                         | Source       | Used For                                                                   |
-| -------- | ------------------------------ | ------------ | -------------------------------------------------------------------------- |
-| **UI**   | Bricolage Grotesque (variable) | Google Fonts | Everything: headings, body, labels, navigation, forms                      |
-| **Mono** | IBM Plex Mono                  | Google Fonts | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
+| Role     | Family                         | Source      | Used For                                                                   |
+| -------- | ------------------------------ | ----------- | -------------------------------------------------------------------------- |
+| **UI**   | Bricolage Grotesque (variable) | Self-hosted | Everything: headings, body, labels, navigation, forms                      |
+| **Mono** | IBM Plex Mono                  | Self-hosted | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
 
 Bricolage Grotesque is a humanist grotesque with idiosyncratic display proportions and an optical-size axis, so the same family carries a 84px hero and a 14px label — the difference is weight, size, and `opsz`, not a second display face. Its character shows most at hero scale, which is where the landing page earns its voice. IBM Plex Mono is a calm, technical mono with sane disambiguation (`0`, `O`, `l`, `1`) that holds up at small sizes for IDs and URLs.
 
@@ -48,23 +62,22 @@ The shared token source is `@agent-paste/brand`. Both the web app (`apps/web/src
 
 ### 2.3 Scale
 
-Use semantic tokens, not raw pixel sizes. The scale is anchored at 14px with a ratio of ~1.2.
+Use semantic tokens, not raw pixel sizes. Values below are the canonical ones in `@agent-paste/brand` (`TYPE`) and `globals.css`; do not redefine them per surface. The hero is fluid (one `clamp`); the rest are fixed steps so dense data lines up.
 
-| Token            | Px           | Line height | Letter spacing     | Weight | Use                              |
-| ---------------- | ------------ | ----------- | ------------------ | ------ | -------------------------------- |
-| `--text-hero`    | 56 / 64 / 72 | 1.0         | -0.025em           | 600    | Marketing hero only              |
-| `--text-h1`      | 32           | 1.1         | -0.02em            | 600    | Page title                       |
-| `--text-h2`      | 22           | 1.25        | -0.015em           | 600    | Section heading                  |
-| `--text-h3`      | 16           | 1.4         | -0.005em           | 600    | Card or subsection heading       |
-| `--text-lead`    | 17           | 1.55        | -0.005em           | 400    | Intro paragraph                  |
-| `--text-body`    | 14.5         | 1.55        | 0                  | 400    | Default body                     |
-| `--text-sm`      | 13           | 1.5         | 0                  | 400    | Secondary text, table cells      |
-| `--text-xs`      | 12           | 1.4         | 0                  | 500    | Captions, footnotes, helper text |
-| `--text-meta`    | 11           | 1.3         | 0.04em (uppercase) | 600    | Eyebrow labels, table headers    |
-| `--text-mono`    | 13           | 1.55        | 0                  | 400    | Code blocks                      |
-| `--text-mono-sm` | 12           | 1.4         | -0.005em           | 500    | Inline IDs, timestamps           |
+| Token            | Value                  | Line height | Letter spacing     | Weight | Use                              |
+| ---------------- | ---------------------- | ----------- | ------------------ | ------ | -------------------------------- |
+| `--text-hero`    | `clamp(60px,7vw,84px)` | ~0.95       | -0.03 to -0.04em   | 700    | Marketing hero, overview figure  |
+| `--text-h1`      | 30                     | 1.1         | -0.02em            | 600    | Page title                       |
+| `--text-h2`      | 20                     | 1.25        | -0.015em           | 600    | Section heading                  |
+| `--text-h3`      | 15                     | 1.4         | -0.005em           | 600    | Card or subsection heading       |
+| `--text-body`    | 14                     | 1.55        | 0                  | 400    | Default body                     |
+| `--text-sm`      | 13                     | 1.5         | 0                  | 400    | Secondary text, table cells      |
+| `--text-xs`      | 12                     | 1.4         | 0                  | 500    | Captions, footnotes, helper text |
+| `--text-meta`    | 10.5                   | 1.3         | 0.04em (uppercase) | 600    | Eyebrow labels, table headers    |
+| `--text-mono`    | 12.5                   | 1.55        | 0                  | 400    | Code blocks, the data rail       |
+| `--text-mono-sm` | 11.5                   | 1.4         | -0.005em           | 500    | Inline IDs, timestamps           |
 
-The scale is deliberately tight: most surfaces use only `--text-body`, `--text-sm`, and one heading level. Restraint is what keeps it feeling considered.
+The scale is deliberately tight: most surfaces use only `--text-body`, `--text-sm`, the mono rail, and exactly one large element. The size jump from that one large element to the rail is the hierarchy — see §1 and §8.2. Restraint is what keeps it feeling considered.
 
 ### 2.4 Numerals
 
@@ -90,90 +103,96 @@ Bricolage Grotesque italic is restrained and pleasant; use it for emphasis on fi
 
 ### 3.1 Palette
 
-Tokens stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@theme`), shadcn/ui (`hsl(var(--foreground))`), or hand-rolled CSS without re-defining.
+These values are the canonical tokens in `@agent-paste/brand` (`DARK` / `LIGHT` in `tokens.ts`). `globals.css` is guard-tested to match them (`brand-tokens-parity.test.ts`) and apex emits them from the same package — **do not edit these triples in this doc as if it were the source; change `tokens.ts` and let both surfaces follow.** Stored as raw HSL triples so they reference cleanly from Tailwind v4 (`@theme`), `hsl(var(--foreground))` in hand-rolled CSS, or apex's inline style.
+
+Dark is the bare `:root` (so SSR first paint is correct); light is the `[data-theme="light"]` alternate.
 
 ```css
 :root {
-  /* Primitives — never reference directly from components */
-  --neutral-50: 36 14% 98%; /* #FBFAF8 — page background */
-  --neutral-100: 36 10% 96%;
-  --neutral-150: 36 8% 93%;
-  --neutral-200: 30 6% 88%;
-  --neutral-300: 28 5% 78%;
-  --neutral-400: 26 4% 60%;
-  --neutral-500: 24 4% 44%;
-  --neutral-600: 24 5% 32%;
-  --neutral-700: 24 6% 20%;
-  --neutral-800: 24 8% 12%;
-  --neutral-900: 24 10% 7%;
-  --neutral-950: 24 12% 4%;
+  /* Cool indigo-tinted near-black ladder. Depth = lightness steps of one hue. */
+  --ink-0: 240 16% 6%; /* canvas */
+  --ink-1: 240 13% 9%; /* raised surface */
+  --ink-2: 240 12% 12%; /* hover / inset */
+  --ink-3: 240 11% 16%; /* strong inset */
+  --line: 240 9% 18%; /* hairline */
+  --line-2: 240 9% 26%; /* hairline strong */
 
-  /* Brand accent — electric violet, drawn from the brand mark. Canonical
-     triples live in @agent-paste/brand; globals.css is guard-tested to match. */
-  --accent-1: 248 64% 56%; /* light mode primary */
-  --accent-2: 248 68% 60%;
-  --accent-3: 248 73% 64%; /* dark mode primary */
+  /* Faintly warm off-white ink ramp, against the cool dark. */
+  --fg-0: 250 30% 96%; /* primary text */
+  --fg-1: 245 12% 78%; /* secondary */
+  --fg-2: 240 8% 58%; /* tertiary */
+  --fg-3: 240 7% 40%; /* faint */
 
-  /* Status — kept separate from accent */
-  --signal-success: 152 48% 36%;
-  --signal-warning: 32 78% 46%;
-  --signal-error: 2 64% 48%;
-  --signal-info: var(--neutral-600); /* info is just muted neutral */
+  /* The one voltage. Electric violet. */
+  --violet: 248 73% 64%;
+  --violet-dim: 248 50% 46%;
 
-  /* Semantic tokens — light */
-  --background: var(--neutral-50);
-  --surface: 36 16% 100%; /* slight lift above background */
-  --surface-sunken: var(--neutral-100);
-  --foreground: var(--neutral-900);
-  --muted: var(--neutral-500);
-  --subtle: var(--neutral-400);
-  --rule: var(--neutral-200);
-  --rule-strong: var(--neutral-300);
-
-  --primary: var(--neutral-900); /* primary action is monochrome */
-  --primary-fg: var(--neutral-50);
-
-  --accent: var(--accent-1); /* prose links, focus rings, selection */
-  --accent-fg: var(--neutral-50);
-  --selection: 248 64% 56% / 0.16;
-
-  --success: var(--signal-success);
-  --warning: var(--signal-warning);
-  --destructive: var(--signal-error);
-  --info: var(--signal-info);
+  /* Semantic only — never decorative. */
+  --live: 152 56% 52%; /* published / live */
+  --warn: 36 84% 58%;
+  --gone: 4 72% 60%; /* destructive / deleted */
 }
 
+/* Dark is the product. */
+:root,
 [data-theme="dark"] {
-  --background: var(--neutral-950);
-  --surface: var(--neutral-900);
-  --surface-sunken: 24 14% 2%;
-  --foreground: var(--neutral-100);
-  --muted: 24 5% 62%;
-  --subtle: 24 4% 44%;
-  --rule: 24 8% 16%;
-  --rule-strong: 24 8% 24%;
+  --background: var(--ink-0);
+  --surface: var(--ink-1);
+  --surface-2: var(--ink-2);
+  --surface-3: var(--ink-3);
+  --rule: var(--line);
+  --rule-strong: var(--line-2);
+  --foreground: var(--fg-0);
+  --muted: var(--fg-1);
+  --subtle: var(--fg-2);
+  --faint: var(--fg-3);
 
-  --primary: var(--neutral-50);
-  --primary-fg: var(--neutral-900);
+  --accent: var(--violet);
+  --accent-dim: var(--violet-dim);
+  --accent-fg: 250 40% 97%;
+  --accent-tint: 248 73% 64% / 0.14; /* low-alpha tint backgrounds */
+  --selection: 248 73% 64% / 0.3;
 
-  --accent: var(--accent-3);
-  --accent-fg: var(--neutral-950);
-  --selection: 248 73% 64% / 0.24;
+  --success: var(--live);
+  --warning: var(--warn);
+  --destructive: var(--gone);
+  --info: var(--fg-2);
+}
 
-  --success: 152 44% 56%;
-  --warning: 32 78% 60%;
-  --destructive: 2 64% 62%;
-  --info: 24 5% 62%;
+/* Light alternate — warm paper, violet stays the voltage. Supported, not primary. */
+[data-theme="light"] {
+  --background: 40 30% 97%;
+  --surface: 40 33% 99.5%;
+  --surface-2: 40 20% 94%;
+  --surface-3: 38 16% 90%;
+  --rule: 36 14% 86%;
+  --rule-strong: 34 12% 76%;
+  --foreground: 250 22% 12%;
+  --muted: 245 10% 34%;
+  --subtle: 240 7% 48%;
+  --faint: 240 6% 62%;
+
+  --accent: 248 64% 56%;
+  --accent-dim: 248 50% 46%;
+  --accent-fg: 250 40% 98%;
+  --accent-tint: 248 64% 56% / 0.1;
+  --selection: 248 64% 56% / 0.16;
+
+  --success: 152 52% 36%;
+  --warning: 32 80% 42%;
+  --destructive: 4 66% 48%;
+  --info: 245 10% 34%;
 }
 ```
 
+A high-contrast neutral button pair (`--primary` / `--primary-fg`) is derived in `@agent-paste/brand` as foreground-on-background, flipped, so the loudest neutral button is the inverse of the page. There are two compat aliases in `globals.css` (`--neutral-900`, `--neutral-50`) kept only so older chrome/form selectors resolve; they alias the ladder above and are not a separate palette.
+
 ### 3.2 Usage rules
 
-- **Body text** is always `hsl(var(--foreground))`. **Secondary text** is `hsl(var(--muted))`. **Tertiary** is `hsl(var(--subtle))`. Below subtle the text is not readable — restructure rather than add a fourth tier.
-- **Primary action** uses `--primary` / `--primary-fg`. That is monochrome by design: the most important button on the page is foreground-on-background, inverted. There is at most one primary button per view.
-- **Accent** is _not_ used for primary buttons. Accent is used for: prose links in long-form content (docs, marketing, **Markdown** render), focus rings, selection highlights, and badges/labels that mean "go", "valid", or "published". It is the brand color, deployed quietly.
-- **Surfaces nest by tone**, not by stacking shadows: `--surface-sunken` (input wells, code blocks), `--background` (page), `--surface` (cards, modals, dropdowns).
-- **Selection background** is `--selection`. Set it on `::selection`.
+- **Body text** is always `hsl(var(--foreground))`. **Secondary** is `hsl(var(--muted))`, **tertiary** `hsl(var(--subtle))`, **faint** `hsl(var(--faint))` (labels/timestamps only). Below faint, text is not readable — restructure rather than add a fifth tier.
+- **The one accent does one job.** Use `--accent` for: the primary call-to-action, focus rings, selection, live/published state, and prose links in long-form content. Never two accents on a page, never a gradient of it, never an accent glow (a colored `box-shadow`). The neutral `--primary` pair is for high-emphasis neutral buttons where violet would be too loud.
+- **Depth is the surface ladder, not shadows.** Nest by tone: `--background` (canvas) → `--surface` (panels, the transcript) → `--surface-2` (hover/inset) → `--surface-3` (strong inset). Separate with a 1px `--rule` (or `--rule-strong`). No drop shadow on a card (§4.5).
+- **Selection background** is `--selection`; set it on `::selection`.
 - **Color is never the only signal.** Pair every status hue with an icon, label, or text string.
 
 ### 3.3 Contrast targets
@@ -254,26 +273,28 @@ The default visual separator is a 1px hairline rule:
 border: 1px solid hsl(var(--rule));
 ```
 
-Shadows are reserved for floating layers (modals, dropdowns, popovers):
+Depth comes from the surface ladder plus that hairline (§3.2). **Shadows are overlay-only** — reserved for layers that genuinely float above the page (modals, dropdowns, popovers, toasts). They are neutral and soft, derived from the dark canvas:
 
 ```css
 --shadow-overlay:
-  0 1px 0 hsl(var(--rule)), 0 8px 24px -6px hsl(var(--neutral-900) / 0.12),
-  0 24px 64px -24px hsl(var(--neutral-900) / 0.08);
+  0 1px 0 hsl(var(--rule)), 0 8px 24px -6px hsl(0 0% 0% / 0.4),
+  0 24px 64px -24px hsl(0 0% 0% / 0.3);
 ```
 
-Do not put a shadow on a card just because the card is there. Cards earn shadows only when they hover, lift, or float.
+Never put a shadow on a card, a panel, or the transcript — those are flat hairline-bordered surfaces. Never use an accent-tinted shadow (that is a glow, banned in §11). A card does not "lift" on hover; it shifts border-color or background (§7.2). This applies identically on both surfaces — the apex marketing home is squared to exactly this rule (its `index.test.ts` asserts no accent glow and no pill).
 
 ### 4.6 Radii
 
-| Token           | Value  | Use                                        |
-| --------------- | ------ | ------------------------------------------ |
-| `--radius-sm`   | 4px    | Inputs, small buttons, badges, code blocks |
-| `--radius-md`   | 6px    | Default buttons, cards                     |
-| `--radius-lg`   | 10px   | Modal sheets, large panels                 |
-| `--radius-full` | 9999px | Avatars, status pips                       |
+Square-ish. Radius is the exception, never the rule. Three tokens, all small — defined once in `@agent-paste/brand` (`RADII`):
 
-We do not use rounded pills for buttons. Pills read as marketing-template; we are not marketing-template.
+| Token         | Value | Use                                                  |
+| ------------- | ----- | ---------------------------------------------------- |
+| `--radius-xs` | 2px   | Hairline chips, tight insets                         |
+| `--radius-sm` | 3px   | Inline code, the brand mark, small chips             |
+| `--radius-md` | 4px   | Buttons, inputs, cards, panels, the transcript shell |
+| `50%`         | —     | Pips, dots, avatars (the only round shape we permit) |
+
+No pills. There is no `--radius-lg`, no `9999px` capsule, no rounded-rect hero. A pill or a soft 10px+ corner reads as marketing-template; we are not marketing-template, and neither is the marketing surface.
 
 ---
 
@@ -480,7 +501,7 @@ Top-right, fixed, `--surface` background with `--shadow-overlay`. Width 360px. A
 
 ### 5.9 Modal sheet
 
-Centered overlay at ≥ 768px, full-height bottom sheet on mobile. Backdrop is `hsl(var(--neutral-900) / 0.45)` light, `hsl(0 0% 0% / 0.65)` dark. Modal uses `--radius-lg`, `--shadow-overlay`, and a top header with title (`--text-h3`) and close affordance.
+Centered overlay at ≥ 768px, full-height bottom sheet on mobile. Backdrop is `hsl(0 0% 0% / 0.55)` (a touch lighter in light mode). Modal uses `--radius-md`, `--shadow-overlay`, and a top header with title (`--text-h3`) and close affordance. The modal is the one card-like surface that earns a shadow, because it genuinely floats.
 
 Trap focus inside the modal. Restore focus to the trigger on close. Close on `Escape` and backdrop click only when the modal is non-destructive — destructive confirms (e.g. **Deletion**, **API Key Revocation**) require an explicit cancel.
 
@@ -570,21 +591,36 @@ Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same 
 
 ### 6.2 Logo
 
-The wordmark is **agent-paste** set in Bricolage Grotesque 700 with `letter-spacing: -0.02em`. Hyphen included, no separation. Two registered colorings: solid `--foreground`, or `--foreground` with the hyphen colored `--accent`. Nothing else.
+The canonical wordmark is **`agent-paste.sh`**, set in the display face (Bricolage Grotesque) at the chrome size (~15px) with tight `letter-spacing: -0.03em`. It has three parts, always in these color roles:
+
+- `agent` and `paste` in `--foreground`.
+- the **hyphen** between them in `--accent` (the one place the wordmark carries voltage).
+- the `.sh` TLD in `--subtle`, weight 600.
+
+Optionally preceded by the brand mark (`brand-mark.png`) at the same height with a `--radius-sm` (3px) corner and **no ring, no shadow**. The mark is identical on both surfaces — apex (`apps/apex/src/components/chrome.tsx` + the `.wordmark*` rules in `styles.ts`) and web (`apps/web/src/components/chrome/Wordmark.tsx`). Keep them byte-for-byte in intent so they cannot drift; the web component's header comment points back here.
+
+**The slash is not part of the mark.** A `/` only ever appears as a breadcrumb separator in chrome — between the wordmark and the current **Workspace** name in the dashboard topbar. It is path syntax, not branding. Do not render `agent/paste`.
 
 ### 6.3 Page chrome
 
-The dashboard top bar is a 52px row containing the wordmark (left), a **Workspace** switcher (center-left), a global search trigger (center), and the member avatar (right). 1px bottom rule. No drop shadow, no backdrop blur.
+Both surfaces share one chrome motif: a sticky top bar with the wordmark at the left and a 1px bottom rule.
 
-The sidebar uses `--space-2` interior padding, items 30px tall, label left-aligned with a 20px icon and 10px gap. Active state: `--surface-sunken` background, no left bar, no icon color change — just the background shift. Quiet.
+- **Dashboard topbar:** wordmark (left), then ` / {Workspace name}` as the breadcrumb (§6.2), a command-palette trigger and the member avatar at the right. Flat against the canvas; the rule is its only edge.
+- **Marketing topbar (apex):** the same wordmark at left, nav links centered, primary CTA at right. It is transparent at the top of the page and, once scrolled (`[data-stuck="true"]`), fades in a translucent `--background` fill with a `backdrop-filter: blur` and the bottom rule. This scroll-state backdrop is the **one** backdrop-filter we permit, and it is shared chrome behavior, not decoration — the dashboard topbar uses the same treatment when it overlays scrolling content.
+
+The sidebar uses `--space-2` interior padding, items ~30px tall, label left-aligned with a 20px icon and a small gap. Active state: `--surface-2` background, no left bar, no icon color change — just the background shift. Quiet.
 
 ### 6.4 No decoration
 
 There are no illustrations, mascots, sticker icons, or background patterns. There is no gradient mesh and no gradient fill anywhere — the accent is one flat color. The system earns its character through type, color discipline, and interaction quality — not through ornamentation.
 
-One exception, and only one: a single very low-opacity fractal-noise **grain overlay** on the page background (`body::before`, opacity ~0.035 dark / ~0.025 with `mix-blend-mode: multiply` light), emitted from `@agent-paste/brand` as an inline `data:` SVG so it stays CSP-safe. It is atmosphere, not illustration — it must never be legible as a texture, never tile a visible pattern, and never carry meaning. If you can _see_ the grain rather than just feel the surface settle, it is too strong.
+Two exceptions, and only two, both held to the same "atmosphere, never legible" bar:
 
-If a surface feels like it needs decoration beyond that, it needs better typography and more whitespace.
+1. **Grain overlay (both surfaces).** A single very low-opacity fractal-noise overlay on the page background (`body::before`, opacity ~0.035 dark / ~0.025 with `mix-blend-mode: multiply` light), emitted from `@agent-paste/brand` (`grainCss`) as an inline `data:` SVG so it stays CSP-safe. It must never be legible as a texture, never tile a visible pattern, never carry meaning. If you can _see_ the grain rather than just feel the surface settle, it is too strong.
+
+2. **Hero aura (marketing only).** One faint violet radial behind the apex hero (`.home::before`), blurred and well below "legible," held to the same bar as the grain. This is the single permitted gradient anywhere in the system, and it exists only on the marketing home — not the dashboard, not cards, not CTAs. Everything else that was once a gradient (the old CTA wash, the accent glows, the orbit ring) has been removed so apex matches the dashboard.
+
+If a surface feels like it needs decoration beyond those two, it needs better typography and more whitespace.
 
 ---
 
@@ -594,7 +630,7 @@ If a surface feels like it needs decoration beyond that, it needs better typogra
 
 - **Motion is feedback, not decoration.** Every animation answers a question: did my action register, where did this element come from, what just changed.
 - **Default duration is 150ms.** Anything longer needs a justification.
-- **Curves:** `--ease-out: cubic-bezier(0.2, 0.8, 0.2, 1)` for entrances and most state changes. `--ease-in: cubic-bezier(0.4, 0, 1, 1)` for exits. Spring easing only via Motion One / Framer Motion, never CSS.
+- **One curve:** `--ease-out: cubic-bezier(0.16, 0.84, 0.3, 1)` (defined in `@agent-paste/brand` as `EASE_OUT`) for entrances and most state changes. Spring easing only via Motion One / Framer Motion, never CSS.
 - **Reduced motion is honored.** Wrap every non-trivial transition in `@media (prefers-reduced-motion: no-preference)`. Replace movement with opacity changes.
 
 ### 7.2 Patterns
@@ -625,22 +661,33 @@ If a surface feels like it needs decoration beyond that, it needs better typogra
 
 ## 8. Surfaces
 
-The product has four visually distinct surfaces. Each commits to the shared system, but tunes the dials.
+The product has four visually distinct surfaces. Each commits to the shared system (§0) — same tokens, same chrome, same discipline — and only tunes information density. The marketing worker and the dashboard are not two design systems; they are two layouts of one.
 
-### 8.1 Marketing (`agent-paste.sh/`)
+### 8.1 Marketing (`apps/apex`, `agent-paste.sh/`)
 
-- Bleed-width hero: `--text-hero` title, one `--text-lead` paragraph below, one primary CTA, one secondary "View on GitHub" link.
-- Below the hero, a code block showing `npx @zaks-io/agent-paste publish ./report` rendered with the standard `pre` style and a Copy affordance.
-- The rest of the page is a single column at `--container-prose` width: feature sections separated by `--space-20`, each leading with a `--text-h2` and a one-paragraph body.
-- Footer is a 4-column grid (Product / Docs / Company / Legal), collapsing to 2 on tablet and 1 on mobile.
-- **No carousels, no autoplaying video, no animated background gradients, no "Featured in" logo strips, no testimonial slider.**
+Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It shares the dashboard's exact discipline: square corners (`--radius-xs/sm/md`), depth from the surface ladder + 1px hairlines, no decorative drop shadows, no accent glows, no card hover-lifts, no gradient fills. The two permitted atmospheres are the shared grain and the single faint hero aura (§6.4); the topbar's scroll-state `backdrop-filter` is shared chrome (§6.3). `apps/apex/src/index.test.ts` asserts the no-pill / no-accent-glow rules so it cannot regress.
 
-### 8.2 Dashboard (`/app/*`)
+- Bleed-width hero: the brand mark (squared, no ring), an eyebrow with a flat live pip, the `--text-hero` headline (the accent appears only on the trailing stop), one lead paragraph, one primary CTA and one secondary arrow link.
+- A flat, hairline-bordered transcript shell shows the product in use.
+- Feature / pillar / use-case sections are hairline-separated grids of flat `--surface` panels — hover shifts border-color and background, never position.
+- The CTA is a flat hairline panel (no gradient overlay) with a squared install command box (no pill).
+- Footer is a multi-column grid collapsing to fewer columns on small screens.
+- **No carousels, no autoplaying video, no gradient washes beyond the one hero aura, no "Featured in" logo strips, no testimonial slider, no card lifts.**
 
-- Two-pane: 240px sidebar + main pane. Sidebar groups: **Artifacts**, **Access Links**, **API Keys**, **Audit Log**, **Usage Policy**, **Workspace**.
-- Each main view opens with a header row: page title (`--text-h1`) on the left, primary action on the right, one-line `--text-sm --muted` description below the title.
-- Tables fill the remaining viewport. Empty states follow §5.7.
-- Detail views (single **Artifact**, single **API Key**) use a two-column layout: 2/3 main content, 1/3 metadata sidebar with key/value rows in `--text-sm`.
+### 8.2 Dashboard (`apps/web`, `/app/*`)
+
+Two-pane: a sidebar + main pane. Sidebar groups: **Overview**, **Artifacts**, **Access Links**, **API Keys**, **Audit Log**, **Workspace**, **Billing**.
+
+Each main view opens with a `PageHeader`: page title (`--text-h1`) on the left, primary action on the right, one-line `--text-sm --muted` description below the title. Tables fill the remaining viewport; empty states follow §5.7. Detail views use a two-column layout: main content beside a metadata rail of key/value rows in `--text-sm`.
+
+**The data-overview pattern (canonical).** This is the composition the rest of the system points back to for "hierarchy by scale" (§1). It is the dashboard's signature layout and the look the product is designed around:
+
+- **One hero figure leads.** A single large display number (`HeroStat`, near `--text-hero` scale, tabular figures) carries the most important metric. Nothing else on the surface competes with it for size.
+- **Everything else is a quiet mono rail.** Supporting metrics sit in a `StatBand` — small mono `--text-meta` labels over compact tabular figures, separated by hairlines, not boxed in shadowed cards.
+- **Sections are hairline-separated**, built from `Card` (flat `--surface`, 1px `--rule`, `--radius-md`, no shadow) and `PageHeader`. Depth is the surface ladder, never a drop shadow.
+- The interest comes entirely from the size jump between the one big figure and the small rail — different text sizes, tabular numerals, generous whitespace. That contrast _is_ the design; do not flatten it into uniform cards, and do not add a second loud element.
+
+Real primitives: `apps/web/src/components/ui/HeroStat.tsx`, `StatBand.tsx`, `Card.tsx`, `PageHeader.tsx`, `Table.tsx`. Build new data overviews from these, not from new boxed-card layouts. This pattern is dashboard-only; do not port the big-figure overview onto the marketing surface.
 
 ### 8.3 Public **Artifact** view (`agent-paste.sh/r/{token}` and `app.agent-paste.sh/artifacts/{id}`)
 
@@ -718,14 +765,17 @@ Use Tailwind utilities for layout and spacing. Use CSS modules or shadcn's `cn()
 
 Things we have seen agents produce that violate the guide. Do not do these.
 
-- **Gradient backgrounds or hero washes.** Banned on every surface. The violet accent is one flat color, never a gradient fill.
-- **Glassmorphism / backdrop-blur cards.** No.
+- **Gradient backgrounds or fills.** The violet accent is one flat color, never a gradient. The _only_ permitted gradient anywhere is the single faint marketing hero aura (§6.4) — no CTA washes, no card gradients, no gradient hero text.
+- **Accent glows.** An accent-tinted `box-shadow` (a glow) is banned. Shadows are neutral and overlay-only (§4.5).
+- **Card hover-lifts.** No `translateY`/`translateX` on cards or buttons on hover. Hover shifts border-color or background, never position (§7.2).
+- **Glassmorphism / backdrop-blur cards.** No. The only `backdrop-filter` is the shared topbar scroll-state (§6.3).
+- **`agent/paste` with a slash in the wordmark.** The mark is `agent-paste.sh` (§6.2); the slash is a breadcrumb separator only.
 - **Inter, Geist, or Space Grotesk as UI font.** Pick a different system, not this one.
 - **"Hero with floating product screenshot"** marketing layouts. Replace with type.
 - **Lottie animations** for empty states. Use type.
 - **Multi-color accent palettes** ("primary purple, secondary green, tertiary pink"). One accent.
-- **Pill-shaped buttons.** Use `--radius-md`.
-- **Drop-shadowed cards floating over solid backgrounds.** Use the rule.
+- **Pill-shaped buttons or capsules.** Use `--radius-md`; there is no `--radius-lg` and no `9999px`.
+- **Drop-shadowed cards floating over solid backgrounds.** Use the surface ladder + rule.
 - **Color-only state indication.** Always pair with icon or label.
 - **"AI assistant" floating chat bubbles.** No.
 - **Mascots, emoji decorations, sticker illustrations.** Infrastructure product, no mascot.
