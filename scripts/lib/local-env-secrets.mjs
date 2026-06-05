@@ -1,3 +1,4 @@
+// @ts-check
 // Manages local/dev secret values in a gitignored .env file, per ADR 0078.
 //
 // Local is the one environment where storing values in a readable file is the

@@ -1,3 +1,4 @@
+// @ts-check
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, run, workerName } from "../wrangler-secrets.mjs";

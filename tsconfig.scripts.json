@@ -1,0 +1,41 @@
+{
+  // Type-check the `scripts/` decision-logic tier WITHOUT converting `.mjs` to `.ts`.
+  // `checkJs` + JSDoc gets us typo/arity/shape safety on the deploy + secret-rotation
+  // code paths while keeping these files plain ESM (no transpile in the deploy hot path).
+  //
+  // Posture is deliberately relaxed vs `tsconfig.base.json`: `noImplicitAny` is off so
+  // un-annotated params don't force a full `.ts` conversion. The goal is catching real
+  // bugs (the kind that already showed up: a Map monkey-patched with a stray field, a
+  // guard that didn't narrow), not 100% annotation.
+  //
+  // Scope = the files that opt in with `// @ts-check`. The smoke/integration scripts are
+  // intentionally OUT: they read `await res.json()` (typed `unknown`) all over, which is
+  // ~120 false-positive errors on the same tier we exclude from coverage in
+  // `vitest.scripts.config.ts`. Add a file here only once it carries `// @ts-check`.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "files": [
+    "scripts/deploy.mjs",
+    "scripts/deploy-pr-preview.mjs",
+    "scripts/lib/hyperdrive-branch-guard.mjs",
+    "scripts/lib/load-env-files.mjs",
+    "scripts/lib/local-env-secrets.mjs",
+    "scripts/lib/rotation-audit.mjs",
+    "scripts/lib/rotation-profiles.mjs",
+    "scripts/lib/secret-routing.mjs",
+    "scripts/lib/secret-values.mjs",
+    "scripts/lib/versioned-secret-rotation.mjs",
+    "scripts/lib/wrangler-env-vars.mjs"
+  ]
+}

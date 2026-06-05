@@ -1,3 +1,4 @@
+// @ts-check
 // Single source of truth for which Worker consumes which secret, per ADR 0078.
 //
 // Every deploy path (standing preview/production in deploy-preview.mjs, per-PR in

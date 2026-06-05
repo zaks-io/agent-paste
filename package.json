@@ -67,7 +67,8 @@
     "test:scripts": "vitest run --config vitest.scripts.config.ts",
     "test:coverage": "node scripts/clean-coverage.mjs && turbo run test:coverage && node scripts/merge-coverage.mjs",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm test:scripts"
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
+    "verify": "pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
