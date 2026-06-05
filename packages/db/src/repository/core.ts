@@ -4,6 +4,7 @@ import { RepositoryCoreContext } from "./core-context.js";
 import type { Repository } from "./interface.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { UnitOfWork } from "./ports.js";
+import { peekArtifactDenylistRetention as peekArtifactDenylistRetentionCore } from "../access-link-invalidation.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
@@ -308,6 +309,10 @@ export class RepositoryCore implements Repository {
 
   async revokeMemberAccessLink(input: { actor: ApiActor; accessLinkId: string; now?: Date }) {
     return accessLinksWorkflow.revokeMemberAccessLink(this.ctx, input);
+  }
+
+  async peekArtifactDenylistRetention(artifactId: string) {
+    return peekArtifactDenylistRetentionCore(this.ctx, artifactId);
   }
 
   async mintMemberAccessLink(input: {

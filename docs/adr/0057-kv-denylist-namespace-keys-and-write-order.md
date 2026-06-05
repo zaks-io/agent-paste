@@ -54,7 +54,7 @@ State-changing handlers on `api` and sweep handlers on `jobs` use the same order
 2. Write the corresponding denylist key.
 3. Enqueue any byte-purge job on Cloudflare Queues per [ADR 0019](./0019-cloudflare-queues-for-background-jobs.md).
 
-A failure between step 1 and step 2 is recovered by the `jobs` cron rediscovery sweep referenced in the ADR 0028 README cross-reference and [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md). Once written, denylist entries still live for the maximum currently minted content-token lifetime described above; the accepted revocation consistency window is limited to KV/cache propagation, not a shorter entry TTL.
+A failure between step 1 and step 2 on `api` is **fail-closed**: when the `DENYLIST` binding is present, the handler returns `503 storage_unavailable` after the Postgres commit so the caller can retry the same idempotent operation and re-attempt the denylist write. There is no `jobs` cron sweep for access-link revocation or access-link lockdown denylist keys; byte-purge recovery sweeps in [ADR 0050](./0050-bundle-availability-and-asymmetric-dlq-consumption.md) cover deletion enqueue only. Once written, denylist entries still live for the maximum currently minted content-token lifetime described above; the accepted revocation consistency window is limited to KV/cache propagation, not a shorter entry TTL.
 
 ## Bindings
 

@@ -7,6 +7,7 @@ const MAX_DENYLIST_ATTEMPTS = 3;
 
 export type DenylistBinding = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete?(key: string): Promise<void>;
 };
 
 export type BytePurgeQueueBinding = {
@@ -33,6 +34,25 @@ export async function writeDenylistKey(env: ArtifactInvalidationEnv, key: string
   for (let attempt = 1; attempt <= MAX_DENYLIST_ATTEMPTS; attempt += 1) {
     try {
       await env.DENYLIST.put(key, value, { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });
+      return true;
+    } catch {
+      if (attempt === MAX_DENYLIST_ATTEMPTS) {
+        return false;
+      }
+      await sleep(Math.min(250 * 2 ** (attempt - 1), 1000));
+    }
+  }
+  return false;
+}
+
+export async function deleteDenylistKey(env: ArtifactInvalidationEnv, key: string): Promise<boolean> {
+  if (!env.DENYLIST?.delete || !key) {
+    return false;
+  }
+
+  for (let attempt = 1; attempt <= MAX_DENYLIST_ATTEMPTS; attempt += 1) {
+    try {
+      await env.DENYLIST.delete(key);
       return true;
     } catch {
       if (attempt === MAX_DENYLIST_ATTEMPTS) {
