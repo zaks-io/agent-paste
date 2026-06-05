@@ -222,6 +222,25 @@ describe("MCP auth and idempotency helpers", () => {
     expect(shareKey).toMatch(/:share-link$/);
   });
 
+  it("keeps hashed and direct access-link idempotency keyspaces disjoint", () => {
+    const targetHash = "d4d70a05";
+    const longToolKey = IdempotencyKey.parse(`${"x".repeat(190)}${"0".repeat(10)}`);
+    const shortToolKey = IdempotencyKey.parse(`h${targetHash}`);
+    expect(`${longToolKey}:revision-link`.length).toBeGreaterThan(200);
+
+    const shortRevisionKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey, "revision");
+    const longRevisionKey = mcpPublishAccessLinkIdempotencyKey(longToolKey, "revision");
+    const shortShareKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey, "share");
+    const longShareKey = mcpPublishAccessLinkIdempotencyKey(longToolKey, "share");
+
+    expect(shortRevisionKey).not.toBe(longRevisionKey);
+    expect(shortShareKey).not.toBe(longShareKey);
+    expect(shortRevisionKey).toMatch(/^h[0-9a-f]{8}:revision-link$/);
+    expect(shortRevisionKey).not.toBe(`h${targetHash}:revision-link`);
+    expect(longRevisionKey).toBe(`h${targetHash}:revision-link`);
+    expect(longShareKey).toBe(`h${targetHash}:share-link`);
+  });
+
   it("accepts max-length idempotency_key on publish and add_revision inputs", () => {
     const maxKey = "a".repeat(200);
     expect(
