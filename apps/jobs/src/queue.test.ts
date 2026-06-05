@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  QUEUE_BUNDLE_GENERATE_DLQ,
-  QUEUE_BYTE_PURGE,
-} from "./constants.js";
+import { QUEUE_BUNDLE_GENERATE_DLQ, QUEUE_BYTE_PURGE } from "./constants.js";
 import { handleQueueBatch, normalizeQueueName } from "./queue.js";
+import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -63,18 +61,15 @@ describe("PR-scoped preview queue routing", () => {
 
   it("routes bundle-generate-dlq-preview-pr-100 to the DLQ handler", async () => {
     const updates: unknown[] = [];
-    const executor = {
-      query: vi.fn(async (sql: string) => {
-        if (sql.includes("insert into idempotency_records")) {
-          return { rows: [{ workspace_id: workspaceId }] };
-        }
-        if (sql.includes("update revisions")) {
-          updates.push(sql);
-        }
-        return { rows: [] };
-      }),
-      transaction: vi.fn(async (run) => run(executor)),
-    };
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("insert into idempotency_records")) {
+        return { rows: [{ workspace_id: workspaceId }] };
+      }
+      if (sql.includes("update revisions")) {
+        updates.push(sql);
+      }
+      return { rows: [] };
+    });
     const ack = vi.fn();
     await handleQueueBatch(
       {

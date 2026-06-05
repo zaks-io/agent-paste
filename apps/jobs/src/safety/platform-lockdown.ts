@@ -1,6 +1,7 @@
 import { runCommand } from "@agent-paste/commands";
 import type { SqlExecutor } from "@agent-paste/db";
 import { writeArtifactDenylist } from "@agent-paste/db";
+import { withPlatformScope } from "../db.js";
 import type { Env } from "../env.js";
 import { logOp } from "../op-log.js";
 
@@ -12,7 +13,7 @@ export async function applyMaliciousUrlLockdown(
   input: { workspaceId: string; artifactId: string; revisionId: string; now: string },
 ): Promise<boolean> {
   const command = await runCommand({
-    executor,
+    executor: withPlatformScope(executor),
     actor: { type: "platform", id: SAFETY_SCAN_PLATFORM_ACTOR_ID, workspaceId: null },
     operation: "platform.lockdown.set",
     idempotencyKey: `url_scanner:${input.artifactId}`,

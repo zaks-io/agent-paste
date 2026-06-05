@@ -20,6 +20,8 @@
     "typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --env preview"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.4.5",
+    "@types/node": "^24.12.4",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

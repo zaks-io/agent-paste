@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
+import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { applyMaliciousUrlLockdown } from "./platform-lockdown.js";
 
 describe("applyMaliciousUrlLockdown", () => {
   it("writes the artifact denylist after creating a lockdown", async () => {
     const put = vi.fn(async () => {});
-    const executor = {
-      query: vi.fn(async (sql: string) => {
+    const executor = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from platform_lockdowns")) {
           return { rows: [] };
         }
@@ -20,8 +21,7 @@ describe("applyMaliciousUrlLockdown", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (handler: (tx: typeof executor) => Promise<unknown>) => handler(executor)),
-    };
+    );
 
     await expect(
       applyMaliciousUrlLockdown(
@@ -43,8 +43,8 @@ describe("applyMaliciousUrlLockdown", () => {
   });
 
   it("skips insert when an effective lockdown already exists", async () => {
-    const executor = {
-      query: vi.fn(async (sql: string) => {
+    const executor = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from platform_lockdowns")) {
           return { rows: [{ id: "lkd_existing" }] };
         }
@@ -53,8 +53,7 @@ describe("applyMaliciousUrlLockdown", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (handler: (tx: typeof executor) => Promise<unknown>) => handler(executor)),
-    };
+    );
 
     await expect(
       applyMaliciousUrlLockdown(

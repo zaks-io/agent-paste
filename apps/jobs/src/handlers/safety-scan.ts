@@ -4,7 +4,7 @@ import { SafetyScanMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import { mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
-import { resolveSqlExecutor } from "../db.js";
+import { resolveSqlExecutor, withWorkspaceScope } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { isEphemeralScannerId } from "../safety/ephemeral-scanner.js";
@@ -46,7 +46,8 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
   for (const message of messages) {
     try {
       const payload = SafetyScanMessage.parse(message.body);
-      const state = await loadRevisionState(executor, payload.workspace_id, payload.revision_id);
+      const scoped = withWorkspaceScope(executor, payload.workspace_id);
+      const state = await loadRevisionState(scoped, payload.workspace_id, payload.revision_id);
       if (!state) {
         message.ack();
         continue;
@@ -70,7 +71,7 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
         throw new Error("artifacts_bucket_missing");
       }
 
-      const files = await loadRevisionFiles(executor, payload.artifact_id, payload.revision_id);
+      const files = await loadRevisionFiles(scoped, payload.artifact_id, payload.revision_id);
       const scannerFiles = [];
       for (const file of files) {
         const object = await getObject(file.r2_key);
@@ -86,7 +87,7 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
 
       const scanner = resolveSafetyScanner(env, payload.scanner_id);
       const warnings = await scanner.scan(scannerFiles);
-      const result = await replaceSafetyWarnings(executor, {
+      const result = await replaceSafetyWarnings(scoped, {
         workspaceId: payload.workspace_id,
         artifactId: payload.artifact_id,
         revisionId: payload.revision_id,
@@ -96,7 +97,7 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
         now: payload.requested_at,
       });
       if (isEphemeralScannerId(payload.scanner_id)) {
-        await runEphemeralUrlScanner(executor, env, {
+        await runEphemeralUrlScanner(scoped, env, {
           workspaceId: payload.workspace_id,
           artifactId: payload.artifact_id,
           revisionId: payload.revision_id,

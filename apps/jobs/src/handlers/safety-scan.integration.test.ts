@@ -1,5 +1,6 @@
 import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
+import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { handleSafetyScanBatch } from "./safety-scan.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -31,10 +32,7 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
-      DB: {
-        query: vi.fn(async () => ({ rows: [] })),
-        transaction: vi.fn(),
-      },
+      DB: createMockSqlExecutor(vi.fn(async () => ({ rows: [] }))),
     });
 
     expect(ack).toHaveBeenCalledOnce();
@@ -46,10 +44,7 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
-      DB: {
-        query: vi.fn(async () => ({ rows: [{ status: "published", artifact_status: "active" }] })),
-        transaction: vi.fn(),
-      },
+      DB: createMockSqlExecutor(vi.fn(async () => ({ rows: [{ status: "published", artifact_status: "active" }] }))),
     });
 
     expect(ack).not.toHaveBeenCalled();
@@ -61,10 +56,7 @@ describe("handleSafetyScanBatch", () => {
     const get = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry: vi.fn() }], {
-      DB: {
-        query: vi.fn(async () => ({ rows: [{ status: "retained", artifact_status: "active" }] })),
-        transaction: vi.fn(),
-      },
+      DB: createMockSqlExecutor(vi.fn(async () => ({ rows: [{ status: "retained", artifact_status: "active" }] }))),
       ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get },
     });
 
@@ -76,8 +68,8 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
-      DB: {
-        query: vi.fn(async (sql: string) => {
+      DB: createMockSqlExecutor(
+        vi.fn(async (sql: string) => {
           if (sql.includes("from revisions r")) {
             return { rows: [{ status: "published", artifact_status: "active" }] };
           }
@@ -88,8 +80,7 @@ describe("handleSafetyScanBatch", () => {
           }
           return { rows: [] };
         }),
-        transaction: vi.fn(),
-      },
+      ),
       ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(async () => null) },
     });
 
@@ -100,8 +91,8 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
-      DB: {
-        query: vi.fn(async (sql: string) => {
+      DB: createMockSqlExecutor(
+        vi.fn(async (sql: string) => {
           if (sql.includes("from revisions r")) {
             return { rows: [{ status: "published", artifact_status: "active" }] };
           }
@@ -112,8 +103,7 @@ describe("handleSafetyScanBatch", () => {
           }
           return { rows: [] };
         }),
-        transaction: vi.fn(),
-      },
+      ),
       ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(async () => ({ body: {} as ReadableStream })) },
     });
 
@@ -141,8 +131,8 @@ describe("handleSafetyScanBatch", () => {
       }),
       transaction: vi.fn(),
     };
-    const db = {
-      query: vi.fn(async (sql: string) => {
+    const db = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from revisions r")) {
           return { rows: [{ status: "published", artifact_status: "active" }] };
         }
@@ -159,8 +149,8 @@ describe("handleSafetyScanBatch", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (run) => run(tx)),
-    };
+      tx.query,
+    );
     const ack = vi.fn();
 
     await handleSafetyScanBatch(
@@ -240,8 +230,8 @@ describe("handleSafetyScanBatch", () => {
       }),
       transaction: vi.fn(),
     };
-    const db = {
-      query: vi.fn(async (sql: string) => {
+    const db = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from revisions r")) {
           return { rows: [{ status: "published", artifact_status: "active" }] };
         }
@@ -257,8 +247,8 @@ describe("handleSafetyScanBatch", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (run) => run(tx)),
-    };
+      tx.query,
+    );
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
       DB: db,
@@ -322,8 +312,8 @@ describe("handleSafetyScanBatch", () => {
       }),
       transaction: vi.fn(),
     };
-    const db = {
-      query: vi.fn(async (sql: string) => {
+    const db = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from revisions r")) {
           return { rows: [{ status: "published", artifact_status: "active" }] };
         }
@@ -332,8 +322,8 @@ describe("handleSafetyScanBatch", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (run) => run(tx)),
-    };
+      tx.query,
+    );
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
       DB: db,
@@ -386,8 +376,8 @@ describe("handleSafetyScanBatch", () => {
       }),
       transaction: vi.fn(),
     };
-    const db = {
-      query: vi.fn(async (sql: string) => {
+    const db = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
         if (sql.includes("from revisions r")) {
           return {
             rows: [{ status: "published", artifact_status: "active" }],
@@ -403,8 +393,8 @@ describe("handleSafetyScanBatch", () => {
         }
         return { rows: [] };
       }),
-      transaction: vi.fn(async (run) => run(tx)),
-    };
+      tx.query,
+    );
 
     await handleSafetyScanBatch(
       [
