@@ -186,8 +186,8 @@ export async function billingCheckout(
           workspaceId,
           customerId: existing?.stripe_customer_id ?? null,
           priceId,
-          successUrl: `${base}/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${base}/settings/billing?status=cancelled`,
+          successUrl: `${base}/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${base}/billing?status=cancelled`,
           idempotencyKey: guard.idempotencyKey,
         }),
       { successStatus: 200 },
@@ -235,7 +235,7 @@ export async function billingPortal(
     }
     const session = await provider.createPortalSession({
       customerId: row.stripe_customer_id,
-      returnUrl: `${webBaseUrl(env)}/settings/billing`,
+      returnUrl: `${webBaseUrl(env)}/billing`,
     });
     return respondJson(session);
   });

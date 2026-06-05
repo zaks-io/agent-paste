@@ -37,7 +37,7 @@ export const DASHBOARD_DOC: DocsPage = {
             ["`/keys`", "Create, reveal once, list, and revoke API Keys."],
             ["`/audit`", "Workspace Audit Event list."],
             ["`/settings`", "Workspace name and default retention settings."],
-            ["`/settings/billing`", "Plan, remaining writes, Checkout, Portal, and invoices."],
+            ["`/billing`", "Plan, remaining writes, Checkout, Portal, and invoices."],
           ],
         },
       ],

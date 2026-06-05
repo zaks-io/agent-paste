@@ -31,7 +31,7 @@ Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutati
 /keys                      _authed
 /audit                     _authed
 /settings                  _authed
-/settings/billing          _authed
+/billing                   _authed
 /claim                     _authed/guest handoff
 /admin                     _authed + is_operator guard
 ```

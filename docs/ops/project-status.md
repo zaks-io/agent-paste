@@ -68,7 +68,7 @@ What stands today:
 - **Billing** — Free + Pro is implemented end-to-end behind the deploy-time
   `BILLING_ENABLED` flag (off by default): plan-derived caps, the Stripe
   `BillingProvider` (Checkout, idempotent webhooks, Portal, operator override,
-  invoices), the daily reconciliation backstop, and the `/settings/billing`
+  invoices), the daily reconciliation backstop, and the `/billing`
   dashboard. Enforcement reads only local `workspaces.plan`; Stripe is a sync
   layer, never the hot-path source of truth. Remaining: hosted Stripe test-mode
   verification (needs credentials + approval).
