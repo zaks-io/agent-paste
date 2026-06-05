@@ -100,6 +100,11 @@ jobs:
         env:
           DATABASE_URL_MIGRATIONS_PRODUCTION: ${{ secrets.DATABASE_URL_MIGRATIONS_PRODUCTION }}
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          # scripts/migrate.mjs runs the Hyperdrive branch guard, which shells out to
+          # `wrangler hyperdrive get`. Wrangler needs CLOUDFLARE_API_TOKEN in a
+          # non-interactive env or it exits 1 before any migration runs.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm migrate:production
 
       - name: Deploy production Workers
