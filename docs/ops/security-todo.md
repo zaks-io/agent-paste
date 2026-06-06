@@ -65,6 +65,20 @@ what can land while the repo is private and what waits for the public flip.
 Per ADR 0076, public trust signals become meaningful only once the source,
 license, workflows, and scan config are inspectable.
 
+Launch-readiness aggregator for the go-public toggles plus the two non-security
+items below (apex repo link, status page) is
+[AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex),
+filed off an external credibility review.
+
+- [ ] Flip the apex GitHub source link on. The marketing site has **no** repo
+      link by design: `apps/apex/src/index.test.ts` asserts `github.com` /
+      "open source" never appear, and `apps/apex/src/about.ts` says the same.
+      Add a source link (footer + About) and flip those test gates from
+      "absent" to "present" **in the same change as the visibility flip** —
+      never before.
+- [ ] Stand up a status page or public incident/update channel. Blocked on the
+      account/tooling stack; minimum bar is a public incident channel, not
+      necessarily a full hosted status page.
 - [ ] Enable GitHub CodeQL / code scanning, GitHub secret scanning, Dependabot
       alerts + updates, and OpenSSF Scorecard (with published results).
 - [ ] Swap the advisory SARIF **artifact** uploads (Trivy, Semgrep) for

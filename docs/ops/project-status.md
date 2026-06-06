@@ -2,8 +2,8 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-05 (`codex/ap-236-fail-closed-rate-limit-deploy-hardening`
-working tree; refreshed onto `origin/main@e0eabfb` before PR handoff).
+Last updated: 2026-06-05 (open-source-gate refresh: legal address + secrets
+guidance shipped in PR #393, launch-readiness gaps aggregated under AP-254).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -172,9 +172,18 @@ Highest-signal gaps:
 
 Repo is licensed **Apache-2.0** and the ADR 0076 private-phase security posture
 is complete (full-history gitleaks-clean, gating Snyk Open Source, advisory
-SAST/SBOM). Go-public steps (flip visibility, CodeQL/secret-scanning/Dependabot/
-Scorecard, npm trusted publishing) are tracked in
-[security-todo.md](./security-todo.md).
+SAST/SBOM). Go-public steps (flip visibility, the apex GitHub source-link flip,
+CodeQL/secret-scanning/Dependabot/Scorecard, npm trusted publishing, status
+page) are tracked in [security-todo.md](./security-todo.md) and aggregated under
+[AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex).
+
+A 2026-06-05 external credibility review confirmed most "reputable vendor"
+signals already ship (Apache-2.0, `SECURITY.md` private disclosure, GitHub
+build-provenance + SBOM on CLI binaries, `npm publish --provenance`, clean npm
+metadata). The two doc gaps it surfaced are closed: legal pages now publish the
+`Zaks.io, LLC` registered mailing address with a Privacy Contact section, and
+the safety docs lead with a "What not to publish" (no secrets/customer data)
+warning. AP-254 holds the remaining GitHub/npm-side toggles and the status page.
 
 Observability is live: all Workers (preview + production + PR previews) emit OTel
 traces to Axiom via native Workers Observability (`observability.enabled`), landing
