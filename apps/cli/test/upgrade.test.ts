@@ -155,6 +155,25 @@ describe("runUpgrade (binary channel)", () => {
     expect(stdout).toHaveBeenCalledWith("Upgraded agent-paste to cli-v1.2.3.\n");
   });
 
+  it("resolves latest once and downloads the asset plus SHA256SUMS from the same release tag", async () => {
+    const resolveLatest = vi.fn(async () => "3.4.5");
+    const { deps, stdout } = binaryDeps({ resolveLatest });
+    const fetchBytes = deps.fetchBytes as ReturnType<typeof vi.fn>;
+    const fetchText = deps.fetchText as ReturnType<typeof vi.fn>;
+
+    await runUpgrade({}, deps);
+
+    expect(resolveLatest).toHaveBeenCalledTimes(1);
+    expect(fetchBytes).toHaveBeenCalledWith(
+      "https://github.com/zaks-io/agent-paste/releases/download/cli-v3.4.5/agent-paste-linux-x64",
+    );
+    expect(fetchText).toHaveBeenCalledWith(
+      "https://github.com/zaks-io/agent-paste/releases/download/cli-v3.4.5/SHA256SUMS",
+    );
+    expect(stdout).toHaveBeenCalledWith("Downloading agent-paste-linux-x64 (cli-v3.4.5)...\n");
+    expect(stdout).toHaveBeenCalledWith("Upgraded agent-paste to cli-v3.4.5.\n");
+  });
+
   it("pins the release tag from an explicit version and never resolves latest", async () => {
     const { deps } = binaryDeps();
     const fetchBytes = deps.fetchBytes as ReturnType<typeof vi.fn>;
@@ -245,6 +264,23 @@ describe("runUpgrade (binary channel)", () => {
       }),
     });
     await expect(runUpgrade({}, deps)).rejects.toThrow(/could not stage the verified binary/);
+  });
+
+  it("cleans the staged binary and rethrows when rename-aside fails for a non-permission reason", async () => {
+    const rescueStage = vi.fn(async () => "/home/u/.config/agent-paste/agent-paste-upgrade-RND");
+    const fs = fakeFs({
+      rename: vi.fn(async () => {
+        const error = new Error("EXDEV: cross-device rename") as Error & { code: string };
+        error.code = "EXDEV";
+        throw error;
+      }),
+    });
+    const { deps } = binaryDeps({ fsOps: fs.ops, rescueStage });
+
+    await expect(runUpgrade({}, deps)).rejects.toThrow(/EXDEV/);
+
+    expect(fs.calls.rm).toContain("/home/u/.local/bin/agent-paste.new-RND");
+    expect(rescueStage).not.toHaveBeenCalled();
   });
 
   it("restores the original binary if the final rename fails", async () => {

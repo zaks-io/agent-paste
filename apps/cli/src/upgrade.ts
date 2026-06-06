@@ -89,6 +89,7 @@ export class UpgradePermissionError extends Error {
 type Bytes = Uint8Array<ArrayBuffer>;
 type FetchBytes = (url: string) => Promise<Bytes>;
 type FetchText = (url: string) => Promise<string>;
+type WriteOutput = (message: string) => void;
 
 type FsOps = {
   stat: typeof fs.stat;
@@ -114,6 +115,18 @@ export type UpgradeDeps = {
   rescueStage?: (bytes: Bytes, mode: number) => Promise<string>;
   stdout?: (message: string) => void;
   stderr?: (message: string) => void;
+};
+
+type UpgradePlan = {
+  tag: string;
+  asset: string;
+  releaseBase: string;
+  binaryPath: string;
+  fetchBytes: FetchBytes;
+  fetchText: FetchText;
+  ops: FsOps;
+  rand: () => string;
+  rescueStage: (bytes: Bytes, mode: number) => Promise<string>;
 };
 
 // When the install dir is unwritable, stage the verified bytes in the config dir
@@ -255,70 +268,117 @@ async function safeRm(file: string, ops: FsOps): Promise<void> {
   await ops.rm(file, { force: true }).catch(() => {});
 }
 
-export async function runUpgrade(opts: { version?: string } = {}, deps: UpgradeDeps = {}): Promise<void> {
-  const stdout = deps.stdout ?? ((message: string) => void process.stdout.write(message));
-  const stderr = deps.stderr ?? ((message: string) => void process.stderr.write(message));
+function upgradeOutput(deps: UpgradeDeps): { stdout: WriteOutput; stderr: WriteOutput } {
+  return {
+    stdout: deps.stdout ?? ((message: string) => void process.stdout.write(message)),
+    stderr: deps.stderr ?? ((message: string) => void process.stderr.write(message)),
+  };
+}
 
-  const channel = deps.channel ?? detectChannel();
-  if (channel !== "binary") {
-    const command = upgradeCommand(channel);
-    stderr(
-      command
-        ? `agent-paste upgrade is for standalone binary installs. Run: ${command}\n`
-        : "agent-paste upgrade is for standalone binary installs. npx always runs the latest version.\n",
-    );
-    process.exitCode = 1;
-    return;
-  }
+function redirectNonBinaryChannel(channel: Channel, stderr: WriteOutput): boolean {
+  if (channel === "binary") return false;
 
+  const command = upgradeCommand(channel);
+  stderr(
+    command
+      ? `agent-paste upgrade is for standalone binary installs. Run: ${command}\n`
+      : "agent-paste upgrade is for standalone binary installs. npx always runs the latest version.\n",
+  );
+  process.exitCode = 1;
+  return true;
+}
+
+async function createUpgradePlan(opts: { version?: string }, deps: UpgradeDeps): Promise<UpgradePlan> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const baseUrl = deps.baseUrl ?? resolveApiBaseUrl();
   const platform = deps.platform ?? process.platform;
   const arch = deps.arch ?? process.arch;
   const binaryPath = deps.binaryPath ?? process.execPath;
+  const ops = deps.fsOps ?? fs;
+  const rand = deps.rand ?? (() => Buffer.from(randomBytes(6)).toString("hex"));
 
+  const tag = await resolveReleaseTag(opts, deps, baseUrl, fetchImpl);
+  const asset = assetNameFor(platform, arch);
+  const rescueStage = deps.rescueStage ?? ((bytes: Bytes, mode: number) => defaultRescueStage(ops, rand, bytes, mode));
+
+  return {
+    tag,
+    asset,
+    releaseBase: `${RELEASE_BASE}/${tag}`,
+    binaryPath,
+    fetchBytes: deps.fetchBytes ?? defaultFetchBytes(fetchImpl),
+    fetchText: deps.fetchText ?? defaultFetchText(fetchImpl),
+    ops,
+    rand,
+    rescueStage,
+  };
+}
+
+async function resolveReleaseTag(
+  opts: { version?: string },
+  deps: UpgradeDeps,
+  baseUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<string> {
+  const resolveLatest = deps.resolveLatest ?? (() => defaultResolveLatest(baseUrl, fetchImpl));
   // A pinned --version is the full release tag (cli-vX.Y.Z); otherwise resolve
   // latest and build the tag, so the bytes and SHA256SUMS come from one exact
   // release. Validate the tag before it reaches the URL (see RELEASE_TAG).
-  const tag = assertReleaseTag(
-    opts.version ?? `cli-v${await (deps.resolveLatest ?? (() => defaultResolveLatest(baseUrl, fetchImpl)))()}`,
-  );
-  const asset = assetNameFor(platform, arch);
-  const base = `${RELEASE_BASE}/${tag}`;
+  const tag = opts.version ?? `cli-v${await resolveLatest()}`;
+  return assertReleaseTag(tag);
+}
 
-  const fetchBytes = deps.fetchBytes ?? defaultFetchBytes(fetchImpl);
-  const fetchText = deps.fetchText ?? defaultFetchText(fetchImpl);
+async function downloadVerifiedAsset(plan: UpgradePlan): Promise<Bytes> {
+  const bytes = await plan.fetchBytes(`${plan.releaseBase}/${plan.asset}`);
+  const sums = await plan.fetchText(`${plan.releaseBase}/SHA256SUMS`);
+  const want = parseSha256Sums(sums, plan.asset);
 
-  stdout(`Downloading ${asset} (${tag})...\n`);
-  const bytes = await fetchBytes(`${base}/${asset}`);
-  const sums = await fetchText(`${base}/SHA256SUMS`);
-
-  const want = parseSha256Sums(sums, asset);
   if (!want) {
-    throw new Error(`no checksum for ${asset} in SHA256SUMS`);
+    throw new Error(`no checksum for ${plan.asset} in SHA256SUMS`);
   }
+
   const got = createHash("sha256").update(bytes).digest("hex");
   if (got !== want) {
-    throw new Error(`checksum mismatch for ${asset}: expected ${want}, got ${got}`);
+    throw new Error(`checksum mismatch for ${plan.asset}: expected ${want}, got ${got}`);
   }
 
-  const ops = deps.fsOps ?? fs;
-  const rand = deps.rand ?? (() => Buffer.from(randomBytes(6)).toString("hex"));
-  const rescue = deps.rescueStage ?? ((rescued: Bytes, mode: number) => defaultRescueStage(ops, rand, rescued, mode));
+  return bytes;
+}
+
+async function replaceBinaryOrReportPermission(plan: UpgradePlan, bytes: Bytes, stderr: WriteOutput): Promise<boolean> {
   try {
-    await replaceBinary(binaryPath, bytes, ops, rand, (mode) => rescue(bytes, mode));
+    await replaceBinary(plan.binaryPath, bytes, plan.ops, plan.rand, (mode) => plan.rescueStage(bytes, mode));
+    return true;
   } catch (error) {
     if (error instanceof UpgradePermissionError) {
-      stderr(
-        `${error.message}\n` +
-          `The verified new binary is staged at:\n  ${error.stagedPath}\n` +
-          `Finish the upgrade with:\n  sudo mv ${error.stagedPath} ${error.targetPath}\n`,
-      );
-      process.exitCode = 1;
-      return;
+      reportPermissionWall(error, stderr);
+      return false;
     }
     throw error;
   }
+}
 
-  stdout(`Upgraded agent-paste to ${tag}.\n`);
+function reportPermissionWall(error: UpgradePermissionError, stderr: WriteOutput): void {
+  stderr(
+    `${error.message}\n` +
+      `The verified new binary is staged at:\n  ${error.stagedPath}\n` +
+      `Finish the upgrade with:\n  sudo mv ${error.stagedPath} ${error.targetPath}\n`,
+  );
+  process.exitCode = 1;
+}
+
+export async function runUpgrade(opts: { version?: string } = {}, deps: UpgradeDeps = {}): Promise<void> {
+  const { stdout, stderr } = upgradeOutput(deps);
+  const channel = deps.channel ?? detectChannel();
+
+  if (redirectNonBinaryChannel(channel, stderr)) return;
+
+  const plan = await createUpgradePlan(opts, deps);
+  stdout(`Downloading ${plan.asset} (${plan.tag})...\n`);
+
+  const bytes = await downloadVerifiedAsset(plan);
+  const replaced = await replaceBinaryOrReportPermission(plan, bytes, stderr);
+  if (!replaced) return;
+
+  stdout(`Upgraded agent-paste to ${plan.tag}.\n`);
 }
