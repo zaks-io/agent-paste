@@ -264,7 +264,11 @@ Origin. Queues and cron jobs do recoverable background work.
 
 Tenant-owned tables are RLS-scoped by `workspace_id`. Runtime tenant queries use
 transaction-scoped workspace context. Cross-tenant misses use not-found
-semantics instead of leaking authorization details.
+semantics instead of leaking authorization details. The same isolation invariant
+is guarded on the test surface: the local in-memory repository backend enforces
+the run's workspace scope as a deliberate bug detector, throwing on a
+cross-tenant `insert` rather than silently emulating RLS
+([ADR 0083](../adr/0083-local-repository-backend-enforces-run-scope.md)).
 
 ## Where To Find Things
 
