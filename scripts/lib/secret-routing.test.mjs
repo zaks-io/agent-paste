@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { requiredSecretsForApp, SECRET_ROUTING, secretConsumingApps, secretsForApp } from "./secret-routing.mjs";
+import {
+  forbiddenSecretsForApp,
+  requiredSecretsForApp,
+  SECRET_ROUTING,
+  secretConsumingApps,
+  secretsForApp,
+} from "./secret-routing.mjs";
 
 describe("secret-routing", () => {
   it("lists only apps that consume secrets", () => {
@@ -12,6 +18,13 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production")).not.toContain("SMOKE_HARNESS_SECRET");
     expect(secretsForApp("jobs", "preview")).toContain("SMOKE_HARNESS_SECRET");
     expect(secretsForApp("jobs", "production")).not.toContain("SMOKE_HARNESS_SECRET");
+  });
+
+  it("forbids stale smoke harness bindings on production api and jobs", () => {
+    expect(forbiddenSecretsForApp("api", "production")).toEqual(["SMOKE_HARNESS_SECRET"]);
+    expect(forbiddenSecretsForApp("jobs", "production")).toEqual(["SMOKE_HARNESS_SECRET"]);
+    expect(forbiddenSecretsForApp("api", "preview")).toEqual([]);
+    expect(forbiddenSecretsForApp("jobs", "preview")).toEqual([]);
   });
 
   it("scopes production-only secrets out of preview", () => {

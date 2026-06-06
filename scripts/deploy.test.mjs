@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createSecretPlanner,
+  formatForbiddenProductionSecretsMessage,
   formatMissingProviderSecretsMessage,
   GENERATABLE,
   generatedByteLength,
@@ -194,6 +195,55 @@ describe("deploy secret planning", () => {
       expect(plan.get("api") ?? []).not.toContain("SMOKE_HARNESS_SECRET");
       expect(plan.get("jobs") ?? []).not.toContain("SMOKE_HARNESS_SECRET");
       expect(withProductionSmoke.generatedValues.has("SMOKE_HARNESS_SECRET")).toBe(false);
+    });
+
+    it("fails production deploy planning when stale smoke harness secrets are still bound", async () => {
+      const bulkRun = vi.fn(async () => {});
+      const deployFn = vi.fn(async () => {});
+      const failFn = vi.fn((message) => {
+        throw new Error(message);
+      });
+      const listSecretsForWorker = async (worker) => {
+        if (worker === workerName("api", "production") || worker === workerName("jobs", "production")) {
+          return ["CONTENT_SIGNING_SECRET", "SMOKE_HARNESS_SECRET"];
+        }
+        return ["WORKOS_API_KEY"];
+      };
+      const planner = createSecretPlanner({
+        target: "production",
+        env: productionEnv(),
+        listSecretsForWorker,
+        randomBytesFn: deterministicRandomBytes,
+      });
+
+      const plan = await planner.buildProvisionPlan();
+
+      expect(plan.forbiddenProductionSecrets).toEqual([
+        { worker: workerName("api", "production"), name: "SMOKE_HARNESS_SECRET" },
+        { worker: workerName("jobs", "production"), name: "SMOKE_HARNESS_SECRET" },
+      ]);
+      await expect(
+        runDeployPlan({
+          target: "production",
+          planner,
+          provisionPlan: plan,
+          apps: ["api", "jobs"],
+          runFn: bulkRun,
+          deployFn,
+          failFn,
+          write: () => {},
+        }),
+      ).rejects.toThrow(/SMOKE_HARNESS_SECRET/);
+      expect(failFn).toHaveBeenCalledOnce();
+      expect(failFn.mock.calls[0][0]).toBe(formatForbiddenProductionSecretsMessage(plan.forbiddenProductionSecrets));
+      expect(failFn.mock.calls[0][0]).toContain(
+        `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("api", "production")}`,
+      );
+      expect(failFn.mock.calls[0][0]).toContain(
+        `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("jobs", "production")}`,
+      );
+      expect(bulkRun).not.toHaveBeenCalled();
+      expect(deployFn).not.toHaveBeenCalled();
     });
   });
 

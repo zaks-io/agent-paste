@@ -26,7 +26,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
 import { hostedJobQueues } from "./hosted-job-queues.mjs";
 import { ensureLocalEnvSecrets } from "./lib/local-env-secrets.mjs";
-import { secretConsumingApps, secretsForApp } from "./lib/secret-routing.mjs";
+import {
+  forbiddenSecretsForApp,
+  formatForbiddenSecretDeleteInstructions,
+  secretConsumingApps,
+  secretsForApp,
+} from "./lib/secret-routing.mjs";
 import { resolveSecretValue } from "./lib/secret-values.mjs";
 import { listWorkerSecrets, workerName } from "./wrangler-secrets.mjs";
 
@@ -89,6 +94,14 @@ export function formatMissingProviderSecretsMessage(missingProvider) {
     missingProvider.map((entry) => `  - ${entry}`).join("\n") +
     `\n\nSet each once with (value piped, never typed inline):\n` +
     `  printf %s '<value-from-provider-console>' | pnpm exec wrangler secret put <NAME> --name <worker>\n`
+  );
+}
+
+export function formatForbiddenProductionSecretsMessage(forbiddenSecrets) {
+  return (
+    `These production Worker secrets are forbidden and must be removed before deploy:\n` +
+    formatForbiddenSecretDeleteInstructions(forbiddenSecrets) +
+    `\n\nProduction smoke must use AGENT_PASTE_PRODUCTION_SMOKE_API_KEY, not SMOKE_HARNESS_SECRET.`
   );
 }
 
@@ -159,6 +172,12 @@ export function createSecretPlanner({
     const existing = new Set(await listSecretsForWorker(worker));
     const toSet = [];
     const missingProvider = [];
+    const forbiddenProductionSecrets = [];
+    for (const name of forbiddenSecretsForApp(app, target)) {
+      if (existing.has(name)) {
+        forbiddenProductionSecrets.push({ worker, name });
+      }
+    }
     for (const name of secretsForApp(app, target)) {
       const decision = classifySecret(app, worker, name, existing);
       if (decision?.kind === "set") {
@@ -167,22 +186,36 @@ export function createSecretPlanner({
         missingProvider.push(decision.name);
       }
     }
-    return { toSet, missingProvider };
+    return { toSet, missingProvider, forbiddenProductionSecrets };
   }
 
   async function buildProvisionPlan() {
-    /** @type {Map<string, string[]> & { missingProvider?: string[] }} */
+    /** @type {Map<string, string[]> & { missingProvider?: string[], forbiddenProductionSecrets?: Array<{ worker: string, name: string }> }} */
     const plan = new Map();
     const missingProvider = [];
+    const forbiddenProductionSecrets = [];
     for (const app of secretConsumingApps()) {
-      const { toSet, missingProvider: appMissing } = await planSecretsForApp(app);
+      const {
+        toSet,
+        missingProvider: appMissing,
+        forbiddenProductionSecrets: appForbiddenProductionSecrets,
+      } = await planSecretsForApp(app);
       missingProvider.push(...appMissing);
+      forbiddenProductionSecrets.push(...appForbiddenProductionSecrets);
       if (toSet.length > 0) {
         plan.set(app, toSet);
       }
     }
     plan.missingProvider = missingProvider;
+    plan.forbiddenProductionSecrets = forbiddenProductionSecrets;
     return plan;
+  }
+
+  function reportForbiddenProductionSecrets(plan, failFn = fail) {
+    if (!plan.forbiddenProductionSecrets || plan.forbiddenProductionSecrets.length === 0) {
+      return;
+    }
+    failFn(formatForbiddenProductionSecretsMessage(plan.forbiddenProductionSecrets));
   }
 
   function reportMissingProviderSecrets(plan, failFn = fail) {
@@ -202,6 +235,7 @@ export function createSecretPlanner({
 
   return {
     buildProvisionPlan,
+    reportForbiddenProductionSecrets,
     reportMissingProviderSecrets,
     bulkSetSecrets,
     valueFor,
@@ -219,6 +253,7 @@ export async function runDeployPlan({
   failFn = fail,
   write = (message) => process.stdout.write(message),
 }) {
+  planner.reportForbiddenProductionSecrets(provisionPlan, failFn);
   planner.reportMissingProviderSecrets(provisionPlan, failFn);
 
   for (const app of apps) {

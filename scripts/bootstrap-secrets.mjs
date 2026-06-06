@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import {
+  forbiddenSecretsForApp,
+  formatForbiddenSecretDeleteInstructions,
+} from "./lib/secret-routing.mjs";
 import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, workerName } from "./wrangler-secrets.mjs";
 
 const target = parseTarget(process.argv.slice(2));
@@ -115,9 +119,27 @@ function parseOptions(argv) {
 
 async function assertSafeToWrite() {
   const existingByWorker = new Map();
+  const forbiddenProductionSecrets = [];
   for (const binding of workerBindings) {
     const listed = await listWorkerSecrets(binding.worker);
-    existingByWorker.set(binding.worker, new Set(listed));
+    const existing = new Set(listed);
+    existingByWorker.set(binding.worker, existing);
+    for (const name of forbiddenSecretsForApp(binding.app, target)) {
+      if (existing.has(name)) {
+        forbiddenProductionSecrets.push({ worker: binding.worker, name });
+      }
+    }
+  }
+
+  if (forbiddenProductionSecrets.length > 0) {
+    throw new Error(
+      [
+        "Production Worker secrets include forbidden smoke harness bindings:",
+        formatForbiddenSecretDeleteInstructions(forbiddenProductionSecrets),
+        "",
+        "Production smoke must use AGENT_PASTE_PRODUCTION_SMOKE_API_KEY, not SMOKE_HARNESS_SECRET.",
+      ].join("\n"),
+    );
   }
 
   const collisions = findSecretCollisions(workerBindings, existingByWorker);
