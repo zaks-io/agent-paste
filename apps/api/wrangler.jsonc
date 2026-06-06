@@ -118,7 +118,7 @@
       "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
       "namespace_id": "1000005",
       "simple": {
-        "limit": 17,
+        "limit": 300,
         "period": 60
       }
     }
@@ -249,7 +249,7 @@
           "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
           "namespace_id": "2000005",
           "simple": {
-            "limit": 17,
+            "limit": 300,
             "period": 60
           }
         }
@@ -404,7 +404,7 @@
           "name": "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
           "namespace_id": "3000005",
           "simple": {
-            "limit": 17,
+            "limit": 300,
             "period": 60
           }
         }

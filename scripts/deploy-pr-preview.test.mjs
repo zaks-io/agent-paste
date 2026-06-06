@@ -63,7 +63,7 @@ describe("deploy-pr-preview generated API config", () => {
           }),
           expect.objectContaining({
             name: "EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT",
-            simple: { limit: 17, period: 60 },
+            simple: { limit: 300, period: 60 },
           }),
         ]),
       );
