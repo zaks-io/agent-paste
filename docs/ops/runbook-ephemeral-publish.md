@@ -348,15 +348,15 @@ the binding is absent; a present binding with a failed read fails closed.
 
 ## Failure modes
 
-| Symptom                                                   | Likely cause                                          | Action                                                                         |
-| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                                       |
+| Symptom                                                   | Likely cause                                                                                      | Action                                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker                                                      | Set secret, redeploy `api`, re-run smoke                                                          |
 | Provision probe returns `ephemeral_provision_unavailable` | Missing/failing `EPHEMERAL_PROVISION_GATE`, or invalid/unreadable `EPHEMERAL_PROVISION_CONFIG` KV | Verify DO binding; delete or fix bad KV config (see runtime cap tuning); redeploy `api` if needed |
-| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof                       |
-| CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap            | Retry with backoff; investigate source and aggregate volume                    |
-| Claim returns 404                                         | Redeemed, expired, or invalid token                   | See support table; no token recovery                                           |
-| Content executes script                                   | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL                             |
-| Unexpected scanner lockdown                               | Malicious URL Scanner verdict on ephemeral content    | Review Artifact and lift only after remediation                                |
+| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`                                             | Configure secrets; do not treat skip as production proof                                          |
+| CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap                                                        | Retry with backoff; investigate source and aggregate volume                                       |
+| Claim returns 404                                         | Redeemed, expired, or invalid token                                                               | See support table; no token recovery                                                              |
+| Content executes script                                   | Claimed tenant or wrong tier token                                                                | Verify `claimed_at`, re-fetch CSP from content URL                                                |
+| Unexpected scanner lockdown                               | Malicious URL Scanner verdict on ephemeral content                                                | Review Artifact and lift only after remediation                                                   |
 
 ## Verification boundary
 
