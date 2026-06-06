@@ -52,8 +52,10 @@ describe("RLS coverage check", () => {
             schema_name: "public",
             table_name: "example_rows",
             policy_name: "example_rows_tenant",
-            qual: "current_setting('app.workspace_id', true) is not null",
-            with_check: "current_setting('app.workspace_id', true) is not null",
+            permissive: "PERMISSIVE",
+            qual: "workspace_id is not null and current_setting('app.workspace_id', true) is not null",
+            with_check:
+              "workspace_id is not null and current_setting('app.workspace_id', true) is not null",
           },
         ],
       ),
@@ -65,7 +67,53 @@ describe("RLS coverage check", () => {
           rls_enabled: true,
           rls_forced: true,
         },
-        missing: ["tenant policy using workspace_id and app.workspace_id"],
+        missing: [
+          "tenant policy binding workspace_id to app.workspace_id",
+          "no broad permissive policies (example_rows_tenant)",
+        ],
+      },
+    ]);
+  });
+
+  it("flags broad permissive policies even when a tenant policy exists", () => {
+    expect(
+      findRlsCoverageFailures(
+        [
+          {
+            schema_name: "public",
+            table_name: "example_rows",
+            rls_enabled: true,
+            rls_forced: true,
+          },
+        ],
+        [
+          {
+            schema_name: "public",
+            table_name: "example_rows",
+            policy_name: "example_rows_tenant",
+            permissive: "PERMISSIVE",
+            qual: "workspace_id::text = current_setting('app.workspace_id', true)",
+            with_check: "workspace_id::text = current_setting('app.workspace_id', true)",
+          },
+          {
+            schema_name: "public",
+            table_name: "example_rows",
+            policy_name: "example_rows_open",
+            permissive: "PERMISSIVE",
+            qual: "true",
+            with_check: "true",
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        table: {
+          schema_name: "public",
+          table_name: "example_rows",
+          rls_enabled: true,
+          rls_forced: true,
+        },
+        missing: ["no broad permissive policies (example_rows_open)"],
       },
     ]);
   });

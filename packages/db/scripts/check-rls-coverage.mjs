@@ -16,13 +16,32 @@ if (isMain(import.meta.url)) {
 
 export async function runRlsCoverageCheck({ log = (message) => process.stdout.write(message) } = {}) {
   const client = new PGlite();
+  let result;
+  let originalError;
   try {
     await applyMigrations(client);
-    const result = await assertRlsCoverage(client);
+    result = await assertRlsCoverage(client);
     log(`RLS coverage ok: ${result.tables.length} workspace_id table(s) have FORCE RLS and tenant policies.\n`);
-    return result;
-  } finally {
+  } catch (error) {
+    originalError = error;
+  }
+
+  const closeError = await closeClient(client);
+  if (originalError != null) {
+    throw originalError;
+  }
+  if (closeError != null) {
+    throw closeError;
+  }
+  return result;
+}
+
+async function closeClient(client) {
+  try {
     await client.close();
+    return null;
+  } catch (error) {
+    return error;
   }
 }
 
@@ -82,6 +101,7 @@ async function tablePolicies(client) {
       schemaname as schema_name,
       tablename as table_name,
       policyname as policy_name,
+      permissive,
       qual,
       with_check
     from pg_policies
@@ -115,7 +135,15 @@ function missingCoverageForTable(table, policies) {
     missing.push("FORCE ROW LEVEL SECURITY");
   }
   if (!policies.some(isTenantPolicy)) {
-    missing.push("tenant policy using workspace_id and app.workspace_id");
+    missing.push("tenant policy binding workspace_id to app.workspace_id");
+  }
+  const unsafePermissivePolicies = policies.filter(isUnsafePermissivePolicy);
+  if (unsafePermissivePolicies.length > 0) {
+    missing.push(
+      `no broad permissive policies (${unsafePermissivePolicies
+        .map((policy) => policy.policy_name)
+        .join(", ")})`,
+    );
   }
   return missing;
 }
@@ -125,11 +153,73 @@ function isTenantPolicy(policy) {
 }
 
 function isTenantPredicate(predicate) {
+  const normalized = normalizePredicate(predicate);
+  return (
+    normalized === "workspace_id = current_setting('app.workspace_id', true)" ||
+    normalized === "current_setting('app.workspace_id', true) = workspace_id"
+  );
+}
+
+function isUnsafePermissivePolicy(policy) {
+  return isPermissivePolicy(policy) && !isAllowedPermissivePolicy(policy);
+}
+
+function isPermissivePolicy(policy) {
+  return String(policy.permissive ?? "PERMISSIVE").toUpperCase() === "PERMISSIVE";
+}
+
+function isAllowedPermissivePolicy(policy) {
+  const predicates = [policy.qual, policy.with_check].filter((predicate) => predicate != null);
+  return predicates.length > 0 && predicates.every(isAllowedPermissivePredicate);
+}
+
+function isAllowedPermissivePredicate(predicate) {
+  return isTenantPredicate(predicate) || isPlatformPredicate(predicate);
+}
+
+function isPlatformPredicate(predicate) {
+  const normalized = normalizePredicate(predicate);
+  return normalized === "current_setting('app.platform', true) = 'on'";
+}
+
+function normalizePredicate(predicate) {
   const normalized = String(predicate ?? "")
+    .replace(/::text\b/g, "")
     .replace(/\s+/g, " ")
-    .toLowerCase();
-  const withoutRuntimeGuc = normalized.replace(/app\.workspace_id/g, "");
-  return normalized.includes("app.workspace_id") && /\bworkspace_id\b/.test(withoutRuntimeGuc);
+    .trim()
+    .toLowerCase()
+    .replace(/,\s*true/g, ", true")
+    .replace(/\s*=\s*/g, " = ")
+    .replace(/\((workspace_id)\)/g, "$1")
+    .replace(/\((current_setting\('[^']+', true\))\)/g, "$1");
+  return stripOuterParentheses(normalized);
+}
+
+function stripOuterParentheses(value) {
+  let current = value;
+  while (isWrappedInParentheses(current)) {
+    current = current.slice(1, -1).trim();
+  }
+  return current;
+}
+
+function isWrappedInParentheses(value) {
+  if (!value.startsWith("(") || !value.endsWith(")")) {
+    return false;
+  }
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+      if (depth === 0 && index < value.length - 1) {
+        return false;
+      }
+    }
+  }
+  return depth === 0;
 }
 
 export function formatRlsCoverageFailures(failures) {
