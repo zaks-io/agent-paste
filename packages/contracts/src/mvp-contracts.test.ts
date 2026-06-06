@@ -145,7 +145,7 @@ describe("MVP route registry", () => {
         .filter((route) => route.rateLimit === "artifact")
         .map((route) => route.id)
         .sort(),
-    ).toEqual(["agentView.public", "content.bundle", "content.bundleHead", "content.get", "content.head"]);
+    ).toEqual(["content.bundle", "content.bundleHead", "content.get", "content.head"]);
     expect(routeContracts.find((route) => route.id === "accessLinks.resolve")).toMatchObject({
       auth: "none",
       rateLimit: "none",
@@ -195,7 +195,7 @@ describe("MVP route registry", () => {
     });
   });
 
-  it("documents artifact-level public Agent View throttling", () => {
+  it("documents handler-level public Agent View throttling", () => {
     const publicAgentView = routeContracts.find((route) => route.id === "agentView.public");
     const apiOpenApi = buildApiOpenApiDocument() as {
       paths?: Record<
@@ -217,6 +217,7 @@ describe("MVP route registry", () => {
     const rateLimitResponse = apiOpenApi.paths?.["/v1/public/agent-view/{token}"]?.get?.responses?.["429"];
 
     expect(publicAgentView).toBeDefined();
+    expect(publicAgentView?.rateLimit).toBe("none");
     expect(publicAgentView?.responseSchema).toBe("PublicAgentView");
     expect(publicAgentView?.errors).toContain("rate_limited_artifact");
     expect(rateLimitResponse).toBeDefined();

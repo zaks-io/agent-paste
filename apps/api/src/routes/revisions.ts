@@ -10,6 +10,7 @@ import { createPublishCoordinator } from "../publish-coordinator.js";
 import { type ContractRespondError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { contentBaseUrl } from "../runtime.js";
+import { enforceArtifactRateLimit } from "./artifact-rate-limit.js";
 
 export async function authenticatedAgentView(
   context: AppContext,
@@ -107,6 +108,11 @@ export async function publicAgentView(context: AppContext, principal: Principal,
 
   if (!view) {
     return getBoundResponders(context).respondError("not_found");
+  }
+
+  const rateLimited = await enforceArtifactRateLimit(context, view.artifact_id);
+  if (rateLimited) {
+    return rateLimited;
   }
 
   const signedView = await signAgentViewContentUrls(view, env);

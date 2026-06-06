@@ -46,13 +46,13 @@ Secrets are never accepted as query parameters or flags.
 | `GET`  | `/v1/whoami`                            | `api_key`                 | none        | -       | `WhoamiResponse`       |
 | `GET`  | `/v1/mcp/whoami`                        | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
 | `GET`  | `/v1/artifacts/{artifact_id}/revisions` | `api_key_or_mcp_oauth`    | none        | -       | `RevisionListResponse` |
-| `GET`  | `/v1/public/agent-view/{token}`         | `signed_agent_view_token` | none        | -       | `AgentView`            |
+| `GET`  | `/v1/public/agent-view/{token}`         | `signed_agent_view_token` | none        | -       | `PublicAgentView`      |
 
 `whoami` returns the workspace id/name, API key id/name, and effective caps. It does not return API-key secret material.
 
 `mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record.
 
-`AgentView` is public to anyone with the signed token. It returns full per-file signed content URLs, not `content_prefix`.
+`PublicAgentView` is public to anyone with the signed token. It returns full per-file signed content URLs, not `content_prefix`, and does not include lockdown metadata. Authenticated owner/member Agent View routes may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 
 ## Upload Routes
 

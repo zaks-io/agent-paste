@@ -236,7 +236,16 @@ describe("AP-91 revision route modules", () => {
     expect(missingList.status).toBe(404);
 
     const publicResponse = await publicAgentView(
-      contextFor({ headers: { accept: "text/html" } }),
+      contextFor({
+        env: {
+          ARTIFACT_RATE_LIMIT: {
+            async limit() {
+              return { success: true };
+            },
+          },
+        },
+        headers: { accept: "text/html" },
+      }),
       { kind: "signed_agent_view_token", payload: { artifact_id: "art_1", revision_id: "rev_1" } } as never,
       {
         getPublicAgentView: vi.fn(async () => ({

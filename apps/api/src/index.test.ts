@@ -1488,7 +1488,41 @@ describe("api worker", () => {
     }
   });
 
-  it("returns 429 with Retry-After when public Agent View exceeds the artifact limit", async () => {
+  it("returns public Agent View not_found before enforcing artifact rate limits", async () => {
+    const limit = vi.fn(async () => {
+      throw new Error("binding unavailable");
+    });
+    const getPublicAgentView = vi.fn(async () => null);
+    const env: Env = {
+      AGENT_VIEW_SIGNING_SECRET: "test-secret",
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        getPublicAgentView,
+        async runCleanup() {
+          return {};
+        },
+      },
+      ARTIFACT_RATE_LIMIT: { limit },
+    };
+
+    const token = await mintAgentViewToken(
+      { artifact_id: "art_1", revision_id: "rev_1", exp: Math.floor(Date.now() / 1000) + 3600 },
+      "test-secret",
+    );
+    const response = await handleRequest(new Request(`https://api.test/v1/public/agent-view/${token}`), env);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+    expect(getPublicAgentView).toHaveBeenCalled();
+    expect(limit).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 with Retry-After when a resolved public Agent View exceeds the artifact limit", async () => {
     const env: Env = {
       AGENT_VIEW_SIGNING_SECRET: "test-secret",
       DB: {
@@ -1499,7 +1533,14 @@ describe("api worker", () => {
           return null;
         },
         async getPublicAgentView() {
-          throw new Error("should not load Agent View when rate limited");
+          return {
+            artifact_id: "art_1",
+            revision_id: "rev_1",
+            title: "Public",
+            entrypoint: "index.html",
+            files: [],
+            bundle: { status: "pending" },
+          };
         },
         async runCleanup() {
           return {};

@@ -9,6 +9,7 @@ import { workspaceApiActor } from "../principals.js";
 import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 import { contentBaseUrl, webBaseUrl } from "../runtime.js";
+import { enforceArtifactRateLimit } from "./artifact-rate-limit.js";
 
 export async function createAccessLinkRoute(
   context: AppContext,
@@ -121,7 +122,9 @@ export async function resolveAccessLinkRoute(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const rateLimited = await enforceArtifactRateLimit(context, resolved.agent_view.artifact_id);
+  const rateLimited = await enforceArtifactRateLimit(context, resolved.agent_view.artifact_id, {
+    failureLogMessage: "Artifact rate limit binding failed; denying access link resolve.",
+  });
   if (rateLimited) {
     return rateLimited;
   }
@@ -145,21 +148,4 @@ export function accessLinkSigningSecret(env: Env): { secret: string; kid: number
     return null;
   }
   return { secret: signer.signingSecret, kid: signer.signingKid };
-}
-
-async function enforceArtifactRateLimit(context: AppContext, artifactId: string): Promise<Response | null> {
-  const binding = context.env.ARTIFACT_RATE_LIMIT;
-  if (!binding) {
-    return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
-  }
-  try {
-    const outcome = await binding.limit({ key: artifactId });
-    if (!outcome.success) {
-      return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
-    }
-  } catch (error) {
-    console.warn("Artifact rate limit binding failed; denying access link resolve.", error);
-    return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
-  }
-  return null;
 }
