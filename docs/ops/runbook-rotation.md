@@ -43,6 +43,7 @@ Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The
 | ------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `CONTENT_SIGNING_SECRET`        | api, upload, content  | Invalidates currently minted content and Agent View URLs.                                                        |
 | `UPLOAD_SIGNING_SECRET`         | upload                | Invalidates in-flight signed upload PUT URLs.                                                                    |
+| `ACCESS_LINK_SIGNING_KEY_V1`    | api                   | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
 | `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
 | `API_KEY_PEPPER_V1`             | api, upload           | Invalidates existing API Keys in the current MVP implementation.                                                 |
 | `WORKOS_API_KEY`                | api, web              | Swaps the WorkOS server-side API credential.                                                                     |
@@ -56,9 +57,11 @@ active session.
 
 Do not create or rotate these names for the CLI-first MVP:
 
-- `ACCESS_LINK_SIGNING_KEY_V1`: Access Link signed URLs are deferred; the current app does not mint this key.
 - `WEB_SESSION_SEAL_KEY_V1`: removed with the WorkOS AuthKit migration. The current web session seal is WorkOS AuthKit's `WORKOS_COOKIE_PASSWORD`.
 - Auth0 client/session secrets for `apps/web`: superseded by WorkOS AuthKit before a deployed login path existed.
+
+Access Link signed URLs are active. Do not treat `ACCESS_LINK_SIGNING_KEY_V1`,
+`ACCESS_LINK_SIGNING_KEY_V2`, or `ACCESS_LINK_SIGNING_KID` as excluded.
 
 ## First-time bind (existing environments)
 
@@ -94,6 +97,33 @@ Run from an operator machine with Wrangler auth; the value is never printed or s
   ```
 
 - If smoke fails, roll back the changed secret bindings from the previous password-manager values, not from `wrangler secret list` output. Check formatting and encoding for the secret named by the failure, confirm cross-Worker shared secrets match when required, rerun the relevant smoke test, then collect Worker logs and escalate if the rollback smoke still fails.
+
+## Fail-Loud Active KID Invariant
+
+The active `*_KID` Worker var is part of the signing configuration. A partial flip
+where `*_KID` points at `v2` before the matching `*_V2` secret is bound is a
+deploy/config failure and intentionally hard-fails during key-ring construction
+or first signer resolution. Do not paper over it by falling back to kid `1`,
+another signing key, or verify-only mode; that hides a critical rotation drift
+and can mint tokens with a non-active key.
+
+Recovery is one of two actions:
+
+1. Bind the missing active secret everywhere that signed-token profile needs it,
+   redeploy the affected Workers, then rerun the hosted smoke.
+2. Roll the `*_KID` var back to the previous fully-bound kid, redeploy the
+   affected Workers, then rerun the hosted smoke.
+
+The named active secret must exist before the flip:
+
+- `CONTENT_SIGNING_KID=v2` requires `CONTENT_SIGNING_SECRET_V2` on `api`,
+  `upload`, and `content`.
+- `UPLOAD_SIGNING_KID=v2` requires `UPLOAD_SIGNING_SECRET_V2` on `upload`.
+- `ACCESS_LINK_SIGNING_KID=v2` requires `ACCESS_LINK_SIGNING_KEY_V2` wherever
+  Access Link Signed URLs are minted or verified.
+
+Errors should name only the missing or inconsistent kid and binding names, never
+secret values.
 
 ## Verify Operator Role
 
