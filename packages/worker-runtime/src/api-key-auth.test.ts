@@ -62,4 +62,50 @@ describe("createAuthenticateApiKey", () => {
 
     expect(actor).toBeNull();
   });
+
+  it("does not negative-cache API-key-shaped misses", async () => {
+    const token = "ap_pk_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF";
+    const resolvedActor = { type: "api_key" as const, id: "key_1", workspace_id: "w_1" };
+    let calls = 0;
+    const authenticateApiKey = createAuthenticateApiKey({
+      namespace: `test-api-key-auth-${crypto.randomUUID()}`,
+      resolvePostgresRuntime: () => ({
+        auth: {
+          async verifyApiKey() {
+            calls += 1;
+            return calls === 1 ? null : resolvedActor;
+          },
+        },
+      }),
+    });
+    const request = new Request("https://api.test/v1/whoami", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    await expect(authenticateApiKey(request, {})).resolves.toBeNull();
+    await expect(authenticateApiKey(request, {})).resolves.toEqual(resolvedActor);
+    expect(calls).toBe(2);
+  });
+
+  it("negative-caches malformed misses", async () => {
+    let calls = 0;
+    const authenticateApiKey = createAuthenticateApiKey({
+      namespace: `test-api-key-auth-${crypto.randomUUID()}`,
+      resolvePostgresRuntime: () => ({
+        auth: {
+          async verifyApiKey() {
+            calls += 1;
+            return null;
+          },
+        },
+      }),
+    });
+    const request = new Request("https://api.test/v1/whoami", {
+      headers: { authorization: "Bearer malformed" },
+    });
+
+    await expect(authenticateApiKey(request, {})).resolves.toBeNull();
+    await expect(authenticateApiKey(request, {})).resolves.toBeNull();
+    expect(calls).toBe(1);
+  });
 });

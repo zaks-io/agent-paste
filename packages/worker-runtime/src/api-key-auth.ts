@@ -3,6 +3,7 @@ import type { ApiKeyActor } from "@agent-paste/db";
 import { bearerToken } from "./bearer.js";
 
 const DEFAULT_AUTH_CACHE_TTL_SECONDS = 60;
+const API_KEY_SHAPE = /^ap_pk_(preview|production)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/;
 
 export type ApiKeyAuthService = {
   verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;
@@ -47,6 +48,10 @@ export function createAuthenticateApiKey<TEnv extends ApiKeyAuthEnv>(options: {
     const runtime = options.resolvePostgresRuntime(env);
     if (!runtime) {
       return null;
+    }
+
+    if (API_KEY_SHAPE.test(token)) {
+      return validApiKeyActor(await runtime.auth.verifyApiKey(token));
     }
 
     return validApiKeyActor(
