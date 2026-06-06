@@ -13,7 +13,7 @@ export const publicRouteContracts = [
     scopes: [],
     idempotency: "none",
     rateLimit: "artifact",
-    responseSchema: "AgentView",
+    responseSchema: "PublicAgentView",
     errors: ["not_found", "database_unavailable", "rate_limited_artifact"],
   },
   {

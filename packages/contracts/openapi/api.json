@@ -583,6 +583,226 @@
           "min_supported"
         ]
       },
+      "PublicAgentView": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entrypoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "view_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "content_type": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "content_type",
+                "url"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "safety_warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+$"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "info",
+                    "warning"
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "artifact",
+                    "revision",
+                    "file"
+                  ]
+                },
+                "file_path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "detected_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "code",
+                "severity",
+                "scope",
+                "message",
+                "detected_at"
+              ]
+            },
+            "maxItems": 100,
+            "default": []
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending"
+                    ]
+                  },
+                  "retry_after_seconds": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "status",
+                  "retry_after_seconds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "generated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "status",
+                  "url",
+                  "generated_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "failed"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "disabled"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "artifact_id",
+          "revision_id",
+          "title",
+          "created_at",
+          "expires_at",
+          "entrypoint",
+          "view_url",
+          "files",
+          "bundle"
+        ]
+      },
       "AgentView": {
         "type": "object",
         "properties": {
@@ -789,6 +1009,86 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "lockdown": {
+            "type": "object",
+            "properties": {
+              "access_link": {
+                "type": "object",
+                "properties": {
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "locked_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "locked",
+                  "locked_at"
+                ],
+                "additionalProperties": false
+              },
+              "platform": {
+                "type": "object",
+                "properties": {
+                  "workspace": {
+                    "type": "object",
+                    "properties": {
+                      "locked": {
+                        "type": "boolean"
+                      },
+                      "locked_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "locked",
+                      "locked_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "artifact": {
+                    "type": "object",
+                    "properties": {
+                      "locked": {
+                        "type": "boolean"
+                      },
+                      "locked_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "locked",
+                      "locked_at"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "workspace",
+                  "artifact"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "access_link",
+              "platform"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1082,7 +1382,7 @@
         "type": "object",
         "properties": {
           "agent_view": {
-            "$ref": "#/components/schemas/AgentView"
+            "$ref": "#/components/schemas/PublicAgentView"
           },
           "render_mode": {
             "type": "string",
@@ -5200,7 +5500,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentView"
+                  "$ref": "#/components/schemas/PublicAgentView"
                 }
               }
             }

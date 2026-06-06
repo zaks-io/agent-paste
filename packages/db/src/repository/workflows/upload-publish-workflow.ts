@@ -1,11 +1,13 @@
+import type { AgentViewLockdownState } from "@agent-paste/contracts";
 import { buildAgentView, buildPublishResult } from "../../agent-view.js";
 import { operationActorFromApiActor } from "../../created-by.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
 import { repositoryError } from "../../repository-error.js";
-import type { ApiActor } from "../../types.js";
+import type { ApiActor, Artifact } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
 import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
+import type { Entities } from "../ports.js";
 import {
   createUploadSessionInEntities,
   finalizeUploadSessionInEntities,
@@ -273,6 +275,10 @@ export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { to
     if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
       return null;
     }
+    const lockdown = await agentViewLockdownState(entities, artifact);
+    if (hasAgentViewLockdown(lockdown)) {
+      return null;
+    }
     const revisionId = requestedRevisionId ?? artifact.revision_id;
     if (!revisionId) {
       return null;
@@ -307,6 +313,10 @@ export async function getAgentView(
     if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
       return null;
     }
+    const lockdown = await agentViewLockdownState(entities, artifact);
+    if (input.actor.type !== "member" && hasPlatformAgentViewLockdown(lockdown)) {
+      return null;
+    }
     const revisionId = input.revisionId ?? artifact.revision_id;
     if (!revisionId) {
       return null;
@@ -327,7 +337,46 @@ export async function getAgentView(
       input.contentBaseUrl,
       revision,
       warnings,
-      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
+      agentViewOptions(workspace && isEphemeralWorkspace(workspace), input.actor.type === "member" ? lockdown : null),
     );
   });
+}
+
+async function agentViewLockdownState(entities: Entities, artifact: Artifact): Promise<AgentViewLockdownState> {
+  const [workspaceLockdown, artifactLockdown] = await Promise.all([
+    entities.platformLockdowns.findEffective("workspace", artifact.workspace_id),
+    entities.platformLockdowns.findEffective("artifact", artifact.id),
+  ]);
+
+  return {
+    access_link: {
+      locked: artifact.access_link_lockdown_at !== null,
+      locked_at: artifact.access_link_lockdown_at,
+    },
+    platform: {
+      workspace: {
+        locked: workspaceLockdown !== null,
+        locked_at: workspaceLockdown?.set_at ?? null,
+      },
+      artifact: {
+        locked: artifactLockdown !== null,
+        locked_at: artifactLockdown?.set_at ?? null,
+      },
+    },
+  };
+}
+
+function hasAgentViewLockdown(lockdown: AgentViewLockdownState): boolean {
+  return lockdown.access_link.locked || lockdown.platform.workspace.locked || lockdown.platform.artifact.locked;
+}
+
+function hasPlatformAgentViewLockdown(lockdown: AgentViewLockdownState): boolean {
+  return lockdown.platform.workspace.locked || lockdown.platform.artifact.locked;
+}
+
+function agentViewOptions(ephemeralTier: boolean | null, lockdown: AgentViewLockdownState | null) {
+  return {
+    ...(ephemeralTier ? { ephemeral_tier: true as const } : {}),
+    ...(lockdown && hasAgentViewLockdown(lockdown) ? { lockdown } : {}),
+  };
 }

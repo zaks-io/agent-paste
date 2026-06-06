@@ -1,3 +1,4 @@
+import type { AgentViewLockdownState } from "@agent-paste/contracts";
 import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
@@ -43,7 +44,7 @@ export function buildAgentView(
     bundle_size_bytes: number | null;
   },
   warnings: SafetyWarning[] = [],
-  options?: { ephemeral_tier?: boolean },
+  options?: { ephemeral_tier?: boolean; lockdown?: AgentViewLockdownState },
 ) {
   const base = trimTrailingSlash(contentBaseUrl);
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
@@ -65,6 +66,7 @@ export function buildAgentView(
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
     ...(options?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
+    ...(options?.lockdown ? { lockdown: options.lockdown } : {}),
   };
 }
 

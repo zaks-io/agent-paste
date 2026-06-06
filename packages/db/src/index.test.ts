@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type ApiActor,
   createPostgresHttpExecutor,
   type DrizzleConnection,
   LocalRepository,
@@ -1699,6 +1700,136 @@ describe("LocalRepository", () => {
     expect(pinned?.revision_id).toBe(first.revision_id);
   });
 
+  it("hides public Agent View and annotates member Agent View during workspace platform lockdown", async () => {
+    const { repo, actor } = await localRepoWithMemberActor();
+    const published = await publishLocalArtifact(repo, actor, "workspace-lockdown-view", "2030-01-01T00:00:01.000Z");
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-agent-view-workspace-lockdown",
+      scope: "workspace",
+      targetId: actor.workspace_id,
+      reasonCode: "phishing_report",
+      now: new Date("2030-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      repo.getPublicAgentView({ token: published.artifact_id, contentBaseUrl: "https://content.test" }),
+    ).resolves.toBeNull();
+    await expect(
+      repo.getPublicAgentView({
+        token: `${published.artifact_id}.${published.revision_id}`,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toBeNull();
+
+    const authenticated = await repo.getAgentView({
+      actor,
+      artifactId: published.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(authenticated).toMatchObject({
+      artifact_id: published.artifact_id,
+      revision_id: published.revision_id,
+      title: "workspace-lockdown-view",
+      lockdown: {
+        access_link: { locked: false, locked_at: null },
+        platform: {
+          workspace: { locked: true, locked_at: "2030-01-02T00:00:00.000Z" },
+          artifact: { locked: false, locked_at: null },
+        },
+      },
+    });
+    expect(authenticated?.files[0]?.url).toContain(published.artifact_id);
+  });
+
+  it("hides public Agent View and annotates member Agent View during artifact platform lockdown", async () => {
+    const { repo, actor } = await localRepoWithMemberActor();
+    const published = await publishLocalArtifact(repo, actor, "artifact-lockdown-view", "2030-01-01T00:00:01.000Z");
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-agent-view-artifact-lockdown",
+      scope: "artifact",
+      targetId: published.artifact_id,
+      reasonCode: "malware_signal",
+      now: new Date("2030-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      repo.getPublicAgentView({ token: published.artifact_id, contentBaseUrl: "https://content.test" }),
+    ).resolves.toBeNull();
+
+    await expect(
+      repo.getAgentView({
+        actor,
+        artifactId: published.artifact_id,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toMatchObject({
+      artifact_id: published.artifact_id,
+      lockdown: {
+        access_link: { locked: false, locked_at: null },
+        platform: {
+          workspace: { locked: false, locked_at: null },
+          artifact: { locked: true, locked_at: "2030-01-02T00:00:00.000Z" },
+        },
+      },
+    });
+  });
+
+  it("fails closed for API-key Agent View reads during artifact platform lockdown", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "api-key-artifact-lockdown", "2030-01-01T00:00:01.000Z");
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-api-key-agent-view-artifact-lockdown",
+      scope: "artifact",
+      targetId: published.artifact_id,
+      reasonCode: "malware_signal",
+      now: new Date("2030-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      repo.getAgentView({
+        actor,
+        artifactId: published.artifact_id,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("hides public Agent View and annotates member Agent View during Access Link lockdown", async () => {
+    const { repo, actor } = await localRepoWithMemberActor();
+    const published = await publishLocalArtifact(repo, actor, "access-link-lockdown-view", "2030-01-01T00:00:01.000Z");
+    await repo.setMemberAccessLinkLockdown({
+      actor,
+      idempotencyKey: "idem-agent-view-access-link-lockdown",
+      artifactId: published.artifact_id,
+      locked: true,
+      now: new Date("2030-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      repo.getPublicAgentView({ token: published.artifact_id, contentBaseUrl: "https://content.test" }),
+    ).resolves.toBeNull();
+
+    await expect(
+      repo.getAgentView({
+        actor,
+        artifactId: published.artifact_id,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toMatchObject({
+      artifact_id: published.artifact_id,
+      lockdown: {
+        access_link: { locked: true, locked_at: "2030-01-02T00:00:00.000Z" },
+        platform: {
+          workspace: { locked: false, locked_at: null },
+          artifact: { locked: false, locked_at: null },
+        },
+      },
+    });
+  });
+
   it("applies update session title when publishing a revision", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const first = await publishLocalArtifact(repo, actor, "original-title", "2026-01-01T00:00:01.000Z");
@@ -2016,9 +2147,25 @@ async function localRepoWithApiActor() {
   return { repo, actor };
 }
 
+async function localRepoWithMemberActor() {
+  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+  const workosUserId = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
+  await repo.resolveWebMember({
+    workosUserId,
+    email: "member@example.com",
+    idempotencyKey: "workos-jti:member-agent-view",
+    now: "2029-12-31T00:00:00.000Z",
+  });
+  const actor = await repo.getWebMemberByWorkOsUserId({ workosUserId });
+  if (!actor) {
+    throw new Error("expected member actor");
+  }
+  return { repo, actor };
+}
+
 async function publishLocalArtifact(
   repo: LocalRepository,
-  actor: NonNullable<Awaited<ReturnType<LocalRepository["verifyApiKey"]>>>,
+  actor: ApiActor,
   title: string,
   now: string,
   artifactId?: string,

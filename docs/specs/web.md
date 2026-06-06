@@ -156,7 +156,8 @@ The `/al/{publicId}` page:
 - Sets `Referrer-Policy: no-referrer`.
 - Uses route-specific CSP from ADR 0047.
 - Reads `window.location.hash`, strips `#`, and posts `{ public_id, blob }` to `api`.
-- Shows generic not-found for all resolve failures.
+- Shows generic not-found for all resolve failures, including active Platform
+  Lockdown and Access Link Lockdown.
 - Renders the resolved Artifact through the content origin iframe or direct media element depending on Render Mode.
 
 ## Operator UI
