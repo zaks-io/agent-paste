@@ -1,14 +1,9 @@
 import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import type { Repository } from "@agent-paste/db";
-import {
-  consumePowNonce,
-  DEFAULT_POW_CHALLENGE_TTL_SECONDS,
-  issuePowChallenge,
-  type PowNonceStore,
-  verifyPowSolution,
-} from "@agent-paste/tokens/pow";
+import { DEFAULT_POW_CHALLENGE_TTL_SECONDS, issuePowChallenge, verifyPowSolution } from "@agent-paste/tokens/pow";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import type { AppContext, Env } from "../env.js";
+import type { AppContext } from "../env.js";
+import { consumeEphemeralProvisionGate } from "../ephemeral-provision-gate.js";
 import { webMemberActor } from "../principals.js";
 import { runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
@@ -44,13 +39,21 @@ export async function ephemeralProvisionRoute(
     return getBoundResponders(context).respondError("pow_invalid");
   }
 
-  const nonceStore = powNonceStore(env);
-  if (!nonceStore) {
-    return getBoundResponders(context).respondError("database_unavailable");
+  const gateDecision = await consumeEphemeralProvisionGate(
+    env.EPHEMERAL_PROVISION_GATE,
+    challenge.nonce,
+    DEFAULT_POW_CHALLENGE_TTL_SECONDS,
+  );
+  if (!gateDecision) {
+    return provisionUnavailableResponse(context);
   }
-  const consumed = await consumePowNonce(nonceStore, challenge.nonce, DEFAULT_POW_CHALLENGE_TTL_SECONDS);
-  if (!consumed) {
+  if (!gateDecision.allowed && gateDecision.reason === "duplicate_nonce") {
     return getBoundResponders(context).respondError("pow_invalid");
+  }
+  if (!gateDecision.allowed) {
+    return getBoundResponders(context).respondError("ephemeral_provision_rate_limited", {
+      headers: { "Retry-After": retryAfterSeconds(gateDecision.retry_after_seconds) },
+    });
   }
 
   const result = await db.createEphemeralWorkspace({
@@ -92,6 +95,16 @@ export async function ephemeralClaimRoute(
   );
 }
 
+function provisionUnavailableResponse(context: AppContext): Response {
+  return getBoundResponders(context).respondError("ephemeral_provision_unavailable", {
+    headers: { "Retry-After": "60" },
+  });
+}
+
+function retryAfterSeconds(value: number): string {
+  return String(Math.max(1, Math.ceil(value)));
+}
+
 async function powRequiredResponse(context: AppContext, powSecret: string): Promise<Response> {
   const challenge = await issuePowChallenge({ secret: powSecret });
   const requestId = getRequestId(context);
@@ -112,16 +125,4 @@ async function powRequiredResponse(context: AppContext, powSecret: string): Prom
       [REQUEST_ID_HEADER]: requestId,
     },
   });
-}
-
-function powNonceStore(env: Env): PowNonceStore | null {
-  const denylist = env.DENYLIST;
-  if (!denylist?.get || !denylist.put) {
-    return null;
-  }
-  const get = denylist.get.bind(denylist);
-  return {
-    get: (key) => get(key),
-    put: (key, value, options) => denylist.put(key, value, options),
-  };
 }

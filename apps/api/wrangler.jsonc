@@ -64,6 +64,10 @@
       {
         "name": "WRITE_ALLOWANCE",
         "class_name": "WorkspaceWriteAllowance"
+      },
+      {
+        "name": "EPHEMERAL_PROVISION_GATE",
+        "class_name": "EphemeralProvisionGate"
       }
     ]
   },
@@ -71,6 +75,10 @@
     {
       "tag": "v1-write-allowance",
       "new_sqlite_classes": ["WorkspaceWriteAllowance"]
+    },
+    {
+      "tag": "v2-ephemeral-provision-gate",
+      "new_sqlite_classes": ["EphemeralProvisionGate"]
     }
   ],
   "ratelimits": [
@@ -262,6 +270,10 @@
           {
             "name": "WRITE_ALLOWANCE",
             "class_name": "WorkspaceWriteAllowance"
+          },
+          {
+            "name": "EPHEMERAL_PROVISION_GATE",
+            "class_name": "EphemeralProvisionGate"
           }
         ]
       }
@@ -413,6 +425,10 @@
           {
             "name": "WRITE_ALLOWANCE",
             "class_name": "WorkspaceWriteAllowance"
+          },
+          {
+            "name": "EPHEMERAL_PROVISION_GATE",
+            "class_name": "EphemeralProvisionGate"
           }
         ]
       }

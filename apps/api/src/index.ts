@@ -75,6 +75,8 @@ import { apiDatabase, apiRateLimitBindings } from "./runtime.js";
 
 export { authenticateWebIdentity } from "./auth.js";
 export type { ApiDatabase, AuthService, Env, KVNamespace, R2Bucket, RateLimitBinding } from "./env.js";
+export { EphemeralProvisionGate } from "./ephemeral-provision-gate.js";
+export { createMemoryEphemeralProvisionGateNamespace } from "./ephemeral-provision-gate-memory.js";
 
 const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
 export const mountedRouteIds = new Set<string>();

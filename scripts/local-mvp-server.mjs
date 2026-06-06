@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import apiWorker from "../apps/api/dist/index.js";
+import apiWorker, { createMemoryEphemeralProvisionGateNamespace } from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
@@ -400,6 +400,7 @@ const artifactLive = createMemoryArtifactLiveNamespace({
 });
 apiEnv.ARTIFACT_LIVE = artifactLive;
 apiEnv.WRITE_ALLOWANCE = createMemoryWriteAllowanceNamespace();
+apiEnv.EPHEMERAL_PROVISION_GATE = createMemoryEphemeralProvisionGateNamespace();
 Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
   enumerable: true,
   get() {
