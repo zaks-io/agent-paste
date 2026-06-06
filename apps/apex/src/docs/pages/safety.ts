@@ -7,6 +7,32 @@ export const SAFETY_DOC: DocsPage = {
   summary: "agent-paste treats uploaded work as untrusted content and isolates serving from control-plane auth.",
   sections: [
     {
+      id: "what-not-to-publish",
+      title: "What not to publish",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Published Artifacts are meant to be shared. Anyone with a valid Artifact URL or Access Link can read the files until the Artifact or link expires, is revoked, or is deleted. Treat everything you publish as readable by others.",
+        },
+        {
+          kind: "paragraph",
+          text: "Do not upload secrets or other people's data. In particular:",
+        },
+        {
+          kind: "list",
+          items: [
+            "API keys, tokens, passwords, private keys, `.env` files, or any other credential.",
+            "Personal or customer data you are not authorized to share or required to protect.",
+            "Anything you would not be comfortable handing to whoever holds the link.",
+          ],
+        },
+        {
+          kind: "paragraph",
+          text: "If you publish a secret by mistake, rotate it and delete or revoke the Artifact. Deletion can make content unreachable before every backup, cache, or queued cleanup job has finished.",
+        },
+      ],
+    },
+    {
       id: "origin-boundary",
       title: "Origin boundary",
       blocks: [
