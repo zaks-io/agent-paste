@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { spawnCommand } from "./lib/spawn-command.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 import { isQueueConsumerNotFound, isQueueNotFound, isQueueStillReferenced } from "./wrangler-queue-cli.mjs";
 
@@ -14,7 +14,7 @@ if (isMain(import.meta.url)) {
 
 export async function cleanupPrPreview(prNumber, options = {}) {
   const normalizedPrNumber = normalizePrNumber(prNumber);
-  const run = options.run ?? runCommand;
+  const run = options.run ?? spawnCommand;
   const log = options.log ?? ((message) => process.stdout.write(message));
   const sleep = options.sleep ?? defaultSleep;
   const failures = [];
@@ -175,33 +175,4 @@ function defaultSleep(ms) {
 
 function isMain(metaUrl) {
   return process.argv[1] === fileURLToPath(metaUrl);
-}
-
-function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      const result = { code: code ?? 1, stdout, stderr };
-      if (result.code === 0 || options.allowFailure) {
-        if (!options.quiet && stdout.trim()) {
-          process.stdout.write(stdout);
-        }
-        if (!options.quiet && stderr.trim()) {
-          process.stderr.write(stderr);
-        }
-        resolve(result);
-      } else {
-        reject(new Error(`${command} ${args.join(" ")} exited ${result.code}\n${stderr || stdout}`));
-      }
-    });
-  });
 }

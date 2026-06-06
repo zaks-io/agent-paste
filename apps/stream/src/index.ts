@@ -26,64 +26,67 @@ const worker = {
 
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
+const ACCESS_LINK_PATH = /^\/v1\/live\/access-links\/([0-9A-HJKMNP-TV-Z]{16})$/;
+const DASHBOARD_PATH = /^\/v1\/live\/artifacts\/([^/]+)$/;
+
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/healthz") {
     return new Response("ok", { status: 200 });
   }
 
-  const accessLinkMatch = /^\/v1\/live\/access-links\/([0-9A-HJKMNP-TV-Z]{16})$/.exec(url.pathname);
-  if (accessLinkMatch && request.method === "POST") {
-    const publicId = accessLinkMatch[1];
-    if (!publicId) {
-      return notFound();
-    }
-    const body = await readJson(request);
-    const authorizeRequest = parseAuthorizeAccessLinkBody(publicId, body);
-    if (!authorizeRequest) {
-      return notFound();
-    }
-    const authorized = await authorizeLiveUpdate(env.API, authorizeRequest, {
-      ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
-    });
-    if (!authorized) {
-      return notFound();
-    }
-    return connectToArtifact(env, authorized, request.signal, {
-      kind: "access_link",
-      public_id: publicId as import("@agent-paste/contracts").AccessLinkPublicId,
-      blob: authorizeRequest.blob,
-    });
+  const accessLinkMatch = ACCESS_LINK_PATH.exec(url.pathname);
+  if (accessLinkMatch?.[1] && request.method === "POST") {
+    return handleAccessLink(request, env, accessLinkMatch[1]);
   }
 
-  const dashboardMatch = /^\/v1\/live\/artifacts\/([^/]+)$/.exec(url.pathname);
-  if (dashboardMatch && request.method === "GET") {
-    const artifactId = dashboardMatch[1];
-    if (!artifactId) {
-      return notFound();
-    }
-    const authorization = request.headers.get("authorization");
-    if (!authorization) {
-      return notFound();
-    }
-    const authorized = await authorizeLiveUpdate(
-      env.API,
-      { kind: "dashboard", artifact_id: artifactId as import("@agent-paste/contracts").ArtifactId },
-      {
-        authorization,
-        ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
-      },
-    );
-    if (!authorized) {
-      return notFound();
-    }
-    return connectToArtifact(env, authorized, request.signal, {
-      kind: "dashboard",
-      authorization,
-    });
+  const dashboardMatch = DASHBOARD_PATH.exec(url.pathname);
+  if (dashboardMatch?.[1] && request.method === "GET") {
+    return handleDashboard(request, env, dashboardMatch[1]);
   }
 
   return notFound();
+}
+
+async function handleAccessLink(request: Request, env: Env, publicId: string): Promise<Response> {
+  const body = await readJson(request);
+  const authorizeRequest = parseAuthorizeAccessLinkBody(publicId, body);
+  if (!authorizeRequest) {
+    return notFound();
+  }
+  const authorized = await authorizeLiveUpdate(env.API, authorizeRequest, {
+    ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
+  });
+  if (!authorized) {
+    return notFound();
+  }
+  return connectToArtifact(env, authorized, request.signal, {
+    kind: "access_link",
+    public_id: publicId as import("@agent-paste/contracts").AccessLinkPublicId,
+    blob: authorizeRequest.blob,
+  });
+}
+
+async function handleDashboard(request: Request, env: Env, artifactId: string): Promise<Response> {
+  const authorization = request.headers.get("authorization");
+  if (!authorization) {
+    return notFound();
+  }
+  const authorized = await authorizeLiveUpdate(
+    env.API,
+    { kind: "dashboard", artifact_id: artifactId as import("@agent-paste/contracts").ArtifactId },
+    {
+      authorization,
+      ...(env.STREAM_INTERNAL_SECRET ? { streamInternalSecret: env.STREAM_INTERNAL_SECRET } : {}),
+    },
+  );
+  if (!authorized) {
+    return notFound();
+  }
+  return connectToArtifact(env, authorized, request.signal, {
+    kind: "dashboard",
+    authorization,
+  });
 }
 
 async function connectToArtifact(

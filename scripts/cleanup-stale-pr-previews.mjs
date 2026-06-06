@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { cleanupPrPreview, parseHyperdriveList } from "./cleanup-pr-preview.mjs";
 import { deleteNeonPrBranch } from "./delete-neon-pr-branch.mjs";
+import { spawnCommand } from "./lib/spawn-command.mjs";
 
 if (isMain(import.meta.url)) {
   const options = optionsFromEnv(process.env, process.argv.slice(2));
@@ -14,7 +14,7 @@ if (isMain(import.meta.url)) {
 }
 
 export async function cleanupStalePrPreviews(options, dependencies = {}) {
-  const run = dependencies.run ?? runCommand;
+  const run = dependencies.run ?? spawnCommand;
   const fetchFn = dependencies.fetch ?? fetch;
   const log = dependencies.log ?? ((message) => process.stdout.write(message));
   const cleanupPreview = dependencies.cleanupPreview ?? cleanupPrPreview;
@@ -29,11 +29,7 @@ export async function cleanupStalePrPreviews(options, dependencies = {}) {
     return { discovered: [], stale: [], cleaned: [], dryRun: Boolean(options.dryRun) };
   }
 
-  const classified = await classifyPrNumbers(candidates, options.github, fetchFn);
-  assertNoUnknownClassifications(classified);
-  const stale = classified
-    .filter((item) => item.state === "closed" || item.state === "missing")
-    .map((item) => item.prNumber);
+  const stale = await selectStalePrNumbers(candidates, options.github, fetchFn);
 
   if (stale.length === 0) {
     log(`No stale PR previews found among ${candidates.length} candidate(s).\n`);
@@ -49,19 +45,15 @@ export async function cleanupStalePrPreviews(options, dependencies = {}) {
   const failures = [];
   const cleaned = [];
   for (const prNumber of stale) {
-    const prFailures = [];
-    try {
-      await cleanupPreview(prNumber, { run, log, sleep });
-    } catch (error) {
-      prFailures.push(`Cloudflare cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    try {
-      await maybeDeleteNeonPrBranch(prNumber, options.neon, deleteNeonBranch, fetchFn, log);
-    } catch (error) {
-      prFailures.push(`Neon cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
+    const prFailures = await cleanupSinglePrPreview(prNumber, {
+      run,
+      log,
+      sleep,
+      neon: options.neon,
+      cleanupPreview,
+      deleteNeonBranch,
+      fetch: fetchFn,
+    });
     if (prFailures.length === 0) {
       cleaned.push(prNumber);
     } else {
@@ -76,8 +68,32 @@ export async function cleanupStalePrPreviews(options, dependencies = {}) {
   return { discovered: candidates, stale, cleaned, dryRun: false };
 }
 
+async function selectStalePrNumbers(candidates, github, fetchFn) {
+  const classified = await classifyPrNumbers(candidates, github, fetchFn);
+  assertNoUnknownClassifications(classified);
+  return classified.filter((item) => item.state === "closed" || item.state === "missing").map((item) => item.prNumber);
+}
+
+async function cleanupSinglePrPreview(prNumber, deps) {
+  const { run, log, sleep, neon, cleanupPreview, deleteNeonBranch, fetch: fetchFn } = deps;
+  const prFailures = [];
+  try {
+    await cleanupPreview(prNumber, { run, log, sleep });
+  } catch (error) {
+    prFailures.push(`Cloudflare cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  try {
+    await maybeDeleteNeonPrBranch(prNumber, neon, deleteNeonBranch, fetchFn, log);
+  } catch (error) {
+    prFailures.push(`Neon cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return prFailures;
+}
+
 export async function discoverPrPreviewNumbers(cloudflare, dependencies = {}) {
-  const run = dependencies.run ?? runCommand;
+  const run = dependencies.run ?? spawnCommand;
   const fetchFn = dependencies.fetch ?? fetch;
   const numbers = new Set();
 
@@ -260,33 +276,4 @@ function compareNumericStrings(left, right) {
 
 function isMain(metaUrl) {
   return process.argv[1] === fileURLToPath(metaUrl);
-}
-
-function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      const result = { code: code ?? 1, stdout, stderr };
-      if (result.code === 0 || options.allowFailure) {
-        if (!options.quiet && stdout.trim()) {
-          process.stdout.write(stdout);
-        }
-        if (!options.quiet && stderr.trim()) {
-          process.stderr.write(stderr);
-        }
-        resolve(result);
-      } else {
-        reject(new Error(`${command} ${args.join(" ")} exited ${result.code}\n${stderr || stdout}`));
-      }
-    });
-  });
 }

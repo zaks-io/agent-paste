@@ -261,6 +261,7 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
   return client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: inherent linear flag-parsing loop; splitting adds indirection without clarity. See docs/ops/complexity-todo.md.
 export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];

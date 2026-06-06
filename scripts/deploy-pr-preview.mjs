@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // @ts-check
-import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
+import { spawnCommand } from "./lib/spawn-command.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 
 const prNumber = requiredEnv("PR_NUMBER");
@@ -327,37 +327,7 @@ function emitOutput(name, value) {
 }
 
 function run(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const env = options.env ? { ...process.env, ...options.env } : process.env;
-    const child = spawn(command, args, { stdio: options.allowFailure ? ["ignore", "pipe", "pipe"] : "inherit", env });
-    let stdout = "";
-    let stderr = "";
-    if (options.allowFailure) {
-      child.stdout.on("data", (chunk) => {
-        stdout += chunk.toString();
-      });
-      child.stderr.on("data", (chunk) => {
-        stderr += chunk.toString();
-      });
-    }
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      const exitCode = code ?? 1;
-      if (exitCode === 0 || options.allowFailure) {
-        if (options.allowFailure) {
-          if (stdout.trim()) {
-            process.stdout.write(stdout);
-          }
-          if (stderr.trim()) {
-            process.stderr.write(stderr);
-          }
-        }
-        resolve({ code: exitCode, stdout, stderr });
-        return;
-      }
-      reject(new Error(`${command} ${args.join(" ")} exited ${exitCode}`));
-    });
-  });
+  return spawnCommand(command, args, { ...options, inherit: true });
 }
 
 function requiredEnv(name, fallback) {

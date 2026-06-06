@@ -39,6 +39,7 @@ export type PublishChainDeps = {
   idempotencyKey: IdempotencyKey;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: linear sequence of independent .ok-checked publish steps; splitting adds indirection without clarity. See docs/ops/complexity-todo.md.
 export async function runTextPublishChain(
   input: McpPublishArtifactInput | McpAddRevisionInput,
   deps: PublishChainDeps,

@@ -209,49 +209,40 @@ export async function webAdminLiftLockdown(
   });
 }
 
+type OperatorEventFilterField = Exclude<keyof OperatorEventFilterInput, "focus">;
+
+const OPERATOR_EVENT_FILTERS: ReadonlyArray<{
+  param: string;
+  key: OperatorEventFilterField;
+  valid: (raw: string) => boolean;
+}> = [
+  { param: "workspace_id", key: "workspaceId", valid: (raw) => WorkspaceId.safeParse(raw).success },
+  { param: "actor_type", key: "actorType", valid: (raw) => ActorType.safeParse(raw).success },
+  { param: "action", key: "action", valid: (raw) => OperationEventAction.safeParse(raw).success },
+  { param: "target_type", key: "targetType", valid: (raw) => OperationEventTargetType.safeParse(raw).success },
+  { param: "request_id", key: "requestId", valid: (raw) => raw.length >= 1 && raw.length <= 128 },
+];
+
 function parseOperatorEventFilters(
   request: Request,
 ): { ok: true; value: OperatorEventFilterInput } | { ok: false; code: "invalid_request" } {
   const url = new URL(request.url);
-  const workspaceId = url.searchParams.get("workspace_id");
-  if (workspaceId !== null && !WorkspaceId.safeParse(workspaceId).success) {
-    return { ok: false, code: "invalid_request" };
-  }
-  const actorType = url.searchParams.get("actor_type");
-  if (actorType !== null && !ActorType.safeParse(actorType).success) {
-    return { ok: false, code: "invalid_request" };
-  }
-  const action = url.searchParams.get("action");
-  if (action !== null && !OperationEventAction.safeParse(action).success) {
-    return { ok: false, code: "invalid_request" };
-  }
-  const targetType = url.searchParams.get("target_type");
-  if (targetType !== null && !OperationEventTargetType.safeParse(targetType).success) {
-    return { ok: false, code: "invalid_request" };
-  }
-  const requestId = url.searchParams.get("request_id");
-  if (requestId !== null && (requestId.length < 1 || requestId.length > 128)) {
-    return { ok: false, code: "invalid_request" };
+  const value: OperatorEventFilterInput = {};
+  for (const { param, key, valid } of OPERATOR_EVENT_FILTERS) {
+    const raw = url.searchParams.get(param);
+    if (raw === null) {
+      continue;
+    }
+    if (!valid(raw)) {
+      return { ok: false, code: "invalid_request" };
+    }
+    if (raw) {
+      value[key] = raw;
+    }
   }
   const focusParam = url.searchParams.get("focus");
   if (focusParam !== null && !WebOperatorEventFocus.safeParse(focusParam).success) {
     return { ok: false, code: "invalid_request" };
-  }
-  const value: OperatorEventFilterInput = {};
-  if (workspaceId) {
-    value.workspaceId = workspaceId;
-  }
-  if (actorType) {
-    value.actorType = actorType;
-  }
-  if (action) {
-    value.action = action;
-  }
-  if (targetType) {
-    value.targetType = targetType;
-  }
-  if (requestId) {
-    value.requestId = requestId;
   }
   if (focusParam === "security" || focusParam === "lifecycle") {
     value.focus = focusParam;

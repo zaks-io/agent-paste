@@ -10,11 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import mcpWorker from "../../apps/mcp/dist/index.js";
 import { MCP_RESOURCE_INDICATOR } from "../../packages/contracts/dist/mcp.js";
-import {
-  DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
-  smokeHarnessSecretFromEnv,
-  waitForHealthz,
-} from "../smoke-harness.mjs";
+import { DEFAULT_LOCAL_SMOKE_HARNESS_SECRET, smokeHarnessSecretFromEnv, waitForHealthz } from "../smoke-harness.mjs";
 import {
   assert,
   assertMcpRejectsApiKey,
@@ -117,36 +113,44 @@ export function buildLocalMcpWorkerEnv({ apiBaseUrl, uploadBaseUrl, workosEnv })
   };
 }
 
+function nodeRequestToFetch(incoming) {
+  const host = incoming.headers.host ?? "127.0.0.1";
+  const url = `http://${host}${incoming.url ?? "/"}`;
+  const headers = new Headers();
+  for (const [headerName, value] of Object.entries(incoming.headers)) {
+    if (Array.isArray(value)) {
+      headers.set(headerName, value.join(", "));
+    } else if (value !== undefined) {
+      headers.set(headerName, value);
+    }
+  }
+  const init = { method: incoming.method, headers };
+  if (incoming.method !== "GET" && incoming.method !== "HEAD") {
+    init.body = incoming;
+    init.duplex = "half";
+  }
+  return new Request(url, init);
+}
+
+async function writeFetchResponse(response, outgoing) {
+  const responseHeaders = {};
+  response.headers.forEach((value, headerName) => {
+    responseHeaders[headerName] = value;
+  });
+  outgoing.writeHead(response.status, responseHeaders);
+  if (response.body) {
+    for await (const chunk of response.body) {
+      outgoing.write(chunk);
+    }
+  }
+  outgoing.end();
+}
+
 export function createMcpWorkerHttpServer(name, worker, env) {
   return createServer(async (incoming, outgoing) => {
     try {
-      const host = incoming.headers.host ?? "127.0.0.1";
-      const url = `http://${host}${incoming.url ?? "/"}`;
-      const headers = new Headers();
-      for (const [headerName, value] of Object.entries(incoming.headers)) {
-        if (Array.isArray(value)) {
-          headers.set(headerName, value.join(", "));
-        } else if (value !== undefined) {
-          headers.set(headerName, value);
-        }
-      }
-      const init = { method: incoming.method, headers };
-      if (incoming.method !== "GET" && incoming.method !== "HEAD") {
-        init.body = incoming;
-        init.duplex = "half";
-      }
-      const response = await worker.fetch(new Request(url, init), env);
-      const responseHeaders = {};
-      response.headers.forEach((value, headerName) => {
-        responseHeaders[headerName] = value;
-      });
-      outgoing.writeHead(response.status, responseHeaders);
-      if (response.body) {
-        for await (const chunk of response.body) {
-          outgoing.write(chunk);
-        }
-      }
-      outgoing.end();
+      const response = await worker.fetch(nodeRequestToFetch(incoming), env);
+      await writeFetchResponse(response, outgoing);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       outgoing.writeHead(500, { "content-type": "application/json; charset=utf-8" });
@@ -180,13 +184,7 @@ export function spawnLocalMvpForMcpSmoke({ root, serverEntry, ports, harnessSecr
   return { localServer, getServerLog: () => serverLog };
 }
 
-export async function startLocalMcpSmokeServers({
-  workosServer,
-  mcpHttpServer,
-  localServer,
-  ports,
-  getServerLog,
-}) {
+export async function startLocalMcpSmokeServers({ workosServer, mcpHttpServer, localServer, ports, getServerLog }) {
   await listenHttpPort(workosServer, ports.workosPort, {
     envVar: "AGENT_PASTE_MCP_SMOKE_WORKOS_PORT",
     label: "MCP smoke WorkOS stub",
@@ -255,13 +253,7 @@ export async function runLocalMcpAuthenticatedChecks(mcpBaseUrl, mcpToken, expec
   );
   assert(published.artifact_id?.startsWith("art_"), "publish_artifact returned artifact_id");
 
-  const agentView = await mcpCallTool(
-    mcpBaseUrl,
-    mcpToken,
-    "read_artifact",
-    { artifact_id: published.artifact_id },
-    5,
-  );
+  const agentView = await mcpCallTool(mcpBaseUrl, mcpToken, "read_artifact", { artifact_id: published.artifact_id }, 5);
   assert(agentView.artifact_id === published.artifact_id, "read_artifact returns the published artifact");
 
   return { whoami, published, agentView };
@@ -286,11 +278,12 @@ export async function runLocalMcpSmoke() {
   const workosApiKey = "sk_test_local_mcp_smoke";
   const workosClientId = "client_local_mcp_smoke";
 
-  const { server: workosServer, privateKey, keyId, workosEnv } = createLocalMcpWorkOsStub(
-    ports.workosBaseUrl,
-    workosApiKey,
-    workosClientId,
-  );
+  const {
+    server: workosServer,
+    privateKey,
+    keyId,
+    workosEnv,
+  } = createLocalMcpWorkOsStub(ports.workosBaseUrl, workosApiKey, workosClientId);
   const { localServer, getServerLog } = spawnLocalMvpForMcpSmoke({
     root,
     serverEntry,
@@ -333,11 +326,7 @@ export async function runLocalMcpSmoke() {
       scope: "write read share",
     });
 
-    const { published } = await runLocalMcpAuthenticatedChecks(
-      ports.mcpBaseUrl,
-      mcpToken,
-      callback.workspace.id,
-    );
+    const { published } = await runLocalMcpAuthenticatedChecks(ports.mcpBaseUrl, mcpToken, callback.workspace.id);
 
     process.stdout.write(`Local MCP smoke passed.
 

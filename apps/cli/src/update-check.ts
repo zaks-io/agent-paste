@@ -105,6 +105,25 @@ function nag(channel: Channel, latest: string): string | null {
   return command ? `Update available: ${latest}. Run: ${command}` : null;
 }
 
+// Pure decision: given the installed version, the server's version data, and the
+// channel, return the single line to print on stderr (without trailing newline),
+// or null when nothing is stale. Below-minimum wins over a plain update nag.
+export function decideUpdateMessage(
+  current: string,
+  versions: { latest: string; min_supported: string },
+  channel: Channel,
+): string | null {
+  if (compareSemver(current, versions.min_supported) < 0) {
+    const command = upgradeCommand(channel);
+    const suffix = command ? `Upgrade soon: ${command}` : "Upgrade soon.";
+    return `Your agent-paste ${current} is below the minimum supported ${versions.min_supported}. ${suffix}`;
+  }
+  if (compareSemver(current, versions.latest) < 0) {
+    return nag(channel, versions.latest);
+  }
+  return null;
+}
+
 export async function runUpdateCheck(global: GlobalFlags, deps: Deps = {}): Promise<void> {
   try {
     const readCache = deps.readCache ?? readCacheFile;
@@ -129,16 +148,8 @@ export async function runUpdateCheck(global: GlobalFlags, deps: Deps = {}): Prom
 
     const write = deps.stderr ?? ((message: string) => void process.stderr.write(message));
     const channel = deps.channel ?? detectChannel();
-    if (compareSemver(CLI_VERSION, min_supported) < 0) {
-      const command = upgradeCommand(channel);
-      const suffix = command ? `Upgrade soon: ${command}` : "Upgrade soon.";
-      write(`Your agent-paste ${CLI_VERSION} is below the minimum supported ${min_supported}. ${suffix}\n`);
-      return;
-    }
-    if (compareSemver(CLI_VERSION, latest) < 0) {
-      const line = nag(channel, latest);
-      if (line) write(`${line}\n`);
-    }
+    const message = decideUpdateMessage(CLI_VERSION, { latest, min_supported }, channel);
+    if (message) write(`${message}\n`);
   } catch {
     // Fail open: a stale-check must never affect the command's outcome.
   }

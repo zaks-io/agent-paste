@@ -1,4 +1,5 @@
-import { configDefaults, defineConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
+import { buildTestExcludes } from "./vitest.shared.config";
 
 // Config for the `scripts/` test gate (`pnpm test:scripts`, wired into `pnpm verify`).
 // These tests spawn real Node subprocesses (rotation/deploy CLIs) that blow past
@@ -7,7 +8,7 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["scripts/**/*.test.mjs"],
-    exclude: [...configDefaults.exclude, "**/dist/**", "**/.claude/**", "**/.codex/**"],
+    exclude: buildTestExcludes(),
     testTimeout: 20_000,
     coverage: {
       // The `scripts/lib/` extraction tier holds the decision logic that deserves

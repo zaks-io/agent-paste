@@ -41,7 +41,26 @@ Measured by Biome's own counters (`skipBlankLines: true`):
 
 ## Suppressed offenders
 
-No current inline suppressions remain for these rules at the snapshot limits.
+Inline suppressions staged ahead of the cognitive-complexity ratchet to 15.
+Each is below the snapshot limit of 30 (so Biome reports the suppression as
+"unused" at warn level today) but will activate once `biome.json` drops to 15.
+
+### Cognitive complexity (> 15, suppressed for the ratchet to 15)
+
+These are clean, linear flows (flag parsers, char scanners, paginated walks,
+fixed step sequences) where the branch count is inherent and splitting them adds
+indirection without clarity. Each carries an inline `biome-ignore` linking here.
+
+- `apps/cli/src/index.ts` — `parseArgs`: inherent linear flag-parsing loop; each
+  branch is a flat arg case and splitting it hides the parser.
+- `scripts/setup-worktree.mjs` — `parseArgs`: same flat flag-parsing loop shape.
+- `scripts/lib/hyperdrive-branch-guard.mjs` — `stripJsonComments`: char-by-char
+  JSON-comment-stripping state machine; the branches are the states and
+  splitting them obscures the scanner.
+- `apps/mcp/src/publish-chain.ts` — publish chain: linear sequence of
+  independent `.ok`-checked publish steps; splitting adds indirection.
+- `packages/billing/src/provider.ts` — Stripe pagination loop: linear cursor
+  walk boilerplate; splitting the walk adds no value.
 
 ### Cognitive complexity (> 30)
 
@@ -109,6 +128,43 @@ tables) first; the contract/OpenAPI registries are already under 510 after AP-22
       AP-223 split command item construction into `command-items-navigation.ts` and
       `command-items-actions.ts`. The hook now composes focused builders and passes the
       60 function-line / 15 cognitive-complexity ratchet targets.
+- [x] `apps/cli/src/update-check.ts` — `runUpdateCheck` (was CC 17): extracted the
+      version-comparison decision into a pure `decideUpdateMessage(...)` helper that
+      returns the single line to print. The runner now just prints the result and
+      passes the 15 cognitive-complexity target without a suppression.
+- [x] Mechanical ratchet batch (AP-221 child, single PR): refactored the remaining
+      mechanical offenders to the 15 cognitive target without suppressions —
+      `scripts/{check-pr-preview-capacity,cleanup-pr-preview,cleanup-stale-pr-previews,deploy-pr-preview,ensure-job-queues,deploy}.mjs`
+      (shared `scripts/lib/spawn-command.mjs` replaces five duplicated child-process
+      callbacks; `deploy.mjs` extracted `classifySecret`/`planSecretsForApp`;
+      `ensure-job-queues.mjs` extracted `createQueueWithRetry`),
+      `packages/repo-lint/src/monorepo-policy.mjs` (`validateWorkspacePackages` 30->6,
+      `validateDependencies` 17->7), `apps/web/src/routes/_authed.dashboard.tsx`
+      (extracted `apps/web/src/lib/use-dashboard-stats.ts`),
+      `apps/web/src/routes/al.$publicId.tsx` (extracted `resolveViewerState`),
+      `apps/mcp/src/{forward,transport}.ts`, `apps/stream/src/index.ts`,
+      `apps/apex/src/routes.ts`, `packages/db/src/audit/change-summary.ts`,
+      `packages/billing/src/reconcile.ts`,
+      `apps/api/src/routes/operator.ts` (`parseOperatorEventFilters` lookup table),
+      and `scripts/lib/smoke-mcp-local.mjs` (`createMcpWorkerHttpServer` extracted
+      `nodeRequestToFetch`/`writeFetchResponse`). Same PR anchored the `.claude`/
+      `.codex` vitest excludes to the resolved root (`buildTestExcludes`) so tests
+      run from a worktree checkout under `~/.claude/worktrees/`.
+
+## Deferred to follow-up tickets (characterization tests first)
+
+Three offenders carry real behavioral risk and are **not** suppressed in the
+mechanical batch — they stay red against a limit of 15 until refactored under
+their own tickets, each gated on writing characterization tests first. They
+block the final cognitive-complexity drop to 15 (owned by the AP-221 epic; the
+AP-247 pass tightened the other gates but left cognitive pinned at 30).
+
+- AP-258 — `apps/api/src/agent-view.ts` — `signAgentViewContentUrls` (CC 22):
+  URL signing on the read path, no direct tests.
+- AP-259 — `packages/db/src/repository/workflows/upload-publish-workflow.ts:169`
+  — repository-layer `publishRevision` (CC 27): core publish write path.
+- AP-260 — `apps/cli/src/upgrade.ts:258` — `runUpgrade` (CC 23): in-place binary
+  swap.
 
 ## Current target-wall areas
 
@@ -124,9 +180,10 @@ Measured against the final targets (15 cognitive complexity, 60 function lines,
 3. `scripts`: local server, smoke, and deploy-preview remain large orchestration
    modules. Versioned rotation scripts are split; extract step tables and reusable
    runners in the remaining scripts before ratcheting repo-wide file limits.
-4. `apps/api`: publish/revision orchestration is split (AP-142). Remaining
-   target-wall items are Agent View signing, API index wiring, Live Updates,
-   operator filter parsing, and web route file size.
+4. `apps/api`: publish/revision orchestration is split (AP-142); operator filter
+   parsing is now a lookup table. Remaining target-wall items are Agent View
+   signing (deferred ticket), API index wiring, Live Updates, and web route file
+   size.
 5. `apps/web`: command palette and dashboard route components mix state,
    keyboard/focus behavior, data derivation, and rendering. Move behavior into
    hooks and small render modules.

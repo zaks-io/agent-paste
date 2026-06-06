@@ -57,7 +57,7 @@ const alwaysAllowRateLimit = {
   limit: async () => ({ success: true }),
 };
 
-function createWorkerServer(name, port, worker, env) {
+function createWorkerServer(name, worker, env) {
   return createServer(async (incoming, outgoing) => {
     try {
       const request = nodeRequestToFetchRequest(incoming);
@@ -451,14 +451,14 @@ const streamEnv = {
 await seedProofArtifacts(services.repo, artifacts);
 
 const serverDefs = [
-  { name: "api", port: apiPort, worker: apiWorker, env: apiEnv },
-  { name: "upload", port: uploadPort, worker: uploadWorker, env: uploadEnv },
-  { name: "content", port: contentPort, worker: contentWorker, env: contentEnv },
-  { name: "jobs", port: jobsPort, worker: jobsWorker, env: jobsEnv },
-  { name: "stream", port: streamPort, worker: streamWorker, env: streamEnv },
+  { name: "api", worker: apiWorker, env: apiEnv },
+  { name: "upload", worker: uploadWorker, env: uploadEnv },
+  { name: "content", worker: contentWorker, env: contentEnv },
+  { name: "jobs", worker: jobsWorker, env: jobsEnv },
+  { name: "stream", worker: streamWorker, env: streamEnv },
 ];
 
-const servers = serverDefs.map(({ name, port, worker, env }) => createWorkerServer(name, port, worker, env));
+const servers = serverDefs.map(({ name, worker, env }) => createWorkerServer(name, worker, env));
 
 try {
   await Promise.all(serverDefs.map(({ name }, index) => listenNamedServer(servers[index], name)));
