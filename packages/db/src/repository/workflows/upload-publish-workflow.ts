@@ -4,10 +4,10 @@ import { operationActorFromApiActor } from "../../created-by.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
 import { repositoryError } from "../../repository-error.js";
-import type { ApiActor, Artifact } from "../../types.js";
+import type { ApiActor, Artifact, PublishBundleStatus, Revision, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
-import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
 import type { Entities } from "../ports.js";
+import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
 import {
   createUploadSessionInEntities,
   finalizeUploadSessionInEntities,
@@ -150,6 +150,118 @@ export async function peekPublishWriteGate(
   });
 }
 
+type PublishRevisionInput = {
+  actor: ApiActor;
+  artifactId: string;
+  revisionId: string;
+  now: string;
+};
+
+async function loadActivePublishTargets(
+  entities: Entities,
+  ctx: RepositoryCoreContext,
+  input: PublishRevisionInput,
+) {
+  const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
+  const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
+  if (!artifact || artifact.status !== "active") {
+    repositoryError("artifact_not_found");
+  }
+  const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
+  if (!revision || revision.artifact_id !== artifact.id) {
+    repositoryError("revision_unpublished");
+  }
+  return { workspace, artifact, revision };
+}
+
+function ensureRevisionPublishable(revision: Revision): "draft" | "published" {
+  if (revision.status === "retained") {
+    repositoryError("revision_retained");
+  }
+  if (revision.status === "published") {
+    return "published";
+  }
+  if (revision.status !== "draft") {
+    repositoryError("revision_unpublished");
+  }
+  return "draft";
+}
+
+async function validateDraftForPublish(
+  entities: Entities,
+  artifact: Artifact,
+  revision: Revision,
+  lifetimeRevisionCeiling: number,
+) {
+  const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
+  if (!revisionFiles.some((file) => file.path === revision.entrypoint)) {
+    repositoryError("entrypoint_not_in_revision");
+  }
+  const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
+  if (revisionNumber > lifetimeRevisionCeiling) {
+    repositoryError("revision_ceiling_exceeded");
+  }
+  return revisionNumber;
+}
+
+async function executePublishWrites(
+  entities: Entities,
+  input: PublishRevisionInput & {
+    workspace: Workspace;
+    artifact: Artifact;
+    revision: Revision;
+    revisionNumber: number;
+    bundleStatus: PublishBundleStatus;
+  },
+) {
+  const published = await entities.revisions.publish({
+    revisionId: input.revision.id,
+    revisionNumber: input.revisionNumber,
+    publishedAt: input.now,
+    bundleStatus: input.bundleStatus,
+  });
+  if (!published) {
+    repositoryError("revision_unpublished");
+  }
+  const sourceSession = await entities.uploadSessions.findByRevisionId(input.revision.id, input.actor.workspace_id);
+  const expiresAt = isEphemeralWorkspace(input.workspace)
+    ? artifactExpiresAtFromWorkspace(input.workspace, input.now)
+    : input.artifact.expires_at;
+  await entities.artifacts.updatePublished(input.artifact.id, {
+    revisionId: input.revision.id,
+    title: sourceSession?.title ?? input.artifact.title,
+    entrypoint: input.revision.entrypoint,
+    fileCount: input.revision.file_count,
+    sizeBytes: input.revision.size_bytes,
+    expiresAt,
+    updatedAt: input.now,
+  });
+  const updatedArtifact = await entities.artifacts.findById(input.artifact.id, input.actor.workspace_id);
+  if (!updatedArtifact) {
+    repositoryError("artifact_not_found");
+  }
+  const publishActor = operationActorFromApiActor(input.actor);
+  await entities.operationEvents.insert({
+    actorType: publishActor.actorType,
+    actorId: publishActor.actorId,
+    action: "artifact.published",
+    targetType: "artifact",
+    targetId: input.artifact.id,
+    workspaceId: input.artifact.workspace_id,
+    details: {
+      revision_id: input.revision.id,
+      revision_number: input.revisionNumber,
+      file_count: input.revision.file_count,
+    },
+    occurredAt: input.now,
+  });
+  const publishedRevision = await entities.revisions.findById(input.revision.id, input.actor.workspace_id);
+  if (!publishedRevision) {
+    repositoryError("revision_unpublished");
+  }
+  return { updatedArtifact, publishedRevision };
+}
+
 export async function publishRevision(
   ctx: RepositoryCoreContext,
   input: {
@@ -169,19 +281,15 @@ export async function publishRevision(
       now: input.now,
     },
     async (entities) => {
-      const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
-      const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-      if (!artifact || artifact.status !== "active") {
-        repositoryError("artifact_not_found");
-      }
-      const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
-      if (!revision || revision.artifact_id !== artifact.id) {
-        repositoryError("revision_unpublished");
-      }
-      if (revision.status === "retained") {
-        repositoryError("revision_retained");
-      }
-      if (revision.status === "published") {
+      const publishInput: PublishRevisionInput = {
+        actor: input.actor,
+        artifactId: input.artifactId,
+        revisionId: input.revisionId,
+        now: input.now,
+      };
+      const { workspace, artifact, revision } = await loadActivePublishTargets(entities, ctx, publishInput);
+      const publishState = ensureRevisionPublishable(revision);
+      if (publishState === "published") {
         return buildPublishResult(
           { ...artifact, revision_id: revision.id, entrypoint: revision.entrypoint },
           revision,
@@ -190,60 +298,22 @@ export async function publishRevision(
           { ephemeral_tier: isEphemeralWorkspace(workspace) },
         );
       }
-      if (revision.status !== "draft") {
-        repositoryError("revision_unpublished");
-      }
-      const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
-      if (!revisionFiles.some((file) => file.path === revision.entrypoint)) {
-        repositoryError("entrypoint_not_in_revision");
-      }
-      const revisionNumber = await entities.revisions.nextRevisionNumber(artifact.id);
       const policy = ctx.usagePolicyFor(workspace);
-      if (revisionNumber > policy.lifetime_revision_ceiling) {
-        repositoryError("revision_ceiling_exceeded");
-      }
+      const revisionNumber = await validateDraftForPublish(
+        entities,
+        artifact,
+        revision,
+        policy.lifetime_revision_ceiling,
+      );
       const bundleStatus = policy.bundles_enabled ? ("pending" as const) : ("disabled" as const);
-      const published = await entities.revisions.publish({
-        revisionId: revision.id,
+      const { updatedArtifact, publishedRevision } = await executePublishWrites(entities, {
+        ...publishInput,
+        workspace,
+        artifact,
+        revision,
         revisionNumber,
-        publishedAt: input.now,
         bundleStatus,
       });
-      if (!published) {
-        repositoryError("revision_unpublished");
-      }
-      const sourceSession = await entities.uploadSessions.findByRevisionId(revision.id, input.actor.workspace_id);
-      const expiresAt = isEphemeralWorkspace(workspace)
-        ? artifactExpiresAtFromWorkspace(workspace, input.now)
-        : artifact.expires_at;
-      await entities.artifacts.updatePublished(artifact.id, {
-        revisionId: revision.id,
-        title: sourceSession?.title ?? artifact.title,
-        entrypoint: revision.entrypoint,
-        fileCount: revision.file_count,
-        sizeBytes: revision.size_bytes,
-        expiresAt,
-        updatedAt: input.now,
-      });
-      const updatedArtifact = await entities.artifacts.findById(artifact.id, input.actor.workspace_id);
-      if (!updatedArtifact) {
-        repositoryError("artifact_not_found");
-      }
-      const publishActor = operationActorFromApiActor(input.actor);
-      await entities.operationEvents.insert({
-        actorType: publishActor.actorType,
-        actorId: publishActor.actorId,
-        action: "artifact.published",
-        targetType: "artifact",
-        targetId: artifact.id,
-        workspaceId: artifact.workspace_id,
-        details: { revision_id: revision.id, revision_number: revisionNumber, file_count: revision.file_count },
-        occurredAt: input.now,
-      });
-      const publishedRevision = await entities.revisions.findById(revision.id, input.actor.workspace_id);
-      if (!publishedRevision) {
-        repositoryError("revision_unpublished");
-      }
       return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
         ephemeral_tier: isEphemeralWorkspace(workspace),
       });
