@@ -275,7 +275,11 @@ export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { to
     if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
       return null;
     }
-    const lockdown = await agentViewLockdownState(entities, artifact);
+    const platformLockdown = await agentViewPlatformLockdownState(entities, {
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+    });
+    const lockdown = agentViewLockdownState(artifact, platformLockdown);
     if (hasAgentViewLockdown(lockdown)) {
       return null;
     }
@@ -308,15 +312,23 @@ export async function getAgentView(
   ctx: RepositoryCoreContext,
   input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string },
 ) {
+  const platformLockdown = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
+    agentViewPlatformLockdownState(entities, {
+      workspaceId: input.actor.workspace_id,
+      artifactId: input.artifactId,
+    }),
+  );
+
+  if (input.actor.type !== "member" && hasPlatformAgentViewLockdown(platformLockdown)) {
+    return null;
+  }
+
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
     const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
     if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
       return null;
     }
-    const lockdown = await agentViewLockdownState(entities, artifact);
-    if (input.actor.type !== "member" && hasPlatformAgentViewLockdown(lockdown)) {
-      return null;
-    }
+    const lockdown = agentViewLockdownState(artifact, platformLockdown);
     const revisionId = input.revisionId ?? artifact.revision_id;
     if (!revisionId) {
       return null;
@@ -342,36 +354,45 @@ export async function getAgentView(
   });
 }
 
-async function agentViewLockdownState(entities: Entities, artifact: Artifact): Promise<AgentViewLockdownState> {
+type AgentViewPlatformLockdownState = AgentViewLockdownState["platform"];
+
+async function agentViewPlatformLockdownState(
+  entities: Entities,
+  input: { workspaceId: string; artifactId: string },
+): Promise<AgentViewPlatformLockdownState> {
   const [workspaceLockdown, artifactLockdown] = await Promise.all([
-    entities.platformLockdowns.findEffective("workspace", artifact.workspace_id),
-    entities.platformLockdowns.findEffective("artifact", artifact.id),
+    entities.platformLockdowns.findEffective("workspace", input.workspaceId),
+    entities.platformLockdowns.findEffective("artifact", input.artifactId),
   ]);
 
+  return {
+    workspace: {
+      locked: workspaceLockdown !== null,
+      locked_at: workspaceLockdown?.set_at ?? null,
+    },
+    artifact: {
+      locked: artifactLockdown !== null,
+      locked_at: artifactLockdown?.set_at ?? null,
+    },
+  };
+}
+
+function agentViewLockdownState(artifact: Artifact, platform: AgentViewPlatformLockdownState): AgentViewLockdownState {
   return {
     access_link: {
       locked: artifact.access_link_lockdown_at !== null,
       locked_at: artifact.access_link_lockdown_at,
     },
-    platform: {
-      workspace: {
-        locked: workspaceLockdown !== null,
-        locked_at: workspaceLockdown?.set_at ?? null,
-      },
-      artifact: {
-        locked: artifactLockdown !== null,
-        locked_at: artifactLockdown?.set_at ?? null,
-      },
-    },
+    platform,
   };
 }
 
 function hasAgentViewLockdown(lockdown: AgentViewLockdownState): boolean {
-  return lockdown.access_link.locked || lockdown.platform.workspace.locked || lockdown.platform.artifact.locked;
+  return lockdown.access_link.locked || hasPlatformAgentViewLockdown(lockdown.platform);
 }
 
-function hasPlatformAgentViewLockdown(lockdown: AgentViewLockdownState): boolean {
-  return lockdown.platform.workspace.locked || lockdown.platform.artifact.locked;
+function hasPlatformAgentViewLockdown(lockdown: AgentViewPlatformLockdownState): boolean {
+  return lockdown.workspace.locked || lockdown.artifact.locked;
 }
 
 function agentViewOptions(ephemeralTier: boolean | null, lockdown: AgentViewLockdownState | null) {
