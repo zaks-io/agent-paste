@@ -58,7 +58,14 @@
       "outputs": []
     },
     "db:check": {
-      "inputs": ["$TURBO_DEFAULT$", "src/schema.ts", "snapshot/schema.sql", "scripts/introspect-check.mjs"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "migrations/*.sql",
+        "src/schema.ts",
+        "snapshot/schema.sql",
+        "scripts/check-rls-coverage.mjs",
+        "scripts/introspect-check.mjs"
+      ],
       "outputs": []
     },
     "typegen": {
