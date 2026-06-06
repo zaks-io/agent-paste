@@ -4,6 +4,7 @@
 interface __BaseEnv_Env {
 	DENYLIST: KVNamespace;
 	CLI_RELEASE: KVNamespace;
+	EPHEMERAL_PROVISION_CONFIG: KVNamespace;
 	ARTIFACTS: R2Bucket;
 	DB: Hyperdrive;
 	ARTIFACT_EVENTS: AnalyticsEngineDataset;

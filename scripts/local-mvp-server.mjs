@@ -344,6 +344,7 @@ const services = createLocalServices({
 const artifacts = new MemoryR2Bucket();
 const denylist = new MemoryKVNamespace();
 const cliRelease = new MemoryKVNamespace();
+const ephemeralProvisionConfig = new MemoryKVNamespace();
 // Seed a non-zero `latest` (the published placeholder is 0.0.0) so a locally
 // built CLI sees a newer version and the update-check nag is exercisable in dev.
 await cliRelease.put("cli-release", JSON.stringify({ latest: "0.1.0", min_supported: "0.0.0" }));
@@ -367,6 +368,7 @@ const apiEnv = {
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   CLI_RELEASE: cliRelease,
+  EPHEMERAL_PROVISION_CONFIG: ephemeralProvisionConfig,
   ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
   WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
   ARTIFACT_RATE_LIMIT: alwaysAllowRateLimit,

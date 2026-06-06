@@ -52,6 +52,11 @@
       // Advertised CLI version (latest / min_supported) per ADR 0080.
       "binding": "CLI_RELEASE",
       "id": "00000000000000000000000000000000"
+    },
+    {
+      // Runtime ephemeral provision cap (limit_per_minute) per AP-174.
+      "binding": "EPHEMERAL_PROVISION_CONFIG",
+      "id": "00000000000000000000000000000000"
     }
   ],
   "durable_objects": {

@@ -253,7 +253,8 @@ Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephem
 | `EPHEMERAL_POW_SECRET`                            | `api`      | Sign and verify lightweight provision challenges           |
 | `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                 |
 | `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                         |
-| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global 17/min Durable Object provision ceiling        |
+| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global Durable Object provision ceiling               |
+| `EPHEMERAL_PROVISION_CONFIG`                      | `api`      | Runtime `limit_per_minute` for the DO gate (KV)            |
 | `AI`                                              | `jobs`     | Optional Llama Guard warning signal                        |
 | `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                   |
 | `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                 |
@@ -264,17 +265,97 @@ Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 `pnpm bootstrap:production` when operator-approved. PR previews can seed via
 `PR_PREVIEW_SECRET_SEED` (see hosted-ops).
 
+## Runtime provision cap tuning (incident response)
+
+The authoritative hard global ceiling is the `EPHEMERAL_PROVISION_GATE` Durable Object.
+It is also the authoritative runtime-config reader: on every consume it reads
+`EPHEMERAL_PROVISION_CONFIG` KV (when bound), reconciles a monotonic `config_version`
+against strongly consistent DO state, and rejects stale, invalid, or unreadable values.
+Plain Worker-side KV reads are not used for provisioning. When the KV binding is absent
+or the key is unset, the compiled default of **17/min** applies. Invalid, stale,
+or unreadable KV values fail closed immediately: provision returns
+`ephemeral_provision_unavailable` and does not mint credentials.
+
+### KV value shape
+
+```json
+{ "limit_per_minute": 17, "config_version": 1 }
+```
+
+- **Valid range:** `limit_per_minute` 1–100 (integer); `config_version` positive integer.
+- **Key:** `ephemeral-provision-config`
+- **Binding:** `EPHEMERAL_PROVISION_CONFIG` on the `api` Worker (dev/local only until
+  operator-approved namespace IDs are added to preview/production `wrangler.jsonc`).
+- **Versioning:** always bump `config_version` when changing the cap. The DO rejects KV
+  reads whose version is older than the version already applied in DO state.
+
+### Tighten during a flood
+
+1. Confirm the outer native rate limits and per-IP dampening are still healthy (see
+   `EPHEMERAL_PROVISION_IP_RATE_LIMIT` / `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT` in
+   `apps/api/wrangler.jsonc`).
+2. Lower the hard cap without redeploying:
+
+```sh
+wrangler kv key put ephemeral-provision-config \
+  --binding EPHEMERAL_PROVISION_CONFIG \
+  --env <preview|production> \
+  '{"limit_per_minute":5,"config_version":2}'
+```
+
+3. Re-run the provision probe or `pnpm smoke:preview:ephemeral` (operator-approved for
+   production) to confirm `ephemeral_provision_rate_limited` appears at the new ceiling.
+
+### Raise after remediation
+
+```sh
+wrangler kv key put ephemeral-provision-config \
+  --binding EPHEMERAL_PROVISION_CONFIG \
+  --env <preview|production> \
+  '{"limit_per_minute":17,"config_version":3}'
+```
+
+Never set a value above 100; out-of-range JSON fails closed.
+
+### Recover from bad config
+
+If a malformed value was written and provision is returning
+`ephemeral_provision_unavailable`:
+
+1. Overwrite with a valid, higher `config_version` (see tighten/raise commands above).
+   Do not rely on deleting the key after a versioned config was applied; the DO fails
+   closed on stale unset reads once `config_version` > 0 was applied.
+2. Re-run the provision probe; expect `401` + `pow_required` when healthy.
+
+Do not log or paste KV values into tickets. The cap is not a secret, but incident notes
+should refer to "lowered to N/min" without reproducing full JSON blobs in public channels.
+
+### First-time namespace setup
+
+Preview/production `wrangler.jsonc` intentionally omit the `EPHEMERAL_PROVISION_CONFIG`
+binding until real namespace IDs are operator-approved. To enable hosted runtime tuning,
+create the KV namespace and paste the returned id into `apps/api/wrangler.jsonc` under
+`EPHEMERAL_PROVISION_CONFIG` for that env, then redeploy `api` once:
+
+```sh
+wrangler kv namespace create EPHEMERAL_PROVISION_CONFIG --env preview
+wrangler kv namespace create EPHEMERAL_PROVISION_CONFIG --env production
+```
+
+Until the namespace exists and is bound, the Worker uses the compiled default (17/min) when
+the binding is absent; a present binding with a failed read fails closed.
+
 ## Failure modes
 
-| Symptom                                                   | Likely cause                                          | Action                                                                         |
-| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                                       |
-| Provision probe returns `ephemeral_provision_unavailable` | Missing or failing `EPHEMERAL_PROVISION_GATE` binding | Verify Wrangler Durable Object binding/migration, redeploy `api`, re-run smoke |
-| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof                       |
-| CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap            | Retry with backoff; investigate source and aggregate volume                    |
-| Claim returns 404                                         | Redeemed, expired, or invalid token                   | See support table; no token recovery                                           |
-| Content executes script                                   | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL                             |
-| Unexpected scanner lockdown                               | Malicious URL Scanner verdict on ephemeral content    | Review Artifact and lift only after remediation                                |
+| Symptom                                                   | Likely cause                                                                                      | Action                                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker                                                      | Set secret, redeploy `api`, re-run smoke                                                          |
+| Provision probe returns `ephemeral_provision_unavailable` | Missing/failing `EPHEMERAL_PROVISION_GATE`, or invalid/unreadable `EPHEMERAL_PROVISION_CONFIG` KV | Verify DO binding; delete or fix bad KV config (see runtime cap tuning); redeploy `api` if needed |
+| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`                                             | Configure secrets; do not treat skip as production proof                                          |
+| CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap                                                        | Retry with backoff; investigate source and aggregate volume                                       |
+| Claim returns 404                                         | Redeemed, expired, or invalid token                                                               | See support table; no token recovery                                                              |
+| Content executes script                                   | Claimed tenant or wrong tier token                                                                | Verify `claimed_at`, re-fetch CSP from content URL                                                |
+| Unexpected scanner lockdown                               | Malicious URL Scanner verdict on ephemeral content                                                | Review Artifact and lift only after remediation                                                   |
 
 ## Verification boundary
 

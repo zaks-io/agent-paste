@@ -50,11 +50,17 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
    A single-shard Durable Object gate is the authoritative hard global ceiling
-   for provisioning, initially fixed at 17 successful provisions per minute. If
-   the gate binding, request, storage, or response is unavailable or invalid,
-   the endpoint fails closed with `ephemeral_provision_unavailable` and
-   `Retry-After` instead of minting credentials. Exhausting the gate returns
-   `ephemeral_provision_rate_limited` and does not create tenant state.
+   for provisioning. Its `limit_per_minute` defaults to 17 and is operator-tunable
+   at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100,
+   monotonic `config_version` required when the key is set). The Durable Object is the
+   authoritative runtime-config reader and rejects stale KV reads against applied DO
+   state; the API route does not read KV directly. When the KV binding is absent or
+   the key is unset, the compiled default applies. Invalid, stale, or unreadable KV
+   config fails closed. If the gate binding, request, storage, or response is
+   unavailable or invalid, the endpoint fails closed with
+   `ephemeral_provision_unavailable` and `Retry-After` instead of minting credentials.
+   Exhausting the gate returns `ephemeral_provision_rate_limited` and does not create
+   tenant state.
 2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
    - mints an **API Key** (`ap_pk_{env}_{publicId}_{secret}`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)) with `write` + `read` **Scopes**, short **Expiration**;
