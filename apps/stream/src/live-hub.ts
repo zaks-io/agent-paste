@@ -62,7 +62,7 @@ export class ArtifactLiveHub {
     for (const [id, connection] of [...this.#connections.entries()]) {
       try {
         const pointer = await resign(connection);
-        if (!pointer || pointer.revision_id !== revision.revision_id) {
+        if (!pointer) {
           this.#revokeConnection(connection, lockdownReasonForAudience(connection.audience));
           this.#connections.delete(id);
           continue;
