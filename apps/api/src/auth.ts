@@ -5,6 +5,7 @@ import {
   type WorkOsRejectReason,
   type WorkOsVerificationOptions,
 } from "@agent-paste/auth";
+import { isNonProductionAgentPasteEnv } from "@agent-paste/config";
 import type { RouteContract } from "@agent-paste/contracts";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import {
@@ -161,8 +162,7 @@ export function authenticateSmokeHarness(request: Request, env: Env): boolean {
 }
 
 export function isNonProductionEnv(env: Env): boolean {
-  const value = env.AGENT_PASTE_ENV;
-  return value !== undefined && value !== "production" && value !== "live";
+  return isNonProductionAgentPasteEnv(env.AGENT_PASTE_ENV);
 }
 
 function dashboardVerifyOptions(env: Env): WorkOsVerificationOptions | null {

@@ -10,13 +10,15 @@ const webSecretNames = ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PAS
 
 const secrets = options.dryRun ? plannedSecrets() : generatedSecrets();
 
+const smokeHarnessSecretNames = target === "preview" ? ["SMOKE_HARNESS_SECRET"] : [];
+
 const workerSecrets = [
   {
     app: "api",
     names: [
       "CONTENT_SIGNING_SECRET",
       "API_KEY_PEPPER_V1",
-      "SMOKE_HARNESS_SECRET",
+      ...smokeHarnessSecretNames,
       "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
@@ -27,7 +29,7 @@ const workerSecrets = [
     names: ["CONTENT_SIGNING_SECRET", "UPLOAD_SIGNING_SECRET", "API_KEY_PEPPER_V1", "ARTIFACT_BYTES_ENCRYPTION_KEY"],
   },
   { app: "content", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"] },
-  { app: "jobs", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"] },
+  { app: "jobs", names: ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY", ...smokeHarnessSecretNames] },
   { app: "stream", names: ["STREAM_INTERNAL_SECRET"] },
   ...(options.includeWeb
     ? [
@@ -151,7 +153,7 @@ function generatedSecrets() {
     UPLOAD_SIGNING_SECRET: secretBytes(),
     ARTIFACT_BYTES_ENCRYPTION_KEY: secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,
-    SMOKE_HARNESS_SECRET: secretBytes(32),
+    ...(target === "preview" ? { SMOKE_HARNESS_SECRET: secretBytes(32) } : {}),
     EPHEMERAL_POW_SECRET: secretBytes(32),
     STREAM_INTERNAL_SECRET: secretBytes(32),
     ...(options.includeWeb
@@ -170,7 +172,7 @@ function plannedSecrets() {
     UPLOAD_SIGNING_SECRET: "<generated>",
     ARTIFACT_BYTES_ENCRYPTION_KEY: "<generated; shared by upload, content, and jobs>",
     API_KEY_PEPPER_V1: "<generated>",
-    SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>",
+    ...(target === "preview" ? { SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>" } : {}),
     EPHEMERAL_POW_SECRET: "<generated; api Worker proof-of-work for ephemeral provision>",
     STREAM_INTERNAL_SECRET: "<generated; shared by api and stream Workers>",
     ...(options.includeWeb

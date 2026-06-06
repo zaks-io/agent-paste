@@ -64,17 +64,20 @@ const APPS = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"
 
 // --- smoke ----------------------------------------------------------------
 
-// Run the hosted smoke against the just-deployed environment, handing it the
-// fresh SMOKE_HARNESS_SECRET via env (in memory only). The value is never
-// printed and never reaches the operator.
+// Run the hosted smoke against the just-deployed environment. Preview gets a
+// fresh harness secret threaded in memory; production uses its pre-provisioned
+// smoke API key and never receives the harness secret.
 async function runHostedSmoke(target, planner) {
-  // valueFor returns exactly what was bound to the Workers (the pre-seeded fresh
-  // value, or an env-provided one), so the smoke authenticates with the same value.
-  const harnessSecret = planner.valueFor("SMOKE_HARNESS_SECRET");
-  process.stdout.write(`\nRunning ${target} hosted smoke (harness secret threaded in-memory)...\n`);
-  await run("pnpm", ["exec", "node", "scripts/smoke-hosted.mjs", target], null, {
-    AGENT_PASTE_SMOKE_HARNESS_SECRET: harnessSecret,
-  });
+  const smokeEnv =
+    target === "preview"
+      ? {
+          // valueFor returns exactly what was bound to preview Workers, so the
+          // smoke authenticates with the same in-memory value.
+          AGENT_PASTE_SMOKE_HARNESS_SECRET: planner.valueFor("SMOKE_HARNESS_SECRET"),
+        }
+      : {};
+  process.stdout.write(`\nRunning ${target} hosted smoke...\n`);
+  await run("pnpm", ["exec", "node", "scripts/smoke-hosted.mjs", target], null, smokeEnv);
   process.stdout.write(`${target} hosted smoke passed.\n`);
 }
 
@@ -108,10 +111,10 @@ export function createSecretPlanner({
   listSecretsForWorker,
   randomBytesFn = randomBytes,
 }) {
-  // When running the smoke, pre-seed a fresh SMOKE_HARNESS_SECRET so the deploy
-  // binds it to its consumers AND the smoke run below authenticates with the same
-  // in-memory value. This is a deliberate rotation of the test-only harness secret.
-  if (runSmoke) {
+  // When running preview smoke, pre-seed a fresh SMOKE_HARNESS_SECRET so the
+  // deploy binds it to its consumers AND the smoke run below authenticates with
+  // the same in-memory value. Production smoke uses a pre-provisioned API key.
+  if (runSmoke && target === "preview") {
     generatedValues.set("SMOKE_HARNESS_SECRET", randomBytesFn(32).toString("base64url"));
   }
 
@@ -331,11 +334,10 @@ async function main() {
   if (target !== "local" && target !== "preview" && target !== "production") {
     fail("Usage: node scripts/deploy.mjs <local|preview|production> [--smoke]");
   }
-  // --smoke: after deploying, rotate SMOKE_HARNESS_SECRET to a fresh value, bind it
-  // to its consumer Workers, and run the hosted smoke with that exact value held in
-  // memory — machine-to-machine, never printed, never to disk, never handed to a
-  // human. The harness secret is test-only and not user-facing, so rotating it on
-  // every smoke run is harmless. Not valid for local (which has no hosted smoke).
+  // --smoke: after deploying preview, rotate SMOKE_HARNESS_SECRET to a fresh
+  // value, bind it to its consumer Workers, and run the hosted smoke with that
+  // exact value held in memory. Production smoke uses AGENT_PASTE_PRODUCTION_SMOKE_API_KEY.
+  // Not valid for local, which has no hosted smoke.
   const runSmoke = argv.includes("--smoke");
   if (runSmoke && target === "local") {
     fail("--smoke applies to preview/production, not local.");

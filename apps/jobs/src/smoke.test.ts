@@ -24,6 +24,9 @@ describe("jobs smoke harness", () => {
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "preview" })).toBe(true);
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "production" })).toBe(false);
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "live" })).toBe(false);
+    for (const value of [undefined, "", "prod", "live-eu", "staging"]) {
+      expect(isNonProductionEnv({ AGENT_PASTE_ENV: value })).toBe(false);
+    }
   });
 
   it("authenticates the smoke harness secret", () => {
@@ -284,6 +287,17 @@ describe("jobs smoke harness", () => {
 
     const missing = await worker.fetch(new Request("https://jobs.test/__test__/run-cleanup", { method: "POST" }), env);
     expect(missing.status).toBe(404);
+
+    for (const value of [undefined, "", "prod", "live-eu"]) {
+      const failClosed = await worker.fetch(
+        new Request("https://jobs.test/__test__/run-cleanup", {
+          method: "POST",
+          headers: { authorization: "Bearer harness" },
+        }),
+        { ...env, AGENT_PASTE_ENV: value },
+      );
+      expect(failClosed.status).toBe(404);
+    }
 
     const recovery = await worker.fetch(
       new Request("https://jobs.test/__test__/purge-recovery", {

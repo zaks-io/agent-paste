@@ -125,6 +125,16 @@ describe("AP-91 smoke route modules", () => {
     );
     expect(notFound.status).toBe(404);
 
+    for (const value of [undefined, "", "prod", "live-eu"]) {
+      const failClosed = await provisionSmoke(
+        contextFor({
+          env: { AGENT_PASTE_ENV: value, SMOKE_HARNESS_SECRET: "smoke-secret" },
+          headers: smokeHeaders,
+        }),
+      );
+      expect(failClosed.status).toBe(404);
+    }
+
     const unavailable = await provisionSmoke(
       contextFor({ env: { AGENT_PASTE_ENV: "preview", SMOKE_HARNESS_SECRET: "smoke-secret" }, headers: smokeHeaders }),
     );

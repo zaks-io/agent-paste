@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  GENERATABLE,
-  TRANSIENT_32_BYTE_SECRETS,
   createSecretPlanner,
   formatMissingProviderSecretsMessage,
+  GENERATABLE,
   generatedByteLength,
   runDeployPlan,
+  TRANSIENT_32_BYTE_SECRETS,
 } from "./deploy.mjs";
 import { workerName } from "./wrangler-secrets.mjs";
 
@@ -19,6 +19,15 @@ function previewEnv(overrides = {}) {
   return {
     PREVIEW_WORKOS_API_KEY: "wk_test_mock_provider_key",
     PREVIEW_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
+    ...overrides,
+  };
+}
+
+/** Minimal production env with required provider-issued secrets populated. */
+function productionEnv(overrides = {}) {
+  return {
+    PRODUCTION_WORKOS_API_KEY: "wk_live_mock_provider_key",
+    PRODUCTION_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
     ...overrides,
   };
 }
@@ -168,6 +177,23 @@ describe("deploy secret planning", () => {
       expect(Buffer.from(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"), "base64url").length).toBe(32);
       expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).toBe(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"));
       expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).not.toBe("stale-harness-secret");
+    });
+
+    it("does not provision SMOKE_HARNESS_SECRET for production --smoke", async () => {
+      const allSecretsPresent = async () => ["CONTENT_SIGNING_SECRET", "WORKOS_API_KEY"];
+      const withProductionSmoke = createSecretPlanner({
+        target: "production",
+        runSmoke: true,
+        env: productionEnv(),
+        listSecretsForWorker: allSecretsPresent,
+        randomBytesFn: deterministicRandomBytes,
+      });
+
+      const plan = await withProductionSmoke.buildProvisionPlan();
+
+      expect(plan.get("api") ?? []).not.toContain("SMOKE_HARNESS_SECRET");
+      expect(plan.get("jobs") ?? []).not.toContain("SMOKE_HARNESS_SECRET");
+      expect(withProductionSmoke.generatedValues.has("SMOKE_HARNESS_SECRET")).toBe(false);
     });
   });
 

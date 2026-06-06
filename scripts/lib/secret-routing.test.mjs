@@ -10,6 +10,8 @@ describe("secret-routing", () => {
   it("scopes preview-only secrets out of production", () => {
     expect(secretsForApp("api", "preview")).toContain("SMOKE_HARNESS_SECRET");
     expect(secretsForApp("api", "production")).not.toContain("SMOKE_HARNESS_SECRET");
+    expect(secretsForApp("jobs", "preview")).toContain("SMOKE_HARNESS_SECRET");
+    expect(secretsForApp("jobs", "production")).not.toContain("SMOKE_HARNESS_SECRET");
   });
 
   it("scopes production-only secrets out of preview", () => {
