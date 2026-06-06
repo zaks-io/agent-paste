@@ -61,6 +61,36 @@ describe("ArtifactLiveHub", () => {
     );
   });
 
+  it("follows rapid re-publish when re-sign returns a newer authorized pointer", async () => {
+    const hub = new ArtifactLiveHub();
+    const send = vi.fn();
+    const close = vi.fn();
+    hub.connect({ id: "share", audience: "share", auth: shareAuth, send, close });
+    const newerPointer = {
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0" as RevisionId,
+      iframe_src: "https://content.test/v/newer-token/index.html",
+      render_mode: "html" as const,
+      title: "Newer",
+    };
+    await hub.publishRevision(
+      {
+        revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as RevisionId,
+        entrypoint: "index.html",
+        render_mode: "html",
+        title: "Stale notification",
+      },
+      "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
+      async () => newerPointer,
+    );
+    expect(send).toHaveBeenCalledWith({
+      type: "published_revision",
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      pointer: newerPointer,
+    });
+    expect(close).not.toHaveBeenCalled();
+    expect(hub.connectionCount).toBe(1);
+  });
+
   it("revokes connections that fail re-sign on publish", async () => {
     const hub = new ArtifactLiveHub();
     const send = vi.fn();
@@ -75,6 +105,28 @@ describe("ArtifactLiveHub", () => {
       },
       "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
       async () => null,
+    );
+    expect(send).toHaveBeenCalledWith({ type: "revoked", reason: "access_link_lockdown" });
+    expect(close).toHaveBeenCalled();
+    expect(hub.connectionCount).toBe(0);
+  });
+
+  it("revokes connections when re-sign throws on publish", async () => {
+    const hub = new ArtifactLiveHub();
+    const send = vi.fn();
+    const close = vi.fn();
+    hub.connect({ id: "share", audience: "share", auth: shareAuth, send, close });
+    await hub.publishRevision(
+      {
+        revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as RevisionId,
+        entrypoint: "index.html",
+        render_mode: "html",
+        title: "Demo",
+      },
+      "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
+      async () => {
+        throw new Error("re-sign failed");
+      },
     );
     expect(send).toHaveBeenCalledWith({ type: "revoked", reason: "access_link_lockdown" });
     expect(close).toHaveBeenCalled();
