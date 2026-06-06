@@ -1,6 +1,10 @@
 import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env.js";
+import {
+  __resetEphemeralProvisionConfigMemo,
+  EPHEMERAL_PROVISION_CONFIG_KV_KEY,
+} from "../src/ephemeral-provision-config.js";
 import { EPHEMERAL_PROVISION_LIMIT_PER_MINUTE } from "../src/ephemeral-provision-gate.js";
 import {
   createMemoryEphemeralProvisionGateNamespace,
@@ -13,6 +17,7 @@ const powSecret = "test-ephemeral-pow-secret";
 
 beforeEach(() => {
   resetMemoryEphemeralProvisionGate();
+  __resetEphemeralProvisionConfigMemo();
 });
 
 describe("ephemeral provision gate route", () => {
@@ -147,6 +152,81 @@ describe("ephemeral provision gate route", () => {
       error: { code: "ephemeral_provision_unavailable" },
     });
     expect(createEphemeralWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when runtime cap config is invalid", async () => {
+    const { body } = await validPowBody();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+    const response = await ephemeralProvisionRoute(
+      contextFor({
+        env: provisionEnv({
+          EPHEMERAL_PROVISION_CONFIG: {
+            get: async () => '{"limit_per_minute":999}',
+            put: async () => {},
+            delete: async () => {},
+          },
+        }),
+      }),
+      { createEphemeralWorkspace } as never,
+      guardFor(body),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(responseJson(response)).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_unavailable" },
+    });
+    expect(createEphemeralWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when runtime cap config cannot be read", async () => {
+    const { body } = await validPowBody();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+    const response = await ephemeralProvisionRoute(
+      contextFor({
+        env: provisionEnv({
+          EPHEMERAL_PROVISION_CONFIG: {
+            get: async () => Promise.reject(new Error("kv offline")),
+            put: async () => {},
+            delete: async () => {},
+          },
+        }),
+      }),
+      { createEphemeralWorkspace } as never,
+      guardFor(body),
+    );
+
+    expect(response.status).toBe(503);
+    expect(createEphemeralWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("honors a lowered runtime cap from KV", async () => {
+    const loweredLimit = 2;
+    const env = provisionEnv({
+      EPHEMERAL_PROVISION_CONFIG: {
+        get: async (key) =>
+          key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? JSON.stringify({ limit_per_minute: loweredLimit }) : null,
+        put: async () => {},
+        delete: async () => {},
+      },
+    });
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    for (let index = 0; index < loweredLimit; index += 1) {
+      const response = await ephemeralProvisionRoute(
+        contextFor({ env }),
+        { createEphemeralWorkspace } as never,
+        guardFor((await validPowBody(1)).body),
+      );
+      expect(response.status).toBe(201);
+    }
+
+    const limited = await ephemeralProvisionRoute(
+      contextFor({ env }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+    expect(limited.status).toBe(429);
+    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(loweredLimit);
   });
 
   it("returns rate_limited after the Durable Object global cap is exhausted", async () => {

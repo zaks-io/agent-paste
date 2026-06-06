@@ -3,6 +3,7 @@ import type { Repository } from "@agent-paste/db";
 import { DEFAULT_POW_CHALLENGE_TTL_SECONDS, issuePowChallenge, verifyPowSolution } from "@agent-paste/tokens/pow";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
+import { resolveEphemeralProvisionLimitPerMinute } from "../ephemeral-provision-config.js";
 import { consumeEphemeralProvisionGate } from "../ephemeral-provision-gate.js";
 import { webMemberActor } from "../principals.js";
 import { runIdempotent } from "../responses.js";
@@ -39,10 +40,16 @@ export async function ephemeralProvisionRoute(
     return getBoundResponders(context).respondError("pow_invalid");
   }
 
+  const limitConfig = await resolveEphemeralProvisionLimitPerMinute(env);
+  if (!limitConfig.ok) {
+    return provisionUnavailableResponse(context);
+  }
+
   const gateDecision = await consumeEphemeralProvisionGate(
     env.EPHEMERAL_PROVISION_GATE,
     challenge.nonce,
     DEFAULT_POW_CHALLENGE_TTL_SECONDS,
+    limitConfig.limitPerMinute,
   );
   if (!gateDecision) {
     return provisionUnavailableResponse(context);

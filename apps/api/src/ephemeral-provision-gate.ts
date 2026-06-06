@@ -1,4 +1,5 @@
 import { DEFAULT_POW_CHALLENGE_TTL_SECONDS } from "@agent-paste/tokens/pow";
+import { isValidLimitPerMinute } from "./ephemeral-provision-config.js";
 import {
   consumeGateSlot,
   type EphemeralProvisionGateDecision,
@@ -8,10 +9,8 @@ import {
   stateForNow,
 } from "./ephemeral-provision-gate-state.js";
 
-export {
-  EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
-  type EphemeralProvisionGateDecision,
-} from "./ephemeral-provision-gate-state.js";
+export { DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE as EPHEMERAL_PROVISION_LIMIT_PER_MINUTE } from "./ephemeral-provision-config.js";
+export type { EphemeralProvisionGateDecision } from "./ephemeral-provision-gate-state.js";
 
 export const EPHEMERAL_PROVISION_GATE_NAME = "global";
 export const EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS = DEFAULT_POW_CHALLENGE_TTL_SECONDS;
@@ -35,8 +34,9 @@ export async function consumeEphemeralProvisionGate<Id>(
   namespace: EphemeralProvisionGateNamespace<Id> | undefined,
   nonce: string,
   nonceTtlSeconds: number,
+  limitPerMinute: number,
 ): Promise<EphemeralProvisionGateDecision | null> {
-  if (!namespace) {
+  if (!namespace || !isValidLimitPerMinute(limitPerMinute)) {
     return null;
   }
 
@@ -45,7 +45,7 @@ export async function consumeEphemeralProvisionGate<Id>(
       new Request(INTERNAL_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
+        body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds, limit_per_minute: limitPerMinute }),
       }),
     );
     if (!response.ok) {
@@ -66,7 +66,11 @@ export async function handleEphemeralProvisionGateRequest(
     if (request.method !== "POST" || !new URL(request.url).pathname.endsWith("/consume")) {
       return new Response("not_found", { status: 404 });
     }
-    const body = (await request.json().catch(() => null)) as { nonce?: unknown; nonce_ttl_seconds?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as {
+      nonce?: unknown;
+      nonce_ttl_seconds?: unknown;
+      limit_per_minute?: unknown;
+    } | null;
     if (!body || typeof body.nonce !== "string" || body.nonce.length === 0) {
       return new Response("invalid_request", { status: 400 });
     }
@@ -79,6 +83,9 @@ export async function handleEphemeralProvisionGateRequest(
     ) {
       return new Response("invalid_request", { status: 400 });
     }
+    if (!isValidLimitPerMinute(body.limit_per_minute)) {
+      return new Response("invalid_request", { status: 400 });
+    }
 
     const nowMs = Date.now();
     const stored = normalizeStoredGateState(await storage.get(STORAGE_KEY));
@@ -86,6 +93,7 @@ export async function handleEphemeralProvisionGateRequest(
       nonce: body.nonce,
       nonceExpiresAtMs: nowMs + nonceTtlSeconds * 1000,
       nowMs,
+      limitPerMinute: body.limit_per_minute,
     });
     await persistGateState(storage, outcome.next, nowMs);
     return Response.json(outcome.decision);

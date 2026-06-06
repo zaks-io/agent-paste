@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE } from "./ephemeral-provision-config.js";
 import {
   consumeEphemeralProvisionGate,
   EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
@@ -78,6 +79,33 @@ describe("ephemeral provision gate Durable Object handler", () => {
     expect(response.status).toBe(400);
   });
 
+  it("rejects invalid runtime limit values", async () => {
+    const response = await gateConsume(memoryStorage(), "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, 0);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("honors a lowered runtime limit", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-06T00:00:10.000Z"));
+    const storage = memoryStorage();
+    const loweredLimit = 3;
+
+    for (let index = 0; index < loweredLimit; index += 1) {
+      const response = await gateConsume(storage, `nonce-${index}`, EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, loweredLimit);
+      expect(response.status).toBe(200);
+    }
+
+    const limited = await gateConsume(storage, "nonce-limited", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, loweredLimit);
+    expect(limited.status).toBe(200);
+    await expect(limited.json()).resolves.toMatchObject({
+      allowed: false,
+      reason: "rate_limited",
+      consumed: loweredLimit,
+      remaining: 0,
+    });
+  });
+
   it("returns unavailable when storage writes fail", async () => {
     const response = await gateConsume({
       ...memoryStorage(),
@@ -92,12 +120,24 @@ describe("ephemeral provision gate Durable Object handler", () => {
 
 describe("ephemeral provision gate client", () => {
   it("returns null for absent, failing, non-ok, and malformed namespaces", async () => {
-    await expect(consumeEphemeralProvisionGate(undefined, "nonce-a", 300)).resolves.toBeNull();
     await expect(
-      consumeEphemeralProvisionGate(namespaceReturning(new Response("nope", { status: 500 })), "n", 300),
+      consumeEphemeralProvisionGate(undefined, "nonce-a", 300, DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE),
     ).resolves.toBeNull();
     await expect(
-      consumeEphemeralProvisionGate(namespaceReturning(Response.json({ allowed: true })), "n", 300),
+      consumeEphemeralProvisionGate(
+        namespaceReturning(new Response("nope", { status: 500 })),
+        "n",
+        300,
+        DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      consumeEphemeralProvisionGate(
+        namespaceReturning(Response.json({ allowed: true })),
+        "n",
+        300,
+        DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
+      ),
     ).resolves.toBeNull();
     await expect(
       consumeEphemeralProvisionGate(
@@ -111,9 +151,13 @@ describe("ephemeral provision gate client", () => {
         ),
         "n",
         300,
+        DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
       ),
     ).resolves.toBeNull();
-    await expect(consumeEphemeralProvisionGate(namespaceThrowing(), "n", 300)).resolves.toBeNull();
+    await expect(
+      consumeEphemeralProvisionGate(namespaceThrowing(), "n", 300, DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE),
+    ).resolves.toBeNull();
+    await expect(consumeEphemeralProvisionGate(namespaceReturning(Response.json({ allowed: true })), "n", 300, 0)).resolves.toBeNull();
   });
 });
 
@@ -121,12 +165,13 @@ function gateConsume(
   storage: EphemeralProvisionGateStorage,
   nonce = "nonce-a",
   nonceTtlSeconds = EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+  limitPerMinute = EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
 ): Promise<Response> {
   return handleEphemeralProvisionGateRequest(
     new Request("https://ephemeral-provision-gate.internal/consume", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
+      body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds, limit_per_minute: limitPerMinute }),
     }),
     storage,
   );

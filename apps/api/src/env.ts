@@ -56,6 +56,7 @@ export type Env = {
   CLEANUP_BATCH_SIZE?: string;
   DENYLIST?: KVNamespace;
   CLI_RELEASE?: KVNamespace;
+  EPHEMERAL_PROVISION_CONFIG?: KVNamespace;
   ACTOR_RATE_LIMIT?: RateLimitBinding;
   WORKSPACE_BURST_CAP?: RateLimitBinding;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
