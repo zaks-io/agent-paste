@@ -1,3 +1,4 @@
+import { isBillingEnabled } from "@agent-paste/config";
 import { generateCspNonce, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { routeApex } from "./routes.js";
@@ -7,6 +8,7 @@ export type Env = {
   ASSETS?: { fetch(request: Request): Promise<Response> };
   SENTRY_DSN?: string;
   CF_WEB_ANALYTICS_TOKEN?: string;
+  BILLING_ENABLED?: string;
 };
 
 const worker = {
@@ -21,6 +23,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   const response = routeApex(request, {
     nonce: generateCspNonce(),
     analyticsToken: env.CF_WEB_ANALYTICS_TOKEN,
+    billingEnabled: isBillingEnabled(env.BILLING_ENABLED),
   });
   if (response) {
     return response;

@@ -38,7 +38,8 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
-        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0",
+        "BILLING_ENABLED": "true"
       }
     },
     "production": {
@@ -52,7 +53,8 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
-        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0"
+        "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0",
+        "BILLING_ENABLED": "false"
       }
     }
   }

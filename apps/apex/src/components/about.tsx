@@ -14,8 +14,12 @@ const AboutBlock: FC<{ section: AboutSection }> = ({ section }) => (
   </article>
 );
 
-const AboutPage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
-  <Shell meta={ABOUT_META} nonce={nonce} analyticsToken={analyticsToken}>
+const AboutPage: FC<{ nonce: string; analyticsToken?: string | undefined; billingEnabled: boolean }> = ({
+  nonce,
+  analyticsToken,
+  billingEnabled,
+}) => (
+  <Shell meta={ABOUT_META} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled}>
     <main class="content">
       <section class="hero">
         <div class="hero-text">
@@ -37,6 +41,6 @@ const AboutPage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({
   </Shell>
 );
 
-export function renderAboutPage(nonce: string, analyticsToken?: string): string {
-  return renderDocument(<AboutPage nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderAboutPage(nonce: string, analyticsToken?: string, billingEnabled = false): string {
+  return renderDocument(<AboutPage nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />);
 }

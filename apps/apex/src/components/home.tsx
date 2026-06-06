@@ -414,8 +414,19 @@ const ClosingCta: FC = () => (
   </section>
 );
 
-const HomePage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
-  <Shell meta={HOME_META} nonce={nonce} analyticsToken={analyticsToken} inlineScript={INLINE_SCRIPT} bleed>
+const HomePage: FC<{ nonce: string; analyticsToken?: string | undefined; billingEnabled: boolean }> = ({
+  nonce,
+  analyticsToken,
+  billingEnabled,
+}) => (
+  <Shell
+    meta={HOME_META}
+    nonce={nonce}
+    analyticsToken={analyticsToken}
+    billingEnabled={billingEnabled}
+    inlineScript={INLINE_SCRIPT}
+    bleed
+  >
     <main>
       <Hero />
       <TranscriptSection />
@@ -428,8 +439,8 @@ const HomePage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ 
   </Shell>
 );
 
-export function renderHomePage(nonce: string, analyticsToken?: string): string {
-  return renderDocument(<HomePage nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderHomePage(nonce: string, analyticsToken?: string, billingEnabled = false): string {
+  return renderDocument(<HomePage nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />);
 }
 
 // Home-only inline scripts: scroll-reveal and click-to-copy. The sticky-header

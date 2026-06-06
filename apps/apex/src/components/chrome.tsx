@@ -30,7 +30,7 @@ export const Wordmark: FC<{ small?: boolean }> = ({ small }) => (
 // "Get started free" right, sticky. The "How it works"/"Features" links target
 // the home sections by absolute anchor (/#how, /#features) so they resolve from
 // docs/about/legal too, not just the home page.
-export const Header: FC = () => (
+export const Header: FC<{ billingEnabled: boolean }> = ({ billingEnabled }) => (
   <header class="topbar" id="topbar">
     <div class="wrap topbar-inner">
       <a class="brand" href="/" aria-label={`${WORDMARK.base}${WORDMARK.tld}`}>
@@ -47,6 +47,11 @@ export const Header: FC = () => (
         <a class="head-link" href="/docs">
           Docs
         </a>
+        {billingEnabled ? (
+          <a class="head-link" href="/pricing">
+            Pricing
+          </a>
+        ) : null}
         <a class="head-link" href="/about">
           About
         </a>
@@ -60,7 +65,21 @@ export const Header: FC = () => (
   </header>
 );
 
-export const Footer: FC = () => (
+function footerColumns(billingEnabled: boolean): FooterColumn[] {
+  if (!billingEnabled) {
+    return FOOTER;
+  }
+  return FOOTER.map((column) =>
+    column.heading === "Product"
+      ? {
+          ...column,
+          links: [{ label: "Pricing", href: "/pricing" }, ...column.links],
+        }
+      : column,
+  );
+}
+
+export const Footer: FC<{ billingEnabled: boolean }> = ({ billingEnabled }) => (
   <footer class="home-foot">
     <div class="wrap">
       <div class="home-foot-grid">
@@ -73,7 +92,7 @@ export const Footer: FC = () => (
             The neutral hand-off layer for what your agent makes. Publish once, open it anywhere.
           </p>
         </div>
-        {FOOTER.map((column) => (
+        {footerColumns(billingEnabled).map((column) => (
           <FooterCol column={column} />
         ))}
       </div>
@@ -104,6 +123,7 @@ type ShellProps = {
   meta: PageMeta;
   nonce: string;
   analyticsToken?: string | undefined;
+  billingEnabled: boolean;
   inlineScript?: string;
   /**
    * Full-bleed content mode for the marketing home page: its sections set their
@@ -139,7 +159,15 @@ const AnalyticsBeacon: FC<{ nonce: string; token?: string | undefined }> = ({ no
   return <script nonce={nonce} defer src={BEACON_SRC} data-cf-beacon={JSON.stringify({ token: trimmed })} />;
 };
 
-export const Shell: FC<ShellProps> = ({ meta, nonce, analyticsToken, inlineScript, bleed, children }) => {
+export const Shell: FC<ShellProps> = ({
+  meta,
+  nonce,
+  analyticsToken,
+  billingEnabled,
+  inlineScript,
+  bleed,
+  children,
+}) => {
   const canonical = canonicalUrl(meta.canonicalPath);
   return (
     <html lang="en">
@@ -176,9 +204,9 @@ export const Shell: FC<ShellProps> = ({ meta, nonce, analyticsToken, inlineScrip
         <AnalyticsBeacon nonce={nonce} token={analyticsToken} />
       </head>
       <body class="home">
-        <Header />
+        <Header billingEnabled={billingEnabled} />
         {bleed ? children : <div class="page-body">{children}</div>}
-        <Footer />
+        <Footer billingEnabled={billingEnabled} />
         <script nonce={nonce}>{raw(HEADER_SCRIPT)}</script>
         {inlineScript ? <script nonce={nonce}>{raw(inlineScript)}</script> : null}
       </body>
