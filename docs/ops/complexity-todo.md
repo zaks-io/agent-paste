@@ -156,13 +156,15 @@ tables) first; the contract/OpenAPI registries are already under 510 after AP-22
 Three offenders carry real behavioral risk and are **not** suppressed in the
 mechanical batch — they stay red against a limit of 15 until refactored under
 their own tickets, each gated on writing characterization tests first. They
-block AP-247 (the limit drop to 15).
+block the final cognitive-complexity drop to 15 (owned by the AP-221 epic; the
+AP-247 pass tightened the other gates but left cognitive pinned at 30).
 
-- `apps/api/src/agent-view.ts` — `signAgentViewContentUrls` (CC 22): URL signing
-  on the read path, no direct tests.
-- `packages/db/src/repository/workflows/upload-publish-workflow.ts:169` —
-  repository-layer `publishRevision` (CC 27): core publish write path.
-- `apps/cli/src/upgrade.ts:258` — `runUpgrade` (CC 23): in-place binary swap.
+- AP-258 — `apps/api/src/agent-view.ts` — `signAgentViewContentUrls` (CC 22):
+  URL signing on the read path, no direct tests.
+- AP-259 — `packages/db/src/repository/workflows/upload-publish-workflow.ts:169`
+  — repository-layer `publishRevision` (CC 27): core publish write path.
+- AP-260 — `apps/cli/src/upgrade.ts:258` — `runUpgrade` (CC 23): in-place binary
+  swap.
 
 ## Current target-wall areas
 
