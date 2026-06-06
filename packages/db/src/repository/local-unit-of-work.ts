@@ -1,5 +1,6 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { localEntities } from "./local-entities.js";
+import { scopedLocalState } from "./local-scope.js";
 import type { LocalState } from "./local-state.js";
 import type { CommandRunContext, CommandSpec, PeekReplayResult, RunScope, UnitOfWork } from "./ports.js";
 
@@ -24,20 +25,26 @@ function commandKey(input: {
 
 type IdempotencyEntry = { kind: "in_flight" } | { kind: "completed"; value: unknown };
 
-// The local backend has no transactions or RLS, so scopes are advisory. Idempotency
-// claims the command key before the handler runs, rejects concurrent same-key calls with
-// IdempotencyInFlightError (matching Postgres 409 semantics), and caches only terminal
-// values. Rejected handlers evict the key so a later retry can run.
+// The local backend has no real transactions, but it enforces the Run Scope through a
+// Scoped View (ADR 0082): each read/command binds the entity adapters to a scope-filtered
+// view of the in-memory state, so a foreign read returns nothing and a foreign write
+// throws. Idempotency claims the command key before the handler runs, rejects concurrent
+// same-key calls with IdempotencyInFlightError (matching Postgres 409 semantics), and
+// caches only terminal values. Rejected handlers evict the key so a later retry can run.
 export class LocalUnitOfWork implements UnitOfWork {
-  private readonly entities: ReturnType<typeof localEntities>;
+  private readonly state: LocalState;
   private readonly idempotency = new Map<string, IdempotencyEntry>();
 
   constructor(state: LocalState) {
-    this.entities = localEntities(state);
+    this.state = state;
   }
 
-  async read<T>(_scope: RunScope, run: (entities: ReturnType<typeof localEntities>) => Promise<T>): Promise<T> {
-    return run(this.entities);
+  private scopedEntities(scope: RunScope): ReturnType<typeof localEntities> {
+    return localEntities(scopedLocalState(this.state, scope));
+  }
+
+  async read<T>(scope: RunScope, run: (entities: ReturnType<typeof localEntities>) => Promise<T>): Promise<T> {
+    return run(this.scopedEntities(scope));
   }
 
   async command<T>(
@@ -83,7 +90,7 @@ export class LocalUnitOfWork implements UnitOfWork {
 
     this.idempotency.set(key, { kind: "in_flight" });
     try {
-      const result = await run(this.entities);
+      const result = await run(this.scopedEntities(input.scope));
       this.idempotency.set(key, { kind: "completed", value: result });
       return result;
     } catch (error) {

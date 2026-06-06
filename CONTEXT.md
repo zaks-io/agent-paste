@@ -385,6 +385,16 @@ _Avoid_: router, route factory, mount helper
 The uniform pre-handler chain the **Route Registrar** runs for every route, derived from the **Route Contract**: resolve the principal for the auth requirement, apply the rate-limit class, check **Scope**s, shape the `Idempotency-Key` header outcome, and render failures into the fixed error envelope. The only per-Worker seam is the auth resolver set; everything else is a pure function. The durable idempotency claim stays inside `runCommand`, not the guard.
 _Avoid_: middleware, interceptor, auth filter
 
+<a id="run-scope"></a>
+**Run Scope**:
+The tenant boundary one unit-of-work runs under: either a single **Workspace** (`{ kind: "workspace", workspaceId }`) or the whole platform (`{ kind: "platform" }`). It is the backend-agnostic equivalent of the database role a transaction runs as — the Postgres adapter translates it into `SET LOCAL app.workspace_id` RLS config; the local adapter translates it into a **Scoped View**. Workflows that legitimately cross tenants (credential discovery by public id, the claim-flow reparent) declare the platform **Run Scope** explicitly; everything else declares the workspace **Run Scope**.
+_Avoid_: tenant context, RLS scope, query scope
+
+<a id="scoped-view"></a>
+**Scoped View**:
+The local repository backend's enforcement of a **Run Scope**: a view over in-memory state that exposes only rows belonging to the run's **Workspace** (or all rows under the platform **Run Scope**). It is the local analogue of Postgres RLS. A foreign **read** returns nothing (RLS-faithful); a foreign **write** that carries an explicit `workspace_id` (an insert, or a mutation taking a workspace argument) throws, so a cross-tenant write surfaces loudly as a failing test rather than a silent no-op. This deliberately makes the local backend a bug detector, not a faithful RLS emulator ([ADR 0082](./docs/adr/0082-local-repository-backend-enforces-run-scope.md)).
+_Avoid_: tenant filter, RLS shim, scoped map
+
 ## Relationships
 
 - An **Artifact** contains one or more files or rendered assets
