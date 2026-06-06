@@ -87,8 +87,11 @@ domain behavior, and performance work without benchmarks.
 - The active PR/preview cap protects delivery capacity, not worker count. Open
   PRs, active PR-scoped previews, and implementation dispatches that have not yet
   produced a PR consume capacity. When the cap is full, Orchestrator advances,
-  merges, closes, cleans up, or escalates existing PRs/previews before
-  dispatching new work.
+  merges, routes fixes, cleans up previews, or escalates existing PRs/previews
+  before dispatching new work. It closes PRs only when refreshed code-host and
+  tracker evidence satisfies the PR closure guard; draft or in-progress PRs are
+  never closed just to make room. Age, draft status, and capacity pressure are
+  not abandonment evidence.
 - If the refreshed scope is completely blocked, Orchestrator stops the recurring
   loop for that scope instead of waking forever. Completely blocked means there
   are no startable tickets, PRs or previews to advance, stuck workers to nudge,
@@ -135,9 +138,12 @@ evidence and keep going instead of escalating them.
 
 Before selecting new startable work, Orchestrator checks the repo-level active
 delivery footprint against the configured active PR/preview cap. If open PRs or
-active previews already fill the cap, it must drain those first. Outside-scope
-PRs and previews still consume repo capacity; if Orchestrator lacks authority to
-change them, it reports a capacity blocker instead of dispatching more work.
+active previews already fill the cap, it must drain those first by advancing,
+merging, routing fixes, cleaning up previews, or escalating exact blockers.
+Outside-scope PRs and previews still consume repo capacity; if Orchestrator lacks
+authority to change them, it reports a capacity blocker instead of dispatching
+more work. It must not close a draft, active, recently updated, or
+unclear-ownership PR merely to reduce the footprint.
 
 A direct user request to handle one ticket is delegated authority to orchestrate
 that ticket only. The agent should move that one issue through configured states
@@ -152,6 +158,12 @@ ready for review, ready to merge, blocked, needs human input, or terminal. It
 does not mean implementing vague future work without triage. If every scoped
 issue is blocked and no orchestration action remains, the loop stops for that
 scope.
+
+Readiness-label scopes such as `ready-for-agent` and `ready-for-human`
+automatically exclude the configured `Done` state unless the user explicitly asks
+to audit Done cleanup. A stale readiness label on a terminal ticket should be
+removed when that ticket is touched, but it should not pull the ticket into the
+normal queue.
 
 Config should name the worker delegation paths this repo supports:
 
@@ -227,6 +239,8 @@ Issue Triage may move complete issues from configured intake states to the
 configured ready state during requested intake cleanup, and may reconcile
 verified stale states such as moving tickets with merged linked PRs to `Done`.
 When it marks a ticket `Done`, it removes `ready-for-agent`.
+Readiness-label queries still exclude `Done` by default, so stale labels on done
+tickets do not inflate the active queue.
 Agent Orchestrator does not store authoritative workflow state locally. It reads
 and writes the systems of record:
 

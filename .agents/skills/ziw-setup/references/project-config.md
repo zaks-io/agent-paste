@@ -74,6 +74,9 @@ Last updated: YYYY-MM-DD
   - ready-for-agent: no further human refinement is needed before agent handoff; does not mean unblocked or startable; remove when the issue moves to Done
   - needs-info:
   - ready-for-human:
+- Readiness-label query policy: queries for ready-for-agent, ready-for-human,
+  or equivalent attention labels exclude the configured Done state unless the
+  user explicitly asks to audit or repair done-ticket cleanup
 - Worker environment labels:
 - Worker environment label policy:
   - remote-cursor: approved to run in the remote Cursor environment; does not mean unblocked or startable
@@ -119,8 +122,14 @@ Last updated: YYYY-MM-DD
   clearly linked to an already counted PR, then add unreturned implementation
   dispatches. Obey any stricter preview-provider or worker-session limit
 - Capacity drain policy: when active delivery slots are at or over cap,
-  Orchestrator advances, merges, closes, cleans up, or escalates existing PRs and
-  previews before dispatching new implementation work
+  Orchestrator advances, merges, routes fixes, cleans up previews, or escalates
+  existing PRs and previews before dispatching new implementation work
+- PR closure guard: capacity pressure is not a closure reason. Orchestrator may
+  close PRs only with refreshed code-host and tracker evidence of duplicate,
+  explicitly canceled or abandoned, already-terminal, or security/policy-required
+  work. Draft, active, recently updated, or unclear-ownership PRs stay open and
+  become capacity blockers or active work to advance. PR age, draft status, and
+  active-delivery pressure are not abandonment evidence
 - Stuck-worker timeout: ticks or wall-clock with no branch/PR/worker signal before nudge, re-dispatch, or escalation
 - Duplicate worker or PR policy: idempotency key, session-handle source, and how
   to choose a canonical PR when one dispatch creates more than one session
@@ -268,6 +277,12 @@ a dependency, status, or scheduling signal, and it must be removed when the
 ticket moves to Done. Worker environment labels such as `remote-cursor` should
 answer "is this issue allowed to run in that configured environment?" They must
 not be used as dependency, status, or scheduling signals.
+
+The tracker query contract should exclude the configured Done state from
+readiness-label queues such as `ready-for-agent` and `ready-for-human`. Done
+cleanup still removes stale readiness labels when a Done ticket is touched, but
+the normal queue should not load terminal tickets just to rediscover that label
+drift.
 
 Issue-assigned worker config should be stable enough for Orchestrator to act
 without probing real work. Record the configured worker path, environment labels

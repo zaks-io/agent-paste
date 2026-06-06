@@ -30,9 +30,9 @@ Only implement issues that are:
 - unblocked
 - scoped to one PR
 
-Use `agent-paste-implement-issue` for the implementation flow. Before opening a
-PR, run or request `agent-paste-local-code-review` on the branch when the
-environment supports it. Address blocking findings before PR handoff.
+Use `ziw-implement` for the implementation flow. Before opening a PR, run or
+request `ziw-code-review` on the branch when the environment supports it.
+Address blocking findings before PR handoff.
 
 When the queue-moving loop sends `Changes Requested` feedback, continue in the
 same thread, branch, and PR. Read the PR review comments, push fixes to the same

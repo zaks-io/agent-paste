@@ -49,6 +49,8 @@ Last updated: 2026-06-01
   both exist; Linear may auto-advance ticket state from PR status
 - Kind labels: kind-spec, kind-epic, kind-slice (single-select; only kind-slice dispatchable)
 - Readiness labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix
+- Readiness-label query policy: label queries for ready-for-agent or
+  ready-for-human exclude state:Done unless explicitly auditing Done cleanup
 - Worker environment labels: remote-cursor (approved to run in remote Cursor)
 - Repo-route label: <org>/example-app (REQUIRED before issue-assigned delegation;
   tells Cursor which GitHub repo to clone)
@@ -120,8 +122,9 @@ Last updated: 2026-06-01
 - Local: self-contained unless this repo says otherwise
 - Preview: PR-scoped Cursor/GitHub preview environment
 - Preview provider cap: 3 active previews
-- Preview cleanup policy: close stale duplicate PRs or terminate orphan previews
-  before assigning more work
+- Preview cleanup policy: close verified duplicate PRs or terminate orphan
+  previews before assigning more work; never close draft or in-progress PRs only
+  to free capacity
 - Production: explicit approval required
 - Hosted checks allowed without approval: <list or none>
 - Hosted checks requiring approval: <list>
