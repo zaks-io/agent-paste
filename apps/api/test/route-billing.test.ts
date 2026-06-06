@@ -506,10 +506,17 @@ describe("billing routes", () => {
     await expect(responseJson(response)).resolves.toMatchObject({ plan: "free" });
   });
 
-  // runCommand claims the idempotency record (returning a row) and then the handler's
-  // `select plan from workspaces` comes back empty, so it throws "workspace_not_found".
+  // The webhook ledger claims the Stripe event, then runCommand claims the billing
+  // idempotency record. The handler's `select plan from workspaces` comes back
+  // empty, so the route treats "workspace_not_found" as terminal and 200s Stripe.
   const missingWorkspaceExecutor = () =>
-    stubExecutor(async (sql) => {
+    stubExecutor(async (sql, params) => {
+      if (sql.includes("insert into stripe_webhook_events")) {
+        return { rows: [{ event_id: params?.[0] }] };
+      }
+      if (sql.includes("update stripe_webhook_events")) {
+        return { rows: [{ event_id: params?.[0] }] };
+      }
       if (sql.includes("insert into idempotency_records")) {
         return { rows: [{ workspace_id: workspaceId }] };
       }

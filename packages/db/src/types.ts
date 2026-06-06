@@ -84,6 +84,14 @@ export type WorkspaceBilling = {
   updated_at: string;
 };
 
+export type StripeWebhookEvent = {
+  event_id: string;
+  processing_started_at: string;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ApiKey = {
   id: string;
   workspace_id: string;
