@@ -11,6 +11,123 @@ export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promi
   return signer ? signer.verify(token) : null;
 }
 
+type AgentViewRecord = {
+  workspace_id?: unknown;
+  artifact_id?: unknown;
+  revision_id?: unknown;
+  entrypoint?: unknown;
+  expires_at?: unknown;
+  view_url?: unknown;
+  ephemeral_tier?: unknown;
+  bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
+  files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
+};
+
+type ContentSigningAuth = {
+  accessLinkId?: string;
+  workspaceId?: string;
+  noindex?: boolean;
+  scriptDisabled?: boolean;
+};
+
+function stripInternalWorkspaceId(data: AgentViewRecord): Omit<AgentViewRecord, "workspace_id"> {
+  const { workspace_id: _internalWorkspaceId, ...publicFields } = data;
+  return publicFields;
+}
+
+function resolveSigningWorkspaceId(
+  internalWorkspaceId: unknown,
+  options?: { workspaceId?: string },
+): string | undefined {
+  return options?.workspaceId ?? (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
+}
+
+function isEphemeralAgentView(data: AgentViewRecord, options?: { ephemeralTier?: boolean }): boolean {
+  return options?.ephemeralTier === true || ("ephemeral_tier" in data && data.ephemeral_tier === true);
+}
+
+function buildContentSigningAuth(
+  options: { accessLinkId?: string } | undefined,
+  workspaceId: string | undefined,
+  ephemeralTier: boolean,
+): ContentSigningAuth {
+  const contentAuth: ContentSigningAuth = {};
+  if (options?.accessLinkId) {
+    contentAuth.accessLinkId = options.accessLinkId;
+  }
+  if (workspaceId) {
+    contentAuth.workspaceId = workspaceId;
+  }
+  if (ephemeralTier) {
+    contentAuth.noindex = true;
+    contentAuth.scriptDisabled = true;
+    return contentAuth;
+  }
+  if (workspaceId) {
+    contentAuth.scriptDisabled = false;
+  }
+  return contentAuth;
+}
+
+async function signAgentViewFileEntries(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  files: AgentViewRecord["files"],
+  expiresAt: string | undefined,
+  contentAuth: ContentSigningAuth,
+): Promise<AgentViewRecord["files"]> {
+  if (!Array.isArray(files)) {
+    return files;
+  }
+  return Promise.all(
+    files.map(async (file) => {
+      if (typeof file.path !== "string") {
+        return file;
+      }
+      return {
+        ...file,
+        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth),
+      };
+    }),
+  );
+}
+
+async function signReadyAgentViewBundle(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  bundle: AgentViewRecord["bundle"],
+  expiresAt: string | undefined,
+  contentAuth: ContentSigningAuth,
+): Promise<AgentViewRecord["bundle"]> {
+  if (!bundle || typeof bundle !== "object" || bundle.status !== "ready") {
+    return bundle;
+  }
+  return {
+    ...bundle,
+    url: await signedBundleUrl(env, artifactId, revisionId, expiresAt, contentAuth),
+  };
+}
+
+async function resolveSignedAgentViewUrl(
+  env: Env,
+  artifactId: string,
+  revisionId: string,
+  entrypoint: string | undefined,
+  storedViewUrl: unknown,
+  expiresAt: string | undefined,
+  contentAuth: ContentSigningAuth,
+): Promise<string | undefined> {
+  if (entrypoint) {
+    return signedContentUrl(env, artifactId, revisionId, entrypoint, expiresAt, contentAuth);
+  }
+  if (typeof storedViewUrl === "string") {
+    return storedViewUrl;
+  }
+  return undefined;
+}
+
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
@@ -20,20 +137,10 @@ export async function signAgentViewContentUrls(
     return view;
   }
 
-  const data = view as {
-    workspace_id?: unknown;
-    artifact_id?: unknown;
-    revision_id?: unknown;
-    entrypoint?: unknown;
-    expires_at?: unknown;
-    view_url?: unknown;
-    bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
-    files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
-  };
-  const { workspace_id: internalWorkspaceId, ...publicFields } = data;
+  const data = view as AgentViewRecord;
+  const publicFields = stripInternalWorkspaceId(data);
 
-  const signingSecret = contentSigningSecret(env);
-  if (!signingSecret) {
+  if (!contentSigningSecret(env)) {
     return publicFields;
   }
 
@@ -41,63 +148,23 @@ export async function signAgentViewContentUrls(
     return publicFields;
   }
 
+  const artifactId = data.artifact_id;
+  const revisionId = data.revision_id;
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
-  const workspaceId =
-    options?.workspaceId ?? (typeof internalWorkspaceId === "string" ? internalWorkspaceId : undefined);
-  const ephemeralTier = options?.ephemeralTier === true || ("ephemeral_tier" in data && data.ephemeral_tier === true);
-  const contentAuth = {
-    ...(options?.accessLinkId ? { accessLinkId: options.accessLinkId } : {}),
-    ...(workspaceId ? { workspaceId } : {}),
-    ...(ephemeralTier
-      ? { noindex: true as const, scriptDisabled: true as const }
-      : workspaceId
-        ? { scriptDisabled: false as const }
-        : {}),
-  };
-  const signedFiles = Array.isArray(data.files)
-    ? await Promise.all(
-        data.files.map(async (file) => {
-          if (typeof file.path !== "string") {
-            return file;
-          }
-          return {
-            ...file,
-            url: await signedContentUrl(
-              env,
-              data.artifact_id as string,
-              data.revision_id as string,
-              file.path,
-              expiresAt,
-              contentAuth,
-            ),
-          };
-        }),
-      )
-    : data.files;
+  const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
+  const contentAuth = buildContentSigningAuth(options, workspaceId, isEphemeralAgentView(data, options));
 
-  const bundle =
-    data.bundle && typeof data.bundle === "object" && data.bundle.status === "ready"
-      ? {
-          ...data.bundle,
-          url: await signedBundleUrl(
-            env,
-            data.artifact_id as string,
-            data.revision_id as string,
-            expiresAt,
-            contentAuth,
-          ),
-        }
-      : data.bundle;
+  const [files, bundle, view_url] = await Promise.all([
+    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
+    signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
+    resolveSignedAgentViewUrl(env, artifactId, revisionId, entrypoint, data.view_url, expiresAt, contentAuth),
+  ]);
 
   return {
     ...publicFields,
-    view_url: entrypoint
-      ? await signedContentUrl(env, data.artifact_id, data.revision_id, entrypoint, expiresAt, contentAuth)
-      : typeof data.view_url === "string"
-        ? data.view_url
-        : undefined,
-    files: signedFiles,
+    view_url,
+    files,
     bundle,
   };
 }
