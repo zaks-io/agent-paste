@@ -27,53 +27,57 @@ export type ApexRouteContext = {
   analyticsToken?: string | undefined;
 };
 
-export function routeApex(request: Request, context: ApexRouteContext): Response | null {
-  const url = new URL(request.url);
-  const security = apexSecurityHeaders(context.nonce);
+type ApexRoute = (request: Request, url: URL, context: ApexRouteContext, security: HeadersInit) => Response;
 
+const STATIC_ROUTES: Record<string, ApexRoute> = {
+  "/": (request, _url, context, security) =>
+    htmlResponse(renderHomePage(context.nonce, context.analyticsToken), request.method, security),
+  "/about": (request, _url, context, security) =>
+    htmlResponse(renderAboutPage(context.nonce, context.analyticsToken), request.method, security),
+  "/how-it-works": (request, _url, context, security) =>
+    htmlResponse(renderHowItWorksPage(context.nonce, context.analyticsToken), request.method, security),
+  "/docs": (request, _url, context, security) =>
+    htmlResponse(renderDocsIndexPage(context.nonce, context.analyticsToken), request.method, security),
+  "/docs.md": (request, _url, _context, security) =>
+    textResponse(renderDocsIndexMarkdown(), TEXT_MARKDOWN, request.method, security),
+  "/llms-full.txt": (request, _url, _context, security) =>
+    textResponse(renderLlmsFullText(), TEXT_PLAIN, request.method, security),
+  "/llms.txt": (request, _url, _context, security) => textResponse(LLMS_TXT, TEXT_PLAIN, request.method, security),
+  "/agents.md": (request, _url, _context, security) => textResponse(AGENTS_MD, TEXT_MARKDOWN, request.method, security),
+  "/install.sh": (request, _url, _context, security) => textResponse(INSTALL_SH, TEXT_SHELL, request.method, security),
+  "/install.ps1": (request, _url, _context, security) =>
+    textResponse(INSTALL_PS1, TEXT_PLAIN, request.method, security),
+  "/robots.txt": (request, url, _context, security) =>
+    textResponse(robotsTxt(url.origin), TEXT_PLAIN, request.method, security),
+  "/sitemap.xml": (request, url, _context, security) => xmlResponse(sitemapXml(url.origin), request.method, security),
+  "/healthz": () => new Response("ok", { status: 200, headers: { "content-type": TEXT_PLAIN } }),
+};
+
+function methodGate(request: Request, security: HeadersInit): Response | null {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: { allow: "GET, HEAD, OPTIONS" } });
   }
-
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("method_not_allowed", {
       status: 405,
       headers: { allow: "GET, HEAD, OPTIONS", "content-type": TEXT_PLAIN, ...security },
     });
   }
+  return null;
+}
 
+function redirectResponse(url: URL, security: HeadersInit): Response | null {
   const redirectTarget = productRedirect(url);
-  if (redirectTarget) {
-    return new Response(null, {
-      status: 308,
-      headers: { location: redirectTarget, "cache-control": "no-store", ...security },
-    });
+  if (!redirectTarget) {
+    return null;
   }
+  return new Response(null, {
+    status: 308,
+    headers: { location: redirectTarget, "cache-control": "no-store", ...security },
+  });
+}
 
-  if (url.pathname === "/") {
-    return htmlResponse(renderHomePage(context.nonce, context.analyticsToken), request.method, security);
-  }
-
-  if (url.pathname === "/about") {
-    return htmlResponse(renderAboutPage(context.nonce, context.analyticsToken), request.method, security);
-  }
-
-  if (url.pathname === "/how-it-works") {
-    return htmlResponse(renderHowItWorksPage(context.nonce, context.analyticsToken), request.method, security);
-  }
-
-  if (url.pathname === "/docs") {
-    return htmlResponse(renderDocsIndexPage(context.nonce, context.analyticsToken), request.method, security);
-  }
-
-  if (url.pathname === "/docs.md") {
-    return textResponse(renderDocsIndexMarkdown(), TEXT_MARKDOWN, request.method, security);
-  }
-
-  if (url.pathname === "/llms-full.txt") {
-    return textResponse(renderLlmsFullText(), TEXT_PLAIN, request.method, security);
-  }
-
+function dynamicRoute(request: Request, url: URL, context: ApexRouteContext, security: HeadersInit): Response | null {
   const docsRoute = docsRouteForPath(url.pathname);
   if (docsRoute?.kind === "html") {
     return htmlResponse(
@@ -94,39 +98,29 @@ export function routeApex(request: Request, context: ApexRouteContext): Response
       security,
     );
   }
-
-  if (url.pathname === "/llms.txt") {
-    return textResponse(LLMS_TXT, TEXT_PLAIN, request.method, security);
-  }
-
-  if (url.pathname === "/agents.md") {
-    return textResponse(AGENTS_MD, TEXT_MARKDOWN, request.method, security);
-  }
-
-  if (url.pathname === "/install.sh") {
-    return textResponse(INSTALL_SH, TEXT_SHELL, request.method, security);
-  }
-
-  if (url.pathname === "/install.ps1") {
-    return textResponse(INSTALL_PS1, TEXT_PLAIN, request.method, security);
-  }
-
-  if (url.pathname === "/robots.txt") {
-    return textResponse(robotsTxt(url.origin), TEXT_PLAIN, request.method, security);
-  }
-
-  if (url.pathname === "/sitemap.xml") {
-    return xmlResponse(sitemapXml(url.origin), request.method, security);
-  }
-
-  if (url.pathname === "/healthz") {
-    return new Response("ok", {
-      status: 200,
-      headers: { "content-type": TEXT_PLAIN },
-    });
-  }
-
   return null;
+}
+
+export function routeApex(request: Request, context: ApexRouteContext): Response | null {
+  const url = new URL(request.url);
+  const security = apexSecurityHeaders(context.nonce);
+
+  const gated = methodGate(request, security);
+  if (gated) {
+    return gated;
+  }
+
+  const redirected = redirectResponse(url, security);
+  if (redirected) {
+    return redirected;
+  }
+
+  const staticRoute = STATIC_ROUTES[url.pathname];
+  if (staticRoute) {
+    return staticRoute(request, url, context, security);
+  }
+
+  return dynamicRoute(request, url, context, security);
 }
 
 function htmlResponse(body: string, method: string, security: HeadersInit): Response {

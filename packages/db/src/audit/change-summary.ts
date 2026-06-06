@@ -65,75 +65,81 @@ function lockdownScopeLabel(scope: string | undefined): string {
   return scope === "workspace" ? "workspace" : scope === "artifact" ? "artifact" : "target";
 }
 
+type ChangeSummaryFormatter = (safe: Record<string, unknown>) => string;
+
+function formatLockdownSet(safe: Record<string, unknown>): string {
+  const scope = lockdownScopeLabel(readString(safe, "scope"));
+  const reason = readString(safe, "reason_code");
+  return reason ? `Platform lockdown set on ${scope} (reason: ${reason})` : `Platform lockdown set on ${scope}`;
+}
+
+function formatLockdownLifted(safe: Record<string, unknown>): string {
+  const scope = lockdownScopeLabel(readString(safe, "scope"));
+  const reason = readString(safe, "reason_code");
+  return reason ? `Platform lockdown lifted on ${scope} (was: ${reason})` : `Platform lockdown lifted on ${scope}`;
+}
+
+function formatApiKeyCreated(safe: Record<string, unknown>): string {
+  const name = readString(safe, "name");
+  return name ? `API key created (${name})` : "API key created";
+}
+
+function formatWorkspaceSettingsUpdated(safe: Record<string, unknown>): string {
+  const days = readNumber(safe, "auto_deletion_days");
+  return days === undefined ? "Workspace settings updated" : `Workspace settings updated (${days}-day auto-deletion)`;
+}
+
+function formatArtifactPublished(safe: Record<string, unknown>): string {
+  const revisionNumber = readNumber(safe, "revision_number");
+  const fileCount = readNumber(safe, "file_count");
+  if (revisionNumber !== undefined && fileCount !== undefined) {
+    return `Published revision ${revisionNumber} (${fileCount} file${fileCount === 1 ? "" : "s"})`;
+  }
+  if (revisionNumber !== undefined) {
+    return `Published revision ${revisionNumber}`;
+  }
+  return "Artifact published";
+}
+
+function formatCleanupRun(safe: Record<string, unknown>): string {
+  const artifacts = readNumber(safe, "expired_artifacts");
+  const sessions = readNumber(safe, "expired_upload_sessions");
+  if (artifacts !== undefined || sessions !== undefined) {
+    return `Cleanup ran (${artifacts ?? 0} artifacts, ${sessions ?? 0} sessions)`;
+  }
+  return "Cleanup ran";
+}
+
+const constant =
+  (text: string): ChangeSummaryFormatter =>
+  () =>
+    text;
+
+const CHANGE_SUMMARY_FORMATTERS: Record<string, ChangeSummaryFormatter> = {
+  "platform.lockdown.set": formatLockdownSet,
+  "platform.lockdown.lifted": formatLockdownLifted,
+  "api_key.created": formatApiKeyCreated,
+  "api_key.revoked": constant("API key revoked"),
+  "workspace.created": constant("Workspace created"),
+  "workspace.settings.updated": formatWorkspaceSettingsUpdated,
+  "artifact.created": constant("Artifact created"),
+  "artifact.published": formatArtifactPublished,
+  "artifact.deleted": constant("Artifact deleted"),
+  "artifact.pinned": constant("Artifact pinned"),
+  "artifact.unpinned": constant("Artifact unpinned"),
+  "revision.draft_created": constant("Draft revision created"),
+  "upload_session.created": constant("Upload session created"),
+  "upload_session.finalized": constant("Upload session finalized"),
+  "upload_session.expired": constant("Upload session expired"),
+  "upload_session.failed": constant("Upload session failed"),
+  "cleanup.run": formatCleanupRun,
+};
+
 /** Format a tenant-safe Change Summary for dashboard and operator surfaces. */
 export function formatChangeSummary(action: string, details: Record<string, unknown>): string {
   const safe = redactAuditDetails(details);
-
-  switch (action) {
-    case "platform.lockdown.set": {
-      const scope = lockdownScopeLabel(readString(safe, "scope"));
-      const reason = readString(safe, "reason_code");
-      return reason ? `Platform lockdown set on ${scope} (reason: ${reason})` : `Platform lockdown set on ${scope}`;
-    }
-    case "platform.lockdown.lifted": {
-      const scope = lockdownScopeLabel(readString(safe, "scope"));
-      const reason = readString(safe, "reason_code");
-      return reason ? `Platform lockdown lifted on ${scope} (was: ${reason})` : `Platform lockdown lifted on ${scope}`;
-    }
-    case "api_key.created": {
-      const name = readString(safe, "name");
-      return name ? `API key created (${name})` : "API key created";
-    }
-    case "api_key.revoked":
-      return "API key revoked";
-    case "workspace.created":
-      return "Workspace created";
-    case "workspace.settings.updated": {
-      const days = readNumber(safe, "auto_deletion_days");
-      return days === undefined
-        ? "Workspace settings updated"
-        : `Workspace settings updated (${days}-day auto-deletion)`;
-    }
-    case "artifact.created":
-      return "Artifact created";
-    case "artifact.published": {
-      const revisionNumber = readNumber(safe, "revision_number");
-      const fileCount = readNumber(safe, "file_count");
-      if (revisionNumber !== undefined && fileCount !== undefined) {
-        return `Published revision ${revisionNumber} (${fileCount} file${fileCount === 1 ? "" : "s"})`;
-      }
-      if (revisionNumber !== undefined) {
-        return `Published revision ${revisionNumber}`;
-      }
-      return "Artifact published";
-    }
-    case "artifact.deleted":
-      return "Artifact deleted";
-    case "artifact.pinned":
-      return "Artifact pinned";
-    case "artifact.unpinned":
-      return "Artifact unpinned";
-    case "revision.draft_created":
-      return "Draft revision created";
-    case "upload_session.created":
-      return "Upload session created";
-    case "upload_session.finalized":
-      return "Upload session finalized";
-    case "upload_session.expired":
-      return "Upload session expired";
-    case "upload_session.failed":
-      return "Upload session failed";
-    case "cleanup.run": {
-      const artifacts = readNumber(safe, "expired_artifacts");
-      const sessions = readNumber(safe, "expired_upload_sessions");
-      if (artifacts !== undefined || sessions !== undefined) {
-        return `Cleanup ran (${artifacts ?? 0} artifacts, ${sessions ?? 0} sessions)`;
-      }
-      return "Cleanup ran";
-    }
-    default:
-      return summarizeFallbackDetails(safe);
-  }
+  const formatter = CHANGE_SUMMARY_FORMATTERS[action];
+  return formatter ? formatter(safe) : summarizeFallbackDetails(safe);
 }
 
 function summarizeFallbackDetails(details: Record<string, unknown>): string {

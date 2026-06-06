@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { spawnCommand } from "./lib/spawn-command.mjs";
 
 const DEFAULT_HYPERDRIVE_LIMIT = 25;
 
@@ -20,7 +20,7 @@ if (isMain(import.meta.url)) {
 export async function checkPrPreviewCapacity(options, dependencies = {}) {
   const prNumber = normalizePrNumber(options.prNumber);
   const hyperdriveLimit = normalizePositiveInteger(options.hyperdriveLimit, "AGENT_PASTE_HYPERDRIVE_LIMIT");
-  const run = dependencies.run ?? runCommand;
+  const run = dependencies.run ?? spawnCommand;
   const fetchFn = dependencies.fetch ?? fetch;
   const log = dependencies.log ?? ((message) => process.stdout.write(message));
   const targetName = `agent-paste-db-pr-${prNumber}`;
@@ -175,33 +175,4 @@ function normalizePositiveInteger(value, name) {
 
 function isMain(metaUrl) {
   return process.argv[1] === fileURLToPath(metaUrl);
-}
-
-function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      const result = { code: code ?? 1, stdout, stderr };
-      if (result.code === 0 || options.allowFailure) {
-        if (!options.quiet && stdout.trim()) {
-          process.stdout.write(stdout);
-        }
-        if (!options.quiet && stderr.trim()) {
-          process.stderr.write(stderr);
-        }
-        resolve(result);
-      } else {
-        reject(new Error(`${command} ${args.join(" ")} exited ${result.code}\n${stderr || stdout}`));
-      }
-    });
-  });
 }

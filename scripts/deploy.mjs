@@ -137,26 +137,43 @@ export function createSecretPlanner({
     return generatedValues.get(name);
   }
 
+  function classifySecret(app, worker, name, existing) {
+    const forceRotate = runSmoke && name === "SMOKE_HARNESS_SECRET";
+    if (existing.has(name) && !forceRotate) {
+      return null;
+    }
+    if (resolveValue(name) !== undefined || GENERATABLE.has(name)) {
+      return { kind: "set", name };
+    }
+    if (isRequired(app, name)) {
+      return { kind: "missing", name: `${worker}:${name}` };
+    }
+    return null;
+  }
+
+  async function planSecretsForApp(app) {
+    const worker = workerName(app, target);
+    const existing = new Set(await listSecretsForWorker(worker));
+    const toSet = [];
+    const missingProvider = [];
+    for (const name of secretsForApp(app, target)) {
+      const decision = classifySecret(app, worker, name, existing);
+      if (decision?.kind === "set") {
+        toSet.push(decision.name);
+      } else if (decision?.kind === "missing") {
+        missingProvider.push(decision.name);
+      }
+    }
+    return { toSet, missingProvider };
+  }
+
   async function buildProvisionPlan() {
     /** @type {Map<string, string[]> & { missingProvider?: string[] }} */
     const plan = new Map();
     const missingProvider = [];
     for (const app of secretConsumingApps()) {
-      const worker = workerName(app, target);
-      const existing = new Set(await listSecretsForWorker(worker));
-      const needed = secretsForApp(app, target);
-      const toSet = [];
-      for (const name of needed) {
-        const forceRotate = runSmoke && name === "SMOKE_HARNESS_SECRET";
-        if (existing.has(name) && !forceRotate) {
-          continue;
-        }
-        if (resolveValue(name) !== undefined || GENERATABLE.has(name)) {
-          toSet.push(name);
-        } else if (isRequired(app, name)) {
-          missingProvider.push(`${worker}:${name}`);
-        }
-      }
+      const { toSet, missingProvider: appMissing } = await planSecretsForApp(app);
+      missingProvider.push(...appMissing);
       if (toSet.length > 0) {
         plan.set(app, toSet);
       }

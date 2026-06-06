@@ -173,51 +173,58 @@ export async function putSignedUploadFile(input: {
   return { ok: true, status: response.status, body: null };
 }
 
-async function mapForwardResponse(response: Response): Promise<ForwardToApiResult> {
-  let body: unknown = null;
+type ApiErrorEnvelope = { code?: string; message?: string; request_id?: string; docs?: string };
+
+async function readForwardBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      body = await response.json();
-    } catch {
-      body = null;
-    }
+  if (!contentType.includes("application/json")) {
+    return null;
   }
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
 
+function errorEnvelope(body: unknown): ApiErrorEnvelope | null {
+  return body && typeof body === "object" && "error" in body ? (body as { error: ApiErrorEnvelope }).error : null;
+}
+
+function mappedToolError(envelope: ApiErrorEnvelope): McpMappedToolError {
+  return mapApiErrorToMcp({
+    code: envelope.code as ErrorCode,
+    message: envelope.message as string,
+    ...(envelope.request_id ? { requestId: envelope.request_id } : {}),
+    ...(envelope.docs ? { docs: envelope.docs } : {}),
+  });
+}
+
+function mapForwardFailure(response: Response, body: unknown): ForwardToApiFailure {
+  const envelope = errorEnvelope(body);
+  const code = envelope?.code;
+  if (code === "not_authenticated" || code === "invalid_auth") {
+    return { ok: false, error: mapMcpProtocolError("invalid_token", "invalid_token") };
+  }
+  if (code === "forbidden") {
+    return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
+  }
+  if (typeof code === "string" && code && typeof envelope?.message === "string") {
+    return { ok: false, error: mappedToolError(envelope) };
+  }
+  if (response.status === 401) {
+    return { ok: false, error: mapMcpProtocolError("invalid_token", "invalid_token") };
+  }
+  if (response.status === 403) {
+    return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
+  }
+  return { ok: false, error: mapApiErrorToMcp({ code: "invalid_request", message: "invalid_request" }) };
+}
+
+async function mapForwardResponse(response: Response): Promise<ForwardToApiResult> {
+  const body = await readForwardBody(response);
   if (!response.ok) {
-    const envelope =
-      body && typeof body === "object" && "error" in body
-        ? (body as { error: { code?: string; message?: string; request_id?: string; docs?: string } }).error
-        : null;
-    const code = envelope?.code;
-    if (code === "not_authenticated" || code === "invalid_auth") {
-      return { ok: false, error: mapMcpProtocolError("invalid_token", "invalid_token") };
-    }
-    if (code === "forbidden") {
-      return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
-    }
-    if (code && typeof code === "string" && typeof envelope?.message === "string") {
-      return {
-        ok: false,
-        error: mapApiErrorToMcp({
-          code: code as ErrorCode,
-          message: envelope.message,
-          ...(envelope.request_id ? { requestId: envelope.request_id } : {}),
-          ...(envelope.docs ? { docs: envelope.docs } : {}),
-        }),
-      };
-    }
-    if (response.status === 401) {
-      return { ok: false, error: mapMcpProtocolError("invalid_token", "invalid_token") };
-    }
-    if (response.status === 403) {
-      return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
-    }
-    return {
-      ok: false,
-      error: mapApiErrorToMcp({ code: "invalid_request", message: "invalid_request" }),
-    };
+    return mapForwardFailure(response, body);
   }
-
   return { ok: true, status: response.status, body };
 }

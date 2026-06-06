@@ -63,39 +63,49 @@ function listWorkspaceDirs() {
 function validateWorkspacePackages(workspacePackages) {
   const names = new Map();
   for (const pkg of workspacePackages) {
-    const { manifest, dir } = pkg;
-    requireField(pkg.packageJsonPath, "name", manifest.name);
-    if (manifest.name) {
-      if (names.has(manifest.name)) {
-        errors.push(`${pkg.packageJsonPath}: duplicate package name also used by ${names.get(manifest.name)}`);
-      }
-      names.set(manifest.name, pkg.packageJsonPath);
-    }
-    if (manifest.private !== true && !publishablePackages.has(manifest.name)) {
-      errors.push(`${pkg.packageJsonPath}: workspace packages must be private`);
-    }
-    if (manifest.type !== "module") {
-      errors.push(`${pkg.packageJsonPath}: workspace packages must set "type": "module"`);
-    }
-    if (!existsSync(pathFromRoot(pkg.readmePath))) {
-      errors.push(`${dir}: missing README.md`);
-    }
+    validateUniqueName(pkg, names);
+    validatePackageMetadata(pkg);
+    validatePackageScripts(pkg);
+  }
+}
 
-    const scripts = manifest.scripts ?? {};
-    const isCodePackage = existsSync(pathFromRoot(pkg.tsconfigPath));
-    const isDeployableWorker = existsSync(pathFromRoot(pkg.wranglerPath));
-    const requiredScripts = isCodePackage ? requiredCodeScripts : requiredMetadataScripts;
-    for (const script of requiredScripts) {
-      if (!scripts[script]) {
-        errors.push(`${pkg.packageJsonPath}: missing "${script}" script`);
-      }
-    }
-    if (isDeployableWorker) {
-      for (const script of requiredWorkerScripts) {
-        if (!scripts[script]) {
-          errors.push(`${pkg.packageJsonPath}: deployable Worker missing "${script}" script`);
-        }
-      }
+function validateUniqueName(pkg, names) {
+  const { manifest } = pkg;
+  requireField(pkg.packageJsonPath, "name", manifest.name);
+  if (!manifest.name) return;
+  if (names.has(manifest.name)) {
+    errors.push(`${pkg.packageJsonPath}: duplicate package name also used by ${names.get(manifest.name)}`);
+  }
+  names.set(manifest.name, pkg.packageJsonPath);
+}
+
+function validatePackageMetadata(pkg) {
+  const { manifest, dir } = pkg;
+  if (manifest.private !== true && !publishablePackages.has(manifest.name)) {
+    errors.push(`${pkg.packageJsonPath}: workspace packages must be private`);
+  }
+  if (manifest.type !== "module") {
+    errors.push(`${pkg.packageJsonPath}: workspace packages must set "type": "module"`);
+  }
+  if (!existsSync(pathFromRoot(pkg.readmePath))) {
+    errors.push(`${dir}: missing README.md`);
+  }
+}
+
+function validatePackageScripts(pkg) {
+  const scripts = pkg.manifest.scripts ?? {};
+  const isCodePackage = existsSync(pathFromRoot(pkg.tsconfigPath));
+  const requiredScripts = isCodePackage ? requiredCodeScripts : requiredMetadataScripts;
+  requireScripts(pkg, scripts, requiredScripts, "missing");
+  if (existsSync(pathFromRoot(pkg.wranglerPath))) {
+    requireScripts(pkg, scripts, requiredWorkerScripts, "deployable Worker missing");
+  }
+}
+
+function requireScripts(pkg, scripts, requiredScripts, label) {
+  for (const script of requiredScripts) {
+    if (!scripts[script]) {
+      errors.push(`${pkg.packageJsonPath}: ${label} "${script}" script`);
     }
   }
 }
@@ -107,14 +117,18 @@ function validateDependencies(workspacePackages, rootPackage) {
     for (const section of dependencySections) {
       const dependencies = pkg.manifest[section] ?? {};
       for (const [name, version] of Object.entries(dependencies)) {
-        if (workspaceNames.has(name) && version !== "workspace:*") {
-          errors.push(`${pkg.packageJsonPath}: ${section}.${name} must use workspace:*`);
-        }
-        if (catalogNames.has(name) && version !== "catalog:") {
-          errors.push(`${pkg.packageJsonPath}: ${section}.${name} is catalog-managed and must use catalog:`);
-        }
+        validateDependencyVersion(pkg, section, name, version, workspaceNames, catalogNames);
       }
     }
+  }
+}
+
+function validateDependencyVersion(pkg, section, name, version, workspaceNames, catalogNames) {
+  if (workspaceNames.has(name) && version !== "workspace:*") {
+    errors.push(`${pkg.packageJsonPath}: ${section}.${name} must use workspace:*`);
+  }
+  if (catalogNames.has(name) && version !== "catalog:") {
+    errors.push(`${pkg.packageJsonPath}: ${section}.${name} is catalog-managed and must use catalog:`);
   }
 }
 

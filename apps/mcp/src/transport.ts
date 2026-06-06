@@ -1,5 +1,10 @@
 import { MCP_RESOURCE_INDICATOR, mapMcpProtocolError, mcpWwwAuthenticateHeader } from "@agent-paste/contracts";
-import { createUnconfiguredMcpBearerAuth, createWorkOsMcpBearerAuth, type VerifyMcpBearer } from "./auth.js";
+import {
+  createUnconfiguredMcpBearerAuth,
+  createWorkOsMcpBearerAuth,
+  type McpAuthContext,
+  type VerifyMcpBearer,
+} from "./auth.js";
 import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
 import { jsonRpcErrorResponse, mapParseFailure, parseMcpJsonRpcBody, respondWithJsonRpc } from "./jsonrpc.js";
 import { handleMcpProtocolMethod } from "./protocol.js";
@@ -37,45 +42,65 @@ function authenticateChallengeHeaders(resource: string): Headers {
   });
 }
 
+type McpParsedBody = ReturnType<typeof parseMcpJsonRpcBody>;
+type McpParsedRequest = Extract<McpParsedBody, { kind: "request" }>;
+
 export async function handleMcpEndpoint(
   request: Request,
   env: McpTransportEnv,
   deps: McpTransportDeps = {},
 ): Promise<Response> {
   const resource = resourceFromEnv(env);
-  const verifyBearer = deps.verifyBearer ?? bearerVerifierForEnv(env);
 
-  if (request.method === "GET" || request.method === "DELETE") {
-    return new Response(null, { status: 405 });
-  }
   if (request.method !== "POST") {
     return new Response(null, { status: 405 });
   }
 
-  const authResult = await verifyBearer({
-    authorizationHeader: request.headers.get("authorization"),
-  });
+  const verifyBearer = deps.verifyBearer ?? bearerVerifierForEnv(env);
+  const authResult = await verifyBearer({ authorizationHeader: request.headers.get("authorization") });
   if (!authResult.ok) {
     return unauthorizedMcpResponse(authResult.message, resource);
   }
 
+  const bodyResult = await readJsonRpcBody(request);
+  if (!bodyResult.ok) {
+    return bodyResult.response;
+  }
+
+  const parsed = parseMcpJsonRpcBody(bodyResult.body);
+  const earlyResponse = respondToNonRequest(parsed);
+  if (earlyResponse) {
+    return earlyResponse;
+  }
+
+  return dispatchMcpRequest(request, parsed as McpParsedRequest, authResult.context, deps, env, resource);
+}
+
+async function readJsonRpcBody(
+  request: Request,
+): Promise<{ ok: true; body: unknown } | { ok: false; response: Response }> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
-    return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "content_type_must_be_json"));
+    return {
+      ok: false,
+      response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "content_type_must_be_json")),
+    };
   }
-
-  let body: unknown;
   try {
-    body = await request.json();
+    return { ok: true, body: await request.json() };
   } catch {
-    return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "invalid_json"));
+    return {
+      ok: false,
+      response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "invalid_json")),
+    };
   }
+}
 
-  const parsed = parseMcpJsonRpcBody(body);
+/** Resolve non-request JSON-RPC payloads (invalid bodies, notifications, responses) to an early Response. */
+function respondToNonRequest(parsed: McpParsedBody): Response | null {
   if (parsed.kind === "invalid") {
     return jsonRpcErrorResponse(undefined, mapParseFailure(parsed.message));
   }
-
   if (parsed.kind === "notification") {
     if (parsed.notification.method !== "notifications/initialized") {
       return jsonRpcErrorResponse(undefined, mapMcpProtocolError("method_not_found", "method_not_found"));
@@ -85,29 +110,23 @@ export async function handleMcpEndpoint(
   if (parsed.kind === "response") {
     return new Response(null, { status: 202 });
   }
+  return null;
+}
 
+async function dispatchMcpRequest(
+  request: Request,
+  parsed: McpParsedRequest,
+  auth: McpAuthContext,
+  deps: McpTransportDeps,
+  env: McpTransportEnv,
+  resource: string,
+): Promise<Response> {
   const requestId = parsed.request.id;
   if (requestId === undefined || requestId === null) {
     return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "json_rpc_request_id_required"));
   }
 
-  const apiBinding = deps.api ?? env.API;
-  const uploadBinding = deps.upload ?? env.UPLOAD;
-  const protocolInput: Parameters<typeof handleMcpProtocolMethod>[0] = {
-    method: parsed.request.method,
-    params: parsed.request.params,
-    id: requestId,
-    auth: authResult.context,
-  };
-  if (apiBinding && uploadBinding) {
-    protocolInput.toolDeps = {
-      api: apiBinding,
-      upload: uploadBinding,
-      bearerToken: authResult.context.bearerToken,
-      jsonRpcId: requestId,
-    };
-  }
-
+  const protocolInput = buildProtocolInput(parsed, requestId, auth, deps, env);
   const handled = await Promise.resolve(handleMcpProtocolMethod(protocolInput));
 
   if (handled.kind === "accepted") {
@@ -117,8 +136,33 @@ export async function handleMcpEndpoint(
     const challenge = handled.error.code === "insufficient_scope" ? authenticateChallengeHeaders(resource) : undefined;
     return jsonRpcErrorResponse(requestId, handled.error, challenge ? { headers: challenge } : undefined);
   }
-
   return respondWithJsonRpc(handled.response, request.headers.get("accept"), optionalSessionHeader(request));
+}
+
+function buildProtocolInput(
+  parsed: McpParsedRequest,
+  requestId: NonNullable<McpParsedRequest["request"]["id"]>,
+  auth: McpAuthContext,
+  deps: McpTransportDeps,
+  env: McpTransportEnv,
+): Parameters<typeof handleMcpProtocolMethod>[0] {
+  const protocolInput: Parameters<typeof handleMcpProtocolMethod>[0] = {
+    method: parsed.request.method,
+    params: parsed.request.params,
+    id: requestId,
+    auth,
+  };
+  const apiBinding = deps.api ?? env.API;
+  const uploadBinding = deps.upload ?? env.UPLOAD;
+  if (apiBinding && uploadBinding) {
+    protocolInput.toolDeps = {
+      api: apiBinding,
+      upload: uploadBinding,
+      bearerToken: auth.bearerToken,
+      jsonRpcId: requestId,
+    };
+  }
+  return protocolInput;
 }
 
 function bearerVerifierForEnv(env: McpTransportEnv): VerifyMcpBearer {

@@ -245,6 +245,7 @@ export function createStripeBillingProvider(config: StripeBillingProviderConfig)
       const body = (await response.json()) as StripeSubscriptionResponse;
       return mapStripeSubscription(body);
     },
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: linear Stripe pagination loop boilerplate; splitting the cursor walk adds no value. See docs/ops/complexity-todo.md.
     async listReconciliationSubscriptions() {
       const snapshots: BillingSubscriptionSnapshot[] = [];
       let startingAfter: string | undefined;

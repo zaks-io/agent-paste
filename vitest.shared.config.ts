@@ -18,16 +18,25 @@ type AgentPasteVitestOptions = {
   root?: string;
 };
 
+// Agent scratch dirs (`.claude`, `.codex`) are excluded only when nested *inside*
+// the project, not when the checkout itself lives under such a path (e.g. a git
+// worktree at `~/.claude/worktrees/<name>`). A bare `**/.claude/**` matches the
+// ancestor path too and silently discovers zero tests from such a worktree, so
+// these are anchored to the resolved root via buildTestExcludes(root).
+const nestedAgentDirs = [".claude", ".codex"];
+
 const sharedTestExcludes = [
   ...configDefaults.exclude,
   "**/dist/**",
   "**/build/**",
   "**/.next/**",
   "**/.output/**",
-  "**/.claude/**",
-  "**/.codex/**",
   "**/coverage/**",
 ];
+
+export function buildTestExcludes(root: string = process.cwd()): string[] {
+  return [...sharedTestExcludes, ...nestedAgentDirs.map((dir) => join(root, "**", dir, "**"))];
+}
 
 // Patterns omitted from every workspace coverage report. Rationale ledger:
 // docs/ops/status/coverage.md#coverage-exclusion-ledger
@@ -95,7 +104,7 @@ export function defineAgentPasteVitestConfig(options: AgentPasteVitestOptions = 
     root,
     test: {
       environment: options.environment ?? "node",
-      exclude: sharedTestExcludes,
+      exclude: buildTestExcludes(root),
       coverage: {
         provider: "v8",
         reporter: ["json", "lcov", "text-summary"],

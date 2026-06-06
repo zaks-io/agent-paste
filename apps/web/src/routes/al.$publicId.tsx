@@ -21,6 +21,24 @@ function isResolveBody(value: unknown): value is ResolveBody {
   return true;
 }
 
+/**
+ * Reads and validates the resolve response into the next viewer state. Returns
+ * `null` when the request was aborted mid-flight so the caller skips the update.
+ */
+async function resolveViewerState(res: Response, signal: AbortSignal): Promise<ResolveResult | null> {
+  if (signal.aborted) return null;
+  if (!res.ok) return { kind: "not_found" };
+  const body = (await res.json()) as unknown;
+  if (signal.aborted) return null;
+  if (!isResolveBody(body)) return { kind: "not_found" };
+  return {
+    kind: "resolved",
+    render_mode: body.render_mode,
+    ...(body.iframe_src ? { iframe_src: body.iframe_src } : {}),
+    ...(body.title ? { title: body.title } : {}),
+  };
+}
+
 export const Route = createFileRoute("/al/$publicId")({
   component: AccessLinkViewer,
   head: ({ params, matches }) => ({
@@ -60,28 +78,10 @@ function AccessLinkViewer() {
       signal: controller.signal,
     })
       .then(async (res) => {
-        if (controller.signal.aborted) {
-          return;
+        const next = await resolveViewerState(res, controller.signal);
+        if (next) {
+          setState(next);
         }
-        if (!res.ok) {
-          setState({ kind: "not_found" });
-          return;
-        }
-        const body = (await res.json()) as unknown;
-        if (controller.signal.aborted) {
-          return;
-        }
-        if (!isResolveBody(body)) {
-          setState({ kind: "not_found" });
-          return;
-        }
-        const resolved: ResolveResult = {
-          kind: "resolved",
-          render_mode: body.render_mode,
-          ...(body.iframe_src ? { iframe_src: body.iframe_src } : {}),
-          ...(body.title ? { title: body.title } : {}),
-        };
-        setState(resolved);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") {
