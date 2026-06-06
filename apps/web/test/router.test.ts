@@ -32,6 +32,12 @@ describe("getRouter", () => {
     expect(router.options.scrollRestoration).toBe(true);
   });
 
+  it("delays pending UI briefly and keeps it stable once shown", () => {
+    const router = getRouter();
+    expect(router.options.defaultPendingMs).toBe(100);
+    expect(router.options.defaultPendingMinMs).toBe(200);
+  });
+
   it("sets ssr.nonce from the request-scoped CSP nonce so injected scripts are stamped", () => {
     const router = runWithCspNonce("test-nonce-xyz", () => getRouter());
     expect(router.options.ssr).toEqual({ nonce: "test-nonce-xyz" });

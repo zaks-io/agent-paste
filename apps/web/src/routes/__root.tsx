@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
+import { NavigationProgress } from "../components/chrome/NavigationProgress";
 import { ThemeProvider } from "../components/theme-provider";
 import { analyticsScripts } from "../lib/analytics-scripts";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
@@ -45,6 +46,7 @@ function RootComponent() {
   return (
     <RootDocument>
       <ThemeProvider>
+        <NavigationProgress />
         <Outlet />
       </ThemeProvider>
     </RootDocument>
