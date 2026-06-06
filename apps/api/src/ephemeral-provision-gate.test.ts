@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   consumeEphemeralProvisionGate,
+  EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
   EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
   type EphemeralProvisionGateStorage,
   handleEphemeralProvisionGateRequest,
@@ -71,6 +72,12 @@ describe("ephemeral provision gate Durable Object handler", () => {
     expect(response.status).toBe(503);
   });
 
+  it("rejects nonce TTL values above the PoW challenge cap", async () => {
+    const response = await gateConsume(memoryStorage(), "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS + 1);
+
+    expect(response.status).toBe(400);
+  });
+
   it("returns unavailable when storage writes fail", async () => {
     const response = await gateConsume({
       ...memoryStorage(),
@@ -92,16 +99,34 @@ describe("ephemeral provision gate client", () => {
     await expect(
       consumeEphemeralProvisionGate(namespaceReturning(Response.json({ allowed: true })), "n", 300),
     ).resolves.toBeNull();
+    await expect(
+      consumeEphemeralProvisionGate(
+        namespaceReturning(
+          Response.json({
+            allowed: true,
+            consumed: -1,
+            remaining: -1,
+            retry_after_seconds: 0,
+          }),
+        ),
+        "n",
+        300,
+      ),
+    ).resolves.toBeNull();
     await expect(consumeEphemeralProvisionGate(namespaceThrowing(), "n", 300)).resolves.toBeNull();
   });
 });
 
-function gateConsume(storage: EphemeralProvisionGateStorage, nonce = "nonce-a"): Promise<Response> {
+function gateConsume(
+  storage: EphemeralProvisionGateStorage,
+  nonce = "nonce-a",
+  nonceTtlSeconds = EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+): Promise<Response> {
   return handleEphemeralProvisionGateRequest(
     new Request("https://ephemeral-provision-gate.internal/consume", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ nonce, nonce_ttl_seconds: 300 }),
+      body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
     }),
     storage,
   );

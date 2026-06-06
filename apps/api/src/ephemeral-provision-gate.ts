@@ -1,3 +1,4 @@
+import { DEFAULT_POW_CHALLENGE_TTL_SECONDS } from "@agent-paste/tokens/pow";
 import {
   consumeGateSlot,
   type EphemeralProvisionGateDecision,
@@ -13,6 +14,7 @@ export {
 } from "./ephemeral-provision-gate-state.js";
 
 export const EPHEMERAL_PROVISION_GATE_NAME = "global";
+export const EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS = DEFAULT_POW_CHALLENGE_TTL_SECONDS;
 const STORAGE_KEY = "ephemeral_provision_gate";
 const INTERNAL_URL = "https://ephemeral-provision-gate.internal/consume";
 
@@ -69,7 +71,12 @@ export async function handleEphemeralProvisionGateRequest(
       return new Response("invalid_request", { status: 400 });
     }
     const nonceTtlSeconds = body.nonce_ttl_seconds;
-    if (typeof nonceTtlSeconds !== "number" || !Number.isInteger(nonceTtlSeconds) || nonceTtlSeconds <= 0) {
+    if (
+      typeof nonceTtlSeconds !== "number" ||
+      !Number.isInteger(nonceTtlSeconds) ||
+      nonceTtlSeconds <= 0 ||
+      nonceTtlSeconds > EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS
+    ) {
       return new Response("invalid_request", { status: 400 });
     }
 
@@ -175,10 +182,18 @@ function parseGateDecision(body: unknown): EphemeralProvisionGateDecision | null
 function isGateStatus(candidate: Partial<EphemeralProvisionGateDecision>): candidate is EphemeralProvisionGateDecision {
   return (
     typeof candidate.allowed === "boolean" &&
-    typeof candidate.consumed === "number" &&
-    typeof candidate.remaining === "number" &&
-    typeof candidate.retry_after_seconds === "number"
+    isNonNegativeInteger(candidate.consumed) &&
+    isNonNegativeInteger(candidate.remaining) &&
+    isPositiveInteger(candidate.retry_after_seconds)
   );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value > 0;
 }
 
 function isGateDenyReason(value: unknown): value is "duplicate_nonce" | "rate_limited" {

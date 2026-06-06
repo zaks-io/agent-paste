@@ -16,6 +16,7 @@ import {
   ephemeralHostedConfig,
   normalizeEphemeralHostedTarget,
   probeEphemeralPowReady,
+  shouldFailHostedEphemeralReadiness,
   toBoundaryError,
 } from "./smoke-ephemeral-harness.mjs";
 import { deleteSmokeArtifact, waitForHealthz } from "./smoke-harness.mjs";
@@ -42,6 +43,9 @@ async function runHostedEphemeralSmoke() {
   await waitForHealthz(config.apiBaseUrl);
   const readiness = await probeEphemeralPowReady(config.apiBaseUrl);
   if (!readiness.ready) {
+    if (shouldFailHostedEphemeralReadiness(target, readiness)) {
+      throw new EphemeralSmokeError("provision", readiness.reason ?? "ephemeral provision probe was not ready");
+    }
     skipHostedEphemeral(readiness.reason);
   }
 

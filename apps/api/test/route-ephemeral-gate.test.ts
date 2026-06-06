@@ -118,6 +118,37 @@ describe("ephemeral provision gate route", () => {
     expect(createEphemeralWorkspace).not.toHaveBeenCalled();
   });
 
+  it("fails closed when the Durable Object gate response has malformed numeric values", async () => {
+    const { body } = await validPowBody();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+    const response = await ephemeralProvisionRoute(
+      contextFor({
+        env: provisionEnv({
+          EPHEMERAL_PROVISION_GATE: {
+            idFromName: (name: string) => name,
+            get: () => ({
+              fetch: async () =>
+                Response.json({
+                  allowed: true,
+                  consumed: -1,
+                  remaining: -1,
+                  retry_after_seconds: 0,
+                }),
+            }),
+          } as unknown as Env["EPHEMERAL_PROVISION_GATE"],
+        }),
+      }),
+      { createEphemeralWorkspace } as never,
+      guardFor(body),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(responseJson(response)).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_unavailable" },
+    });
+    expect(createEphemeralWorkspace).not.toHaveBeenCalled();
+  });
+
   it("returns rate_limited after the Durable Object global cap is exhausted", async () => {
     const env = provisionEnv();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());

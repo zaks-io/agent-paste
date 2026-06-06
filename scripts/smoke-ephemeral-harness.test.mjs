@@ -4,6 +4,7 @@ import {
   ephemeralHostedConfig,
   normalizeEphemeralHostedTarget,
   probeEphemeralPowReady,
+  shouldFailHostedEphemeralReadiness,
 } from "./smoke-ephemeral-harness.mjs";
 
 describe("smoke-ephemeral-harness", () => {
@@ -59,6 +60,22 @@ describe("probeEphemeralPowReady", () => {
       const result = await probeEphemeralPowReady(server.baseUrl);
       expect(result.ready).toBe(false);
       expect(result.reason).toContain("EPHEMERAL_POW_SECRET");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("treats unhealthy PR provision readiness as fatal", async () => {
+    const server = await startProbeServer({
+      status: 503,
+      body: { error: { code: "ephemeral_provision_unavailable" } },
+    });
+    try {
+      const result = await probeEphemeralPowReady(server.baseUrl);
+      expect(result.ready).toBe(false);
+      expect(result.reason).toContain("ephemeral_provision_unavailable");
+      expect(shouldFailHostedEphemeralReadiness("pr", result)).toBe(true);
+      expect(shouldFailHostedEphemeralReadiness("preview", result)).toBe(false);
     } finally {
       await server.close();
     }

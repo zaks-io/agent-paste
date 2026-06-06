@@ -180,6 +180,30 @@ function apiConfig() {
     ratelimits: [
       rateLimit("ACTOR_RATE_LIMIT", `4${prNumber}001`, 60, 60),
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
+      rateLimit("EPHEMERAL_PROVISION_IP_RATE_LIMIT", `4${prNumber}004`, 10, 60),
+      rateLimit("EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT", `4${prNumber}005`, 17, 60),
+    ],
+    durable_objects: {
+      bindings: [
+        {
+          name: "WRITE_ALLOWANCE",
+          class_name: "WorkspaceWriteAllowance",
+        },
+        {
+          name: "EPHEMERAL_PROVISION_GATE",
+          class_name: "EphemeralProvisionGate",
+        },
+      ],
+    },
+    migrations: [
+      {
+        tag: "v1-write-allowance",
+        new_sqlite_classes: ["WorkspaceWriteAllowance"],
+      },
+      {
+        tag: "v2-ephemeral-provision-gate",
+        new_sqlite_classes: ["EphemeralProvisionGate"],
+      },
     ],
     queues: {
       producers: [
