@@ -149,7 +149,11 @@ describe("AP-91 shared API route helpers", () => {
       }),
     ).toBe(true);
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "preview" })).toBe(true);
+    expect(isNonProductionEnv({ AGENT_PASTE_ENV: "dev" })).toBe(true);
     expect(isNonProductionEnv({ AGENT_PASTE_ENV: "production" })).toBe(false);
+    for (const value of [undefined, "", "live", "prod", "live-eu", "staging"]) {
+      expect(isNonProductionEnv({ AGENT_PASTE_ENV: value })).toBe(false);
+    }
 
     const resolvers = createApiAuthResolvers();
     const signedMissing = await resolvers.signed_agent_view_token(contextFor() as never);

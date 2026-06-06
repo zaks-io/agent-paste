@@ -75,9 +75,35 @@ export const SECRET_ROUTING = {
   },
 };
 
+export const FORBIDDEN_SECRET_ROUTING = {
+  production: {
+    api: ["SMOKE_HARNESS_SECRET"],
+    jobs: ["SMOKE_HARNESS_SECRET"],
+  },
+};
+
 /** Apps that take at least one secret. */
 export function secretConsumingApps() {
   return Object.keys(SECRET_ROUTING);
+}
+
+/**
+ * Secret names that must not be bound for an app in a given environment.
+ * @param {string} app
+ * @param {"preview"|"production"} env
+ * @returns {string[]}
+ */
+export function forbiddenSecretsForApp(app, env) {
+  return FORBIDDEN_SECRET_ROUTING[env]?.[app] ?? [];
+}
+
+/**
+ * @param {Array<{ worker: string, name: string }>} forbiddenSecrets
+ */
+export function formatForbiddenSecretDeleteInstructions(forbiddenSecrets) {
+  return forbiddenSecrets
+    .map((entry) => `  - ${entry.worker}:${entry.name}\n    wrangler secret delete ${entry.name} --name ${entry.worker}`)
+    .join("\n");
 }
 
 function bindingAppliesToEnv(binding, env) {

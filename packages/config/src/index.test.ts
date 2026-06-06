@@ -4,8 +4,10 @@ import {
   EPHEMERAL_AUTO_DELETION_DAYS,
   isBillingEnabled,
   isExpired,
+  isNonProductionAgentPasteEnv,
   MAX_ARTIFACT_BYTES,
   normalizeStoragePath,
+  resolveAgentPasteEnv,
   resolveUsagePolicy,
   SECONDS_PER_DAY,
   USAGE_POLICY,
@@ -91,5 +93,21 @@ describe("isBillingEnabled", () => {
     expect(isBillingEnabled("true")).toBe(true);
     expect(isBillingEnabled("1")).toBe(true);
     expect(isBillingEnabled(true)).toBe(true);
+  });
+});
+
+describe("resolveAgentPasteEnv", () => {
+  it("requires explicit known non-production values", () => {
+    expect(resolveAgentPasteEnv("dev")).toBe("dev");
+    expect(resolveAgentPasteEnv("preview")).toBe("preview");
+    expect(isNonProductionAgentPasteEnv("dev")).toBe(true);
+    expect(isNonProductionAgentPasteEnv("preview")).toBe(true);
+  });
+
+  it("fails closed to production for unknown or empty values", () => {
+    for (const value of [undefined, null, "", "production", "live", "prod", "live-eu", "staging", " preview "]) {
+      expect(resolveAgentPasteEnv(value)).toBe("production");
+      expect(isNonProductionAgentPasteEnv(value)).toBe(false);
+    }
   });
 });
