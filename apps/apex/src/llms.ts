@@ -1,6 +1,6 @@
 import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
 
-export const LLMS_TXT = `# agent-paste
+const LLMS_TXT_BASE = `# agent-paste
 
 > Durable, addressable artifacts for AI agents. One publish call returns a stable
 > Artifact ID that the CLI prints, the REST API returns, the dashboard renders,
@@ -53,3 +53,14 @@ See /agents.md for the compact agent guide. The complete public docs are
 available as human HTML at /docs, a Markdown index at /docs.md, per-page
 Markdown twins under /docs/{slug}.md, and one full corpus at /llms-full.txt.
 `;
+
+const LLMS_PRICING_SECTION = `
+## Pricing
+
+- Public pricing page (Free vs Pro): /pricing
+- In-app billing dashboard (Checkout / Portal): ${APP_BASE_URL}/billing
+`;
+
+export function renderLlmsTxt(billingEnabled: boolean): string {
+  return billingEnabled ? `${LLMS_TXT_BASE}${LLMS_PRICING_SECTION}` : LLMS_TXT_BASE;
+}

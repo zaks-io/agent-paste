@@ -3,12 +3,13 @@ import { renderAboutPage } from "./components/about.js";
 import { renderDocsIndexPage, renderDocsPage } from "./components/docs.js";
 import { renderHomePage } from "./components/home.js";
 import { renderHowItWorksPage } from "./components/how-it-works.js";
+import { renderPricingPage } from "./components/pricing.js";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "./docs/markdown.js";
 import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath, docsPageForSlug } from "./docs/registry.js";
 import { INSTALL_PS1 } from "./install-ps1.js";
 import { INSTALL_SH } from "./install-sh.js";
 import { legalDocumentForPath, renderLegalPage } from "./legal.js";
-import { LLMS_TXT } from "./llms.js";
+import { renderLlmsTxt } from "./llms.js";
 import { APP_ORIGIN, productRedirect } from "./redirects.js";
 import { apexSecurityHeaders } from "./security-headers.js";
 
@@ -25,33 +26,63 @@ const CACHE_XML = "public, max-age=3600, s-maxage=3600";
 export type ApexRouteContext = {
   nonce: string;
   analyticsToken?: string | undefined;
+  billingEnabled: boolean;
 };
 
 type ApexRoute = (request: Request, url: URL, context: ApexRouteContext, security: HeadersInit) => Response;
 
-const STATIC_ROUTES: Record<string, ApexRoute> = {
-  "/": (request, _url, context, security) =>
-    htmlResponse(renderHomePage(context.nonce, context.analyticsToken), request.method, security),
-  "/about": (request, _url, context, security) =>
-    htmlResponse(renderAboutPage(context.nonce, context.analyticsToken), request.method, security),
-  "/how-it-works": (request, _url, context, security) =>
-    htmlResponse(renderHowItWorksPage(context.nonce, context.analyticsToken), request.method, security),
-  "/docs": (request, _url, context, security) =>
-    htmlResponse(renderDocsIndexPage(context.nonce, context.analyticsToken), request.method, security),
-  "/docs.md": (request, _url, _context, security) =>
-    textResponse(renderDocsIndexMarkdown(), TEXT_MARKDOWN, request.method, security),
-  "/llms-full.txt": (request, _url, _context, security) =>
-    textResponse(renderLlmsFullText(), TEXT_PLAIN, request.method, security),
-  "/llms.txt": (request, _url, _context, security) => textResponse(LLMS_TXT, TEXT_PLAIN, request.method, security),
-  "/agents.md": (request, _url, _context, security) => textResponse(AGENTS_MD, TEXT_MARKDOWN, request.method, security),
-  "/install.sh": (request, _url, _context, security) => textResponse(INSTALL_SH, TEXT_SHELL, request.method, security),
-  "/install.ps1": (request, _url, _context, security) =>
-    textResponse(INSTALL_PS1, TEXT_PLAIN, request.method, security),
-  "/robots.txt": (request, url, _context, security) =>
-    textResponse(robotsTxt(url.origin), TEXT_PLAIN, request.method, security),
-  "/sitemap.xml": (request, url, _context, security) => xmlResponse(sitemapXml(url.origin), request.method, security),
-  "/healthz": () => new Response("ok", { status: 200, headers: { "content-type": TEXT_PLAIN } }),
-};
+function staticRoutes(billingEnabled: boolean): Record<string, ApexRoute> {
+  const routes: Record<string, ApexRoute> = {
+    "/": (request, _url, context, security) =>
+      htmlResponse(
+        renderHomePage(context.nonce, context.analyticsToken, context.billingEnabled),
+        request.method,
+        security,
+      ),
+    "/about": (request, _url, context, security) =>
+      htmlResponse(
+        renderAboutPage(context.nonce, context.analyticsToken, context.billingEnabled),
+        request.method,
+        security,
+      ),
+    "/how-it-works": (request, _url, context, security) =>
+      htmlResponse(
+        renderHowItWorksPage(context.nonce, context.analyticsToken, context.billingEnabled),
+        request.method,
+        security,
+      ),
+    "/docs": (request, _url, context, security) =>
+      htmlResponse(
+        renderDocsIndexPage(context.nonce, context.analyticsToken, context.billingEnabled),
+        request.method,
+        security,
+      ),
+    "/docs.md": (request, _url, _context, security) =>
+      textResponse(renderDocsIndexMarkdown(), TEXT_MARKDOWN, request.method, security),
+    "/llms-full.txt": (request, _url, _context, security) =>
+      textResponse(renderLlmsFullText(), TEXT_PLAIN, request.method, security),
+    "/llms.txt": (request, _url, context, security) =>
+      textResponse(renderLlmsTxt(context.billingEnabled), TEXT_PLAIN, request.method, security),
+    "/agents.md": (request, _url, _context, security) =>
+      textResponse(AGENTS_MD, TEXT_MARKDOWN, request.method, security),
+    "/install.sh": (request, _url, _context, security) =>
+      textResponse(INSTALL_SH, TEXT_SHELL, request.method, security),
+    "/install.ps1": (request, _url, _context, security) =>
+      textResponse(INSTALL_PS1, TEXT_PLAIN, request.method, security),
+    "/robots.txt": (request, url, _context, security) =>
+      textResponse(robotsTxt(url.origin), TEXT_PLAIN, request.method, security),
+    "/sitemap.xml": (request, url, context, security) =>
+      xmlResponse(sitemapXml(url.origin, context.billingEnabled), request.method, security),
+    "/healthz": () => new Response("ok", { status: 200, headers: { "content-type": TEXT_PLAIN } }),
+  };
+
+  if (billingEnabled) {
+    routes["/pricing"] = (request, _url, context, security) =>
+      htmlResponse(renderPricingPage(context.nonce, context.analyticsToken), request.method, security);
+  }
+
+  return routes;
+}
 
 function methodGate(request: Request, security: HeadersInit): Response | null {
   if (request.method === "OPTIONS") {
@@ -81,7 +112,7 @@ function dynamicRoute(request: Request, url: URL, context: ApexRouteContext, sec
   const docsRoute = docsRouteForPath(url.pathname);
   if (docsRoute?.kind === "html") {
     return htmlResponse(
-      renderDocsPage(docsRoute.page, context.nonce, context.analyticsToken),
+      renderDocsPage(docsRoute.page, context.nonce, context.analyticsToken, context.billingEnabled),
       request.method,
       security,
     );
@@ -93,7 +124,7 @@ function dynamicRoute(request: Request, url: URL, context: ApexRouteContext, sec
   const legalDocument = legalDocumentForPath(url.pathname);
   if (legalDocument) {
     return htmlResponse(
-      renderLegalPage(legalDocument, context.nonce, context.analyticsToken),
+      renderLegalPage(legalDocument, context.nonce, context.analyticsToken, context.billingEnabled),
       request.method,
       security,
     );
@@ -115,7 +146,7 @@ export function routeApex(request: Request, context: ApexRouteContext): Response
     return redirected;
   }
 
-  const staticRoute = STATIC_ROUTES[url.pathname];
+  const staticRoute = staticRoutes(context.billingEnabled)[url.pathname];
   if (staticRoute) {
     return staticRoute(request, url, context, security);
   }
@@ -148,11 +179,12 @@ function robotsTxt(origin: string): string {
   return `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`;
 }
 
-function sitemapXml(origin: string): string {
+function sitemapXml(origin: string, billingEnabled: boolean): string {
   const urls = [
     "/",
     "/about",
     "/how-it-works",
+    ...(billingEnabled ? ["/pricing"] : []),
     "/docs",
     "/docs.md",
     ...DOCS_PAGES.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),

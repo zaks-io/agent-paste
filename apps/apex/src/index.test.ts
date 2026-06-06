@@ -8,6 +8,10 @@ function emptyEnv(): Env {
   return {};
 }
 
+function billingEnv(): Env {
+  return { BILLING_ENABLED: "true" };
+}
+
 async function get(path: string, env: Env = emptyEnv()): Promise<Response> {
   return handleRequest(new Request(`${APEX}${path}`), env);
 }
@@ -243,6 +247,54 @@ describe("apex worker", () => {
     const body = await response.text();
     expect(body).toContain("<loc>https://agent-paste.sh/about</loc>");
     expect(body).toContain("<loc>https://agent-paste.sh/how-it-works</loc>");
+    expect(body).not.toContain("<loc>https://agent-paste.sh/pricing</loc>");
+  });
+
+  it("returns 404 for /pricing when billing is disabled", async () => {
+    const response = await get("/pricing");
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("not_found");
+
+    const home = await get("/");
+    const homeBody = await home.text();
+    expect(homeBody).not.toContain('href="/pricing"');
+  });
+
+  it("renders /pricing with Free vs Pro and an upgrade CTA when billing is enabled", async () => {
+    const response = await get("/pricing", billingEnv());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const body = await response.text();
+    expect(body).toContain("Free to try, Pro when you need more");
+    expect(body).toContain("Compare plans");
+    expect(body).toContain("100");
+    expect(body).toContain("2000");
+    expect(body).toContain("3d default, 7d max");
+    expect(body).toContain("30d default, 90d max");
+    expect(body).toContain('href="https://app.agent-paste.sh/billing"');
+    expect(body).toContain("Upgrade to Pro");
+    expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/pricing"/>');
+    expect(body).toContain('<a class="head-link" href="/pricing">Pricing</a>');
+    expect(body).toContain('<a class="home-foot-link foot-link" href="/pricing">Pricing</a>');
+  });
+
+  it("lists /pricing in the sitemap only when billing is enabled", async () => {
+    const disabled = await get("/sitemap.xml");
+    expect(await disabled.text()).not.toContain("<loc>https://agent-paste.sh/pricing</loc>");
+
+    const enabled = await get("/sitemap.xml", billingEnv());
+    expect(await enabled.text()).toContain("<loc>https://agent-paste.sh/pricing</loc>");
+  });
+
+  it("adds pricing to llms.txt only when billing is enabled", async () => {
+    const disabled = await get("/llms.txt");
+    expect(await disabled.text()).not.toContain("## Pricing");
+
+    const enabled = await get("/llms.txt", billingEnv());
+    const body = await enabled.text();
+    expect(body).toContain("## Pricing");
+    expect(body).toContain("/pricing");
+    expect(body).toContain("https://app.agent-paste.sh/billing");
   });
 
   it("serves /llms.txt as text/plain", async () => {

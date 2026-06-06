@@ -32,11 +32,12 @@ const Section: FC<{ section: LegalSection }> = ({ section }) => (
   </article>
 );
 
-const LegalPage: FC<{ document: LegalDocument; nonce: string; analyticsToken?: string | undefined }> = ({
-  document,
-  nonce,
-  analyticsToken,
-}) => (
+const LegalPage: FC<{
+  document: LegalDocument;
+  nonce: string;
+  analyticsToken?: string | undefined;
+  billingEnabled: boolean;
+}> = ({ document, nonce, analyticsToken, billingEnabled }) => (
   <Shell
     meta={{
       title: `${document.title} | agent-paste.sh`,
@@ -45,6 +46,7 @@ const LegalPage: FC<{ document: LegalDocument; nonce: string; analyticsToken?: s
     }}
     nonce={nonce}
     analyticsToken={analyticsToken}
+    billingEnabled={billingEnabled}
   >
     <main class="content legal-page">
       <section class="legal-hero">
@@ -63,6 +65,13 @@ const LegalPage: FC<{ document: LegalDocument; nonce: string; analyticsToken?: s
   </Shell>
 );
 
-export function renderLegalPage(document: LegalDocument, nonce: string, analyticsToken?: string): string {
-  return renderDocument(<LegalPage document={document} nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderLegalPage(
+  document: LegalDocument,
+  nonce: string,
+  analyticsToken?: string,
+  billingEnabled = false,
+): string {
+  return renderDocument(
+    <LegalPage document={document} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />,
+  );
 }

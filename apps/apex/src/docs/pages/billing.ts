@@ -1,3 +1,4 @@
+import { BILLING_PLANS_TABLE_COLUMNS, billingPlansTableRows } from "../../plan-tiers.js";
 import type { DocsPage } from "../types.js";
 
 export const BILLING_DOC: DocsPage = {
@@ -12,20 +13,8 @@ export const BILLING_DOC: DocsPage = {
       blocks: [
         {
           kind: "table",
-          columns: [
-            "Plan",
-            "Daily new Artifacts",
-            "File cap",
-            "Artifact and Bundle cap",
-            "TTL",
-            "Live Artifacts",
-            "Live Updates",
-          ],
-          rows: [
-            ["Ephemeral", "20", "10 MB", "25 MB", "24h auto-delete", "low-cap unclaimed Workspace", "No"],
-            ["Free", "100", "10 MB", "25 MB", "3d default, 7d max", "50", "No"],
-            ["Pro", "2000", "25 MB", "100 MB", "30d default, 90d max", "1000", "Yes"],
-          ],
+          columns: [...BILLING_PLANS_TABLE_COLUMNS],
+          rows: billingPlansTableRows(),
         },
         {
           kind: "paragraph",

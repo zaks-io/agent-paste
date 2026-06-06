@@ -778,6 +778,81 @@ const DOCS = `.docs-layout {
   font-weight: 600;
 }`;
 
+const PRICING = `.pricing-plans {
+  display: grid;
+  gap: 16px;
+  margin-top: 48px;
+}
+
+@media (min-width: 640px) {
+  .pricing-plans {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pricing-plan-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius-md);
+  background: hsl(var(--surface));
+}
+
+.pricing-plan-card-pro {
+  border-color: hsl(var(--rule-strong));
+}
+
+.pricing-plan-name {
+  font-size: 20px;
+  color: hsl(var(--foreground));
+}
+
+.pricing-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.pricing-plan-amount {
+  font-size: 28px;
+  color: hsl(var(--foreground));
+}
+
+.pricing-plan-per {
+  font-size: 13px;
+  color: hsl(var(--subtle));
+}
+
+.pricing-plan-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: hsl(var(--muted));
+}
+
+.pricing-plan-cta {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.pricing-compare {
+  display: grid;
+  gap: 16px;
+  margin-top: 56px;
+}
+
+.pricing-footnote {
+  font-size: 14px;
+  line-height: 1.55;
+  color: hsl(var(--muted));
+}
+
+.pricing-footnote a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}`;
+
 const LEGAL = `.legal-page {
   gap: 64px;
 }
@@ -917,6 +992,7 @@ export const STYLES = [
   FEATURES,
   PROSE,
   DOCS,
+  PRICING,
   LEGAL,
   FOOTER,
   MOTION,

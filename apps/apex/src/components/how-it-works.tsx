@@ -14,8 +14,12 @@ const HowItWorksBlock: FC<{ section: HowItWorksSection }> = ({ section }) => (
   </article>
 );
 
-const HowItWorksPage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
-  <Shell meta={HOW_IT_WORKS_META} nonce={nonce} analyticsToken={analyticsToken}>
+const HowItWorksPage: FC<{ nonce: string; analyticsToken?: string | undefined; billingEnabled: boolean }> = ({
+  nonce,
+  analyticsToken,
+  billingEnabled,
+}) => (
+  <Shell meta={HOW_IT_WORKS_META} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled}>
     <main class="content">
       <section class="hero">
         <div class="hero-text">
@@ -37,6 +41,8 @@ const HowItWorksPage: FC<{ nonce: string; analyticsToken?: string | undefined }>
   </Shell>
 );
 
-export function renderHowItWorksPage(nonce: string, analyticsToken?: string): string {
-  return renderDocument(<HowItWorksPage nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderHowItWorksPage(nonce: string, analyticsToken?: string, billingEnabled = false): string {
+  return renderDocument(
+    <HowItWorksPage nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />,
+  );
 }

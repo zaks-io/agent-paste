@@ -21,8 +21,12 @@ function docsPageMeta(page: DocsPage): PageMeta {
   };
 }
 
-const DocsIndexPage: FC<{ nonce: string; analyticsToken?: string | undefined }> = ({ nonce, analyticsToken }) => (
-  <Shell meta={DOCS_INDEX_META} nonce={nonce} analyticsToken={analyticsToken}>
+const DocsIndexPage: FC<{ nonce: string; analyticsToken?: string | undefined; billingEnabled: boolean }> = ({
+  nonce,
+  analyticsToken,
+  billingEnabled,
+}) => (
+  <Shell meta={DOCS_INDEX_META} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled}>
     <main class="content docs-layout">
       <section class="docs-hero">
         <p class="eyebrow mono">Docs</p>
@@ -49,12 +53,13 @@ const DocsIndexPage: FC<{ nonce: string; analyticsToken?: string | undefined }> 
   </Shell>
 );
 
-const DocsPageView: FC<{ page: DocsPage; nonce: string; analyticsToken?: string | undefined }> = ({
-  page,
-  nonce,
-  analyticsToken,
-}) => (
-  <Shell meta={docsPageMeta(page)} nonce={nonce} analyticsToken={analyticsToken}>
+const DocsPageView: FC<{
+  page: DocsPage;
+  nonce: string;
+  analyticsToken?: string | undefined;
+  billingEnabled: boolean;
+}> = ({ page, nonce, analyticsToken, billingEnabled }) => (
+  <Shell meta={docsPageMeta(page)} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled}>
     <main class="content docs-layout">
       <section class="docs-hero">
         <a class="eyebrow eyebrow-link mono" href="/docs">
@@ -157,12 +162,16 @@ const DocsBlockView: FC<{ block: DocsBlock }> = ({ block }) => {
   }
 };
 
-export function renderDocsIndexPage(nonce: string, analyticsToken?: string): string {
-  return renderDocument(<DocsIndexPage nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderDocsIndexPage(nonce: string, analyticsToken?: string, billingEnabled = false): string {
+  return renderDocument(
+    <DocsIndexPage nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />,
+  );
 }
 
-export function renderDocsPage(page: DocsPage, nonce: string, analyticsToken?: string): string {
-  return renderDocument(<DocsPageView page={page} nonce={nonce} analyticsToken={analyticsToken} />);
+export function renderDocsPage(page: DocsPage, nonce: string, analyticsToken?: string, billingEnabled = false): string {
+  return renderDocument(
+    <DocsPageView page={page} nonce={nonce} analyticsToken={analyticsToken} billingEnabled={billingEnabled} />,
+  );
 }
 
 function Inline(text: string): ReturnType<FC> {
