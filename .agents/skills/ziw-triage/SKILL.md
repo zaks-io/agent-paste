@@ -1,6 +1,6 @@
 ---
 name: ziw-triage
-description: Use for issue tracker triage when reconciling current project issues with reality, making Todo tickets agent-ready, applying workflow labels, setting dependencies, normalizing issue bodies, and updating verified stale states.
+description: Use for issue tracker triage when reconciling current project issues with reality, making Todo tickets agent-ready, applying workflow labels, setting dependencies, normalizing issue bodies, cleaning requested backlog or intake issues, and updating verified stale states.
 argument-hint: "[project-url|team|repo|filter]"
 disable-model-invocation: true
 ---
@@ -12,9 +12,13 @@ tracker state reflects reality. This is tracker metadata cleanup, readiness
 repair, and verified state reconciliation, not implementation.
 
 By default, focus on the configured ready state, usually `Todo`, and active or
-PR-linked issues that need tracker repair. Do not review `Backlog` or equivalent
-future-work states unless the user explicitly asks for backlog review, first-run
-backfill, or intake cleanup.
+PR-linked issues that need tracker repair. Skip `Backlog` or equivalent
+future-work states in the default pass, but treat requested backlog review,
+first-run backfill, or intake cleanup as normal Issue Triage work.
+
+If the user asks to clean, review, backfill, or promote backlog or intake issues,
+include the requested states, perform the cleanup below, and leave delivery to
+`ziw-orchestrate` after the issues are ready.
 
 Apply safe tracker updates directly. When external state proves the tracker is
 stale, such as a linked PR already merged, update the issue to the configured
@@ -71,10 +75,43 @@ do not scan the whole backlog. Build the default triage set from:
 5. Recently updated issues only when they are already in ready or active states
    or have direct links to current PRs or branches.
 
+When building any readiness-label queue, including `ready-for-agent` or
+`ready-for-human`, add the configured non-done status filter up front. Do not
+include `Done` tickets in the initial triage set only because a stale readiness
+label remains. If a requested Done audit or direct stale-state evidence brings a
+Done ticket into scope, clean the stale readiness label then.
+
 Treat `Backlog`, icebox, roadmap, someday, or equivalent future-work states as
-out of scope unless explicitly requested. `Triage` or other intake states are
-also out of scope by default unless config names them as current work,
-review-debt intake, or the user asks for intake cleanup.
+skipped by default unless explicitly requested. `Triage` or other intake states
+are also skipped by default unless config names them as current work, review-debt
+intake, or the user asks for intake cleanup.
+
+## Backlog And Intake Cleanup
+
+Enter this mode when the user asks for backlog review, backlog cleanup, intake
+cleanup, first-run backfill, "get everything ready", "move ready backlog work to
+Todo", or similar tracker cleanup.
+
+This is still `ziw-triage` when the requested work is tracker cleanup. Use
+`ziw-orchestrate` after cleanup when the user asks to deliver the ready work, or
+when an orchestrator tick delegates this triage repair.
+
+For the requested backlog or intake scope:
+
+- promote now: complete `kind-slice` issues with route, labels, body contract,
+  readiness, worker environment approval, and blockers encoded
+- needs human review: issues missing product, security, credential, customer,
+  ADR, priority, or acceptance-criteria decisions
+- needs To Issues: `kind-spec`, `kind-epic`, project notes, vague plans, or
+  multi-PR work that must be split before dispatch
+- leave parked: valid future ideas that are intentionally not current work
+- stale or duplicate: issues contradicted by PR, branch, release, dependency, or
+  duplicate evidence
+
+Apply safe updates directly. Move promotable `ready-for-agent` `kind-slice`
+issues to the configured ready state, usually `Todo`, when config grants Issue
+Triage intake-state transition authority. For everything else, leave the exact
+human decision, To Issues input, blocker, duplicate target, or parking reason.
 
 ## Inventory
 
@@ -92,6 +129,10 @@ Build a triage set before making changes:
 6. `Triage`, `Backlog`, or equivalent intake and future-work states only when
    explicitly requested or when config explicitly uses them for review-debt
    intake.
+
+If the inventory starts from `ready-for-agent`, `ready-for-human`, or another
+readiness label, exclude the configured done state unless the user explicitly
+asked to inspect done tickets.
 
 Classify each issue as one of:
 

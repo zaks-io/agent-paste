@@ -1,6 +1,6 @@
 # Agent Config
 
-Last updated: 2026-06-02
+Last updated: 2026-06-06
 
 Metadata-only config consumed by the `ziw-*` skills. Authoritative detail
 lives in the linked docs; this file is the distilled, machine-readable index.
@@ -65,6 +65,9 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   unblocked work
 - Dependency policy: encode with Linear issue relationships; blocked work is not
   `ready-for-agent`
+- Readiness-label query policy: queries for `ready-for-agent`, `ready-for-human`,
+  or equivalent attention labels exclude the configured Done state unless the
+  user explicitly asks to audit or repair done-ticket cleanup
 - Agent-ready issue body: outcome, context docs, in scope, out of scope,
   acceptance criteria, required checks, cross-layer invariants, dependencies
   (see issue-tracker-contract reference)
@@ -90,6 +93,11 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   (Issue, Branch, PR, Owner,
   Runtime, Environment, Current state, Next owner/action, Checks, Code review,
   Tracker updates, Blockers, Residual risk)
+- PR closure guard: capacity pressure is not a closure reason. Orchestrator may
+  close PRs only with refreshed code-host and tracker evidence of duplicate,
+  explicitly canceled or abandoned, already-terminal, or security/policy-required
+  work. Draft, active, recently updated, or unclear-ownership PRs stay open and
+  become capacity blockers or active work to advance
 
 ## Agent Runtimes
 

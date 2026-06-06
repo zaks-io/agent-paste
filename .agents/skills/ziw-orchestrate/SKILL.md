@@ -76,6 +76,12 @@ continue. Ask only when multiple real scopes remain plausible.
 - One pass or budgeted loop: stop after the requested pass count, worker count,
   ticket count, time budget, or first meaningful state change.
 
+When the requested scope is a readiness label such as `ready-for-agent` or
+`ready-for-human`, automatically exclude the configured done state from the
+initial tracker query. Done tickets are terminal even when a stale readiness
+label remains. Include them only when the user explicitly asks to audit or repair
+done-ticket cleanup.
+
 Do not interpret "clear the backlog" as permission to implement vague future
 work. Clear means every issue in scope has a truthful next state and owner:
 implemented, delegated, ready for review, ready to merge, blocked, needs-info,
@@ -245,14 +251,38 @@ If the active delivery footprint is at or above the cap, do not dispatch new
 implementation work. First reduce the footprint by advancing existing PRs and
 previews: diagnose draft PRs, rerun or route checks, request or apply review,
 send fixes to the original worker, integrate green PRs when authority allows,
-close duplicate or abandoned PRs, terminate orphan previews according to config,
-or escalate exact human merge or provider actions. If outside-scope PRs or
-previews consume capacity and Orchestrator lacks authority to change them, report
-that capacity blocker instead of starting more work.
+terminate orphan previews according to config, or escalate exact human merge or
+provider actions. Close PRs only when they pass the PR Closure Guard below. If
+outside-scope PRs or previews consume capacity and Orchestrator lacks authority
+to change them, report that capacity blocker instead of starting more work.
 
 If preview state cannot be refreshed and config says previews count toward the
 cap, treat headroom as unknown and full for new dispatch. Continue only with
 actions that advance existing PRs or repair the missing config/tooling evidence.
+
+## PR Closure Guard
+
+Capacity pressure is never a reason to close legitimate in-progress work. Do not
+close a draft PR, a PR linked to an active ticket, a PR with recent worker,
+branch, check, or review activity, or a PR with unclear ownership only to make
+room under the active delivery cap.
+
+Before closing any PR, refresh code-host and tracker state and verify one of
+these closure reasons:
+
+- duplicate PR for the same issue after a canonical PR has been selected from
+  current code-host evidence
+- explicitly canceled, abandoned, or out-of-scope work, with owner or config
+  evidence that closing the PR is allowed
+- already merged, superseded, or otherwise terminal according to code-host and
+  tracker evidence
+- security or policy reason that requires closing the PR, with the reason
+  recorded
+
+PR age, draft status, and active-delivery pressure are not abandonment evidence.
+If an open PR consumes capacity but does not satisfy this guard, keep it open,
+pause new dispatch, and route the next action: review, worker feedback, check
+repair, merge escalation, or an exact capacity blocker report.
 
 ## Tracker Tooling
 
@@ -389,8 +419,9 @@ Each tick is stateless against external state. On each pass:
    `Changes Requested`, and `Ready to Merge`. Prefer advancing active work over
    starting new work.
 6. If the active delivery footprint is at or above the configured cap, dispatch
-   no new work this tick. Advance, merge, close, clean up, or escalate existing
-   PRs and previews first. If capacity is consumed by outside-scope work the
+   no new work this tick. Advance, merge, route fixes, clean up previews, or
+   escalate existing PRs and previews first. Close a PR only when it satisfies
+   the PR Closure Guard. If capacity is consumed by outside-scope work the
    orchestrator cannot mutate, stop with a capacity blocker and exact PR/preview
    list.
 7. Advance returned PRs, including draft PRs with no clear next action, through
@@ -400,14 +431,14 @@ Each tick is stateless against external state. On each pass:
    `kind-slice` issues in the startable frontier once their body, labels,
    dependencies, and route are complete.
 9. Find startable work: `kind-slice` plus `Todo` plus `ready-for-agent`,
-   unblocked, with a complete agent-ready body. `ready-for-agent` means no
-   further human refinement is needed before agent handoff; it can be present on
-   blocked issues. Never treat a `kind-spec` or `kind-epic` container as
-   startable. Check provider blocker relationships and explicit body blockers
-   before starting or delegating work. Treat labels as signals and statuses as
-   the workflow state. For verified-ready backlog work, if the only gap is a
-   routine label or status mismatch and the correct state is clear from evidence,
-   repair it and continue instead of skipping the ticket.
+   excluding the configured done state, unblocked, with a complete agent-ready
+   body. `ready-for-agent` means no further human refinement is needed before
+   agent handoff; it can be present on blocked issues. Never treat a `kind-spec`
+   or `kind-epic` container as startable. Check provider blocker relationships
+   and explicit body blockers before starting or delegating work. Treat labels as
+   signals and statuses as the workflow state. For verified-ready backlog work,
+   if the only gap is a routine label or status mismatch and the correct state is
+   clear from evidence, repair it and continue instead of skipping the ticket.
 10. Select new work by dependency order, milestone/project priority, risk, and
     file/package contention. Do not dispatch a ticket whose predicted files
     collide with an in-flight dispatch; defer it and record a `file-collision`
