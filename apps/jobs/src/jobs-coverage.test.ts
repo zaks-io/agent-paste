@@ -8,6 +8,19 @@ import { handleQueueBatch } from "./queue.js";
 import { deletePrefixes } from "./r2-purge.js";
 import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
+const sampleAuditRow = (id: string) => ({
+  id,
+  workspace_id: "00000000-0000-4000-8000-000000000001",
+  actor_type: "system",
+  actor_id: "maintenance_gc",
+  action: "artifact.deleted",
+  target_type: "artifact",
+  target_id: "art_01",
+  details: {},
+  request_id: null,
+  occurred_at: "2025-12-01T12:00:00.000Z",
+});
+
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -21,7 +34,12 @@ describe("maintenance GC sweep caps", () => {
       }
       return { rows: [] };
     });
-    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z");
+    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z", {
+      list: vi.fn(),
+      delete: vi.fn(),
+      get: vi.fn(async () => null),
+      put: vi.fn(),
+    });
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(MAINTENANCE_GC_SWEEP_CAP);
     expect(executor.query).toHaveBeenCalled();
@@ -29,17 +47,27 @@ describe("maintenance GC sweep caps", () => {
 
   it("sets cap_hit when audit deletes consume the remaining budget", async () => {
     const idempotencyRows = [{ id: "1" }];
-    const auditRows = Array.from({ length: MAINTENANCE_GC_SWEEP_CAP - 1 }, (_, index) => ({ id: `a${index}` }));
+    const auditRows = Array.from({ length: MAINTENANCE_GC_SWEEP_CAP - 1 }, (_, index) =>
+      sampleAuditRow(`evt_${index}`),
+    );
     const executor = createTransactionalSqlExecutor(async (sql: string) => {
       if (sql.includes("idempotency_records")) {
         return { rows: idempotencyRows };
       }
-      if (sql.includes("operation_events")) {
+      if (sql.includes("from operation_events") && sql.trimStart().startsWith("select")) {
         return { rows: auditRows };
+      }
+      if (sql.includes("delete from operation_events")) {
+        return { rows: auditRows.map((row) => ({ id: row.id })) };
       }
       return { rows: [] };
     });
-    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z");
+    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z", {
+      list: vi.fn(),
+      delete: vi.fn(),
+      get: vi.fn(async () => null),
+      put: vi.fn(),
+    });
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(MAINTENANCE_GC_SWEEP_CAP);
   });
