@@ -5,6 +5,24 @@ use `git log` for commit-level detail.
 
 ## 2026-06-05
 
+### Legal contact + secrets guidance for launch credibility (PR #393, AP-254)
+
+An external credibility review ("credible pre-launch, not mature vendor yet")
+flagged two doc gaps; both are now closed on the apex marketing site:
+
+- **Registered address on legal pages:** Terms and Privacy publish the
+  `Zaks.io, LLC` registered mailing address (`2108 N St, Ste N, Sacramento, CA
+95816, USA`), and Privacy gained a Contact section it was missing.
+- **"What not to publish" safety guidance:** the safety docs page now leads with
+  a user-facing warning not to upload secrets, credentials, `.env` files, or
+  other people's data into published Artifacts.
+
+The review's deeper asks (release provenance, npm metadata/provenance) were
+verified already shipped (AP-148, AP-154; `npm publish --provenance`), so no
+work was duplicated. Remaining go-public toggles (repo flip, apex GitHub
+source-link flip, GitHub security features, npm OIDC, status page) are tracked
+in [AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex).
+
 ### Post-launch hardening wave: correctness + security fixes
 
 A cluster of focused fixes closed gaps surfaced by review on the now

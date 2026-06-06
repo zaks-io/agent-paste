@@ -310,6 +310,20 @@ describe("apex worker", () => {
     expect(markdownBody).toContain("| Pro | 2000 | 25 MB | 100 MB | 30d default, 90d max | 1000 | Yes |");
   });
 
+  it("warns users not to publish secrets on the safety docs page", async () => {
+    const html = await get("/docs/safety");
+    expect(html.status).toBe(200);
+    const htmlBody = await html.text();
+    expect(htmlBody).toContain("What not to publish");
+    expect(htmlBody).toContain("Do not upload secrets or other people&#39;s data");
+
+    const markdown = await get("/docs/safety.md");
+    expect(markdown.status).toBe(200);
+    const markdownBody = await markdown.text();
+    expect(markdownBody).toContain("What not to publish");
+    expect(markdownBody).toContain("Do not upload secrets");
+  });
+
   it("returns the generic 404 for unknown docs pages", async () => {
     const response = await get("/docs/not-a-page");
     expect(response.status).toBe(404);
@@ -362,6 +376,9 @@ describe("apex worker", () => {
     expect(body).toContain("Effective June 4, 2026");
     expect(body).toContain(section);
     expect(body).toContain(expectedCopy);
+    // Operating entity and registered mailing address are published on both legal pages.
+    expect(body).toContain("Zaks.io, LLC");
+    expect(body).toContain("2108 N St, Ste N, Sacramento, CA 95816, USA");
     expect(body).toContain('href="/agents.md"');
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
   });

@@ -173,7 +173,11 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Questions about these terms can be sent to contact@agent-paste.sh. Security reports should follow the private reporting process in the Security Policy.",
+          text: "The hosted service is operated by Zaks.io, LLC. Questions about these terms can be sent to contact@agent-paste.sh. Security reports should follow the private reporting process in the Security Policy.",
+        },
+        {
+          kind: "paragraph",
+          text: "Mailing address: Zaks.io, LLC, 2108 N St, Ste N, Sacramento, CA 95816, USA.",
         },
       ],
     },
