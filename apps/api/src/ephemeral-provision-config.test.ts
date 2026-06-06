@@ -1,17 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Env } from "./env.js";
 import {
-  __resetEphemeralProvisionConfigMemo,
   DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
   EPHEMERAL_PROVISION_CONFIG_KV_KEY,
   isValidLimitPerMinute,
   parseEphemeralProvisionConfig,
   resolveEphemeralProvisionLimitPerMinute,
 } from "./ephemeral-provision-config.js";
-
-afterEach(() => {
-  __resetEphemeralProvisionConfigMemo();
-});
 
 describe("parseEphemeralProvisionConfig", () => {
   it("accepts a valid limit", () => {
@@ -82,16 +77,41 @@ describe("resolveEphemeralProvisionLimitPerMinute", () => {
     ).resolves.toEqual({ ok: false, reason: "unavailable" });
   });
 
-  it("memoizes successful reads within the TTL", async () => {
-    const get = vi.fn(async () => '{"limit_per_minute":8}');
+  it("re-reads KV on every resolve so a prior valid value cannot mask invalid config", async () => {
+    let raw: string | null = '{"limit_per_minute":8}';
     const env = {
-      EPHEMERAL_PROVISION_CONFIG: { get, put: async () => {}, delete: async () => {} },
+      EPHEMERAL_PROVISION_CONFIG: {
+        get: async () => raw,
+        put: async () => {},
+        delete: async () => {},
+      },
     } as Env;
 
-    await resolveEphemeralProvisionLimitPerMinute(env);
-    await resolveEphemeralProvisionLimitPerMinute(env);
+    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: true, limitPerMinute: 8 });
 
-    expect(get).toHaveBeenCalledTimes(1);
+    raw = '{"limit_per_minute":999}';
+    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("re-reads KV on every resolve so a prior valid value cannot mask unavailable config", async () => {
+    let shouldReject = false;
+    const env = {
+      EPHEMERAL_PROVISION_CONFIG: {
+        get: async () => {
+          if (shouldReject) {
+            return Promise.reject(new Error("kv offline"));
+          }
+          return '{"limit_per_minute":8}';
+        },
+        put: async () => {},
+        delete: async () => {},
+      },
+    } as Env;
+
+    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: true, limitPerMinute: 8 });
+
+    shouldReject = true;
+    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: false, reason: "unavailable" });
   });
 });
 

@@ -268,9 +268,9 @@ Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 ## Runtime provision cap tuning (incident response)
 
 The authoritative hard global ceiling is the `EPHEMERAL_PROVISION_GATE` Durable Object.
-Its `limit_per_minute` is read from the `EPHEMERAL_PROVISION_CONFIG` KV namespace at
-request time (30s isolate memo). When the KV key is unset, the compiled default of **17/min**
-applies. Invalid or unreadable KV values fail closed: provision returns
+Its `limit_per_minute` is read from the `EPHEMERAL_PROVISION_CONFIG` KV namespace on
+every provision request. When the KV key is unset, the compiled default of **17/min**
+applies. Invalid or unreadable KV values fail closed immediately: provision returns
 `ephemeral_provision_unavailable` and does not mint credentials.
 
 ### KV value shape
@@ -297,9 +297,7 @@ wrangler kv key put ephemeral-provision-config \
   '{"limit_per_minute":5}'
 ```
 
-3. Wait up to ~30s for isolate memo expiry, or redeploy `api` only if you need immediate
-   effect across all isolates.
-4. Re-run the provision probe or `pnpm smoke:preview:ephemeral` (operator-approved for
+3. Re-run the provision probe or `pnpm smoke:preview:ephemeral` (operator-approved for
    production) to confirm `ephemeral_provision_rate_limited` appears at the new ceiling.
 
 ### Raise after remediation

@@ -5,8 +5,6 @@ export const DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE = 17;
 export const MIN_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE = 1;
 export const MAX_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE = 100;
 
-const CONFIG_MEMO_TTL_MS = 30_000;
-
 type EphemeralProvisionConfig = {
   limit_per_minute: number;
 };
@@ -15,22 +13,8 @@ export type EphemeralProvisionConfigResult =
   | { ok: true; limitPerMinute: number }
   | { ok: false; reason: "unavailable" | "invalid" };
 
-let memo: { value: EphemeralProvisionConfigResult; expiresAt: number } | null = null;
-
-// Test-only: drop the module memo so cases can assert KV reads in isolation.
-export function __resetEphemeralProvisionConfigMemo(): void {
-  memo = null;
-}
-
 export async function resolveEphemeralProvisionLimitPerMinute(env: Env): Promise<EphemeralProvisionConfigResult> {
-  const now = Date.now();
-  if (memo && memo.expiresAt > now) {
-    return memo.value;
-  }
-
-  const result = await readEphemeralProvisionConfig(env);
-  memo = { value: result, expiresAt: now + CONFIG_MEMO_TTL_MS };
-  return result;
+  return readEphemeralProvisionConfig(env);
 }
 
 async function readEphemeralProvisionConfig(env: Env): Promise<EphemeralProvisionConfigResult> {
