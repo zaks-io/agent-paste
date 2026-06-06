@@ -45,5 +45,12 @@ export const OperationEventAction = z.enum([
 ]);
 export type OperationEventAction = z.infer<typeof OperationEventAction>;
 
-export const OperationEventTargetType = z.enum(["workspace", "api_key", "upload_session", "artifact", "cleanup"]);
+export const OperationEventTargetType = z.enum([
+  "workspace",
+  "api_key",
+  "upload_session",
+  "artifact",
+  "revision",
+  "cleanup",
+]);
 export type OperationEventTargetType = z.infer<typeof OperationEventTargetType>;
