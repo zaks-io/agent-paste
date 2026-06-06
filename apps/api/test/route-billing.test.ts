@@ -80,6 +80,28 @@ describe("billing routes", () => {
     expect(response.status).toBe(404);
   });
 
+  it.each([
+    ["unset", {}],
+    ["false", { BILLING_ENABLED: "false" }],
+  ])("returns not_found for the webhook when billing is %s, even with a signing secret", async (_case, overrides) => {
+    const executor = stubExecutor(noRows);
+    const response = await billingWebhook(
+      contextFor({
+        env: {
+          ...overrides,
+          DB: executor,
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_WEBHOOK_SIGNING_SECRET: "whsec_test",
+        },
+        method: "POST",
+        body: JSON.stringify({ id: "evt_disabled" }),
+      }),
+      { kind: "stripe_webhook_signature" },
+    );
+    expect(response.status).toBe(404);
+    expect(executor.query).not.toHaveBeenCalled();
+  });
+
   it("reports the current plan and subscription mirror", async () => {
     const executor = stubExecutor(async () => ({
       rows: [

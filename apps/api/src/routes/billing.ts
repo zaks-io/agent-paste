@@ -297,11 +297,14 @@ export async function billingInvoices(
 export async function billingWebhook(
   context: AppContext,
   _principal: Principal,
-  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
-  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
+  executor?: SqlExecutor,
+  override: BillingProviderOverride = {},
 ): Promise<Response> {
   const { respondError, respondJson } = getBoundResponders(context);
   const env = context.env;
+  if (!billingEnabled(env)) {
+    return respondError("not_found");
+  }
   const secret = env.STRIPE_WEBHOOK_SIGNING_SECRET;
   if (!secret) {
     return respondError("not_found");
@@ -316,13 +319,15 @@ export async function billingWebhook(
   if (!verified.ok) {
     return respondError("invalid_request");
   }
-  if (!executor) {
+  const resolvedExecutor = executor ?? resolveBillingExecutor(env);
+  if (!resolvedExecutor) {
     return respondError("database_unavailable");
   }
   try {
+    const provider = override.provider ?? resolveApiBillingProvider(env);
     await processStripeSubscriptionWebhook({
-      platformExecutor: rlsExecutor(executor, { kind: "platform" }),
-      workspaceExecutor: (workspaceId) => rlsExecutor(executor, { kind: "workspace", workspaceId }),
+      platformExecutor: rlsExecutor(resolvedExecutor, { kind: "platform" }),
+      workspaceExecutor: (workspaceId) => rlsExecutor(resolvedExecutor, { kind: "workspace", workspaceId }),
       provider,
       event: verified.event,
       now: new Date().toISOString(),
