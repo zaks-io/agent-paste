@@ -51,8 +51,11 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
    A single-shard Durable Object gate is the authoritative hard global ceiling
    for provisioning. Its `limit_per_minute` defaults to 17 and is operator-tunable
-   at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100).
-   When the KV key is unset, the compiled default applies. Invalid or unreadable KV
+   at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100,
+   monotonic `config_version` required when the key is set). The Durable Object is the
+   authoritative runtime-config reader and rejects stale KV reads against applied DO
+   state; the API route does not read KV directly. When the KV binding is absent or
+   the key is unset, the compiled default applies. Invalid, stale, or unreadable KV
    config fails closed. If the gate binding, request, storage, or response is
    unavailable or invalid, the endpoint fails closed with
    `ephemeral_provision_unavailable` and `Retry-After` instead of minting credentials.

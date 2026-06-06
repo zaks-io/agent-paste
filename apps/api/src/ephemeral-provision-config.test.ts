@@ -1,117 +1,111 @@
 import { describe, expect, it } from "vitest";
-import type { Env } from "./env.js";
 import {
   DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
   EPHEMERAL_PROVISION_CONFIG_KV_KEY,
   isValidLimitPerMinute,
-  parseEphemeralProvisionConfig,
-  resolveEphemeralProvisionLimitPerMinute,
+  parseVersionedEphemeralProvisionConfig,
+  reconcileVersionedProvisionConfig,
+  resolveVersionedProvisionConfig,
 } from "./ephemeral-provision-config.js";
 
-describe("parseEphemeralProvisionConfig", () => {
-  it("accepts a valid limit", () => {
-    expect(parseEphemeralProvisionConfig('{"limit_per_minute":5}')).toEqual({ limit_per_minute: 5 });
+describe("parseVersionedEphemeralProvisionConfig", () => {
+  it("accepts a valid versioned limit", () => {
+    expect(parseVersionedEphemeralProvisionConfig('{"limit_per_minute":5,"config_version":1}')).toEqual({
+      limit_per_minute: 5,
+      config_version: 1,
+    });
   });
 
-  it("rejects malformed JSON and out-of-range limits", () => {
-    expect(parseEphemeralProvisionConfig("not-json")).toBeNull();
-    expect(parseEphemeralProvisionConfig("{}")).toBeNull();
-    expect(parseEphemeralProvisionConfig('{"limit_per_minute":0}')).toBeNull();
-    expect(parseEphemeralProvisionConfig('{"limit_per_minute":101}')).toBeNull();
-    expect(parseEphemeralProvisionConfig('{"limit_per_minute":1.5}')).toBeNull();
+  it("rejects malformed JSON, missing versions, and out-of-range limits", () => {
+    expect(parseVersionedEphemeralProvisionConfig("not-json")).toBeNull();
+    expect(parseVersionedEphemeralProvisionConfig('{"limit_per_minute":5}')).toBeNull();
+    expect(parseVersionedEphemeralProvisionConfig('{"limit_per_minute":0,"config_version":1}')).toBeNull();
+    expect(parseVersionedEphemeralProvisionConfig('{"limit_per_minute":101,"config_version":1}')).toBeNull();
+    expect(parseVersionedEphemeralProvisionConfig('{"limit_per_minute":5,"config_version":0}')).toBeNull();
   });
 });
 
-describe("resolveEphemeralProvisionLimitPerMinute", () => {
+describe("reconcileVersionedProvisionConfig", () => {
+  it("uses the compiled default when the KV key is unset", () => {
+    expect(reconcileVersionedProvisionConfig(null, undefined)).toEqual({
+      ok: true,
+      config: { config_version: 0, limit_per_minute: DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE },
+      changed: true,
+    });
+  });
+
+  it("fails closed on stale unset reads after a newer version was applied", () => {
+    expect(
+      reconcileVersionedProvisionConfig(null, { config_version: 2, limit_per_minute: 5 }),
+    ).toEqual({ ok: false, reason: "stale" });
+  });
+
+  it("fails closed on invalid KV values and stale older versions", () => {
+    expect(reconcileVersionedProvisionConfig('{"limit_per_minute":999,"config_version":1}', undefined)).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(
+      reconcileVersionedProvisionConfig('{"limit_per_minute":17,"config_version":1}', {
+        config_version: 2,
+        limit_per_minute: 5,
+      }),
+    ).toEqual({ ok: false, reason: "stale" });
+  });
+
+  it("accepts a newer version and keeps the applied config at the same version", () => {
+    expect(reconcileVersionedProvisionConfig('{"limit_per_minute":5,"config_version":2}', undefined)).toEqual({
+      ok: true,
+      config: { config_version: 2, limit_per_minute: 5 },
+      changed: true,
+    });
+    expect(
+      reconcileVersionedProvisionConfig('{"limit_per_minute":99,"config_version":2}', {
+        config_version: 2,
+        limit_per_minute: 5,
+      }),
+    ).toEqual({
+      ok: true,
+      config: { config_version: 2, limit_per_minute: 5 },
+      changed: false,
+    });
+  });
+});
+
+describe("resolveVersionedProvisionConfig", () => {
   it("uses the compiled default when the KV namespace is absent", async () => {
-    await expect(resolveEphemeralProvisionLimitPerMinute({})).resolves.toEqual({
+    await expect(resolveVersionedProvisionConfig(undefined, undefined)).resolves.toEqual({
       ok: true,
-      limitPerMinute: DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
+      config: { config_version: 0, limit_per_minute: DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE },
+      changed: true,
     });
-  });
-
-  it("uses the compiled default when the KV key is unset", async () => {
-    await expect(
-      resolveEphemeralProvisionLimitPerMinute({
-        EPHEMERAL_PROVISION_CONFIG: { get: async () => null, put: async () => {}, delete: async () => {} },
-      } as Env),
-    ).resolves.toEqual({
-      ok: true,
-      limitPerMinute: DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
-    });
-  });
-
-  it("reads a valid runtime cap from KV", async () => {
-    await expect(
-      resolveEphemeralProvisionLimitPerMinute({
-        EPHEMERAL_PROVISION_CONFIG: {
-          get: async (key) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? '{"limit_per_minute":5}' : null),
-          put: async () => {},
-          delete: async () => {},
-        },
-      } as Env),
-    ).resolves.toEqual({ ok: true, limitPerMinute: 5 });
-  });
-
-  it("fails closed on invalid KV values", async () => {
-    await expect(
-      resolveEphemeralProvisionLimitPerMinute({
-        EPHEMERAL_PROVISION_CONFIG: {
-          get: async () => '{"limit_per_minute":999}',
-          put: async () => {},
-          delete: async () => {},
-        },
-      } as Env),
-    ).resolves.toEqual({ ok: false, reason: "invalid" });
   });
 
   it("fails closed when the KV read rejects", async () => {
     await expect(
-      resolveEphemeralProvisionLimitPerMinute({
-        EPHEMERAL_PROVISION_CONFIG: {
+      resolveVersionedProvisionConfig(
+        {
           get: async () => Promise.reject(new Error("kv offline")),
-          put: async () => {},
-          delete: async () => {},
         },
-      } as Env),
+        undefined,
+      ),
     ).resolves.toEqual({ ok: false, reason: "unavailable" });
   });
 
-  it("re-reads KV on every resolve so a prior valid value cannot mask invalid config", async () => {
-    let raw: string | null = '{"limit_per_minute":8}';
-    const env = {
-      EPHEMERAL_PROVISION_CONFIG: {
-        get: async () => raw,
-        put: async () => {},
-        delete: async () => {},
-      },
-    } as Env;
-
-    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: true, limitPerMinute: 8 });
-
-    raw = '{"limit_per_minute":999}';
-    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: false, reason: "invalid" });
-  });
-
-  it("re-reads KV on every resolve so a prior valid value cannot mask unavailable config", async () => {
-    let shouldReject = false;
-    const env = {
-      EPHEMERAL_PROVISION_CONFIG: {
-        get: async () => {
-          if (shouldReject) {
-            return Promise.reject(new Error("kv offline"));
-          }
-          return '{"limit_per_minute":8}';
+  it("reads a valid runtime cap from KV", async () => {
+    await expect(
+      resolveVersionedProvisionConfig(
+        {
+          get: async (key) =>
+            key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? '{"limit_per_minute":5,"config_version":1}' : null,
         },
-        put: async () => {},
-        delete: async () => {},
-      },
-    } as Env;
-
-    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: true, limitPerMinute: 8 });
-
-    shouldReject = true;
-    await expect(resolveEphemeralProvisionLimitPerMinute(env)).resolves.toEqual({ ok: false, reason: "unavailable" });
+        undefined,
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      config: { config_version: 1, limit_per_minute: 5 },
+      changed: true,
+    });
   });
 });
 

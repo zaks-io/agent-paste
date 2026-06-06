@@ -268,20 +268,26 @@ Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 ## Runtime provision cap tuning (incident response)
 
 The authoritative hard global ceiling is the `EPHEMERAL_PROVISION_GATE` Durable Object.
-Its `limit_per_minute` is read from the `EPHEMERAL_PROVISION_CONFIG` KV namespace on
-every provision request. When the KV key is unset, the compiled default of **17/min**
-applies. Invalid or unreadable KV values fail closed immediately: provision returns
+It is also the authoritative runtime-config reader: on every consume it reads
+`EPHEMERAL_PROVISION_CONFIG` KV (when bound), reconciles a monotonic `config_version`
+against strongly consistent DO state, and rejects stale, invalid, or unreadable values.
+Plain Worker-side KV reads are not used for provisioning. When the KV binding is absent
+or the key is unset, the compiled default of **17/min** applies. Invalid, stale,
+or unreadable KV values fail closed immediately: provision returns
 `ephemeral_provision_unavailable` and does not mint credentials.
 
 ### KV value shape
 
 ```json
-{ "limit_per_minute": 17 }
+{ "limit_per_minute": 17, "config_version": 1 }
 ```
 
-- **Valid range:** 1–100 (integer).
+- **Valid range:** `limit_per_minute` 1–100 (integer); `config_version` positive integer.
 - **Key:** `ephemeral-provision-config`
-- **Binding:** `EPHEMERAL_PROVISION_CONFIG` on the `api` Worker.
+- **Binding:** `EPHEMERAL_PROVISION_CONFIG` on the `api` Worker (dev/local only until
+  operator-approved namespace IDs are added to preview/production `wrangler.jsonc`).
+- **Versioning:** always bump `config_version` when changing the cap. The DO rejects KV
+  reads whose version is older than the version already applied in DO state.
 
 ### Tighten during a flood
 
@@ -294,7 +300,7 @@ applies. Invalid or unreadable KV values fail closed immediately: provision retu
 wrangler kv key put ephemeral-provision-config \
   --binding EPHEMERAL_PROVISION_CONFIG \
   --env <preview|production> \
-  '{"limit_per_minute":5}'
+  '{"limit_per_minute":5,"config_version":2}'
 ```
 
 3. Re-run the provision probe or `pnpm smoke:preview:ephemeral` (operator-approved for
@@ -306,7 +312,7 @@ wrangler kv key put ephemeral-provision-config \
 wrangler kv key put ephemeral-provision-config \
   --binding EPHEMERAL_PROVISION_CONFIG \
   --env <preview|production> \
-  '{"limit_per_minute":17}'
+  '{"limit_per_minute":17,"config_version":3}'
 ```
 
 Never set a value above 100; out-of-range JSON fails closed.
@@ -316,25 +322,20 @@ Never set a value above 100; out-of-range JSON fails closed.
 If a malformed value was written and provision is returning
 `ephemeral_provision_unavailable`:
 
-1. Delete the bad key (reverts to the compiled 17/min default):
-
-```sh
-wrangler kv key delete ephemeral-provision-config \
-  --binding EPHEMERAL_PROVISION_CONFIG \
-  --env <preview|production>
-```
-
-2. Or overwrite with a valid value (see tighten/raise commands above).
-3. Re-run the provision probe; expect `401` + `pow_required` when healthy.
+1. Overwrite with a valid, higher `config_version` (see tighten/raise commands above).
+   Do not rely on deleting the key after a versioned config was applied; the DO fails
+   closed on stale unset reads once `config_version` > 0 was applied.
+2. Re-run the provision probe; expect `401` + `pow_required` when healthy.
 
 Do not log or paste KV values into tickets. The cap is not a secret, but incident notes
 should refer to "lowered to N/min" without reproducing full JSON blobs in public channels.
 
 ### First-time namespace setup
 
-Before the binding works in a hosted environment, create the KV namespace and paste the
-returned id into `apps/api/wrangler.jsonc` under `EPHEMERAL_PROVISION_CONFIG` for that
-env, then redeploy `api` once:
+Preview/production `wrangler.jsonc` intentionally omit the `EPHEMERAL_PROVISION_CONFIG`
+binding until real namespace IDs are operator-approved. To enable hosted runtime tuning,
+create the KV namespace and paste the returned id into `apps/api/wrangler.jsonc` under
+`EPHEMERAL_PROVISION_CONFIG` for that env, then redeploy `api` once:
 
 ```sh
 wrangler kv namespace create EPHEMERAL_PROVISION_CONFIG --env preview

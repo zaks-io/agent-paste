@@ -215,10 +215,6 @@
         {
           "binding": "CLI_RELEASE",
           "id": "d73e83b2c1244f489c8a3f006d56f51b"
-        },
-        {
-          "binding": "EPHEMERAL_PROVISION_CONFIG",
-          "id": "00000000000000000000000000000000"
         }
       ],
       "ratelimits": [
@@ -374,10 +370,6 @@
         {
           "binding": "CLI_RELEASE",
           "id": "2584a9e4d1a54ffa97056a52d106d49f"
-        },
-        {
-          "binding": "EPHEMERAL_PROVISION_CONFIG",
-          "id": "00000000000000000000000000000000"
         }
       ],
       "ratelimits": [

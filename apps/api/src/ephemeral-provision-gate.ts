@@ -1,5 +1,10 @@
 import { DEFAULT_POW_CHALLENGE_TTL_SECONDS } from "@agent-paste/tokens/pow";
-import { isValidLimitPerMinute } from "./ephemeral-provision-config.js";
+import {
+  type AppliedProvisionConfig,
+  type EphemeralProvisionConfigKv,
+  normalizeAppliedProvisionConfig,
+  resolveVersionedProvisionConfig,
+} from "./ephemeral-provision-config.js";
 import {
   consumeGateSlot,
   type EphemeralProvisionGateDecision,
@@ -14,13 +19,16 @@ export type { EphemeralProvisionGateDecision } from "./ephemeral-provision-gate-
 
 export const EPHEMERAL_PROVISION_GATE_NAME = "global";
 export const EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS = DEFAULT_POW_CHALLENGE_TTL_SECONDS;
-const STORAGE_KEY = "ephemeral_provision_gate";
+const GATE_STORAGE_KEY = "ephemeral_provision_gate";
+const CONFIG_STORAGE_KEY = "ephemeral_provision_config";
 const INTERNAL_URL = "https://ephemeral-provision-gate.internal/consume";
 
 export type EphemeralProvisionGateStorage = {
-  get(key: string): Promise<StoredGateState | undefined>;
-  put(key: string, value: StoredGateState): Promise<void>;
-  delete(key: string): Promise<void>;
+  getGate(): Promise<StoredGateState | undefined>;
+  getConfig(): Promise<AppliedProvisionConfig | undefined>;
+  putGate(value: StoredGateState): Promise<void>;
+  putConfig(value: AppliedProvisionConfig): Promise<void>;
+  deleteGate(): Promise<void>;
   deleteAlarm(): Promise<void>;
   setAlarm(scheduledTime: number): Promise<void>;
 };
@@ -34,9 +42,8 @@ export async function consumeEphemeralProvisionGate<Id>(
   namespace: EphemeralProvisionGateNamespace<Id> | undefined,
   nonce: string,
   nonceTtlSeconds: number,
-  limitPerMinute: number,
 ): Promise<EphemeralProvisionGateDecision | null> {
-  if (!namespace || !isValidLimitPerMinute(limitPerMinute)) {
+  if (!namespace) {
     return null;
   }
 
@@ -45,7 +52,7 @@ export async function consumeEphemeralProvisionGate<Id>(
       new Request(INTERNAL_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds, limit_per_minute: limitPerMinute }),
+        body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
       }),
     );
     if (!response.ok) {
@@ -61,16 +68,13 @@ export async function consumeEphemeralProvisionGate<Id>(
 export async function handleEphemeralProvisionGateRequest(
   request: Request,
   storage: EphemeralProvisionGateStorage,
+  configKv?: EphemeralProvisionConfigKv,
 ): Promise<Response> {
   try {
     if (request.method !== "POST" || !new URL(request.url).pathname.endsWith("/consume")) {
       return new Response("not_found", { status: 404 });
     }
-    const body = (await request.json().catch(() => null)) as {
-      nonce?: unknown;
-      nonce_ttl_seconds?: unknown;
-      limit_per_minute?: unknown;
-    } | null;
+    const body = (await request.json().catch(() => null)) as { nonce?: unknown; nonce_ttl_seconds?: unknown } | null;
     if (!body || typeof body.nonce !== "string" || body.nonce.length === 0) {
       return new Response("invalid_request", { status: 400 });
     }
@@ -83,17 +87,23 @@ export async function handleEphemeralProvisionGateRequest(
     ) {
       return new Response("invalid_request", { status: 400 });
     }
-    if (!isValidLimitPerMinute(body.limit_per_minute)) {
-      return new Response("invalid_request", { status: 400 });
+
+    const applied = normalizeAppliedProvisionConfig(await storage.getConfig());
+    const configResolution = await resolveVersionedProvisionConfig(configKv, applied);
+    if (!configResolution.ok) {
+      return new Response("unavailable", { status: 503 });
+    }
+    if (configResolution.changed) {
+      await storage.putConfig(configResolution.config);
     }
 
     const nowMs = Date.now();
-    const stored = normalizeStoredGateState(await storage.get(STORAGE_KEY));
+    const stored = normalizeStoredGateState(await storage.getGate());
     const outcome = consumeGateSlot(stored, {
       nonce: body.nonce,
       nonceExpiresAtMs: nowMs + nonceTtlSeconds * 1000,
       nowMs,
-      limitPerMinute: body.limit_per_minute,
+      limitPerMinute: configResolution.config.limit_per_minute,
     });
     await persistGateState(storage, outcome.next, nowMs);
     return Response.json(outcome.decision);
@@ -105,7 +115,7 @@ export async function handleEphemeralProvisionGateRequest(
 
 export async function resetEphemeralProvisionGateAlarm(storage: EphemeralProvisionGateStorage): Promise<void> {
   const nowMs = Date.now();
-  const stored = normalizeStoredGateState(await storage.get(STORAGE_KEY));
+  const stored = normalizeStoredGateState(await storage.getGate());
   await persistGateState(storage, stateForNow(stored, nowMs), nowMs);
 }
 
@@ -116,7 +126,7 @@ export class EphemeralProvisionGate implements DurableObject {
   ) {}
 
   async fetch(request: Request): Promise<Response> {
-    return handleEphemeralProvisionGateRequest(request, this.storageAdapter());
+    return handleEphemeralProvisionGateRequest(request, this.storageAdapter(), this.env.EPHEMERAL_PROVISION_CONFIG);
   }
 
   async alarm(): Promise<void> {
@@ -126,10 +136,12 @@ export class EphemeralProvisionGate implements DurableObject {
   private storageAdapter(): EphemeralProvisionGateStorage {
     const storage = this.state.storage;
     return {
-      get: (key) => storage.get(key),
-      put: (key, value) => storage.put(key, value),
-      delete: async (key) => {
-        await storage.delete(key);
+      getGate: () => storage.get(GATE_STORAGE_KEY),
+      getConfig: () => storage.get(CONFIG_STORAGE_KEY),
+      putGate: (value) => storage.put(GATE_STORAGE_KEY, value),
+      putConfig: (value) => storage.put(CONFIG_STORAGE_KEY, value),
+      deleteGate: async () => {
+        await storage.delete(GATE_STORAGE_KEY);
       },
       setAlarm: (scheduledTime) => storage.setAlarm(scheduledTime),
       deleteAlarm: () => storage.deleteAlarm(),
@@ -144,13 +156,12 @@ async function persistGateState(
 ): Promise<void> {
   const activeNonces = state.spent_nonces ?? [];
   if (state.consumed === 0 && activeNonces.length === 0) {
-    await storage.delete(STORAGE_KEY);
+    await storage.deleteGate();
     await storage.deleteAlarm();
     return;
   }
 
-  await storage.put(
-    STORAGE_KEY,
+  await storage.putGate(
     activeNonces.length > 0 ? state : { window_start_ms: state.window_start_ms, consumed: state.consumed },
   );
   const alarmAt = nextAlarmAt(state, nowMs);

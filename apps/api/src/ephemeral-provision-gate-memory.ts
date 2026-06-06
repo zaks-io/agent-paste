@@ -1,8 +1,13 @@
-import { type EphemeralProvisionGateStorage, handleEphemeralProvisionGateRequest } from "./ephemeral-provision-gate.js";
+import type { AppliedProvisionConfig, EphemeralProvisionConfigKv } from "./ephemeral-provision-config.js";
+import {
+  type EphemeralProvisionGateStorage,
+  handleEphemeralProvisionGateRequest,
+} from "./ephemeral-provision-gate.js";
 import type { StoredGateState } from "./ephemeral-provision-gate-state.js";
 
 type MemoryStorage = {
-  value?: StoredGateState | undefined;
+  gate?: StoredGateState | undefined;
+  config?: AppliedProvisionConfig | undefined;
   alarmAt?: number | null;
 };
 
@@ -20,18 +25,20 @@ function storageFor(name: string): MemoryStorage {
 function durableStorage(name: string): EphemeralProvisionGateStorage {
   const memory = storageFor(name);
   return {
-    async get(key) {
-      return key === "ephemeral_provision_gate" ? memory.value : undefined;
+    async getGate() {
+      return memory.gate;
     },
-    async put(key, value) {
-      if (key === "ephemeral_provision_gate") {
-        memory.value = value;
-      }
+    async getConfig() {
+      return memory.config;
     },
-    async delete(key) {
-      if (key === "ephemeral_provision_gate") {
-        memory.value = undefined;
-      }
+    async putGate(value) {
+      memory.gate = value;
+    },
+    async putConfig(value) {
+      memory.config = value;
+    },
+    async deleteGate() {
+      memory.gate = undefined;
     },
     async setAlarm(scheduledTime) {
       memory.alarmAt = scheduledTime;
@@ -42,14 +49,14 @@ function durableStorage(name: string): EphemeralProvisionGateStorage {
   };
 }
 
-export function createMemoryEphemeralProvisionGateNamespace() {
+export function createMemoryEphemeralProvisionGateNamespace(configKv?: EphemeralProvisionConfigKv) {
   return {
     idFromName(name: string) {
       return name;
     },
     get(id: string) {
       return {
-        fetch: (request: Request) => handleEphemeralProvisionGateRequest(request, durableStorage(id)),
+        fetch: (request: Request) => handleEphemeralProvisionGateRequest(request, durableStorage(id), configKv),
       };
     },
   };

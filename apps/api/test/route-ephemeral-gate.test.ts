@@ -157,7 +157,7 @@ describe("ephemeral provision gate route", () => {
       contextFor({
         env: provisionEnv({
           EPHEMERAL_PROVISION_CONFIG: {
-            get: async () => '{"limit_per_minute":999}',
+            get: async () => versionedConfig(999, 1),
             put: async () => {},
             delete: async () => {},
           },
@@ -175,7 +175,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed after a successful provision when runtime cap config becomes invalid", async () => {
-    let raw: string | null = JSON.stringify({ limit_per_minute: 5 });
+    let raw: string | null = versionedConfig(5, 1);
     const env = provisionEnv({
       EPHEMERAL_PROVISION_CONFIG: {
         get: async (key) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? raw : null),
@@ -192,7 +192,39 @@ describe("ephemeral provision gate route", () => {
     );
     expect(first.status).toBe(201);
 
-    raw = '{"limit_per_minute":999}';
+    raw = '{"limit_per_minute":999,"config_version":2}';
+    const blocked = await ephemeralProvisionRoute(
+      contextFor({ env }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+
+    expect(blocked.status).toBe(503);
+    await expect(responseJson(blocked)).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_unavailable" },
+    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed after a successful provision when KV returns a stale older version", async () => {
+    let raw: string | null = versionedConfig(5, 2);
+    const env = provisionEnv({
+      EPHEMERAL_PROVISION_CONFIG: {
+        get: async (key) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? raw : null),
+        put: async () => {},
+        delete: async () => {},
+      },
+    });
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    const first = await ephemeralProvisionRoute(
+      contextFor({ env }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+    expect(first.status).toBe(201);
+
+    raw = versionedConfig(17, 1);
     const blocked = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
@@ -217,7 +249,7 @@ describe("ephemeral provision gate route", () => {
           if (shouldReject) {
             return Promise.reject(new Error("kv offline"));
           }
-          return JSON.stringify({ limit_per_minute: 5 });
+          return versionedConfig(5, 1);
         },
         put: async () => {},
         delete: async () => {},
@@ -272,7 +304,7 @@ describe("ephemeral provision gate route", () => {
     const env = provisionEnv({
       EPHEMERAL_PROVISION_CONFIG: {
         get: async (key) =>
-          key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? JSON.stringify({ limit_per_minute: loweredLimit }) : null,
+          key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? versionedConfig(loweredLimit, 1) : null,
         put: async () => {},
         delete: async () => {},
       },
@@ -325,12 +357,20 @@ describe("ephemeral provision gate route", () => {
 });
 
 function provisionEnv(overrides: Partial<Env> = {}): Env {
-  return {
+  const env: Env = {
     EPHEMERAL_POW_SECRET: powSecret,
-    EPHEMERAL_PROVISION_GATE:
-      createMemoryEphemeralProvisionGateNamespace() as unknown as Env["EPHEMERAL_PROVISION_GATE"],
     ...overrides,
   };
+  if (!overrides.EPHEMERAL_PROVISION_GATE) {
+    env.EPHEMERAL_PROVISION_GATE = createMemoryEphemeralProvisionGateNamespace(
+      env.EPHEMERAL_PROVISION_CONFIG,
+    ) as unknown as Env["EPHEMERAL_PROVISION_GATE"];
+  }
+  return env;
+}
+
+function versionedConfig(limitPerMinute: number, configVersion: number): string {
+  return JSON.stringify({ limit_per_minute: limitPerMinute, config_version: configVersion });
 }
 
 async function validPowBody(difficulty = 8) {
