@@ -6,8 +6,11 @@ import { lockdownRow } from "./fixtures";
 
 const state = vi.hoisted(() => ({
   loaderData: undefined as unknown,
-  parentLoaderData: { apiSession: { data: null, error: null } } as unknown,
-  parentRouteContext: { apiSession: { data: null, error: null } } as unknown,
+  // webSession is provisioned off the critical path via useQuery(webSessionQuery())
+  // by the authed layout and dashboard (AP-256).
+  webSession: { data: null, error: null } as unknown,
+  parentLoaderData: { user: { email: "user@example.com" }, isOperator: false } as unknown,
+  parentRouteContext: {} as unknown,
   params: { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" },
   search: {} as Record<string, unknown>,
   auth: { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" } as {
@@ -61,6 +64,13 @@ vi.mock("@tanstack/react-query", () => ({
     if (key === "artifact-access-links" || key === "artifact-revisions") {
       return { data: emptyListEnvelope };
     }
+    return { data: state.loaderData };
+  },
+  // Non-blocking reads: web-session provisioning + deferred artifact revisions.
+  useQuery: (options?: { queryKey?: readonly unknown[] }) => {
+    const key = options?.queryKey?.[0];
+    if (key === "web-session") return { data: state.webSession };
+    if (key === "artifact-revisions") return { data: emptyListEnvelope };
     return { data: state.loaderData };
   },
   useQueryClient: () => ({
@@ -133,8 +143,9 @@ const queryContext = () => ({ context: { queryClient: { ensureQueryData: state.e
 describe("web routes", () => {
   beforeEach(() => {
     state.loaderData = undefined;
-    state.parentLoaderData = { apiSession: { data: null, error: null } };
-    state.parentRouteContext = { apiSession: { data: null, error: null } };
+    state.webSession = { data: null, error: null };
+    state.parentLoaderData = { user: { email: "user@example.com" }, isOperator: false };
+    state.parentRouteContext = {};
     state.params = { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" };
     state.search = {};
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
@@ -152,7 +163,7 @@ describe("web routes", () => {
     state.signOut.mockReset();
   });
 
-  it("provisions the authenticated layout and redirects unauthenticated requests", async () => {
+  it("resolves the authenticated layout identity without blocking on the API", async () => {
     const authed = await import("../src/routes/_authed");
     const loader = authed.Route.loader as (input: {
       location: { pathname: string; searchStr: string };
@@ -169,9 +180,23 @@ describe("web routes", () => {
     await expect(loader({ location: { pathname: "/audit", searchStr: "?request_id=req_1" } })).resolves.toMatchObject({
       redirectTo: "https://app.agent-paste.sh/api/auth/sign-in?returnPathname=%2Faudit%3Frequest_id%3Dreq_1",
     });
-    expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
+    await expect(loader({ location: { pathname: "/dashboard", searchStr: "" } })).resolves.toMatchObject({
+      user: { email: "user@example.com" },
+      isOperator: true,
+    });
+    // The DB-writing /v1/auth/web/callback is no longer on the navigation
+    // critical path; the layout fires it after paint via webSessionQuery (AP-256).
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalledWith(
+      "/v1/auth/web/callback",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("provisions the workspace off the critical path via web-session and surfaces the first-run key", async () => {
+    state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
+    const { provisionWebMemberSessionFn } = await import("../src/rpc/web-loaders");
     state.apiFetchOrEmpty.mockResolvedValueOnce({
       data: {
         workspace: workspace().workspace,
@@ -182,15 +207,8 @@ describe("web routes", () => {
       empty: false,
       error: null,
     });
-
-    await expect(loader({ location: { pathname: "/dashboard", searchStr: "" } })).resolves.toMatchObject({
-      user: { email: "user@example.com" },
-      isOperator: true,
-      apiSession: {
-        data: {
-          default_api_key: { secret: "ap_pk_preview_first_secret" },
-        },
-      },
+    await expect((provisionWebMemberSessionFn as (input?: unknown) => Promise<unknown>)()).resolves.toMatchObject({
+      data: { default_api_key: { secret: "ap_pk_preview_first_secret" } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/auth/web/callback", {
       method: "POST",
@@ -235,13 +253,11 @@ describe("web routes", () => {
         error: null,
       },
     };
-    state.parentLoaderData = {
-      apiSession: {
-        data: {
-          default_api_key: { secret: "ap_pk_preview_first_secret" },
-        },
-        error: null,
+    state.webSession = {
+      data: {
+        default_api_key: { secret: "ap_pk_preview_first_secret" },
       },
+      error: null,
     };
     render(<Route.component />);
     expect(screen.getByText("Demo")).toBeInTheDocument();

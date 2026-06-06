@@ -24,6 +24,11 @@ export const loadAuthedSessionFn = createServerFn({ method: "GET" })
     return loadAuthedSession(data);
   });
 
+export const provisionWebMemberSessionFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { provisionWebMemberSession } = await import("../server/web-loaders");
+  return provisionWebMemberSession();
+});
+
 export const loadDashboardFn = createServerFn({ method: "GET" }).handler(async () => {
   const { loadDashboard } = await import("../server/web-loaders");
   return loadDashboard();

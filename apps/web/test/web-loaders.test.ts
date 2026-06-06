@@ -63,6 +63,7 @@ import {
   loadRootAuth,
   loadRootEnv,
   loadSettings,
+  provisionWebMemberSession,
 } from "../src/server/web-loaders";
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -88,12 +89,27 @@ describe("web server loaders", () => {
     });
   });
 
-  it("handles authenticated session guest, redirect, and signed-in branches", async () => {
+  it("resolves authed identity from the token without an API call", () => {
     state.auth = { user: null };
-    await expect(loadAuthedSession({ allowGuest: true })).resolves.toEqual({ guest: true });
-    await expect(loadAuthedSession({ returnPathname: "/settings" })).resolves.toEqual({
+    expect(loadAuthedSession({ allowGuest: true })).toEqual({ guest: true });
+    expect(loadAuthedSession({ returnPathname: "/settings" })).toEqual({
       redirectTo: "https://app.test/api/auth/sign-in?returnPathname=%2Fsettings",
     });
+
+    state.auth = { user: { email: "user@example.com" }, accessToken: "access-token" };
+    expect(loadAuthedSession({})).toMatchObject({
+      user: { email: "user@example.com" },
+      isOperator: false,
+    });
+    // Identity resolution must not hit the API — provisioning is split off the
+    // critical path (AP-256).
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
+  });
+
+  it("provisions the web member off the critical path via the callback write", async () => {
+    state.auth = { user: null };
+    await expect(provisionWebMemberSession()).resolves.toEqual(emptyFallback);
+    expect(state.apiFetchOrEmpty).not.toHaveBeenCalled();
 
     state.auth = { user: { email: "user@example.com" }, accessToken: "access-token" };
     state.apiFetchOrEmpty.mockResolvedValueOnce({
@@ -101,10 +117,8 @@ describe("web server loaders", () => {
       empty: false,
       error: null,
     });
-    await expect(loadAuthedSession({})).resolves.toMatchObject({
-      user: { email: "user@example.com" },
-      isOperator: false,
-      apiSession: { data: { workspace: { id: "ws_1" } } },
+    await expect(provisionWebMemberSession()).resolves.toMatchObject({
+      data: { workspace: { id: "ws_1" } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/auth/web/callback", {
       method: "POST",

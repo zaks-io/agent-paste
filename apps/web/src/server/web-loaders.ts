@@ -47,7 +47,13 @@ export async function loadRootAuth() {
   };
 }
 
-export async function loadAuthedSession(input: { allowGuest?: boolean; returnPathname?: string }) {
+/**
+ * Resolves the authed-layout identity from the validated WorkOS token alone —
+ * no API round-trip. Workspace provisioning (the `/v1/auth/web/callback` write)
+ * is split into `provisionWebMemberSession` so navigation paints without
+ * blocking on a DB write. See AP-256.
+ */
+export function loadAuthedSession(input: { allowGuest?: boolean; returnPathname?: string }) {
   const auth = getServerAuth();
   if (!auth.user) {
     if (input.allowGuest) return { guest: true as const };
@@ -55,12 +61,22 @@ export async function loadAuthedSession(input: { allowGuest?: boolean; returnPat
     if (input.returnPathname) signInUrl.searchParams.set("returnPathname", input.returnPathname);
     return { redirectTo: signInUrl.toString() };
   }
+  return { user: auth.user, isOperator: hasOperatorRole(auth) };
+}
 
-  const apiSession = await apiFetchOrEmpty<WebAuthCallbackResponse>("/v1/auth/web/callback", {
+/**
+ * Provisions/touches the web member (upserts on first login, bumps last_seen_at,
+ * heals claimed_at) and returns the resulting workspace + default key. This is a
+ * DB write, kept intact — it is just no longer awaited on the navigation critical
+ * path; the layout fires it after first paint.
+ */
+export async function provisionWebMemberSession() {
+  const auth = getServerAuth();
+  if (!auth.user) return emptyFallback<WebAuthCallbackResponse>();
+  return apiFetchOrEmpty<WebAuthCallbackResponse>("/v1/auth/web/callback", {
     method: "POST",
     accessToken: auth.accessToken,
   });
-  return { user: auth.user, isOperator: hasOperatorRole(auth), apiSession };
 }
 
 export async function loadDashboard() {
@@ -167,11 +183,13 @@ export async function activateBillingReturn(input: { sessionId: string }): Promi
     return { status: emptyFallback<BillingStatusResponse>(), invoices: emptyFallback<BillingInvoiceListResponse>() };
   }
   const token = { accessToken: auth.accessToken };
-  const status = await apiFetchOrEmpty<BillingStatusResponse>(
-    `/v1/web/billing/return?session_id=${encodeURIComponent(input.sessionId)}`,
-    token,
-  );
-  const invoices = await apiFetchOrEmpty<BillingInvoiceListResponse>("/v1/web/billing/invoices", token);
+  const [status, invoices] = await Promise.all([
+    apiFetchOrEmpty<BillingStatusResponse>(
+      `/v1/web/billing/return?session_id=${encodeURIComponent(input.sessionId)}`,
+      token,
+    ),
+    apiFetchOrEmpty<BillingInvoiceListResponse>("/v1/web/billing/invoices", token),
+  ]);
   return { status, invoices };
 }
 

@@ -1,5 +1,5 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -23,10 +23,12 @@ import { artifactAccessLinksQuery, artifactQuery, artifactRevisionsQuery, queryK
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
   loader: async ({ context, params }) => {
     const { artifactId } = params;
+    // Revisions only feed the secondary "create access link" panel, so they load
+    // in the background (useQuery in the component) instead of gating first paint.
+    // See AP-256.
     const [artifact] = await Promise.all([
       context.queryClient.ensureQueryData(artifactQuery(artifactId)),
       context.queryClient.ensureQueryData(artifactAccessLinksQuery(artifactId)),
-      context.queryClient.ensureQueryData(artifactRevisionsQuery(artifactId)),
     ]);
     return { artifact };
   },
@@ -50,7 +52,9 @@ function ArtifactDetailPage() {
   const queryClient = useQueryClient();
   const { data: result } = useSuspenseQuery(artifactQuery(artifactId));
   const { data: accessLinks } = useSuspenseQuery(artifactAccessLinksQuery(artifactId));
-  const { data: revisions } = useSuspenseQuery(artifactRevisionsQuery(artifactId));
+  // Non-blocking: the panel below renders with an empty revision list until this
+  // resolves, so the artifact viewer paints without waiting on revisions.
+  const { data: revisions } = useQuery(artifactRevisionsQuery(artifactId));
   const refresh = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) }),
@@ -181,7 +185,7 @@ function ArtifactDetailPage() {
         <AccessLinkLockdownToggle artifactId={artifact.id} locked={artifact.lockdown} onChanged={refresh} />
         <CreateAccessLinkPanel
           artifactId={artifact.id}
-          revisions={revisions.data?.items ?? []}
+          revisions={revisions?.data?.items ?? []}
           latestRevisionId={artifact.latest_revision_id}
           locked={artifact.lockdown}
           onChanged={refresh}
