@@ -151,6 +151,49 @@ describe("MVP route registry", () => {
     });
   });
 
+  it("keeps Access Link management guarded by the share-capability representation", () => {
+    const scopesFor = (id: string) => routeContracts.find((route) => route.id === id)?.scopes;
+
+    expect(
+      Object.fromEntries(
+        ["web.accessLinks.listAll", "web.accessLinks.listForArtifact"].map((id) => [id, scopesFor(id)]),
+      ),
+    ).toEqual({
+      "web.accessLinks.listAll": ["read"],
+      "web.accessLinks.listForArtifact": ["read"],
+    });
+    expect(
+      Object.fromEntries(
+        [
+          "web.accessLinks.create",
+          "web.accessLinks.mint",
+          "web.accessLinks.revoke",
+          "web.accessLinks.lockdown.set",
+          "web.accessLinks.lockdown.lift",
+        ].map((id) => [id, scopesFor(id)]),
+      ),
+    ).toEqual({
+      "web.accessLinks.create": ["admin"],
+      "web.accessLinks.mint": ["admin"],
+      "web.accessLinks.revoke": ["admin"],
+      "web.accessLinks.lockdown.set": ["admin"],
+      "web.accessLinks.lockdown.lift": ["admin"],
+    });
+    expect(
+      Object.fromEntries(
+        ["accessLinks.create", "accessLinks.mint", "accessLinks.list", "accessLinks.revoke"].map((id) => [
+          id,
+          scopesFor(id),
+        ]),
+      ),
+    ).toEqual({
+      "accessLinks.create": ["admin"],
+      "accessLinks.mint": ["admin"],
+      "accessLinks.list": ["admin"],
+      "accessLinks.revoke": ["admin"],
+    });
+  });
+
   it("documents artifact-level public Agent View throttling", () => {
     const publicAgentView = routeContracts.find((route) => route.id === "agentView.public");
     const apiOpenApi = buildApiOpenApiDocument() as {
