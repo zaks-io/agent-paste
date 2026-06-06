@@ -43,7 +43,7 @@ async function runHostedEphemeralSmoke() {
   await waitForHealthz(config.apiBaseUrl);
   const readiness = await probeEphemeralPowReady(config.apiBaseUrl);
   if (!readiness.ready) {
-    if (shouldFailHostedEphemeralReadiness(target, readiness)) {
+    if (shouldFailHostedEphemeralReadiness(readiness)) {
       throw new EphemeralSmokeError("provision", readiness.reason ?? "ephemeral provision probe was not ready");
     }
     skipHostedEphemeral(readiness.reason);

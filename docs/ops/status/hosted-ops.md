@@ -145,6 +145,9 @@ script-disabled CSP, `noindex`, and optional claim redemption.
 Secrets and skip behavior:
 
 - **Required on API Worker:** `EPHEMERAL_POW_SECRET` (bootstrap via `scripts/bootstrap-secrets.mjs`, or PR preview seed via `PR_PREVIEW_SECRET_SEED`). When missing, the smoke exits **0** with a clear skip message (not a false pass).
+- **Probe failures:** network errors, 5xx responses, and unexpected provision
+  error codes fail the smoke. Only the explicit skip flag or
+  `database_unavailable` from a missing `EPHEMERAL_POW_SECRET` skip cleanly.
 - **Required Wrangler binding:** `EPHEMERAL_PROVISION_GATE` Durable Object. When
   missing or unhealthy, provision fails closed with
   `ephemeral_provision_unavailable`.

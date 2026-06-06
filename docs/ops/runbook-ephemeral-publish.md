@@ -118,7 +118,7 @@ curl -sS -X POST "${API_BASE}/v1/ephemeral/provision" \
 | Response                                                   | Meaning                                                               |
 | ---------------------------------------------------------- | --------------------------------------------------------------------- |
 | `401` + `error.code` = `pow_required` + `challenge` object | Provision route is configured and requires its lightweight challenge  |
-| `database_unavailable` or missing challenge                | `EPHEMERAL_POW_SECRET` not set on the API Worker for this environment |
+| `database_unavailable`                                     | `EPHEMERAL_POW_SECRET` not set on the API Worker for this environment |
 | Unexpected 5xx                                             | Investigate API health, DB/Hyperdrive, or recent deploy               |
 
 Replace `API_BASE` with the environment API origin (preview, PR, or production). This probe
@@ -143,8 +143,8 @@ Smokes assert, without logging secrets:
 - Claim redemption when WorkOS member auth is available (local smoke always; hosted optional)
 
 See [Hosted ops — ephemeral smoke](./status/hosted-ops.md#hosted-ephemeral-publish-smoke) for
-skip behavior when `EPHEMERAL_POW_SECRET` or harness secrets are absent (exit **0** with a
-skip message — not a false pass).
+skip behavior when `EPHEMERAL_POW_SECRET` is absent or
+`AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` is set (exit **0** with a skip message — not a false pass).
 
 ### 3. Public content policy spot-check (no credentials)
 

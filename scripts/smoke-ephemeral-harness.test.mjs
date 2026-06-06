@@ -46,6 +46,7 @@ describe("probeEphemeralPowReady", () => {
     try {
       const result = await probeEphemeralPowReady(server.baseUrl);
       expect(result.ready).toBe(true);
+      expect(shouldFailHostedEphemeralReadiness(result)).toBe(false);
     } finally {
       await server.close();
     }
@@ -59,13 +60,15 @@ describe("probeEphemeralPowReady", () => {
     try {
       const result = await probeEphemeralPowReady(server.baseUrl);
       expect(result.ready).toBe(false);
+      expect(result.skip).toBe(true);
       expect(result.reason).toContain("EPHEMERAL_POW_SECRET");
+      expect(shouldFailHostedEphemeralReadiness(result)).toBe(false);
     } finally {
       await server.close();
     }
   });
 
-  it("treats unhealthy PR provision readiness as fatal", async () => {
+  it("treats unhealthy hosted provision readiness as fatal", async () => {
     const server = await startProbeServer({
       status: 503,
       body: { error: { code: "ephemeral_provision_unavailable" } },
@@ -73,12 +76,46 @@ describe("probeEphemeralPowReady", () => {
     try {
       const result = await probeEphemeralPowReady(server.baseUrl);
       expect(result.ready).toBe(false);
+      expect(result.skip).toBe(false);
       expect(result.reason).toContain("ephemeral_provision_unavailable");
-      expect(shouldFailHostedEphemeralReadiness("pr", result)).toBe(true);
-      expect(shouldFailHostedEphemeralReadiness("preview", result)).toBe(false);
+      expect(shouldFailHostedEphemeralReadiness(result)).toBe(true);
     } finally {
       await server.close();
     }
+  });
+
+  it("treats unexpected provision error codes as fatal", async () => {
+    const server = await startProbeServer({
+      status: 422,
+      body: { error: { code: "invalid_request" } },
+    });
+    try {
+      const result = await probeEphemeralPowReady(server.baseUrl);
+      expect(result.ready).toBe(false);
+      expect(result.skip).toBe(false);
+      expect(result.reason).toContain("invalid_request");
+      expect(shouldFailHostedEphemeralReadiness(result)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("treats network probe failures as fatal", async () => {
+    const server = await startProbeServer({
+      status: 401,
+      body: {
+        error: { code: "pow_required" },
+        challenge: { nonce: "n", difficulty: 8, issued_at: new Date().toISOString() },
+      },
+    });
+    const baseUrl = server.baseUrl;
+    await server.close();
+
+    const result = await probeEphemeralPowReady(baseUrl);
+    expect(result.ready).toBe(false);
+    expect(result.skip).toBe(false);
+    expect(result.reason).toContain("ephemeral provision probe failed");
+    expect(shouldFailHostedEphemeralReadiness(result)).toBe(true);
   });
 });
 

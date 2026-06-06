@@ -159,9 +159,9 @@ AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN=... pnpm smoke:production:epheme
 Targets: `preview`, `pr`, `production` (alias `live`). The script probes
 `POST /v1/ephemeral/provision` for a `pow_required` challenge before running.
 When `EPHEMERAL_POW_SECRET` is not configured on the preview or production API
-Worker, it exits **0** with a skip message. PR preview smoke treats an
-unhealthy provision probe as a failure because the PR owns the generated Worker
-config.
+Worker, it exits **0** with a skip message. Other provision probe failures,
+including network errors, 5xx responses, and unexpected error codes, fail the
+smoke.
 
 Assertions:
 
