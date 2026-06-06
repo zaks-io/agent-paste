@@ -25,6 +25,15 @@ and app-layer encryption metadata beyond the original MVP baseline.
 - Mutating routes that create durable state require `Idempotency-Key` unless the route registry marks them otherwise.
 - List routes use cursor pagination with `cursor`, `limit`, and a response-level `page_info`.
 - All success responses echo `X-Request-Id`.
+- Public or link-scoped Agent View surfaces fail closed under active Platform
+  Lockdown or Access Link Lockdown: callers receive the same generic
+  `not_found` envelope as any missing or invalid target, and no Artifact
+  metadata is returned. Public route contracts use `PublicAgentView`, which omits
+  lockdown metadata.
+- Authenticated Workspace Member Agent View reads may include explicit lockdown
+  metadata so dashboard surfaces can explain why content is dark. Signed content
+  URLs still carry workspace and Artifact identifiers so the `content` Worker
+  enforces `wsd:` and `ad:` denylist keys before serving bytes.
 
 ## ID Formats
 

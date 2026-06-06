@@ -16,6 +16,26 @@ export const DisplayMetadata = z.object({
 });
 export type DisplayMetadata = z.infer<typeof DisplayMetadata>;
 
+const LockdownMetadata = z
+  .object({
+    locked: z.boolean(),
+    locked_at: IsoDateTime.nullable(),
+  })
+  .strict();
+
+export const AgentViewLockdownState = z
+  .object({
+    access_link: LockdownMetadata,
+    platform: z
+      .object({
+        workspace: LockdownMetadata,
+        artifact: LockdownMetadata,
+      })
+      .strict(),
+  })
+  .strict();
+export type AgentViewLockdownState = z.infer<typeof AgentViewLockdownState>;
+
 export const AgentViewFile = z.object({
   path: FilePath,
   size_bytes: z.number().int().nonnegative(),
@@ -51,7 +71,7 @@ export const SafetyWarning = z
   });
 export type SafetyWarning = z.infer<typeof SafetyWarning>;
 
-export const AgentView = z.object({
+const AgentViewBase = z.object({
   artifact_id: ArtifactId,
   revision_id: RevisionId,
   title: PlainTextTitle,
@@ -63,5 +83,12 @@ export const AgentView = z.object({
   files: z.array(AgentViewFile).min(1).max(100),
   safety_warnings: z.array(SafetyWarning).max(100).default([]),
   bundle: BundleAvailability,
+});
+
+export const PublicAgentView = AgentViewBase;
+export type PublicAgentView = z.infer<typeof PublicAgentView>;
+
+export const AgentView = AgentViewBase.extend({
+  lockdown: AgentViewLockdownState.optional(),
 });
 export type AgentView = z.infer<typeof AgentView>;

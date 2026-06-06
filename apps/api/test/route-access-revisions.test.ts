@@ -1,5 +1,6 @@
 import { RepositoryError } from "@agent-paste/db";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
+import { verifyContentToken } from "@agent-paste/tokens/content";
 import { createMemoryWriteAllowanceNamespace, resetMemoryWriteAllowanceCounters } from "@agent-paste/write-allowance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -10,7 +11,15 @@ import {
   revokeAccessLinkRoute,
 } from "../src/routes/access-links.js";
 import { authenticatedAgentView, listRevisions, publicAgentView, publishRevision } from "../src/routes/revisions.js";
-import { apiPrincipal, contextFor, guardFor, nonePrincipal, responseJson, workspaceId } from "./route-test-helpers.js";
+import {
+  apiPrincipal,
+  contextFor,
+  guardFor,
+  memberPrincipal,
+  nonePrincipal,
+  responseJson,
+  workspaceId,
+} from "./route-test-helpers.js";
 
 describe("AP-91 access link route modules", () => {
   it("creates member access links and maps repository not-found failures", async () => {
@@ -227,7 +236,16 @@ describe("AP-91 revision route modules", () => {
     expect(missingList.status).toBe(404);
 
     const publicResponse = await publicAgentView(
-      contextFor({ headers: { accept: "text/html" } }),
+      contextFor({
+        env: {
+          ARTIFACT_RATE_LIMIT: {
+            async limit() {
+              return { success: true };
+            },
+          },
+        },
+        headers: { accept: "text/html" },
+      }),
       { kind: "signed_agent_view_token", payload: { artifact_id: "art_1", revision_id: "rev_1" } } as never,
       {
         getPublicAgentView: vi.fn(async () => ({
@@ -240,6 +258,78 @@ describe("AP-91 revision route modules", () => {
     );
     expect(publicResponse.status).toBe(200);
     expect(publicResponse.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("keeps locked public Agent View generic and returns member lockdown metadata with scoped content tokens", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const lockedView = {
+      workspace_id: workspaceId,
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      title: "Locked Demo",
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      entrypoint: "index.html",
+      view_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+      files: [
+        {
+          path: "index.html",
+          url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+          content_type: "text/html",
+          size_bytes: 1,
+        },
+      ],
+      safety_warnings: [],
+      bundle: { status: "pending", retry_after_seconds: 5 },
+      lockdown: {
+        access_link: { locked: true, locked_at: "2026-02-01T00:00:00.000Z" },
+        platform: {
+          workspace: { locked: true, locked_at: "2026-02-02T00:00:00.000Z" },
+          artifact: { locked: false, locked_at: null },
+        },
+      },
+    };
+    const db = {
+      getAgentView: vi.fn(async () => lockedView),
+      getPublicAgentView: vi.fn(async () => null),
+    };
+
+    const publicResponse = await publicAgentView(
+      contextFor(),
+      { kind: "signed_agent_view_token", payload: { artifact_id: artifactId, revision_id: revisionId } } as never,
+      db as never,
+    );
+    expect(publicResponse.status).toBe(404);
+    const publicBody = await responseJson(publicResponse);
+    expect(publicBody).toMatchObject({ error: { code: "not_found" } });
+    expect(JSON.stringify(publicBody)).not.toContain("Locked Demo");
+
+    const authenticated = await authenticatedAgentView(
+      contextFor({
+        env: { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
+        params: { artifactId },
+      }),
+      memberPrincipal(),
+      db as never,
+      { artifactId },
+    );
+    expect(authenticated.status).toBe(200);
+    const body = (await authenticated.json()) as {
+      workspace_id?: string;
+      view_url: string;
+      lockdown?: unknown;
+    };
+    expect(body.workspace_id).toBeUndefined();
+    expect(body.lockdown).toEqual(lockedView.lockdown);
+
+    const token = decodeURIComponent(body.view_url.split("/v/")[1]?.split("/")[0] ?? "");
+    const payload = await verifyContentToken(token, "content-secret");
+    expect(payload).toMatchObject({
+      workspace_id: workspaceId,
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
   });
 
   it("publishes revisions, maps repository errors, and keeps committed publishes when notifications fail", async () => {

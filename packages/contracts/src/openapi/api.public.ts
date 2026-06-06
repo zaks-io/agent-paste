@@ -1,6 +1,6 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { artifactRateLimitResponse, errorResponse, jsonOk, schemaRef } from "./responses.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
+import { artifactRateLimitResponse, errorResponse, jsonOk, schemaRef } from "./responses.js";
 
 /**
  * Unauthenticated public OpenAPI paths, split out of `api.ts` to keep
@@ -19,7 +19,7 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
       headers: [requestIdHeader],
     },
     responses: {
-      "200": jsonOk(schemaRef("AgentView"), "Success (200)"),
+      "200": jsonOk(schemaRef("PublicAgentView"), "Success (200)"),
       "400": errorResponse,
       "404": errorResponse,
       "409": errorResponse,

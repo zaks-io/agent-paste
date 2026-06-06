@@ -6,7 +6,7 @@ import {
   CreateAccessLinkResponse,
 } from "../accessLinks.js";
 import { RevokeApiKeyResponse } from "../admin.js";
-import { AgentView } from "../agentView.js";
+import { AgentView, PublicAgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
 import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
 import {
@@ -86,7 +86,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   registry.register("CliVersionResponse", CliVersionResponse);
-  const registeredAgentView = registry.register("AgentView", AgentView);
+  const registeredPublicAgentView = registry.register("PublicAgentView", PublicAgentView);
+  registry.register("AgentView", AgentView);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
   registry.register("PowChallenge", PowChallenge);
   registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);
@@ -98,7 +99,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register(
     "AccessLinkResolveResponse",
     z.object({
-      agent_view: registeredAgentView,
+      agent_view: registeredPublicAgentView,
       render_mode: RenderMode,
       iframe_src: UrlString,
       title: PlainTextTitle,

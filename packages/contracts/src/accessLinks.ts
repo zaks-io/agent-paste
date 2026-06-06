@@ -1,4 +1,4 @@
-import { AgentView } from "./agentView.js";
+import { PublicAgentView } from "./agentView.js";
 import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
@@ -78,7 +78,7 @@ export const AccessLinkResolveRequest = z.object({
 export type AccessLinkResolveRequest = z.infer<typeof AccessLinkResolveRequest>;
 
 export const AccessLinkResolveResponse = z.object({
-  agent_view: AgentView,
+  agent_view: PublicAgentView,
   render_mode: RenderMode,
   iframe_src: UrlString,
   title: PlainTextTitle,

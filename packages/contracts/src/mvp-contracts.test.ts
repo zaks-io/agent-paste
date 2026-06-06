@@ -7,6 +7,7 @@ import {
   ErrorCode,
   FinalizeUploadSessionResponse,
   mvpUsagePolicy,
+  PublicAgentView,
   PublishResult,
   routeContracts,
   SafetyWarning,
@@ -144,7 +145,7 @@ describe("MVP route registry", () => {
         .filter((route) => route.rateLimit === "artifact")
         .map((route) => route.id)
         .sort(),
-    ).toEqual(["agentView.public", "content.bundle", "content.bundleHead", "content.get", "content.head"]);
+    ).toEqual(["content.bundle", "content.bundleHead", "content.get", "content.head"]);
     expect(routeContracts.find((route) => route.id === "accessLinks.resolve")).toMatchObject({
       auth: "none",
       rateLimit: "none",
@@ -194,7 +195,7 @@ describe("MVP route registry", () => {
     });
   });
 
-  it("documents artifact-level public Agent View throttling", () => {
+  it("documents handler-level public Agent View throttling", () => {
     const publicAgentView = routeContracts.find((route) => route.id === "agentView.public");
     const apiOpenApi = buildApiOpenApiDocument() as {
       paths?: Record<
@@ -216,6 +217,8 @@ describe("MVP route registry", () => {
     const rateLimitResponse = apiOpenApi.paths?.["/v1/public/agent-view/{token}"]?.get?.responses?.["429"];
 
     expect(publicAgentView).toBeDefined();
+    expect(publicAgentView?.rateLimit).toBe("none");
+    expect(publicAgentView?.responseSchema).toBe("PublicAgentView");
     expect(publicAgentView?.errors).toContain("rate_limited_artifact");
     expect(rateLimitResponse).toBeDefined();
     expect(rateLimitResponse?.headers).toHaveProperty("Retry-After");
@@ -342,6 +345,75 @@ describe("MVP schemas", () => {
         files: [],
       }).success,
     ).toBe(false);
+  });
+
+  it("keeps public Agent View responses on the lockdown-free schema", () => {
+    PublicAgentView.parse({
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "public",
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      entrypoint: "index.html",
+      view_url: "https://content.test/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9.rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/index.html",
+      files: [
+        {
+          path: "index.html",
+          url: "https://content.test/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9.rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/index.html",
+          content_type: "text/html",
+          size_bytes: 12,
+        },
+      ],
+      safety_warnings: [],
+      bundle: { status: "pending", retry_after_seconds: 5 },
+    });
+
+    const api = buildApiOpenApiDocument() as {
+      paths?: Record<
+        string,
+        { get?: { responses?: Record<string, { content?: Record<string, { schema?: unknown }> }> } }
+      >;
+      components?: { schemas?: Record<string, unknown> };
+    };
+    const publicResponse = api.paths?.["/v1/public/agent-view/{token}"]?.get?.responses?.["200"];
+    const schema = publicResponse?.content?.["application/json"]?.schema;
+    expect(schema).toEqual({ $ref: "#/components/schemas/PublicAgentView" });
+    expect(api.components?.schemas?.PublicAgentView).not.toHaveProperty("properties.lockdown");
+  });
+
+  it("allows authenticated Agent View responses to carry explicit lockdown state", () => {
+    expect(
+      AgentView.parse({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "locked demo",
+        created_at: isoDate,
+        expires_at: "2026-06-19T12:00:00.000Z",
+        entrypoint: "index.html",
+        view_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        files: [
+          {
+            path: "index.html",
+            size_bytes: 123,
+            content_type: "text/html; charset=utf-8",
+            url: "https://usercontent.agent-paste.sh/v/token/index.html",
+          },
+        ],
+        bundle: { status: "pending", retry_after_seconds: 5 },
+        lockdown: {
+          access_link: { locked: true, locked_at: "2026-06-01T12:00:00.000Z" },
+          platform: {
+            workspace: { locked: false, locked_at: null },
+            artifact: { locked: true, locked_at: "2026-06-02T12:00:00.000Z" },
+          },
+        },
+      }),
+    ).toMatchObject({
+      lockdown: {
+        access_link: { locked: true },
+        platform: { artifact: { locked: true } },
+      },
+    });
   });
 
   it("enforces Safety Warning scope and file path invariants", () => {
