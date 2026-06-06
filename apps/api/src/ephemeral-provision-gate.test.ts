@@ -125,6 +125,26 @@ describe("ephemeral provision gate Durable Object handler", () => {
     expect(response.status).toBe(503);
   });
 
+  it("fails closed on same-version contradictory KV limits", async () => {
+    const storage = memoryStorage();
+    await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
+
+    const response = await gateConsume(storage, "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+      get: async () => '{"limit_per_minute":99,"config_version":2}',
+    });
+
+    expect(response.status).toBe(503);
+  });
+
+  it("fails closed when the KV binding is absent after a versioned config was applied", async () => {
+    const storage = memoryStorage();
+    await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
+
+    const response = await gateConsume(storage, "nonce-a");
+
+    expect(response.status).toBe(503);
+  });
+
   it("returns unavailable when storage writes fail", async () => {
     const response = await gateConsume({
       ...memoryStorage(),

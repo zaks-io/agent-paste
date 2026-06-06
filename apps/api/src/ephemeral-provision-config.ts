@@ -29,7 +29,11 @@ export async function resolveVersionedProvisionConfig(
   configKv: EphemeralProvisionConfigKv | undefined,
   applied: AppliedProvisionConfig | undefined,
 ): Promise<VersionedProvisionConfigResult> {
+  const current = applied ?? defaultAppliedProvisionConfig();
   if (!configKv?.get) {
+    if (current.config_version > 0) {
+      return { ok: false, reason: "unavailable" };
+    }
     return { ok: true, config: defaultAppliedProvisionConfig(), changed: applied === undefined };
   }
 
@@ -66,6 +70,9 @@ export function reconcileVersionedProvisionConfig(
   }
 
   if (parsed.config_version === current.config_version) {
+    if (parsed.limit_per_minute !== current.limit_per_minute) {
+      return { ok: false, reason: "stale" };
+    }
     return { ok: true, config: current, changed: false };
   }
 

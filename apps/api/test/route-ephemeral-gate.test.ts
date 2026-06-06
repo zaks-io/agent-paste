@@ -278,6 +278,79 @@ describe("ephemeral provision gate route", () => {
     expect(createEphemeralWorkspace).toHaveBeenCalledTimes(1);
   });
 
+  it("fails closed after a successful provision when the KV binding is absent but DO state has a versioned cap", async () => {
+    const configKv = {
+      get: async (key: string) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? versionedConfig(5, 2) : null),
+      put: async () => {},
+      delete: async () => {},
+    };
+    const gateWithKv = createMemoryEphemeralProvisionGateNamespace(configKv);
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    const first = await ephemeralProvisionRoute(
+      contextFor({
+        env: {
+          EPHEMERAL_POW_SECRET: powSecret,
+          EPHEMERAL_PROVISION_CONFIG: configKv,
+          EPHEMERAL_PROVISION_GATE: gateWithKv as unknown as Env["EPHEMERAL_PROVISION_GATE"],
+        },
+      }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+    expect(first.status).toBe(201);
+
+    const gateWithoutKv = createMemoryEphemeralProvisionGateNamespace(undefined);
+    const blocked = await ephemeralProvisionRoute(
+      contextFor({
+        env: {
+          EPHEMERAL_POW_SECRET: powSecret,
+          EPHEMERAL_PROVISION_GATE: gateWithoutKv as unknown as Env["EPHEMERAL_PROVISION_GATE"],
+        },
+      }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+
+    expect(blocked.status).toBe(503);
+    await expect(responseJson(blocked)).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_unavailable" },
+    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed after a successful provision when KV returns a same-version contradictory limit", async () => {
+    let raw: string | null = versionedConfig(5, 2);
+    const env = provisionEnv({
+      EPHEMERAL_PROVISION_CONFIG: {
+        get: async (key) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? raw : null),
+        put: async () => {},
+        delete: async () => {},
+      },
+    });
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    const first = await ephemeralProvisionRoute(
+      contextFor({ env }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+    expect(first.status).toBe(201);
+
+    raw = versionedConfig(99, 2);
+    const blocked = await ephemeralProvisionRoute(
+      contextFor({ env }),
+      { createEphemeralWorkspace } as never,
+      guardFor((await validPowBody(1)).body),
+    );
+
+    expect(blocked.status).toBe(503);
+    await expect(responseJson(blocked)).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_unavailable" },
+    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(1);
+  });
+
   it("fails closed when runtime cap config cannot be read", async () => {
     const { body } = await validPowBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
