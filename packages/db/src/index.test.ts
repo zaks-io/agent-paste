@@ -1797,6 +1797,27 @@ describe("LocalRepository", () => {
     ).resolves.toBeNull();
   });
 
+  it("fails closed for API-key Agent View reads during workspace platform lockdown", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "api-key-workspace-lockdown", "2030-01-01T00:00:01.000Z");
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-api-key-agent-view-workspace-lockdown",
+      scope: "workspace",
+      targetId: actor.workspace_id,
+      reasonCode: "phishing_report",
+      now: new Date("2030-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      repo.getAgentView({
+        actor,
+        artifactId: published.artifact_id,
+        contentBaseUrl: "https://content.test",
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("hides public Agent View and annotates member Agent View during Access Link lockdown", async () => {
     const { repo, actor } = await localRepoWithMemberActor();
     const published = await publishLocalArtifact(repo, actor, "access-link-lockdown-view", "2030-01-01T00:00:01.000Z");
