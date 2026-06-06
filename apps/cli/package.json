@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Command-line interface for publishing shareable Artifacts to Agent Paste.",
   "homepage": "https://agent-paste.sh",
+  "bugs": {
+    "url": "https://github.com/zaks-io/agent-paste/issues"
+  },
+  "author": "Zaks.io, LLC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zaks-io/agent-paste.git",
