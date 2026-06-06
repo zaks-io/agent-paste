@@ -255,7 +255,47 @@ describe("web server loaders", () => {
     });
   });
 
-  it("exposes the claim page Turnstile site key", () => {
-    expect(loadClaimPage()).toEqual({ turnstileSiteKey: "turnstile-site-key" });
+  it("loads claim page billing and usage policy alongside the Turnstile site key", async () => {
+    state.apiFetchOrEmpty.mockImplementation(async (path: string) => {
+      if (path === "/v1/web/billing") {
+        return { data: { plan: "free", operator_override: false, subscription: null, daily_new_artifact_allowance: 100 }, empty: false, error: null };
+      }
+      if (path === "/v1/web/workspace") {
+        return {
+          data: {
+            workspace: { id: "00000000-0000-4000-8000-000000000001", name: "Personal", created_at: "2026-01-01T00:00:00.000Z" },
+            workspace_member: {
+              id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: "00000000-0000-4000-8000-000000000001",
+              email: "user@example.com",
+              scopes: ["admin"],
+              created_at: "2026-01-01T00:00:00.000Z",
+              last_seen_at: "2026-01-01T00:00:00.000Z",
+            },
+            usage_policy: { daily_new_artifact_allowance: 100, default_ttl_seconds: 259200, max_ttl_seconds: 604800 },
+            default_key_first_run: false,
+          },
+          empty: false,
+          error: null,
+        };
+      }
+      return emptyFallback;
+    });
+
+    await expect(loadClaimPage()).resolves.toEqual({
+      turnstileSiteKey: "turnstile-site-key",
+      billing: {
+        data: { plan: "free", operator_override: false, subscription: null, daily_new_artifact_allowance: 100 },
+        empty: false,
+        error: null,
+      },
+      usagePolicy: {
+        data: { daily_new_artifact_allowance: 100, default_ttl_seconds: 259200, max_ttl_seconds: 604800 },
+        empty: false,
+        error: null,
+      },
+    });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/billing", { accessToken: "access-token" });
+    expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/workspace", { accessToken: "access-token" });
   });
 });

@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   navigate: vi.fn(),
   claimEphemeralFn: vi.fn(),
-  loaderData: { turnstileSiteKey: null as string | null },
+  loaderData: {
+    turnstileSiteKey: null as string | null,
+    billing: { data: null, empty: true, error: null },
+    usagePolicy: { data: null, empty: true, error: null },
+  },
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -17,6 +21,11 @@ vi.mock("@tanstack/react-router", () => ({
       useNavigate: () => state.navigate,
     }),
   useNavigate: () => state.navigate,
+  Link: ({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) => (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -38,16 +47,38 @@ import { PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
 import { Route } from "../src/routes/_authed.claim";
 import { VALID_TOKEN } from "./claim-fixtures";
 
+const usagePolicy = {
+  file_size_cap_bytes: 10 * 1024 * 1024,
+  artifact_size_cap_bytes: 25 * 1024 * 1024,
+  bundle_size_cap_bytes: 25 * 1024 * 1024,
+  bundles_enabled: true,
+  file_count_cap: 100,
+  actor_rate_limit_per_minute: 60,
+  workspace_burst_cap_per_minute: 300,
+  upload_session_ttl_seconds: 86400,
+  default_ttl_seconds: 3 * 86400,
+  min_ttl_seconds: 86400,
+  max_ttl_seconds: 7 * 86400,
+  live_artifacts_cap: 50,
+  live_update_enabled: false,
+  daily_new_artifact_allowance: 100,
+  lifetime_revision_ceiling: 100,
+};
+
 describe("ClaimPage", () => {
   beforeEach(() => {
     state.navigate.mockReset();
     state.claimEphemeralFn.mockReset();
-    state.loaderData = { turnstileSiteKey: null };
+    state.loaderData = {
+      turnstileSiteKey: null,
+      billing: { data: null, empty: true, error: null },
+      usagePolicy: { data: usagePolicy, empty: false, error: null },
+    };
     sessionStorage.clear();
     window.history.replaceState({}, "", "/claim");
   });
 
-  it("redeems a valid token and navigates to the claimed artifact", async () => {
+  it("lands on the claim success funnel with billing-off rendering", async () => {
     state.claimEphemeralFn.mockResolvedValue({
       data: {
         destination_workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -62,18 +93,63 @@ describe("ClaimPage", () => {
     fireEvent.change(screen.getByLabelText("Claim token"), { target: { value: VALID_TOKEN } });
     fireEvent.click(screen.getByRole("button", { name: "Claim content" }));
 
-    await waitFor(() => expect(screen.getByText("Claim succeeded")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Content claimed")).toBeInTheDocument());
+    expect(screen.getByText(/Billing isn't enabled here/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Upgrade to Pro" })).not.toBeInTheDocument();
+    expect(state.navigate).not.toHaveBeenCalled();
+  });
+
+  it("lands on the claim success funnel with billing-on rendering", async () => {
+    state.loaderData.billing = {
+      data: {
+        plan: "free",
+        operator_override: false,
+        subscription: null,
+        daily_new_artifact_allowance: 100,
+      },
+      empty: false,
+      error: null,
+    };
+    state.claimEphemeralFn.mockResolvedValue({
+      data: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      error: null,
+    });
+
+    render(<Route.component />);
+    fireEvent.change(screen.getByLabelText("Claim token"), { target: { value: VALID_TOKEN } });
+    fireEvent.click(screen.getByRole("button", { name: "Claim content" }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "Upgrade to Pro" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Compare plans and upgrade" })).toHaveAttribute("href", "/billing");
+    expect(state.navigate).not.toHaveBeenCalled();
+  });
+
+  it("navigates to the claimed artifact when the user continues", async () => {
+    state.claimEphemeralFn.mockResolvedValue({
+      data: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      error: null,
+    });
+
+    render(<Route.component />);
+    fireEvent.change(screen.getByLabelText("Claim token"), { target: { value: VALID_TOKEN } });
+    fireEvent.click(screen.getByRole("button", { name: "Claim content" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "View artifact" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "View artifact" }));
+    expect(state.navigate).toHaveBeenCalledWith({ to: `/artifacts/${encodeURIComponent("art_test")}` });
     expect(state.claimEphemeralFn).toHaveBeenCalledWith({
       data: { claim_token: VALID_TOKEN, turnstile_token: "local-turnstile-bypass" },
     });
-
-    await waitFor(
-      () =>
-        expect(state.navigate).toHaveBeenCalledWith({
-          to: `/artifacts/${encodeURIComponent("art_test")}`,
-        }),
-      { timeout: 2000 },
-    );
   });
 
   it("shows a generic message for invalid or redeemed tokens", async () => {
@@ -105,7 +181,7 @@ describe("ClaimPage", () => {
     meta.setAttribute("property", "csp-nonce");
     meta.content = "test-nonce-123";
     document.head.appendChild(meta);
-    state.loaderData = { turnstileSiteKey: "1x00000000000000000000AA" };
+    state.loaderData.turnstileSiteKey = "1x00000000000000000000AA";
 
     render(<Route.component />);
 
