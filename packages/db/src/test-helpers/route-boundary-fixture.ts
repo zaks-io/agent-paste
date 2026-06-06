@@ -1,14 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
+import { createId } from "../id.js";
 import { PostgresRepository } from "../postgres/repository.js";
 import type { ApiActor } from "../types.js";
-import { createId } from "../id.js";
-import {
-  applyMigrations,
-  executorForPglite,
-  pgliteConnection,
-  platformExecutor,
-  workspaceExecutor,
-} from "./pglite.js";
+import { applyMigrations, executorForPglite, pgliteConnection, platformExecutor, workspaceExecutor } from "./pglite.js";
 
 const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
 
@@ -59,12 +53,7 @@ async function seedWorkspaceBilling(executor: ReturnType<typeof executorForPglit
   );
 }
 
-async function publishArtifact(
-  repo: PostgresRepository,
-  actor: ApiActor,
-  prefix: string,
-  now: string,
-) {
+async function publishArtifact(repo: PostgresRepository, actor: ApiActor, prefix: string, now: string) {
   const session = await repo.createUploadSession({
     actor,
     idempotencyKey: `${prefix}-upload`,
@@ -162,11 +151,7 @@ async function seedWorkspaceActors(
   };
 }
 
-async function seedWorkspaceArtifacts(
-  repo: PostgresRepository,
-  apiActor: ApiActor,
-  idempotencyPrefix: string,
-) {
+async function seedWorkspaceArtifacts(repo: PostgresRepository, apiActor: ApiActor, idempotencyPrefix: string) {
   const published = await publishArtifact(repo, apiActor, `${idempotencyPrefix}-published`, fixtureNow);
   const accessLink = await repo.createMemberAccessLink({
     actor: apiActor,
@@ -175,11 +160,16 @@ async function seedWorkspaceArtifacts(
     type: "share",
     revisionId: null,
   });
+  // The upload route's finalize handler stamps `now` with real wall-clock time and
+  // can't be injected, so the session's 24h TTL is measured against the real clock.
+  // Seeding at the frozen `fixtureNow` makes finalize flake to `upload_session_expired`
+  // (409) once real time passes fixtureNow + 24h. Anchor the pending session to real
+  // time so its window is always open when finalize runs.
   const pendingUploadSessionId = await createPendingUploadSession(
     repo,
     apiActor,
     `${idempotencyPrefix}-pending`,
-    fixtureNow,
+    new Date().toISOString(),
   );
   return { published, accessLinkId: accessLink.id, pendingUploadSessionId };
 }
