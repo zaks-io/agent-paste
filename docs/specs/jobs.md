@@ -16,13 +16,13 @@ Only `bundle-generate-dlq` has a consumer because terminal bundle failure must u
 
 ## Cron Triggers
 
-| Cron           |          Cadence |             Sweep Cap | Work                                                                                                                                   |
-| -------------- | ---------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Upload Cleanup | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                                                                            |
-| Auto Deletion  |           hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                             |
-| Purge Recovery |           hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge. |
-| Retention      |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                             |
-| Maintenance GC |           hourly | 5000 idempotency rows | Delete old idempotency rows and audit events past Audit Retention.                                                                     |
+| Cron           |          Cadence |             Sweep Cap | Work                                                                                                                                         |
+| -------------- | ---------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upload Cleanup | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                                                                                  |
+| Auto Deletion  |           hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                                   |
+| Purge Recovery |           hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.       |
+| Retention      |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                   |
+| Maintenance GC |           hourly | 5000 idempotency rows | Delete old idempotency rows; archive audit events past Audit Retention to R2 (`audit/` NDJSON under `ARTIFACTS`), then delete from Postgres. |
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
