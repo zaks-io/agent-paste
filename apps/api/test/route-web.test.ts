@@ -172,11 +172,11 @@ describe("AP-91 web route modules", () => {
       contextFor(),
       memberPrincipal(),
       { updateWebSettings } as never,
-      guardFor({ workspace_name: "New name", auto_deletion_days: 30 }),
+      guardFor({ workspace_name: "New name", auto_deletion_days: 7 }),
     );
     expect(updated.status).toBe(200);
     expect(updateWebSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: memberActor, workspaceName: "New name", autoDeletionDays: 30 }),
+      expect.objectContaining({ actor: memberActor, workspaceName: "New name", autoDeletionDays: 7 }),
     );
 
     const forbidden = await webUpdateSettings(

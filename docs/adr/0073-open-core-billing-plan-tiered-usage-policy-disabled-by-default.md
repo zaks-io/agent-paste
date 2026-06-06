@@ -1,8 +1,8 @@
 # Open-Core Billing: Plan-Tiered Usage Policy, Disabled by Default
 
-Status: Accepted.
+Status: Accepted, amended by AP-249 on 2026-06-06.
 
-A **Plan** (`free` or `pro`) selects both which platform-defined **Usage Policy** values apply to a **Workspace** (always within the platform hard ceilings from [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md)) and which platform features the **Workspace** can use. The entire billing surface sits behind one deploy-time flag that is **off by default**: with billing off the `plan` column is ignored, every **Workspace** runs a single operator-configurable cap set that defaults to the `pro` values, and the Stripe Checkout / Customer Portal surfaces are never mounted. The open-source repository is therefore fully functional with no payment processor; the hosted deployment is the only place that flips the flag on and sells `pro`.
+A **Plan** (`free` or `pro`) selects both which platform-defined **Usage Policy** values apply to a **Workspace** (always within the platform hard ceilings from [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md)) and which platform features the **Workspace** can use. The entire billing surface sits behind one deploy-time flag that is **off by default**: with billing off the `plan` column is ignored, every **Workspace** runs the public `free` cap set, and the Stripe Checkout / Customer Portal surfaces are never mounted. The open-source repository is therefore fully functional with no payment processor; the hosted deployment flips the flag on only after paid plans are ready.
 
 ## Context
 
@@ -16,12 +16,12 @@ agent-paste is going open-core: the code is public under a permissive license, a
 - **A Plan selects Usage Policy values; it never exceeds the platform ceiling.** `pro` raises a **Workspace**'s effective caps toward the platform maximum from ADR 0056; it cannot exceed it. The resolved values are still exposed read-only through the existing `GET /v1/usage-policy` surface so agents plan around them.
 - **Plan tunes retention, size, and volume only.** The cap levers a **Plan** moves are TTL / Retention, file and **Revision** / **Bundle** size caps, and live-**Artifact** volume. Retention is the primary lever; storage cost is bounded by TTL and R2 egress is free, so a short Free TTL is both the value wall and the cost control. Rate limits are deliberately **not** a Plan lever: per [ADR 0064](./0064-native-ratelimit-bindings-for-authenticated-counters.md) and [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md) they are an abuse ceiling, not a value meter, and selling headroom on them invites exactly the traffic they exist to bound.
 - **A Plan gates features, not only caps.** Beyond cap values, a **Plan** determines which platform features a **Workspace** can use. **Live Update** ([ADR 0069](./0069-live-updates-via-stream-worker-and-per-artifact-durable-object.md)) is earmarked as the first `pro`-only feature: it is the "watch a folder, auto-reload" capability, and unlike storage it carries real marginal cost (persistent connections and per-**Artifact** Durable Objects), so gating it to the paying tier aligns the expensive capability with the revenue and the self-sustaining goal. Live Update is post-MVP; this records the model (**Plans** gate features) and the earmark, not a build commitment or timeline.
-- **One deploy-time billing flag, off by default.** When off: the `plan` column is ignored; every **Workspace** resolves against one operator-configurable cap set whose defaults are the `pro` values; the Checkout / Portal / webhook routes are not registered; and the `BillingProvider` ([ADR 0074](./0074-stripe-billing-as-a-sync-layer-over-a-local-source-of-truth.md)) is the no-op adapter. When on (hosted only): `plan` drives caps, the Stripe surfaces mount, and `free` is the default for new **Workspaces**.
+- **One deploy-time billing flag, off by default.** When off: the `plan` column is ignored; every **Workspace** resolves against the public `free` cap set; the Checkout / Portal / webhook routes are not registered; and the `BillingProvider` ([ADR 0074](./0074-stripe-billing-as-a-sync-layer-over-a-local-source-of-truth.md)) is the no-op adapter. When on: `plan` drives caps, the Stripe surfaces mount, and `free` is the default for new **Workspaces**.
 - **The billing surface is a severable package, not just a disabled flag.** All billing code (Checkout, Portal, webhook handling, the Stripe `BillingProvider` adapter) lives in a self-contained `packages/billing` mounted into `api` only when the flag is on. The open-core boundary is therefore physical: a self-hoster excludes the code path, not merely disables it at runtime. No separate `billing` Worker is introduced; endpoint placement and trust boundaries are [ADR 0074](./0074-stripe-billing-as-a-sync-layer-over-a-local-source-of-truth.md).
 
 ## Plan tiers
 
-The intended `free` / `pro` values when billing is enabled, all within the [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md) platform ceilings. These are post-launch targets, tunable, and irrelevant when the billing flag is off (where every **Workspace** runs the `pro`-defaulted operator cap set).
+The intended `free` / `pro` values when billing is enabled, all within the [ADR 0056](./0056-mvp-usage-policy-defaults-and-platform-caps.md) platform ceilings. While billing is disabled for launch, every **Workspace** runs the `free` cap set so claimed free workspaces stay capped at 100 new **Artifacts** per day.
 
 | Lever                              | Free   | Pro     |
 | ---------------------------------- | ------ | ------- |
@@ -38,11 +38,11 @@ Retention is the sharp lever; the 3-day Free default fits the "here, show me thi
 
 - **Closed source, hosted only.** Simplest licensing story, but forgoes the portfolio and distribution value of a public repo for no real protection gain, since the code was never the moat.
 - **Open source with the paid code in a separate private repo.** Keeps payment code entirely out of the public tree, but splits one product across two repos and complicates the build. Rejected in favor of a severable in-repo `packages/billing` mounted only when the flag is on: the same clean boundary for self-hosters with one repo to build.
-- **Billing on by default with a free-forever tier.** Matches most SaaS, but forces every self-hoster to confront Stripe config and an inapplicable `free`/`pro` split. Rejected in favor of off-by-default so the open-source default is "one generous cap set, no payments."
+- **Billing on by default with a free-forever tier.** Matches most SaaS, but forces every self-hoster to confront Stripe config and an inapplicable `free`/`pro` split. Rejected in favor of off-by-default so the open-source default is "free caps, no payments."
 
 ## Consequences
 
-- Self-hosters get the full product with `pro`-equivalent caps and zero billing surface. There is no supported self-host paid tier; source is as-is.
-- The hot path reads one local column and is identical whether billing is on or off (off just means the column is ignored and caps come from the operator-configured default set). No request path ever calls Stripe.
-- The default-off cap set defaulting to `pro` (not `free`) is the surprising part: with billing off, "no Plan" means generous, not restricted. This is intentional. `free` is a hosted commercial construct, not a self-host limitation.
+- Self-hosters get the full product with `free` caps and zero billing surface. There is no supported self-host paid tier; source is as-is.
+- The hot path reads one local column and is identical whether billing is on or off (off just means the column is ignored and caps come from the public `free` cap set). No request path ever calls Stripe.
+- The default-off cap set now defaults to `free`, not `pro`, so public launch does not silently grant the paid write allowance while billing remains disabled.
 - Tiering is now a first-class domain concept (**Plan** in `CONTEXT.md`), so future tiers (e.g. a usage tier for embedders) extend an existing axis rather than introducing a new one.

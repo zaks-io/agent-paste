@@ -81,7 +81,11 @@ describe("web server mutations", () => {
     state.apiFetch
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, secret: "secret" })
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, revoked_at: "2026-01-01T00:00:00.000Z" })
-      .mockResolvedValueOnce({ workspace_name: "Demo", auto_deletion_days: 14 })
+      .mockResolvedValueOnce({
+        workspace_name: "Demo",
+        auto_deletion_days: 7,
+        auto_deletion_bounds: { min_days: 1, max_days: 7 },
+      })
       .mockResolvedValueOnce(lockdownRow())
       .mockResolvedValueOnce({ ...lockdownRow(), lifted_at: "2026-01-01T00:00:00.000Z" });
 
@@ -93,7 +97,7 @@ describe("web server mutations", () => {
       data: { api_key: { id: "key_1" } },
       error: null,
     });
-    await expect(saveSettings({ workspace_name: "Demo", auto_deletion_days: 14 })).resolves.toMatchObject({
+    await expect(saveSettings({ workspace_name: "Demo", auto_deletion_days: 7 })).resolves.toMatchObject({
       data: { workspace_name: "Demo" },
       error: null,
     });
@@ -134,7 +138,7 @@ describe("web server mutations", () => {
       expect.objectContaining({
         method: "PATCH",
         accessToken: "access-token",
-        body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 14 }),
+        body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 7 }),
       }),
     );
     expect(state.apiFetch).toHaveBeenNthCalledWith(

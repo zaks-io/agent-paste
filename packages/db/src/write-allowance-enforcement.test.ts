@@ -27,9 +27,9 @@ describe("write allowance policy resolution", () => {
     );
   });
 
-  it("treats every claimed workspace as pro when billing is off", () => {
+  it("treats claimed workspaces as free when billing is off", () => {
     expect(resolveDailyNewArtifactAllowance({ claimed: true, plan: "free", billingEnabled: false })).toBe(
-      DAILY_NEW_ARTIFACT_ALLOWANCE_PRO,
+      DAILY_NEW_ARTIFACT_ALLOWANCE_FREE,
     );
   });
 });

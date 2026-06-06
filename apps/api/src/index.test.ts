@@ -606,9 +606,9 @@ describe("api worker", () => {
               actor_rate_limit_per_minute: 60,
               workspace_burst_cap_per_minute: 300,
               upload_session_ttl_seconds: 24 * 60 * 60,
-              default_ttl_seconds: 30 * 24 * 60 * 60,
+              default_ttl_seconds: 3 * 24 * 60 * 60,
               min_ttl_seconds: 24 * 60 * 60,
-              max_ttl_seconds: 90 * 24 * 60 * 60,
+              max_ttl_seconds: 7 * 24 * 60 * 60,
               live_artifacts_cap: 50,
               live_update_enabled: false,
               daily_new_artifact_allowance: 100,
@@ -1308,11 +1308,12 @@ describe("api worker", () => {
             actor: { type: "member", id: "mem_01J5K7Y8G9H0ABCDEFGHJKMNPQ" },
             idempotencyKey: "idem-settings",
             workspaceName: "Renamed Workspace",
-            autoDeletionDays: 14,
+            autoDeletionDays: 7,
           });
           return {
             workspace_name: input.workspaceName,
             auto_deletion_days: input.autoDeletionDays,
+            auto_deletion_bounds: { min_days: 1, max_days: 7 },
             usage_policy: { artifacts_per_day: 0, bytes_per_day: 26_214_400 },
           };
         },
@@ -1327,7 +1328,7 @@ describe("api worker", () => {
           "content-type": "application/json",
           "idempotency-key": "idem-settings",
         },
-        body: JSON.stringify({ workspace_name: "Renamed Workspace", auto_deletion_days: 14 }),
+        body: JSON.stringify({ workspace_name: "Renamed Workspace", auto_deletion_days: 7 }),
       }),
       env,
     );
@@ -1335,7 +1336,7 @@ describe("api worker", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       workspace_name: "Renamed Workspace",
-      auto_deletion_days: 14,
+      auto_deletion_days: 7,
     });
   });
 
@@ -1343,8 +1344,8 @@ describe("api worker", () => {
     ["below the minimum", { workspace_name: "ok", auto_deletion_days: 0 }],
     ["above the maximum", { workspace_name: "ok", auto_deletion_days: 91 }],
     ["a non-integer", { workspace_name: "ok", auto_deletion_days: 1.5 }],
-    ["a blank name", { workspace_name: "", auto_deletion_days: 30 }],
-    ["a too-long name", { workspace_name: "x".repeat(121), auto_deletion_days: 30 }],
+    ["a blank name", { workspace_name: "", auto_deletion_days: 7 }],
+    ["a too-long name", { workspace_name: "x".repeat(121), auto_deletion_days: 7 }],
   ])("rejects web settings updates with %s", async (_label, body) => {
     const env: Env = {
       AUTH: webAuthForTests(),
@@ -1386,7 +1387,7 @@ describe("api worker", () => {
       new Request("https://api.test/v1/web/settings", {
         method: "PATCH",
         headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
-        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 30 }),
+        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 7 }),
       }),
       env,
     );
@@ -1413,7 +1414,7 @@ describe("api worker", () => {
           "content-type": "application/json",
           "idempotency-key": "idem-settings-scope",
         },
-        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 30 }),
+        body: JSON.stringify({ workspace_name: "ok", auto_deletion_days: 7 }),
       }),
       env,
     );
@@ -1554,7 +1555,7 @@ describe("api worker", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ artifact_id: "art_1", deleted_r2_objects: 0 });
     expect(puts).toHaveLength(1);
-    expect(puts[0]).toMatchObject({ key: "ad:art_1", expirationTtl: 90 * 24 * 60 * 60 });
+    expect(puts[0]).toMatchObject({ key: "ad:art_1", expirationTtl: 7 * 24 * 60 * 60 });
     expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({ reason: "deletion", at: expect.any(String) });
   });
 

@@ -99,7 +99,7 @@ export function resolveWriteAllowanceTier(input: {
   }
   const billingEnabled = input.billingEnabled ?? false;
   if (!billingEnabled) {
-    return "pro";
+    return "free";
   }
   return input.plan === "pro" ? "pro" : "free";
 }
@@ -139,7 +139,7 @@ export function isBillingEnabled(value?: string | boolean | null): boolean {
 
 /**
  * Resolves the effective Usage Policy for a Workspace.
- * When billing is off, `plan` is ignored and every Workspace gets the operator-default `pro` cap set.
+ * When billing is off, the launch default stays on the public `free` cap set.
  */
 export function resolveUsagePolicy(input: {
   plan?: WorkspacePlan | null;
@@ -147,7 +147,7 @@ export function resolveUsagePolicy(input: {
 }): UsagePolicyConfig {
   const billingEnabled = input.billingEnabled ?? false;
   if (!billingEnabled) {
-    return buildPlanUsagePolicy("pro");
+    return buildPlanUsagePolicy("free");
   }
   const plan = input.plan ?? "free";
   return buildPlanUsagePolicy(plan === "pro" ? "pro" : "free");

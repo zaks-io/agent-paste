@@ -415,24 +415,24 @@ describe("LocalRepository", () => {
       throw new Error("expected member actor");
     }
 
-    await expect(repo.getWebSettings(actor)).resolves.toMatchObject({ auto_deletion_days: 30 });
+    await expect(repo.getWebSettings(actor)).resolves.toMatchObject({ auto_deletion_days: 3 });
 
     const updated = await repo.updateWebSettings({
       actor,
       idempotencyKey: "idem-settings",
       workspaceName: "Renamed Workspace",
-      autoDeletionDays: 14,
+      autoDeletionDays: 7,
       now: new Date("2026-01-02T00:00:00.000Z"),
     });
-    expect(updated).toMatchObject({ workspace_name: "Renamed Workspace", auto_deletion_days: 14 });
+    expect(updated).toMatchObject({ workspace_name: "Renamed Workspace", auto_deletion_days: 7 });
 
     await expect(repo.getWebSettings(actor)).resolves.toMatchObject({
       workspace_name: "Renamed Workspace",
-      auto_deletion_days: 14,
+      auto_deletion_days: 7,
     });
     expect(repo.workspaces.get(session.workspace.id)).toMatchObject({
       name: "Renamed Workspace",
-      auto_deletion_days: 14,
+      auto_deletion_days: 7,
       updated_at: "2026-01-02T00:00:00.000Z",
     });
 
@@ -440,7 +440,7 @@ describe("LocalRepository", () => {
       actor,
       idempotencyKey: "idem-settings",
       workspaceName: "Different Name",
-      autoDeletionDays: 7,
+      autoDeletionDays: 5,
       now: new Date("2026-01-03T00:00:00.000Z"),
     });
     expect(replay).toEqual(updated);
@@ -453,7 +453,7 @@ describe("LocalRepository", () => {
       target_type: "workspace",
       target_id: session.workspace.id,
       workspace_id: session.workspace.id,
-      details: { workspace_name: "Renamed Workspace", auto_deletion_days: 14 },
+      details: { workspace_name: "Renamed Workspace", auto_deletion_days: 7 },
     });
   });
 

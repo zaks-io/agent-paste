@@ -85,7 +85,7 @@ describe("resolveAccessLink", () => {
       publicId: link.public_id,
       blobScopes: verified?.scopes ?? 0,
       contentBaseUrl: CONTENT_BASE,
-      now: "2026-01-15T00:00:00.000Z",
+      now: "2026-01-01T12:00:00.000Z",
     });
     expect(resolved).toMatchObject({
       access_link_type: "share",
@@ -110,7 +110,7 @@ describe("resolveAccessLink", () => {
         publicId: revoked.public_id,
         blobScopes: verified?.scopes ?? 0,
         contentBaseUrl: CONTENT_BASE,
-        now: "2026-01-15T00:00:00.000Z",
+        now: "2026-01-01T12:00:00.000Z",
       }),
     ).resolves.toBeNull();
 
@@ -123,14 +123,14 @@ describe("resolveAccessLink", () => {
         publicId: link.public_id,
         blobScopes: verified?.scopes ?? 0,
         contentBaseUrl: CONTENT_BASE,
-        now: "2026-01-15T00:00:00.000Z",
+        now: "2026-01-01T12:00:00.000Z",
       }),
     ).resolves.toBeNull();
   });
 
   it("rejects retained revisions, deleted artifacts, and platform lockdown", async () => {
     const { repo, actor, artifact } = await repoWithPublishedArtifact();
-    const resolveNow = "2026-01-15T00:00:00.000Z";
+    const resolveNow = "2026-01-01T12:00:00.000Z";
     const shareLink = createAccessLinkRow({
       workspaceId: artifact.workspace_id,
       artifactId: artifact.id,

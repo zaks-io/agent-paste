@@ -797,6 +797,7 @@ function settingsRow() {
   return {
     workspace_name: "Demo",
     auto_deletion_days: 30,
+    auto_deletion_bounds: { min_days: 1, max_days: 90 },
     usage_policy: { artifacts_per_day: 100, bytes_per_day: 1000 },
   };
 }

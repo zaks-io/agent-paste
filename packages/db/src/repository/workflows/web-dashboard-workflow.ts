@@ -15,10 +15,12 @@ import {
 } from "../web-transforms.js";
 import { insertArtifactAuditEvent, mustActiveArtifact, readWebArtifactPage } from "./artifact-workflow-helpers.js";
 
-function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig) {
+function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig, billingEnabled: boolean) {
+  const bounds = autoDeletionBoundsForWorkspace(workspace, billingEnabled);
   return {
     workspace_name: workspace.name,
     auto_deletion_days: workspace.auto_deletion_days,
+    auto_deletion_bounds: { min_days: bounds.min, max_days: bounds.max },
     usage_policy: { artifacts_per_day: 0, bytes_per_day: usagePolicy.artifact_size_cap_bytes },
   };
 }
@@ -319,7 +321,7 @@ export async function listWebAuditEvents(
 export async function getWebSettings(ctx: RepositoryCoreContext, actor: ApiActor) {
   return ctx.uow.read(workspaceScope(actor.workspace_id), async (entities) => {
     const workspace = await ctx.mustWorkspace(entities, actor.workspace_id);
-    return toWebSettings(workspace, ctx.usagePolicyFor(workspace));
+    return toWebSettings(workspace, ctx.usagePolicyFor(workspace), ctx.billingEnabled());
   });
 }
 
@@ -368,7 +370,7 @@ export async function updateWebSettings(
         occurredAt: now,
       });
       const updatedWorkspace = await ctx.mustWorkspace(entities, member.workspace_id);
-      return toWebSettings(updatedWorkspace, ctx.usagePolicyFor(updatedWorkspace));
+      return toWebSettings(updatedWorkspace, ctx.usagePolicyFor(updatedWorkspace), ctx.billingEnabled());
     },
   );
 }
