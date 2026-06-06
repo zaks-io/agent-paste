@@ -25,8 +25,6 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
-    defaultPendingMs: 100,
-    defaultPendingMinMs: 200,
     ...(nonce ? { ssr: { nonce } } : {}),
   });
 
