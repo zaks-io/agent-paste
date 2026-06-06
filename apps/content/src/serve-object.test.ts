@@ -1,6 +1,9 @@
+import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
-import { describe, expect, it } from "vitest";
-import type { Env } from "./env.js";
+import { type BoundRespondersVariables, boundRespondersMiddleware } from "@agent-paste/worker-runtime";
+import { Hono } from "hono";
+import { describe, expect, it, vi } from "vitest";
+import type { AppContext, Env } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import {
   bundleResponseHeaders,
@@ -13,6 +16,7 @@ import {
   isSafePath,
   objectKeyFor,
   responseHeadersForPath,
+  serveSignedObject,
 } from "./serve-object.js";
 
 const ETAG = '"test-etag"';
@@ -227,6 +231,36 @@ describe("serve-object noindex meta injection", () => {
 describe("serve-object object keys", () => {
   it("builds default artifact revision file keys", () => {
     expect(objectKeyFor(basePayload(), "index.html")).toBe("artifacts/art_1/revisions/rev_1/files/index.html");
+  });
+});
+
+describe("serve-object conditional responses", () => {
+  it("rejects invalid key_prefix before a matching If-None-Match can 304", async () => {
+    const get = vi.fn(async () => null);
+    const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
+    app.use("*", requestIdMiddleware());
+    app.use("*", boundRespondersMiddleware({ defaultErrorHeaders: () => ({}) }));
+    app.get("/file", (context) =>
+      serveSignedObject(
+        context as AppContext,
+        basePayload({
+          workspace_id: "ws_1",
+          paths: ["index.html"],
+          key_prefix: "artifacts/other/revisions/rev_1/files",
+        }),
+        "index.html",
+      ),
+    );
+
+    const etag = await contentEtag("rev_1", "index.html");
+    const response = await app.fetch(new Request("https://content.test/file", { headers: { "if-none-match": etag } }), {
+      CONTENT_SIGNING_SECRET: "secret",
+      DENYLIST: { get: async () => null },
+      ARTIFACTS: { get },
+    });
+
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
   });
 });
 

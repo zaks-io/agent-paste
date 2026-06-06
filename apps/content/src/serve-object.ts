@@ -90,6 +90,11 @@ export async function serveSignedObject(
   const env = context.env;
   const request = context.req.raw;
 
+  const key = objectKeyForPayload(payload, path);
+  if (!key) {
+    return getBoundResponders(context).respondError("not_found");
+  }
+
   const etag = await contentEtag(payload.revision_id, path);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
@@ -106,10 +111,6 @@ export async function serveSignedObject(
     );
   }
 
-  const key = objectKeyForPayload(payload, path);
-  if (!key) {
-    return getBoundResponders(context).respondError("not_found");
-  }
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
