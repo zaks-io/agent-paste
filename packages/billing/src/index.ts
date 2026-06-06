@@ -36,11 +36,26 @@ export {
   type BillingSyncActorId,
   type LocalBillingRow,
   loadLocalBillingRow,
+  loadLocalBillingRowBySubscription,
 } from "./sync.js";
 export {
   type StripeEvent,
   type StripeSignatureResult,
-  snapshotFromStripeEvent,
+  type StripeSubscriptionEventReference,
+  subscriptionReferenceFromStripeEvent,
   type VerifyStripeSignatureInput,
   verifyStripeSignature,
 } from "./webhook.js";
+export {
+  type ClaimStripeWebhookEventInput,
+  claimStripeWebhookEvent,
+  markStripeWebhookEventProcessed,
+  releaseStripeWebhookEventClaim,
+  type StripeWebhookEventClaim,
+} from "./webhook-ledger.js";
+export {
+  type ProcessStripeSubscriptionWebhookInput,
+  type ProcessStripeSubscriptionWebhookResult,
+  processStripeSubscriptionWebhook,
+  StripeWebhookEventInProgressError,
+} from "./webhook-processing.js";

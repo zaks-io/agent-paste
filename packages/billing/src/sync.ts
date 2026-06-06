@@ -174,3 +174,25 @@ export async function loadLocalBillingRow(executor: SqlExecutor, workspaceId: st
   );
   return result.rows[0] ?? null;
 }
+
+export async function loadLocalBillingRowBySubscription(
+  executor: SqlExecutor,
+  subscriptionId: string,
+): Promise<LocalBillingRow | null> {
+  const result = await executor.query<LocalBillingRow>(
+    `select
+       w.id as workspace_id,
+       w.plan,
+       w.plan_operator_override_at,
+       b.stripe_customer_id,
+       b.stripe_subscription_id,
+       b.subscription_status,
+       b.current_period_end,
+       b.price_interval
+     from workspace_billing b
+     inner join workspaces w on w.id = b.workspace_id
+     where b.stripe_subscription_id = $1`,
+    [subscriptionId],
+  );
+  return result.rows[0] ?? null;
+}

@@ -1,6 +1,3 @@
-import type { SubscriptionStatus } from "./plan.js";
-import { type BillingSubscriptionSnapshot, resolveCurrentPeriodEnd } from "./provider.js";
-
 const DEFAULT_TOLERANCE_SECONDS = 300;
 
 export type StripeSignatureResult =
@@ -59,56 +56,36 @@ export type StripeEvent = {
 
 type StripeSubscriptionObject = {
   id?: string;
-  status?: string;
   customer?: string | { id?: string };
-  current_period_end?: number | null;
   metadata?: Record<string, string>;
-  items?: {
-    data?: Array<{ current_period_end?: number | null; price?: { recurring?: { interval?: string } } }>;
-  };
 };
 
-const SUBSCRIPTION_EVENT_TYPES = new Set([
-  "customer.subscription.created",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-]);
+export type StripeSubscriptionEventReference = {
+  eventId: string;
+  eventType: string;
+  subscriptionId: string;
+  stripeCustomerId: string | null;
+  workspaceId: string | null;
+};
 
-/**
- * Map a subscription-lifecycle event to a snapshot. Returns `null` for irrelevant event types or
- * events missing the workspace_id metadata / a recognized status, so the webhook handler can 200
- * and ignore them. The reconcile/sync path's idempotency keying makes replays and out-of-order
- * delivery safe.
- */
-export function snapshotFromStripeEvent(event: StripeEvent): BillingSubscriptionSnapshot | null {
-  if (!event.type || !SUBSCRIPTION_EVENT_TYPES.has(event.type)) {
+export function subscriptionReferenceFromStripeEvent(event: StripeEvent): StripeSubscriptionEventReference | null {
+  if (!event.type?.startsWith("customer.subscription.")) {
+    return null;
+  }
+  if (!event.id) {
     return null;
   }
   const object = event.data?.object;
   if (!object?.id) {
     return null;
   }
-  const workspaceId = object.metadata?.workspace_id;
-  if (!workspaceId) {
-    return null;
-  }
-  const status = parseSubscriptionStatus(object.status);
-  if (!status) {
-    return null;
-  }
   const customerId = typeof object.customer === "string" ? object.customer : object.customer?.id;
-  if (!customerId) {
-    return null;
-  }
-  const interval = object.items?.data?.[0]?.price?.recurring?.interval;
-  const priceInterval = interval === "month" || interval === "year" ? interval : null;
   return {
-    workspaceId,
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: object.id,
-    status,
-    currentPeriodEnd: resolveCurrentPeriodEnd(object),
-    priceInterval,
+    eventId: event.id,
+    eventType: event.type,
+    subscriptionId: object.id,
+    stripeCustomerId: customerId ?? null,
+    workspaceId: object.metadata?.workspace_id ?? null,
   };
 }
 
@@ -165,20 +142,4 @@ function constantTimeEqualHex(a: string, b: string): boolean {
     diff |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
   }
   return diff === 0;
-}
-
-function parseSubscriptionStatus(value: string | undefined): SubscriptionStatus | null {
-  switch (value) {
-    case "active":
-    case "trialing":
-    case "past_due":
-    case "canceled":
-    case "unpaid":
-    case "incomplete":
-    case "incomplete_expired":
-    case "paused":
-      return value;
-    default:
-      return null;
-  }
 }

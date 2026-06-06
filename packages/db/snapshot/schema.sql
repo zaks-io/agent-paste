@@ -161,6 +161,18 @@ CREATE TABLE "safety_warnings" (
 	CONSTRAINT "safety_warnings_code_check" CHECK ("safety_warnings"."code" ~ '^[a-z0-9_]+$')
 );
 
+CREATE TABLE "stripe_webhook_events" (
+	"event_id" text PRIMARY KEY NOT NULL,
+	"event_type" text NOT NULL,
+	"stripe_subscription_id" text,
+	"stripe_customer_id" text,
+	"target_workspace_id" uuid,
+	"processing_started_at" timestamp with time zone NOT NULL,
+	"processed_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+
 CREATE TABLE "upload_session_files" (
 	"workspace_id" uuid NOT NULL,
 	"upload_session_id" text NOT NULL,
@@ -272,6 +284,8 @@ CREATE UNIQUE INDEX "revisions_artifact_number_unique" ON "revisions" USING btre
 CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btree ("artifact_id") WHERE "revisions"."status" = 'draft';
 CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
 CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
+CREATE INDEX "stripe_webhook_events_subscription_idx" ON "stripe_webhook_events" USING btree ("stripe_subscription_id");
+CREATE INDEX "stripe_webhook_events_processed_idx" ON "stripe_webhook_events" USING btree ("processed_at");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "workspace_billing_stripe_subscription_id_unique" ON "workspace_billing" USING btree ("stripe_subscription_id") WHERE "workspace_billing"."stripe_subscription_id" is not null;
 CREATE INDEX "workspace_billing_stripe_customer_idx" ON "workspace_billing" USING btree ("stripe_customer_id") WHERE "workspace_billing"."stripe_customer_id" is not null;

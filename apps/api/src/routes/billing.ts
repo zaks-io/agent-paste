@@ -6,7 +6,8 @@ import {
   type InvoiceSummary,
   type LocalBillingRow,
   loadLocalBillingRow,
-  snapshotFromStripeEvent,
+  processStripeSubscriptionWebhook,
+  StripeWebhookEventInProgressError,
   verifyStripeSignature,
 } from "@agent-paste/billing";
 import { resolveDailyNewArtifactAllowance } from "@agent-paste/config";
@@ -297,6 +298,7 @@ export async function billingWebhook(
   context: AppContext,
   _principal: Principal,
   executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
 ): Promise<Response> {
   const { respondError, respondJson } = getBoundResponders(context);
   const env = context.env;
@@ -314,26 +316,20 @@ export async function billingWebhook(
   if (!verified.ok) {
     return respondError("invalid_request");
   }
-  const snapshot = snapshotFromStripeEvent(verified.event);
-  if (!snapshot) {
-    return respondJson({ received: true });
-  }
   if (!executor) {
     return respondError("database_unavailable");
   }
   try {
-    await applyBillingSnapshot({
-      executor: rlsExecutor(executor, { kind: "workspace", workspaceId: snapshot.workspaceId }),
-      actorId: "stripe_webhook",
-      workspaceId: snapshot.workspaceId,
-      snapshot,
+    await processStripeSubscriptionWebhook({
+      platformExecutor: rlsExecutor(executor, { kind: "platform" }),
+      workspaceExecutor: (workspaceId) => rlsExecutor(executor, { kind: "workspace", workspaceId }),
+      provider,
+      event: verified.event,
       now: new Date().toISOString(),
     });
   } catch (error) {
-    // A subscription event for a workspace that no longer exists is terminal, not transient.
-    // 200 so Stripe stops retrying; anything else is a real failure worth a 5xx + retry.
-    if (error instanceof Error && error.message === "workspace_not_found") {
-      return respondJson({ received: true });
+    if (error instanceof StripeWebhookEventInProgressError) {
+      return respondError("database_unavailable");
     }
     throw error;
   }

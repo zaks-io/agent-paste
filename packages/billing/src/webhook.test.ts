@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { snapshotFromStripeEvent, verifyStripeSignature } from "./webhook.js";
+import { subscriptionReferenceFromStripeEvent, verifyStripeSignature } from "./webhook.js";
 
 const secret = "whsec_test_secret";
 
@@ -63,129 +63,73 @@ describe("verifyStripeSignature", () => {
   });
 });
 
-describe("snapshotFromStripeEvent", () => {
-  it("maps a subscription event with workspace metadata", () => {
-    const snapshot = snapshotFromStripeEvent({
+describe("subscriptionReferenceFromStripeEvent", () => {
+  it("extracts only identifiers from a subscription event", () => {
+    const reference = subscriptionReferenceFromStripeEvent({
       id: "evt_1",
       type: "customer.subscription.updated",
       data: {
         object: {
           id: "sub_1",
-          status: "active",
           customer: "cus_1",
-          current_period_end: 1_900_000_000,
           metadata: { workspace_id: "ws-1" },
-          items: { data: [{ price: { recurring: { interval: "year" } } }] },
         },
       },
     });
-    expect(snapshot).toMatchObject({
+    expect(reference).toEqual({
+      eventId: "evt_1",
+      eventType: "customer.subscription.updated",
+      subscriptionId: "sub_1",
       workspaceId: "ws-1",
       stripeCustomerId: "cus_1",
-      stripeSubscriptionId: "sub_1",
-      status: "active",
-      priceInterval: "year",
-      // No item-level period end here, so the legacy top-level field is the fallback.
-      currentPeriodEnd: new Date(1_900_000_000 * 1000).toISOString(),
     });
   });
 
-  it("reads the item-level current_period_end (Stripe API 2025-03-31+)", () => {
-    const itemPeriodEnd = 1_950_000_000;
-    const snapshot = snapshotFromStripeEvent({
-      id: "evt_item_period",
+  it("allows workspace and customer to be resolved after the current subscription fetch", () => {
+    const reference = subscriptionReferenceFromStripeEvent({
+      id: "evt_reference",
       type: "customer.subscription.updated",
-      data: {
-        object: {
-          id: "sub_item",
-          status: "active",
-          customer: "cus_1",
-          metadata: { workspace_id: "ws-1" },
-          // The subscription no longer carries current_period_end; only the item does.
-          items: { data: [{ current_period_end: itemPeriodEnd, price: { recurring: { interval: "month" } } }] },
-        },
-      },
+      data: { object: { id: "sub_item" } },
     });
-    expect(snapshot).toMatchObject({
-      currentPeriodEnd: new Date(itemPeriodEnd * 1000).toISOString(),
-      priceInterval: "month",
+    expect(reference).toMatchObject({ subscriptionId: "sub_item", workspaceId: null, stripeCustomerId: null });
+  });
+
+  it("treats any customer.subscription event as a current-state notification", () => {
+    const reference = subscriptionReferenceFromStripeEvent({
+      id: "evt_paused",
+      type: "customer.subscription.paused",
+      data: { object: { id: "sub_paused", customer: { id: "cus_paused" } } },
+    });
+    expect(reference).toMatchObject({
+      eventId: "evt_paused",
+      eventType: "customer.subscription.paused",
+      subscriptionId: "sub_paused",
+      stripeCustomerId: "cus_paused",
     });
   });
 
   it("returns null for irrelevant event types", () => {
-    expect(snapshotFromStripeEvent({ id: "evt_2", type: "invoice.paid", data: { object: { id: "in_1" } } })).toBeNull();
-  });
-
-  it("returns null when workspace metadata is missing", () => {
     expect(
-      snapshotFromStripeEvent({
-        id: "evt_3",
-        type: "customer.subscription.created",
-        data: { object: { id: "sub_2", status: "active", customer: "cus_2" } },
-      }),
-    ).toBeNull();
-  });
-
-  it("returns null for an unknown status", () => {
-    expect(
-      snapshotFromStripeEvent({
-        id: "evt_4",
-        type: "customer.subscription.updated",
-        data: { object: { id: "sub_3", status: "weird", customer: "cus_3", metadata: { workspace_id: "ws-3" } } },
-      }),
+      subscriptionReferenceFromStripeEvent({ id: "evt_2", type: "invoice.paid", data: { object: { id: "in_1" } } }),
     ).toBeNull();
   });
 
   it("returns null when the subscription object has no id", () => {
     expect(
-      snapshotFromStripeEvent({
+      subscriptionReferenceFromStripeEvent({
         id: "evt_x",
         type: "customer.subscription.updated",
-        data: { object: { status: "active", metadata: { workspace_id: "ws-x" } } },
+        data: { object: { metadata: { workspace_id: "ws-x" } } },
       }),
     ).toBeNull();
   });
 
-  it("returns null when the customer id is absent", () => {
+  it("returns null when the event has no id", () => {
     expect(
-      snapshotFromStripeEvent({
-        id: "evt_y",
+      subscriptionReferenceFromStripeEvent({
         type: "customer.subscription.updated",
-        data: { object: { id: "sub_y", status: "active", metadata: { workspace_id: "ws-y" } } },
+        data: { object: { id: "sub_y", customer: "cus_y", metadata: { workspace_id: "ws-y" } } },
       }),
     ).toBeNull();
-  });
-
-  it("maps a null currentPeriodEnd when the event omits current_period_end", () => {
-    const snapshot = snapshotFromStripeEvent({
-      id: "evt_no_period",
-      type: "customer.subscription.updated",
-      data: {
-        object: { id: "sub_np", status: "active", customer: "cus_np", metadata: { workspace_id: "ws-np" } },
-      },
-    });
-    expect(snapshot).toMatchObject({ workspaceId: "ws-np", currentPeriodEnd: null });
-  });
-
-  it("maps a deleted subscription to canceled-style snapshot with null period end", () => {
-    const snapshot = snapshotFromStripeEvent({
-      id: "evt_5",
-      type: "customer.subscription.deleted",
-      data: {
-        object: {
-          id: "sub_4",
-          status: "canceled",
-          customer: { id: "cus_4" },
-          current_period_end: null,
-          metadata: { workspace_id: "ws-4" },
-        },
-      },
-    });
-    expect(snapshot).toMatchObject({
-      workspaceId: "ws-4",
-      status: "canceled",
-      currentPeriodEnd: null,
-      priceInterval: null,
-    });
   });
 });
