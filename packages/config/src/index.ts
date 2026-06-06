@@ -34,6 +34,19 @@ export type WriteAllowanceTier = "ephemeral" | "free" | "pro";
 
 export const WORKSPACE_PLANS = ["free", "pro"] as const satisfies readonly WorkspacePlan[];
 
+export type AgentPasteEnv = "dev" | "preview" | "production";
+
+export function resolveAgentPasteEnv(value?: string | null): AgentPasteEnv {
+  if (value === "dev" || value === "preview") {
+    return value;
+  }
+  return "production";
+}
+
+export function isNonProductionAgentPasteEnv(value?: string | null): boolean {
+  return resolveAgentPasteEnv(value) !== "production";
+}
+
 const MB = 1024 * 1024;
 
 /** Shared caps that do not vary by Plan (rate limits are abuse ceilings, not Plan levers). */

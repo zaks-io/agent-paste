@@ -1,3 +1,4 @@
+import { isNonProductionAgentPasteEnv } from "@agent-paste/config";
 import type { SqlExecutor } from "@agent-paste/db";
 import { constantTimeEqual } from "@agent-paste/tokens/crypto";
 import { resolveSqlExecutor, withPlatformScope, withWorkspaceScope } from "./db.js";
@@ -34,8 +35,7 @@ export type LocalMvpRepository = {
 };
 
 export function isNonProductionEnv(env: Env): boolean {
-  const value = env.AGENT_PASTE_ENV;
-  return value !== undefined && value !== "production" && value !== "live";
+  return isNonProductionAgentPasteEnv(env.AGENT_PASTE_ENV);
 }
 
 export function authenticateSmokeHarness(request: Request, env: Env): boolean {

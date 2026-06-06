@@ -44,7 +44,7 @@ It generates and writes:
 - `UPLOAD_SIGNING_SECRET`
 - `ARTIFACT_BYTES_ENCRYPTION_KEY` (same value on `upload`, `content`, and `jobs`)
 - `API_KEY_PEPPER_V1`
-- `SMOKE_HARNESS_SECRET` (preview/production non-prod smoke only; not an operator credential)
+- `SMOKE_HARNESS_SECRET` (preview only; not an operator credential)
 
 Existing environments that were bootstrapped before artifact-byte encryption: run `node scripts/deploy.mjs preview` or `node scripts/deploy.mjs production` (ADR 0078). It binds `ARTIFACT_BYTES_ENCRYPTION_KEY` (and every other secret) to its consumer Workers — `upload`, `content`, and `jobs` — generating one value reused across all three, without re-running bootstrap.
 

@@ -10,7 +10,7 @@ The repo-local `ADMIN_TOKEN` `/admin/*` API and `agent-paste admin ...` CLI were
 
 ## Non-production smoke harness
 
-Preview, PR, and local smoke tests provision workspaces through `POST /__test__/provision-smoke` and related `__test__/*` helpers. Those routes are gated by `AGENT_PASTE_ENV` (not `production`/`live`) and `SMOKE_HARNESS_SECRET`. They are not operator credentials and must never be documented as a bootstrap path for humans.
+Preview, PR, and local smoke tests provision workspaces through `POST /__test__/provision-smoke` and related `__test__/*` helpers. Those routes are gated by an explicit `AGENT_PASTE_ENV` allowlist (`preview` or `dev`) and `SMOKE_HARNESS_SECRET`; unknown, empty, and production-like values resolve as production and disable the harness. They are not operator credentials and must never be documented as a bootstrap path for humans.
 
 Production hosted smoke uses a long-lived `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` GitHub secret instead of the harness.
 
