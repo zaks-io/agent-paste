@@ -98,7 +98,7 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { ready: false, reason: `ephemeral provision probe failed (${message})` };
+    return { ready: false, skip: false, reason: `ephemeral provision probe failed (${message})` };
   }
 
   let payload = {};
@@ -107,35 +107,36 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
   } catch {
     return {
       ready: false,
+      skip: false,
       reason: `ephemeral provision probe returned non-JSON HTTP ${response.status}`,
     };
   }
 
   if (response.status === 401 && payload?.error?.code === "pow_required" && payload?.challenge) {
-    return { ready: true, reason: null };
+    return { ready: true, skip: false, reason: null };
   }
   if (payload?.error?.code === "database_unavailable") {
     return {
       ready: false,
+      skip: true,
       reason: "EPHEMERAL_POW_SECRET is not configured on the API Worker (database_unavailable)",
     };
   }
   return {
     ready: false,
+    skip: false,
     reason: `unexpected ephemeral provision probe HTTP ${response.status} (${payload?.error?.code ?? "no error code"})`,
   };
 }
 
 /**
- * PR preview smoke must prove the provision path because it owns generated
- * per-PR Worker config. Shared preview/production can still skip when operators
- * have intentionally left the hosted ephemeral smoke unconfigured.
+ * Hosted smoke can skip only when operators have intentionally left the
+ * ephemeral provision secret unconfigured.
  *
- * @param {EphemeralHostedTarget} target
- * @param {{ ready: boolean }} readiness
+ * @param {{ ready: boolean, skip?: boolean }} readiness
  */
-export function shouldFailHostedEphemeralReadiness(target, readiness) {
-  return target === "pr" && !readiness.ready;
+export function shouldFailHostedEphemeralReadiness(readiness) {
+  return !readiness.ready && readiness.skip !== true;
 }
 
 export function assertNoClaimTokenLeakage(published, stderrOutput) {
