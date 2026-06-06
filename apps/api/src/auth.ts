@@ -17,7 +17,7 @@ import {
 } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
 import { verifyAgentViewTokenForEnv } from "./agent-view.js";
-import type { Env } from "./env.js";
+import { billingEnabled, type Env } from "./env.js";
 import { isOperator, verifyCfAccessServiceToken } from "./operator.js";
 import type { RouteId } from "./route-contracts.js";
 import { apiDatabase, postgresRuntime } from "./runtime.js";
@@ -94,6 +94,10 @@ export function createApiAuthResolvers(): AuthResolvers {
     },
     async stripe_webhook_signature(context: Context) {
       const env = context.env as Env;
+      // Billing disabled makes the route disappear before signature or DB work.
+      if (!billingEnabled(env)) {
+        return { ok: false, code: "not_found" } as const;
+      }
       // Off-by-config: with no signing secret the route does not exist to callers.
       if (!env.STRIPE_WEBHOOK_SIGNING_SECRET) {
         return { ok: false, code: "not_found" } as const;

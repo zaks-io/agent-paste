@@ -313,6 +313,28 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
   });
 
+  it.each([
+    ["unset", {}, {}],
+    ["unset", {}, { "Stripe-Signature": "t=1,v1=deadbeef" }],
+    ["false", { BILLING_ENABLED: "false" }, {}],
+    ["false", { BILLING_ENABLED: "false" }, { "Stripe-Signature": "t=1,v1=deadbeef" }],
+  ] as const)("returns not_found before webhook auth or DB resolution when billing is %s", async (_label, billingFlag, headers) => {
+    const response = await handleRequest(
+      new Request("https://api.test/v1/billing/webhook", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ id: "evt_disabled_billing" }),
+      }),
+      {
+        ...billingFlag,
+        STRIPE_WEBHOOK_SIGNING_SECRET: "whsec_test",
+      },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
   it("requires read scope for authenticated Agent View", async () => {
     const env: Env = {
       AUTH: {
