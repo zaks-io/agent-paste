@@ -180,6 +180,7 @@ function apiConfig() {
     ratelimits: [
       rateLimit("ACTOR_RATE_LIMIT", `4${prNumber}001`, 60, 60),
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
+      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60),
       rateLimit("EPHEMERAL_PROVISION_IP_RATE_LIMIT", `4${prNumber}004`, 10, 60),
       rateLimit("EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT", `4${prNumber}005`, 17, 60),
     ],

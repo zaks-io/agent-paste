@@ -53,6 +53,11 @@ describe("deploy-pr-preview generated API config", () => {
       expect(api.ratelimits).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
+            name: "ARTIFACT_RATE_LIMIT",
+            namespace_id: `4${prNumber}003`,
+            simple: { limit: 60, period: 60 },
+          }),
+          expect.objectContaining({
             name: "EPHEMERAL_PROVISION_IP_RATE_LIMIT",
             simple: { limit: 10, period: 60 },
           }),
