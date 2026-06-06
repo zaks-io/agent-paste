@@ -1313,6 +1313,7 @@ describe("api worker", () => {
           return {
             workspace_name: input.workspaceName,
             auto_deletion_days: input.autoDeletionDays,
+            auto_deletion_bounds: { min_days: 1, max_days: 7 },
             usage_policy: { artifacts_per_day: 0, bytes_per_day: 26_214_400 },
           };
         },

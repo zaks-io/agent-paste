@@ -14,13 +14,14 @@ import { ToastProvider } from "../src/components/ui/ToastProvider";
 const settings: WebSettingsResponse = {
   workspace_name: "Personal",
   auto_deletion_days: 3,
+  auto_deletion_bounds: { min_days: 1, max_days: 7 },
   usage_policy: { artifacts_per_day: 100, bytes_per_day: 1000 },
 };
 
-function renderForm() {
+function renderForm(input: WebSettingsResponse = settings) {
   return render(
     <ToastProvider>
-      <SettingsForm settings={settings} />
+      <SettingsForm settings={input} />
     </ToastProvider>,
   );
 }
@@ -59,12 +60,29 @@ describe("SettingsForm", () => {
 
   it("rejects out-of-range auto-deletion days client-side without calling the server", async () => {
     const { container } = renderForm();
-    fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "200" } });
+    const autoDeletionInput = screen.getByLabelText("Auto-deletion (days)");
+    expect(autoDeletionInput).toHaveAttribute("max", "7");
+
+    fireEvent.change(autoDeletionInput, { target: { value: "8" } });
     // Submit the form directly: native max=7 constraint validation would otherwise
     // block a button click, but the JS guard is our real defense-in-depth here.
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
 
     await waitFor(() => expect(screen.getByText("Invalid auto-deletion")).toBeInTheDocument());
+    expect(screen.getByText("Enter a whole number between 1 and 7.")).toBeInTheDocument();
     expect(saveSettingsFn).not.toHaveBeenCalled();
+  });
+
+  it("uses Pro bounds when the settings response advertises them", async () => {
+    saveSettingsFn.mockResolvedValue({ data: { ...settings, auto_deletion_days: 90 }, error: null });
+    renderForm({ ...settings, auto_deletion_days: 30, auto_deletion_bounds: { min_days: 1, max_days: 90 } });
+
+    const autoDeletionInput = screen.getByLabelText("Auto-deletion (days)");
+    expect(autoDeletionInput).toHaveAttribute("max", "90");
+    fireEvent.change(autoDeletionInput, { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledOnce());
+    expect(saveSettingsFn).toHaveBeenCalledWith({ data: { workspace_name: "Personal", auto_deletion_days: 90 } });
   });
 });

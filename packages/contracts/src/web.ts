@@ -1,4 +1,3 @@
-import { resolveUsagePolicy } from "@agent-paste/config";
 import { AccessLinkId, AccessLinkType } from "./accessLinks.js";
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
@@ -9,10 +8,10 @@ import { RenderMode } from "./revisions.js";
 import { UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
-const SECONDS_PER_DAY = 24 * 60 * 60;
-const PLATFORM_USAGE_POLICY = resolveUsagePolicy({ billingEnabled: false });
-const MIN_AUTO_DELETION_DAYS = Math.floor(PLATFORM_USAGE_POLICY.min_ttl_seconds / SECONDS_PER_DAY);
-const MAX_AUTO_DELETION_DAYS = Math.floor(PLATFORM_USAGE_POLICY.max_ttl_seconds / SECONDS_PER_DAY);
+const MIN_AUTO_DELETION_DAYS = 1;
+// Static request validation is syntax-only. Repository policy enforces the
+// effective Free/Pro bounds for the authenticated workspace.
+const MAX_AUTO_DELETION_DAYS = 90;
 
 export const WorkspaceMemberId = z
   .string()
@@ -152,6 +151,10 @@ export type WebOperatorEventListResponse = z.infer<typeof WebOperatorEventListRe
 export const WebSettingsResponse = z.object({
   workspace_name: z.string().min(1),
   auto_deletion_days: z.number().int().positive(),
+  auto_deletion_bounds: z.object({
+    min_days: z.number().int().positive(),
+    max_days: z.number().int().positive(),
+  }),
   usage_policy: z.object({
     artifacts_per_day: z.number().int().nonnegative(),
     bytes_per_day: z.number().int().nonnegative(),

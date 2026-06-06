@@ -14,13 +14,19 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
   const [name, setName] = useState(settings.workspace_name);
   const [days, setDays] = useState(String(settings.auto_deletion_days));
   const [pending, setPending] = useState(false);
+  const minAutoDeletionDays = settings.auto_deletion_bounds.min_days;
+  const maxAutoDeletionDays = settings.auto_deletion_bounds.max_days;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
     const parsedDays = Number(days);
-    if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 90) {
-      push({ tone: "error", title: "Invalid auto-deletion", message: "Enter a whole number between 1 and 90." });
+    if (!Number.isInteger(parsedDays) || parsedDays < minAutoDeletionDays || parsedDays > maxAutoDeletionDays) {
+      push({
+        tone: "error",
+        title: "Invalid auto-deletion",
+        message: `Enter a whole number between ${minAutoDeletionDays} and ${maxAutoDeletionDays}.`,
+      });
       return;
     }
     setPending(true);
@@ -62,8 +68,8 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
           <Input
             id="auto-deletion-days"
             type="number"
-            min={1}
-            max={90}
+            min={minAutoDeletionDays}
+            max={maxAutoDeletionDays}
             value={days}
             onChange={(event) => setDays(event.target.value)}
             disabled={pending}

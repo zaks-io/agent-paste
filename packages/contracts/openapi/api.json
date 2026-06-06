@@ -3122,6 +3122,23 @@
             "type": "integer",
             "exclusiveMinimum": 0
           },
+          "auto_deletion_bounds": {
+            "type": "object",
+            "properties": {
+              "min_days": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "max_days": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "min_days",
+              "max_days"
+            ]
+          },
           "usage_policy": {
             "type": "object",
             "properties": {
@@ -3143,6 +3160,7 @@
         "required": [
           "workspace_name",
           "auto_deletion_days",
+          "auto_deletion_bounds",
           "usage_policy"
         ]
       },
@@ -3157,7 +3175,7 @@
           "auto_deletion_days": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 7
+            "maximum": 90
           }
         },
         "required": [

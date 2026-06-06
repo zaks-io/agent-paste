@@ -81,7 +81,11 @@ describe("web server mutations", () => {
     state.apiFetch
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, secret: "secret" })
       .mockResolvedValueOnce({ api_key: { id: "key_1" }, revoked_at: "2026-01-01T00:00:00.000Z" })
-      .mockResolvedValueOnce({ workspace_name: "Demo", auto_deletion_days: 7 })
+      .mockResolvedValueOnce({
+        workspace_name: "Demo",
+        auto_deletion_days: 7,
+        auto_deletion_bounds: { min_days: 1, max_days: 7 },
+      })
       .mockResolvedValueOnce(lockdownRow())
       .mockResolvedValueOnce({ ...lockdownRow(), lifted_at: "2026-01-01T00:00:00.000Z" });
 

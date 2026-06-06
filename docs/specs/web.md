@@ -141,7 +141,11 @@ Columns:
 Fields:
 
 - Workspace name.
-- Auto Deletion days, min 1 and max 90.
+- Auto Deletion days, min 1. The settings response includes the effective max
+  for the current **Workspace**: Free and billing-off launch workspaces cap at
+  7 days; Pro workspaces with billing enabled cap at 90 days. The static route
+  contract accepts the platform syntactic ceiling of 90 and repository policy
+  enforces the effective per-workspace bound.
 - Read-only Usage Policy caps.
 
 ## Access Link Viewer

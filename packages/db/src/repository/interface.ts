@@ -99,6 +99,7 @@ type WebAccessLinkListView = {
 type WebSettings = {
   workspace_name: string;
   auto_deletion_days: number;
+  auto_deletion_bounds: { min_days: number; max_days: number };
   usage_policy: { artifacts_per_day: number; bytes_per_day: number };
 };
 
