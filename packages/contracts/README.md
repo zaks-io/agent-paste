@@ -1,6 +1,6 @@
 # @agent-paste/contracts
 
-Canonical contract definitions for the MVP.
+Canonical contract definitions for the hosted service.
 
 This package intentionally contains schemas and registries only. It does not contain HTTP handlers, database access, service clients, or runtime business logic.
 
@@ -15,7 +15,5 @@ This package intentionally contains schemas and registries only. It does not con
 - `uploadSessions.ts`: upload-session create/finalize schemas and MVP Publish Result.
 - `apiKeys.ts`: admin-created API Key schemas.
 - `workspace.ts`: workspace, usage policy, and whoami schemas.
-- `routes.ts`: MVP route registry for `api`, `upload`, `content`, and internal admin routes.
+- `routes.ts`: route registry for `api`, `upload`, `content`, web dashboard, billing, and operator routes.
 - `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, twelve-tool registry, error mapping, and forwarded API call plans (ADR 0061).
-
-Future dashboard, Access Link lifecycle, bundle, safety warning, multi-revision, and app-layer encryption contracts are intentionally not exported by this MVP package beyond what MCP and current REST surfaces already need.

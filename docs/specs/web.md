@@ -48,6 +48,12 @@ No token, authorization code, PKCE verifier, state, or one-time API Key secret m
 
 On every authed request, `api` verifies the forwarded WorkOS access token and resolves the caller's identity. The dashboard client's WorkOS JWT Template emits a `zaks-io:email` claim, so `api` reads the email straight from the verified token (the `sub` is the authoritative user id) and does **not** call the WorkOS user API. CLI and MCP tokens have no such template and fall back to `GET /user_management/users/{id}`. Member `scopes` (in-workspace authorization) always come from the database, never the token; operator status comes from the WorkOS `role` claim. See [ADR 0082](../adr/0082-identity-in-token-authorization-in-db.md). The residual ~1–2.7s sometimes seen on authed routes pre-launch is cold isolate + cold Hyperdrive connection warmup (it disappears under continuous traffic), not the auth path.
 
+Read-only Workspace Members can list Access Links workspace-wide and per
+Artifact. Access Link management mutations - create, mint, revoke, Access Link
+Lockdown set, and Access Link Lockdown lift - require the current API-side
+representation of the share capability: the member `admin` scope resolved from
+the database, not WorkOS token text.
+
 After first provisioning, `POST /v1/auth/web/callback` receives the default API Key plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 
 The first-run card includes:

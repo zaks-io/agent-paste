@@ -2925,31 +2925,73 @@ describe("web Access Link routes", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
   });
 
-  it("rejects members without the read scope on access link create", async () => {
+  it.each([
+    [
+      "create",
+      `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": "idem-al-create-read-only" },
+        body: JSON.stringify({ type: "share" }),
+      },
+    ],
+    ["mint", `https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/mint`, { method: "POST", headers: {} }],
+    ["revoke", `https://api.test/v1/web/access-links/${ACCESS_LINK_ID}/revoke`, { method: "POST", headers: {} }],
+    [
+      "lockdownSet",
+      `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown`,
+      { method: "POST", headers: { "idempotency-key": "idem-lockdown-read-only" } },
+    ],
+    [
+      "lockdownLift",
+      `https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown/lift`,
+      { method: "POST", headers: { "idempotency-key": "idem-lockdown-lift-read-only" } },
+    ],
+  ])("rejects read-only members before web access link %s mutations run", async (_label, url, init) => {
+    const createMemberAccessLink = vi.fn(async () => {
+      throw new Error("create should not run for a read-only member");
+    });
+    const mintMemberAccessLink = vi.fn(async () => {
+      throw new Error("mint should not run for a read-only member");
+    });
+    const revokeMemberAccessLink = vi.fn(async () => {
+      throw new Error("revoke should not run for a read-only member");
+    });
+    const setMemberAccessLinkLockdown = vi.fn(async () => {
+      throw new Error("lockdown should not run for a read-only member");
+    });
     const env: Env = {
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["publish"], {
-        async createMemberAccessLink() {
-          throw new Error("create should not run without the read scope");
-        },
+      DB: webMemberDbForTests(["read"], {
+        createMemberAccessLink,
+        mintMemberAccessLink,
+        revokeMemberAccessLink,
+        setMemberAccessLinkLockdown,
       }),
+      DENYLIST: {
+        put: vi.fn(async () => undefined),
+        delete: vi.fn(async () => undefined),
+      },
     };
 
     const response = await handleRequest(
-      new Request(`https://api.test/v1/web/artifacts/${ARTIFACT_ID}/access-links`, {
-        method: "POST",
+      new Request(url, {
+        ...init,
         headers: {
           authorization: "Bearer workos-ok",
-          "content-type": "application/json",
-          "idempotency-key": "idem-no-read",
+          ...init.headers,
         },
-        body: JSON.stringify({ type: "share" }),
       }),
       env,
     );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+    expect(createMemberAccessLink).not.toHaveBeenCalled();
+    expect(mintMemberAccessLink).not.toHaveBeenCalled();
+    expect(revokeMemberAccessLink).not.toHaveBeenCalled();
+    expect(setMemberAccessLinkLockdown).not.toHaveBeenCalled();
   });
 
   it("lists access links for an artifact and 404s when the artifact is unknown", async () => {
@@ -2986,7 +3028,7 @@ describe("web Access Link routes", () => {
   it("creates an access link from the member workspace", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async createMemberAccessLink(input) {
           expect(input).toMatchObject({ artifactId: ARTIFACT_ID, type: "share", idempotencyKey: "idem-al-create" });
           return {
@@ -3020,7 +3062,7 @@ describe("web Access Link routes", () => {
   it("returns database_unavailable when the access link signer is unset on mint", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async mintMemberAccessLink() {
           throw new Error("mint should not run without a signer");
         },
@@ -3043,7 +3085,7 @@ describe("web Access Link routes", () => {
     const env: Env = {
       ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async mintMemberAccessLink(input) {
           expect(input).toMatchObject({ accessLinkId: ACCESS_LINK_ID });
           return { url: `https://app.agent-paste.sh/al/0123456789ABCDEF#blob` };
@@ -3067,7 +3109,7 @@ describe("web Access Link routes", () => {
     const puts: Array<{ key: string; value: string; expirationTtl?: number }> = [];
     const env: Env = {
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async revokeMemberAccessLink(input) {
           expect(input).toMatchObject({ accessLinkId: ACCESS_LINK_ID });
           return { access_link_id: ACCESS_LINK_ID, revoked_at: "2026-01-02T00:00:00.000Z" };
@@ -3100,7 +3142,7 @@ describe("web Access Link routes", () => {
   it("maps a concurrent revoke collision to idempotency_in_flight", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async revokeMemberAccessLink() {
           throw new IdempotencyInFlightError();
         },
@@ -3127,7 +3169,7 @@ describe("web Access Link routes", () => {
     const deletes: string[] = [];
     const env: Env = {
       AUTH: webAuthForTests(),
-      DB: webMemberDbForTests(["read"], {
+      DB: webMemberDbForTests(["publish", "read", "admin"], {
         async setMemberAccessLinkLockdown(input) {
           expect(input).toMatchObject({ artifactId: ARTIFACT_ID, locked: expectedLocked });
           return {
