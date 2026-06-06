@@ -392,7 +392,7 @@ _Avoid_: tenant context, RLS scope, query scope
 
 <a id="scoped-view"></a>
 **Scoped View**:
-The local repository backend's enforcement of a **Run Scope**: a view over in-memory state that exposes only rows belonging to the run's **Workspace** (or all rows under the platform **Run Scope**). It is the local analogue of Postgres RLS. A foreign **read** returns nothing (RLS-faithful); a foreign **write** that carries an explicit `workspace_id` (an insert, or a mutation taking a workspace argument) throws, so a cross-tenant write surfaces loudly as a failing test rather than a silent no-op. This deliberately makes the local backend a bug detector, not a faithful RLS emulator ([ADR 0083](./docs/adr/0083-local-repository-backend-enforces-run-scope.md)).
+The local repository backend's enforcement of a **Run Scope**: a view over in-memory state that exposes only rows belonging to the run's **Workspace** (or all rows under the platform **Run Scope**). It is the local analogue of Postgres RLS. A foreign **read** returns nothing (RLS-faithful); a foreign **insert** (the one path that writes a full row through `set()`) throws, so a cross-tenant insert surfaces loudly as a failing test; every other foreign mutation is get-then-mutate, so the invisible row makes it a silent no-op. This deliberately makes the local backend a bug detector, not a faithful RLS emulator ([ADR 0083](./docs/adr/0083-local-repository-backend-enforces-run-scope.md)).
 _Avoid_: tenant filter, RLS shim, scoped map
 
 ## Relationships
