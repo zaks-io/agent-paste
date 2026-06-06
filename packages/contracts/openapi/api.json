@@ -3295,6 +3295,7 @@
               "api_key",
               "upload_session",
               "artifact",
+              "revision",
               "cleanup"
             ]
           }
@@ -3367,6 +3368,7 @@
                     "api_key",
                     "upload_session",
                     "artifact",
+                    "revision",
                     "cleanup"
                   ]
                 }
@@ -19210,6 +19212,7 @@
                 "api_key",
                 "upload_session",
                 "artifact",
+                "revision",
                 "cleanup"
               ]
             },
