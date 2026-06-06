@@ -1,6 +1,12 @@
 import { RepositoryError } from "@agent-paste/db";
 import { countLeadingZeroBits, issuePowChallenge, type PowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { describe, expect, it, vi } from "vitest";
+import type { Env } from "../src/env.js";
+import { EPHEMERAL_PROVISION_LIMIT_PER_MINUTE } from "../src/ephemeral-provision-gate.js";
+import {
+  createMemoryEphemeralProvisionGateNamespace,
+  resetMemoryEphemeralProvisionGate,
+} from "../src/ephemeral-provision-gate-memory.js";
 import { handleRequest } from "../src/index.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
@@ -31,7 +37,6 @@ describe("ephemeral provision route", () => {
       }),
       {
         EPHEMERAL_POW_SECRET: powSecret,
-        DENYLIST: memoryKv(),
         EPHEMERAL_PROVISION_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
         EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: { limit: async () => ({ success: true }) },
         DB: { getWhoami: vi.fn(), createEphemeralWorkspace: vi.fn() } as never,
@@ -44,9 +49,37 @@ describe("ephemeral provision route", () => {
     });
   });
 
+  it("lets the Durable Object, not the native global limiter, enforce the 18th valid provision", async () => {
+    resetMemoryEphemeralProvisionGate();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+    const nativeGlobalLimit = vi.fn(async () => ({ success: true }));
+    const env: Env = {
+      EPHEMERAL_POW_SECRET: powSecret,
+      EPHEMERAL_PROVISION_GATE:
+        createMemoryEphemeralProvisionGateNamespace() as unknown as Env["EPHEMERAL_PROVISION_GATE"],
+      EPHEMERAL_PROVISION_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
+      EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: { limit: nativeGlobalLimit },
+      DB: { getWhoami: vi.fn(), createEphemeralWorkspace } as never,
+    };
+
+    for (let index = 0; index < EPHEMERAL_PROVISION_LIMIT_PER_MINUTE; index += 1) {
+      const response = await handleRequest(await validProvisionRequest(), env);
+      expect(response.status).toBe(201);
+    }
+
+    const limited = await handleRequest(await validProvisionRequest(), env);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toMatch(/^\d+$/);
+    await expect(limited.json()).resolves.toMatchObject({
+      error: { code: "ephemeral_provision_rate_limited" },
+    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE);
+    expect(nativeGlobalLimit).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE + 1);
+  });
+
   it("returns a challenge when proof-of-work is missing", async () => {
     const response = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: memoryKv() } }),
+      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret } }),
       {} as never,
       guardFor({}),
     );
@@ -61,7 +94,7 @@ describe("ephemeral provision route", () => {
     const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
     const counter = await findInvalidPowCounter(challenge);
     const response = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: memoryKv() } }),
+      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret } }),
       {} as never,
       guardFor({
         challenge,
@@ -71,71 +104,30 @@ describe("ephemeral provision route", () => {
     expect(response.status).toBe(400);
     await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "pow_invalid" } });
   });
-
-  it("mints workspace credentials after a valid solution", async () => {
-    const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
-    const counter = await solvePowChallenge(challenge);
-    const createEphemeralWorkspace = vi.fn(async () => ({
-      workspace: { id: "00000000-0000-4000-8000-000000000099" },
-      api_key: { id: "key_ephemeral" },
-      api_key_secret: "ap_pk_preview_test_secret",
-      claim_token: { id: "ct_ephemeral" },
-      claim_token_secret: "ap_ct_preview_claim_secret",
-    }));
-
-    const response = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: memoryKv() } }),
-      { createEphemeralWorkspace } as never,
-      guardFor({
-        challenge,
-        solution: { nonce: challenge.nonce, counter },
-      }),
-    );
-
-    expect(response.status).toBe(201);
-    await expect(responseJson(response)).resolves.toEqual({
-      api_key_secret: "ap_pk_preview_test_secret",
-      claim_token: "ap_ct_preview_claim_secret",
-      workspace_id: "00000000-0000-4000-8000-000000000099",
-      api_key_id: "key_ephemeral",
-      claim_token_id: "ct_ephemeral",
-    });
-    expect(createEphemeralWorkspace).toHaveBeenCalledWith({
-      idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
-    });
-  });
-
-  it("rejects replayed nonces", async () => {
-    const kv = memoryKv();
-    const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
-    const counter = await solvePowChallenge(challenge);
-    const body = { challenge, solution: { nonce: challenge.nonce, counter } };
-    const db = {
-      createEphemeralWorkspace: vi.fn(async () => ({
-        workspace: { id: "ws" },
-        api_key: { id: "key" },
-        api_key_secret: "secret",
-        claim_token: { id: "ct" },
-        claim_token_secret: "claim",
-      })),
-    };
-
-    const first = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: kv } }),
-      db as never,
-      guardFor(body),
-    );
-    expect(first.status).toBe(201);
-
-    const replay = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, DENYLIST: kv } }),
-      db as never,
-      guardFor(body),
-    );
-    expect(replay.status).toBe(400);
-    expect(db.createEphemeralWorkspace).toHaveBeenCalledTimes(1);
-  });
 });
+
+async function validProvisionRequest(): Promise<Request> {
+  const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 1 });
+  const counter = await solvePowChallenge(challenge);
+  return new Request("https://api.test/v1/ephemeral/provision", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      challenge,
+      solution: { nonce: challenge.nonce, counter },
+    }),
+  });
+}
+
+function ephemeralWorkspaceFixture() {
+  return {
+    workspace: { id: "00000000-0000-4000-8000-000000000099" },
+    api_key: { id: "key_ephemeral" },
+    api_key_secret: "ap_pk_preview_test_secret",
+    claim_token: { id: "ct_ephemeral" },
+    claim_token_secret: "ap_ct_preview_claim_secret",
+  };
+}
 
 describe("ephemeral claim route", () => {
   it("redeems a claim token for an authenticated member", async () => {
@@ -253,23 +245,9 @@ describe("ephemeral claim route", () => {
       }),
       {
         EPHEMERAL_POW_SECRET: powSecret,
-        DENYLIST: memoryKv(),
         DB: { claimEphemeralWorkspace: vi.fn() } as never,
       },
     );
     expect(response.status).toBe(401);
   });
 });
-
-function memoryKv() {
-  const store = new Map<string, string>();
-  return {
-    get: async (key: string) => store.get(key) ?? null,
-    put: async (key: string, value: string) => {
-      store.set(key, value);
-    },
-    delete: async (key: string) => {
-      store.delete(key);
-    },
-  };
-}

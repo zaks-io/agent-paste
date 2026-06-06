@@ -126,6 +126,18 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
   };
 }
 
+/**
+ * PR preview smoke must prove the provision path because it owns generated
+ * per-PR Worker config. Shared preview/production can still skip when operators
+ * have intentionally left the hosted ephemeral smoke unconfigured.
+ *
+ * @param {EphemeralHostedTarget} target
+ * @param {{ ready: boolean }} readiness
+ */
+export function shouldFailHostedEphemeralReadiness(target, readiness) {
+  return target === "pr" && !readiness.ready;
+}
+
 export function assertNoClaimTokenLeakage(published, stderrOutput) {
   const claimToken = published.claim_token;
   assertBoundary(claimToken?.startsWith("ap_ct_"), "publish", "JSON output includes Claim Token");

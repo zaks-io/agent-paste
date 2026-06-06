@@ -49,9 +49,12 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 ## Provision Flow
 
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
-   If the provision rate-limit bindings are unavailable, the endpoint fails
-   closed with `ephemeral_provision_unavailable` and `Retry-After` instead of
-   minting credentials.
+   A single-shard Durable Object gate is the authoritative hard global ceiling
+   for provisioning, initially fixed at 17 successful provisions per minute. If
+   the gate binding, request, storage, or response is unavailable or invalid,
+   the endpoint fails closed with `ephemeral_provision_unavailable` and
+   `Retry-After` instead of minting credentials. Exhausting the gate returns
+   `ephemeral_provision_rate_limited` and does not create tenant state.
 2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
    - mints an **API Key** (`ap_pk_{env}_{publicId}_{secret}`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)) with `write` + `read` **Scopes**, short **Expiration**;
@@ -84,7 +87,7 @@ Ordered by priority; each is invisible to honest agents or felt only at volume.
 
 1. **Isolated Content Origin + Execution Policy** - already in place ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
 2. **Shortest ephemeral Auto Deletion** - caps content dwell time; primary lever against phishing/malware/SEO value.
-3. **Native `[[ratelimits]]` write dampening** per source ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)), with a Durable Object counter for any cap needing a strongly consistent global ceiling. A global circuit breaker on aggregate ephemeral writes is the backstop when per-source is evaded.
+3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, **API Key**, or **Claim Token** is created.
 4. **`noindex`/`nofollow`** on ephemeral content.
 5. **Advisory warning and URL Scanner signals** - built-in warning rules, dormant-script warnings, Llama Guard, and Cloudflare URL Scanner can support reader warnings or abuse response. Containment does not depend on them.
 

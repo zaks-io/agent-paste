@@ -2,6 +2,7 @@ import type { RequestIdVariables, WebCallbackIdentity } from "@agent-paste/auth"
 import type { ApiKeyActor, HyperdriveBinding, Repository } from "@agent-paste/db";
 import type { AnalyticsEngineDataset, BoundRespondersVariables } from "@agent-paste/worker-runtime";
 import type { Context } from "hono";
+import type { EphemeralProvisionGateNamespace } from "./ephemeral-provision-gate.js";
 
 export type AuthService = {
   verifyApiKey(apiKey: string): Promise<ApiKeyActor | null>;
@@ -60,6 +61,7 @@ export type Env = {
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
   EPHEMERAL_PROVISION_IP_RATE_LIMIT?: RateLimitBinding;
   EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT?: RateLimitBinding;
+  EPHEMERAL_PROVISION_GATE?: EphemeralProvisionGateNamespace;
   EPHEMERAL_POW_SECRET?: string;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
   SAFETY_SCAN_QUEUE?: { send(message: unknown): Promise<unknown> };

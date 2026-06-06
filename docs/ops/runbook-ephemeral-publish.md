@@ -252,7 +252,8 @@ Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephem
 | ------------------------------------------------- | ---------- | ---------------------------------------------------------- |
 | `EPHEMERAL_POW_SECRET`                            | `api`      | Sign and verify lightweight provision challenges           |
 | `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                 |
-| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Global provision backstop                                  |
+| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                         |
+| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global 17/min Durable Object provision ceiling        |
 | `AI`                                              | `jobs`     | Optional Llama Guard warning signal                        |
 | `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                   |
 | `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                 |
@@ -265,14 +266,15 @@ Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 
 ## Failure modes
 
-| Symptom                                        | Likely cause                                          | Action                                                   |
-| ---------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| Provision probe returns `database_unavailable` | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                 |
-| Hosted smoke exits 0 with "skipped"            | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof |
-| CLI `--ephemeral` rate limited                 | Provision abuse or per-IP cap                         | Retry with backoff; investigate source IP volume         |
-| Claim returns 404                              | Redeemed, expired, or invalid token                   | See support table; no token recovery                     |
-| Content executes script                        | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL       |
-| Unexpected scanner lockdown                    | Malicious URL Scanner verdict on ephemeral content    | Review Artifact and lift only after remediation          |
+| Symptom                                                   | Likely cause                                          | Action                                                                         |
+| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker          | Set secret, redeploy `api`, re-run smoke                                       |
+| Provision probe returns `ephemeral_provision_unavailable` | Missing or failing `EPHEMERAL_PROVISION_GATE` binding | Verify Wrangler Durable Object binding/migration, redeploy `api`, re-run smoke |
+| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` | Configure secrets; do not treat skip as production proof                       |
+| CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap            | Retry with backoff; investigate source and aggregate volume                    |
+| Claim returns 404                                         | Redeemed, expired, or invalid token                   | See support table; no token recovery                                           |
+| Content executes script                                   | Claimed tenant or wrong tier token                    | Verify `claimed_at`, re-fetch CSP from content URL                             |
+| Unexpected scanner lockdown                               | Malicious URL Scanner verdict on ephemeral content    | Review Artifact and lift only after remediation                                |
 
 ## Verification boundary
 
