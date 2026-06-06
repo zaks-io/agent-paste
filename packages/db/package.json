@@ -17,9 +17,10 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "check": "pnpm typecheck && pnpm test",
-    "db:check": "node scripts/introspect-check.mjs",
+    "db:check": "node scripts/introspect-check.mjs && node scripts/check-rls-coverage.mjs",
     "lint": "biome lint .",
     "migrate": "node scripts/migrate.mjs",
+    "rls:check": "node scripts/check-rls-coverage.mjs",
     "test": "vitest run src scripts",
     "test:coverage": "vitest run src scripts --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"

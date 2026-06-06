@@ -161,6 +161,12 @@ export async function verifyApiKey(ctx: RepositoryCoreContext, apiKeySecret: str
   if (!ok) {
     return null;
   }
+  const lockdown = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
+    entities.platformLockdowns.findEffective("workspace", record.workspace_id),
+  );
+  if (lockdown) {
+    return null;
+  }
   await ctx.uow.read(workspaceScope(record.workspace_id), (entities) =>
     entities.apiKeys.updateLastUsedAt(record.id, new Date().toISOString()),
   );

@@ -26,7 +26,7 @@ function commandKey(input: {
 type IdempotencyEntry = { kind: "in_flight" } | { kind: "completed"; value: unknown };
 
 // The local backend has no real transactions, but it enforces the Run Scope through a
-// Scoped View (ADR 0082): each read/command binds the entity adapters to a scope-filtered
+// Scoped View (ADR 0083): each read/command binds the entity adapters to a scope-filtered
 // view of the in-memory state, so a foreign read returns nothing and a foreign write
 // throws. Idempotency claims the command key before the handler runs, rejects concurrent
 // same-key calls with IdempotencyInFlightError (matching Postgres 409 semantics), and

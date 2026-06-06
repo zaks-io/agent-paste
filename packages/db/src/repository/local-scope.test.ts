@@ -59,7 +59,7 @@ function seed(): LocalState {
 const homeScope: RunScope = { kind: "workspace", workspaceId: HOME };
 const platformScope: RunScope = { kind: "platform" };
 
-describe("Scoped View (ADR 0082)", () => {
+describe("Scoped View (ADR 0083)", () => {
   it("returns the home row but nothing for a foreign row under workspace scope", async () => {
     const uow = new LocalUnitOfWork(seed());
 

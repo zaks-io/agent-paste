@@ -268,7 +268,7 @@ semantics instead of leaking authorization details. The same isolation invariant
 is guarded on the test surface: the local in-memory repository backend enforces
 the run's workspace scope as a deliberate bug detector, throwing on a
 cross-tenant write rather than silently emulating RLS
-([ADR 0082](../adr/0082-local-repository-backend-enforces-run-scope.md)).
+([ADR 0083](../adr/0083-local-repository-backend-enforces-run-scope.md)).
 
 ## Where To Find Things
 

@@ -5,7 +5,7 @@ import type { RunScope } from "./ports.js";
 // row. This is a test-surface bug detector, not a domain error: it is intentionally a
 // plain Error (never a RepositoryError) so the error envelope cannot catch it and
 // downgrade it to a 4xx/5xx — a cross-tenant write must surface as a failing test. The
-// Postgres backend has no equivalent; in production RLS handles isolation. See ADR 0082.
+// Postgres backend has no equivalent; in production RLS handles isolation. See ADR 0083.
 export class CrossTenantWriteError extends Error {
   readonly name = "CrossTenantWriteError";
 
@@ -26,7 +26,7 @@ type ScopeKey<V> = ((row: V) => string | null) | "platform-only";
 // under a workspace Run Scope, exposes only rows owned by that workspace. Reads of
 // foreign rows return nothing (RLS-faithful); a write whose row belongs to another
 // workspace throws (a cross-tenant write is never legitimate, so the local backend
-// surfaces it loudly instead of silently emulating RLS). See ADR 0082.
+// surfaces it loudly instead of silently emulating RLS). See ADR 0083.
 //
 // Only get/set/values are overridden — those are the only Map operations the local
 // entity adapters use. The base Map storage is intentionally empty (every read consults

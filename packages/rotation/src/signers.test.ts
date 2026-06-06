@@ -17,6 +17,25 @@ function defined<T>(value: T | undefined): T {
   return value;
 }
 
+function expectRedactedSignerError(
+  action: () => unknown,
+  expectedMessage: string,
+  secretValues: readonly string[],
+): void {
+  try {
+    action();
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toBe(expectedMessage);
+    for (const secretValue of secretValues) {
+      expect(message).not.toContain(secretValue);
+    }
+    return;
+  }
+  throw new Error("expected signer resolution to fail");
+}
+
 const contentPayload = { artifact_id: "art_1", revision_id: "rev_1", exp: 4_102_444_800 };
 const uploadPayload = {
   sid: "us_1",
@@ -49,6 +68,18 @@ describe("resolveContentTokenSigner", () => {
 
   it("returns undefined when no content signing secret is configured", () => {
     expect(resolveContentTokenSigner({})).toBeUndefined();
+  });
+
+  it("fails loudly when active content signing kid is V2 but the V2 secret is absent", () => {
+    expectRedactedSignerError(
+      () =>
+        resolveContentTokenSigner({
+          CONTENT_SIGNING_SECRET: "content-v1",
+          CONTENT_SIGNING_KID: "v2",
+        }),
+      "key_ring_inconsistent_signing_kid:2",
+      ["content-v1"],
+    );
   });
 
   it("ignores AGENT_VIEW_SIGNING_SECRET so content URLs verify under the content worker's secret", async () => {
@@ -100,6 +131,18 @@ describe("resolveUploadTokenSigner", () => {
   it("returns undefined when the upload secret is absent", () => {
     expect(resolveUploadTokenSigner({})).toBeUndefined();
   });
+
+  it("fails loudly when active upload signing kid is V2 but the V2 secret is absent", () => {
+    expectRedactedSignerError(
+      () =>
+        resolveUploadTokenSigner({
+          UPLOAD_SIGNING_SECRET: "upload-v1",
+          UPLOAD_SIGNING_KID: "v2",
+        }),
+      "key_ring_inconsistent_signing_kid:2",
+      ["upload-v1"],
+    );
+  });
 });
 
 describe("resolveAccessLinkSigner", () => {
@@ -127,5 +170,17 @@ describe("resolveAccessLinkSigner", () => {
 
   it("returns undefined when no access-link signing key is set", () => {
     expect(resolveAccessLinkSigner({})).toBeUndefined();
+  });
+
+  it("fails loudly when active access-link signing kid is V2 but the V2 secret is absent", () => {
+    expectRedactedSignerError(
+      () =>
+        resolveAccessLinkSigner({
+          ACCESS_LINK_SIGNING_KEY_V1: "access-link-v1",
+          ACCESS_LINK_SIGNING_KID: "v2",
+        }),
+      "key_ring_inconsistent_signing_kid:2",
+      ["access-link-v1"],
+    );
   });
 });

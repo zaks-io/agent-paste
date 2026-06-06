@@ -49,6 +49,12 @@ export const DEFAULT_WORKOS_ISSUER = "https://api.workos.com";
 const WORKOS_JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
+// Custom claim minted by the dashboard client's WorkOS JWT Template. When the
+// verified token carries it, we take the email straight from the claim and skip
+// the per-request WorkOS user fetch. CLI and MCP tokens have no template, so the
+// fetch stays the fallback for them. See ADR 0082.
+const WORKOS_EMAIL_CLAIM = "zaks-io:email";
+
 export async function resolveWorkOsIdentity(
   bearerValue: string,
   options: WorkOsVerificationOptions,
@@ -64,14 +70,14 @@ export async function resolveWorkOsIdentity(
     return null;
   }
 
-  const user = await fetchWorkOsUser(verified.sub, options);
-  if (!user) {
+  const resolved = await resolveUserIdentity(verified, options);
+  if (!resolved) {
     return null;
   }
 
   const identity = {
-    workos_user_id: user.id,
-    email: user.email,
+    workos_user_id: resolved.id,
+    email: resolved.email,
     ...workOsRoleClaims(verified.payload),
     ...(verified.sessionId ? { session_id: verified.sessionId } : {}),
   };
@@ -83,6 +89,21 @@ export async function resolveWorkOsIdentity(
   }
   options.onReject?.("no_session_or_token_id");
   return null;
+}
+
+// The email rides on the verified token when the dashboard JWT Template is set,
+// in which case `sub` is the authoritative user id and no fetch is needed. Tokens
+// without the claim (CLI, MCP) fall back to the WorkOS user fetch, which also
+// guards `user_id_mismatch`.
+async function resolveUserIdentity(
+  verified: { sub: string; payload: JWTPayload },
+  options: WorkOsVerificationOptions,
+): Promise<WorkOsUser | null> {
+  const claimedEmail = stringClaim(verified.payload[WORKOS_EMAIL_CLAIM]);
+  if (claimedEmail) {
+    return { id: verified.sub, email: claimedEmail };
+  }
+  return fetchWorkOsUser(verified.sub, options);
 }
 
 export async function verifyWorkOsAccessToken(

@@ -2,6 +2,25 @@ import { describe, expect, it } from "vitest";
 import { createKeyRingFromVersionedEnv, KeyRing } from "./key-ring.js";
 import { describeKeyRingState } from "./playbook.js";
 
+function expectRedactedKeyRingError(
+  action: () => unknown,
+  expectedMessage: string,
+  secretValues: readonly string[],
+): void {
+  try {
+    action();
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toBe(expectedMessage);
+    for (const secretValue of secretValues) {
+      expect(message).not.toContain(secretValue);
+    }
+    return;
+  }
+  throw new Error("expected key ring construction to fail");
+}
+
 describe("KeyRing rotation playbook", () => {
   it("stages verify-only, promotes signing, then drops the old kid", () => {
     const ring = KeyRing.single("secret-v1", 1);
@@ -30,6 +49,14 @@ describe("KeyRing rotation playbook", () => {
     expect(() => ring.dropKid(2)).toThrow(/cannot_drop_active_signing/);
   });
 
+  it("fails loudly when the active signing kid is not bound", () => {
+    expectRedactedKeyRingError(
+      () => KeyRing.fromEntries(2, [{ kid: 1, secret: "secret-v1" }]),
+      "key_ring_inconsistent_signing_kid:2",
+      ["secret-v1"],
+    );
+  });
+
   it("parses secondary-only env after kid-1 drop when signing kid is v2", () => {
     const ring = createKeyRingFromVersionedEnv({
       baseName: "ARTIFACT_BYTES_ENCRYPTION_KEY",
@@ -56,5 +83,21 @@ describe("KeyRing rotation playbook", () => {
     });
     expect(ring.signingSecret()).toBe("two");
     expect(ring.verifyKids).toEqual([1, 2]);
+  });
+
+  it("fails versioned env parsing when the active V2 secret is missing", () => {
+    expectRedactedKeyRingError(
+      () =>
+        createKeyRingFromVersionedEnv({
+          baseName: "CONTENT_SIGNING_SECRET",
+          kidVarName: "CONTENT_SIGNING_KID",
+          env: {
+            CONTENT_SIGNING_SECRET: "content-v1",
+            CONTENT_SIGNING_KID: "v2",
+          },
+        }),
+      "key_ring_inconsistent_signing_kid:2",
+      ["content-v1"],
+    );
   });
 });
