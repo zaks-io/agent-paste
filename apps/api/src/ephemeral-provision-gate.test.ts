@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { EphemeralProvisionConfigKv } from "./ephemeral-provision-config.js";
 import {
   consumeEphemeralProvisionGate,
   EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
@@ -57,7 +58,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
   it("returns unavailable when storage state is malformed", async () => {
     const response = await gateConsume({
       ...memoryStorage(),
-      get: async () => ({ window_start_ms: "bad" }) as never,
+      getGate: async () => ({ window_start_ms: "bad" }) as never,
     });
 
     expect(response.status).toBe(503);
@@ -66,7 +67,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
   it("returns unavailable when storage counters are negative", async () => {
     const response = await gateConsume({
       ...memoryStorage(),
-      get: async () => ({ window_start_ms: 0, consumed: -1 }),
+      getGate: async () => ({ window_start_ms: 0, consumed: -1 }),
     });
 
     expect(response.status).toBe(503);
@@ -78,10 +79,76 @@ describe("ephemeral provision gate Durable Object handler", () => {
     expect(response.status).toBe(400);
   });
 
+  it("honors a lowered runtime limit from versioned KV config", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-06T00:00:10.000Z"));
+    const storage = memoryStorage();
+    const loweredLimit = 3;
+    const configKv = versionedConfigKv(loweredLimit, 1);
+
+    for (let index = 0; index < loweredLimit; index += 1) {
+      const response = await gateConsume(storage, `nonce-${index}`, EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, configKv);
+      expect(response.status).toBe(200);
+    }
+
+    const limited = await gateConsume(
+      storage,
+      "nonce-limited",
+      EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+      configKv,
+    );
+    expect(limited.status).toBe(200);
+    await expect(limited.json()).resolves.toMatchObject({
+      allowed: false,
+      reason: "rate_limited",
+      consumed: loweredLimit,
+      remaining: 0,
+    });
+  });
+
+  it("fails closed when KV config is invalid", async () => {
+    const response = await gateConsume(memoryStorage(), "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+      get: async () => '{"limit_per_minute":999,"config_version":1}',
+    });
+
+    expect(response.status).toBe(503);
+  });
+
+  it("fails closed when KV returns a stale older version after a newer version was applied", async () => {
+    const storage = memoryStorage();
+    await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
+
+    const response = await gateConsume(storage, "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+      get: async () => '{"limit_per_minute":17,"config_version":1}',
+    });
+
+    expect(response.status).toBe(503);
+  });
+
+  it("fails closed on same-version contradictory KV limits", async () => {
+    const storage = memoryStorage();
+    await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
+
+    const response = await gateConsume(storage, "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+      get: async () => '{"limit_per_minute":99,"config_version":2}',
+    });
+
+    expect(response.status).toBe(503);
+  });
+
+  it("fails closed when the KV binding is absent after a versioned config was applied", async () => {
+    const storage = memoryStorage();
+    await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
+
+    const response = await gateConsume(storage, "nonce-a");
+
+    expect(response.status).toBe(503);
+  });
+
   it("returns unavailable when storage writes fail", async () => {
     const response = await gateConsume({
       ...memoryStorage(),
-      put: async () => {
+      putGate: async () => {
         throw new Error("storage offline");
       },
     });
@@ -121,6 +188,7 @@ function gateConsume(
   storage: EphemeralProvisionGateStorage,
   nonce = "nonce-a",
   nonceTtlSeconds = EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+  configKv?: EphemeralProvisionConfigKv,
 ): Promise<Response> {
   return handleEphemeralProvisionGateRequest(
     new Request("https://ephemeral-provision-gate.internal/consume", {
@@ -129,20 +197,34 @@ function gateConsume(
       body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
     }),
     storage,
+    configKv,
   );
 }
 
-function memoryStorage(): EphemeralProvisionGateStorage {
-  let value: StoredGateState | undefined;
+function versionedConfigKv(limitPerMinute: number, configVersion: number): EphemeralProvisionConfigKv {
   return {
-    async get() {
-      return value;
+    get: async () => JSON.stringify({ limit_per_minute: limitPerMinute, config_version: configVersion }),
+  };
+}
+
+function memoryStorage(): EphemeralProvisionGateStorage {
+  let gate: StoredGateState | undefined;
+  let config: import("./ephemeral-provision-config.js").AppliedProvisionConfig | undefined;
+  return {
+    async getGate() {
+      return gate;
     },
-    async put(_key, next) {
-      value = next;
+    async getConfig() {
+      return config;
     },
-    async delete() {
-      value = undefined;
+    async putGate(next) {
+      gate = next;
+    },
+    async putConfig(next) {
+      config = next;
+    },
+    async deleteGate() {
+      gate = undefined;
     },
     async setAlarm() {},
     async deleteAlarm() {},

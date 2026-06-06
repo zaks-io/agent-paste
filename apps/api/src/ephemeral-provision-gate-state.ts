@@ -1,4 +1,4 @@
-export const EPHEMERAL_PROVISION_LIMIT_PER_MINUTE = 17;
+export { DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE as EPHEMERAL_PROVISION_LIMIT_PER_MINUTE } from "./ephemeral-provision-config.js";
 
 const WINDOW_MS = 60_000;
 
@@ -32,6 +32,7 @@ type ConsumeGateInput = {
   nonce: string;
   nonceExpiresAtMs: number;
   nowMs: number;
+  limitPerMinute: number;
 };
 
 export function consumeGateSlot(
@@ -47,13 +48,13 @@ export function consumeGateSlot(
         allowed: false,
         reason: "duplicate_nonce",
         consumed: current.consumed,
-        remaining: remainingSlots(current.consumed),
+        remaining: remainingSlots(current.consumed, input.limitPerMinute),
         retry_after_seconds: secondsUntil(duplicate.expires_at_ms, input.nowMs),
       },
     };
   }
 
-  if (remainingSlots(current.consumed) <= 0) {
+  if (remainingSlots(current.consumed, input.limitPerMinute) <= 0) {
     return {
       next: current,
       decision: {
@@ -77,7 +78,7 @@ export function consumeGateSlot(
     decision: {
       allowed: true,
       consumed,
-      remaining: remainingSlots(consumed),
+      remaining: remainingSlots(consumed, input.limitPerMinute),
       retry_after_seconds: secondsUntil(current.window_start_ms + WINDOW_MS, input.nowMs),
     },
   };
@@ -135,8 +136,8 @@ function isSpentNonce(value: unknown): value is SpentNonce {
   );
 }
 
-function remainingSlots(consumed: number): number {
-  return Math.max(0, EPHEMERAL_PROVISION_LIMIT_PER_MINUTE - consumed);
+function remainingSlots(consumed: number, limitPerMinute: number): number {
+  return Math.max(0, limitPerMinute - consumed);
 }
 
 function windowStartFor(nowMs: number): number {
