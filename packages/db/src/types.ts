@@ -86,10 +86,6 @@ export type WorkspaceBilling = {
 
 export type StripeWebhookEvent = {
   event_id: string;
-  event_type: string;
-  stripe_subscription_id: string | null;
-  stripe_customer_id: string | null;
-  target_workspace_id: string | null;
   processing_started_at: string;
   processed_at: string | null;
   created_at: string;

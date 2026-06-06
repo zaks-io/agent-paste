@@ -1,36 +1,50 @@
 import type { SqlExecutor } from "@agent-paste/commands";
 
-export type StripeWebhookEventClaim = { status: "claimed" } | { status: "processed" } | { status: "in_progress" };
+export type StripeWebhookEventClaim =
+  | { status: "claimed"; processingStartedAt: string }
+  | { status: "processed" }
+  | { status: "in_progress" };
+
+export const STRIPE_WEBHOOK_EVENT_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export type ClaimStripeWebhookEventInput = {
   executor: SqlExecutor;
   eventId: string;
-  eventType: string;
-  subscriptionId: string;
-  stripeCustomerId: string | null;
-  workspaceId: string | null;
   now: string;
+  leaseMs?: number;
 };
 
 export async function claimStripeWebhookEvent(input: ClaimStripeWebhookEventInput): Promise<StripeWebhookEventClaim> {
   const inserted = await input.executor.query<{ event_id: string }>(
     `insert into stripe_webhook_events (
        event_id,
-       event_type,
-       stripe_subscription_id,
-       stripe_customer_id,
-       target_workspace_id,
        processing_started_at,
        created_at,
        updated_at
      )
-     values ($1, $2, $3, $4, $5, $6, $6, $6)
+     values ($1, $2, $2, $2)
      on conflict (event_id) do nothing
      returning event_id`,
-    [input.eventId, input.eventType, input.subscriptionId, input.stripeCustomerId, input.workspaceId, input.now],
+    [input.eventId, input.now],
   );
   if (inserted.rows[0]) {
-    return { status: "claimed" };
+    return { status: "claimed", processingStartedAt: input.now };
+  }
+
+  const leaseMs = input.leaseMs ?? STRIPE_WEBHOOK_EVENT_CLAIM_LEASE_MS;
+  const staleBefore = new Date(Date.parse(input.now) - leaseMs).toISOString();
+  const reclaimed = await input.executor.query<{ event_id: string }>(
+    `update stripe_webhook_events
+     set processing_started_at = $2,
+         updated_at = $2
+     where event_id = $1
+       and processed_at is null
+       and processing_started_at <= $3
+     returning event_id`,
+    [input.eventId, input.now, staleBefore],
+  );
+  if (reclaimed.rows[0]) {
+    return { status: "claimed", processingStartedAt: input.now };
   }
 
   const existing = await input.executor.query<{ processed_at: string | null }>(
@@ -46,19 +60,33 @@ export async function claimStripeWebhookEvent(input: ClaimStripeWebhookEventInpu
 export async function markStripeWebhookEventProcessed(input: {
   executor: SqlExecutor;
   eventId: string;
+  processingStartedAt: string;
   now: string;
 }): Promise<void> {
-  await input.executor.query(
+  const updated = await input.executor.query<{ event_id: string }>(
     `update stripe_webhook_events
      set processed_at = $2,
          updated_at = $2
-     where event_id = $1`,
-    [input.eventId, input.now],
+     where event_id = $1
+       and processing_started_at = $3
+     returning event_id`,
+    [input.eventId, input.now, input.processingStartedAt],
   );
+  if (!updated.rows[0]) {
+    throw new Error(`stripe_webhook_event_claim_lost:${input.eventId}`);
+  }
 }
 
-export async function releaseStripeWebhookEventClaim(input: { executor: SqlExecutor; eventId: string }): Promise<void> {
-  await input.executor.query(`delete from stripe_webhook_events where event_id = $1 and processed_at is null`, [
-    input.eventId,
-  ]);
+export async function releaseStripeWebhookEventClaim(input: {
+  executor: SqlExecutor;
+  eventId: string;
+  processingStartedAt: string;
+}): Promise<void> {
+  await input.executor.query(
+    `delete from stripe_webhook_events
+     where event_id = $1
+       and processed_at is null
+       and processing_started_at = $2`,
+    [input.eventId, input.processingStartedAt],
+  );
 }

@@ -43,10 +43,6 @@ export async function processStripeSubscriptionWebhook(
   const claim = await claimStripeWebhookEvent({
     executor: input.platformExecutor,
     eventId: reference.eventId,
-    eventType: reference.eventType,
-    subscriptionId: reference.subscriptionId,
-    stripeCustomerId: reference.stripeCustomerId,
-    workspaceId: reference.workspaceId,
     now: input.now,
   });
   if (claim.status === "processed") {
@@ -72,6 +68,7 @@ export async function processStripeSubscriptionWebhook(
     await markStripeWebhookEventProcessed({
       executor: input.platformExecutor,
       eventId: reference.eventId,
+      processingStartedAt: claim.processingStartedAt,
       now: input.now,
     });
     return { received: true, handled: "processed" };
@@ -80,11 +77,16 @@ export async function processStripeSubscriptionWebhook(
       await markStripeWebhookEventProcessed({
         executor: input.platformExecutor,
         eventId: reference.eventId,
+        processingStartedAt: claim.processingStartedAt,
         now: input.now,
       });
       return { received: true, handled: "processed" };
     }
-    await releaseStripeWebhookEventClaim({ executor: input.platformExecutor, eventId: reference.eventId });
+    await releaseStripeWebhookEventClaim({
+      executor: input.platformExecutor,
+      eventId: reference.eventId,
+      processingStartedAt: claim.processingStartedAt,
+    });
     throw error;
   }
 }

@@ -108,19 +108,12 @@ export const stripeWebhookEvents = pgTable(
   "stripe_webhook_events",
   {
     eventId: text("event_id").primaryKey(),
-    eventType: text("event_type").notNull(),
-    stripeSubscriptionId: text("stripe_subscription_id"),
-    stripeCustomerId: text("stripe_customer_id"),
-    targetWorkspaceId: uuid("target_workspace_id"),
     processingStartedAt: timestamp("processing_started_at", { withTimezone: true }).notNull(),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
-  (table) => [
-    index("stripe_webhook_events_subscription_idx").on(table.stripeSubscriptionId),
-    index("stripe_webhook_events_processed_idx").on(table.processedAt),
-  ],
+  (table) => [index("stripe_webhook_events_processed_idx").on(table.processedAt)],
 );
 
 export const workspaceMembers = pgTable(

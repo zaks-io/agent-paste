@@ -515,7 +515,7 @@ describe("billing routes", () => {
         return { rows: [{ event_id: params?.[0] }] };
       }
       if (sql.includes("update stripe_webhook_events")) {
-        return { rows: [] };
+        return { rows: [{ event_id: params?.[0] }] };
       }
       if (sql.includes("insert into idempotency_records")) {
         return { rows: [{ workspace_id: workspaceId }] };
