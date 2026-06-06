@@ -1,5 +1,12 @@
 import { z } from "./zod.js";
 
+// In-workspace authorization: what a member may do to artifacts in their own
+// workspace. Distinct from a WorkOS "role" (platform identity — operator or not,
+// read off the token's role claim) and from WorkOS "permissions" (their RBAC,
+// which we deliberately do not use). Every member is provisioned the full set
+// today because a workspace has one member; the column is the seam for if/when
+// multi-member workspaces are demanded. The clearer `workspace:*` naming and any
+// role->scope layer are deferred until that demand is real. See ADR 0082.
 export const Scope = z.enum(["publish", "read", "admin"]);
 export type Scope = z.infer<typeof Scope>;
 

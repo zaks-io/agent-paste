@@ -27,6 +27,39 @@ describe("WorkOS access-token verification", () => {
     });
   });
 
+  it("takes the email from the zaks-io:email claim and skips the user fetch", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, email: "claimed@example.com" });
+    const fetchMock = stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toEqual({
+      workos_user_id: subject,
+      email: "claimed@example.com",
+      session_id: sessionId,
+      token_id: tokenId,
+    });
+    expect(userFetchCalls(fetchMock)).toBe(0);
+  });
+
+  it("falls back to the user fetch when the email claim is absent (CLI/MCP tokens)", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    const fetchMock = stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toMatchObject({
+      email: "user@example.com",
+    });
+    expect(userFetchCalls(fetchMock)).toBe(1);
+  });
+
+  it("falls back to the user fetch when the email claim is present but empty", async () => {
+    const fixture = await tokenFixture({ client_id: clientId, email: "" });
+    const fetchMock = stubWorkOsFetch(fixture.publicJwk);
+
+    await expect(resolveWorkOsIdentity(`Bearer ${fixture.token}`, options())).resolves.toMatchObject({
+      email: "user@example.com",
+    });
+    expect(userFetchCalls(fetchMock)).toBe(1);
+  });
+
   it("accepts a claim-less session token when client-id claims are not required", async () => {
     const fixture = await tokenFixture({});
     stubWorkOsFetch(fixture.publicJwk);
@@ -249,6 +282,7 @@ async function tokenFixture(input: {
   roles?: string[];
   sessionId?: string | null;
   tokenId?: string | null;
+  email?: string;
 }) {
   keyPairPromise ??= generateKeyPair("RS256");
   const { publicKey, privateKey } = await keyPairPromise;
@@ -260,6 +294,7 @@ async function tokenFixture(input: {
     ...(input.client_id ? { client_id: input.client_id } : {}),
     ...(input.role ? { role: input.role } : {}),
     ...(input.roles ? { roles: input.roles } : {}),
+    ...(input.email !== undefined ? { "zaks-io:email": input.email } : {}),
     ...(input.sessionId !== null ? { sid: input.sessionId ?? sessionId } : {}),
   })
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
@@ -278,17 +313,23 @@ async function tokenFixture(input: {
 }
 
 function stubWorkOsFetch(publicJwk: JWK, options: { userResponse?: Response } = {}) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string | URL | Request) => {
-      const href = url instanceof Request ? url.url : String(url);
-      if (href.endsWith(`/sso/jwks/${clientId}`)) {
-        return Response.json({ keys: [publicJwk] });
-      }
-      if (href.endsWith(`/user_management/users/${subject}`)) {
-        return options.userResponse ?? Response.json({ id: subject, email: "user@example.com" });
-      }
-      return new Response("not found", { status: 404 });
-    }),
-  );
+  const fetchMock = vi.fn(async (url: string | URL | Request) => {
+    const href = url instanceof Request ? url.url : String(url);
+    if (href.endsWith(`/sso/jwks/${clientId}`)) {
+      return Response.json({ keys: [publicJwk] });
+    }
+    if (href.endsWith(`/user_management/users/${subject}`)) {
+      return options.userResponse ?? Response.json({ id: subject, email: "user@example.com" });
+    }
+    return new Response("not found", { status: 404 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function userFetchCalls(fetchMock: ReturnType<typeof stubWorkOsFetch>): number {
+  return fetchMock.mock.calls.filter(([url]) => {
+    const href = url instanceof Request ? url.url : String(url);
+    return href.includes("/user_management/users/");
+  }).length;
 }
