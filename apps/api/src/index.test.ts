@@ -23,6 +23,10 @@ function handleRequest(request: Request, env: Env = {}): Promise<Response> {
   return rawHandleRequest(request, { ...allowRateLimits(), ...env });
 }
 
+function billingEnv(): Pick<Env, "BILLING_ENABLED"> {
+  return { BILLING_ENABLED: "true" };
+}
+
 describe("api worker", () => {
   it("mounts every api route contract", () => {
     expect([...mountedRouteIds].sort()).toEqual(
@@ -231,6 +235,81 @@ describe("api worker", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
+  });
+
+  it("serves an authed member billing status through the full pipeline (regression: no fail-closed 429)", async () => {
+    // The single env.DB binding plays both roles, exactly as a Hyperdrive binding does
+    // in production: a Repository for member auth and a SqlExecutor for billing reads.
+    const env: Env = {
+      ...billingEnv(),
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup() {
+          return {};
+        },
+        async getWebMemberByWorkOsUserId() {
+          return { type: "member", id: "mem_1", email: "user@example.com", workspace_id: "w_1", scopes: ["admin"] };
+        },
+        query: async () => ({ rows: [] }),
+        transaction: async (run: (tx: unknown) => unknown) => run({ query: async () => ({ rows: [] }) }),
+      } as never,
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/billing", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ plan: "free" });
+  });
+
+  it("rate-limits an authed member billing request when the actor limit trips", async () => {
+    const env: Env = {
+      ...billingEnv(),
+      ACTOR_RATE_LIMIT: { limit: async () => ({ success: false }) },
+      AUTH: webAuthForTests(),
+      DB: {
+        async getWhoami() {
+          return {};
+        },
+        async getAgentView() {
+          return null;
+        },
+        async getPublicAgentView() {
+          return null;
+        },
+        async runCleanup() {
+          return {};
+        },
+        async getWebMemberByWorkOsUserId() {
+          return { type: "member", id: "mem_1", email: "user@example.com", workspace_id: "w_1", scopes: ["admin"] };
+        },
+        query: async () => {
+          throw new Error("rate-limited billing requests should not read the db");
+        },
+        transaction: async () => {
+          throw new Error("rate-limited billing requests should not open a transaction");
+        },
+      } as never,
+    };
+
+    const response = await handleRequest(
+      new Request("https://api.test/v1/web/billing", { headers: { authorization: "Bearer workos-ok" } }),
+      env,
+    );
+
+    expect(response.status).toBe(429);
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_actor" } });
   });
 

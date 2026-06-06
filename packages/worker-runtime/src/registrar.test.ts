@@ -150,6 +150,34 @@ describe("contract-driven registrar", () => {
     }
   });
 
+  it("throws at mount when a rate-limited route has no rate-limit bindings provider", () => {
+    const app = newApp();
+    const registrar = createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal(["read"]);
+        },
+      },
+    });
+    expect(() => registrar.mount({ ...baseContract, rateLimit: "actor" }, async () => jsonOk({ ok: true }))).toThrow(
+      /requires the 'actor' rate limit, but this registrar has no rateLimitBindings provider/,
+    );
+  });
+
+  it("allows mounting a rateLimit:none route on a registrar with no rate-limit bindings", () => {
+    const app = newApp();
+    const registrar = createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal(["read"]);
+        },
+      },
+    });
+    expect(() => registrar.mount(baseContract, async () => jsonOk({ ok: true }))).not.toThrow();
+  });
+
   it("validates required idempotency keys before running the handler", async () => {
     const app = newApp();
     createRegistrar({

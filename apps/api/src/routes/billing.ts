@@ -60,6 +60,9 @@ export function resolveApiBillingProvider(env: Env): BillingProvider {
 
 type BillingResponders = ReturnType<typeof getBoundResponders>;
 
+/** Test-only override seam: production always uses the env-derived Stripe provider. */
+type BillingProviderOverride = { provider?: BillingProvider };
+
 /** The resolved request context every member-facing billing route needs. */
 type BillingMemberCtx = {
   env: Env;
@@ -73,12 +76,18 @@ type BillingMemberCtx = {
 /**
  * Resolves the shared preamble for member-facing billing routes: billing must be
  * on, the principal must be a Workspace Member, and the DB must be reachable. On
- * success the executor is already scoped to the member's Workspace. The webhook
- * does not use this — it is signature-authed and scopes to the event's Workspace.
+ * success the executor is already scoped to the member's Workspace. The `executor`
+ * is the raw RLS-capable handle the registrar resolved for the route; this scopes
+ * it to the member's Workspace. The webhook does not use this — it is
+ * signature-authed and scopes to the event's Workspace.
+ *
+ * `billingEnabled` (→ not_found) is checked before the executor (→ database_unavailable)
+ * so a billing-off request 404s even when the DB is unreachable.
  */
 export function resolveBillingMemberCtx(
   context: AppContext,
   principal: Principal,
+  executor: SqlExecutor | undefined,
 ): { ok: true; ctx: BillingMemberCtx } | { ok: false; response: Response } {
   const { respondError, respondJson } = getBoundResponders(context);
   const env = context.env;
@@ -89,7 +98,6 @@ export function resolveBillingMemberCtx(
   if (!actor?.workspace_id) {
     return { ok: false, response: respondError("forbidden") };
   }
-  const executor = resolveBillingExecutor(env);
   if (!executor) {
     return { ok: false, response: respondError("database_unavailable") };
   }
@@ -101,9 +109,10 @@ export function resolveBillingMemberCtx(
 async function runBillingMemberRoute(
   context: AppContext,
   principal: Principal,
+  executor: SqlExecutor | undefined,
   run: (ctx: BillingMemberCtx) => Promise<Response> | Response,
 ): Promise<Response> {
-  const resolved = resolveBillingMemberCtx(context, principal);
+  const resolved = resolveBillingMemberCtx(context, principal, executor);
   if (!resolved.ok) {
     return resolved.response;
   }
@@ -161,17 +170,22 @@ async function respondBillingStatus(ctx: BillingMemberCtx): Promise<Response> {
   return ctx.respondJson(await enrichBillingStatus(ctx.env, ctx.workspaceId, billingStatusFromRow(row)));
 }
 
-export async function billingStatus(context: AppContext, principal: Principal): Promise<Response> {
-  return runBillingMemberRoute(context, principal, respondBillingStatus);
+export async function billingStatus(
+  context: AppContext,
+  principal: Principal,
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+): Promise<Response> {
+  return runBillingMemberRoute(context, principal, executor, respondBillingStatus);
 }
 
 export async function billingCheckout(
   context: AppContext,
   principal: Principal,
   guard: GuardFor<"billing.checkout.create">,
-  provider: BillingProvider = resolveApiBillingProvider(context.env),
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
 ): Promise<Response> {
-  return runBillingMemberRoute(context, principal, async ({ env, workspaceId, db, respondError }) => {
+  return runBillingMemberRoute(context, principal, executor, async ({ env, workspaceId, db, respondError }) => {
     const body: CreateCheckoutSessionRequest = guard.body;
     const priceId = body.interval === "year" ? env.STRIPE_PRICE_ID_ANNUAL : env.STRIPE_PRICE_ID_MONTHLY;
     if (!priceId) {
@@ -198,9 +212,10 @@ export async function billingCheckout(
 export async function billingReturn(
   context: AppContext,
   principal: Principal,
-  provider: BillingProvider = resolveApiBillingProvider(context.env),
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
 ): Promise<Response> {
-  return runBillingMemberRoute(context, principal, async (ctx) => {
+  return runBillingMemberRoute(context, principal, executor, async (ctx) => {
     const { workspaceId, db, respondError } = ctx;
     const sessionId = new URL(context.req.raw.url).searchParams.get("session_id");
     if (!sessionId) {
@@ -226,19 +241,25 @@ export async function billingReturn(
 export async function billingPortal(
   context: AppContext,
   principal: Principal,
-  provider: BillingProvider = resolveApiBillingProvider(context.env),
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
 ): Promise<Response> {
-  return runBillingMemberRoute(context, principal, async ({ env, workspaceId, db, respondError, respondJson }) => {
-    const row = await loadLocalBillingRow(db, workspaceId);
-    if (!row?.stripe_customer_id) {
-      return respondError("not_found");
-    }
-    const session = await provider.createPortalSession({
-      customerId: row.stripe_customer_id,
-      returnUrl: `${webBaseUrl(env)}/billing`,
-    });
-    return respondJson(session);
-  });
+  return runBillingMemberRoute(
+    context,
+    principal,
+    executor,
+    async ({ env, workspaceId, db, respondError, respondJson }) => {
+      const row = await loadLocalBillingRow(db, workspaceId);
+      if (!row?.stripe_customer_id) {
+        return respondError("not_found");
+      }
+      const session = await provider.createPortalSession({
+        customerId: row.stripe_customer_id,
+        returnUrl: `${webBaseUrl(env)}/billing`,
+      });
+      return respondJson(session);
+    },
+  );
 }
 
 function toContractInvoice(invoice: InvoiceSummary): BillingInvoiceSummary {
@@ -257,9 +278,10 @@ function toContractInvoice(invoice: InvoiceSummary): BillingInvoiceSummary {
 export async function billingInvoices(
   context: AppContext,
   principal: Principal,
-  provider: BillingProvider = resolveApiBillingProvider(context.env),
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+  { provider = resolveApiBillingProvider(context.env) }: BillingProviderOverride = {},
 ): Promise<Response> {
-  return runBillingMemberRoute(context, principal, async ({ workspaceId, db, respondJson }) => {
+  return runBillingMemberRoute(context, principal, executor, async ({ workspaceId, db, respondJson }) => {
     const row = await loadLocalBillingRow(db, workspaceId);
     // Free Workspaces have no Stripe customer yet, so there is nothing to list — an
     // empty history is the correct answer, not an error.
@@ -271,7 +293,11 @@ export async function billingInvoices(
   });
 }
 
-export async function billingWebhook(context: AppContext, _principal: Principal): Promise<Response> {
+export async function billingWebhook(
+  context: AppContext,
+  _principal: Principal,
+  executor: SqlExecutor | undefined = resolveBillingExecutor(context.env),
+): Promise<Response> {
   const { respondError, respondJson } = getBoundResponders(context);
   const env = context.env;
   const secret = env.STRIPE_WEBHOOK_SIGNING_SECRET;
@@ -292,7 +318,6 @@ export async function billingWebhook(context: AppContext, _principal: Principal)
   if (!snapshot) {
     return respondJson({ received: true });
   }
-  const executor = resolveBillingExecutor(env);
   if (!executor) {
     return respondError("database_unavailable");
   }
