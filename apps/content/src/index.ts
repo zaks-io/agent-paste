@@ -58,7 +58,7 @@ const contentRegistrar = createRegistrar({
       const token = contentTokenFromRequest(appContext);
       const signer = resolveContentTokenSigner(env);
       const payload = signer ? await signer.verify(token) : null;
-      if (!payload || !isAllowedPath(path, payload)) {
+      if (!payload || !isAllowedPath(path, payload, env.AGENT_PASTE_ENV)) {
         return { ok: false, code: "not_found" };
       }
       if (await isDenylisted(context.env as Env, payload)) {

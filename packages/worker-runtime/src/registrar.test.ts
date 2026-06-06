@@ -441,12 +441,73 @@ describe("contract-driven registrar", () => {
     const response = await app.fetch(
       new Request("https://worker.test/v1/ephemeral/provision", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "CF-Connecting-IP": "203.0.113.10", "content-type": "application/json" },
       }),
     );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ received: {} });
+  });
+
+  it("uses only CF-Connecting-IP for ephemeral provision rate-limit keys", async () => {
+    const ipLimit = vi.fn(async () => ({ success: true }));
+    const app = newApp();
+    const contract: RouteContract = {
+      id: "ephemeral.provision",
+      app: "api",
+      method: "POST",
+      path: "/v1/ephemeral/provision",
+      auth: "none",
+      scopes: [],
+      idempotency: "none",
+      rateLimit: "ephemeral_provision",
+      allowEmptyBody: true,
+      requestSchema: "EphemeralProvisionRequest",
+      responseSchema: "EphemeralProvisionResponse",
+      errors: [
+        "invalid_request",
+        "pow_required",
+        "pow_invalid",
+        "ephemeral_provision_rate_limited",
+        "ephemeral_provision_unavailable",
+        "database_unavailable",
+      ],
+    };
+
+    createRegistrar({
+      app,
+      auth: {
+        async none() {
+          return { ok: true, principal: { kind: "none" } };
+        },
+      },
+      rateLimitBindings: () => ({
+        ephemeralProvisionGlobal: { limit: vi.fn(async () => ({ success: true })) },
+        ephemeralProvisionIp: { limit: ipLimit },
+      }),
+    }).mount(contract, async () => jsonOk({ ok: true }));
+
+    const accepted = await app.fetch(
+      new Request("https://worker.test/v1/ephemeral/provision", {
+        method: "POST",
+        headers: {
+          "CF-Connecting-IP": "203.0.113.10",
+          "X-Forwarded-For": "198.51.100.20",
+        },
+      }),
+    );
+    const missingCfIp = await app.fetch(
+      new Request("https://worker.test/v1/ephemeral/provision", {
+        method: "POST",
+        headers: { "X-Forwarded-For": "198.51.100.20" },
+      }),
+    );
+
+    expect(accepted.status).toBe(200);
+    expect(ipLimit).toHaveBeenCalledTimes(1);
+    expect(ipLimit).toHaveBeenCalledWith({ key: "203.0.113.10" });
+    expect(missingCfIp.status).toBe(503);
+    await expect(missingCfIp.json()).resolves.toMatchObject({ error: { code: "ephemeral_provision_unavailable" } });
   });
 });
 

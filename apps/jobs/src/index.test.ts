@@ -141,7 +141,7 @@ describe("jobs worker", () => {
     const env: Env = {
       ARTIFACTS: {
         async list() {
-          return { objects: [{ key: "env/live/ws/a/file.txt" }], truncated: false };
+          return { objects: [{ key: `artifacts/${artifactId}/file.txt` }], truncated: false };
         },
         async delete(keys) {
           deleted.push(keys);
@@ -160,7 +160,7 @@ describe("jobs worker", () => {
               artifact_id: artifactId,
               revision_id: revisionId,
               upload_session_id: null,
-              prefixes: ["env/live/ws/a/"],
+              prefixes: [`artifacts/${artifactId}/`],
               reason: "deletion",
             },
             ack,
@@ -170,7 +170,7 @@ describe("jobs worker", () => {
       },
       env,
     );
-    expect(deleted).toEqual([["env/live/ws/a/file.txt"]]);
+    expect(deleted).toEqual([[`artifacts/${artifactId}/file.txt`]]);
     expect(ack).toHaveBeenCalled();
   });
 

@@ -33,7 +33,7 @@ describe("ephemeral provision route", () => {
     const response = await handleRequest(
       new Request("https://api.test/v1/ephemeral/provision", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "CF-Connecting-IP": "203.0.113.10", "content-type": "application/json" },
       }),
       {
         EPHEMERAL_POW_SECRET: powSecret,
@@ -111,7 +111,7 @@ async function validProvisionRequest(): Promise<Request> {
   const counter = await solvePowChallenge(challenge);
   return new Request("https://api.test/v1/ephemeral/provision", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "CF-Connecting-IP": "203.0.113.10", "content-type": "application/json" },
     body: JSON.stringify({
       challenge,
       solution: { nonce: challenge.nonce, counter },

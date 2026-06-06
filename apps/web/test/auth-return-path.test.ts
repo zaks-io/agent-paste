@@ -8,6 +8,8 @@ describe("auth-return-path", () => {
     expect(parseReturnPathname("/audit?request_id=req_1")).toBe("/audit?request_id=req_1");
     expect(parseReturnPathname("/claim")).toBe("/claim");
     expect(parseReturnPathname("//evil.test/phish")).toBeUndefined();
+    expect(parseReturnPathname("/\\evil.test/phish")).toBeUndefined();
+    expect(parseReturnPathname("/settings\\evil")).toBeUndefined();
     expect(parseReturnPathname("https://evil.test")).toBeUndefined();
     expect(parseReturnPathname(null)).toBeUndefined();
   });

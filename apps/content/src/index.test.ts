@@ -782,6 +782,47 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("zip-bytes");
   });
 
+  it("rejects bundle tokens without workspace_id before reading R2", async () => {
+    const bundleKey =
+      "env/dev/workspaces/00000000-0000-4000-8000-000000000001/artifacts/art_1/revisions/rev_1/bundle.zip";
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        key_prefix: bundleKey,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const get = vi.fn();
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+
+    const response = await handleRequest(new Request(`https://content.test/b/${token}`), env);
+
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("rejects bundle tokens whose key_prefix does not match the derived bundle key", async () => {
+    const token = await signContentToken(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        workspace_id: workspaceId,
+        key_prefix: "env/dev/workspaces/other/artifacts/art_1/revisions/rev_1/bundle.zip",
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const get = vi.fn();
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+
+    const response = await handleRequest(new Request(`https://content.test/b/${token}`), env);
+
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("rejects denylisted artifacts", async () => {
     const token = await signContentToken(
       {
@@ -921,7 +962,7 @@ describe("content conditional requests", () => {
     // prepareEncryptedObjectResponse sees no workspace, so the conditional path
     // must 404 too instead of short-circuiting to a 304.
     const token = await tokenFor("style.css", { workspace_id: undefined });
-    const { env, get } = await cssEnv();
+    const { env } = await cssEnv();
     const etag = await contentEtag("rev_1", "style.css");
     const response = await handleRequest(
       new Request(`https://content.test/v/${token}/style.css`, { headers: { "if-none-match": etag } }),

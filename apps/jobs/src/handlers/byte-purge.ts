@@ -11,6 +11,7 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
   for (const message of messages) {
     try {
       const payload = BytePurgeMessage.parse(message.body);
+      assertArtifactScopedPrefixes(payload.artifact_id, payload.prefixes);
       const deleted = await deletePrefixes(env.ARTIFACTS, payload.prefixes);
       logOp("queue.byte_purge.succeeded", {
         artifact_id: payload.artifact_id,
@@ -25,5 +26,12 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
       });
       message.retry();
     }
+  }
+}
+
+function assertArtifactScopedPrefixes(artifactId: string, prefixes: readonly string[]): void {
+  const artifactPrefix = `artifacts/${artifactId}/`;
+  if (prefixes.length === 0 || !prefixes.every((prefix) => prefix.startsWith(artifactPrefix))) {
+    throw new Error("byte_purge_prefix_outside_artifact_scope");
   }
 }
