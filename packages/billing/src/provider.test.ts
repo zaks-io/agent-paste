@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFakeBillingProvider, createNoopBillingProvider, createStripeBillingProvider } from "./provider.js";
+import {
+  createFakeBillingProvider,
+  createNoopBillingProvider,
+  createStripeBillingProvider,
+  resolveCurrentPeriodEnd,
+} from "./provider.js";
 
 describe("BillingProvider adapters", () => {
   it("noop provider returns empty results", async () => {
@@ -269,7 +274,46 @@ describe("BillingProvider adapters", () => {
       workspaceId: "ws-1",
       status: "active",
       priceInterval: "year",
+      // No item-level period end here, so the legacy top-level field is the fallback.
+      currentPeriodEnd: new Date(1_900_000_000 * 1000).toISOString(),
     });
+  });
+
+  it("stripe provider reads the item-level current_period_end (Stripe API 2025-03-31+)", async () => {
+    const itemPeriodEnd = 1_950_000_000;
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "sub_item_period",
+            status: "active",
+            customer: "cus_1",
+            metadata: { workspace_id: "ws-1" },
+            // The subscription no longer carries current_period_end; only the item does.
+            items: { data: [{ current_period_end: itemPeriodEnd, price: { recurring: { interval: "month" } } }] },
+          }),
+          { status: 200 },
+        ),
+    );
+    const provider = createStripeBillingProvider({ secretKey: "sk_test", fetchImpl });
+    await expect(provider.getSubscription("sub_item_period")).resolves.toMatchObject({
+      currentPeriodEnd: new Date(itemPeriodEnd * 1000).toISOString(),
+    });
+  });
+
+  it("resolveCurrentPeriodEnd prefers the item over the legacy top-level field", () => {
+    const item = 1_950_000_000;
+    const top = 1_900_000_000;
+    expect(resolveCurrentPeriodEnd({ current_period_end: top, items: { data: [{ current_period_end: item }] } })).toBe(
+      new Date(item * 1000).toISOString(),
+    );
+    expect(resolveCurrentPeriodEnd({ current_period_end: top, items: { data: [{}] } })).toBe(
+      new Date(top * 1000).toISOString(),
+    );
+    expect(resolveCurrentPeriodEnd({ items: { data: [{ current_period_end: item }] } })).toBe(
+      new Date(item * 1000).toISOString(),
+    );
+    expect(resolveCurrentPeriodEnd({})).toBeNull();
   });
 
   it("stripe provider maps a null currentPeriodEnd when Stripe omits current_period_end", async () => {

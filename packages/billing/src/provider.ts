@@ -324,6 +324,7 @@ type StripeSubscriptionResponse = {
   metadata?: Record<string, string>;
   items?: {
     data?: Array<{
+      current_period_end?: number | null;
       price?: { recurring?: { interval?: string } };
     }>;
   };
@@ -346,7 +347,7 @@ function mapStripeSubscription(body: StripeSubscriptionResponse): BillingSubscri
     stripeCustomerId: customerId,
     stripeSubscriptionId: body.id,
     status,
-    currentPeriodEnd: epochSecondsToIso(body.current_period_end),
+    currentPeriodEnd: resolveCurrentPeriodEnd(body),
     priceInterval,
   };
 }
@@ -357,6 +358,23 @@ export function epochSecondsToIso(value: number | null | undefined): string | nu
     return null;
   }
   return new Date(value * 1000).toISOString();
+}
+
+/** The slice of a Stripe subscription that carries the renewal date in either API-version shape. */
+export type SubscriptionPeriodSource = {
+  current_period_end?: number | null;
+  items?: { data?: Array<{ current_period_end?: number | null }> };
+};
+
+/**
+ * Resolve a subscription's renewal date as an ISO string. Stripe API version 2025-03-31
+ * moved `current_period_end` off the subscription onto each subscription item; for our
+ * single-item plans the item's value is the renewal date. Read the item first and fall
+ * back to the (now-legacy) top-level field so both API-version shapes mirror correctly.
+ */
+export function resolveCurrentPeriodEnd(subscription: SubscriptionPeriodSource): string | null {
+  const itemPeriodEnd = subscription.items?.data?.[0]?.current_period_end;
+  return epochSecondsToIso(itemPeriodEnd ?? subscription.current_period_end);
 }
 
 function parseSubscriptionStatus(value: string): SubscriptionStatus | null {

@@ -85,6 +85,30 @@ describe("snapshotFromStripeEvent", () => {
       stripeSubscriptionId: "sub_1",
       status: "active",
       priceInterval: "year",
+      // No item-level period end here, so the legacy top-level field is the fallback.
+      currentPeriodEnd: new Date(1_900_000_000 * 1000).toISOString(),
+    });
+  });
+
+  it("reads the item-level current_period_end (Stripe API 2025-03-31+)", () => {
+    const itemPeriodEnd = 1_950_000_000;
+    const snapshot = snapshotFromStripeEvent({
+      id: "evt_item_period",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_item",
+          status: "active",
+          customer: "cus_1",
+          metadata: { workspace_id: "ws-1" },
+          // The subscription no longer carries current_period_end; only the item does.
+          items: { data: [{ current_period_end: itemPeriodEnd, price: { recurring: { interval: "month" } } }] },
+        },
+      },
+    });
+    expect(snapshot).toMatchObject({
+      currentPeriodEnd: new Date(itemPeriodEnd * 1000).toISOString(),
+      priceInterval: "month",
     });
   });
 

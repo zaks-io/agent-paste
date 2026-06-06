@@ -1,5 +1,5 @@
 import type { SubscriptionStatus } from "./plan.js";
-import { type BillingSubscriptionSnapshot, epochSecondsToIso } from "./provider.js";
+import { type BillingSubscriptionSnapshot, resolveCurrentPeriodEnd } from "./provider.js";
 
 const DEFAULT_TOLERANCE_SECONDS = 300;
 
@@ -63,7 +63,9 @@ type StripeSubscriptionObject = {
   customer?: string | { id?: string };
   current_period_end?: number | null;
   metadata?: Record<string, string>;
-  items?: { data?: Array<{ price?: { recurring?: { interval?: string } } }> };
+  items?: {
+    data?: Array<{ current_period_end?: number | null; price?: { recurring?: { interval?: string } } }>;
+  };
 };
 
 const SUBSCRIPTION_EVENT_TYPES = new Set([
@@ -105,7 +107,7 @@ export function snapshotFromStripeEvent(event: StripeEvent): BillingSubscription
     stripeCustomerId: customerId,
     stripeSubscriptionId: object.id,
     status,
-    currentPeriodEnd: epochSecondsToIso(object.current_period_end),
+    currentPeriodEnd: resolveCurrentPeriodEnd(object),
     priceInterval,
   };
 }
