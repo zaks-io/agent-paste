@@ -153,18 +153,18 @@ Primary key `(upload_session_id, path)`.
 
 ### `operation_events`
 
-| Column         | Type                                  | Notes                                                            |
-| -------------- | ------------------------------------- | ---------------------------------------------------------------- |
-| `id`           | `TEXT PRIMARY KEY`                    | `evt_...`.                                                       |
-| `workspace_id` | `UUID NULL REFERENCES workspaces(id)` | Null only for system-wide admin events.                          |
-| `actor_type`   | `TEXT NOT NULL`                       | `api_key`, `admin`, or `system`.                                 |
-| `actor_id`     | `TEXT NULL`                           | API key id, admin identity, or null for system.                  |
-| `action`       | `TEXT NOT NULL`                       | Stable dotted string.                                            |
-| `target_type`  | `TEXT NOT NULL`                       | `workspace`, `api_key`, `upload_session`, `artifact`, `cleanup`. |
-| `target_id`    | `TEXT NOT NULL`                       |                                                                  |
-| `details`      | `JSONB NOT NULL`                      | Redacted details only.                                           |
-| `request_id`   | `TEXT NULL`                           |                                                                  |
-| `occurred_at`  | `TIMESTAMPTZ NOT NULL`                |                                                                  |
+| Column         | Type                                  | Notes                                                                        |
+| -------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| `id`           | `TEXT PRIMARY KEY`                    | `evt_...`.                                                                   |
+| `workspace_id` | `UUID NULL REFERENCES workspaces(id)` | Null only for system-wide admin events.                                      |
+| `actor_type`   | `TEXT NOT NULL`                       | `api_key`, `member`, `admin`, `system`, or `platform`.                       |
+| `actor_id`     | `TEXT NULL`                           | API key id, member/admin identity, or null for system/platform.              |
+| `action`       | `TEXT NOT NULL`                       | Stable dotted string (for example `revision.retained`).                      |
+| `target_type`  | `TEXT NOT NULL`                       | `workspace`, `api_key`, `upload_session`, `artifact`, `revision`, `cleanup`. |
+| `target_id`    | `TEXT NOT NULL`                       |                                                                              |
+| `details`      | `JSONB NOT NULL`                      | Redacted details only.                                                       |
+| `request_id`   | `TEXT NULL`                           |                                                                              |
+| `occurred_at`  | `TIMESTAMPTZ NOT NULL`                |                                                                              |
 
 Operation events are intentionally lightweight but should be shaped so they can evolve into full audit events later.
 

@@ -127,7 +127,7 @@ export function registerWebAdminPaths(registry: OpenAPIRegistry, helpers: ApiPat
             in: "query",
             required: false,
             description:
-              "Preset filter: security (lockdowns, key revocation, destructive admin) or lifecycle (workspace, keys, artifacts, uploads, cleanup). Defaults to all.",
+              "Preset filter: security (lockdowns, key revocation, artifact deletion, plan changes) or lifecycle (workspace, keys, uploads, artifacts, revisions, safety warnings, ephemeral workspaces, cleanup). Defaults to all.",
           },
         }),
       }),
