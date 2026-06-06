@@ -195,7 +195,7 @@ describe("web RPC bridge", () => {
       data: { ok: true },
       error: null,
     });
-    await expect(saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 14 } })).resolves.toMatchObject({
+    await expect(saveSettingsFn({ data: { workspace_name: "Demo", auto_deletion_days: 7 } })).resolves.toMatchObject({
       data: { ok: true },
       error: null,
     });

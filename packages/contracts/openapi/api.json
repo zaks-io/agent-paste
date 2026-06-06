@@ -3157,7 +3157,7 @@
           "auto_deletion_days": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 90
+            "maximum": 7
           }
         },
         "required": [

@@ -100,7 +100,7 @@ describe("api error envelope", () => {
           "content-type": "application/json",
           "idempotency-key": "k",
         },
-        body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 30 }),
+        body: JSON.stringify({ workspace_name: "Demo", auto_deletion_days: 7 }),
       }),
       env,
     );
@@ -123,7 +123,7 @@ describe("api error envelope", () => {
           "content-type": "application/json",
           "idempotency-key": "k",
         },
-        body: JSON.stringify({ workspace_name: "", auto_deletion_days: 30 }),
+        body: JSON.stringify({ workspace_name: "", auto_deletion_days: 7 }),
       }),
       env,
     );

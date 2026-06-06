@@ -73,11 +73,11 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 The gate is the **daily new-Artifact write allowance**. A new **Artifact** counts; a new **Revision** of an existing one does not, bounded by a per-**Artifact** lifetime **Revision** ceiling (100 / **Artifact**) so a refinement loop cannot become a free-write firehose. Concrete numbers are platform-controlled values that live in the usage-policy ledger ([ADR 0056](../adr/0056-mvp-usage-policy-defaults-and-platform-caps.md)); pinned for build (operator-tunable, never platform-secret per ADR 0056):
 
-| Tier                  | Identity                                                                                                     | Daily new Artifacts | Auto Deletion          | Indexing  | Raisable |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------- | --------- | -------- |
-| Ephemeral (unclaimed) | **API Key** on **Ephemeral Workspace**                                                                       | 20                  | 24h                    | `noindex` | No       |
-| Claimed `free`        | **Workspace Member** + **API Key**s                                                                          | 100                 | platform default (30d) | default   | No       |
-| `pro`                 | claimed + Stripe ([ADR 0073](../adr/0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) | 2000 (fair-use)     | up to 90d              | default   | Yes      |
+| Tier                  | Identity                                                                                                     | Daily new Artifacts | Auto Deletion       | Indexing  | Raisable |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------- | ------------------- | --------- | -------- |
+| Ephemeral (unclaimed) | **API Key** on **Ephemeral Workspace**                                                                       | 20                  | 24h                 | `noindex` | No       |
+| Claimed `free`        | **Workspace Member** + **API Key**s                                                                          | 100                 | 3d default / 7d max | default   | No       |
+| `pro`                 | claimed + Stripe ([ADR 0073](../adr/0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) | 2000 (fair-use)     | up to 90d           | default   | Yes      |
 
 Reads are gated only by the existing **Artifact Rate Limit** abuse ceiling ([ADR 0048](../adr/0048-transient-artifacts-by-default.md)), unchanged.
 

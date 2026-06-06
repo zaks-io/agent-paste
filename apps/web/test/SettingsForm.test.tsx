@@ -13,7 +13,7 @@ import { ToastProvider } from "../src/components/ui/ToastProvider";
 
 const settings: WebSettingsResponse = {
   workspace_name: "Personal",
-  auto_deletion_days: 30,
+  auto_deletion_days: 3,
   usage_policy: { artifacts_per_day: 100, bytes_per_day: 1000 },
 };
 
@@ -36,11 +36,11 @@ describe("SettingsForm", () => {
     renderForm();
 
     fireEvent.change(screen.getByLabelText("Workspace name"), { target: { value: "Renamed" } });
-    fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "14" } });
+    fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "7" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(invalidateQueries).toHaveBeenCalledOnce());
-    expect(saveSettingsFn).toHaveBeenCalledWith({ data: { workspace_name: "Renamed", auto_deletion_days: 14 } });
+    expect(saveSettingsFn).toHaveBeenCalledWith({ data: { workspace_name: "Renamed", auto_deletion_days: 7 } });
     expect(screen.getByText("Settings saved")).toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe("SettingsForm", () => {
   it("rejects out-of-range auto-deletion days client-side without calling the server", async () => {
     const { container } = renderForm();
     fireEvent.change(screen.getByLabelText("Auto-deletion (days)"), { target: { value: "200" } });
-    // Submit the form directly: native max=90 constraint validation would otherwise
+    // Submit the form directly: native max=7 constraint validation would otherwise
     // block a button click, but the JS guard is our real defense-in-depth here.
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
 

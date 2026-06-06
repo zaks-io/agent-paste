@@ -6,7 +6,9 @@ import {
   isExpired,
   MAX_ARTIFACT_BYTES,
   normalizeStoragePath,
+  resolveDailyNewArtifactAllowance,
   resolveUsagePolicy,
+  resolveWriteAllowanceTier,
   SECONDS_PER_DAY,
   USAGE_POLICY,
 } from "./index.js";
@@ -45,16 +47,17 @@ describe("resolveUsagePolicy", () => {
   const free = {
     file_size_cap_bytes: 10 * 1024 * 1024,
     artifact_size_cap_bytes: 25 * 1024 * 1024,
+    daily_new_artifact_allowance: 100,
     default_ttl_seconds: 3 * 24 * 60 * 60,
     max_ttl_seconds: 7 * 24 * 60 * 60,
     live_artifacts_cap: 50,
     live_update_enabled: false,
   };
 
-  it("returns the pro-default operator cap set when billing is off regardless of plan", () => {
-    expect(resolveUsagePolicy({ plan: "free", billingEnabled: false })).toMatchObject(pro);
-    expect(resolveUsagePolicy({ plan: "pro", billingEnabled: false })).toMatchObject(pro);
-    expect(resolveUsagePolicy({ billingEnabled: false })).toMatchObject(pro);
+  it("returns the public free cap set when billing is off regardless of plan", () => {
+    expect(resolveUsagePolicy({ plan: "free", billingEnabled: false })).toMatchObject(free);
+    expect(resolveUsagePolicy({ plan: "pro", billingEnabled: false })).toMatchObject(free);
+    expect(resolveUsagePolicy({ billingEnabled: false })).toMatchObject(free);
   });
 
   it("diverges free and pro caps when billing is on", () => {
@@ -77,6 +80,18 @@ describe("resolveUsagePolicy", () => {
 
   it("documents MVP defaults as the free tier", () => {
     expect(USAGE_POLICY).toMatchObject(free);
+  });
+});
+
+describe("write allowance resolution", () => {
+  it("keeps claimed billing-off workspaces on the free write allowance", () => {
+    expect(resolveWriteAllowanceTier({ claimed: true, billingEnabled: false })).toBe("free");
+    expect(resolveDailyNewArtifactAllowance({ claimed: true, billingEnabled: false })).toBe(100);
+  });
+
+  it("uses pro write allowance only for explicit pro workspaces when billing is on", () => {
+    expect(resolveWriteAllowanceTier({ claimed: true, plan: "pro", billingEnabled: true })).toBe("pro");
+    expect(resolveDailyNewArtifactAllowance({ claimed: true, plan: "pro", billingEnabled: true })).toBe(2000);
   });
 });
 

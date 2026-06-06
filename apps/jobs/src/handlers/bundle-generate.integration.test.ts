@@ -94,7 +94,7 @@ describe("handleBundleGenerateBatch integration", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it("marks ready when zip is above the legacy 25MB cap but within pro caps with billing off", async () => {
+  it("marks failed when zip is above the free cap with billing off", async () => {
     const ack = vi.fn();
     const readyUpdates: string[] = [];
     const failedUpdates: string[] = [];
@@ -157,8 +157,8 @@ describe("handleBundleGenerateBatch integration", () => {
         },
       );
       expect(ack).toHaveBeenCalled();
-      expect(readyUpdates.some((sql) => sql.includes("bundle_status = 'ready'"))).toBe(true);
-      expect(failedUpdates).toHaveLength(0);
+      expect(readyUpdates).toHaveLength(0);
+      expect(failedUpdates.some((sql) => sql.includes("bundle_status = 'failed'"))).toBe(true);
     } finally {
       overLegacyCapZip.mockRestore();
     }
