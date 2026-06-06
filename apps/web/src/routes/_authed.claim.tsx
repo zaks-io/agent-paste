@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState } from "react";
+import { ClaimSuccessPanel } from "../components/claim/ClaimSuccessPanel";
 import { Button } from "../components/ui/Button";
 import { Card, CardHeader } from "../components/ui/Card";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
@@ -7,6 +8,7 @@ import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
 import {
   claimRedemptionErrorMessage,
+  claimSuccessPath,
   claimTokenFromLocationHash,
   clearClaimTokenFromLocation,
   consumePendingClaimToken,
@@ -50,22 +52,14 @@ function resolveInitialClaimToken(): string {
   return consumePendingClaimToken() ?? "";
 }
 
-function claimSuccessPath(artifactIds: string[]): string {
-  const [artifactId] = artifactIds;
-  if (artifactIds.length === 1 && artifactId) {
-    return `/artifacts/${encodeURIComponent(artifactId)}`;
-  }
-  return "/artifacts";
-}
-
 function ClaimPage() {
-  const { turnstileSiteKey: siteKey } = Route.useLoaderData();
+  const { turnstileSiteKey: siteKey, billing, usagePolicy } = Route.useLoaderData();
   const navigate = useNavigate();
   const [claimToken, setClaimToken] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(siteKey ? null : LOCAL_TURNSTILE_BYPASS_TOKEN);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
-  const [successArtifactCount, setSuccessArtifactCount] = useState<number | null>(null);
+  const [success, setSuccess] = useState<{ artifactIds: string[] } | null>(null);
 
   useLayoutEffect(() => {
     setClaimToken(resolveInitialClaimToken());
@@ -144,18 +138,16 @@ function ClaimPage() {
         });
         return;
       }
-      const artifactIds = result.data.artifact_ids;
-      setSuccessArtifactCount(artifactIds.length);
-      const destination = claimSuccessPath(artifactIds);
-      window.setTimeout(() => {
-        void navigate({ to: destination });
-      }, 1200);
+      setSuccess({ artifactIds: result.data.artifact_ids });
     } catch {
       setError({ message: claimRedemptionErrorMessage({ code: "network_error", status: 0, message: "" }) });
     } finally {
       setSubmitting(false);
     }
   }
+
+  const billingEnabled = Boolean(billing.data);
+  const policy = usagePolicy.data;
 
   return (
     <>
@@ -165,12 +157,25 @@ function ClaimPage() {
         description="Redeem a one-time Claim Token from agent-paste publish output to keep ephemeral content in your Personal Workspace."
       />
       {error ? <ErrorBanner title="Claim failed" message={error.message} requestId={error.requestId} /> : null}
-      {successArtifactCount !== null ? (
+      {success && policy ? (
+        <ClaimSuccessPanel
+          artifactCount={success.artifactIds.length}
+          artifactDestination={claimSuccessPath(success.artifactIds)}
+          billingEnabled={billingEnabled}
+          usagePolicy={policy}
+          onViewArtifacts={() => {
+            void navigate({ to: claimSuccessPath(success.artifactIds) });
+          }}
+        />
+      ) : success && !policy ? (
         <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
           <CardHeader
-            title="Claim succeeded"
-            subtitle={`Reparented ${successArtifactCount} artifact${successArtifactCount === 1 ? "" : "s"} into your workspace.`}
+            title="Content claimed"
+            subtitle={`Reparented ${success.artifactIds.length} artifact${success.artifactIds.length === 1 ? "" : "s"} into your workspace.`}
           />
+          <Button size="lg" onClick={() => void navigate({ to: claimSuccessPath(success.artifactIds) })}>
+            View artifacts
+          </Button>
         </Card>
       ) : (
         <Card>

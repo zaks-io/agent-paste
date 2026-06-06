@@ -158,7 +158,7 @@ describe("web RPC bridge", () => {
       lockdowns: { data: { ok: true } },
       events: { data: { ok: true } },
     });
-    await expect(loadClaimPageFn()).resolves.toEqual({ turnstileSiteKey: "turnstile-site-key" });
+    await expect(loadClaimPageFn()).resolves.toMatchObject({ turnstileSiteKey: "turnstile-site-key" });
 
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith(
       "/v1/web/billing/return?session_id=cs_test",

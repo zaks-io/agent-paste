@@ -5,6 +5,7 @@ import type {
   BillingStatusResponse,
   LockdownListResponse,
   RevisionListResponse,
+  UsagePolicy,
   WebAccessLinkListResponse,
   WebApiKeyListResponse,
   WebArtifactDetailResponse,
@@ -214,6 +215,31 @@ export async function loadAdmin(search: OperatorEventSearch) {
   return { allowed: true as const, lockdowns, events };
 }
 
-export function loadClaimPage() {
-  return { turnstileSiteKey: turnstileSiteKey() };
+export type ClaimPageData = {
+  turnstileSiteKey: string | null;
+  billing: LoaderFallback<BillingStatusResponse>;
+  usagePolicy: LoaderFallback<UsagePolicy>;
+};
+
+export async function loadClaimPage(): Promise<ClaimPageData> {
+  const auth = getServerAuth();
+  if (!auth.user) {
+    return {
+      turnstileSiteKey: turnstileSiteKey(),
+      billing: emptyFallback<BillingStatusResponse>(),
+      usagePolicy: emptyFallback<UsagePolicy>(),
+    };
+  }
+  const token = { accessToken: auth.accessToken };
+  const [billing, workspace] = await Promise.all([
+    apiFetchOrEmpty<BillingStatusResponse>("/v1/web/billing", token),
+    apiFetchOrEmpty<WebWorkspaceResponse>("/v1/web/workspace", token),
+  ]);
+  return {
+    turnstileSiteKey: turnstileSiteKey(),
+    billing,
+    usagePolicy: workspace.data
+      ? { data: workspace.data.usage_policy, empty: false, error: null }
+      : emptyFallback<UsagePolicy>(),
+  };
 }

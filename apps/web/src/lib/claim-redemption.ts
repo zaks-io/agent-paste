@@ -27,6 +27,14 @@ export function consumePendingClaimToken(): string | undefined {
   return token;
 }
 
+export function claimSuccessPath(artifactIds: string[]): string {
+  const [artifactId] = artifactIds;
+  if (artifactIds.length === 1 && artifactId) {
+    return `/artifacts/${encodeURIComponent(artifactId)}`;
+  }
+  return "/artifacts";
+}
+
 export function clearClaimTokenFromLocation(): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
