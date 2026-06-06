@@ -1,15 +1,16 @@
 import type { WebAccessLinkListResponse } from "@agent-paste/contracts";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { AccessLinksTable } from "../components/access-links/AccessLinksTable";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { listAccessLinksFn } from "../rpc/web-loaders";
+import { accessLinksQuery, queryKeys } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/access-links")({
-  loader: () => listAccessLinksFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(accessLinksQuery()),
   head: ({ matches }) =>
     dashboardPageMeta(
       "Access Links",
@@ -21,10 +22,13 @@ export const Route = createFileRoute("/_authed/access-links")({
 });
 
 function AccessLinksPage() {
-  const result = Route.useLoaderData();
-  const router = useRouter();
+  const { data: result } = useSuspenseQuery(accessLinksQuery());
+  const queryClient = useQueryClient();
   const rows: WebAccessLinkListResponse["items"] = result.data?.items ?? [];
-  const refresh = useCallback(() => router.invalidate(), [router]);
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.accessLinks() }),
+    [queryClient],
+  );
 
   return (
     <>

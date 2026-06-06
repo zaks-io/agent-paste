@@ -1,4 +1,5 @@
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { FirstRunKeyCard } from "../components/dashboard/FirstRunKeyCard";
 import { RecentArtifacts } from "../components/dashboard/RecentArtifacts";
 import { RecentAudit } from "../components/dashboard/RecentAudit";
@@ -8,7 +9,7 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { HeroStat } from "../components/ui/HeroStat";
 import { PageHeader } from "../components/ui/PageHeader";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { dashboardQuery } from "../lib/queries";
+import { dashboardQuery, webSessionQuery } from "../lib/queries";
 import { useDashboardStats } from "../lib/use-dashboard-stats";
 
 export const Route = createFileRoute("/_authed/dashboard")({
@@ -23,9 +24,13 @@ export const Route = createFileRoute("/_authed/dashboard")({
   component: DashboardPage,
 });
 
+// The first-run secret rides on the workspace-provisioning response, now fetched
+// off the navigation critical path via the cached webSessionQuery (AP-256). It is
+// only present on the first provisioning and null thereafter, so caching it is
+// correct.
 function useDefaultKeySecret(): string | null {
-  const parentSession = useLoaderData({ from: "/_authed" });
-  return "apiSession" in parentSession ? (parentSession.apiSession.data?.default_api_key?.secret ?? null) : null;
+  const { data: apiSession } = useQuery(webSessionQuery());
+  return apiSession?.data?.default_api_key?.secret ?? null;
 }
 
 function DashboardPage() {

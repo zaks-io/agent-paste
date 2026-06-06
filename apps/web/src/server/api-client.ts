@@ -29,6 +29,25 @@ function resolveApiUrl(path: string): string {
   return `${base}/${path}`;
 }
 
+function logUpstreamTiming(entry: {
+  method: string;
+  path: string;
+  status: number;
+  durationMs: number;
+  requestId: string;
+}): void {
+  console.info(
+    JSON.stringify({
+      msg: "web.api.upstream_timing",
+      method: entry.method,
+      path: entry.path,
+      status: entry.status,
+      duration_ms: Math.round(entry.durationMs),
+      request_id: entry.requestId,
+    }),
+  );
+}
+
 async function dispatch(input: string, init: RequestInit): Promise<Response> {
   const env = getWebEnv();
   const timeoutSignal = AbortSignal.timeout(API_FETCH_TIMEOUT_MS);
@@ -55,7 +74,18 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   const url = resolveApiUrl(path);
+  const startedAt = performance.now();
   const response = await dispatch(url, { ...rest, headers: finalHeaders });
+  // Per-call upstream timing for the navigation critical path (AP-256). Visible
+  // via `wrangler tail`; keyed by request id so a single navigation's loader
+  // calls can be summed. Method+path only — never the token or body.
+  logUpstreamTiming({
+    method: rest.method ?? "GET",
+    path,
+    status: response.status,
+    durationMs: performance.now() - startedAt,
+    requestId,
+  });
 
   if (response.status === 204) {
     return undefined as T;

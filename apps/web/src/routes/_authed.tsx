@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { CommandPaletteProvider } from "../components/chrome/command-palette/CommandPaletteProvider";
@@ -6,11 +7,13 @@ import { Topbar } from "../components/chrome/Topbar";
 import { ClaimGuestGate } from "../components/claim/ClaimGuestGate";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { ToastProvider } from "../components/ui/ToastProvider";
+import { webSessionQuery } from "../lib/queries";
 import { loadAuthedSessionFn } from "../rpc/web-loaders";
 
 export const Route = createFileRoute("/_authed")({
-  // Keep protected-layout provisioning behind a server function so the route
-  // stays importable by the client graph while auth and API calls stay server-side.
+  // Resolve identity from the validated token only (no API call) so navigation
+  // paints immediately. Workspace provisioning (a DB write) runs off the critical
+  // path via webSessionQuery in the component below. See AP-256.
   loader: async ({ location }) => {
     const allowGuest = location.pathname === "/claim";
     const returnPathname = `${location.pathname}${location.searchStr ?? ""}`;
@@ -28,8 +31,20 @@ function AuthedLayout() {
   if ("redirectTo" in session) {
     return <SignInRedirect href={session.redirectTo} />;
   }
-  const { user, isOperator, apiSession } = session;
-  const workspaceName = apiSession.data?.workspace.name;
+  return <AuthedShell user={session.user} isOperator={session.isOperator} />;
+}
+
+function AuthedShell({
+  user,
+  isOperator,
+}: {
+  user: Extract<ReturnType<typeof Route.useLoaderData>, { user: unknown }>["user"];
+  isOperator: boolean;
+}) {
+  // Fired after first paint; the cached webSessionQuery means at most one
+  // provisioning round-trip per stale window rather than one per navigation.
+  const { data: apiSession } = useQuery(webSessionQuery());
+  const workspaceName = apiSession?.data?.workspace.name;
   return (
     <ToastProvider>
       <CommandPaletteProvider isOperator={isOperator}>
@@ -39,7 +54,7 @@ function AuthedLayout() {
             <Sidebar isOperator={isOperator} />
             <main className="flex-1 min-w-0 overflow-x-auto">
               <div className="mx-auto w-full max-w-[1080px] px-6 py-12 sm:px-10">
-                {apiSession.error ? (
+                {apiSession?.error ? (
                   <div className="mb-6">
                     <ErrorBanner
                       title="Couldn't provision workspace"
