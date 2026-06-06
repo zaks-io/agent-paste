@@ -56,6 +56,25 @@ describe("AP-91 operator route modules", () => {
       }),
     );
 
+    const revisionFilter = await webAdminListEvents(
+      contextFor({
+        url:
+          `https://api.test/v1/web/admin/events?workspace_id=${workspaceId}` +
+          "&action=revision.retained&target_type=revision&focus=lifecycle&limit=10",
+      }),
+      operatorPrincipal(),
+      { listOperatorEvents } as never,
+    );
+    expect(revisionFilter.status).toBe(200);
+    expect(listOperatorEvents).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "revision.retained",
+        targetType: "revision",
+        focus: "lifecycle",
+      }),
+    );
+
     listOperatorEvents.mockRejectedValueOnce(new RepositoryError("invalid_cursor"));
     const badCursor = await webAdminListEvents(contextFor(), operatorPrincipal(), { listOperatorEvents } as never);
     expect(badCursor.status).toBe(400);

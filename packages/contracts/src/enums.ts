@@ -22,24 +22,35 @@ export type UploadSessionStatus = z.infer<typeof UploadSessionStatus>;
 export const OperationEventAction = z.enum([
   "workspace.created",
   "workspace.settings.updated",
+  "workspace.plan.updated",
   "api_key.created",
   "api_key.revoked",
   "upload_session.created",
-  "upload_session.finalized",
-  "upload_session.expired",
-  "upload_session.failed",
   "artifact.created",
   "artifact.published",
   "artifact.deleted",
   "artifact.expired",
+  "artifact.pinned",
+  "artifact.unpinned",
   "revision.draft_created",
-  "workspace.plan.updated",
+  "revision.retained",
+  "safety_warnings.replaced",
+  "access_link.lockdown.set",
+  "access_link.lockdown.lifted",
+  "ephemeral.workspace.provisioned",
+  "ephemeral.workspace.claimed",
   "platform.lockdown.set",
   "platform.lockdown.lifted",
   "cleanup.run",
-  "admin.destructive_operation",
 ]);
 export type OperationEventAction = z.infer<typeof OperationEventAction>;
 
-export const OperationEventTargetType = z.enum(["workspace", "api_key", "upload_session", "artifact", "cleanup"]);
+export const OperationEventTargetType = z.enum([
+  "workspace",
+  "api_key",
+  "upload_session",
+  "artifact",
+  "revision",
+  "cleanup",
+]);
 export type OperationEventTargetType = z.infer<typeof OperationEventTargetType>;

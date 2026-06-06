@@ -22,9 +22,11 @@ export type AuditEventCategory = "security" | "lifecycle";
 const SECURITY_ACTIONS = new Set([
   "platform.lockdown.set",
   "platform.lockdown.lifted",
+  "access_link.lockdown.set",
+  "access_link.lockdown.lifted",
   "api_key.revoked",
-  "admin.destructive_operation",
   "artifact.deleted",
+  "workspace.plan.updated",
 ]);
 
 export function classifyAuditAction(action: string): AuditEventCategory {

@@ -1,9 +1,11 @@
 export const OPERATOR_SECURITY_EVENT_ACTIONS = [
   "platform.lockdown.set",
   "platform.lockdown.lifted",
+  "access_link.lockdown.set",
+  "access_link.lockdown.lifted",
   "api_key.revoked",
-  "admin.destructive_operation",
   "artifact.deleted",
+  "workspace.plan.updated",
 ] as const;
 
 export const OPERATOR_LIFECYCLE_EVENT_ACTIONS = [
@@ -11,15 +13,16 @@ export const OPERATOR_LIFECYCLE_EVENT_ACTIONS = [
   "workspace.settings.updated",
   "api_key.created",
   "upload_session.created",
-  "upload_session.finalized",
-  "upload_session.expired",
-  "upload_session.failed",
   "artifact.created",
   "artifact.published",
   "artifact.pinned",
   "artifact.unpinned",
   "artifact.expired",
   "revision.draft_created",
+  "revision.retained",
+  "safety_warnings.replaced",
+  "ephemeral.workspace.provisioned",
+  "ephemeral.workspace.claimed",
   "cleanup.run",
 ] as const;
 
@@ -33,6 +36,10 @@ export type OperatorEventFilters = {
   requestId?: string;
   focus?: OperatorEventFocus;
 };
+
+export function allOperatorClassifiedEventActions(): readonly string[] {
+  return [...OPERATOR_SECURITY_EVENT_ACTIONS, ...OPERATOR_LIFECYCLE_EVENT_ACTIONS];
+}
 
 export function resolveOperatorEventActions(filters: OperatorEventFilters): string[] | undefined {
   if (filters.action) {
