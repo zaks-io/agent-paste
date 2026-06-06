@@ -225,6 +225,28 @@ describe("applyEphemeralProvisionRateLimit", () => {
       retryAfter: "3600",
     });
   });
+
+  it("fails closed instead of using a shared unknown bucket when the client IP is absent", async () => {
+    const global = vi.fn();
+    const ip = vi.fn();
+
+    await expect(
+      applyEphemeralProvisionRateLimit(
+        {
+          ephemeralProvisionGlobal: { limit: global },
+          ephemeralProvisionIp: { limit: ip },
+        },
+        undefined,
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "ephemeral_provision_unavailable",
+      retryAfter: "3600",
+    });
+
+    expect(global).not.toHaveBeenCalled();
+    expect(ip).not.toHaveBeenCalled();
+  });
 });
 
 function apiKeyPrincipal(): Principal {

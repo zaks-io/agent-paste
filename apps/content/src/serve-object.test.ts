@@ -27,17 +27,45 @@ function basePayload(overrides: Partial<ContentTokenPayload> = {}): ContentToken
 }
 
 describe("serve-object path allowlist", () => {
-  it("allows empty path only when key_prefix ends with bundle.zip", () => {
-    expect(isAllowedPath("", basePayload({ key_prefix: "artifacts/a/revisions/r/bundle.zip" }))).toBe(true);
+  it("allows empty path only when key_prefix matches the derived bundle key", () => {
+    expect(
+      isAllowedPath(
+        "",
+        basePayload({
+          workspace_id: "ws_1",
+          key_prefix: "env/dev/workspaces/ws_1/artifacts/art_1/revisions/rev_1/bundle.zip",
+        }),
+      ),
+    ).toBe(true);
+    expect(isAllowedPath("", basePayload({ key_prefix: "artifacts/a/revisions/r/bundle.zip" }))).toBe(false);
     expect(isAllowedPath("", basePayload({ key_prefix: "artifacts/a/revisions/r/files" }))).toBe(false);
     expect(isAllowedPath("", basePayload())).toBe(false);
   });
 
   it("rejects unsafe paths", () => {
     expect(isSafePath("../secret")).toBe(false);
+    expect(isSafePath("foo/./bar")).toBe(false);
+    expect(isSafePath("foo//bar")).toBe(false);
+    expect(isSafePath("foo\\bar")).toBe(false);
     expect(isSafePath("/absolute")).toBe(false);
     expect(isSafePath("ok/nested")).toBe(true);
     expect(isAllowedPath("../x", basePayload({ paths: ["../x"] }))).toBe(false);
+  });
+
+  it("rejects read-side key_prefix values outside the artifact revision files prefix", () => {
+    expect(
+      isAllowedPath(
+        "index.html",
+        basePayload({ key_prefix: "artifacts/art_1/revisions/rev_1/files", paths: ["index.html"] }),
+      ),
+    ).toBe(true);
+    expect(isAllowedPath("index.html", basePayload({ key_prefix: "artifacts/other/revisions/rev_1/files" }))).toBe(
+      false,
+    );
+    expect(isAllowedPath("index.html", basePayload({ key_prefix: "artifacts/art_1/revisions/rev_1" }))).toBe(false);
+    expect(isAllowedPath("index.html", basePayload({ key_prefix: "artifacts/art_1/revisions/rev_1/files/.." }))).toBe(
+      false,
+    );
   });
 
   it("requires path to be listed when paths is set", () => {

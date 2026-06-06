@@ -42,7 +42,10 @@ export async function applyEphemeralProvisionRateLimit(
   bindings: RateLimitBindings | undefined,
   clientIp: string | undefined,
 ): Promise<RateLimitResult> {
-  const ipKey = clientIp?.trim() || "unknown";
+  const ipKey = clientIp?.trim();
+  if (!ipKey) {
+    return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
+  }
 
   const globalOutcome = await checkRateLimit(bindings?.ephemeralProvisionGlobal, "global", "global");
   if (globalOutcome !== "allowed") {

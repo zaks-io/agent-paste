@@ -68,11 +68,7 @@ export function hasScopes(principal: Principal, requiredScopes: readonly Scope[]
 
 export function clientIpFromRequest(request: Request): string | undefined {
   const connecting = request.headers.get("CF-Connecting-IP")?.trim();
-  if (connecting) {
-    return connecting;
-  }
-  const forwarded = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
-  return forwarded || undefined;
+  return connecting || undefined;
 }
 
 function scopedActorForPrincipal(principal: Principal): ScopedActor | null {

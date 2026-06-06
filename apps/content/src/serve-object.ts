@@ -46,16 +46,13 @@ export function contentPath(context: AppContext): string {
 export async function serveSignedBundle(context: AppContext, payload: ContentTokenPayload): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  const key = payload.key_prefix;
-  if (!key?.endsWith(BUNDLE_FILENAME)) {
+  const key = expectedBundleKeyForPayload(payload, env.AGENT_PASTE_ENV);
+  if (!key || payload.key_prefix !== key) {
     return getBoundResponders(context).respondError("not_found");
   }
 
   const etag = await contentEtag(payload.revision_id, BUNDLE_FILENAME);
-  // Mirror the 200 path's contract: a workspace-less token 404s below, so a
-  // conditional request must not short-circuit to a 304 the client could never
-  // have received a 200 for.
-  if (payload.workspace_id && etagMatches(request.headers.get("if-none-match"), etag)) {
+  if (etagMatches(request.headers.get("if-none-match"), etag)) {
     // Validate against the exact headers the 200 would carry so the 304 cannot
     // drift from them (RFC 9111 §4.3.4 lets a 304 replace the cached headers).
     return notModifiedResponse(context, payload, bundleResponseHeaders(0, payload.noindex === true, etag));
@@ -109,7 +106,10 @@ export async function serveSignedObject(
     );
   }
 
-  const key = objectKeyFor(payload, path);
+  const key = objectKeyForPayload(payload, path);
+  if (!key) {
+    return getBoundResponders(context).respondError("not_found");
+  }
   const object =
     request.method === "HEAD" && env.ARTIFACTS.head ? await env.ARTIFACTS.head(key) : await env.ARTIFACTS.get(key);
   if (!object) {
@@ -229,11 +229,12 @@ export async function isDenylisted(env: Env, payload: ContentTokenPayload): Prom
   return denylistResults.some((value) => value !== null);
 }
 
-export function isAllowedPath(path: string, payload: ContentTokenPayload): boolean {
+export function isAllowedPath(path: string, payload: ContentTokenPayload, storageEnv?: string): boolean {
   if (path.length === 0) {
-    return Boolean(payload.key_prefix?.endsWith(BUNDLE_FILENAME));
+    const expectedBundleKey = expectedBundleKeyForPayload(payload, storageEnv);
+    return Boolean(expectedBundleKey && payload.key_prefix === expectedBundleKey);
   }
-  if (!isSafePath(path)) {
+  if (!isSafePath(path) || !isAllowedFileKeyPrefix(payload)) {
     return false;
   }
 
@@ -241,12 +242,85 @@ export function isAllowedPath(path: string, payload: ContentTokenPayload): boole
 }
 
 export function isSafePath(path: string): boolean {
-  return path.length > 0 && !path.startsWith("/") && !path.split("/").includes("..");
+  if (path.length === 0 || path.startsWith("/") || path.includes("\\")) {
+    return false;
+  }
+  return path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
 export function objectKeyFor(payload: ContentTokenPayload, path: string): string {
-  const prefix = payload.key_prefix ?? `artifacts/${payload.artifact_id}/revisions/${payload.revision_id}/files`;
+  const key = objectKeyForPayload(payload, path);
+  if (!key) {
+    throw new Error("invalid_key_prefix");
+  }
+  return key;
+}
+
+function objectKeyForPayload(payload: ContentTokenPayload, path: string): string | null {
+  const prefix = fileKeyPrefixForPayload(payload);
+  if (!prefix) {
+    return null;
+  }
   return `${prefix.replace(/\/+$/, "")}/${path}`;
+}
+
+function fileKeyPrefixForPayload(payload: ContentTokenPayload): string | null {
+  const expected = defaultFileKeyPrefix(payload);
+  if (!payload.key_prefix) {
+    return expected;
+  }
+  return payload.key_prefix === expected && isSafeKeyPrefix(payload.key_prefix) ? payload.key_prefix : null;
+}
+
+function isAllowedFileKeyPrefix(payload: ContentTokenPayload): boolean {
+  return fileKeyPrefixForPayload(payload) !== null;
+}
+
+function defaultFileKeyPrefix(payload: ContentTokenPayload): string {
+  return `artifacts/${payload.artifact_id}/revisions/${payload.revision_id}/files`;
+}
+
+function expectedBundleKeyForPayload(payload: ContentTokenPayload, storageEnv?: string): string | null {
+  if (!payload.workspace_id) {
+    return null;
+  }
+  const key = bundleKeyFor({
+    workspaceId: payload.workspace_id,
+    artifactId: payload.artifact_id,
+    revisionId: payload.revision_id,
+    storageEnv,
+  });
+  return isSafeKeyPrefix(key) ? key : null;
+}
+
+function bundleKeyFor(input: {
+  workspaceId: string;
+  artifactId: string;
+  revisionId: string;
+  storageEnv?: string | undefined;
+}): string {
+  const env = storageEnvSegment(input.storageEnv);
+  return `env/${env}/workspaces/${input.workspaceId}/artifacts/${input.artifactId}/revisions/${input.revisionId}/bundle.zip`;
+}
+
+function storageEnvSegment(agentPasteEnv?: string): string {
+  if (agentPasteEnv === "production" || agentPasteEnv === "live") {
+    return "live";
+  }
+  if (agentPasteEnv === "preview") {
+    return "preview";
+  }
+  return "dev";
+}
+
+function isSafeKeyPrefix(keyPrefix: string): boolean {
+  // R2 object keys are opaque strings; rejecting path-like traversal keeps that
+  // assumption load-bearing if storage is ever adapted elsewhere.
+  return !keyPrefix.startsWith("/") && !keyPrefix.includes("\\") && keyPrefix.split("/").every(isSafeKeySegment);
+}
+
+function isSafeKeySegment(segment: string): boolean {
+  return segment !== "" && segment !== "." && segment !== "..";
 }
 
 export function bundleResponseHeaders(size: number, noindex: boolean, etag: string): Headers {
