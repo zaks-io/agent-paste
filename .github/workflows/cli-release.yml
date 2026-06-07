@@ -154,6 +154,8 @@ jobs:
           chmod +x "$RUNNER_TEMP/$ASSET"
           cd "$RUNNER_TEMP"
           "./$ASSET" --help
+          VERSION="$(node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version")"
+          test "$("./$ASSET" --version)" = "$VERSION"
           "./$ASSET" whoami
 
       - name: Smoke-check binary (Windows)
@@ -165,6 +167,11 @@ jobs:
           Copy-Item "apps/cli/$env:ASSET" "$env:RUNNER_TEMP/$env:ASSET"
           Set-Location "$env:RUNNER_TEMP"
           & ".\$env:ASSET" --help
+          $version = node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version"
+          $actual = (& ".\$env:ASSET" --version).Trim()
+          if ($actual -ne $version.Trim()) {
+            throw "expected $env:ASSET --version to print $version, got $actual"
+          }
           & ".\$env:ASSET" whoami
 
       - name: Import Apple Developer certificate
@@ -324,11 +331,20 @@ jobs:
             exit 1
           fi
           TAG="cli-v$VERSION"
+          # Drafts stay mutable for test reruns. Published releases are immutable
+          # by repo setting, and this job refuses to upload to non-drafts.
           if gh release view "$TAG" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$TAG" --json isDraft --jq '.isDraft')"
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "::error::Release $TAG already exists and is not a draft; refusing to mutate published assets."
+              exit 1
+            fi
+            gh release edit "$TAG" --draft --target "$GITHUB_SHA"
             gh release upload "$TAG" dist-binaries/* --clobber
           else
             gh release create "$TAG" dist-binaries/* \
               --draft \
+              --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
               --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a grype scan report (\`agent-paste-cli.grype.json\`), and scanner/DB versions (\`scan-metadata.json\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi
