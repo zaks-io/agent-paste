@@ -178,6 +178,46 @@ export const securitySchemes = {
     scheme: "bearer",
     description: "WorkOS AuthKit/Connect access token minted for the MCP resource indicator.",
   },
+  SignedAgentViewToken: {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "Agent Paste signed Agent View token",
+    description:
+      "Signed Agent View token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters.",
+  },
+  SignedAccessLinkRequest: {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "Agent Paste signed Access Link URL",
+    description:
+      "Signed Access Link URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials.",
+  },
+  EphemeralProofOfWork: {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "Agent Paste proof-of-work challenge solution",
+    description:
+      "Signed proof-of-work challenge and solution supplied in the JSON request body. The initial challenge request returns 401 until a valid solution is submitted.",
+  },
+  SignedUploadToken: {
+    type: "apiKey",
+    in: "query",
+    name: "token",
+    description: "Signed upload URL token minted by the create-upload-session response.",
+  },
+  SignedContentToken: {
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "Agent Paste signed content token",
+    description:
+      "Signed content token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters.",
+  },
+  StripeSignature: {
+    type: "apiKey",
+    in: "header",
+    name: "Stripe-Signature",
+    description: "Stripe webhook signature header verified before any billing webhook processing.",
+  },
   CfAccessServiceToken: {
     type: "apiKey",
     in: "header",

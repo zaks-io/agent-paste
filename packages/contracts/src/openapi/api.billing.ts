@@ -88,6 +88,7 @@ export function registerBillingPaths(registry: OpenAPIRegistry, helpers: ApiPath
     path: "/v1/billing/webhook",
     operationId: "billing.webhook",
     summary: "Receive Stripe subscription lifecycle webhooks (Stripe-Signature verified).",
+    security: [{ StripeSignature: [] }],
     request: { headers: [stripeSignatureHeader, requestIdHeader] },
     responses: {
       "200": jsonOk(schemaRef("WebhookReceivedResponse"), "Received (200)"),

@@ -14,6 +14,7 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
     path: "/v1/public/agent-view/{token}",
     operationId: "agentView.public",
     summary: "Resolve a signed public Agent View.",
+    security: [{ SignedAgentViewToken: [] }],
     request: {
       params: params({ token: pathStringParam("token", "Signed Agent View token.") }),
       headers: [requestIdHeader],
@@ -34,6 +35,7 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
     path: "/v1/access-links/resolve",
     operationId: "accessLinks.resolve",
     summary: "Resolve an Access Link Signed URL to Agent View and content URLs.",
+    security: [{ SignedAccessLinkRequest: [] }],
     request: {
       headers: [requestIdHeader],
       body: {
@@ -60,6 +62,7 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
     path: "/v1/public/cli-version",
     operationId: "cli.version",
     summary: "Advertise the latest and minimum-supported CLI versions.",
+    security: [],
     request: { headers: [requestIdHeader] },
     // The handler is total — it serves a safe default on missing/malformed/
     // erroring KV (contract errors: []), so it only ever returns 200.

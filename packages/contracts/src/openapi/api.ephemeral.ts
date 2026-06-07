@@ -1,6 +1,6 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
+import { errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 
 /**
  * Ephemeral workspace OpenAPI paths, split out of `api.ts` to keep
@@ -15,6 +15,7 @@ export function registerEphemeralPaths(registry: OpenAPIRegistry, helpers: ApiPa
     operationId: "ephemeral.provision",
     summary:
       "Provision an Ephemeral Workspace behind proof-of-work. Send an empty body or `{}` to receive a signed challenge.",
+    security: [{ EphemeralProofOfWork: [] }],
     request: {
       headers: [requestIdHeader],
       body: {

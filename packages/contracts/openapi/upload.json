@@ -10,12 +10,26 @@
       "url": "https://upload.agent-paste.sh"
     }
   ],
+  "security": [
+    {
+      "ApiKeyBearer": []
+    },
+    {
+      "SignedUploadToken": []
+    }
+  ],
   "components": {
     "securitySchemes": {
       "ApiKeyBearer": {
         "type": "http",
         "scheme": "bearer",
         "description": "Workspace API key (prefix ap_pk_)."
+      },
+      "SignedUploadToken": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "Signed upload URL token minted by the create-upload-session response."
       }
     },
     "schemas": {
@@ -354,7 +368,8 @@
                 "required_headers",
                 "expires_at"
               ]
-            }
+            },
+            "maxItems": 100
           }
         },
         "required": [
@@ -687,7 +702,8 @@
                 "created_at",
                 "published_at"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -1344,6 +1360,11 @@
       "put": {
         "operationId": "uploadSessions.putFile",
         "summary": "Upload a single file using a signed URL.",
+        "security": [
+          {
+            "SignedUploadToken": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -1362,6 +1383,16 @@
             "name": "path",
             "in": "path",
             "description": "File path within the artifact."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "token",
+            "in": "query",
+            "description": "Signed upload URL token minted by the create-upload-session response."
           },
           {
             "schema": {

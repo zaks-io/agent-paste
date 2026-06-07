@@ -42,7 +42,7 @@ export const CreateUploadSessionResponse = z.object({
   revision_id: RevisionId,
   status: z.literal(UploadSessionStatus.enum.pending),
   expires_at: IsoDateTime,
-  files: z.array(SignedUploadTarget),
+  files: z.array(SignedUploadTarget).max(100),
 });
 export type CreateUploadSessionResponse = z.infer<typeof CreateUploadSessionResponse>;
 

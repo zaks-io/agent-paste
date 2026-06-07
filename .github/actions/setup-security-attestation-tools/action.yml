@@ -1,0 +1,94 @@
+name: Setup security attestation tools
+description: Install the scanner CLIs used by pnpm security:attest.
+runs:
+  using: composite
+  steps:
+    - name: Install binary scanner CLIs
+      shell: bash
+      env:
+        GITLEAKS_VERSION: 8.30.1
+        TRIVY_VERSION: 0.69.3
+        SYFT_VERSION: 1.42.4
+        GRYPE_VERSION: 0.111.0
+      run: |
+        set -euo pipefail
+        tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "$tmp_dir"' EXIT
+
+        install_release_tar() {
+          local binary="$1"
+          local repo="$2"
+          local tag="$3"
+          local asset="$4"
+          local checksum_asset="$5"
+          local archive="$tmp_dir/$asset"
+          local checksums="$tmp_dir/$checksum_asset"
+          local extract_dir="$tmp_dir/$binary"
+          local expected
+          local binary_path
+
+          curl --fail --silent --show-error --location \
+            "https://github.com/${repo}/releases/download/${tag}/${asset}" \
+            --output "$archive"
+          curl --fail --silent --show-error --location \
+            "https://github.com/${repo}/releases/download/${tag}/${checksum_asset}" \
+            --output "$checksums"
+
+          expected="$(awk -v asset="$asset" '$2 == asset { print; found = 1 } END { exit found ? 0 : 1 }' "$checksums")" || {
+            echo "::error::Missing checksum for ${asset}"
+            exit 1
+          }
+          (cd "$tmp_dir" && printf '%s\n' "$expected" | sha256sum --check --strict -)
+
+          mkdir -p "$extract_dir"
+          tar -xzf "$archive" -C "$extract_dir"
+          binary_path="$(find "$extract_dir" -type f -name "$binary" | head -n 1)"
+          if [ -z "$binary_path" ]; then
+            echo "::error::Missing ${binary} binary in ${asset}"
+            exit 1
+          fi
+          install -m 0755 "$binary_path" "/usr/local/bin/$binary"
+        }
+
+        install_release_tar \
+          gitleaks \
+          gitleaks/gitleaks \
+          "v${GITLEAKS_VERSION}" \
+          "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+        install_release_tar \
+          trivy \
+          aquasecurity/trivy \
+          "v${TRIVY_VERSION}" \
+          "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+          "trivy_${TRIVY_VERSION}_checksums.txt"
+        install_release_tar \
+          syft \
+          anchore/syft \
+          "v${SYFT_VERSION}" \
+          "syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+          "syft_${SYFT_VERSION}_checksums.txt"
+        install_release_tar \
+          grype \
+          anchore/grype \
+          "v${GRYPE_VERSION}" \
+          "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
+          "grype_${GRYPE_VERSION}_checksums.txt"
+
+    - name: Install Python scanner CLIs
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m pip install --user "checkov==3.2.510" "semgrep==1.157.0"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Show scanner versions
+      shell: bash
+      run: |
+        set -euo pipefail
+        gitleaks version
+        trivy --version
+        syft version
+        grype version
+        checkov --version
+        semgrep --version

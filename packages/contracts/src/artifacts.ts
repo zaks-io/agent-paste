@@ -28,13 +28,13 @@ export const ArtifactFile = z.object({
 export type ArtifactFile = z.infer<typeof ArtifactFile>;
 
 export const ArtifactDetail = ArtifactSummary.extend({
-  files: z.array(ArtifactFile),
-  operation_event_ids: z.array(z.string()),
+  files: z.array(ArtifactFile).max(100),
+  operation_event_ids: z.array(z.string()).max(100),
 });
 export type ArtifactDetail = z.infer<typeof ArtifactDetail>;
 
 export const ArtifactListResponse = z.object({
-  data: z.array(ArtifactSummary),
+  data: z.array(ArtifactSummary).max(100),
   page_info: PageInfo,
 });
 export type ArtifactListResponse = z.infer<typeof ArtifactListResponse>;

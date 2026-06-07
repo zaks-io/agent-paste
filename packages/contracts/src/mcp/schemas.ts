@@ -29,9 +29,9 @@ export type McpScope = z.infer<typeof McpScope>;
 export const McpProtectedResourceMetadata = z
   .object({
     resource: UrlString,
-    authorization_servers: z.array(UrlString),
+    authorization_servers: z.array(UrlString).max(10),
     bearer_methods_supported: z.tuple([z.literal("header")]),
-    scopes_supported: z.array(z.string()).nonempty(),
+    scopes_supported: z.array(z.string()).min(1).max(20),
   })
   .strict();
 export type McpProtectedResourceMetadata = z.infer<typeof McpProtectedResourceMetadata>;
@@ -152,7 +152,7 @@ export type McpAccessLinkRow = z.infer<typeof McpAccessLinkRow>;
 export const McpListAccessLinksOutput = z
   .object({
     artifact_id: ArtifactId,
-    items: z.array(McpAccessLinkRow),
+    items: z.array(McpAccessLinkRow).max(100),
   })
   .strict();
 export type McpListAccessLinksOutput = z.infer<typeof McpListAccessLinksOutput>;
@@ -172,7 +172,7 @@ export const McpWhoamiResponse = z
       email: z.string().email(),
     }),
     workspace: WorkspaceSummary,
-    scopes: z.array(McpScope),
+    scopes: z.array(McpScope).max(MCP_DELEGATED_SCOPES.length),
   })
   .strict();
 export type McpWhoamiResponse = z.infer<typeof McpWhoamiResponse>;

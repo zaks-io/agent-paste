@@ -30,7 +30,7 @@ export const LockdownDetail = z.object({
 export type LockdownDetail = z.infer<typeof LockdownDetail>;
 
 export const LockdownListResponse = z.object({
-  items: z.array(LockdownDetail),
+  items: z.array(LockdownDetail).max(100),
   page_info: PageInfo,
 });
 export type LockdownListResponse = z.infer<typeof LockdownListResponse>;

@@ -31,6 +31,7 @@
     "deploy:production": "pnpm migrate:production && node scripts/deploy.mjs production",
     "deploy:live": "pnpm deploy:production",
     "secrets:local": "node scripts/deploy.mjs local",
+    "security:attest": "node scripts/security-attest.mjs",
     "format": "pnpm format:code && pnpm format:docs",
     "format:code": "biome format --write .",
     "format:docs": "prettier --write \"**/*.md\"",
@@ -89,6 +90,11 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "wrangler": "^4.94.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@esbuild-kit/core-utils>esbuild": "^0.25.12"
+    }
   },
   "optionalDependencies": {
     "@cloudflare/workerd-darwin-64": "1.20260520.1",

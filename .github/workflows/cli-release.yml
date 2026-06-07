@@ -260,20 +260,53 @@ jobs:
     name: Draft release
     needs: build
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Setup security attestation tools
+        uses: ./.github/actions/setup-security-attestation-tools
+
+      - name: Run repo security attestation
+        run: pnpm security:attest
+
+      - name: Upload repo security attestation
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-release-repo-security-attestation
+          path: artifacts/security/**
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Download all binaries
         uses: actions/download-artifact@v7
         with:
           path: dist-binaries
           merge-multiple: true
+
+      - name: Attach repo security attestation bundle
+        run: tar -czf dist-binaries/repo-security-attestation.tgz -C artifacts/security .
 
       # Checksums cover only the binaries — the per-OS globs deliberately exclude
       # the agent-paste-cli.* SBOM/report files, which carry their own provenance.
@@ -284,13 +317,13 @@ jobs:
       # The SBOM was generated from the bundler metafile in the build job and
       # downloaded above (merge-multiple lands it in dist-binaries/). It lists
       # exactly what is compiled into the binary.
-      - name: Scan SBOM (advisory)
+      - name: Scan CLI SBOM (blocking)
         id: grype
         uses: anchore/scan-action@v7
         with:
           sbom: dist-binaries/agent-paste-cli.sbom.cdx.json
-          severity-cutoff: high
-          fail-build: false
+          severity-cutoff: medium
+          fail-build: true
           output-format: json
 
       # Persist the grype report + a small metadata summary so build-time and the
@@ -310,7 +343,7 @@ jobs:
             --arg vulnDbSchemaVersion "$(jq -r '.descriptor.db.status.schemaVersion // empty' "$GRYPE_JSON")" \
             --arg commit "$COMMIT_SHA" \
             --arg scannedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{grypeVersion:$grypeVersion, vulnDbBuilt:$vulnDbBuilt, vulnDbSchemaVersion:$vulnDbSchemaVersion, commit:$commit, scannedAt:$scannedAt, blocking:false}' \
+            '{grypeVersion:$grypeVersion, vulnDbBuilt:$vulnDbBuilt, vulnDbSchemaVersion:$vulnDbSchemaVersion, commit:$commit, scannedAt:$scannedAt, blocking:true}' \
             > dist-binaries/scan-metadata.json
           cat dist-binaries/scan-metadata.json
 
@@ -346,5 +379,5 @@ jobs:
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a grype scan report (\`agent-paste-cli.grype.json\`), and scanner/DB versions (\`scan-metadata.json\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi

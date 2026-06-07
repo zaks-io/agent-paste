@@ -79,7 +79,7 @@ export type LiveUpdatePublishNotify = z.infer<typeof LiveUpdatePublishNotify>;
 export const LiveUpdateDisconnectNotify = z.object({
   op: z.literal("disconnect"),
   artifact_id: ArtifactId,
-  audiences: z.array(LiveUpdateAudience).min(1),
+  audiences: z.array(LiveUpdateAudience).min(1).max(LiveUpdateAudience.options.length),
   reason: LiveUpdateRevokedEvent.shape.reason,
 });
 export type LiveUpdateDisconnectNotify = z.infer<typeof LiveUpdateDisconnectNotify>;

@@ -4,16 +4,26 @@ Deferred work tied to the dedicated `.github/workflows/security.yml` security
 workflow ([ADR 0076](../adr/0076-public-open-source-security-posture-and-badges.md)).
 The private-phase gate is implemented; these are the remaining items, split into
 what can land while the repo is private and what waits for the public flip.
+The slow scanner bundle lives in `pnpm security:attest` and runs on `main`, the
+daily `Security` workflow, and release/deploy workflows. PR CI intentionally
+stays fast and does not run the full bundle.
 
 ## Private phase (do now / when convenient)
 
 - [x] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — proven on
       PR #217: Snyk Open Source tested 24 projects (clean) and Snyk Code ran.
+- [x] Promote the local scanner bundle to a blocking attestation path:
+      `gitleaks`, `pnpm audit`, Checkov OpenAPI, Trivy with dev deps, Syft SBOM,
+      Grype, and Semgrep all write reports under `artifacts/security/` and fail
+      the job on the configured threshold. Daily/main `Security`, production
+      deploy, and CLI release all call the same command so release evidence and
+      daily drift checks cannot diverge. Semgrep records all findings but blocks
+      only on `ERROR` severity until the existing INFO/WARNING noise is triaged.
 - [ ] Enable the **Snyk Code (SAST) entitlement** on the Snyk org
       (`isaac-…`). On PR #217 `snyk code test` ran the analysis but the report
-      call returned **403 Forbidden (SNYK-CLI-0000)**. Snyk Code is wired as
-      **advisory** (`|| true` + SARIF artifact) until the entitlement is on; flip
-      it back to gating only after the entitlement works and AP-160 triage is done.
+      call returned **403 Forbidden (SNYK-CLI-0000)**. Snyk Code is not part of
+      `pnpm security:attest`; keep it separate until the entitlement works and
+      AP-160 triage is done.
 - [ ] Triage the initial Snyk Code HIGH findings (19 on PR #217) — see **AP-160**.
       Mostly `scripts/*.mjs` "hardcoded non-cryptographic secret" likely-FPs plus a
       few app-code XSS/SSRF worth a real look. Add `.snyk` ignores for confirmed FPs.
@@ -22,13 +32,10 @@ what can land while the repo is private and what waits for the public flip.
 - [ ] Tune scanner noise only if warranted: add `.semgrep.yml` / `.trivyignore` /
       `.snyk` ignore files instead of leaving findings as advisory log spam. Start
       empty; add narrowly-scoped allowlists per confirmed false positive.
-- [ ] Decide whether to promote the secret-scan checks — `Secret scan` (ci.yml,
-      PR incremental) and `Secret scan (full history)` (security.yml) — and the
-      Snyk `Dependency scan (SCA)` job to **required** ruleset checks. The two
-      secret-scan checks are deliberately named distinctly so a required-check rule
-      can target one unambiguously. Today only `Validate` is required, so the
-      security jobs are visible but non-blocking. Promote in a follow-up PR once the
-      first few `Security` runs are stable, so a flaky first run can't lock `main`.
+- [ ] Decide whether to promote `Repo security attestation` and Snyk
+      `Dependency scan (Snyk SCA)` to required ruleset checks for `main`. The
+      attestation job is blocking inside its workflow today, but repository
+      rulesets still decide whether a failed `Security` workflow blocks merging.
 - [ ] Re-verify the pinned non-`actions/*` action tags are current before each
       release cycle: `aquasecurity/trivy-action@v0.36.0`, `anchore/sbom-action@v0`,
       `anchore/scan-action@v7`, and the `semgrep/semgrep` container image.

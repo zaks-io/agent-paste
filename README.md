@@ -105,6 +105,7 @@ pnpm hooks:install
 | `pnpm format:code`       | Format non-doc files with Biome.                                                                                                                |
 | `pnpm format:docs`       | Format Markdown files with Prettier.                                                                                                            |
 | `pnpm format:docs:check` | Check Markdown formatting.                                                                                                                      |
+| `pnpm security:attest`   | Run the release security attestation suite and write scanner reports under `artifacts/security/`.                                               |
 | `pnpm verify`            | Full CI-style local verification: docs format check, Knip, duplication, lint, typecheck, tests, scripts typecheck, OpenAPI check, and DB check. |
 | `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                                                        |
 

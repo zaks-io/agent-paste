@@ -73,7 +73,7 @@ export const EphemeralClaimResponse = z
   .object({
     destination_workspace_id: z.string().uuid(),
     source_workspace_id: z.string().uuid(),
-    artifact_ids: z.array(z.string().min(1)),
+    artifact_ids: z.array(z.string().min(1)).max(100),
     claim_token_id: z.string().min(1),
   })
   .strict();

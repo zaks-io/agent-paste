@@ -5,8 +5,8 @@ import { registerBillingPaths } from "./api.billing.js";
 import { registerEphemeralPaths } from "./api.ephemeral.js";
 import { createApiPathHelpers } from "./api.helpers.js";
 import { registerPublicPaths } from "./api.public.js";
-import { registerWebAdminPaths } from "./api.web-admin.js";
 import { registerWebPaths } from "./api.web.js";
+import { registerWebAdminPaths } from "./api.web-admin.js";
 import { registerApiSchemas, securitySchemes } from "./shared.js";
 import { applyWebCursorParameterBounds } from "./web-cursor-bounds.js";
 
@@ -42,6 +42,16 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       description: "Workspace-scoped JSON API for publishing and reading Agent View artifacts.",
     },
     servers: [{ url: options.serverUrl ?? "https://api.agent-paste.sh" }],
+    security: [
+      { ApiKeyBearer: [] },
+      { WorkOsBearer: [] },
+      { McpOAuthBearer: [] },
+      { SignedAgentViewToken: [] },
+      { SignedAccessLinkRequest: [] },
+      { EphemeralProofOfWork: [] },
+      { StripeSignature: [] },
+      { CfAccessServiceToken: [] },
+    ],
     ...(options.docsBaseUrl ? { externalDocs: { url: options.docsBaseUrl } } : {}),
   });
   applyWebCursorParameterBounds(document as unknown as Record<string, unknown>);

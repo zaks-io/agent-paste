@@ -10,6 +10,32 @@
       "url": "https://api.agent-paste.sh"
     }
   ],
+  "security": [
+    {
+      "ApiKeyBearer": []
+    },
+    {
+      "WorkOsBearer": []
+    },
+    {
+      "McpOAuthBearer": []
+    },
+    {
+      "SignedAgentViewToken": []
+    },
+    {
+      "SignedAccessLinkRequest": []
+    },
+    {
+      "EphemeralProofOfWork": []
+    },
+    {
+      "StripeSignature": []
+    },
+    {
+      "CfAccessServiceToken": []
+    }
+  ],
   "components": {
     "securitySchemes": {
       "ApiKeyBearer": {
@@ -26,6 +52,42 @@
         "type": "http",
         "scheme": "bearer",
         "description": "WorkOS AuthKit/Connect access token minted for the MCP resource indicator."
+      },
+      "SignedAgentViewToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Agent Paste signed Agent View token",
+        "description": "Signed Agent View token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters."
+      },
+      "SignedAccessLinkRequest": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Agent Paste signed Access Link URL",
+        "description": "Signed Access Link URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials."
+      },
+      "EphemeralProofOfWork": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Agent Paste proof-of-work challenge solution",
+        "description": "Signed proof-of-work challenge and solution supplied in the JSON request body. The initial challenge request returns 401 until a valid solution is submitted."
+      },
+      "SignedUploadToken": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "Signed upload URL token minted by the create-upload-session response."
+      },
+      "SignedContentToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Agent Paste signed content token",
+        "description": "Signed content token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters."
+      },
+      "StripeSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Stripe-Signature",
+        "description": "Stripe webhook signature header verified before any billing webhook processing."
       },
       "CfAccessServiceToken": {
         "type": "apiKey",
@@ -326,7 +388,9 @@
                 "read",
                 "admin"
               ]
-            }
+            },
+            "minItems": 1,
+            "maxItems": 3
           },
           "usage_policy": {
             "type": "object",
@@ -472,7 +536,8 @@
                 "read",
                 "share"
               ]
-            }
+            },
+            "maxItems": 3
           }
         },
         "required": [
@@ -1363,7 +1428,8 @@
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "maxItems": 100
           },
           "claim_token_id": {
             "type": "string",
@@ -1458,7 +1524,8 @@
                     "admin"
                   ]
                 },
-                "minItems": 1
+                "minItems": 1,
+                "maxItems": 3
               },
               "revoked_at": {
                 "type": [
@@ -1538,7 +1605,8 @@
                 "admin"
               ]
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 3
           },
           "revoked_at": {
             "type": [
@@ -1611,7 +1679,8 @@
                     "admin"
                   ]
                 },
-                "minItems": 1
+                "minItems": 1,
+                "maxItems": 3
               },
               "revoked_at": {
                 "type": [
@@ -1830,13 +1899,15 @@
                 "content_type",
                 "uploaded_at"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "operation_event_ids": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "maxItems": 100
           }
         },
         "required": [
@@ -1938,7 +2009,8 @@
                 "deleted_at",
                 "delete_reason"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -2008,7 +2080,8 @@
                 "admin"
               ]
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 3
           },
           "created_at": {
             "type": "string",
@@ -2079,7 +2152,8 @@
                     "admin"
                   ]
                 },
-                "minItems": 1
+                "minItems": 1,
+                "maxItems": 3
               },
               "created_at": {
                 "type": "string",
@@ -2109,7 +2183,8 @@
                 "admin"
               ]
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 3
           },
           "default_api_key": {
             "type": [
@@ -2147,7 +2222,8 @@
                         "admin"
                       ]
                     },
-                    "minItems": 1
+                    "minItems": 1,
+                    "maxItems": 3
                   },
                   "revoked_at": {
                     "type": [
@@ -2256,7 +2332,8 @@
                     "admin"
                   ]
                 },
-                "minItems": 1
+                "minItems": 1,
+                "maxItems": 3
               },
               "created_at": {
                 "type": "string",
@@ -2491,7 +2568,8 @@
                 "last_published_at",
                 "auto_delete_at"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -2655,7 +2733,8 @@
                       "admin"
                     ]
                   },
-                  "minItems": 1
+                  "minItems": 1,
+                  "maxItems": 3
                 },
                 "revoked_at": {
                   "type": [
@@ -2698,7 +2777,8 @@
                 "last_used_at",
                 "revoked"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -2917,7 +2997,8 @@
                 "revoked_at",
                 "revoked"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -3110,7 +3191,8 @@
                 "created_at",
                 "published_at"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -3217,7 +3299,8 @@
                 "change_summary",
                 "request_id"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -3385,7 +3468,8 @@
                 "actor_type",
                 "target_type"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -3619,7 +3703,8 @@
                 "lifted_at",
                 "lifted_by"
               ]
-            }
+            },
+            "maxItems": 100
           },
           "page_info": {
             "type": "object",
@@ -3820,7 +3905,8 @@
                 "hosted_invoice_url",
                 "invoice_pdf"
               ]
-            }
+            },
+            "maxItems": 100
           }
         },
         "required": [
@@ -5473,6 +5559,11 @@
       "get": {
         "operationId": "agentView.public",
         "summary": "Resolve a signed public Agent View.",
+        "security": [
+          {
+            "SignedAgentViewToken": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -5914,6 +6005,11 @@
       "post": {
         "operationId": "accessLinks.resolve",
         "summary": "Resolve an Access Link Signed URL to Agent View and content URLs.",
+        "security": [
+          {
+            "SignedAccessLinkRequest": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -6280,6 +6376,7 @@
       "get": {
         "operationId": "cli.version",
         "summary": "Advertise the latest and minimum-supported CLI versions.",
+        "security": [],
         "parameters": [
           {
             "schema": {
@@ -6312,6 +6409,11 @@
       "post": {
         "operationId": "ephemeral.provision",
         "summary": "Provision an Ephemeral Workspace behind proof-of-work. Send an empty body or `{}` to receive a signed challenge.",
+        "security": [
+          {
+            "EphemeralProofOfWork": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -22274,6 +22376,11 @@
       "post": {
         "operationId": "billing.webhook",
         "summary": "Receive Stripe subscription lifecycle webhooks (Stripe-Signature verified).",
+        "security": [
+          {
+            "StripeSignature": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
