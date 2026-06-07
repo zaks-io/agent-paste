@@ -233,11 +233,11 @@ hash client-side; do not ask users to convert the link to a query parameter.
 ## CLI reference (support)
 
 ```sh
-agent-paste publish <path> --ephemeral [--title <text>] [--ttl 1d] [--json]
+agent-paste publish <path> --ephemeral [--title <text>] [--json]
 ```
 
 - Ignores `AGENT_PASTE_API_KEY` and stored login credentials.
-- Default TTL is one day (ephemeral cap). `--json` prints `artifact_id`, `view_url`,
+- Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `view_url`,
   `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.
 - Provision challenge failures and rate limits surface as stable CLI error codes

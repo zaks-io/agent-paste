@@ -4,8 +4,23 @@ export const MCP_DOC: DocsPage = {
   slug: "mcp",
   title: "MCP Server",
   shortTitle: "MCP",
-  summary: "Hosted agents can publish and inspect text Artifacts over OAuth-only MCP.",
+  summary:
+    "Hosted agents without CLI access can publish, inspect, revise, and share text Artifacts over OAuth-only MCP.",
   sections: [
+    {
+      id: "when-to-use",
+      title: "When to use MCP",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Use MCP when an agent runs inside a hosted tool that can connect to remote MCP servers but cannot install npm packages, spawn a CLI, or use a local keychain.",
+        },
+        {
+          kind: "paragraph",
+          text: "MCP is not a weaker side channel. It is a core agent surface for publishing text Artifacts, reading Agent Views, adding Revisions, and managing Share Links or Revision Links without shell access.",
+        },
+      ],
+    },
     {
       id: "endpoint",
       title: "Endpoint",
@@ -17,6 +32,10 @@ export const MCP_DOC: DocsPage = {
         {
           kind: "paragraph",
           text: "MCP does not accept API Keys or dashboard cookies. It verifies a WorkOS-issued OAuth bearer token and forwards authenticated calls to `api` and `upload` over service bindings.",
+        },
+        {
+          kind: "paragraph",
+          text: "Connect `https://mcp.agent-paste.sh` in the host, complete OAuth, then run `whoami` first. The WorkOS user must already belong to a Workspace, which dashboard sign-in or `agent-paste login` creates.",
         },
       ],
     },
@@ -77,11 +96,15 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The MCP publish tools are text-only. Binary uploads, multi-file folder uploads, standalone Bundle downloads, and workspace settings stay in CLI, REST, or dashboard surfaces.",
+          text: "The MCP publish tools are text-only. Binary uploads, multi-file folder uploads, standalone Bundle downloads, workspace settings, billing, and lockdown controls stay in CLI, REST, or dashboard surfaces.",
         },
         {
           kind: "paragraph",
           text: "`publish_artifact` and `add_revision` accept optional idempotency keys. When omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+        },
+        {
+          kind: "paragraph",
+          text: "Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not choose TTL.",
         },
       ],
     },

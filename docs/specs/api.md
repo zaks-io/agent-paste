@@ -41,12 +41,13 @@ Secrets are never accepted as query parameters or flags.
 
 ## Public API Routes
 
-| Method | Path                                    | Auth                      | Idempotency | Request | Response               |
-| ------ | --------------------------------------- | ------------------------- | ----------- | ------- | ---------------------- |
-| `GET`  | `/v1/whoami`                            | `api_key`                 | none        | -       | `WhoamiResponse`       |
-| `GET`  | `/v1/mcp/whoami`                        | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
-| `GET`  | `/v1/artifacts/{artifact_id}/revisions` | `api_key_or_mcp_oauth`    | none        | -       | `RevisionListResponse` |
-| `GET`  | `/v1/public/agent-view/{token}`         | `signed_agent_view_token` | none        | -       | `PublicAgentView`      |
+| Method | Path                                                          | Auth                      | Idempotency | Request | Response               |
+| ------ | ------------------------------------------------------------- | ------------------------- | ----------- | ------- | ---------------------- |
+| `GET`  | `/v1/whoami`                                                  | `api_key`                 | none        | -       | `WhoamiResponse`       |
+| `GET`  | `/v1/mcp/whoami`                                              | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
+| `GET`  | `/v1/artifacts/{artifact_id}/revisions`                       | `api_key_or_mcp_oauth`    | none        | -       | `RevisionListResponse` |
+| `POST` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish` | `api_key_or_mcp_oauth`    | required    | -       | `PublishResult`        |
+| `GET`  | `/v1/public/agent-view/{token}`                               | `signed_agent_view_token` | none        | -       | `PublicAgentView`      |
 
 `whoami` returns the workspace id/name, API key id/name, and effective caps. It does not return API-key secret material.
 
@@ -56,18 +57,17 @@ Secrets are never accepted as query parameters or flags.
 
 ## Upload Routes
 
-| Method | Path                                            | Auth                   | Idempotency | Request                      | Response                      |
-| ------ | ----------------------------------------------- | ---------------------- | ----------- | ---------------------------- | ----------------------------- |
-| `POST` | `/v1/upload-sessions`                           | `api_key_or_mcp_oauth` | required    | `CreateUploadSessionRequest` | `CreateUploadSessionResponse` |
-| `PUT`  | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url`    | none        | file bytes                   | empty                         |
-| `POST` | `/v1/upload-sessions/{session_id}/finalize`     | `api_key_or_mcp_oauth` | required    | -                            | `PublishResult`               |
+| Method | Path                                            | Auth                   | Idempotency | Request                      | Response                        |
+| ------ | ----------------------------------------------- | ---------------------- | ----------- | ---------------------------- | ------------------------------- |
+| `POST` | `/v1/upload-sessions`                           | `api_key_or_mcp_oauth` | required    | `CreateUploadSessionRequest` | `CreateUploadSessionResponse`   |
+| `PUT`  | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url`    | none        | file bytes                   | empty                           |
+| `POST` | `/v1/upload-sessions/{session_id}/finalize`     | `api_key_or_mcp_oauth` | required    | -                            | `FinalizeUploadSessionResponse` |
 
 ### `CreateUploadSessionRequest`
 
 ```json
 {
   "title": "demo",
-  "ttl_seconds": 2592000,
   "entrypoint": "index.html",
   "files": [
     {
@@ -81,9 +81,10 @@ Secrets are never accepted as query parameters or flags.
 Rules:
 
 - `title` is plain text.
-- `ttl_seconds` must be between `1d` and `90d`.
-- Single HTML publishes use the file name as `entrypoint`.
-- Folder publishes require `index.html`.
+- Artifact lifetime is derived from server-side Workspace/Plan policy, not from
+  client input.
+- Single-file publishes use the file name as `entrypoint`.
+- Folder publishes require an explicit or inferred `entrypoint`.
 - Paths are normalized POSIX paths.
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
@@ -100,7 +101,9 @@ Rules:
   "files": [
     {
       "path": "index.html",
-      "put_url": "https://upload.agent-paste.sh/v1/upload-sessions/upl_.../files/index.html?..."
+      "put_url": "https://upload.agent-paste.sh/v1/upload-sessions/upl_.../files/index.html?...",
+      "required_headers": {},
+      "expires_at": "2026-05-21T12:00:00.000Z"
     }
   ]
 }
@@ -117,11 +120,17 @@ The returned `put_url` values are opaque upload-worker URLs. They are not R2 URL
   "title": "demo",
   "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
-  "expires_at": "2026-06-19T12:00:00.000Z"
+  "expires_at": "2026-06-19T12:00:00.000Z",
+  "bundle": {
+    "status": "pending",
+    "retry_after_seconds": 5
+  }
 }
 ```
 
-Finalize verifies every expected file exists in R2, creates the artifact metadata, records file metadata, emits operation events, signs the URLs, and returns `PublishResult`.
+Finalize verifies every expected file exists in R2 and returns a draft Revision
+summary. Publishing the finalized Revision creates or updates the published
+Artifact state, signs the URLs, and returns `PublishResult`.
 
 ## Content Routes
 
@@ -151,8 +160,9 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 2. CLI or MCP calls `POST upload /v1/upload-sessions`.
 3. CLI PUTs each file to returned upload-worker URLs.
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
-5. `upload` verifies files and completes the artifact through the API worker boundary.
-6. CLI prints `PublishResult`.
+5. `upload` verifies files and returns the finalized draft Revision.
+6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
+7. CLI prints `PublishResult`.
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.

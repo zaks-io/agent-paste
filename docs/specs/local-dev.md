@@ -55,7 +55,7 @@ Do not commit real `.env` or `.dev.vars` files.
 | `pnpm --filter @agent-paste/upload dev`                                                        | Run the Upload Worker through Wrangler once Wrangler config/bindings exist.                                                                         |
 | `pnpm --filter @agent-paste/content dev`                                                       | Run the Content Worker through Wrangler once Wrangler config/bindings exist.                                                                        |
 | `pnpm cli:dev whoami --json`                                                                   | Exercise the CLI against `AGENT_PASTE_API_URL`.                                                                                                     |
-| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --ttl 7d --json`     | Publish the local harness through the configured API and upload URLs.                                                                               |
+| `pnpm cli:dev publish examples/local-harness/site --title "Local harness" --json`              | Publish the local harness through the configured API and upload URLs.                                                                               |
 | `pnpm --filter @agent-paste/mcp test`                                                          | Run MCP Worker unit tests (transport, auth, tools).                                                                                                 |
 | `pnpm smoke:mcp`                                                                               | Build and run local MCP smoke (OAuth + publish/read/delete through MCP tools).                                                                      |
 
@@ -104,7 +104,6 @@ Then, in another shell:
 
 ```sh
 export AGENT_PASTE_API_URL=http://127.0.0.1:8787
-export AGENT_PASTE_UPLOAD_URL=http://127.0.0.1:8788
 export AGENT_PASTE_SMOKE_HARNESS_SECRET=local-smoke-harness-secret
 
 # Provision a workspace + API key through the non-production smoke harness:
@@ -115,7 +114,7 @@ curl -fsS -X POST http://127.0.0.1:8787/__test__/provision-smoke \
 
 export AGENT_PASTE_API_KEY=<api_key_secret from response>
 pnpm cli:dev whoami --json
-pnpm cli:dev publish "$(pwd)/examples/local-harness/site" --ttl 7d --json
+pnpm cli:dev publish "$(pwd)/examples/local-harness/site" --json
 ```
 
 Or run `pnpm smoke:local`, which performs the full harness flow automatically.
@@ -161,7 +160,6 @@ Commit examples, not secrets:
 Shared CLI values:
 
 - `AGENT_PASTE_API_URL`
-- `AGENT_PASTE_UPLOAD_URL`
 - `AGENT_PASTE_API_KEY`
 
 Worker values currently read by runtime code:

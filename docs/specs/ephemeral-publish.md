@@ -4,6 +4,9 @@ The decision and rationale are [ADR 0075](../adr/0075-agent-first-ephemeral-publ
 
 ## Product Promise
 
+This spec owns the shipped ephemeral flow. The canonical use-case framing lives
+in [`use-cases.md`](./use-cases.md).
+
 An agent with no credential and no human in the loop can publish in one call and immediately hand off a working URL:
 
 ```sh

@@ -111,8 +111,10 @@ sequenceDiagram
 
 Key invariants:
 
-- `CreateUploadSessionRequest` validates title, TTL, entrypoint, paths, file
-  count, file size, and total size before bytes are accepted.
+- `CreateUploadSessionRequest` validates title, entrypoint, paths, file count,
+  file size, and total size before bytes are accepted.
+- Artifact lifetime is derived from server-side Workspace/Plan policy, not from
+  client input.
 - Upload PUT URLs are opaque upload-worker URLs, not R2 URLs.
 - Finalize verifies every expected file exists before creating a Published
   Revision.
@@ -192,7 +194,7 @@ proxies Untrusted Content and does not hold Postgres, R2, KV, or secrets.
 
 ## Ephemeral Publish And Claim
 
-Ephemeral publish lets an unattended agent publish without a prior human login.
+Ephemeral publish allows an unattended agent to publish without a prior human login.
 It is a constrained tenant state, not an absence of tenant state.
 
 ```mermaid
@@ -226,22 +228,22 @@ This system does not claim uploaded content is safe. The security model is that
 uploaded content is untrusted until isolated, scoped, expired, revoked, or locked
 down.
 
-| Control                                | What it protects                                                                                        |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                |
-| Private R2                             | Prevents storage URLs from becoming public access paths.                                                |
-| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                              |
-| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                |
-| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                 |
-| Hashed API Keys and Claim Tokens       | Stores verifier material, not bearer secrets.                                                           |
-| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                           |
-| `runCommand`                           | Commits state changes with audit and idempotency records.                                               |
-| Denylist keys                          | Lets revocation, Access Link Lockdown, and Platform Lockdown cut off reads before byte purge completes. |
-| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.       |
-| Ephemeral script-disabled policy       | Prevents no-login content from running script until claimed.                                            |
-| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                              |
-| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                  |
-| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).           |
+| Control                                | What it protects                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                     |
+| Private R2                             | Prevents storage URLs from becoming public access paths.                                                     |
+| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                   |
+| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                     |
+| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                      |
+| Hashed API Keys and Claim Tokens       | Stores verifier material, not bearer secrets.                                                                |
+| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                |
+| `runCommand`                           | Commits state changes with audit and idempotency records.                                                    |
+| Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes. |
+| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.            |
+| Ephemeral script-disabled policy       | Prevents no-login content from running script until claimed.                                                 |
+| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                   |
+| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                       |
+| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                |
 
 Important limits:
 

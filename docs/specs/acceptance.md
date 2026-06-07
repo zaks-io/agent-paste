@@ -47,8 +47,8 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 | Scenario             | Expected Result                                                                                |
 | -------------------- | ---------------------------------------------------------------------------------------------- |
-| Default TTL          | Publish without `--ttl` sets artifact expiration to `30d`.                                     |
-| Max TTL              | Publish with a TTL over `90d` is rejected with a validation error.                             |
+| Default lifetime     | Publish sets artifact expiration from the Workspace's server-side Auto Deletion policy.        |
+| Lifetime bounds      | Workspace settings enforce the server-side min/max Auto Deletion bounds.                       |
 | Artifact expiration  | Scheduled cleanup marks the artifact expired/deleted and removes R2 bytes.                     |
 | Manual cleanup       | Non-production harness `POST /__test__/run-cleanup` on `jobs` reports expiry and purge counts. |
 | No forever artifacts | There is no supported MVP path that creates an artifact without `expires_at`.                  |

@@ -3,6 +3,9 @@
 Command-line interface for publishing shareable **Artifacts** to [Agent Paste](https://agent-paste.sh). Point it at a file or folder and it uploads the bytes, finalizes a revision, and prints a shareable URL. Built for agents and CI, usable by hand.
 
 The npm package is `@zaks-io/agent-paste`; the installed binary is `agent-paste`.
+If your agent host cannot run a CLI but can connect to remote MCP, use the
+hosted MCP server instead: [`https://mcp.agent-paste.sh`](https://mcp.agent-paste.sh).
+See [`docs/mcp.md`](../../docs/mcp.md).
 
 ## Install
 
@@ -73,17 +76,14 @@ A single file:
 npx @zaks-io/agent-paste publish ./report.html
 ```
 
-With a custom retention TTL:
-
-```sh
-npx @zaks-io/agent-paste publish ./report --ttl 7d
-```
-
 A new revision of an existing Artifact:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
 ```
+
+Artifact lifetime is server-side Workspace/Plan policy. The CLI does not accept
+a retention flag.
 
 ## Publish without signing in
 
@@ -116,7 +116,6 @@ The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query 
 | `--title <text>`       | Set the title. Default: path basename.                                                                  |
 | `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                     |
 | `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.               |
-| `--ttl <duration>`     | Set retention. Accepts `30m`, `12h`, `7d`, or seconds, subject to workspace caps.                       |
 | `--ephemeral`          | Publish with no login or key. Self-provisions a short-lived Workspace and prints a one-time claim link. |
 | `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                            |
 | `--quiet`              | Suppress human-readable stdout output.                                                                  |
@@ -143,12 +142,17 @@ With `--json`, stdout is exactly the publish result:
   "title": "report",
   "view_url": "https://usercontent.agent-paste.sh/v/...",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
-  "expires_at": "2026-06-20T00:00:00.000Z"
+  "expires_at": "2026-06-20T00:00:00.000Z",
+  "bundle": {
+    "status": "pending",
+    "retry_after_seconds": 5
+  }
 }
 ```
 
 `view_url` is served from the isolated content origin (`usercontent.agent-paste.sh`);
-`agent_view_url` is the Agent View JSON on the API origin.
+`agent_view_url` is the Agent View JSON on the API origin. `bundle` reports
+whether the revision archive is pending, ready, failed, or disabled.
 
 With `--ephemeral`, the human-readable output appends the claim link:
 
@@ -181,24 +185,14 @@ The CLI generates an **idempotency key** per `publish` invocation and reuses it 
 
 ## Errors
 
-Exit `0` for success, `1` for any failure. Plain text on stderr:
+Exit `0` for success, `1` for any failure. Errors are plain text on stderr,
+including when `--json` is set:
 
 ```text
 agent-paste: not_authenticated: Set AGENT_PASTE_API_KEY or pass an auth provider.
 ```
 
-With `--json`, errors are structured on stderr:
-
-```json
-{
-  "error": {
-    "code": "insufficient_scope",
-    "message": "Actor has scopes [read], needs [publish, read]"
-  }
-}
-```
-
-The `code` field is the stable identifier; `message` is human-readable.
+The middle field is the stable error code. The message is human-readable.
 
 ## Configuration
 
