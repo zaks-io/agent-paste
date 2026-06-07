@@ -15,11 +15,13 @@ If you need to get oriented or find the owner of a workflow quickly, use
 
 ## Project stage
 
-Launch-readiness / pre-public launch. Production Workers are deployed and
-smoke-tested, but the product and repo are not public yet. Do not modify
-production without explicit approval. Do not add legacy, deprecated, or
-back-compat code paths or migration shims; there are no public users to stay
-compatible with yet. When behavior needs to change, change it outright.
+Live production / early alpha. The hosted service and public repository are live,
+but the product surface is still intentionally small and may change quickly. Do
+not modify production without explicit approval. Public users, issued API Keys,
+published Artifacts, and npm installs may exist; preserve supported behavior or
+make breaking changes explicit in specs, docs, and migration/operational notes.
+Do not add legacy or deprecated code paths unless they are required to preserve a
+current public contract.
 
 ## Agent skills
 
@@ -67,7 +69,7 @@ possible.
 
 ### Key commands
 
-All standard commands are documented in the root `README.md` tables. Highlights for cloud agents:
+All standard commands are documented in `docs/development.md`. Highlights for cloud agents:
 
 | Task                                    | Command                                                                                      |
 | --------------------------------------- | -------------------------------------------------------------------------------------------- |

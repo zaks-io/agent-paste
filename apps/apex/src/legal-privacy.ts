@@ -94,7 +94,7 @@ export const PRIVACY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "Ephemeral publishing lets an agent publish before a human claims the Workspace. Ephemeral content has shorter retention and lower limits. Claim links should be protected because they can transfer control of the published content.",
+          text: "Ephemeral publishing allows an agent to publish before a human claims the Workspace. Ephemeral content has shorter retention and lower limits. Claim links should be protected because they can transfer control of the published content.",
         },
       ],
     },

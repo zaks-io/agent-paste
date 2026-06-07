@@ -67,8 +67,8 @@ If the bet is right, in a few years:
 
 - After an agent makes something inspectable, publishing it is the reflexive next
   move, the way `git commit` is reflexive after writing code.
-- A published **Artifact** has one address. A human opens it and another agent
-  reads it, from the same identifier, with no translation step in between.
+- A published **Artifact** gives each reader the right surface: a browser URL for
+  humans and an Agent View for tools.
 - The **Agent View** is a documented, stable, vendor-neutral contract that other
   tools and platforms both read and emit. The manifest is the protocol.
 - Agent work lives exactly as long as it should and no longer.
@@ -84,8 +84,8 @@ from an isolated **Content Origin**. Expires by default. This is the loop that
 has to become a reflex before anything else matters:
 
 ```text
-agent makes a thing -> publish -> get one ID -> a human opens it,
-another agent reads it -> it expires later
+agent makes a thing -> publish -> get human URL and Agent View ->
+a human opens it, another agent reads it -> it expires later
 ```
 
 **Horizon 2, the publishing layer (next): the work product, fully modeled.**
@@ -103,8 +103,8 @@ published and read across tools, not just inside ours.
 
 - **Vendor-neutral.** Never tied to one model vendor or one cloud's ecosystem.
 - **Machine-readable first.** The manifest is a product, not an afterthought.
-- **One ID, every surface.** The same identifier resolves across CLI, REST, MCP,
-  and the dashboard.
+- **Dual-audience handoff.** Every publish has a human-readable URL and a
+  machine-readable Agent View.
 - **Untrusted by construction.** Content is unsafe until isolated. Safety is the
   default posture, not a setting a user has to find.
 - **Transient by default.** We are a handoff, not a vault.

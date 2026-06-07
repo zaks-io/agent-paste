@@ -8,6 +8,10 @@ records implementation status; these specs own the behavioral contract.
 
 - [`mvp.md`](./mvp.md): the original CLI-first MVP story, actors, surfaces,
   journeys, limits, and non-goals.
+- [`use-cases.md`](./use-cases.md): canonical product use cases, audiences, and
+  explicit non-use-cases.
+- [`../mcp.md`](../mcp.md): practical MCP guide for agents that cannot run the
+  CLI but can connect to remote MCP.
 - [`phases.md`](./phases.md): roadmap from buildable plan through MCP and platform hardening.
 - [`admin.md`](./admin.md): internal admin REST APIs and repo-local admin CLI contract.
 - [`product-judgment.md`](./product-judgment.md): why to build, why not to build, and the product posture behind the narrower MVP.
@@ -43,10 +47,11 @@ Use [`CONTEXT.md`](../../CONTEXT.md) for domain language.
 
 1. [`CONTEXT.md`](../../CONTEXT.md)
 2. [`product-judgment.md`](./product-judgment.md)
-3. [`mvp.md`](./mvp.md)
-4. [`phases.md`](./phases.md)
-5. [`features.md`](./features.md)
-6. [`architecture.md`](./architecture.md)
-7. [`api.md`](./api.md), [`admin.md`](./admin.md), [`data-model.md`](./data-model.md), and [`content-rendering.md`](./content-rendering.md)
-8. [`local-dev.md`](./local-dev.md)
-9. [`acceptance.md`](./acceptance.md)
+3. [`use-cases.md`](./use-cases.md)
+4. [`mvp.md`](./mvp.md)
+5. [`phases.md`](./phases.md)
+6. [`features.md`](./features.md)
+7. [`architecture.md`](./architecture.md)
+8. [`api.md`](./api.md), [`admin.md`](./admin.md), [`data-model.md`](./data-model.md), and [`content-rendering.md`](./content-rendering.md)
+9. [`local-dev.md`](./local-dev.md)
+10. [`acceptance.md`](./acceptance.md)

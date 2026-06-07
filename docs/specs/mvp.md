@@ -6,11 +6,12 @@ This file is the original CLI-first MVP baseline. The shipped hosted service has
 since added the later dashboard, Access Link, lifecycle, billing, ephemeral
 publish, and MCP phases listed in [`features.md`](./features.md) and
 [`docs/ops/project-status.md`](../ops/project-status.md).
+Current product use cases are centralized in [`use-cases.md`](./use-cases.md).
 
 agent-paste is a hosted artifact handoff service for agents. The MVP proves one loop:
 
 ```sh
-AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site --ttl 30d
+AGENT_PASTE_API_KEY=ap_pk_... agent-paste publish ./site
 ```
 
 The command uploads a single HTML file or an HTML folder, returns stable URLs for a human and another agent, and expires the artifact later so the service does not accumulate cruft forever.
@@ -46,7 +47,7 @@ A human with the WorkOS `admin` role or automation using Cloudflare Access servi
 The public product surface. MVP commands are:
 
 ```sh
-agent-paste publish <path> [--title "..."] [--ttl 30d]
+agent-paste publish <path> [--title "..."]
 agent-paste whoami
 ```
 
@@ -126,7 +127,8 @@ MVP Agent View is simple JSON with full URLs. It does not use `content_prefix`.
 ## Upload Flow
 
 1. CLI walks the file or folder, normalizes POSIX paths, infers the title when `--title` is omitted, and validates local caps.
-2. CLI calls `POST upload /v1/upload-sessions` with file paths, sizes, title, TTL, and an idempotency key.
+2. CLI calls `POST upload /v1/upload-sessions` with file paths, sizes, title,
+   entrypoint, and an idempotency key.
 3. `upload` validates the API key, enforces caps, reserves `artifact_id` and `revision_id`, stores the session, and returns signed upload-worker PUT URLs.
 4. CLI PUTs each file to the signed upload URLs.
 5. CLI calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
@@ -148,11 +150,12 @@ Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web o
 
 ## Retention
 
-Retention is required in the MVP.
+Retention is required in the MVP and is selected by server-side Workspace policy.
+Current policy values are subject to Workspace/Plan configuration.
 
-- Default TTL: `30d`.
-- Minimum TTL: `1d`.
-- Maximum TTL: `90d`.
+- Default lifetime: `30d`.
+- Minimum lifetime: `1d`.
+- Maximum lifetime: `90d`.
 - Every artifact has `expires_at`.
 - Every upload session has `expires_at`.
 - Expired artifacts stop resolving and their R2 bytes are deleted by cleanup.

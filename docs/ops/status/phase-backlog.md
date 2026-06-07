@@ -1,6 +1,6 @@
 # Phase Backlog
 
-Last updated: 2026-06-07 (launch-readiness refresh after AP-109/AP-174/AP-181
+Last updated: 2026-06-07 (early-alpha production refresh after AP-109/AP-174/AP-181
 landed and production `SMOKE_HARNESS_SECRET` cleanup was completed by Isaac).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
@@ -14,8 +14,8 @@ member `/v1/web/*` routes shipped in AP-156, and the dashboard moved to a
 TanStack Query cache with an SSE-driven live UI in AP-164. The Stripe billing
 path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
 shipped behind the deploy-time billing flag. Active product work is now
-post-launch/Phase 6 launch readiness: production E2E verification (AP-139),
-the public/open-source gate (AP-254), hosted-content provenance (AP-235), Snyk
+post-launch/Phase 6 early-alpha hardening: production E2E verification (AP-139),
+public-repo security posture (AP-254), hosted-content provenance (AP-235), Snyk
 Code triage (AP-160), and security/ops polish. Hosted Stripe test-mode was
 verified in preview by Isaac; production Stripe still needs a final smoke only
 if billing is enabled for paid public launch. (The file-bytes malware scanner,
@@ -33,8 +33,8 @@ Active local handoff: none. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
 and AP-242 are Done on `main`. Production deploys after `5411f0f` were blocked
 by a stale forbidden `SMOKE_HARNESS_SECRET` on `agent-paste-api-production`;
 Isaac deleted that Worker secret on 2026-06-07, and manual `Deploy Production`
-run `27101054536` succeeded on current `main` (`6ad04f5`). Next launch-readiness
-step: record AP-139 production E2E evidence. Hosted-content provenance badge is
+run `27101054536` succeeded on current `main` (`6ad04f5`). Next early-alpha
+hardening step: record AP-139 production E2E evidence. Hosted-content provenance badge is
 separate AP-235.
 
 ## Phase 3 Close-Out

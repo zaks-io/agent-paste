@@ -2,7 +2,7 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-07 (launch-readiness refresh: npm trusted publishing,
+Last updated: 2026-06-07 (early-alpha production refresh: npm trusted publishing,
 preview Stripe test-mode verification, incident intake decision, and production
 secret cleanup captured).
 See [changelog.md](./status/changelog.md) for what shipped.
@@ -17,33 +17,33 @@ None. No unmerged local handoff branch.
 
 AP-236 (rate-limit fail-closed + production deploy source hardening) shipped in
 PR #356 (merge `7113f77`, on `main`) and is Done. Pick up the next item from
-[phase-backlog.md](./status/phase-backlog.md), or the launch-readiness toggles
-under [AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex).
+[phase-backlog.md](./status/phase-backlog.md), or the early-alpha public
+security posture toggles under
+[AP-254](https://linear.app/zaks-io/issue/AP-254).
 
 Standing security-posture decisions (still in force, not handoff-specific):
 file-bytes malware scanning is an accepted near-term risk, proof-of-work is not
 the primary long-term abuse lever, and hard production deploy wait limits are
-deferred until launch/users. The hosted-content provenance badge is a separate
-product/security follow-up in
+deferred until enough production usage justifies them. The hosted-content
+provenance badge is a separate product/security follow-up in
 [AP-235](https://linear.app/zaks-io/issue/AP-235/add-hosted-content-provenance-badge-to-reduce-phishing-risk).
 
-## Launch Countdown
+## Early Alpha Hardening
 
-This section is the repo-level launch countdown. Keep only final launch gates
-here; the linked ledgers and Linear tickets own detail and evidence. When a
-launch gate changes, update this section and the owner ticket/ledger in the same
-PR.
+This section tracks post-launch alpha hardening. The hosted service is live;
+open items improve production confidence, public repo signals, and security
+posture rather than blocking launch. The linked ledgers and Linear tickets own
+detail and evidence.
 
-Done for launch: every open item below is checked, or explicitly marked "not
-required for launch" with evidence in its owner ticket.
+Done for this section: every open item below is checked, or explicitly marked
+"not currently required" with evidence in its owner ticket.
 
 1. [ ] **AP-139: Production E2E evidence** (next). Done when the full production
        E2E/smoke sequence has run against the current production deploy and the
        evidence is recorded in AP-139 plus
        [hosted-ops.md](./status/hosted-ops.md).
-2. [ ] **AP-254: Public repo + apex source link**. Done when the repo is public
-       and the apex footer/About source links ship in the same change, with tests
-       flipped from "absent" to "present".
+2. [ ] **AP-254: Apex source link**. Done when the apex footer/About source
+       links ship with tests covering the public GitHub link.
 3. [ ] **AP-254: GitHub public security posture**. Done when CodeQL/code
        scanning, secret scanning, Dependabot alerts/updates, OpenSSF Scorecard,
        public SARIF uploads, and public badges are enabled or documented as not
@@ -55,10 +55,10 @@ required for launch" with evidence in its owner ticket.
 5. [ ] **AP-235: Hosted-content provenance badge**. Done when hosted content
        visibly distinguishes Agent Paste hosted pages and the behavior is covered
        by docs/tests.
-6. [ ] **Conditional: Production Stripe smoke**. Required only if billing is
-       enabled for paid public launch. Done when Checkout, webhook activation,
+6. [ ] **Conditional: Production Stripe smoke**. Required before enabling paid
+       billing publicly. Done when Checkout, webhook activation,
        Portal/invoice access, and plan sync are smoke-tested in production;
-       otherwise mark "not required for launch" here.
+       otherwise mark "not currently required" here.
 7. [x] **Production deploy of current main**. Done on 2026-06-07: `6ad04f5`
        deployed by manual run `27101054536` with migration, Worker deploy, and
        read-only production smoke green.
@@ -73,8 +73,8 @@ required for launch" with evidence in its owner ticket.
 
 Phases 1–5 are complete: the CLI-first MVP, public OAuth + web dashboard + CLI
 login, the Artifact lifecycle (revisions, Access Links, jobs, bundles, Live
-Updates), and the MCP surface. The hosted service is feature-complete for its
-launch shape; current work is post-launch/Phase 6 hardening.
+Updates), and the MCP surface. The hosted service is live in its early-alpha
+shape; current work is post-launch/Phase 6 hardening.
 Current `main` (`6ad04f5`) deployed to production successfully on 2026-06-07 via
 manual `Deploy Production` run `27101054536`; migration, Worker deploy, and the
 read-only production smoke passed.
@@ -88,7 +88,7 @@ What stands today:
   dashboard. Enforcement reads only local `workspaces.plan`; Stripe is a sync
   layer, never the hot-path source of truth. Hosted Stripe test-mode was
   verified in preview by Isaac; a final production Stripe smoke is still needed
-  only if billing is enabled for paid public launch.
+  only before enabling paid billing publicly.
 - **Ephemeral publish** — agent-first self-provision with short-lived low-cap
   keys, daily write allowance, Claim Token promotion, 24h cleanup, `noindex`,
   script-disabled serving, and the post-claim free-to-pro upgrade CTA is
@@ -162,8 +162,8 @@ Feature-specific ledgers:
 ## Current Phase
 
 Phases 1–5 are complete (see Snapshot). Current active work is
-post-launch/Phase 6 hardening and launch readiness: production E2E verification
-(AP-139), the public/open-source gate (AP-254), Snyk Code triage (AP-160),
+post-launch/Phase 6 early-alpha hardening: production E2E verification
+(AP-139), public-repo security posture (AP-254), Snyk Code triage (AP-160),
 hosted-content provenance (AP-235), and security/ops polish.
 [phase-backlog.md](./status/phase-backlog.md) owns the ordered remaining work.
 
@@ -172,7 +172,7 @@ hosted-content provenance (AP-235), and security/ops polish.
 Highest-signal gaps:
 
 - Post-launch/Phase 6 follow-ups: final production E2E verification (AP-139)
-  and, if billing is enabled for paid public launch, a final production Stripe
+  and, before enabling paid billing publicly, a final production Stripe
   smoke. The Stripe Checkout/webhooks/Portal API, operator plan override,
   hosted billing UI, preview/test-mode Stripe verification, and ephemeral
   claim/upgrade funnel have shipped (AP-5/AP-109/AP-176).
@@ -187,14 +187,15 @@ Highest-signal gaps:
 - Security triage backlog: triage Snyk Code (SAST) HIGH findings and enable the
   org SAST entitlement (AP-160); Snyk Code stays advisory until then.
 
-## Open-source gate
+## Public Repository Status
 
-Repo is licensed **Apache-2.0** and the ADR 0076 private-phase security posture
-is complete (full-history gitleaks-clean, gating Snyk Open Source, advisory
-SAST/SBOM). Go-public steps (flip visibility, the apex GitHub source-link flip,
+Repo is public, licensed **Apache-2.0**, and the ADR 0076 private-phase security
+posture is complete (full-history gitleaks-clean, gating Snyk Open Source,
+advisory SAST/SBOM). Remaining public-repo/source-link and GitHub security
+feature toggles (apex GitHub source-link flip,
 CodeQL/secret-scanning/Dependabot/Scorecard, and public badges) are tracked in
 [security-todo.md](./security-todo.md) and aggregated under
-[AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex).
+[AP-254](https://linear.app/zaks-io/issue/AP-254).
 
 A 2026-06-05 external credibility review confirmed most "reputable vendor"
 signals already ship (Apache-2.0, `SECURITY.md` private disclosure, GitHub

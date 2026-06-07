@@ -2,14 +2,12 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
 
 const LLMS_TXT_BASE = `# agent-paste
 
-> Durable, addressable artifacts for AI agents. One publish call returns a stable
-> Artifact ID that the CLI prints, the REST API returns, the dashboard renders,
-> and an MCP tool consumes - the same string across every interface.
+> Durable, addressable artifacts for AI agents. One publish call returns an
+> Artifact ID, a human URL, and an Agent View URL for machine-readable handoff.
 
 agent-paste gives agents a stable, addressable place to publish work products.
-An Artifact is a folder of one or more files. Each publish returns an Artifact
-ID (\`art_…\`) that resolves the same artifact from any actor - human, agent, or
-another platform - without translation tables.
+An Artifact is a folder of one or more files. Each publish returns the browser
+view a human opens and an Agent View manifest another agent can read.
 
 ## What you can do here
 
@@ -19,9 +17,8 @@ another platform - without translation tables.
 - Publish with no account: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
   needs no login or key. The Artifact lives 24h and prints a one-time claim link
   (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to keep the Artifact.
-- Address an artifact from any surface: \`${API_BASE_URL}/v1/artifacts/{id}\`,
-  \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard at
-  \`${APP_BASE_URL}/artifacts/{id}\`.
+- Read an artifact from agent-facing surfaces: \`${API_BASE_URL}/v1/artifacts/{id}/agent-view\`,
+  \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Share an artifact with a revocable Access Link. A human opens it at
   \`${APP_BASE_URL}/al/{public_id}\`; an agent reads the same link through
   \`${API_BASE_URL}/v1/public/agent-view/{token}\`. Revoke it without deleting

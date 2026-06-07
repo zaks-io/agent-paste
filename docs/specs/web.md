@@ -35,7 +35,7 @@ The browser-facing login flow follows WorkOS AuthKit Authorization Code Flow wit
 
 - Calls the AuthKit integration to create the WorkOS authorization URL.
 - Redirects to WorkOS with the configured `WORKOS_REDIRECT_URI`.
-- Lets AuthKit own state, PKCE, refresh, and transaction/session cookies.
+- Leaves AuthKit in charge of state, PKCE, refresh, and transaction/session cookies.
 
 `/api/auth/callback`:
 
@@ -46,7 +46,7 @@ The browser-facing login flow follows WorkOS AuthKit Authorization Code Flow wit
 
 No token, authorization code, PKCE verifier, state, or one-time API Key secret may be logged.
 
-On every authed request, `api` verifies the forwarded WorkOS access token and resolves the caller's identity. The dashboard client's WorkOS JWT Template emits a `zaks-io:email` claim, so `api` reads the email straight from the verified token (the `sub` is the authoritative user id) and does **not** call the WorkOS user API. CLI and MCP tokens have no such template and fall back to `GET /user_management/users/{id}`. Member `scopes` (in-workspace authorization) always come from the database, never the token; operator status comes from the WorkOS `role` claim. See [ADR 0082](../adr/0082-identity-in-token-authorization-in-db.md). The residual ~1–2.7s sometimes seen on authed routes pre-launch is cold isolate + cold Hyperdrive connection warmup (it disappears under continuous traffic), not the auth path.
+On every authed request, `api` verifies the forwarded WorkOS access token and resolves the caller's identity. The dashboard client's WorkOS JWT Template emits a `zaks-io:email` claim, so `api` reads the email straight from the verified token (the `sub` is the authoritative user id) and does **not** call the WorkOS user API. CLI and MCP tokens have no such template and fall back to `GET /user_management/users/{id}`. Member `scopes` (in-workspace authorization) always come from the database, never the token; operator status comes from the WorkOS `role` claim. See [ADR 0082](../adr/0082-identity-in-token-authorization-in-db.md). The residual ~1–2.7s sometimes seen on low-traffic authed routes is cold isolate + cold Hyperdrive connection warmup (it disappears under continuous traffic), not the auth path.
 
 Read-only Workspace Members can list Access Links workspace-wide and per
 Artifact. Access Link management mutations - create, mint, revoke, Access Link

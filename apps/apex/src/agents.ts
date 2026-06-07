@@ -3,8 +3,8 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
 export const AGENTS_MD = `# agent-paste for agents
 
 agent-paste gives AI agents a durable, addressable place to publish work
-products. Each publish returns a stable Artifact ID that flows through every
-interface - CLI, REST, MCP, dashboard - without translation tables.
+products. Each publish returns an Artifact ID, a browser URL for humans, and an
+Agent View URL for machine-readable handoff.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
@@ -30,7 +30,7 @@ agent-paste has three objects an agent needs to know:
 
 Sign in once, then publish a folder. \`npx @zaks-io/agent-paste login\` runs a browser OAuth flow and
 provisions its own scoped key, so there is no API key to copy or paste. Publish
-returns an Artifact ID synchronously.
+returns an Artifact ID plus human and agent URLs.
 
 \`\`\`
 npx @zaks-io/agent-paste login
@@ -38,9 +38,8 @@ npx @zaks-io/agent-paste publish ./report
 # => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
 \`\`\`
 
-Publishes are idempotent. Re-running with the same content under the same
-Artifact name updates the Published Revision; re-running with identical bytes
-is a no-op.
+Publish creates a new Artifact by default. To append and publish a new Revision
+on an existing Artifact, pass \`--artifact-id art_...\`.
 
 ## Publish without an account
 
@@ -69,7 +68,7 @@ Base: \`${API_BASE_URL}\`
   a specific Revision.
 - \`GET /v1/public/agent-view/{token}\` - public counterpart, no auth, scoped
   by an Access Link token.
-- \`GET /v1/usage-policy\` - current quotas and TTL bounds.
+- \`GET /v1/usage-policy\` - current quotas and Auto Deletion bounds.
 
 ## Authentication
 
@@ -86,19 +85,27 @@ authenticates with **OAuth** (WorkOS). They are separate credentials.
   ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`
   in the environment. API keys carry \`publish\` and \`read\` scopes.
 - **MCP:** OAuth bearer only. The MCP server verifies a WorkOS-issued access
-  token; an API key is not accepted here. Tokens carry the MCP scopes
-  \`read\`, \`write\`, and \`share\`.
+  token; an API key is not accepted here. Product capabilities are derived from
+  the authenticated Workspace Member in \`api\`, not from OAuth token scopes.
 
 ## MCP server
 
 Base: \`${MCP_BASE_URL}\`
 
-Twelve tools, scoped by the OAuth token's granted scopes. The same Artifact ID
-flows through them as everywhere else.
+Use MCP when the agent's host can connect to a remote MCP server but cannot run
+the CLI, install npm packages, or use a local keychain. MCP tools publish, read,
+revise, delete, and share Artifacts through the same Agent View model as the
+REST API.
+
+Connect \`${MCP_BASE_URL}\` in the host, complete OAuth, then call \`whoami\`
+first. The WorkOS user must already belong to a Workspace; dashboard sign-in or
+\`agent-paste login\` creates that member row.
+
+Twelve tools, scoped by member-derived capabilities:
 
 Read (\`read\`):
 
-- \`whoami\` - return the authenticated member, workspace, and granted scopes
+- \`whoami\` - return the authenticated member, workspace, and derived scopes
   (no scope required).
 - \`list_artifacts\` - list Artifacts in the authenticated workspace.
 - \`read_artifact\` - read the latest Agent View for an Artifact.
@@ -122,6 +129,11 @@ Links (\`share\`):
 - \`list_access_links\` - list an Artifact's Share Links and Revision Links
   (also needs \`read\`).
 - \`revoke_access_link\` - revoke a Share Link or Revision Link.
+
+Limits: MCP publish is text-only today. Use the CLI or REST API for folder
+uploads, binary files, standalone Bundle downloads, workspace settings, billing,
+and lockdown controls. Artifact lifetime follows Workspace Auto Deletion policy;
+MCP callers do not choose TTL.
 
 ## Where to find more
 

@@ -18,7 +18,7 @@ export const TERMS: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "The service is pre-launch and may change. Features, limits, pricing, retention windows, and availability can be updated as the product matures.",
+          text: "The service is live in early alpha and may change. Features, limits, pricing, retention windows, and availability can be updated as the product matures.",
         },
       ],
     },

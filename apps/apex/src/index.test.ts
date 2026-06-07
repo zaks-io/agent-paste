@@ -126,7 +126,7 @@ describe("apex worker", () => {
     expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
     expect(body).not.toContain("Get an API key");
     expect(body).toContain("Open the dashboard");
-    expect(body).toContain("One ID, every surface");
+    expect(body).toContain("A URL and an Agent View");
   });
 
   // Marketing shares the dashboard's discipline (see docs/specs/style-guide.md):
@@ -180,10 +180,8 @@ describe("apex worker", () => {
     expect(body).toContain("How it is built and run");
     expect(body).toContain("What to expect");
     expect(body).toContain("AI was used heavily");
-    expect(body).toContain("pre-launch");
-    // No repo / open-source claims while the gate is closed.
-    expect(body).not.toContain("github.com");
-    expect(body).not.toContain("open source");
+    expect(body).toContain("live in early alpha");
+    expect(body).toContain("Workspace Auto Deletion policy");
   });
 
   it("does not include style-guide banned tokens on the about page", async () => {

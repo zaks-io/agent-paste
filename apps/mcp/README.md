@@ -2,6 +2,9 @@
 
 OAuth-only hosted MCP Worker for agent-paste.
 
+User-facing MCP guide: [`docs/mcp.md`](../../docs/mcp.md). Use MCP when an agent
+can connect to a remote MCP server but cannot run the CLI.
+
 Responsibilities:
 
 - Streamable HTTP MCP transport.
@@ -36,7 +39,7 @@ contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/sr
 
 | Tool                      | Scopes               | Purpose                                                  |
 | ------------------------- | -------------------- | -------------------------------------------------------- |
-| `whoami`                  | (none)               | Authenticated member, workspace, and granted scopes.     |
+| `whoami`                  | (none)               | Authenticated member, workspace, and derived scopes.     |
 | `list_artifacts`          | `read`               | List Artifacts in the workspace.                         |
 | `read_artifact`           | `read`               | Latest Agent View for an Artifact.                       |
 | `list_revisions`          | `read`               | List Revisions for an Artifact.                          |
