@@ -39,7 +39,7 @@ export const WhoamiResponse = z.object({
     name: z.string().min(1).max(120),
   }),
   workspace: WorkspaceSummary,
-  scopes: z.array(Scope).max(Scope.options.length),
+  scopes: z.array(Scope).min(1).max(Scope.options.length),
   usage_policy: UsagePolicy,
 });
 export type WhoamiResponse = z.infer<typeof WhoamiResponse>;

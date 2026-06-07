@@ -62,6 +62,7 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
     path: "/v1/public/cli-version",
     operationId: "cli.version",
     summary: "Advertise the latest and minimum-supported CLI versions.",
+    security: [],
     request: { headers: [requestIdHeader] },
     // The handler is total — it serves a safe default on missing/malformed/
     // erroring KV (contract errors: []), so it only ever returns 200.

@@ -389,6 +389,7 @@
                 "admin"
               ]
             },
+            "minItems": 1,
             "maxItems": 3
           },
           "usage_policy": {
@@ -6375,6 +6376,7 @@
       "get": {
         "operationId": "cli.version",
         "summary": "Advertise the latest and minimum-supported CLI versions.",
+        "security": [],
         "parameters": [
           {
             "schema": {

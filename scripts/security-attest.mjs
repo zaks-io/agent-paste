@@ -1,16 +1,26 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
 const outArgIndex = args.indexOf("--out");
-const outDir = resolve(repoRoot, outArgIndex === -1 ? "artifacts/security" : (args[outArgIndex + 1] ?? ""));
+const allowedOutBase = resolve(repoRoot, "artifacts/security");
+const requestedOut = outArgIndex === -1 ? "artifacts/security" : (args[outArgIndex + 1] ?? "");
+const outDir = resolve(repoRoot, requestedOut);
 
-if (outArgIndex !== -1 && !args[outArgIndex + 1]) {
+if (outArgIndex !== -1 && !requestedOut) {
   console.error("--out requires a directory");
+  process.exit(2);
+}
+
+const pathFromAllowedBase = relative(allowedOutBase, outDir);
+const isAllowedOutDir =
+  pathFromAllowedBase === "" || (!pathFromAllowedBase.startsWith("..") && !isAbsolute(pathFromAllowedBase));
+if (isAbsolute(requestedOut) || requestedOut === "." || !isAllowedOutDir) {
+  console.error("--out must be artifacts/security or a child directory");
   process.exit(2);
 }
 
