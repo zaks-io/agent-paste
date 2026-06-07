@@ -1,14 +1,25 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 
 reviews:
+  profile: assertive
   auto_review:
-    enabled: false
-    auto_incremental_review: false
-    drafts: false
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+    drafts: true
+    base_branches:
+      - "main"
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+    labels:
+      - "!do-not-review"
     ignore_usernames:
       - "dependabot[bot]"
       - "renovate[bot]"
       - "github-actions[bot]"
+      - "release-bot"
+    description_keyword: ""
   path_filters:
     - "!**/dist/**"
     - "!**/coverage/**"
