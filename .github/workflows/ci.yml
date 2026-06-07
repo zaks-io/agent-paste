@@ -176,6 +176,27 @@ jobs:
         if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm verify
 
+      # The OpenAPI specs are validated by the release security attestation
+      # (`pnpm security:attest`), which otherwise only runs at deploy/release
+      # time. Gate the *deterministic* spec check here too so a contract change
+      # that trips checkov can never merge green and then break the production
+      # deploy (which happened once: a checkov-openapi failure skipped the deploy
+      # and froze prod). The advisory CVE scanners (trivy/grype/semgrep) stay out
+      # of PR CI so a fresh upstream advisory can't block unrelated PRs. checkov
+      # auto-discovers the repo-root .checkov.yaml; keep the pin in sync with
+      # .github/actions/setup-security-attestation-tools.
+      - name: Setup Python
+        if: ${{ env.RUN_CODE == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Attest OpenAPI specs (checkov)
+        if: ${{ env.RUN_CODE == 'true' }}
+        run: |
+          python3 -m pip install --quiet "checkov==3.2.510"
+          checkov -d packages/contracts/openapi --framework openapi --quiet --compact
+
       - name: Coverage
         if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm test:coverage
