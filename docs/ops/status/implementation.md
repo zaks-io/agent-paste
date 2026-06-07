@@ -1,11 +1,12 @@
 # Implementation State
 
-Last updated: 2026-06-04 (AP-154 Phase 1; web Access Link UI + TanStack/SSE).
+Last updated: 2026-06-07 (launch-readiness refresh; current `main` plus
+production deploy blocker cleanup).
 
 ## Snapshot
 
 - Local `main` and `origin/main` are aligned at
-  `567e476 feat(ci): capture SBOM + provenance + scan metadata for CLI release (AP-154 Phase 1) (#226)`.
+  `6ad04f5 feat(jobs): archive audit events to R2 before 90-day GC delete (AP-181) (#422)`.
 - AP-99 through AP-111 add Ephemeral Workspace provisioning, claim, CLI
   `--ephemeral`, web claim UX, script-disabled/noindex serving, and local +
   hosted ephemeral smokes. Operator notes:
@@ -13,13 +14,16 @@ Last updated: 2026-06-04 (AP-154 Phase 1; web Access Link UI + TanStack/SSE).
 - AP-156 ships dashboard Access Link management (member `/v1/web/*` routes plus
   list/create/mint/revoke/lockdown UI); AP-164 adds the TanStack Query client
   cache and SSE-driven live dashboard. AP-161/AP-162 make artifact TTL
-  server-side-only and heal stale `claimed_at` on web-member login.
-- CI `Validate` and `Security` are green on `567e476` (current `main` HEAD), and
-  `Deploy Production` succeeded on the same SHA. Local `pnpm verify` re-run on
-  2026-06-04 after a clean `pnpm install`: 88/88 Turbo tasks successful.
-- Last recorded hosted MVP smokes remain green from the 2026-05-22 production
-  run and the later preview/web deploy checks recorded in the changelog. The
-  production deploy now runs the credential-free `pnpm smoke:prod:readonly`
+  server-side-only and heal stale `claimed_at` on web-member login. AP-109
+  ships the post-claim free-to-pro success funnel and upgrade CTA.
+- CI `Validate` and `Security` are green on `6ad04f5` (current `main` HEAD).
+  `Deploy Production` succeeded on `6ad04f5` via manual run
+  `27101054536` on 2026-06-07 after Isaac deleted the stale forbidden
+  production `SMOKE_HARNESS_SECRET` from `agent-paste-api-production`.
+- The credential-free production read-only smoke passed locally on 2026-06-07:
+  reachable worker health, apex routes, MCP metadata/challenge, and web
+  sign-in redirect. It still does not prove content-byte serving; AP-144 owns
+  the pinned canary follow-up. The production deploy now runs this read-only
   canary in place of the removed authed smoke (AP-138).
 
 ## Components
@@ -50,12 +54,12 @@ Last updated: 2026-06-04 (AP-154 Phase 1; web Access Link UI + TanStack/SSE).
 
 ## Planned But Absent
 
-| Planned item                    | Earliest phase | Current state                                                                                                                    |
-| ------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Stripe Checkout/webhooks/Portal | Post-launch    | Done (AP-5): implemented behind `BILLING_ENABLED`. Remaining: hosted Stripe test-mode verification (needs credentials).          |
-| Hosted billing UI               | Post-launch    | Done (AP-176): `/billing` dashboard with plan, subscription, live allowance, and Stripe invoices.                                |
-| Ephemeral claim/upgrade funnel  | Post-launch    | Provision, claim API, CLI `--ephemeral`, web `/claim`, and smokes ship; AP-109 upgrade funnel polish remains.                    |
-| Access Link management UI       | Phase 4        | Done (AP-156): `/v1/web/*` member routes + dashboard list/create/mint/revoke/lockdown UI on `/access-links` and artifact detail. |
+| Planned item                    | Earliest phase | Current state                                                                                                                                                                                 |
+| ------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stripe Checkout/webhooks/Portal | Post-launch    | Done (AP-5): implemented behind `BILLING_ENABLED`. Preview/test-mode verification completed by Isaac on 2026-06-07; final production smoke only if billing is enabled for paid public launch. |
+| Hosted billing UI               | Post-launch    | Done (AP-176): `/billing` dashboard with plan, subscription, live allowance, and Stripe invoices.                                                                                             |
+| Ephemeral claim/upgrade funnel  | Post-launch    | Done (AP-109): provision, claim API, CLI `--ephemeral`, web `/claim`, post-claim success UI, upgrade CTA, and smokes ship.                                                                    |
+| Access Link management UI       | Phase 4        | Done (AP-156): `/v1/web/*` member routes + dashboard list/create/mint/revoke/lockdown UI on `/access-links` and artifact detail.                                                              |
 
 ## Known Implementation Gaps
 
@@ -72,11 +76,13 @@ Last updated: 2026-06-04 (AP-154 Phase 1; web Access Link UI + TanStack/SSE).
 
 ## Verification
 
-| Check                   | Latest known result | Date       | Notes                                                                                                                           |
-| ----------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| CI `Validate` on `main` | Pass                | 2026-06-04 | `CI` + `Security` workflows green on `567e476`; `Deploy Production` succeeded on the same SHA.                                  |
-| `pnpm verify`           | Pass                | 2026-06-04 | 88 Turbo tasks successful on `main` (`567e476`) after a clean `pnpm install`.                                                   |
-| `pnpm smoke:local`      | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
-| `pnpm smoke:preview`    | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
-| `pnpm smoke:production` | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |
-| PR preview lifecycle    | Pass                | 2026-05-25 | Readiness gate polls `/healthz` with consecutive 200s and retries 404/530 flakes; docs-only PRs skip deploy via `paths-ignore`. |
+| Check                      | Latest known result | Date       | Notes                                                                                                                           |
+| -------------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| CI `Validate` on `main`    | Pass                | 2026-06-06 | `CI` + `Security` workflows green on `6ad04f5`.                                                                                 |
+| `pnpm verify`              | Pass                | 2026-06-04 | 88 Turbo tasks successful on `main` (`567e476`) after a clean `pnpm install`.                                                   |
+| `pnpm smoke:local`         | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
+| `pnpm smoke:preview`       | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
+| `pnpm smoke:production`    | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |
+| `pnpm smoke:prod:readonly` | Pass                | 2026-06-07 | Credential-free production canary passed locally: worker health, apex, MCP metadata/challenge, and web sign-in redirect.        |
+| `Deploy Production`        | Pass                | 2026-06-07 | Manual workflow run `27101054536` deployed `6ad04f5`; migration, Worker deploy, and read-only production smoke passed.          |
+| PR preview lifecycle       | Pass                | 2026-05-25 | Readiness gate polls `/healthz` with consecutive 200s and retries 404/530 flakes; docs-only PRs skip deploy via `paths-ignore`. |

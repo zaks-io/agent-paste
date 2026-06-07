@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-06-05.
+Last updated: 2026-06-07.
 
 ## Environment
 
@@ -47,10 +47,18 @@ Rotation goes through `scripts/rotate-versioned-secret.mjs` /
 | `WORKOS_COOKIE_PASSWORD`        | web                   | WorkOS AuthKit sealed-session password.                                                            |
 | `WORKOS_CLI_AUDIENCE`           | api                   | WorkOS User Management audience used to verify CLI/login and dashboard session issuer details.     |
 
-Deferred secrets not created for the current app:
+Launch-readiness secret notes:
 
-- `ACCESS_LINK_SIGNING_KEY_V1` - waits for Phase 4 Access Links.
-- Stripe secrets/webhook secret - wait for post-launch billing.
+- `SMOKE_HARNESS_SECRET` must exist only on preview/PR workers. It was found on
+  `agent-paste-api-production` after the production smoke-path hardening and
+  blocked deploys through `6ad04f5`; Isaac deleted it on 2026-06-07 with
+  `wrangler secret delete SMOKE_HARNESS_SECRET --name agent-paste-api-production`.
+  Manual `Deploy Production` run `27101054536` then deployed `6ad04f5`
+  successfully and passed the read-only production smoke.
+- Stripe secrets are optional and route-gated by `BILLING_ENABLED`. Hosted
+  Stripe test-mode was verified in preview by Isaac on 2026-06-07. If billing
+  is enabled for paid public launch, run a final production Stripe smoke after
+  deploy.
 
 ## Known Security / Ops Gaps
 
@@ -83,14 +91,16 @@ Deferred secrets not created for the current app:
 
 ## GitHub / CI
 
-- AP-236 is in flight on
-  `codex/ap-236-fail-closed-rate-limit-deploy-hardening` and has not merged.
-  It hardens `.github/workflows/deploy-production.yml` by removing job-wide
-  Turbo/Cloudflare deploy secrets, validating that `workflow_run` deploys come
-  from a successful `main` run in this repository, checking out
-  `refs/heads/main`, and refusing to deploy if the checked-out SHA differs from
-  the CI head SHA. Before PR handoff, confirm `origin/main` has not moved beyond
-  `e0eabfb` and rerun the full repo gate.
+- AP-236 shipped in PR #356. `.github/workflows/deploy-production.yml` no
+  longer exposes job-wide Turbo/Cloudflare deploy secrets, validates that
+  `workflow_run` deploys come from a successful `main` run in this repository,
+  checks out `refs/heads/main`, and refuses to deploy if the checked-out SHA
+  differs from the CI head SHA.
+- `CI` and `Security` are green on current `main` (`6ad04f5`). Production
+  deploys after `5411f0f` failed because production still carried forbidden
+  `SMOKE_HARNESS_SECRET` on the API Worker. Isaac deleted that secret on
+  2026-06-07; manual `Deploy Production` run `27101054536` then succeeded on
+  `6ad04f5` with migration, Worker deploy, and read-only production smoke green.
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
   `DATABASE_URL_MIGRATIONS_PRODUCTION` (or legacy `PRODUCTION_DATABASE_URL`),
@@ -104,7 +114,21 @@ Deferred secrets not created for the current app:
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
 - `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
   already reserved by `@zaks-io/agent-paste@0.0.0`.
+- npm trusted publishing (OIDC) is configured for `@zaks-io/agent-paste`
+  (operator-confirmed 2026-06-07). Prefer the trusted-publishing path over a
+  long-lived npm token for real releases.
 - GitHub Production required-reviewer/wait-timer/admin-bypass posture is parked.
+
+## Launch Readiness Decisions
+
+- Public incident intake minimum bar is `support@agentpaste`, which routes to
+  email and then into Linear. A separate hosted status page remains optional
+  until the account/tooling stack is ready.
+- Hosted Stripe test-mode verification passed in preview. Production Stripe is
+  not yet smoke-tested; run it only if billing is enabled for paid public launch.
+- Current public-launch account gates: repository visibility flip, apex GitHub
+  source link, GitHub CodeQL/code scanning, secret scanning, Dependabot, and
+  OpenSSF Scorecard.
 
 ## Deploy Order
 
@@ -173,7 +197,9 @@ Smoke output redacts the Claim Token hash in the summary line and never logs API
   for the current path-based Access gate.
 - Update hosted Hyperdrive configs to `app_role` URLs and store
   `DATABASE_URL_MIGRATIONS_PRODUCTION` in GitHub Production (operator action).
-- Wire Logpush -> Axiom when Isaac is ready for Cloudflare/Axiom click-ops.
+- Native Workers Observability -> Axiom is live. The older per-Worker Logpush
+  design is superseded and kept only as a reference if dedicated datasets are
+  needed later.
 - Revisit GitHub Production environment reviewer/wait-timer/admin-bypass posture
   after launch/users. Do not add hard production deploy limits as part of
   AP-236.

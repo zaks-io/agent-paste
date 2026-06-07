@@ -15,7 +15,11 @@ If you need to get oriented or find the owner of a workflow quickly, use
 
 ## Project stage
 
-Pre-launch. Nothing is deployed; there are no users, tokens, or credentials in the wild. Do not add legacy, deprecated, or back-compat code paths or migration shims. There is nothing to stay compatible with. When behavior needs to change, change it outright.
+Launch-readiness / pre-public launch. Production Workers are deployed and
+smoke-tested, but the product and repo are not public yet. Do not modify
+production without explicit approval. Do not add legacy, deprecated, or
+back-compat code paths or migration shims; there are no public users to stay
+compatible with yet. When behavior needs to change, change it outright.
 
 ## Agent skills
 

@@ -3,6 +3,23 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-07
+
+### Launch-readiness operator updates
+
+- Captured operator decisions that npm trusted publishing is configured, hosted
+  Stripe test-mode verification passed in preview, and public incident intake
+  will use `support@agentpaste`, routed through email into Linear. A separate
+  hosted status page remains optional until the account/tooling stack is ready.
+- Removed the stale production `SMOKE_HARNESS_SECRET` blocker from
+  `agent-paste-api-production` (operator action by Isaac). Production deploys
+  after `5411f0f` had failed through current `main` (`6ad04f5`) until that
+  secret was deleted.
+- Manually triggered `Deploy Production` after the secret cleanup; run
+  `27101054536` deployed `6ad04f5` successfully, including migration, Worker
+  deploy, and read-only production smoke.
+- Reconciled status docs with completed AP-109/AP-174/AP-181/AP-242 work.
+
 ## 2026-06-05
 
 ### Legal contact + secrets guidance for launch credibility (PR #393, AP-254)

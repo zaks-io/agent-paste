@@ -65,8 +65,8 @@ what can land while the repo is private and what waits for the public flip.
 Per ADR 0076, public trust signals become meaningful only once the source,
 license, workflows, and scan config are inspectable.
 
-Launch-readiness aggregator for the go-public toggles plus the two non-security
-items below (apex repo link, status page) is
+Launch-readiness aggregator for the go-public toggles plus the source-link
+follow-up below is
 [AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex),
 filed off an external credibility review.
 
@@ -76,9 +76,11 @@ filed off an external credibility review.
       Add a source link (footer + About) and flip those test gates from
       "absent" to "present" **in the same change as the visibility flip** —
       never before.
-- [ ] Stand up a status page or public incident/update channel. Blocked on the
-      account/tooling stack; minimum bar is a public incident channel, not
-      necessarily a full hosted status page.
+- [x] Stand up a status page or public incident/update channel. Decision
+      recorded 2026-06-07: the minimum public incident intake channel is the
+      `support@agentpaste` mailbox, which routes through email into Linear. A
+      separate hosted status page remains optional until the account/tooling
+      stack is ready.
 - [ ] Enable GitHub CodeQL / code scanning, GitHub secret scanning, Dependabot
       alerts + updates, and OpenSSF Scorecard (with published results).
 - [ ] Swap the advisory SARIF **artifact** uploads (Trivy, Semgrep) for
@@ -86,9 +88,9 @@ filed off an external credibility review.
       relevant job's `permissions`. Keep the top-level default at `contents: read`.
 - [ ] Promote Snyk Code / Semgrep / Trivy / Grype from advisory to **gating** once
       their entitlement (Snyk Code) and false-positive surface are characterized.
-- [ ] Configure npm **trusted publishing (OIDC)** + provenance for
-      `@zaks-io/agent-paste` from a protected release workflow (replaces long-lived
-      npm tokens).
+- [x] Configure npm **trusted publishing (OIDC)** + provenance for
+      `@zaks-io/agent-paste` from a protected release workflow (operator-confirmed
+      2026-06-07; replaces long-lived npm tokens).
 - [ ] Add only externally-verifiable badges: CI, the security workflow, Scorecard,
       OpenSSF Best Practices (if FLOSS requirements are met), and the Snyk **npm
       package** badge once the package is public. No badge may imply a private scan

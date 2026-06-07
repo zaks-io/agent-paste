@@ -16,7 +16,7 @@ Scope:
 Out of scope:
 
 - Product marketing copy
-- Stripe checkout / `pro` upgrade (AP-5, AP-109)
+- New Stripe checkout / `pro` entitlement implementation (AP-5/AP-109 are shipped)
 - Implementing new API or UI surfaces
 
 Related docs:
@@ -39,7 +39,7 @@ Related docs:
 | Local end-to-end smoke              | Shipped (AP-110)        | `pnpm smoke:local`                                  |
 | Hosted preview/PR smoke             | Shipped (AP-111)        | `pnpm smoke:preview:ephemeral`, PR preview workflow |
 | Hosted production smoke             | Operator-run (AP-111)   | `pnpm smoke:production:ephemeral` with approval     |
-| Claim/upgrade funnel polish         | Remaining (AP-109)      | Product UX beyond redemption                        |
+| Claim/upgrade funnel polish         | Shipped (AP-109)        | Post-claim success UI and upgrade CTA               |
 
 **User-facing end-to-end availability** requires hosted smokes to pass in the target
 environment (preview CI or an operator-approved production run). Implementation can be

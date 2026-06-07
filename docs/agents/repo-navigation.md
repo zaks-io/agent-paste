@@ -49,9 +49,9 @@ carry the local contract summary and commands.
 | Dashboard           | [`apps/web`](../../apps/web)                                                                         | TanStack Start routes, WorkOS session handling, dashboard UI, and server mutations.    |
 | Lifecycle jobs      | [`apps/jobs`](../../apps/jobs)                                                                       | Queue consumers, cron discovery, bundle generation, byte purge, retention, and scans.  |
 | Live Updates        | [`apps/stream`](../../apps/stream)                                                                   | Artifact Durable Object, SSE fan-out, and viewer authorization through `api`.          |
-| CLI                 | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, credentials, publish flow, local admin commands, and API client calls.          |
+| CLI                 | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, credentials, publish flow, self-upgrade, and API client calls.                  |
 | Marketing surface   | [`apps/apex`](../../apps/apex)                                                                       | Public homepage, `/llms.txt`, `/agents.md`, and app redirects.                         |
-| MCP scaffold        | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Future OAuth-only MCP transport, tool registry, and forwarded API call plans.          |
+| MCP                 | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Streamable HTTP transport, OAuth auth, tool registry, and forwarded API calls.         |
 | Storage helpers     | [`packages/storage`](../../packages/storage), [`packages/config`](../../packages/config)             | Served content type mapping, security headers, paths, limits, and expiration helpers.  |
 | Repo policy         | [`packages/repo-lint`](../../packages/repo-lint), [`scripts/README.md`](../../scripts/README.md)     | Monorepo guardrails, deployment scripts, smoke scripts, and maintenance commands.      |
 
