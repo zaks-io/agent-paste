@@ -205,7 +205,7 @@ export async function webAdminLiftLockdown(
       targetId: params.targetId,
       requestId: getRequestId(context),
     });
-    await clearPlatformLockdownDenylist(env, scope, params.targetId);
+    await clearPlatformLockdownDenylist(env, db, scope, params.targetId);
     return detail;
   });
 }

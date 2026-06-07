@@ -3480,6 +3480,9 @@ function baseDbForTests(): ApiDatabase {
 function operatorDbForTests(overrides: Partial<ApiDatabase> = {}): ApiDatabase {
   return {
     ...baseDbForTests(),
+    async peekArtifactPlatformLockdownRetention() {
+      return false;
+    },
     ...overrides,
   };
 }

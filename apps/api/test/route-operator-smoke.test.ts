@@ -87,6 +87,7 @@ describe("AP-91 operator route modules", () => {
       setLockdown: vi.fn(async () => ({ lockdown: { scope: "artifact", target_id: "art_1" } })),
       liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
       listArtifacts: vi.fn(async () => ({ data: [{ id: "art_2" }] })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => false),
     };
 
     const artifact = await webAdminSetLockdown(
@@ -165,6 +166,7 @@ describe("AP-91 operator route modules", () => {
     });
     const db = {
       liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => false),
     };
 
     const response = await webAdminLiftLockdown(
@@ -177,6 +179,46 @@ describe("AP-91 operator route modules", () => {
 
     expect(response.status).toBe(503);
     await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+  });
+
+  it("keeps the shared artifact denylist key on platform-lockdown lift when an access-link lockdown remains", async () => {
+    const deleteKey = vi.fn(async () => undefined);
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => true),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "artifact", targetId: "art_1" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.peekArtifactPlatformLockdownRetention).toHaveBeenCalledWith("art_1");
+    expect(deleteKey).not.toHaveBeenCalled();
+  });
+
+  it("does not run artifact retention checks when lifting a workspace lockdown", async () => {
+    const deleteKey = vi.fn(async () => undefined);
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => true),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "workspace", targetId: workspaceId },
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.peekArtifactPlatformLockdownRetention).not.toHaveBeenCalled();
+    expect(deleteKey).toHaveBeenCalledWith(`wsd:${workspaceId}`);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { LockdownScope } from "@agent-paste/contracts";
+import { isArtifactAccessLinkLocked } from "./access-links.js";
 import { type ArtifactInvalidationEnv, deleteDenylistKey, writeDenylistKey } from "./byte-purge-shared.js";
 import type { RepositoryCoreContext } from "./repository/core-context.js";
 import { PLATFORM_SCOPE } from "./repository/core-helpers.js";
@@ -19,6 +20,23 @@ export async function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, 
     }
     const platformLockdown = await entities.platformLockdowns.findEffective("artifact", artifactId);
     return platformLockdown !== null;
+  });
+}
+
+/** True when an access-link lockdown still requires `ad:{artifactId}` after a platform-lockdown lift. */
+export async function peekArtifactPlatformLockdownRetention(
+  ctx: RepositoryCoreContext,
+  artifactId: string,
+): Promise<boolean> {
+  if (!artifactId) {
+    return false;
+  }
+  return ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
+    const artifact = await entities.artifacts.findById(artifactId);
+    if (!artifact || artifact.deleted_at || artifact.status !== "active") {
+      return true;
+    }
+    return isArtifactAccessLinkLocked(artifact);
   });
 }
 

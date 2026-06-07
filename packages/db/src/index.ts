@@ -3,6 +3,7 @@ export {
   deleteAccessLinkLockdownDenylist,
   deletePlatformLockdownDenylist,
   peekArtifactDenylistRetention,
+  peekArtifactPlatformLockdownRetention,
   writeAccessLinkLockdownDenylist,
   writeAccessLinkRevocationDenylist,
   writePlatformLockdownDenylist,

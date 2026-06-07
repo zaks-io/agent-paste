@@ -51,8 +51,17 @@ export async function invalidatePlatformLockdown(env: Env, scope: LockdownScope,
   failIfDenylistSideEffectFailed(written, env, `Denylist write failed for ${scope} platform lockdown ${targetId}`);
 }
 
-export async function clearPlatformLockdownDenylist(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
+export async function clearPlatformLockdownDenylist(
+  env: Env,
+  db: Repository,
+  scope: LockdownScope,
+  targetId: string,
+): Promise<void> {
   if (!targetId) {
+    return;
+  }
+  // `ad:{artifactId}` is shared with access-link lockdown; keep it if that control still needs it.
+  if (scope === "artifact" && (await db.peekArtifactPlatformLockdownRetention(targetId))) {
     return;
   }
   const deleted = await deletePlatformLockdownDenylist(env, scope, targetId);
