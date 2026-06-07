@@ -1,6 +1,6 @@
 # CLI Version Baking, Update Check, and Binary Self-Upgrade
 
-Status: Proposed.
+Status: Accepted / implemented.
 
 The `@zaks-io/agent-paste` CLI ships through three distribution channels with
 no way to tell a user — human or agent — that a newer version exists, and the
@@ -15,17 +15,20 @@ version, and what each channel does about staleness.
   OS/arch, attached to a GitHub Release, installed to `~/.local/bin` by
   `install.sh`/`install.ps1` (served from `apps/apex`); (2) an `npm i -g`
   global install; (3) `npx @zaks-io/agent-paste`. See `apps/cli/README.md`.
-- **The running CLI does not know its own version.** Neither `apps/cli/build.mjs`
-  (esbuild bundle) nor the `bun build --compile` step in
-  `.github/workflows/cli-release.yml` injects `package.json`'s `version`. There
-  is no `version` / `--version` command in `apps/cli/src/index.ts`. A CLI that
-  cannot state its own version cannot detect that it is stale.
-- **Releases and npm publish are manual.** `cli-release.yml` is
-  `workflow_dispatch` and produces a **draft** release for human review;
-  `prepublishOnly` guards npm publish, which is run by hand. The npm `version`
-  (`0.1.0`) and the release tag (`cli-v0.1.0`) are reconciled only by
-  convention. "Auto-update" here means _the client noticing a newer published
-  release_, never auto-publishing.
+- **The running CLI knows its own version.** `apps/cli/build.mjs` (esbuild
+  bundle) and the `bun build --compile` step in `.github/workflows/cli-release.yml`
+  both inject `apps/cli/package.json`'s `version`; `agent-paste version`,
+  `--version`, and `-v` print that baked value.
+- **GitHub Release publish is the human gate; npm + KV are automated after it.**
+  `cli-release.yml` is `workflow_dispatch` and produces a **draft** release for
+  human review. Publishing that draft fires `cli-advertise.yml` on
+  `release: published`, which re-verifies the `cli-v<package.json version>` tag,
+  publishes npm through trusted publishing, and writes the `CLI_RELEASE` KV value.
+  Drafts stay mutable for release testing reruns; published releases are
+  immutable and attested by GitHub.
+  "Auto-update" here means _the client noticing a newer published release_ and
+  binary users explicitly running `agent-paste upgrade`; it never silently
+  self-mutates.
 - **There is precedent for unauthenticated public API routes.**
   `agentView.public` (`/v1/public/agent-view/{token}`) is served with no auth
   through the contract-driven route registrar (ADR 0072,
@@ -205,15 +208,17 @@ Two implementations, in order of preference:
    the release automation must live outside GitHub Actions.
 
 Because the value lives in KV, **neither path redeploys `api`** — both are a
-single KV write. Until the automation lands, the value is set by hand
-(`wrangler kv key put`), recorded as a follow-up, not a blocker for the CLI-side
-work.
+single KV write. The implemented path is `cli-advertise.yml`: a
+GitHub-hosted-runner publish job, triggered by `release: published`, publishes
+npm via trusted publishing and writes preview + production KV. The CLI release
+tag remains `cli-v<version>` and is derived from `apps/cli/package.json`; there
+is intentionally no `push: tags` deployment trigger.
 
 ## Consequences
 
-- The release process gains one obligation, discharged by §6: a release publish
-  writes the KV value. Manual `wrangler kv key put` is the interim until the
-  automation is wired.
+- The release process gains one obligation, discharged by §6: publishing a CLI
+  release runs `cli-advertise.yml`, which writes the KV value. Manual
+  `wrangler kv key put` is break-glass remediation only.
 - npm `version` and the `cli-vX.Y.Z` release tag must stay lockstep; the release
   flow should derive one from the other rather than relying on convention.
 - One new public, unauthenticated route widens the public API surface by a

@@ -29,7 +29,7 @@ jobs:
     # be wrong, and GitHub has no workflow-level `if:`. Non-`cli-v` releases queue
     # an instantly-skipped run, which is harmless.
     if: startsWith(github.event.release.tag_name, 'cli-v')
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04 # npm trusted publishing must stay on GitHub-hosted runners; Blacksmith/self-hosted is unsupported.
     timeout-minutes: 10
     permissions:
       contents: read
@@ -51,9 +51,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           check-latest: true
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       # Trusted publishing (OIDC) needs npm >= 11.5.1; Node 24 ships an older npm.
       - name: Upgrade npm for trusted publishing

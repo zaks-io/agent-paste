@@ -31,6 +31,14 @@ if (!pkg.license || pkg.license === "UNLICENSED") {
 execFileSync("node", ["build.mjs"], { cwd: root, stdio: "inherit" });
 
 const bundle = readFileSync(new URL("../dist/index.js", import.meta.url), "utf8");
+const builtVersion = execFileSync(process.execPath, ["dist/index.js", "--version"], {
+  cwd: root,
+  encoding: "utf8",
+}).trim();
+
+if (builtVersion !== pkg.version) {
+  fail(`dist/index.js reports version "${builtVersion}", expected package.json version "${pkg.version}"`);
+}
 
 // 3. The bundle must be self-contained: no workspace:* deps can leak through,
 //    or `npm i @zaks-io/agent-paste` breaks on an uninstallable @agent-paste/* import.

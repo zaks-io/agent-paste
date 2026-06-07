@@ -34,6 +34,27 @@ Related docs:
 Because the tag is derived from `package.json`, the channels cannot advertise
 mismatched versions. You bump one number; CI does the reconciliation.
 
+## Trigger contract
+
+The release tag is CLI-scoped: `cli-v<version>`, where `<version>` is read from
+`apps/cli/package.json`. Do not use a plain `v<version>` tag for CLI releases.
+
+- `.github/workflows/cli-release.yml` is `workflow_dispatch` only. Run it
+  against `main`; it builds the binaries and creates or updates the draft GitHub
+  release for `cli-v<version>`.
+- Draft releases are deliberately mutable. Rerun the draft workflow as often as
+  needed while testing packaging, signing, SBOMs, and attestations; only draft
+  assets may be clobbered.
+- Publishing the draft is the deployment trigger. GitHub sends
+  `release: published`, and `.github/workflows/cli-advertise.yml` runs only when
+  the published release tag starts with `cli-v`.
+- There is no `push: tags` deployment trigger. Tag creation identifies the
+  version; it does not publish npm or update KV.
+- Repository immutable releases are enabled. Once a draft is published, GitHub
+  locks the release assets and associated tag and generates the release
+  attestation. The draft workflow also refuses to upload assets to any non-draft
+  release.
+
 ## Release steps
 
 ### 1. Bump the version (normal PR)
@@ -56,7 +77,9 @@ It cross-compiles the four binaries on native per-OS runners
 `package.json` version into each, codesigns + notarizes the macOS binary,
 attaches a CycloneDX SBOM + grype report + build-provenance attestations, and
 creates (or updates) a **draft** GitHub release tagged `cli-v<version>` with a
-`SHA256SUMS` manifest.
+`SHA256SUMS` manifest. New draft releases and draft reruns are pinned to the
+workflow build SHA; reruns may clobber draft assets only, never assets on a
+published release.
 
 The tag is read from `package.json` inside the job; if `version` is not clean
 semver the job fails before creating the release.
@@ -72,7 +95,9 @@ gh attestation verify <binary> --repo zaks-io/agent-paste
 
 When satisfied, **publish** the draft (the GitHub Release UI, or
 `gh release edit cli-v<version> --draft=false`). This human publish gate is
-deliberate (ADR 0080 §6): nothing reaches npm or KV until you publish.
+deliberate (ADR 0080 §6): nothing reaches npm or KV until you publish. Because
+repository immutable releases are enabled, this is also the point where GitHub
+freezes the published release assets and associated tag.
 
 ### 4. Automatic: npm publish + KV advertise
 
@@ -108,7 +133,12 @@ freshly advertised version can take a few minutes to appear.
 
 - **npm trusted publisher** configured on npmjs.com (org `zaks-io`, repo
   `agent-paste`, workflow `cli-advertise.yml`); a `0.0.0` placeholder is
-  published so the package exists. No stored npm token.
+  published so the package exists. No stored npm token. The npm publish job must
+  stay on a GitHub-hosted runner (`ubuntu-24.04` today); npm trusted publishing
+  does not support Blacksmith/self-hosted runners yet.
+- **GitHub immutable releases** enabled for `zaks-io/agent-paste`. Keep this on:
+  draft releases remain mutable for reruns, but published releases lock their
+  assets and tag.
 - **Apple signing** secrets (`APPLE_CERTIFICATE`, `APPLE_API_KEY*`, etc.) for the
   macOS codesign + notarize step.
 - **`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`** repo secrets (shared with
