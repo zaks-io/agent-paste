@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { UsagePolicy } from "@agent-paste/contracts";
+import { Mebibytes, type UsagePolicy } from "@agent-paste/contracts";
 import { contentTypeForPath } from "@agent-paste/storage";
+
+// Absolute per-file ceiling, matching the contract's hard maximum
+// (UploadSessionFileInput.size_bytes) so no tier can ever accept a larger file.
+// Checked from `stat` before the file is read, so an oversized file fails fast
+// instead of being buffered into memory just to be rejected after the fact.
+const MAX_FILE_BYTES = Mebibytes.twentyFive;
 
 export type LocalFile = {
   absolutePath: string;
@@ -122,6 +128,10 @@ async function walkDirectory(root: string, current: string, files: LocalFile[]) 
 }
 
 async function toLocalFile(absolutePath: string, relativePath: string): Promise<LocalFile> {
+  const { size } = await fs.stat(absolutePath);
+  if (size > MAX_FILE_BYTES) {
+    throw new Error(`File ${relativePath} is ${size} bytes, which exceeds the ${MAX_FILE_BYTES}-byte per-file limit`);
+  }
   const bytes = await fs.readFile(absolutePath);
   return {
     absolutePath,

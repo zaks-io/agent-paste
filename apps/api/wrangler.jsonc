@@ -215,6 +215,11 @@
         {
           "binding": "CLI_RELEASE",
           "id": "d73e83b2c1244f489c8a3f006d56f51b"
+        },
+        {
+          // Runtime ephemeral provision cap (limit_per_minute) per AP-174.
+          "binding": "EPHEMERAL_PROVISION_CONFIG",
+          "id": "88c9769ad6a9488bbf779b331343c812"
         }
       ],
       "ratelimits": [
@@ -370,6 +375,11 @@
         {
           "binding": "CLI_RELEASE",
           "id": "2584a9e4d1a54ffa97056a52d106d49f"
+        },
+        {
+          // Runtime ephemeral provision cap (limit_per_minute) per AP-174.
+          "binding": "EPHEMERAL_PROVISION_CONFIG",
+          "id": "02207fc793c149249cc26e4fd386c4a1"
         }
       ],
       "ratelimits": [

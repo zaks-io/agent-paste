@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Mebibytes } from "@agent-paste/contracts";
 import { describe, expect, it } from "vitest";
 import {
   contentTypeForLocalPath,
@@ -23,6 +24,17 @@ describe("local publish helpers", () => {
 
     expect(files.map((file) => file.path)).toEqual(["index.html", "nested/note.txt"]);
     expect(files[0]?.sha256).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("fails fast on a file larger than the absolute per-file ceiling, before reading it", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const big = path.join(root, "big.bin");
+    // A sparse file: stat reports an oversized length but no real bytes are written
+    // or read, so this proves the guard fires on `stat`, not after `readFile`.
+    await fs.writeFile(big, "");
+    await fs.truncate(big, Mebibytes.twentyFive + 1);
+
+    await expect(walkLocalPath(root)).rejects.toThrow(/per-file limit/);
   });
 
   it("infers title, entrypoint, and render mode", async () => {
