@@ -948,11 +948,34 @@ const HOME_FOOTER = `.home-foot {
   color: hsl(var(--faint));
 }
 
+.home-foot-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.home-foot-install-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: hsl(var(--faint) / 0.7);
+}
+
+.home-foot-install-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: hsl(var(--faint));
+  transition: color 120ms var(--ease-out);
+}
+
+.home-foot-install-link:hover { color: hsl(var(--subtle)); }
+
 .home-foot-copy {
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: hsl(var(--subtle));
-  margin-left: auto;
 }`;
 
 const HOME_REVEAL = `.home .reveal {

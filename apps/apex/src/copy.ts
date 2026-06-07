@@ -83,6 +83,14 @@ export type FooterColumn = {
   links: { label: string; href: string }[];
 };
 
+// Direct links to the standalone install scripts. Agents need them in the DOM,
+// but they are not a human destination, so they live in the deprioritized base
+// row rather than as a headline footer column.
+export const INSTALL_LINKS: { label: string; href: string }[] = [
+  { label: "install.sh", href: "/install.sh" },
+  { label: "install.ps1", href: "/install.ps1" },
+];
+
 export const FOOTER: FooterColumn[] = [
   {
     heading: "Product",
@@ -99,13 +107,6 @@ export const FOOTER: FooterColumn[] = [
       { label: "/agents.md", href: "/agents.md" },
       { label: "/llms.txt", href: "/llms.txt" },
       { label: "/llms-full.txt", href: "/llms-full.txt" },
-    ],
-  },
-  {
-    heading: "Install",
-    links: [
-      { label: "install.sh", href: "/install.sh" },
-      { label: "install.ps1", href: "/install.ps1" },
     ],
   },
   {
