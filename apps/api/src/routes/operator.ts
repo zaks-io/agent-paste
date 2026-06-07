@@ -13,7 +13,8 @@ import {
 import { type Repository, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import { type AppContext, billingEnabled, type Env } from "../env.js";
+import { clearPlatformLockdownDenylist, invalidatePlatformLockdown } from "../access-link-invalidation.js";
+import { type AppContext, billingEnabled } from "../env.js";
 import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { platformActor } from "../principals.js";
@@ -102,7 +103,7 @@ export async function webAdminSetLockdown(
         reasonCode: body.reason_code,
         requestId: getRequestId(context),
       });
-      await writeDenylistEntry(env, body.scope, body.target_id);
+      await invalidatePlatformLockdown(env, body.scope, body.target_id);
       try {
         if (body.scope === "artifact") {
           await notifyLiveUpdateDisconnect(env, {
@@ -204,7 +205,7 @@ export async function webAdminLiftLockdown(
       targetId: params.targetId,
       requestId: getRequestId(context),
     });
-    await deleteDenylistEntry(env, scope, params.targetId);
+    await clearPlatformLockdownDenylist(env, scope, params.targetId);
     return detail;
   });
 }
@@ -248,33 +249,4 @@ function parseOperatorEventFilters(
     value.focus = focusParam;
   }
   return { ok: true, value };
-}
-
-function denylistKey(scope: LockdownScope, targetId: string): string {
-  return scope === "workspace" ? `wsd:${targetId}` : `ad:${targetId}`;
-}
-
-async function writeDenylistEntry(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
-  if (!env.DENYLIST) {
-    return;
-  }
-  try {
-    await env.DENYLIST.put(
-      denylistKey(scope, targetId),
-      JSON.stringify({ reason: `platform_lockdown_${scope}`, at: new Date().toISOString() }),
-    );
-  } catch (error) {
-    console.warn(`Denylist write failed for ${scope} lockdown ${targetId}; lockdown persisted.`, error);
-  }
-}
-
-async function deleteDenylistEntry(env: Env, scope: LockdownScope, targetId: string): Promise<void> {
-  if (!env.DENYLIST) {
-    return;
-  }
-  try {
-    await env.DENYLIST.delete(denylistKey(scope, targetId));
-  } catch (error) {
-    console.warn(`Denylist delete failed for ${scope} lockdown ${targetId}; lockdown lifted.`, error);
-  }
 }

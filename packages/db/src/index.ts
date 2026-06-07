@@ -1,9 +1,11 @@
 export { IdempotencyInFlightError } from "@agent-paste/commands";
 export {
   deleteAccessLinkLockdownDenylist,
+  deletePlatformLockdownDenylist,
   peekArtifactDenylistRetention,
   writeAccessLinkLockdownDenylist,
   writeAccessLinkRevocationDenylist,
+  writePlatformLockdownDenylist,
 } from "./access-link-invalidation.js";
 export {
   assertAccessLinkMintable,
