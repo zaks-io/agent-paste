@@ -57,7 +57,7 @@ export const CLI_DOC: DocsPage = {
         {
           kind: "code",
           language: "json",
-          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "view_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
+          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "title": "My Publication Title",\n  "view_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
         },
       ],
     },

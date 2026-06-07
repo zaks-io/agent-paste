@@ -151,10 +151,11 @@ Operator auth uses WorkOS `admin` role claims and Cloudflare Access on the web o
 ## Retention
 
 Retention is required in the MVP and is selected by server-side Workspace policy.
+Current policy values are subject to Workspace/Plan configuration.
 
-- Default TTL: `30d`.
-- Minimum TTL: `1d`.
-- Maximum TTL: `90d`.
+- Default lifetime: `30d`.
+- Minimum lifetime: `1d`.
+- Maximum lifetime: `90d`.
 - Every artifact has `expires_at`.
 - Every upload session has `expires_at`.
 - Expired artifacts stop resolving and their R2 bytes are deleted by cleanup.

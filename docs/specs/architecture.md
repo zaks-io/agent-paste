@@ -116,8 +116,9 @@ Key invariants:
 - Artifact lifetime is derived from server-side Workspace/Plan policy, not from
   client input.
 - Upload PUT URLs are opaque upload-worker URLs, not R2 URLs.
-- Finalize verifies every expected file exists before creating a Published
-  Revision.
+- Finalize verifies every expected file exists before creating a Draft Revision.
+- A separate publish mutation is required to transition a Draft Revision to a
+  Published Revision.
 - Durable mutations use idempotency keys where the route contract requires them.
 - Durable business writes go through `runCommand` so state, audit, and
   idempotency records commit together.

@@ -52,20 +52,20 @@ Host-specific OAuth and redirect notes live in
 
 MCP exposes twelve tools:
 
-| Tool                      | Purpose                                                  |
-| ------------------------- | -------------------------------------------------------- |
-| `whoami`                  | Return the authenticated member, Workspace, and scopes.  |
-| `publish_artifact`        | Publish a new text-only Artifact and mint Revision Link. |
-| `add_revision`            | Add and publish a text-only Revision.                    |
-| `list_artifacts`          | List Artifacts in the Workspace.                         |
-| `read_artifact`           | Read the latest Agent View for an Artifact.              |
-| `list_revisions`          | List Revisions for an Artifact.                          |
-| `delete_artifact`         | Delete an Artifact.                                      |
-| `update_display_metadata` | Update an Artifact display title.                        |
-| `create_share_link`       | Create and mint a Share Link for the latest Revision.    |
-| `create_revision_link`    | Create and mint a Revision Link for a specific Revision. |
-| `list_access_links`       | List Share Links and Revision Links for an Artifact.     |
-| `revoke_access_link`      | Revoke a Share Link or Revision Link.                    |
+| Tool                      | Purpose                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| `whoami`                  | Return the authenticated member, Workspace, and derived scopes. |
+| `publish_artifact`        | Publish a new text-only Artifact and mint Revision Link.        |
+| `add_revision`            | Add and publish a text-only Revision.                           |
+| `list_artifacts`          | List Artifacts in the Workspace.                                |
+| `read_artifact`           | Read the latest Agent View for an Artifact.                     |
+| `list_revisions`          | List Revisions for an Artifact.                                 |
+| `delete_artifact`         | Delete an Artifact.                                             |
+| `update_display_metadata` | Update an Artifact display title.                               |
+| `create_share_link`       | Create and mint a Share Link for the latest Revision.           |
+| `create_revision_link`    | Create and mint a Revision Link for a specific Revision.        |
+| `list_access_links`       | List Share Links and Revision Links for an Artifact.            |
+| `revoke_access_link`      | Revoke a Share Link or Revision Link.                           |
 
 Publishing tools always return a Revision Link for the published Revision. Set
 `share: true` on publish tools when the agent should also mint a Share Link for
