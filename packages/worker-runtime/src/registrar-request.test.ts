@@ -53,11 +53,45 @@ describe("parseRequestBody request-body cap", () => {
   });
 
   it("rejects a body whose content-length exceeds the cap before reading it", async () => {
-    const raw = new Request("https://worker.test/test", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: `{}${" ".repeat(MAX_REQUEST_BODY_BYTES + 16)}`,
-    });
+    let pulled = false;
+    // highWaterMark 0 keeps the stream from pulling eagerly at construction, so a
+    // pull can only mean readBodyTextCapped started draining the body.
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          pulled = true;
+          throw new Error("body should not be read when content-length already exceeds the cap");
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const raw = {
+      headers: new Headers({
+        "content-type": "application/json",
+        "content-length": String(MAX_REQUEST_BODY_BYTES + 16),
+      }),
+      body,
+    } as unknown as Request;
+
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
+
+    expect(result.ok).toBe(false);
+    expect(pulled).toBe(false);
+  });
+
+  it("fails closed when the body stream errors mid-read instead of throwing", async () => {
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          throw new Error("stream boom");
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const raw = {
+      headers: new Headers({ "content-type": "application/json" }),
+      body,
+    } as unknown as Request;
 
     const result = await parseRequestBody(contextFor(raw), bodyContract);
 

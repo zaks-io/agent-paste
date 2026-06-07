@@ -87,20 +87,27 @@ async function readBodyTextCapped(
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false };
+      }
+      chunks.push(value);
     }
-    if (!value) {
-      continue;
-    }
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      return { ok: false };
-    }
-    chunks.push(value);
+  } catch {
+    // Aborted or errored stream: fail closed like a malformed body rather than
+    // letting the rejection escape the request pipeline as an unhandled 500.
+    await reader.cancel().catch(() => undefined);
+    return { ok: false };
   }
   const merged = new Uint8Array(total);
   let offset = 0;
