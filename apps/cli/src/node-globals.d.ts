@@ -27,8 +27,9 @@ declare module "node:crypto" {
 
 declare module "node:fs" {
   export const promises: {
-    stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number }>;
+    stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number; size: number }>;
     lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
+    truncate(path: string, len: number): Promise<void>;
     mkdir(path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined>;
     mkdtemp(prefix: string): Promise<string>;
     readdir(
