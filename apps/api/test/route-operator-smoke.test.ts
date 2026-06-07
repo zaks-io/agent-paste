@@ -80,13 +80,14 @@ describe("AP-91 operator route modules", () => {
     expect(badCursor.status).toBe(400);
   });
 
-  it("sets and lifts lockdowns while keeping denylist side effects best-effort", async () => {
+  it("sets and lifts lockdowns and writes denylist entries with the lockdown scope key", async () => {
     const put = vi.fn(async () => undefined);
     const deleteKey = vi.fn(async () => undefined);
     const db = {
       setLockdown: vi.fn(async () => ({ lockdown: { scope: "artifact", target_id: "art_1" } })),
       liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
       listArtifacts: vi.fn(async () => ({ data: [{ id: "art_2" }] })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => false),
     };
 
     const artifact = await webAdminSetLockdown(
@@ -96,7 +97,11 @@ describe("AP-91 operator route modules", () => {
       guardFor({ scope: "artifact", target_id: "art_1", reason_code: "abuse" }),
     );
     expect(artifact.status).toBe(201);
-    expect(put).toHaveBeenCalledWith("ad:art_1", expect.stringContaining("platform_lockdown_artifact"));
+    expect(put).toHaveBeenCalledWith(
+      "ad:art_1",
+      expect.stringContaining("platform_lockdown_artifact"),
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
 
     const workspace = await webAdminSetLockdown(
       contextFor({ env: { DENYLIST: { put, delete: deleteKey } } }),
@@ -105,7 +110,11 @@ describe("AP-91 operator route modules", () => {
       guardFor({ scope: "workspace", target_id: workspaceId, reason_code: "abuse" }),
     );
     expect(workspace.status).toBe(201);
-    expect(put).toHaveBeenCalledWith(`wsd:${workspaceId}`, expect.stringContaining("platform_lockdown_workspace"));
+    expect(put).toHaveBeenCalledWith(
+      `wsd:${workspaceId}`,
+      expect.stringContaining("platform_lockdown_workspace"),
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
 
     const invalidScope = await webAdminLiftLockdown(contextFor(), operatorPrincipal(), db as never, guardFor(), {
       scope: "bad",
@@ -129,6 +138,87 @@ describe("AP-91 operator route modules", () => {
       targetId: "missing",
     });
     expect(missing.status).toBe(404);
+  });
+
+  it("fails closed with storage_unavailable when the lockdown denylist write fails", async () => {
+    const put = vi.fn(async () => {
+      throw new Error("kv unavailable");
+    });
+    const db = {
+      setLockdown: vi.fn(async () => ({ lockdown: { scope: "artifact", target_id: "art_1" } })),
+    };
+
+    const response = await webAdminSetLockdown(
+      contextFor({ env: { DENYLIST: { put } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor({ scope: "artifact", target_id: "art_1", reason_code: "abuse" }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+    expect(db.setLockdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed with storage_unavailable when the lockdown-lift denylist delete fails", async () => {
+    const deleteKey = vi.fn(async () => {
+      throw new Error("kv unavailable");
+    });
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => false),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "artifact", targetId: "art_1" },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+  });
+
+  it("keeps the shared artifact denylist key on platform-lockdown lift when an access-link lockdown remains", async () => {
+    const deleteKey = vi.fn(async () => undefined);
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => true),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "artifact", targetId: "art_1" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.peekArtifactPlatformLockdownRetention).toHaveBeenCalledWith("art_1");
+    expect(deleteKey).not.toHaveBeenCalled();
+  });
+
+  it("does not run artifact retention checks when lifting a workspace lockdown", async () => {
+    const deleteKey = vi.fn(async () => undefined);
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekArtifactPlatformLockdownRetention: vi.fn(async () => true),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "workspace", targetId: workspaceId },
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.peekArtifactPlatformLockdownRetention).not.toHaveBeenCalled();
+    expect(deleteKey).toHaveBeenCalledWith(`wsd:${workspaceId}`);
   });
 });
 

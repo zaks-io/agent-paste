@@ -1897,7 +1897,7 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ scope: "workspace", target_id: "w_123" });
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ key: "wsd:w_123" });
-    expect(puts[0]?.expirationTtl).toBeUndefined();
+    expect(puts[0]?.expirationTtl).toEqual(expect.any(Number));
     expect(JSON.parse(puts[0]?.value ?? "{}")).toMatchObject({
       reason: "platform_lockdown_workspace",
       at: expect.any(String),
@@ -3480,6 +3480,9 @@ function baseDbForTests(): ApiDatabase {
 function operatorDbForTests(overrides: Partial<ApiDatabase> = {}): ApiDatabase {
   return {
     ...baseDbForTests(),
+    async peekArtifactPlatformLockdownRetention() {
+      return false;
+    },
     ...overrides,
   };
 }
