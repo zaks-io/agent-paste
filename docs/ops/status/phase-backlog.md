@@ -1,7 +1,7 @@
 # Phase Backlog
 
-Last updated: 2026-06-05 (`codex/ap-236-fail-closed-rate-limit-deploy-hardening`
-working tree; refreshed onto `origin/main@e0eabfb` before PR handoff).
+Last updated: 2026-06-07 (launch-readiness refresh after AP-109/AP-174/AP-181
+landed and production `SMOKE_HARNESS_SECRET` cleanup was completed by Isaac).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -14,8 +14,11 @@ member `/v1/web/*` routes shipped in AP-156, and the dashboard moved to a
 TanStack Query cache with an SSE-driven live UI in AP-164. The Stripe billing
 path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
 shipped behind the deploy-time billing flag. Active product work is now
-post-launch/Phase 6: hosted Stripe verification, ephemeral publish
-claim/upgrade (AP-109) and security/ops polish. (The file-bytes malware scanner,
+post-launch/Phase 6 launch readiness: production E2E verification (AP-139),
+the public/open-source gate (AP-254), hosted-content provenance (AP-235), Snyk
+Code triage (AP-160), and security/ops polish. Hosted Stripe test-mode was
+verified in preview by Isaac; production Stripe still needs a final smoke only
+if billing is enabled for paid public launch. (The file-bytes malware scanner,
 AP-149, was cancelled as too expensive; containment already bounds the risk.
 Built-in warnings, Llama Guard, and URL Scanner remain advisory signals.)
 
@@ -26,14 +29,13 @@ the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TO
 Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
 
-Active local handoff: AP-236 is in flight to fail closed when rate-limit
-bindings are missing or throw, update local/test harnesses to configure explicit
-allow-limit bindings, and harden the production deploy workflow source/secret
-posture. Focused tests, typecheck, lint, `git diff --check`, and targeted
-Semgrep already passed before the branch was refreshed onto `origin/main@e0eabfb`.
-Next agent should confirm main has not moved, run `pnpm verify`, finish
-`ziw-code-review`, then open the PR through `ziw-pr`. Hosted-content provenance
-badge is separate AP-235.
+Active local handoff: none. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
+and AP-242 are Done on `main`. Production deploys after `5411f0f` were blocked
+by a stale forbidden `SMOKE_HARNESS_SECRET` on `agent-paste-api-production`;
+Isaac deleted that Worker secret on 2026-06-07, and manual `Deploy Production`
+run `27101054536` succeeded on current `main` (`6ad04f5`). Next launch-readiness
+step: record AP-139 production E2E evidence. Hosted-content provenance badge is
+separate AP-235.
 
 ## Phase 3 Close-Out
 
@@ -215,16 +217,17 @@ Goal: hosted-service monetization without making self-hosters configure Stripe.
        daily write allowance, renewal date, upgrade/manage actions, and a real
        Stripe invoice table; billing-off renders a friendly "not enabled" state
        (AP-176, #266). Operator plan override shipped with the AP-5 API.
-       Remaining: hosted Stripe test-mode verification (needs credentials +
-       approval).
+       Preview/test-mode Stripe verification was completed by Isaac on
+       2026-06-07. Remaining: a final production Stripe smoke only if billing
+       is enabled for paid public launch.
 6. [x] Agent-first ephemeral publish and write-gated tiers (ADR 0075,
        `docs/specs/ephemeral-publish.md`). Self-provisioned Ephemeral Workspace
        with short-lived low-cap keys, daily new-artifact write allowance, Claim
        Token promotion, 24h cleanup, `noindex`, and script-disabled serving are
        implemented (AP-99–AP-108, AP-107 CLI, AP-110 local smoke, AP-111 hosted
        smoke). Operator runbook: `docs/ops/runbook-ephemeral-publish.md` (AP-112).
-       Stripe checkout shipped (AP-5/AP-176); remaining: claim/upgrade funnel
-       polish (AP-109).
+       Stripe checkout shipped (AP-5/AP-176). The post-claim success funnel and
+       upgrade CTA shipped in AP-109.
 
 ## Codebase Follow-Ups
 
