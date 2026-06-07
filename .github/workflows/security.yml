@@ -1,23 +1,10 @@
-# Private-phase security workflow (ADR 0076). Runs the free checks we can operate
-# while the repository is private: full-history gitleaks, Snyk Open Source, and
-# advisory Snyk Code / Semgrep / Trivy / Grype with a Syft SBOM artifact.
-#
-# Gating today: gitleaks (full history) + Snyk Open Source. Everything else is
-# advisory (log + uploaded artifact). SARIF is uploaded as a plain build artifact,
-# NOT to GitHub code scanning — that, plus CodeQL/Scorecard/Dependabot and a public
-# badge, is deferred to the public phase per ADR 0076.
+# Daily and main-branch security attestation. This workflow deliberately does
+# not run on pull_request; PR CI stays fast, and release/deploy workflows run the
+# same `pnpm security:attest` command on the exact commit being published.
 
 name: Security
 
 on:
-  pull_request:
-    # Docs-only PRs change no scannable code. Push to main, the daily cron, and
-    # manual dispatch still run the full scan (including full-history gitleaks).
-    # Keep this glob set in sync with ci.yml and pr-preview.yml.
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - ".claude/**"
   push:
     branches:
       - main
@@ -29,17 +16,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  secret-scan:
-    name: Secret scan (full history)
-    # PRs get the fast incremental scan in ci.yml; this owns the full-history
-    # scan on push to main, the daily cron, and manual dispatch.
-    if: ${{ github.event_name != 'pull_request' }}
+  repo-attestation:
+    name: Repo security attestation
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 10
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -47,19 +31,37 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install gitleaks
-        env:
-          GITLEAKS_VERSION: 8.30.1
-        run: |
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
-          gitleaks version
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
 
-      - name: Scan full git history for secrets
-        run: gitleaks git --no-banner --redact --config .gitleaks.toml --exit-code 1
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-  sca:
-    name: Dependency scan (SCA)
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Setup security attestation tools
+        uses: ./.github/actions/setup-security-attestation-tools
+
+      - name: Run repo security attestation
+        run: pnpm security:attest
+
+      - name: Upload repo security attestation
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: repo-security-attestation
+          path: artifacts/security/**
+          if-no-files-found: error
+          retention-days: 90
+
+  snyk-sca:
+    name: Dependency scan (Snyk SCA)
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     env:
@@ -86,98 +88,6 @@ jobs:
       - name: Snyk Open Source test
         run: pnpm dlx snyk@latest test --all-projects --severity-threshold=high
 
-      # Advisory: Snyk Code (SAST) overlaps Semgrep and currently needs an org
-      # entitlement that returns 403 on report. Emit SARIF + never fail the build;
-      # findings are triaged out of band (see docs/ops/security-todo.md).
-      - name: Snyk Code test (advisory)
-        run: pnpm dlx snyk@latest code test --severity-threshold=high --sarif-file-output=snyk-code.sarif || true
-
-      - name: Upload Snyk Code SARIF artifact
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: snyk-code-results
-          path: snyk-code.sarif
-          if-no-files-found: warn
-          retention-days: 14
-
       - name: Snyk monitor main
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: pnpm dlx snyk@latest monitor --all-projects
-
-      - name: Trivy filesystem scan (advisory)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          format: sarif
-          output: trivy-results.sarif
-          exit-code: "0"
-
-      - name: Upload Trivy SARIF artifact
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: trivy-results
-          path: trivy-results.sarif
-          if-no-files-found: warn
-          retention-days: 14
-
-  sast:
-    name: Static analysis (SAST)
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 15
-    container:
-      image: semgrep/semgrep
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Semgrep scan (advisory)
-        run: semgrep scan --config p/default --sarif --output semgrep.sarif || true
-
-      - name: Upload Semgrep SARIF artifact
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: semgrep-results
-          path: semgrep.sarif
-          if-no-files-found: warn
-          retention-days: 14
-
-  sbom:
-    name: SBOM and dependency CVE scan
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Generate SBOM (Syft, SPDX JSON)
-        uses: anchore/sbom-action@v0
-        with:
-          path: .
-          format: spdx-json
-          output-file: agent-paste.sbom.spdx.json
-          upload-artifact: false
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: sbom
-          path: agent-paste.sbom.spdx.json
-          if-no-files-found: error
-          retention-days: 90
-
-      - name: Grype scan of SBOM (advisory)
-        uses: anchore/scan-action@v7
-        with:
-          sbom: agent-paste.sbom.spdx.json
-          severity-cutoff: high
-          fail-build: false
-          output-format: table

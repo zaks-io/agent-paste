@@ -1,7 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod.js";
 import { artifactRateLimitResponse } from "./responses.js";
-import { registerContentSchemas, requestIdHeader } from "./shared.js";
+import { registerContentSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 
 const pathStringParam = (name: string, description: string) =>
   z.string().openapi({
@@ -38,12 +38,14 @@ export type ContentOpenApiOptions = {
 export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {}): Record<string, unknown> {
   const registry = new OpenAPIRegistry();
   registerContentSchemas(registry);
+  registry.registerComponent("securitySchemes", "SignedContentToken", securitySchemes.SignedContentToken);
 
   registry.registerPath({
     method: "get",
     path: "/v/{token}/{path}",
     operationId: "content.get",
     summary: "Resolve and serve a signed artifact file.",
+    security: [{ SignedContentToken: [] }],
     request: {
       params: contentPathParams,
       headers: [requestIdHeader],
@@ -65,6 +67,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
     path: "/v/{token}/{path}",
     operationId: "content.head",
     summary: "Resolve metadata for a signed artifact file.",
+    security: [{ SignedContentToken: [] }],
     request: {
       params: contentPathParams,
       headers: [requestIdHeader],
@@ -85,6 +88,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
       description: "Signed-URL static asset gateway for Agent Paste artifact files.",
     },
     servers: [{ url: options.serverUrl ?? "https://usercontent.agent-paste.sh" }],
+    security: [{ SignedContentToken: [] }],
   });
   return document as unknown as Record<string, unknown>;
 }

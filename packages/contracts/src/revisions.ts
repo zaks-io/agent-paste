@@ -23,7 +23,7 @@ export type RevisionSummary = z.infer<typeof RevisionSummary>;
 
 export const RevisionListResponse = z.object({
   artifact_id: ArtifactId,
-  items: z.array(RevisionSummary),
+  items: z.array(RevisionSummary).max(100),
   page_info: PageInfo,
 });
 export type RevisionListResponse = z.infer<typeof RevisionListResponse>;

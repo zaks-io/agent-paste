@@ -18,7 +18,7 @@ export const WorkspaceDetail = WorkspaceSummary.extend({
 export type WorkspaceDetail = z.infer<typeof WorkspaceDetail>;
 
 export const WorkspaceListResponse = z.object({
-  data: z.array(WorkspaceDetail),
+  data: z.array(WorkspaceDetail).max(100),
   page_info: PageInfo,
 });
 export type WorkspaceListResponse = z.infer<typeof WorkspaceListResponse>;
@@ -64,7 +64,7 @@ export const OperationEvent = z.object({
 export type OperationEvent = z.infer<typeof OperationEvent>;
 
 export const OperationEventListResponse = z.object({
-  data: z.array(OperationEvent),
+  data: z.array(OperationEvent).max(100),
   page_info: PageInfo,
 });
 export type OperationEventListResponse = z.infer<typeof OperationEventListResponse>;

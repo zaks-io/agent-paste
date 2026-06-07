@@ -18,8 +18,20 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
   registerUploadSchemas(registry);
 
   registry.registerComponent("securitySchemes", "ApiKeyBearer", securitySchemes.ApiKeyBearer);
+  registry.registerComponent("securitySchemes", "SignedUploadToken", securitySchemes.SignedUploadToken);
 
   const params = (paramSchemas: Record<string, ReturnType<typeof pathStringParam>>) => z.object(paramSchemas);
+  const uploadTokenQueryParam = z
+    .string()
+    .min(1)
+    .openapi({
+      param: {
+        name: "token",
+        in: "query",
+        required: true,
+        description: "Signed upload URL token minted by the create-upload-session response.",
+      },
+    });
 
   registry.registerPath({
     method: "post",
@@ -39,11 +51,13 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
     path: "/v1/upload-sessions/{upload_session_id}/files/{path}",
     operationId: "uploadSessions.putFile",
     summary: "Upload a single file using a signed URL.",
+    security: [{ SignedUploadToken: [] }],
     request: {
       params: params({
         upload_session_id: pathStringParam("upload_session_id", "Upload session id."),
         path: pathStringParam("path", "File path within the artifact."),
       }),
+      query: z.object({ token: uploadTokenQueryParam }),
       headers: [requestIdHeader],
     },
     responses: {
@@ -80,6 +94,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
       description: "Signed-URL upload session lifecycle for Agent Paste artifacts.",
     },
     servers: [{ url: options.serverUrl ?? "https://upload.agent-paste.sh" }],
+    security: [{ ApiKeyBearer: [] }, { SignedUploadToken: [] }],
   });
   return document as unknown as Record<string, unknown>;
 }

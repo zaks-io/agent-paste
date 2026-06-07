@@ -23,7 +23,7 @@ export const WorkspaceMemberSummary = z.object({
   id: WorkspaceMemberId,
   workspace_id: WorkspaceId,
   email: z.string().email(),
-  scopes: z.array(Scope).min(1),
+  scopes: z.array(Scope).min(1).max(Scope.options.length),
   created_at: IsoDateTime,
   last_seen_at: IsoDateTime,
 });
@@ -32,7 +32,7 @@ export type WorkspaceMemberSummary = z.infer<typeof WorkspaceMemberSummary>;
 export const WebAuthCallbackResponse = z.object({
   workspace: WorkspaceSummary,
   workspace_member: WorkspaceMemberSummary,
-  scopes: z.array(Scope).min(1),
+  scopes: z.array(Scope).min(1).max(Scope.options.length),
   default_api_key: CreateApiKeyResponse.nullable(),
 });
 export type WebAuthCallbackResponse = z.infer<typeof WebAuthCallbackResponse>;
@@ -61,7 +61,7 @@ export const WebArtifactRow = z.object({
 export type WebArtifactRow = z.infer<typeof WebArtifactRow>;
 
 export const WebArtifactListResponse = z.object({
-  items: z.array(WebArtifactRow),
+  items: z.array(WebArtifactRow).max(100),
   page_info: PageInfo,
 });
 export type WebArtifactListResponse = z.infer<typeof WebArtifactListResponse>;
@@ -86,7 +86,7 @@ export const WebApiKeyRow = ApiKeySummary.extend({
 export type WebApiKeyRow = z.infer<typeof WebApiKeyRow>;
 
 export const WebApiKeyListResponse = z.object({
-  items: z.array(WebApiKeyRow),
+  items: z.array(WebApiKeyRow).max(100),
   page_info: PageInfo,
 });
 export type WebApiKeyListResponse = z.infer<typeof WebApiKeyListResponse>;
@@ -104,7 +104,7 @@ export const WebAccessLinkRow = z.object({
 export type WebAccessLinkRow = z.infer<typeof WebAccessLinkRow>;
 
 export const WebAccessLinkListResponse = z.object({
-  items: z.array(WebAccessLinkRow),
+  items: z.array(WebAccessLinkRow).max(100),
   page_info: PageInfo,
 });
 export type WebAccessLinkListResponse = z.infer<typeof WebAccessLinkListResponse>;
@@ -127,7 +127,7 @@ export const WebAuditRow = z.object({
 export type WebAuditRow = z.infer<typeof WebAuditRow>;
 
 export const WebAuditListResponse = z.object({
-  items: z.array(WebAuditRow),
+  items: z.array(WebAuditRow).max(100),
   page_info: PageInfo,
 });
 export type WebAuditListResponse = z.infer<typeof WebAuditListResponse>;
@@ -143,7 +143,7 @@ export const WebOperatorEventRow = WebAuditRow.extend({
 export type WebOperatorEventRow = z.infer<typeof WebOperatorEventRow>;
 
 export const WebOperatorEventListResponse = z.object({
-  items: z.array(WebOperatorEventRow),
+  items: z.array(WebOperatorEventRow).max(100),
   page_info: PageInfo,
 });
 export type WebOperatorEventListResponse = z.infer<typeof WebOperatorEventListResponse>;

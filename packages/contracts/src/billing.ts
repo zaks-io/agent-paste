@@ -67,7 +67,7 @@ export const BillingInvoiceSummary = z.object({
 export type BillingInvoiceSummary = z.infer<typeof BillingInvoiceSummary>;
 
 export const BillingInvoiceListResponse = z.object({
-  invoices: z.array(BillingInvoiceSummary),
+  invoices: z.array(BillingInvoiceSummary).max(100),
 });
 export type BillingInvoiceListResponse = z.infer<typeof BillingInvoiceListResponse>;
 

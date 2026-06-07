@@ -8,7 +8,7 @@ export const ApiKeySummary = z.object({
   workspace_id: WorkspaceId,
   name: z.string().min(1).max(120),
   public_id: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{16}$/),
-  scopes: z.array(Scope).min(1),
+  scopes: z.array(Scope).min(1).max(Scope.options.length),
   revoked_at: IsoDateTime.nullable(),
   expires_at: IsoDateTime.nullable(),
   created_at: IsoDateTime,
@@ -17,7 +17,7 @@ export const ApiKeySummary = z.object({
 export type ApiKeySummary = z.infer<typeof ApiKeySummary>;
 
 export const ApiKeyListResponse = z.object({
-  data: z.array(ApiKeySummary),
+  data: z.array(ApiKeySummary).max(100),
   page_info: PageInfo,
 });
 export type ApiKeyListResponse = z.infer<typeof ApiKeyListResponse>;

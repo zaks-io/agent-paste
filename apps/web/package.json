@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@agent-paste/brand": "workspace:*",
-    "@cloudflare/vite-plugin": "^1.13.0",
+    "@cloudflare/vite-plugin": "1.38.0",
     "@cloudflare/workers-types": "^4.20260521.1",
     "@tailwindcss/vite": "^4.1.7",
     "@testing-library/jest-dom": "^6.6.3",
@@ -52,6 +52,6 @@
     "typescript": "catalog:",
     "vite": "^7.0.0",
     "vitest": "catalog:",
-    "wrangler": "^4.93.1"
+    "wrangler": "^4.94.0"
   }
 }

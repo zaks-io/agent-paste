@@ -25,7 +25,7 @@ jobs:
   deploy:
     name: Deploy Production
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: Production
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository) }}
 
@@ -80,6 +80,21 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Setup security attestation tools
+        uses: ./.github/actions/setup-security-attestation-tools
+
+      - name: Run release security attestation
+        run: pnpm security:attest
+
+      - name: Upload release security attestation
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-release-security-attestation
+          path: artifacts/security/**
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Validate manual dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}

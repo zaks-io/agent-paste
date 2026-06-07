@@ -10,7 +10,7 @@ export const BytePurgeMessage = z.object({
   artifact_id: ArtifactId,
   revision_id: RevisionId.nullable(),
   upload_session_id: z.string().nullable(),
-  prefixes: z.array(z.string().min(1)).min(1),
+  prefixes: z.array(z.string().min(1)).min(1).max(100),
   reason: BytePurgeReason,
 });
 export type BytePurgeMessage = z.infer<typeof BytePurgeMessage>;

@@ -10,7 +10,20 @@
       "url": "https://usercontent.agent-paste.sh"
     }
   ],
+  "security": [
+    {
+      "SignedContentToken": []
+    }
+  ],
   "components": {
+    "securitySchemes": {
+      "SignedContentToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Agent Paste signed content token",
+        "description": "Signed content token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters."
+      }
+    },
     "schemas": {
       "ErrorEnvelope": {
         "type": "object",
@@ -157,6 +170,11 @@
       "get": {
         "operationId": "content.get",
         "summary": "Resolve and serve a signed artifact file.",
+        "security": [
+          {
+            "SignedContentToken": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
@@ -236,6 +254,11 @@
       "head": {
         "operationId": "content.head",
         "summary": "Resolve metadata for a signed artifact file.",
+        "security": [
+          {
+            "SignedContentToken": []
+          }
+        ],
         "parameters": [
           {
             "schema": {
