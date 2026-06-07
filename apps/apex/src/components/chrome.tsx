@@ -1,7 +1,7 @@
 import { BRAND_MARK } from "@agent-paste/brand";
 import { raw } from "hono/html";
 import type { Child, FC } from "hono/jsx";
-import { FOOTER, type FooterColumn, SIGN_IN_URL, WORDMARK } from "../copy.js";
+import { FOOTER, type FooterColumn, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy.js";
 import { HOME_STYLES, STYLES } from "../styles.js";
 
 const APEX_ORIGIN = "https://agent-paste.sh";
@@ -98,6 +98,14 @@ export const Footer: FC<{ billingEnabled: boolean }> = ({ billingEnabled }) => (
       </div>
       <div class="home-foot-base">
         <span class="home-foot-tagline">where agents publish</span>
+        <span class="home-foot-install">
+          <span class="home-foot-install-label">install</span>
+          {INSTALL_LINKS.map((link) => (
+            <a class="home-foot-install-link" href={link.href}>
+              {link.label}
+            </a>
+          ))}
+        </span>
         <span class="home-foot-copy">© {new Date().getFullYear().toString()} zaks-io</span>
       </div>
     </div>
