@@ -78,6 +78,11 @@ If the branch changes package manifests, lockfiles, generated artifacts, or the
 workspace dependency graph, run the repo-configured install, lockfile validation,
 or artifact refresh before the final gate.
 
+If Markdown or docs changed, run the configured docs formatting check before the
+PR handoff. Use `pnpm format:docs:check` when that command exists in the target
+repo. Do not rely only on pre-commit hook installation or CI to prove docs
+formatting.
+
 Run focused checks for high-risk touched areas. Fix mechanical failures and
 rerun. Never use `--no-verify`.
 
@@ -91,8 +96,18 @@ changes.
 
 Use CodeRabbit only when code review recommends it, the change is high-risk, or
 the user asks. Missing auth, rate limits, or credits are a skip, not a blocker.
-Record the CodeRabbit decision in the handoff so Agent Orchestrator can decide
-whether any post-PR escalation remains.
+Read root `.coderabbit.yaml` when present and record whether
+`reviews.auto_review` is enabled, disabled, opt-in by label or description
+keyword, or unknown. Note draft or incremental-review behavior only when it
+changes the command choice. Record the CodeRabbit decision in the handoff so
+Agent Orchestrator can decide whether any post-PR escalation remains.
+
+When CodeRabbit is optional and the root config would otherwise auto-review the
+PR, add `@coderabbitai ignore` to the PR description only if the repo config
+allows agents to skip optional CodeRabbit reviews or rate-limit conservation is
+needed. When CodeRabbit is required after the PR exists, use a top-level PR
+comment: `@coderabbitai review` for incremental review, or
+`@coderabbitai full review` when no complete review covers the current PR head.
 
 ## Commit
 
@@ -169,9 +184,9 @@ When an issue exists:
   the integration sync is active and may advance Linear state from PR status; do
   not duplicate manual state changes unless config delegates that authority
 - comment with checks run, code review verdict, CodeRabbit decision,
-  PR draft or ready-for-review state, `Code review passed` recommendation with
-  reviewed head SHA, acceptance criteria status, and differences from original
-  intent
+  PR draft or ready-for-review state, current PR head SHA, base SHA, merge base,
+  `Code review passed` recommendation with reviewed head SHA, acceptance
+  criteria status, hosted check state, and differences from original intent
 - never move to `Done`; merge is not complete
 
 Do not move workflow state unless the repo config or user explicitly delegates
@@ -186,7 +201,8 @@ PR:     <url>
 Title:  <title>
 Risk:   <LOW|MEDIUM|HIGH>
 Checks: <commands and result>
-Review: local <verdict>; CodeRabbit <skipped|CLI|PR review>
+Review: local <verdict>; CodeRabbit <skipped|CLI|PR review|auto pending>
+Evidence: head <sha>; base <sha>; merge-base <sha>; hosted checks <state>
 PR state: <draft|ready-for-review>
 Issue:  <issue, handoff status, created, or skipped>
 ```
