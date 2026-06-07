@@ -256,6 +256,12 @@ provider actions. Close PRs only when they pass the PR Closure Guard below. If
 outside-scope PRs or previews consume capacity and Orchestrator lacks authority
 to change them, report that capacity blocker instead of starting more work.
 
+Optimize for delivery-slot turnover, not worker count. A low active footprint is
+usually better than wider fanout when preview deploys, check polling, branch
+updates after default-branch movement, and review waits dominate wall-clock. Even
+when headroom exists, prefer draining green or nearly green PRs before
+dispatching more implementation work.
+
 If preview state cannot be refreshed and config says previews count toward the
 cap, treat headroom as unknown and full for new dispatch. Continue only with
 actions that advance existing PRs or repair the missing config/tooling evidence.
@@ -418,12 +424,14 @@ Each tick is stateless against external state. On each pass:
 5. Find active work: `In Progress`, `Blocked`, `In Review`,
    `Changes Requested`, and `Ready to Merge`. Prefer advancing active work over
    starting new work.
-6. If the active delivery footprint is at or above the configured cap, dispatch
-   no new work this tick. Advance, merge, route fixes, clean up previews, or
-   escalate existing PRs and previews first. Close a PR only when it satisfies
-   the PR Closure Guard. If capacity is consumed by outside-scope work the
-   orchestrator cannot mutate, stop with a capacity blocker and exact PR/preview
-   list.
+6. Drain active work before dispatching. Merge green PRs when authority allows,
+   update stale branches after main moved, route review fixes, inspect pending
+   previews, rerun failed checks only after confirming they are no longer
+   progressing, clean up previews, or escalate existing PRs and previews first.
+   If the active delivery footprint is at or above the configured cap, dispatch
+   no new work this tick. Close a PR only when it satisfies the PR Closure Guard.
+   If capacity is consumed by outside-scope work the orchestrator cannot mutate,
+   stop with a capacity blocker and exact PR/preview list.
 7. Advance returned PRs, including draft PRs with no clear next action, through
    the PR Review And Integrate process below.
 8. Reconcile the configured review-debt intake route. Send broad or incomplete
@@ -609,6 +617,10 @@ are called steps, not inlined work:
    integration syncs linked PRs and tickets, assume the synced state is real when
    both linked entities exist; manually repair only after both systems have been
    refreshed.
+   Require evidence-complete handoff before treating a returned PR as ready for
+   review or merge: current PR head SHA, base SHA, merge base, exact checks,
+   hosted check state, review verdict, CodeRabbit decision, and non-draft state
+   unless a blocker says why the PR must remain draft.
 2. If the PR is draft, diagnose draft state before asking for review: inspect
    repo draft policy, PR body, check state, unresolved review comments, linked
    issue state, handoff notes, `Code review passed` evidence, and the original
@@ -662,23 +674,38 @@ are called steps, not inlined work:
     branch HEAD still match the review and check evidence. If they do not match,
     rerun review and checks for the current head instead of approving or merging
     from stale local state.
+    If the base branch moved since the review or `Ready to Merge` evidence was
+    recorded, treat merge readiness as expired until the branch is updated and
+    checks plus review cover the new head.
 16. If review is clean, required checks pass or are not required, and the PR is
     still draft, move the PR to ready-for-review unless the user or repo config
     explicitly says to keep it draft. Then refresh the code-host PR state and
     verify it is non-draft. This is a code-host PR state change, separate from
     tracker status. A kept-draft PR is pre-review; do not call it
     ready-for-review.
-17. If CodeRabbit is recommended for the current diff, request the configured
-    CodeRabbit path after local review is clean. Treat missing auth, rate
-    limits, or credits as a recorded skip unless the user explicitly required
-    CodeRabbit.
-18. Act only on high-priority CodeRabbit findings: P0/P1, security, data loss,
+17. Resolve CodeRabbit state from the workflow config and root `.coderabbit.yaml`
+    at the reviewed PR head when present. Track whether `reviews.auto_review` is
+    enabled, disabled, opt-in by label or description keyword, or unknown. Note
+    draft or incremental-review behavior only when it changes the command
+    choice.
+18. If CodeRabbit is recommended for the current diff, request it after local
+    review is clean and the PR is non-draft unless repo policy says otherwise.
+    Use a top-level PR comment: `@coderabbitai review` for incremental review,
+    or `@coderabbitai full review` when no complete review covers the current
+    PR head. If automatic review is already current for the head, record it
+    instead of spending another review.
+19. If optional CodeRabbit should be skipped for this PR, add
+    `@coderabbitai ignore` to the PR description when repo policy allows. This
+    is the per-PR auto-review skip; do not post it as a comment. Treat missing
+    auth, rate limits, or credits as a recorded skip unless the user explicitly
+    required CodeRabbit.
+20. Act only on high-priority CodeRabbit findings: P0/P1, security, data loss,
     correctness regression, production blocker, or a user-requested finding.
-19. Move to `Ready to Merge` only when Agent Review is clean, required checks
+21. Move to `Ready to Merge` only when Agent Review is clean, required checks
     pass, the PR is non-draft and ready-for-review, `Code review passed` is
     current for the PR head, and required CodeRabbit escalation is complete or
     recorded as skipped by policy.
-20. Call integrate when the auto-merge gate is satisfied.
+22. Call integrate when the auto-merge gate is satisfied.
 
 Do not leave a PR in draft just because the implementation worker opened it as
 draft or because no one asked Orchestrator to unstick it. Orchestrator owns
@@ -716,9 +743,10 @@ When the gate passes:
    affected gate instead of merging.
 2. If the default branch moved since the PR branch last updated, rebase or update
    the branch, then rerun required checks and `ziw-review`. Do not
-   merge a stale branch on the assumption it still applies. Record a
-   `merge-conflict` friction entry if the rebase needed manual resolution and
-   escalate instead of guessing on a real conflict.
+   merge a stale branch on the assumption it still applies, and do not preserve
+   `Ready to Merge` state without fresh evidence. Record a `merge-conflict`
+   friction entry if the rebase needed manual resolution and escalate instead of
+   guessing on a real conflict.
 3. Merge through the configured mechanism, such as squash, merge commit, or
    rebase merge. If the code host rejects the configured method, stop, log
    `config-gap`, and refresh setup instead of retrying with a guessed method.
@@ -795,6 +823,7 @@ blocked: <count>
 first-pass-checks: <passed/total or "unknown">
 review-rework: <tickets returned for fixes>
 friction: <category=count, category=count>
+throughput: <whole-run tickets/hour; optional visible-window tickets/hour>
 agent-cost: <tokens, credits, or "unknown">
 ```
 
