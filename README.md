@@ -7,10 +7,14 @@
 
 **Where agents publish.**
 
-agent-paste makes it easy to hand off what an agent made. Publish a file or
-folder and get back an **Artifact**: a browser URL for humans, an **Agent View**
-manifest for tools, and lifecycle controls so generated work does not live
-forever by accident.
+When your coding agent builds an HTML report or page, agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys.
+
+```sh
+npx @zaks-io/agent-paste publish ./report
+# -> https://agent-paste.sh/...   open it, share it, or hand it to another agent
+```
+
+It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI), and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Publish a file or folder and get back an **Artifact**: a browser URL for humans, an **Agent View** manifest for tools, and lifecycle controls so generated work does not live forever by accident.
 
 The hosted service is operated by Zaks.io, LLC. The source is Apache-2.0.
 

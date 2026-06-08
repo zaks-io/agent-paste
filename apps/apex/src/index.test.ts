@@ -35,7 +35,7 @@ describe("apex worker", () => {
     expect(csp).toMatch(/style-src 'nonce-[^']+'/);
     const body = await response.text();
     expect(body).toContain("<!doctype html>");
-    expect(body).toContain("Hand off what your agent made");
+    expect(body).toContain("Your agent built it. Open it anywhere");
     expect(body).toContain("Where agents publish");
     expect(body).toContain('<span class="wordmark-tld">.sh</span>');
     expect(body).toContain("npx @zaks-io/agent-paste publish ./report");
@@ -95,15 +95,16 @@ describe("apex worker", () => {
     expect(body).not.toContain("cloudflareinsights.com");
   });
 
-  it("leads with the cross-vendor handoff story and live updates", async () => {
+  it("leads with the one-command share, with cross-vendor and live updates as support", async () => {
     const response = await get("/");
     const body = await response.text();
-    // The wedge: the neutral handoff layer between agents and tools, plus
-    // live-updating artifacts. These are the two lead features.
-    expect(body).toContain("Cross-vendor by design");
+    // New lead: your agent built it, send the link. The neutral cross-vendor
+    // handoff layer and live-updating artifacts are support, not the headline.
+    expect(body).toContain("Your agent built it. Open it anywhere");
+    expect(body).toContain("Send it to a friend");
     expect(body).toContain("Leave the tab open, watch it iterate");
     expect(body).toContain("no polling");
-    expect(body).toContain("hand off");
+    expect(body).toContain("Cross-vendor by design");
   });
 
   it("surfaces the standalone one-line installer", async () => {

@@ -26,10 +26,7 @@ const Hero: FC = () => (
       {HERO.headline}
       <span class="stop">.</span>
     </h1>
-    <p class="home-hero-lead reveal d3">
-      An agent renders an HTML report. You want a URL to open, not a Vercel project or a repo. agent-paste closes that
-      gap in one command: a link a human just opens, and an agent can pick up and keep going.
-    </p>
+    <p class="home-hero-lead reveal d3">{HERO.lead}</p>
     <div class="home-hero-actions reveal d4">
       <a class="button button-primary button-lg" href={SIGN_IN_URL}>
         {HERO.primary.label}
@@ -132,6 +129,25 @@ type UseCase = {
 // use-case matrix.
 const USE_CASES: UseCase[] = [
   {
+    who: "Sharing it",
+    title: "Send it to a friend",
+    body: "Your agent built a page. One command turns it into a link you can text someone or drop in a chat, with no hosting to stand up.",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M22 2 11 13" />
+        <path d="M22 2 15 22l-4-9-9-4z" />
+      </svg>
+    ),
+  },
+  {
     who: "The builder",
     title: "Publish an asset in seconds",
     body: "Skip spinning up a Vercel project just to share one report. One command, one link, you're done.",
@@ -184,25 +200,6 @@ const USE_CASES: UseCase[] = [
       >
         <path d="M21 12a9 9 0 1 1-3-6.7" />
         <path d="M21 4v5h-5" />
-      </svg>
-    ),
-  },
-  {
-    who: "The creator",
-    title: "Share with your audience",
-    body: "Drop a one-off AI-generated artifact to your channel or followers without standing up any hosting of your own.",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z" />
-        <path d="M10 9.5l5 2.5-5 2.5z" />
       </svg>
     ),
   },

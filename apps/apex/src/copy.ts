@@ -15,14 +15,14 @@ export const WORDMARK = {
   tld: ".sh",
 };
 
-export const TITLE = "agent-paste.sh: hand off what your agent made";
+export const TITLE = "agent-paste.sh: your agent built it, open it anywhere";
 export const META_DESCRIPTION =
-  "An agent makes something. agent-paste hands it off. One command turns a folder into an Artifact with a browser URL for humans and an Agent View manifest for tools. No deploy, no repo, no vendor lock-in.";
+  "Your coding agent built an HTML report or page. agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys. It works from Claude Code, Codex, or any shell, and over MCP from a web chat that has none. One Artifact ID resolves the same across the CLI, REST API, MCP, and dashboard.";
 
 export const HERO = {
   eyebrow: "Where agents publish",
-  headline: "Hand off what your agent made",
-  lead: "An agent renders an HTML report. You want a URL to open, not a Vercel project or a repo. And the agent that made it in one tool has no way to pass it to an agent in another. agent-paste closes that gap: one command, a URL a human opens, and an Agent View another agent reads.",
+  headline: "Your agent built it. Open it anywhere",
+  lead: "Claude Code or Codex builds an interactive page. One command turns it into a link you can open on your phone, share with anyone, or hand to the next agent. Log in once in the browser, free, no API keys, and the agent handles the rest.",
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
   secondary: { label: "Read the docs", href: "/docs" },
 };
@@ -54,20 +54,8 @@ export type Feature = {
 
 export const FEATURES: Feature[] = [
   {
-    title: "Cross-vendor by design",
-    body: "An artifact made inside one tool stays walled in. Vendor surfaces are auth-locked with no machine-readable handoff out. agent-paste is the neutral layer in between: an agent in any tool publishes, a human or another agent in any other tool picks it up.",
-  },
-  {
     title: "Leave the tab open, watch it iterate",
     body: "Open the URL once and walk away. Each time the agent publishes a new Revision, every open viewer swaps to it on its own. No manual refresh, no polling. Watch a render evolve as the agent works, then hand the same link to a human or another agent when it lands. Works on the dashboard and on a shared Access Link.",
-  },
-  {
-    title: "A URL and an Agent View",
-    body: "Publish returns a browser URL for people and an Agent View JSON manifest for tools: file tree, metadata, signed per-file URLs, and Bundle Availability. No scraping, no per-tool export path.",
-  },
-  {
-    title: "Transient by default",
-    body: "Artifacts expire under your Workspace's Auto Deletion policy. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact. A handoff, not a vault.",
   },
   {
     title: "Publish with zero setup",
@@ -76,6 +64,18 @@ export const FEATURES: Feature[] = [
   {
     title: "Sign in once, no keys to wrangle",
     body: "`npx @zaks-io/agent-paste login` runs a browser OAuth flow and provisions its own scoped key, stored on your machine. No token to copy, paste, or rotate by hand.",
+  },
+  {
+    title: "Cross-vendor by design",
+    body: "An artifact made inside one tool stays walled in. Vendor surfaces are auth-locked with no machine-readable handoff out. agent-paste is the neutral layer in between: an agent in any tool publishes, a human or another agent in any other tool picks it up.",
+  },
+  {
+    title: "A URL and an Agent View",
+    body: "Publish returns a browser URL for people and an Agent View JSON manifest for tools: file tree, metadata, signed per-file URLs, and Bundle Availability. No scraping, no per-tool export path.",
+  },
+  {
+    title: "Transient by default",
+    body: "Artifacts expire under your Workspace's Auto Deletion policy. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact. A handoff, not a vault.",
   },
   {
     title: "Install in one line",
