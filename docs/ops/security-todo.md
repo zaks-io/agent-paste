@@ -67,22 +67,20 @@ stays fast and does not run the full bundle.
       Linear) on new CVEs. Non-blocking, no rebuild. Optional `cosign` for a
       uniform Linux/Windows signature (macOS already notarized).
 
-## Public phase (after the repo is public + licensed)
+## Public repo security posture
 
-Per ADR 0076, public trust signals become meaningful only once the source,
-license, workflows, and scan config are inspectable.
+Per ADR 0076, public trust signals matter because the source, license,
+workflows, and scan config are inspectable.
 
-Launch-readiness aggregator for the go-public toggles plus the source-link
-follow-up below is
-[AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex),
+Aggregator for the public-repo security toggles plus the source-link follow-up
+below is [AP-254](https://linear.app/zaks-io/issue/AP-254),
 filed off an external credibility review.
 
-- [ ] Flip the apex GitHub source link on. The marketing site has **no** repo
-      link by design: `apps/apex/src/index.test.ts` asserts `github.com` /
-      "open source" never appear, and `apps/apex/src/about.ts` says the same.
-      Add a source link (footer + About) and flip those test gates from
-      "absent" to "present" **in the same change as the visibility flip** —
-      never before.
+- [ ] Ship the apex GitHub source link and keep tests covering the public source
+      link behavior.
+      Add a source link (footer + About + How it works) and keep the tests
+      asserting the public GitHub URL. The repo may still be private until the
+      visibility flip; the UI should not claim it is already public.
 - [x] Stand up a status page or public incident/update channel. Decision
       recorded 2026-06-07: the minimum public incident intake channel is the
       `support@agentpaste` mailbox, which routes through email into Linear. A

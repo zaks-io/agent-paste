@@ -4,6 +4,11 @@ export const APP_BASE_URL = "https://app.agent-paste.sh";
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
 export const API_BASE_URL = "https://api.agent-paste.sh";
 export const MCP_BASE_URL = "https://mcp.agent-paste.sh";
+export const SOURCE_REPOSITORY = {
+  label: "View on GitHub",
+  slug: "zaks-io/agent-paste",
+  href: "https://github.com/zaks-io/agent-paste",
+};
 
 export const WORDMARK = {
   base: "agent-paste",
@@ -62,15 +67,15 @@ export const FEATURES: Feature[] = [
   },
   {
     title: "Cross-vendor by design",
-    body: "An artifact made inside one tool stays walled in. Vendor surfaces are auth-locked with no machine-readable handoff out. agent-paste is the neutral layer in between: an agent in any tool publishes, a human or another agent in any other tool picks it up, from the same ID.",
+    body: "An artifact made inside one tool stays walled in. Vendor surfaces are auth-locked with no machine-readable handoff out. agent-paste is the neutral layer in between: an agent in any tool publishes, a human or another agent in any other tool picks it up.",
   },
   {
-    title: "One ID, every surface",
-    body: "The Artifact ID the CLI prints is the same string the REST API returns, an MCP tool consumes, and the dashboard renders. No translation tables, no per-tool bookkeeping.",
+    title: "A URL and an Agent View",
+    body: "Publish returns a browser URL for people and an Agent View JSON manifest for tools: file tree, metadata, signed per-file URLs, and Bundle Availability. No scraping, no per-tool export path.",
   },
   {
     title: "Transient by default",
-    body: "Artifacts expire on a TTL you choose. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact. A handoff, not a vault.",
+    body: "Artifacts expire under your Workspace's Auto Deletion policy. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact. A handoff, not a vault.",
   },
   {
     title: "Install in one line",
@@ -114,6 +119,7 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "About", href: "/about" },
       { label: "How it works", href: "/how-it-works" },
+      { label: SOURCE_REPOSITORY.label, href: SOURCE_REPOSITORY.href },
     ],
   },
   {

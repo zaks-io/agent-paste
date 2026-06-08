@@ -56,11 +56,11 @@ export const GETTING_STARTED_DOC: DocsPage = {
         {
           kind: "code",
           language: "sh",
-          code: "agent-paste publish ./report\nagent-paste publish ./report --ttl 7d\nagent-paste publish ./report --artifact-id art_01H...",
+          code: "agent-paste publish ./report\nagent-paste publish ./report --artifact-id art_01H...",
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and returns an Artifact ID plus human and agent URLs.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, publishes it, and returns an Artifact ID plus human and agent URLs. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",

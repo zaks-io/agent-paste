@@ -39,12 +39,8 @@ export const CLI_DOC: DocsPage = {
               "`--render-mode <mode>`",
               "Override inferred mode: `html`, `markdown`, `text`, `image`, `audio`, or `video`.",
             ],
-            [
-              "`--ttl <duration>`",
-              "Set Auto Deletion within your Plan limits. Accepts values like `30m`, `12h`, `7d`, or seconds.",
-            ],
             ["`--ephemeral`", "Publish with no login or key, then print a one-time claim link."],
-            ["`--json`", "Emit pure JSON on stdout. Structured errors still go to stderr."],
+            ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
             ["`--quiet`", "Suppress human-readable stdout."],
           ],
         },
@@ -56,12 +52,12 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful publish returns `artifact_id`, `revision_id`, `title`, `view_url`, `agent_view_url`, `expires_at`, and Bundle state. `view_url` opens the content origin. `agent_view_url` returns machine-readable Agent View JSON.",
+          text: "A successful publish returns `artifact_id`, `revision_id`, `title`, `view_url`, `agent_view_url`, `expires_at`, and `bundle`. `view_url` opens the content origin. `agent_view_url` returns machine-readable Agent View JSON.",
         },
         {
           kind: "code",
           language: "json",
-          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "view_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z"\n}',
+          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "title": "My Publication Title",\n  "view_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
         },
       ],
     },

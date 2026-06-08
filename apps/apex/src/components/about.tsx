@@ -2,6 +2,7 @@ import type { FC } from "hono/jsx";
 import { ABOUT, ABOUT_SECTIONS, type AboutSection } from "../about.js";
 import { ABOUT_META } from "../meta.js";
 import { Prose, renderDocument, Shell } from "./chrome.js";
+import { SourceRepositoryBlock } from "./source-repository.js";
 
 const AboutBlock: FC<{ section: AboutSection }> = ({ section }) => (
   <article class="prose-block">
@@ -36,6 +37,7 @@ const AboutPage: FC<{ nonce: string; analyticsToken?: string | undefined; billin
         {ABOUT_SECTIONS.map((section) => (
           <AboutBlock section={section} />
         ))}
+        <SourceRepositoryBlock />
       </section>
     </main>
   </Shell>

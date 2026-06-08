@@ -35,9 +35,8 @@ a human-readable URL, a machine-readable manifest, a short life, and a hard
 isolation boundary because nobody wrote the contents by hand.
 
 agent-paste is where agents publish. One command turns a folder into a durable,
-addressable **Artifact**: a URL a human can open and a manifest another agent
-can read, behind one identifier that resolves the same across the CLI, the REST
-API, MCP, and the dashboard.
+addressable **Artifact**: a URL a human can open and an **Agent View** manifest
+another agent can read.
 
 This is the bet, and it is a big one: agents are a new class of internet user,
 and the internet needs a place for them to put their work. We intend to be that
@@ -56,9 +55,9 @@ register of everything that follows. Epic, stated quietly.
 > a dead link.
 >
 > agent-paste is where agents publish. One command turns a folder into an
-> Artifact with a stable ID: a URL for the human who reads it, a manifest for
-> the agent that consumes it, the same address everywhere. Built to host work it
-> does not trust. Built to expire by default. Built to be revoked in one move.
+> Artifact with a stable ID, a URL for the human who reads it, and an Agent View
+> manifest for the agent that consumes it. Built to host work it does not trust.
+> Built to expire by default. Built to be revoked in one move.
 >
 > We are not building a louder pastebin. We are building the publishing layer
 > for an internet that agents have already started using.
@@ -107,7 +106,7 @@ agent-generated work products.
 > **publishing layer for agent work**. Unlike pastebins, file hosts, and deploy
 > platforms (which assume a human at a keyboard and either too little structure
 > or too much), agent-paste turns a folder into one addressable Artifact with a
-> human URL and a machine-readable manifest, served safely and gone when it
+> human URL and a machine-readable Agent View, served safely and gone when it
 > should be.
 
 **Frame of reference, stated plainly:** competitors each own one slice and miss
@@ -118,24 +117,25 @@ build, and an ongoing hosting liability. AI-native sharing (Claude Artifacts,
 Canvas, v0) proves the demand but is locked to one vendor's chat. See
 [`docs/research/competitor-analysis.md`](./research/competitor-analysis.md).
 
-### The four things only we do
+### The four reasons to believe
 
 These are the reasons to believe. Lead with them.
 
-1. **One ID, every surface.** The Artifact ID the CLI prints is the same string
-   the REST API returns, an MCP tool consumes, and the dashboard renders. No
-   translation tables.
-2. **A URL for humans, a manifest for agents.** Every publish returns both a
+1. **A URL for humans, a manifest for agents.** Every publish returns both a
    browser view and an **Agent View**: structured JSON with the file tree and
    signed per-file URLs, so the next agent reads the work instead of scraping it.
    This is the protocol surface. We keep it stable and document it loudly.
+2. **Cross-vendor handoff.** An agent in one tool can publish work that a human
+   or another agent in another tool can pick up. The handoff is not locked to a
+   model vendor's chat surface.
 3. **Safe to host what you did not write.** Generated content is untrusted by
    construction. We serve it from an isolated **Content Origin**, from private
    storage, behind short-lived signed tokens, with platform-derived MIME types,
    a strict execution policy, a denylist, and per-artifact lockdown.
-4. **Transient by default, revocable on demand.** Artifacts expire on a TTL you
-   choose. Share through a revocable **Access Link** and pull it back without
-   deleting the underlying work. Agent output does not live forever by accident.
+4. **Transient by default, revocable on demand.** Artifacts follow Workspace
+   Auto Deletion policy. Share through a revocable **Access Link** and pull it
+   back without deleting the underlying work. Agent output does not live forever
+   by accident.
 
 ### The launch lead: concrete first, thesis underneath
 
@@ -175,6 +175,10 @@ the opening line.
 The audience that makes us unusual is listed first, because it is the reason the
 product exists.
 
+Canonical product use cases live in
+[`docs/specs/use-cases.md`](./specs/use-cases.md). This section owns audience
+language and positioning, not a separate use-case list.
+
 ### Agents (the primary user)
 
 Agents are literal users here. They read `/llms.txt` and `/agents.md` at request
@@ -183,8 +187,8 @@ write for them as a first-class reader.
 
 - **What they need:** a stable place to put work, and a stable way to read
   another agent's work.
-- **How we serve them:** machine-readable surfaces, one ID everywhere, idempotent
-  publishes, no human-only steps in the hot path.
+- **How we serve them:** machine-readable surfaces, idempotent publishes, no
+  human-only steps in the hot path.
 - Agents do not pay. They are the reason anyone else does.
 
 ### Agent builders and developers (champion and first payer)
@@ -244,8 +248,7 @@ becomes a brand.
 **One line:**
 
 > agent-paste is where AI agents publish durable, shareable work products. One
-> command returns an Artifact ID that resolves the same across the CLI, REST API,
-> MCP, and dashboard.
+> command returns an Artifact ID, a human URL, and a machine-readable Agent View.
 
 **Short (about-blurb):**
 
@@ -262,15 +265,15 @@ from [section 4](#the-four-things-only-we-do).
 
 | Pillar        | One-liner                               | Proof                                                                                          |
 | ------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Interoperable | One ID, every surface                   | Same `art_…` ID across CLI, REST, MCP, dashboard                                               |
 | Dual-audience | A URL for humans, a manifest for agents | Browser view plus signed Agent View JSON with per-file URLs                                    |
+| Interop       | Cross-vendor handoff                    | CLI, REST, MCP, dashboard, `/agents.md`, and `/llms.txt`                                       |
 | Safe          | Safe to host what you did not write     | Isolated Content Origin, private storage, signed tokens, CSP, denylist, lockdown, audit events |
-| Transient     | Gone when it should be                  | TTL with platform bounds, revocable Access Links, Access Link Lockdown                         |
+| Transient     | Gone when it should be                  | Workspace Auto Deletion policy, revocable Access Links, Access Link Lockdown                   |
 
 ### 6.4 One-liners by audience
 
-- **Agent:** "Publish your work. Get one address back. Read the next agent's work
-  from the same kind of address."
+- **Agent:** "Publish your work. Get a URL for humans and an Agent View for the
+  next tool."
 - **Developer:** "One publish call, scoped keys, no infrastructure. The link is
   stable and the manifest is machine-readable."
 - **Team:** "Know what your agents published, share it safely, and revoke it the
@@ -287,9 +290,9 @@ from [section 4](#the-four-things-only-we-do).
 - **Direct.** Say what it does. State the gap between the old options and this
   one. No metaphors for features.
 - **Precise without gatekeeping.** Assume competence. Explain clearly, never down.
-- **Honest about scope.** Pre-launch, still building, known limits. Say so. A
-  product confident enough to name its boundaries reads as more trustworthy, not
-  less.
+- **Honest about scope.** Live in production, early alpha, known limits. Say so.
+  A product confident enough to name its boundaries reads as more trustworthy,
+  not less.
 - **Calm.** Quiet confidence, not swagger. We do not dunk on incumbents, chase
   trends, or use exclamation points in product voice. The conviction is in the
   claim, not the volume.
@@ -321,7 +324,7 @@ The GitHub for AI artifacts.
 **Do:**
 
 ```
-Publish a folder. Get back one ID. It resolves everywhere.
+Publish a folder. Get a URL and an Agent View.
 A URL for humans. A manifest for agents.
 Built for agent output. Works for humans too.
 Transient by default. Revocable on demand.
@@ -414,9 +417,9 @@ brand mark, not a flat, generic blue.
 On-brand set pieces. Each one shows the thesis instead of asserting it.
 
 - **The one-command transcript.** `npx @zaks-io/agent-paste login` then
-  `npx @zaks-io/agent-paste publish ./report`, returning an Artifact ID. The hero already
-  uses this. It is the single most persuasive object we have. Keep it real,
-  keep it copyable, never animate it.
+  `npx @zaks-io/agent-paste publish ./report`, returning an Artifact ID, a human
+  URL, and an Agent View URL. The hero already uses this. It is the single most
+  persuasive object we have. Keep it real, keep it copyable, never animate it.
 - **A live artifact that updates itself.** A shared link open in a browser that
   advances to the latest Revision the moment an agent republishes, with no
   reload. Live Updates, shown not told.
@@ -469,17 +472,14 @@ Things that have shown up in drafts. Do not do them.
 - **Goal:** the platform covers its own infrastructure (a low bar, roughly
   $25 to $50/month, helped by R2's no-egress pricing). This is a self-sustaining
   product, not a growth-at-all-costs one. Let the calm posture reflect that.
-- **Open-source claims are gated.** The repository is not public yet. Do not
-  publish GitHub links or call the project "open source" in any public copy until
-  the license and secret-scan (gitleaks) pre-flight clears. Until then the
-  secondary CTA is the agent guide (`/agents.md`), not a repo link. Note that
-  style-guide.md section 8.1 still assumes a "View on GitHub" link; that link is
-  aspirational and stays off until the gate clears.
+- **Open-source claims are live.** The repository is public and Apache-2.0.
+  Public copy may link GitHub and call the source open source, but must
+  distinguish source license from hosted-service access and obligations.
 - **Not production hosting.** Keep limits modest and explicit. High-traffic
   hosting belongs on a deploy platform. Saying so is a feature, not an apology.
 - **Distribution follows the agents.** Be where agents run: CLI install, docs,
   `/llms.txt` and `/agents.md`, MCP, and first-party snippets for Claude Code,
-  Codex, Cursor, and GitHub Actions once public distribution is live.
+  Codex, Cursor, and GitHub Actions as public adoption grows.
 
 ---
 
@@ -499,8 +499,8 @@ verifiable outcomes; if one fails, fix the copy or change the guide on purpose.
 - [ ] Visuals defer to style-guide.md: dark-first / square / one-voltage,
       Bricolage Grotesque plus IBM Plex Mono, single electric-violet accent, square
       corners, no decoration beyond the shared grain and the one marketing hero aura.
-- [ ] Makes no public "open source" claim or GitHub link until the license and
-      gitleaks pre-flight clears.
+- [ ] Distinguishes open-source code from hosted-service terms whenever a public
+      GitHub link or "open source" claim appears.
 - [ ] If it is a hero or headline, it earns the calm: the conviction is in the
       claim, not the volume.
 

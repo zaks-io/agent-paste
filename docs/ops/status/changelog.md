@@ -5,7 +5,7 @@ use `git log` for commit-level detail.
 
 ## 2026-06-07
 
-### Launch-readiness operator updates
+### Early-alpha production operator updates
 
 - Captured operator decisions that npm trusted publishing is configured, hosted
   Stripe test-mode verification passed in preview, and public incident intake
@@ -24,7 +24,7 @@ use `git log` for commit-level detail.
 
 ### Legal contact + secrets guidance for launch credibility (PR #393, AP-254)
 
-An external credibility review ("credible pre-launch, not mature vendor yet")
+An external credibility review ("credible early-alpha vendor, not mature vendor yet")
 flagged two doc gaps; both are now closed on the apex marketing site:
 
 - **Registered address on legal pages:** Terms and Privacy publish the
@@ -36,9 +36,9 @@ flagged two doc gaps; both are now closed on the apex marketing site:
 
 The review's deeper asks (release provenance, npm metadata/provenance) were
 verified already shipped (AP-148, AP-154; `npm publish --provenance`), so no
-work was duplicated. Remaining go-public toggles (repo flip, apex GitHub
+work was duplicated. Remaining public-repo/security posture toggles (apex GitHub
 source-link flip, GitHub security features, npm OIDC, status page) are tracked
-in [AP-254](https://linear.app/zaks-io/issue/AP-254/launch-readiness-close-external-credibility-review-gaps-repo-flip-apex).
+in [AP-254](https://linear.app/zaks-io/issue/AP-254).
 
 ### Post-launch hardening wave: correctness + security fixes
 

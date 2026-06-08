@@ -4,7 +4,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
   slug: "artifact-model",
   title: "Artifact Model",
   shortTitle: "Model",
-  summary: "One Artifact ID flows through CLI, REST, MCP, dashboard, viewers, and agent manifests.",
+  summary: "Artifacts, Revisions, Access Links, and Agent View are the core handoff objects.",
   sections: [
     {
       id: "objects",
@@ -26,11 +26,11 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
     },
     {
       id: "ids",
-      title: "Stable IDs",
+      title: "IDs and handoff URLs",
       blocks: [
         {
           kind: "paragraph",
-          text: "The Artifact ID printed by the CLI is the same ID used by REST, MCP, and the dashboard. You do not need per-tool translation tables.",
+          text: "Publish returns stable Artifact and Revision IDs plus the URLs each reader needs: a browser view for humans and Agent View JSON for tools.",
         },
         {
           kind: "code",

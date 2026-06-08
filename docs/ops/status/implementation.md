@@ -1,6 +1,6 @@
 # Implementation State
 
-Last updated: 2026-06-07 (launch-readiness refresh; current `main` plus
+Last updated: 2026-06-07 (early-alpha production refresh; current `main` plus
 production deploy blocker cleanup).
 
 ## Snapshot

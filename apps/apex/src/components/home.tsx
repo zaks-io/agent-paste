@@ -125,6 +125,8 @@ type UseCase = {
   icon: ReturnType<FC>;
 };
 
+// Display copy excerpted from docs/specs/use-cases.md, which owns the canonical
+// use-case matrix.
 const USE_CASES: UseCase[] = [
   {
     who: "Sharing it",

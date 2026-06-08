@@ -1,8 +1,8 @@
 // Long-form "about" copy. The brand guide designates the manifesto as the
 // about block and the one place the voice is allowed to be expansive
 // (marketing-brand-guide.md section 2). Everything here stays in that register:
-// the wedge stated quietly, honest about scope, no hype, no repo links until the
-// open-source gate clears.
+// the wedge stated quietly, honest about scope, no hype, and current public
+// source positioning.
 
 export const ABOUT = {
   eyebrow: "About",
@@ -23,7 +23,7 @@ export const ABOUT_SECTIONS: AboutSection[] = [
     body: [
       "An agent renders an HTML report, builds a dashboard, or turns out a folder of work in an afternoon. That work needs four things at once: a URL a human can open, a manifest another agent can read, a hard isolation boundary because nobody wrote the contents by hand, and a short life so it does not pile up forever.",
       "No existing tool gives all four. A pastebin is one document. A file host has no artifact model. A deploy platform wants a repo, a build, and an ongoing hosting liability. A model vendor's artifact feature is locked to that vendor's chat, auth-walled, with no machine-readable way to hand the work out.",
-      "agent-paste fills exactly that gap and nothing wider. One command turns a folder into an `Artifact` with a stable ID: a URL for the human who reads it, a manifest for the agent that consumes it, the same address across the CLI, the REST API, MCP, and the dashboard.",
+      "agent-paste fills exactly that gap and nothing wider. One command turns a folder into an `Artifact` with a stable ID, a URL for the human who reads it, and an Agent View manifest for the agent that consumes it.",
     ],
   },
   {
@@ -50,7 +50,7 @@ export const ABOUT_SECTIONS: AboutSection[] = [
   {
     title: "What to expect",
     body: [
-      "This is pre-launch. Nothing here is a promise of permanence. `Artifacts` expire on a TTL by default, because the product is a handoff and not a place to keep your only copy of something. Keep the source of anything you publish.",
+      "This is live in early alpha. Nothing here is a promise of permanence. `Artifacts` follow Workspace Auto Deletion policy by default, because the product is a handoff and not a place to keep your only copy of something. Keep the source of anything you publish.",
       "Because it is solo-run and still early, expect the honest limits of that: a small surface, modest and explicit quotas, and the occasional rough edge. Naming a boundary is not an apology here. A product confident enough to say where it stops is easier to trust than one that pretends to do everything.",
     ],
   },

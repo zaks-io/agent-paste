@@ -48,8 +48,8 @@ describe("apex worker", () => {
     expect(body).toContain('href="/terms"');
     expect(body).toContain('href="/privacy"');
     expect(body).toContain('href="/privacy#data-storage-and-protection"');
-    expect(body).not.toContain("github.com");
-    expect(body).not.toContain("View on GitHub");
+    expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
+    expect(body).toContain("View on GitHub");
   });
 
   it("stamps the CSP nonce on the inline script and style so strict-dynamic trusts them", async () => {
@@ -127,7 +127,7 @@ describe("apex worker", () => {
     expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
     expect(body).not.toContain("Get an API key");
     expect(body).toContain("Open the dashboard");
-    expect(body).toContain("One ID, every surface");
+    expect(body).toContain("A URL and an Agent View");
   });
 
   // Marketing shares the dashboard's discipline (see docs/specs/style-guide.md):
@@ -181,10 +181,11 @@ describe("apex worker", () => {
     expect(body).toContain("How it is built and run");
     expect(body).toContain("What to expect");
     expect(body).toContain("AI was used heavily");
-    expect(body).toContain("pre-launch");
-    // No repo / open-source claims while the gate is closed.
-    expect(body).not.toContain("github.com");
-    expect(body).not.toContain("open source");
+    expect(body).toContain("live in early alpha");
+    expect(body).toContain("Workspace Auto Deletion policy");
+    const main = body.match(/<main class="content">[\s\S]*<\/main>/)?.[0] ?? "";
+    expect(main).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
+    expect(main).toContain("zaks-io/agent-paste");
   });
 
   it("does not include style-guide banned tokens on the about page", async () => {
@@ -223,6 +224,8 @@ describe("apex worker", () => {
     expect(body).toContain("does not promise malware detection");
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/how-it-works"/>');
     const main = body.match(/<main class="content">[\s\S]*<\/main>/)?.[0] ?? "";
+    expect(main).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
+    expect(main).toContain("zaks-io/agent-paste");
     expect(main).not.toContain("Operator");
     expect(main).not.toContain("operator");
     expect(main).not.toContain("Platform Lockdown");

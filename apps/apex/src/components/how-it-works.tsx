@@ -2,6 +2,7 @@ import type { FC } from "hono/jsx";
 import { HOW_IT_WORKS, HOW_IT_WORKS_SECTIONS, type HowItWorksSection } from "../how-it-works.js";
 import { HOW_IT_WORKS_META } from "../meta.js";
 import { Prose, renderDocument, Shell } from "./chrome.js";
+import { SourceRepositoryBlock } from "./source-repository.js";
 
 const HowItWorksBlock: FC<{ section: HowItWorksSection }> = ({ section }) => (
   <article class="prose-block">
@@ -36,6 +37,7 @@ const HowItWorksPage: FC<{ nonce: string; analyticsToken?: string | undefined; b
         {HOW_IT_WORKS_SECTIONS.map((section) => (
           <HowItWorksBlock section={section} />
         ))}
+        <SourceRepositoryBlock />
       </section>
     </main>
   </Shell>

@@ -43,14 +43,14 @@ The most defensible product position is:
 The core promise should remain:
 
 ```sh
-agent-paste publish ./artifact --ttl 7d
+agent-paste publish ./artifact
 ```
 
 That command should reliably produce:
 
 - a human browser URL,
 - an agent-readable manifest URL,
-- automatic expiration,
+- server-policy expiration,
 - isolated untrusted-content serving,
 - workspace/API-key ownership,
 - enough audit/admin control for team use.
@@ -153,7 +153,7 @@ Vercel, Netlify, Cloudflare Pages, Replit, CodeSandbox, and StackBlitz can all s
 They are worse when the desired action is:
 
 ```sh
-agent-paste publish ./report --ttl 7d
+agent-paste publish ./report
 ```
 
 without creating a repo, project, build pipeline, environment, deploy target, or ongoing hosting liability.
@@ -263,9 +263,9 @@ This is valuable for organizations adopting agents, but it should not drift into
 ## Recommendations
 
 1. Keep the headline away from "pastebin." Use "artifact handoff for agents" or "transient artifact publishing for agents and CI."
-2. Make the CLI loop the marketing demo: `agent-paste publish ./site --ttl 7d` returns human URL + agent manifest URL.
+2. Make the CLI loop the marketing demo: `agent-paste publish ./site` returns human URL + Agent View URL.
 3. Treat `agent_view_url` as the protocol differentiator. Document it prominently and keep it stable.
-4. Add first-party snippets for Claude Code/Codex/Cursor/GitHub Actions once public distribution matters.
+4. Add first-party snippets for Claude Code/Codex/Cursor/GitHub Actions as public adoption grows.
 5. Keep limits intentionally modest. Let Vercel/Netlify/Cloudflare Pages own high-traffic hosting.
 6. Future paid tiers should price around artifact volume, retention, size, read bandwidth, team/audit controls, and MCP/API access rather than seats alone.
 7. Consider a "public artifact manifest" spec page early. It gives other agents a reason to integrate even before MCP is built.

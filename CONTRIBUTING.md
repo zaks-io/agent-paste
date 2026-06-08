@@ -7,8 +7,11 @@ Thanks for your interest. This repo is developed two ways, and both are first-cl
 
 The same quality gates apply to both.
 
-agent-paste is **pre-launch**. There are no users, tokens, or back-compat obligations yet. Do not add legacy,
-deprecated, or compatibility-shim code paths. When behavior needs to change, change it outright.
+agent-paste is live in production and in **early alpha**. Public users, issued API
+Keys, published Artifacts, and npm installs may exist. Preserve supported
+behavior, or make breaking changes explicit in specs, docs, and
+migration/operational notes. Do not add legacy or deprecated code paths unless
+they are required to preserve a current public contract.
 
 For vulnerabilities, do not open a public issue. Follow [`SECURITY.md`](./SECURITY.md).
 
@@ -33,8 +36,8 @@ pnpm install --frozen-lockfile --strict-peer-dependencies
 pnpm hooks:install
 ```
 
-The full command reference (dev servers, smoke tests, deploy, contracts/DB) lives in the [`README.md`](./README.md)
-command tables and the [Workspace Inventory](./README.md#workspace-inventory). This file won't repeat it.
+The full command reference (dev servers, smoke tests, deploy, contracts/DB) lives in
+[`docs/development.md`](./docs/development.md). This file won't repeat it.
 
 ## For human contributors
 
@@ -108,8 +111,8 @@ apply to agent PRs exactly as they do to human ones.
 
 ## Project layout and docs
 
-- [`README.md`](./README.md) — command tables, workspace inventory, and monorepo policy (see
-  [Monorepo Maintenance](./README.md#monorepo-maintenance); workspaces are limited to `apps/*` and `packages/*`).
+- [`README.md`](./README.md) — human-friendly repo entry point.
+- [`docs/development.md`](./docs/development.md) — command tables, workspace inventory, and monorepo policy.
 - [`CONTEXT.md`](./CONTEXT.md) — domain language. Read it before touching the data model.
 - [`docs/specs/README.md`](./docs/specs/README.md) — product/spec reading order.
 - [`docs/adr/README.md`](./docs/adr/README.md) — architecture decision index and current conflict resolutions.

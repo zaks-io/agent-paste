@@ -32,6 +32,8 @@ The differentiated idea is not "pastebin for AI." It is artifact handoff infrast
 - Retention so hosted cruft does not accumulate forever.
 - Later room for revision links, latest links, MCP, and dashboard workflows.
 
+The canonical use-case matrix lives in [`use-cases.md`](./use-cases.md).
+
 The narrow MVP gives the idea a fair test without building the whole platform first.
 
 ## Honest Take
