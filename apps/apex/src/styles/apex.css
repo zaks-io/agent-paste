@@ -1,26 +1,94 @@
 /*
- * apex marketing layer (barrel).
+ * apex marketing layer.
  *
- * The apex marketing site's component CSS, layered on top of the shared design
- * system at @agent-paste/ui/styles.css. The shared sheet provides Tailwind
+ * The shared design system (@agent-paste/ui/styles.css) provides Tailwind
  * (Preflight + utilities), every design token, the @font-face blocks, the
- * @theme font mappings, the :root / [data-theme] token blocks, the base resets,
- * and the reduced-motion block — none of those are re-declared here.
+ * @theme font mappings, the :root / [data-theme] token blocks, base resets, the
+ * shared `.code` inline-code chip, and the reduced-motion block. Every apex
+ * component styles itself with Tailwind utilities inline.
  *
- * The apex-only marketing CSS is split into concern-scoped partials (kept small
- * per repo convention); this file only wires them together in cascade order:
- *   base.css       base type + layout + chrome header + buttons + prose/legal
- *   sections.css   docs + pricing + page footer
- *   home.css       home layout, sticky topbar, two-pane hero, command blocks
- *   home-foot.css  home result/proof/closing/footer + scroll-reveal
- * All @import rules must precede other rules (CSS spec), so @source follows.
+ * What remains here is the handful of marketing-only effects that cannot be
+ * expressed as inline utilities: the scroll-reveal entrance (driven by the
+ * vanilla enhancement script toggling `.in`), the live-pulse eyebrow dot, and
+ * the result-gesture wire. These are apex-only; they are not shared.
  */
 @import "@agent-paste/ui/styles.css";
-@import "./base.css";
-@import "./sections.css";
-@import "./home.css";
-@import "./home-foot.css";
 
 @source "../app";
 @source "../pages";
+@source "../components";
 @source "../routes.tsx";
+
+/* Scroll-reveal entrance. The client script adds `.in` when an element scrolls
+ * into view; `.d1`..`.d6` stagger the reveal. */
+.home .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.home .reveal.in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.7s var(--ease-out);
+}
+
+.home .d1 {
+  transition-delay: 0.05s;
+}
+.home .d2 {
+  transition-delay: 0.14s;
+}
+.home .d3 {
+  transition-delay: 0.22s;
+}
+.home .d4 {
+  transition-delay: 0.3s;
+}
+.home .d5 {
+  transition-delay: 0.38s;
+}
+.home .d6 {
+  transition-delay: 0.46s;
+}
+
+/* Live-pulse eyebrow dot. */
+.dot {
+  animation: home-live-pulse 2.4s var(--ease-out) infinite;
+}
+
+@keyframes home-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The result gesture: a caret-along-a-wire into an accent node (the hand-off
+ * motif). The wire is U+2500, deliberately not an em dash. */
+.t-gesture {
+  color: hsl(var(--muted));
+  letter-spacing: -0.04em;
+  margin-right: 6px;
+}
+
+.t-gesture-node {
+  color: hsl(var(--accent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home .reveal {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the inline reveal transition. */
+    opacity: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the JS-added .in-state transform. */
+    transform: none !important;
+  }
+  .dot {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must stop the live-pulse keyframe animation. */
+    animation: none !important;
+  }
+}

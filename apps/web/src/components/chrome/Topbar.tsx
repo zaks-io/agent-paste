@@ -1,9 +1,9 @@
+import { Wordmark } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import { Building2 } from "lucide-react";
 import { CommandPaletteTrigger } from "./command-palette/CommandPaletteTrigger";
 import { SignOutForm } from "./SignOutForm";
 import { ThemeToggle } from "./ThemeToggle";
-import { Wordmark } from "./Wordmark";
 
 type TopbarUser = {
   id: string;

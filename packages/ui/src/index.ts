@@ -13,4 +13,5 @@ export { Button, type ButtonSize, type ButtonVariant } from "./components/Button
 export { Card, CardHeader, SectionLabel } from "./components/Card";
 export { Prose, parseProse } from "./components/Prose";
 export { Table, TBody, TD, TH, THead, TR } from "./components/Table";
+export { Wordmark } from "./components/Wordmark";
 export { cn } from "./lib/cn";

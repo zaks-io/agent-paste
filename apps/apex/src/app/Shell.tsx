@@ -59,9 +59,15 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
           />
         ) : null}
       </head>
-      <body className="home">
+      <body className="home relative flex min-h-[100svh] flex-col [--head-h:60px] min-[880px]:[--head-h:64px]">
         <Header billingEnabled={billingEnabled} />
-        {bleed ? children : <div className="page-body">{children}</div>}
+        {bleed ? (
+          children
+        ) : (
+          <div className="mx-auto w-full max-w-[920px] flex-[1_0_auto] px-[24px] pt-[48px] pb-[72px] min-[640px]:px-[40px] min-[640px]:pt-[64px] min-[640px]:pb-[96px]">
+            {children}
+          </div>
+        )}
         <Footer billingEnabled={billingEnabled} />
         <script src={assets.jsHref} defer />
       </body>

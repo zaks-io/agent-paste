@@ -267,6 +267,19 @@ pre {
   font-variant-numeric: tabular-nums;
 }
 
+/* Inline code chip. One treatment everywhere the shared Prose renders `code`,
+ * so both surfaces match. */
+.code {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+  font-size: 0.9em;
+  letter-spacing: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--surface-3));
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
 @keyframes skeleton-pulse {
   50% {
     opacity: 0.5;

@@ -24,10 +24,10 @@ vi.mock("../src/components/chrome/SignOutForm", () => ({
   SignOutForm: () => <button type="button">Sign out</button>,
 }));
 
+import { Wordmark } from "@agent-paste/ui";
 import { Sidebar } from "../src/components/chrome/Sidebar";
 import { ThemeToggle } from "../src/components/chrome/ThemeToggle";
 import { Topbar } from "../src/components/chrome/Topbar";
-import { Wordmark } from "../src/components/chrome/Wordmark";
 
 describe("Sidebar", () => {
   it("renders the primary nav in importance order", () => {

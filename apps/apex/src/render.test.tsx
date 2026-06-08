@@ -119,12 +119,12 @@ describe("home page", () => {
     expect(body).not.toContain("—");
   });
 
+  // Assert the hrefs are wired (the contract), not the class strings (presentation
+  // that floats with the Tailwind styling). See feedback_never_unit_test_copy.
   it("links about, how-it-works, and docs from nav and footer", () => {
-    expect(body).toContain('<a class="head-link" href="/about">About</a>');
-    expect(body).toContain('<a class="head-link" href="/docs">Docs</a>');
-    expect(body).toContain('<a class="home-foot-link foot-link" href="/about">About</a>');
-    expect(body).toContain('<a class="home-foot-link foot-link" href="/how-it-works">How it works</a>');
-    expect(body).toContain('<a class="home-foot-link foot-link" href="/docs">Docs</a>');
+    expect(body).toContain('href="/about"');
+    expect(body).toContain('href="/how-it-works"');
+    expect(body).toContain('href="/docs"');
   });
 });
 
@@ -133,7 +133,7 @@ describe("about page", () => {
 
   it("has a canonical URL and links the public repo", () => {
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/about"/>');
-    expect(body).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
+    expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
   });
 
   it("keeps buzzword claims and em dashes out", () => {
@@ -151,12 +151,12 @@ describe("how-it-works page", () => {
 
   it("has a canonical URL and links the public repo", () => {
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/how-it-works"/>');
-    expect(body).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
+    expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
   });
 
   it("keeps platform/infra jargon and em dashes out of the page body", () => {
     // Scope to <main>: the footer legitimately links "REST API" and "MCP server".
-    const main = body.match(/<main class="content">[\s\S]*?<\/main>/)?.[0] ?? "";
+    const main = body.match(/<main[^>]*>[\s\S]*?<\/main>/)?.[0] ?? "";
     expect(main).not.toContain("Operator");
     expect(main).not.toContain("operator");
     expect(main).not.toContain("Platform Lockdown");
@@ -179,8 +179,9 @@ describe("pricing page (billing-gated)", () => {
     const body = renderPage("/pricing", { billingEnabled: true });
     expect(body).toContain('href="https://app.agent-paste.sh/billing"');
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/pricing"/>');
-    expect(body).toContain('<a class="head-link" href="/pricing">Pricing</a>');
-    expect(body).toContain('<a class="home-foot-link foot-link" href="/pricing">Pricing</a>');
+    // Pricing is wired into nav + footer when billing is on (href is the
+    // contract; the link classes float with the Tailwind styling).
+    expect((body.match(/href="\/pricing"/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -205,7 +206,7 @@ describe("docs pages", () => {
     const body = renderPage(`/docs/${slug}`);
     expect(body).toContain(title);
     expect(body).toContain(`href="/docs/${slug}.md"`);
-    expect(body).toContain('<main class="content docs-layout">');
+    expect(body).toContain("<main");
   });
 });
 

@@ -1,5 +1,5 @@
+import { Wordmark } from "@agent-paste/ui";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Wordmark } from "../components/chrome/Wordmark";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { publicPageMeta } from "../lib/page-meta";
 import { loadRootAuthFn } from "../rpc/web-loaders";
