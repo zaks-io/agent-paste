@@ -42,8 +42,11 @@ Done for this section: every open item below is checked, or explicitly marked
        E2E/smoke sequence has run against the current production deploy and the
        evidence is recorded in AP-139 plus
        [hosted-ops.md](./status/hosted-ops.md).
-2. [ ] **AP-254: Apex source link**. Done when the apex footer/About/How it works
-       source links ship with tests covering the public GitHub link.
+2. [x] **AP-254: Apex source link**. Done 2026-06-07 (`83cde8c`): the
+       `source-repository` component wires the public GitHub link into the apex
+       footer/About/How it works, and `apps/apex/src/index.test.ts` asserts the
+       `https://github.com/zaks-io/agent-paste` URL in all three. The link may
+       ship while the repo is private; it must not claim the repo is public.
 3. [ ] **AP-254: GitHub public security posture**. Done when CodeQL/code
        scanning, secret scanning, Dependabot alerts/updates, OpenSSF Scorecard,
        public SARIF uploads, and public badges are enabled or documented as not

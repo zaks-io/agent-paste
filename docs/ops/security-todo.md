@@ -76,11 +76,12 @@ Aggregator for the public-repo security toggles plus the source-link follow-up
 below is [AP-254](https://linear.app/zaks-io/issue/AP-254),
 filed off an external credibility review.
 
-- [ ] Ship the apex GitHub source link and keep tests covering the public source
-      link behavior.
-      Add a source link (footer + About + How it works) and keep the tests
-      asserting the public GitHub URL. The repo may still be private until the
-      visibility flip; the UI should not claim it is already public.
+- [x] Ship the apex GitHub source link and keep tests covering the public source
+      link behavior. Done 2026-06-07 (`83cde8c`): the `source-repository`
+      component adds the link to the footer + About + How it works, and
+      `apps/apex/src/index.test.ts` asserts the public GitHub URL. The repo may
+      still be private until the visibility flip; the UI does not claim it is
+      already public.
 - [x] Stand up a status page or public incident/update channel. Decision
       recorded 2026-06-07: the minimum public incident intake channel is the
       `support@agentpaste` mailbox, which routes through email into Linear. A
