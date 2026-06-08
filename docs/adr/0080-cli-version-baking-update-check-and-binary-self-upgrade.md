@@ -54,7 +54,7 @@ Inject `package.json`'s `version` at build time so the bundle and the binary
 both carry it:
 
 - `apps/cli/build.mjs`: esbuild `define: { __AGENT_PASTE_CLI_VERSION__: JSON.stringify(version) }`.
-- `cli-release.yml` compile step: `bun build --define:__AGENT_PASTE_CLI_VERSION__=...`.
+- `cli-release.yml` compile step: `bun build --define __AGENT_PASTE_CLI_VERSION__=...`.
 
 Reading `package.json` at runtime is rejected: the single-file binary has no
 `package.json` on disk next to it, and `import.meta`/`__dirname` resolution

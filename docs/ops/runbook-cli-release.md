@@ -26,7 +26,7 @@ Related docs:
 
 **`apps/cli/package.json`'s `version`** drives everything:
 
-- the version **baked into** each binary (`--define:__AGENT_PASTE_CLI_VERSION__`),
+- the version **baked into** each binary (`--define __AGENT_PASTE_CLI_VERSION__=...`),
 - the **npm** package version,
 - the `latest`/`min_supported` advertised in the `CLI_RELEASE` **KV** value,
 - the GitHub **release tag** (`cli-v<version>`), derived by CI — never typed by hand.

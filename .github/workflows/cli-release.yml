@@ -102,7 +102,7 @@ jobs:
           bun build src/index.ts \
             --compile \
             --conditions=types \
-            --define:__AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
+            --define __AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
             --target="$BUN_TARGET" \
             --outfile "$ASSET" \
             --metafile=meta.json
@@ -155,7 +155,7 @@ jobs:
           cd "$RUNNER_TEMP"
           "./$ASSET" --help
           VERSION="$(node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version")"
-          test "$("./$ASSET" --version)" = "$VERSION"
+          test "$("./$ASSET" version)" = "$VERSION"
           "./$ASSET" whoami
 
       - name: Smoke-check binary (Windows)
@@ -168,9 +168,9 @@ jobs:
           Set-Location "$env:RUNNER_TEMP"
           & ".\$env:ASSET" --help
           $version = node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version"
-          $actual = (& ".\$env:ASSET" --version).Trim()
+          $actual = (& ".\$env:ASSET" version).Trim()
           if ($actual -ne $version.Trim()) {
-            throw "expected $env:ASSET --version to print $version, got $actual"
+            throw "expected $env:ASSET version to print $version, got $actual"
           }
           & ".\$env:ASSET" whoami
 

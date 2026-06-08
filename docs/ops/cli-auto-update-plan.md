@@ -15,7 +15,7 @@ binary self-upgrade; phase 4 is the release-pipeline wiring.
 - `apps/cli/build.mjs`: read `version` from `package.json`, pass
   `define: { __AGENT_PASTE_CLI_VERSION__: JSON.stringify(version) }` to esbuild.
 - `.github/workflows/cli-release.yml` compile step: add
-  `--define:__AGENT_PASTE_CLI_VERSION__="\"$VERSION\""` (derive `$VERSION` from
+  `--define __AGENT_PASTE_CLI_VERSION__="\"$VERSION\""` (derive `$VERSION` from
   the input tag or `package.json`).
 - `apps/cli/src/version.ts` (new, tiny): `export const CLI_VERSION = ... ` falling
   back to a `declare const __AGENT_PASTE_CLI_VERSION__` with a `"0.0.0-dev"`
