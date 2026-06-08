@@ -10,4 +10,5 @@ Turborepo remote cache will run against Vercel Remote Cache with HMAC artifact s
 - `globalDependencies` includes `.env*` files so local env changes invalidate the cache.
 - Open cache writes are an interim trade-off chosen for setup simplicity. When trust boundaries expand, restrict writes to `main` plus local development only, or use a separate cache scope for PR builds versus protected branches.
 - While the public no-secret CI path is undefined, PR validation is limited to trusted `zaks-io` PR sources. External public PRs short-circuit instead of running the secret-bearing/internal validation stack.
+- Trusted PR validation treats remote-cache credentials as optional and falls back to local cache when `TURBO_TOKEN` / `TURBO_TEAM` are unavailable.
 - If cache poisoning becomes a real concern before write restrictions land, production deploys can disable remote cache reads or run with `--force` to rebuild from scratch.

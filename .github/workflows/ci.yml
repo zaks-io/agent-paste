@@ -173,17 +173,19 @@ jobs:
             if (config.futureFlags?.longerSignatureKey !== true) throw new Error("turbo.json must enforce longer remote cache signature keys");
           '
 
-      - name: Verify Turbo remote cache credentials
+      - name: Report Turbo remote cache mode
         if: ${{ env.RUN_CODE == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
           missing=0
           for name in TURBO_TOKEN TURBO_TEAM TURBO_REMOTE_CACHE_SIGNATURE_KEY; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name is required for signed Turborepo remote caching"
+              echo "::warning::$name is not set; Turborepo will run with local cache only"
               missing=1
             fi
           done
-          exit "$missing"
+          if [ "$missing" -eq 0 ]; then
+            echo "Signed Turborepo remote cache credentials are configured."
+          fi
 
       - name: Validate
         if: ${{ env.RUN_CODE == 'true' }}
