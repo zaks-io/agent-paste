@@ -68,6 +68,11 @@ declare module "node:path" {
   export default path;
 }
 
+declare module "node:url" {
+  export function fileURLToPath(value: string): string;
+  export function pathToFileURL(value: string): { href: string; toString(): string };
+}
+
 declare module "node:util" {
   // Intentionally minimal: this CLI does not depend on @types/node. The single
   // call site (credentials.ts) supplies Result explicitly, so the full Node

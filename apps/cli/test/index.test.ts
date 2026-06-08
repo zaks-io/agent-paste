@@ -1,10 +1,11 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
-import { logout, main, parseArgs } from "../src/index.js";
+import { isMainEntrypoint, logout, main, parseArgs } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
@@ -45,6 +46,15 @@ function stdoutValues(stdout: ReturnType<typeof mockStdout>) {
 }
 
 describe("cli command dispatch", () => {
+  it("detects the executable entrypoint from a file URL and filesystem path", () => {
+    const argv1 = path.join(os.tmpdir(), "agent paste");
+    const metaUrl = pathToFileURL(argv1).href;
+
+    expect(isMainEntrypoint(metaUrl, argv1)).toBe(true);
+    expect(isMainEntrypoint(metaUrl, argv1.toUpperCase(), "win32")).toBe(true);
+    expect(isMainEntrypoint(metaUrl, path.join(os.tmpdir(), "agent-paste-other"))).toBe(false);
+  });
+
   it("prints help without resolving a client", async () => {
     const stdout = mockStdout();
 
