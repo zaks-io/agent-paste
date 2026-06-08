@@ -364,6 +364,23 @@ jobs:
             exit 1
           fi
           TAG="cli-v$VERSION"
+          release_assets=(
+            "dist-binaries/agent-paste-linux-x64"
+            "dist-binaries/agent-paste-linux-arm64"
+            "dist-binaries/agent-paste-darwin-arm64"
+            "dist-binaries/agent-paste-windows-x64.exe"
+            "dist-binaries/agent-paste-cli.sbom.cdx.json"
+            "dist-binaries/agent-paste-cli.grype.json"
+            "dist-binaries/scan-metadata.json"
+            "dist-binaries/repo-security-attestation.tgz"
+            "dist-binaries/SHA256SUMS"
+          )
+          for asset in "${release_assets[@]}"; do
+            if [ ! -s "$asset" ]; then
+              echo "::error::Expected release asset is missing or empty: $asset"
+              exit 1
+            fi
+          done
           # Drafts stay mutable for test reruns. Published releases are immutable
           # by repo setting, and this job refuses to upload to non-drafts.
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -373,9 +390,22 @@ jobs:
               exit 1
             fi
             gh release edit "$TAG" --draft --target "$GITHUB_SHA"
-            gh release upload "$TAG" dist-binaries/* --clobber
+            mapfile -t current_assets < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+            for current_asset in "${current_assets[@]}"; do
+              keep=false
+              for asset in "${release_assets[@]}"; do
+                if [ "$(basename "$asset")" = "$current_asset" ]; then
+                  keep=true
+                  break
+                fi
+              done
+              if [ "$keep" != "true" ]; then
+                gh release delete-asset "$TAG" "$current_asset" --yes
+              fi
+            done
+            gh release upload "$TAG" "${release_assets[@]}" --clobber
           else
-            gh release create "$TAG" dist-binaries/* \
+            gh release create "$TAG" "${release_assets[@]}" \
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
