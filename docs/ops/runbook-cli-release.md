@@ -110,7 +110,13 @@ It:
    no stored token; skipped idempotently if that version is already on npm),
 3. writes the `cli-release` key in the `CLI_RELEASE` KV namespace for **both**
    `preview` and `production` (`{ latest, min_supported }`, both set to the new
-   version), resolving the namespace id from `apps/api/wrangler.jsonc`.
+   version), resolving the namespace id from `apps/api/wrangler.jsonc` and using
+   Wrangler remote mode so the hosted Workers see the update.
+
+If npm published but the KV advertise step needs to be retried, dispatch
+**CLI Advertise Release** manually with the already-published `cli-v<version>`
+tag. The npm step is idempotent and skips versions already present on npm; the KV
+write is rerun.
 
 The npm publish command must run from the public GitHub repository for the npm
 package to receive provenance. Trusted publishing can authenticate while the
@@ -162,13 +168,13 @@ freshly advertised version can take a few minutes to appear.
 
 ## Failure modes
 
-| Symptom                                             | Likely cause                                               | Action                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                              | Fix `apps/cli/package.json`, merge, re-dispatch.                  |
-| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs      | Ensure the bump merged before dispatching; re-cut from `main`.    |
-| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits) | Expected; the KV write still runs and is idempotent.              |
-| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift             | Re-run; if persistent, re-cut the release (do **not** hand-edit). |
-| Update check never shows the new version            | Edge cache not yet expired, or KV write failed             | Wait ~5 min; check the Advertise run's KV step logs.              |
+| Symptom                                             | Likely cause                                                            | Action                                                                                                                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                                           | Fix `apps/cli/package.json`, merge, re-dispatch.                                                                                                                         |
+| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs                   | Ensure the bump merged before dispatching; re-cut from `main`.                                                                                                           |
+| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits)              | Expected; the KV write still runs and is idempotent.                                                                                                                     |
+| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift                          | Re-run; if persistent, re-cut the release (do **not** hand-edit).                                                                                                        |
+| Update check never shows the new version            | Edge cache not yet expired, KV write failed, or Wrangler wrote local KV | Wait ~5 min; check the Advertise run's KV step logs for `--remote`/`Resource location: remote`, then manually dispatch CLI Advertise Release for the same tag if needed. |
 
 ## Verification boundary
 

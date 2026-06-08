@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { promises as fs } from "node:fs";
+import { promises as fs, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -414,12 +414,21 @@ export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, pla
   if (!argv1) {
     return false;
   }
-  const modulePath = path.resolve(fileURLToPath(metaUrl));
-  const entryPath = path.resolve(argv1);
+  const modulePath = executablePath(fileURLToPath(metaUrl));
+  const entryPath = executablePath(argv1);
   if (platform === "win32") {
     return modulePath.toLowerCase() === entryPath.toLowerCase();
   }
   return modulePath === entryPath;
+}
+
+function executablePath(value: string) {
+  const resolved = path.resolve(value);
+  try {
+    return realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
 }
 
 if (isMainEntrypoint(import.meta.url, process.argv[1])) {

@@ -13,12 +13,18 @@ name: CLI Advertise Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Published CLI release tag to advertise, e.g. cli-v0.1.0"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: cli-advertise-${{ github.event.release.tag_name }}
+  group: cli-advertise-${{ github.event.release.tag_name || inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:
@@ -27,8 +33,10 @@ jobs:
     # Guard at job level, not the trigger: `release: published` is the point (it
     # fires only when a human publishes a draft), so a `push: tags` trigger would
     # be wrong, and GitHub has no workflow-level `if:`. Non-`cli-v` releases queue
-    # an instantly-skipped run, which is harmless.
-    if: startsWith(github.event.release.tag_name, 'cli-v')
+    # an instantly-skipped run, which is harmless. `workflow_dispatch` exists only
+    # to backfill a published release if the idempotent npm/KV advertise step
+    # needs to be rerun.
+    if: startsWith(github.event.release.tag_name || inputs.release_tag, 'cli-v')
     runs-on: ubuntu-24.04 # npm trusted publishing must stay on GitHub-hosted runners; Blacksmith/self-hosted is unsupported.
     timeout-minutes: 10
     permissions:
@@ -40,7 +48,7 @@ jobs:
       - name: Checkout the released tag
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || inputs.release_tag }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -65,7 +73,7 @@ jobs:
         id: version
         shell: bash
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./apps/cli/package.json').version")"
@@ -105,7 +113,8 @@ jobs:
       # a real minimum is needed. One JSON value under the `cli-release` key.
       # Target the namespace by --binding + --env so the id is resolved from
       # apps/api/wrangler.jsonc (single source of truth — no hardcoded ids to
-      # drift if a namespace is ever rotated).
+      # drift if a namespace is ever rotated). --remote is required in CI:
+      # Wrangler otherwise writes to local KV persistence and exits green.
       - name: Advertise version in CLI_RELEASE KV
         working-directory: apps/api
         shell: bash
@@ -120,5 +129,5 @@ jobs:
           set -euo pipefail
           VALUE="$(node -e 'process.stdout.write(JSON.stringify({latest:process.env.VERSION,min_supported:process.env.VERSION}))')"
           for ENV in preview production; do
-            pnpm exec wrangler kv key put cli-release "$VALUE" --binding CLI_RELEASE --env "$ENV"
+            pnpm exec wrangler kv key put cli-release "$VALUE" --binding CLI_RELEASE --env "$ENV" --remote
           done

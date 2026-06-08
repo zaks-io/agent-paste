@@ -55,6 +55,25 @@ describe("cli command dispatch", () => {
     expect(isMainEntrypoint(metaUrl, path.join(os.tmpdir(), "agent-paste-other"))).toBe(false);
   });
 
+  it("detects npm bin symlinks as the executable entrypoint", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-main-"));
+    try {
+      const target = path.join(root, "node_modules", "@zaks-io", "agent-paste", "dist", "index.js");
+      const bin = path.join(root, "node_modules", ".bin", "agent-paste");
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.mkdir(path.dirname(bin), { recursive: true });
+      await fs.writeFile(target, "");
+      await fs.symlink("../@zaks-io/agent-paste/dist/index.js", bin);
+
+      expect(isMainEntrypoint(pathToFileURL(target).href, bin)).toBe(true);
+      expect(isMainEntrypoint(pathToFileURL(target).href, path.join(root, "node_modules", ".bin", "other"))).toBe(
+        false,
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("prints help without resolving a client", async () => {
     const stdout = mockStdout();
 
