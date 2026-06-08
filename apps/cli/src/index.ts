@@ -410,11 +410,16 @@ Usage:
 `);
 }
 
-export function isMainEntrypoint(metaUrl: string, argv1: string | undefined) {
+export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, platform = process.platform) {
   if (!argv1) {
     return false;
   }
-  return path.resolve(fileURLToPath(metaUrl)) === path.resolve(argv1);
+  const modulePath = path.resolve(fileURLToPath(metaUrl));
+  const entryPath = path.resolve(argv1);
+  if (platform === "win32") {
+    return modulePath.toLowerCase() === entryPath.toLowerCase();
+  }
+  return modulePath === entryPath;
 }
 
 if (isMainEntrypoint(import.meta.url, process.argv[1])) {

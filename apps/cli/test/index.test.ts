@@ -51,6 +51,7 @@ describe("cli command dispatch", () => {
     const metaUrl = pathToFileURL(argv1).href;
 
     expect(isMainEntrypoint(metaUrl, argv1)).toBe(true);
+    expect(isMainEntrypoint(metaUrl, argv1.toUpperCase(), "win32")).toBe(true);
     expect(isMainEntrypoint(metaUrl, path.join(os.tmpdir(), "agent-paste-other"))).toBe(false);
   });
 
