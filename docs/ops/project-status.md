@@ -42,8 +42,8 @@ Done for this section: every open item below is checked, or explicitly marked
        E2E/smoke sequence has run against the current production deploy and the
        evidence is recorded in AP-139 plus
        [hosted-ops.md](./status/hosted-ops.md).
-2. [ ] **AP-254: Apex source link**. Done when the apex footer/About source
-       links ship with tests covering the public GitHub link.
+2. [ ] **AP-254: Apex source link**. Done when the apex footer/About/How it works
+       source links ship with tests covering the public GitHub link.
 3. [ ] **AP-254: GitHub public security posture**. Done when CodeQL/code
        scanning, secret scanning, Dependabot alerts/updates, OpenSSF Scorecard,
        public SARIF uploads, and public badges are enabled or documented as not
@@ -189,9 +189,10 @@ Highest-signal gaps:
 
 ## Public Repository Status
 
-Repo is public, licensed **Apache-2.0**, and the ADR 0076 private-phase security
-posture is complete (full-history gitleaks-clean, gating Snyk Open Source,
-advisory SAST/SBOM). Remaining public-repo/source-link and GitHub security
+Repo is still private pending the public visibility flip, licensed
+**Apache-2.0**, and the ADR 0076 private-phase security posture is complete
+(full-history gitleaks-clean, gating Snyk Open Source, advisory SAST/SBOM).
+Remaining public-repo/source-link and GitHub security
 feature toggles (apex GitHub source-link flip,
 CodeQL/secret-scanning/Dependabot/Scorecard, and public badges) are tracked in
 [security-todo.md](./security-todo.md) and aggregated under
