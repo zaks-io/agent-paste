@@ -4,7 +4,7 @@ declare const process: {
   platform: string;
   arch: string;
   execPath: string;
-  stdout: { write(value: string): void; isTTY?: boolean };
+  stdout: { write(value: string, callback?: (error?: unknown) => void): boolean; isTTY?: boolean };
   stderr: { write(value: string): void };
   exitCode: number | undefined;
 };

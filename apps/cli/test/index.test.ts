@@ -33,18 +33,31 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function mockStdout() {
+  return vi.spyOn(process.stdout, "write").mockImplementation((_value, callback) => {
+    callback?.();
+    return true;
+  });
+}
+
+function stdoutValues(stdout: ReturnType<typeof mockStdout>) {
+  return stdout.mock.calls.map(([value]) => String(value));
+}
+
 describe("cli command dispatch", () => {
   it("prints help without resolving a client", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
 
     await main(["help"]);
     await main(["--help"]);
 
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("agent-paste publish <path>"));
+    expect(stdoutValues(stdout)).toEqual(
+      expect.arrayContaining([expect.stringContaining("agent-paste publish <path>")]),
+    );
   });
 
   it("reports its version without resolving a client", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
 
     // No client passed: version must short-circuit before any auth/client
     // resolution, so this resolves rather than throwing on a missing client.
@@ -52,19 +65,19 @@ describe("cli command dispatch", () => {
     await expect(main(["--version"])).resolves.toBeUndefined();
     await expect(main(["-v"])).resolves.toBeUndefined();
 
-    expect(stdout).toHaveBeenCalledWith(`${CLI_VERSION}\n`);
+    expect(stdoutValues(stdout)).toContain(`${CLI_VERSION}\n`);
   });
 
   it("reports its version as JSON", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
 
     await main(["version", "--json"]);
 
-    expect(stdout).toHaveBeenCalledWith(`${JSON.stringify({ version: CLI_VERSION }, null, 2)}\n`);
+    expect(stdoutValues(stdout)).toContain(`${JSON.stringify({ version: CLI_VERSION }, null, 2)}\n`);
   });
 
   it("routes upgrade without resolving a client and redirects off the binary channel", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    mockStdout();
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const previousExit = process.exitCode;
 
@@ -77,7 +90,7 @@ describe("cli command dispatch", () => {
   });
 
   it("does not let `upgrade --version` print the CLI version", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const previousExit = process.exitCode;
 
@@ -85,13 +98,13 @@ describe("cli command dispatch", () => {
     // dispatches to upgrade (redirected off-binary here), not the version print.
     await main(["upgrade", "--version"]);
 
-    expect(stdout).not.toHaveBeenCalledWith(`${CLI_VERSION}\n`);
+    expect(stdoutValues(stdout)).not.toContain(`${CLI_VERSION}\n`);
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("standalone binary installs"));
     process.exitCode = previousExit;
   });
 
   it("prints whoami as JSON", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const client = fakeClient({
       whoami: vi.fn().mockResolvedValue({ actor: { id: "key_1" }, workspace: { name: "Demo" } }),
     });
@@ -99,11 +112,11 @@ describe("cli command dispatch", () => {
     await main(["whoami", "--json"], client);
 
     expect(client.whoami).toHaveBeenCalledOnce();
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"workspace"'));
+    expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining('"workspace"')]));
   });
 
   it("does not let the post-command update check corrupt --json output", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const payload = { actor: { id: "key_1" }, workspace: { name: "Demo" } };
     const client = fakeClient({ whoami: vi.fn().mockResolvedValue(payload) });
@@ -114,12 +127,12 @@ describe("cli command dispatch", () => {
     await main(["whoami", "--json"], client);
 
     expect(stdout).toHaveBeenCalledTimes(1);
-    expect(stdout).toHaveBeenCalledWith(`${JSON.stringify(payload, null, 2)}\n`);
+    expect(stdoutValues(stdout)).toEqual([`${JSON.stringify(payload, null, 2)}\n`]);
     expect(stderr).not.toHaveBeenCalled();
   });
 
   it("reports unauthenticated whoami without hitting the server (exit 0)", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const previousKey = process.env.AGENT_PASTE_API_KEY;
     delete process.env.AGENT_PASTE_API_KEY;
     vi.spyOn(credentials, "loadCredential").mockResolvedValue(null);
@@ -132,11 +145,11 @@ describe("cli command dispatch", () => {
       else process.env.AGENT_PASTE_API_KEY = previousKey;
     }
 
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"authenticated": false'));
+    expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining('"authenticated": false')]));
   });
 
   it("publishes a local folder through create, PUT, and finalize", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
@@ -197,8 +210,8 @@ describe("cli command dispatch", () => {
       });
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey);
-      expect(stdout).toHaveBeenCalledWith(
-        expect.stringContaining(`Published artifact ${artifactId} revision ${revisionId}`),
+      expect(stdoutValues(stdout)).toEqual(
+        expect.arrayContaining([expect.stringContaining(`Published artifact ${artifactId} revision ${revisionId}`)]),
       );
     } finally {
       await removePublishFixture(root);
@@ -240,7 +253,7 @@ describe("cli command dispatch", () => {
   });
 
   it("suppresses human output with --quiet", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const client = fakeClient({ whoami: vi.fn().mockResolvedValue({ ok: true }) });
 
     await main(["whoami", "--quiet"], client);
@@ -249,7 +262,7 @@ describe("cli command dispatch", () => {
   });
 
   it("revokes and removes the stored credential on logout", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const remove = vi.fn().mockResolvedValue(undefined);
     const revokeCurrent = vi.fn().mockResolvedValue({ ok: true });
 
@@ -264,11 +277,13 @@ describe("cli command dispatch", () => {
 
     expect(revokeCurrent).toHaveBeenCalledOnce();
     expect(remove).toHaveBeenCalledOnce();
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("Revoked and removed stored API key"));
+    expect(stdoutValues(stdout)).toEqual(
+      expect.arrayContaining([expect.stringContaining("Revoked and removed stored API key")]),
+    );
   });
 
   it("deletes the stored credential and warns when remote logout revoke fails", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     const warnings: string[] = [];
     const remove = vi.fn().mockResolvedValue(undefined);
 
@@ -286,11 +301,11 @@ describe("cli command dispatch", () => {
 
     expect(remove).toHaveBeenCalledOnce();
     expect(warnings.join("")).toContain("remote revoke failed");
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("Remote revoke failed"));
+    expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining("Remote revoke failed")]));
   });
 
   it("deletes expired stored credentials without remote revoke", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    mockStdout();
     const remove = vi.fn().mockResolvedValue(undefined);
     const revokeCurrent = vi.fn();
 
