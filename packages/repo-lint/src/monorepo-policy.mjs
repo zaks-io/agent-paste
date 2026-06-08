@@ -32,8 +32,9 @@ function main() {
   validateDependencies(workspacePackages, rootPackage);
   validateRootGuardrails();
   const rootReadme = readText("README.md");
-  validateRootReadme(rootReadme, rootPackage, workspacePackages);
-  validateStaleReadmePhrases(rootReadme, workspacePackages);
+  const developmentDoc = readText("docs/development.md");
+  validateDevelopmentDoc(developmentDoc, rootPackage, workspacePackages);
+  validateStaleReadmePhrases(rootReadme, developmentDoc, workspacePackages);
 
   if (errors.length > 0) {
     for (const error of errors) {
@@ -159,27 +160,30 @@ function validateRootGuardrails() {
   }
 }
 
-function validateRootReadme(readme, rootPackage, workspacePackages) {
+// The public README is a high-level landing doc; the full workspace inventory
+// and root script reference live in docs/development.md (the README points
+// contributors there). Validate that contributor doc, not the README.
+function validateDevelopmentDoc(developmentDoc, rootPackage, workspacePackages) {
   for (const pkg of workspacePackages) {
-    if (!readme.includes(pkg.dir)) {
-      errors.push(`README.md: missing workspace path ${pkg.dir}`);
+    if (!developmentDoc.includes(pkg.dir)) {
+      errors.push(`docs/development.md: missing workspace path ${pkg.dir}`);
     }
   }
   for (const script of Object.keys(rootPackage.scripts ?? {}).sort()) {
-    if (!readme.includes(script)) {
-      errors.push(`README.md: missing root script ${script}`);
+    if (!developmentDoc.includes(script)) {
+      errors.push(`docs/development.md: missing root script ${script}`);
     }
   }
 }
 
-function validateStaleReadmePhrases(rootReadme, workspacePackages) {
+function validateStaleReadmePhrases(rootReadme, developmentDoc, workspacePackages) {
   for (const phrase of ["No runtime application code", "prepared for implementation"]) {
     if (rootReadme.includes(phrase)) {
       errors.push(`README.md: stale phrase ${JSON.stringify(phrase)}`);
     }
   }
 
-  const implementedReadmes = implementedReadmesFromRootReadme(rootReadme, workspacePackages);
+  const implementedReadmes = implementedReadmesFromInventory(developmentDoc, workspacePackages);
   for (const pkg of workspacePackages) {
     if (!implementedReadmes.has(pkg.readmePath)) continue;
     const text = readText(pkg.readmePath);
@@ -189,10 +193,10 @@ function validateStaleReadmePhrases(rootReadme, workspacePackages) {
   }
 }
 
-function implementedReadmesFromRootReadme(rootReadme, workspacePackages) {
+function implementedReadmesFromInventory(developmentDoc, workspacePackages) {
   const implemented = new Set();
   for (const pkg of workspacePackages) {
-    const row = rootReadme.split(/\r?\n/u).find((line) => line.includes(`[\`${pkg.dir}\`]`));
+    const row = developmentDoc.split(/\r?\n/u).find((line) => line.includes(`[\`${pkg.dir}\`]`));
     if (row?.includes("Implemented")) {
       implemented.add(pkg.readmePath);
     }

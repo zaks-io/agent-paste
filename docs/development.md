@@ -128,6 +128,7 @@ pnpm hooks:install
 | `pnpm deploy:preview`                                  | Run preview migrations, then deploy `api`, `upload`, `content`, `jobs`, `apex`, and `web` in order.                         |
 | `pnpm deploy:production`                               | Run production migrations, then deploy `api`, `upload`, `content`, `jobs`, `apex`, and `web` in order.                      |
 | `pnpm deploy:live`                                     | Alias for `pnpm deploy:production`.                                                                                         |
+| `pnpm security:attest`                                 | Run the release security attestation gate (`scripts/security-attest.mjs`); writes evidence under `artifacts/security`.      |
 
 ### Smoke Tests
 
