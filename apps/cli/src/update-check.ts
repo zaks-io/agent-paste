@@ -50,18 +50,23 @@ export function detectChannel(
   env: Record<string, string | undefined> = process.env,
   argv1: string = process.argv[1] ?? "",
   execPath: string = process.execPath,
+  argv0: string = process.argv[0] ?? "",
 ): Channel {
   const userAgent = env.npm_config_user_agent ?? "";
   const execpath = env.npm_execpath ?? "";
   const npxLike = userAgent.includes("npx") || /[/\\]_npx[/\\]/.test(execpath) || /[/\\]_npx[/\\]/.test(argv1);
   if (npxLike) return "npx";
-  // A bun-compiled single-file binary IS its own runtime: the entrypoint and the
-  // executable are the same path. This is the only reliable binary signal — an
-  // npm-global install ships an extensionless shim, but runs under Node, so its
-  // execPath is the `node` binary and never equals argv1.
-  if (argv1 && argv1 === execPath) return "binary";
+  // Bun-compiled single-file binaries expose the real installed executable as
+  // execPath, but run their bundled entrypoint from Bun's virtual filesystem.
+  // Older Bun shapes used argv1 === execPath; keep accepting that too. npm-global
+  // installs run under node and are handled below.
+  if ((argv1 && argv1 === execPath) || isBunCompiledBinary(argv0, argv1, execPath)) return "binary";
   if (userAgent || execpath || /[/\\]node_modules[/\\]/.test(argv1) || /\.(c|m)?js$/.test(argv1)) return "npm-global";
   return "unknown";
+}
+
+function isBunCompiledBinary(argv0: string, argv1: string, execPath: string): boolean {
+  return /(^|[/\\])bun(?:\.exe)?$/i.test(argv0) && /^[/\\]\$bunfs[/\\]root[/\\]/.test(argv1) && Boolean(execPath);
 }
 
 function shouldCheck(deps: Deps, global: GlobalFlags, cache: Cache | null): boolean {
