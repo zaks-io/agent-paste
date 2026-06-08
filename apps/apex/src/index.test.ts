@@ -222,9 +222,9 @@ describe("apex worker", () => {
     expect(body).toContain("does not inspect or certify uploaded content as safe");
     expect(body).toContain("does not promise malware detection");
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/how-it-works"/>');
-    expect(body).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
-    expect(body).toContain("zaks-io/agent-paste");
     const main = body.match(/<main class="content">[\s\S]*<\/main>/)?.[0] ?? "";
+    expect(main).toContain('<a class="docs-inline-link" href="https://github.com/zaks-io/agent-paste">');
+    expect(main).toContain("zaks-io/agent-paste");
     expect(main).not.toContain("Operator");
     expect(main).not.toContain("operator");
     expect(main).not.toContain("Platform Lockdown");
