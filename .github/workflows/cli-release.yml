@@ -263,6 +263,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      attestations: read
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -307,6 +308,51 @@ jobs:
 
       - name: Attach repo security attestation bundle
         run: tar -czf dist-binaries/repo-security-attestation.tgz -C artifacts/security .
+
+      # GitHub artifact attestations live in GitHub's attestation store, but
+      # OpenSSF Scorecard's Signed-Releases check only scans release asset
+      # filenames. Export the SLSA provenance bundles as *.intoto.jsonl sidecars
+      # so downstream users can verify offline and Scorecard can detect them.
+      - name: Export provenance sidecars
+        working-directory: dist-binaries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          binary_assets=(
+            "agent-paste-linux-x64"
+            "agent-paste-linux-arm64"
+            "agent-paste-darwin-arm64"
+            "agent-paste-windows-x64.exe"
+          )
+          for asset in "${binary_assets[@]}"; do
+            rm -f sha256:*.jsonl sha256-*.jsonl
+            gh attestation download "$asset" \
+              --repo "$REPO" \
+              --predicate-type https://slsa.dev/provenance/v1 \
+              --limit 1
+            downloaded="$(find . -maxdepth 1 -type f \( -name 'sha256:*.jsonl' -o -name 'sha256-*.jsonl' \) -print)"
+            downloaded_count="$(printf '%s\n' "$downloaded" | sed '/^$/d' | wc -l | tr -d ' ')"
+            if [ "$downloaded_count" != "1" ]; then
+              echo "::error::Expected one provenance bundle for $asset, found $downloaded_count"
+              exit 1
+            fi
+            sidecar="$asset.intoto.jsonl"
+            mv "$(printf '%s\n' "$downloaded" | sed -n '1p')" "$sidecar"
+
+            expected_digest="$(sha256sum "$asset" | awk '{print $1}')"
+            attested_digest="$(
+              jq -r --arg name "$asset" \
+                '.dsseEnvelope.payload | @base64d | fromjson | .subject[] | select(.name == $name) | .digest.sha256 // empty' \
+                "$sidecar" | head -n 1
+            )"
+            if [ "$attested_digest" != "$expected_digest" ]; then
+              echo "::error::Provenance digest mismatch for $asset: expected $expected_digest, got $attested_digest"
+              exit 1
+            fi
+          done
 
       # Checksums cover only the binaries — the per-OS globs deliberately exclude
       # the agent-paste-cli.* SBOM/report files, which carry their own provenance.
@@ -369,6 +415,10 @@ jobs:
             "dist-binaries/agent-paste-linux-arm64"
             "dist-binaries/agent-paste-darwin-arm64"
             "dist-binaries/agent-paste-windows-x64.exe"
+            "dist-binaries/agent-paste-linux-x64.intoto.jsonl"
+            "dist-binaries/agent-paste-linux-arm64.intoto.jsonl"
+            "dist-binaries/agent-paste-darwin-arm64.intoto.jsonl"
+            "dist-binaries/agent-paste-windows-x64.exe.intoto.jsonl"
             "dist-binaries/agent-paste-cli.sbom.cdx.json"
             "dist-binaries/agent-paste-cli.grype.json"
             "dist-binaries/scan-metadata.json"
@@ -409,5 +459,5 @@ jobs:
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`) and an attached SLSA provenance sidecar (\`*.intoto.jsonl\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft - review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi

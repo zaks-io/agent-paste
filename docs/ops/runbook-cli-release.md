@@ -76,7 +76,8 @@ It cross-compiles the four binaries on native per-OS runners
 (`agent-paste-{linux-x64,linux-arm64,darwin-arm64,windows-x64.exe}`), bakes the
 `package.json` version into each, codesigns + notarizes the macOS binary,
 attaches a CycloneDX SBOM + grype report + build-provenance attestations, and
-creates (or updates) a **draft** GitHub release tagged `cli-v<version>` with a
+exports SLSA provenance sidecars (`*.intoto.jsonl`) for each binary. It creates
+(or updates) a **draft** GitHub release tagged `cli-v<version>` with a
 `SHA256SUMS` manifest. New draft releases and draft reruns are pinned to the
 workflow build SHA; reruns may clobber draft assets only, never assets on a
 published release.
@@ -86,8 +87,9 @@ semver the job fails before creating the release.
 
 ### 3. Review and publish the draft
 
-Open the draft release. Confirm the four assets + `SHA256SUMS` are present and
-the tag matches the version you bumped. Optionally verify a binary's provenance:
+Open the draft release. Confirm the four binaries, four `*.intoto.jsonl`
+provenance sidecars, and `SHA256SUMS` are present and the tag matches the version
+you bumped. Optionally verify a binary's provenance:
 
 ```sh
 gh attestation verify <binary> --repo zaks-io/agent-paste
@@ -136,12 +138,12 @@ per-isolate memo), stale CLIs on the binary channel start seeing
 
 ## Verifying a release landed
 
-| Channel    | Check                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| GitHub     | `gh release view cli-v<version>` is published (not draft) with 4 assets + `SHA256SUMS`.    |
-| npm        | `npm view @zaks-io/agent-paste version` returns the new version.                           |
-| Update API | `curl -sS <api-origin>/v1/public/cli-version` returns `{ latest, min_supported }` updated. |
-| Binary     | On a binary install, `agent-paste upgrade` downloads + verifies + self-replaces.           |
+| Channel    | Check                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GitHub     | `gh release view cli-v<version>` is published (not draft) with 4 binaries, 4 `*.intoto.jsonl` sidecars, and `SHA256SUMS`. |
+| npm        | `npm view @zaks-io/agent-paste version` returns the new version.                                                          |
+| Update API | `curl -sS <api-origin>/v1/public/cli-version` returns `{ latest, min_supported }` updated.                                |
+| Binary     | On a binary install, `agent-paste upgrade` downloads + verifies + self-replaces.                                          |
 
 `<api-origin>` is the per-environment API base (preview or production). The
 endpoint is public and unauthenticated; CF edge-caches it for ~5 minutes, so a
