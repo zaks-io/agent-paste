@@ -1,6 +1,13 @@
 # agent-paste
 
-Agent-paste is a platform for agents to publish durable, shareable work products as **Artifacts**.
+When your coding agent builds an HTML report or page, agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys.
+
+```sh
+npx @zaks-io/agent-paste publish ./report
+# -> https://agent-paste.sh/...   open it, share it, or hand it to another agent
+```
+
+It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI), and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Agents publish durable, shareable work products as **Artifacts**: a URL a human can open and a manifest another agent can read, behind one ID that resolves the same across the CLI, REST API, MCP, and dashboard.
 
 This repository is pre-launch. It is not deployed for general users, but the core hosted Workers, CLI, WorkOS-backed web dashboard surface, shared contracts, database layer, and local/hosted smoke paths are implemented and actively changing.
 

@@ -80,8 +80,11 @@ Three horizons. Each earns the next by proving a habit, not by adding surface.
 
 **Horizon 1, the wedge (now): transient artifact handoff.** One command turns a
 folder into an Artifact with a stable ID, a human URL, and an Agent View. Served
-from an isolated **Content Origin**. Expires by default. This is the loop that
-has to become a reflex before anything else matters:
+from an isolated **Content Origin**. Expires by default. The everyday shape of
+this is personal and immediate: a coding agent (Claude Code, Codex) builds an
+HTML page, and one command turns it into a link you open and send to a friend or
+hand to another tool. That is the loop that has to become a reflex before
+anything else matters:
 
 ```text
 agent makes a thing -> publish -> get one ID -> a human opens it,

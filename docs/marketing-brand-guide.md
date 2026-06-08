@@ -137,6 +137,37 @@ These are the reasons to believe. Lead with them.
    choose. Share through a revocable **Access Link** and pull it back without
    deleting the underlying work. Agent output does not live forever by accident.
 
+### The launch lead: concrete first, thesis underneath
+
+The thesis above ("where agents publish," the neutral publishing layer) is what
+we are. It is not how we open. For launch, lead with the most concrete, visceral
+moment, and let the thesis be the depth a reader reaches second.
+
+**Lead use case.** A coding agent (Claude Code, Codex) builds an HTML page, a
+viz, a quick prototype. One command turns it into a link you open and send to
+whoever you want: a friend, a channel, another agent. The canonical example: you
+are planning the weekend, your agent throws together an interactive page of
+options, and one command makes a link you text your friends.
+
+**Hero headline:** _Your agent built it. Open it anywhere._
+
+**Order of entry, by environment:**
+
+- **CLI first.** The friendly front door for coding agents with a shell (Claude
+  Code, Codex, Cursor, CI, a remote sandbox agent). One line, ephemeral, no
+  account needed to start.
+- **MCP second, as the fallback.** For web chats with no shell (ChatGPT, Claude,
+  Gemini): connect the MCP server once and the agent publishes and reads from
+  there. MCP is the mechanism, never the headline. Do not lead marketing with
+  "MCP server"; lead with what it lets someone do.
+
+Naming those tools as supported environments is not "agent-paste for ChatGPT"
+(anti-pattern 11.2). We name them as places agent-paste works, at the concrete
+top of the funnel, and keep the architecture and the deeper story vendor-neutral.
+The agent-to-agent, machine-readable handoff ("one ID, every surface," the
+manifest as protocol) is Act 2 depth, reached after the personal hand-off, not
+the opening line.
+
 ---
 
 ## 5. Audiences
@@ -193,6 +224,11 @@ Products that want artifact storage and a manifest protocol without building it.
 ### 6.1 Tagline system
 
 - **Primary (in use, keep it):** **Where agents publish.**
+- **Launch hero headline (human-facing, sanctioned):** **Your agent built it.
+  Open it anywhere.** The concrete entry to the same thesis (see section 4, "The
+  launch lead"). Use it as the apex hero headline; keep "Where agents publish" as
+  the brand line and the hero eyebrow above it. This is the deliberate hero, not
+  a fifth tagline.
 - **Mission line:** The publishing layer for the agent-native internet.
 - **Supporting lines, by context:**
   - One publish. Every surface.
@@ -338,11 +374,11 @@ Transient by default. Revocable on demand.
 The full system lives in [`style-guide.md`](./specs/style-guide.md) and is the
 source of truth. This section states only the brand-level essentials and exists
 to prevent drift. The accent is a considered electric violet, drawn from the
-brand mark — not a flat, generic blue.
+brand mark, not a flat, generic blue.
 
 - **Aesthetic:** dark-first, square, one voltage. A cool indigo-black canvas, a
   faintly warm off-white ink, depth from a surface ladder and 1px hairlines (no
-  drop shadows), and hierarchy by scale — one big figure, the rest a quiet mono
+  drop shadows), and hierarchy by scale: one big figure, the rest a quiet mono
   rail. Color appears only where it carries meaning. The marketing site and the
   dashboard are one design system (style-guide.md §0), not two.
 - **NOT:** brutalist, terminal-themed, glassmorphism, gradient hero, neon dark
@@ -363,7 +399,7 @@ brand mark — not a flat, generic blue.
   fractal-noise grain on the page background (atmosphere, never legible as a
   pattern), shared from `@agent-paste/brand`. Character comes from type and
   restraint.
-- **Wordmark:** `agent-paste.sh` — `agent`/`paste` in foreground, the hyphen in
+- **Wordmark:** `agent-paste.sh`, with `agent`/`paste` in foreground, the hyphen in
   the violet accent, `.sh` in subtle. The slash is never part of the mark, only a
   breadcrumb separator in chrome. Identical on both surfaces; see
   style-guide.md §6.2.
@@ -411,6 +447,12 @@ Things that have shown up in drafts. Do not do them.
    dunking reads as insecurity.
 9. **Do not invent product facts in copy.** Use the real key format, TTL bounds,
    and limits, or omit them. Marketing that lies to engineers loses engineers.
+10. **Do not imply anonymous publishing can host interactive pages.** The
+    `--ephemeral` (no-account) path is static HTML only, no JS, 24h, tightly
+    rate-limited. Interactive (JS) pages require the free browser login (it
+    exists to rate-limit and ban, not to upsell). The "send your friend an
+    interactive viz" lead is the logged-in path; keep copy honest about which
+    door does what.
 
 ---
 
