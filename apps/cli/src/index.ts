@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type AgentPasteAuth,
   AgentPasteError,
@@ -408,7 +410,14 @@ Usage:
 `);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function isMainEntrypoint(metaUrl: string, argv1: string | undefined) {
+  if (!argv1) {
+    return false;
+  }
+  return path.resolve(fileURLToPath(metaUrl)) === path.resolve(argv1);
+}
+
+if (isMainEntrypoint(import.meta.url, process.argv[1])) {
   main().catch((error: unknown) => {
     const asError = error instanceof Error ? error : new Error(String(error));
     const code = error instanceof AgentPasteError ? error.code : "cli_error";
