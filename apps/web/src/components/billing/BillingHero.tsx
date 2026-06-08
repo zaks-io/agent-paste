@@ -1,5 +1,5 @@
 import type { BillingStatusResponse } from "@agent-paste/contracts";
-import { Badge, type BadgeTone } from "../ui/Badge";
+import { Badge, type BadgeTone } from "@agent-paste/ui";
 import { formatBillingDate } from "./format";
 
 type StatusChip = { tone: BadgeTone; label: string; pulse: boolean };

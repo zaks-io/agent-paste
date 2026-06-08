@@ -1,7 +1,7 @@
+import { SectionLabel } from "@agent-paste/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { SettingsForm } from "../components/settings/SettingsForm";
-import { SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { PageHeader } from "../components/ui/PageHeader";

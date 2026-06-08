@@ -1,16 +1,13 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
+import { Badge, Button, Card, CardHeader, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useRef } from "react";
 import type { ApiErrorInfo } from "../../lib/api-error";
 import { lockdownTriageFromEvent, lockdownTriageQueryString } from "../../lib/lockdown-triage";
 import type { OperatorEventSearch } from "../../lib/operator-events";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 
 type Props = {
   events: WebOperatorEventListResponse | null;

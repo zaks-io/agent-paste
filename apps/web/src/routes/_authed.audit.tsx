@@ -1,13 +1,12 @@
 import type { WebAuditListResponse } from "@agent-paste/contracts";
+import { Card, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { auditQuery } from "../lib/queries";
 

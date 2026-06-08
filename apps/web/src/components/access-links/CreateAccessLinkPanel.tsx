@@ -1,8 +1,7 @@
 import type { RevisionSummary } from "@agent-paste/contracts";
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { useState } from "react";
 import { createAccessLinkFn } from "../../rpc/web-mutations";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {

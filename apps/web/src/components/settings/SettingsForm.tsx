@@ -1,10 +1,9 @@
 import type { WebSettingsResponse } from "@agent-paste/contracts";
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { queryKeys } from "../../lib/queries";
 import { saveSettingsFn } from "../../rpc/web-mutations";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { errorToast, useToast } from "../ui/toast-context";
 

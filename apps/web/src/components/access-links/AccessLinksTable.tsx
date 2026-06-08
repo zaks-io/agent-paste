@@ -1,18 +1,16 @@
 import type { WebAccessLinkRow } from "@agent-paste/contracts";
+import { Badge, Button, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
 import { accessLinkState } from "../../lib/access-link-state";
 import { useHydrated } from "../../lib/use-hydrated";
 import { mintAccessLinkFn, revokeAccessLinkFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import { DataTable } from "../ui/DataTable";
 import { Identifier } from "../ui/Identifier";
 import { OptionalRelativeTime } from "../ui/OptionalRelativeTime";
 import { RelativeTime } from "../ui/RelativeTime";
 import { RevokedActionPlaceholder } from "../ui/RevokedActionPlaceholder";
 import { StateBadge } from "../ui/StateBadge";
-import { TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 import { MintedUrlReveal } from "./MintedUrlReveal";
 

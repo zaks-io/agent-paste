@@ -1,5 +1,5 @@
+import { Badge } from "@agent-paste/ui";
 import type { EntityState } from "../../lib/revocable-entity-state";
-import { Badge } from "./Badge";
 
 type Props = {
   state: EntityState;

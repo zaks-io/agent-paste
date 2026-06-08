@@ -16,7 +16,9 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-paste/brand": "workspace:*"
+    "@agent-paste/brand": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.0"
   },
   "peerDependencies": {
     "react": "^19"

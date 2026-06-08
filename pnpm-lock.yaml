@@ -716,6 +716,12 @@ importers:
       '@agent-paste/brand':
         specifier: workspace:*
         version: link:../brand
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      tailwind-merge:
+        specifier: ^3.3.0
+        version: 3.6.0
     devDependencies:
       '@types/react':
         specifier: ^19.1.0

@@ -1,6 +1,6 @@
+import { Button } from "@agent-paste/ui";
 import { Check, Copy, X } from "lucide-react";
 import { useClipboardCopy } from "../../lib/use-clipboard-copy";
-import { Button } from "../ui/Button";
 
 type Props = {
   url: string;

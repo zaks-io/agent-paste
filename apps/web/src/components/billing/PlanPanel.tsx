@@ -1,11 +1,9 @@
 import type { BillingInterval, BillingStatusResponse } from "@agent-paste/contracts";
 import { PLANS } from "@agent-paste/plans";
+import { Button, cn, SectionLabel } from "@agent-paste/ui";
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { cn } from "../../lib/cn";
 import { startCheckoutFn } from "../../rpc/web-mutations";
-import { Button } from "../ui/Button";
-import { SectionLabel } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
 
 export function PlanPanel({ status }: { status: BillingStatusResponse }) {

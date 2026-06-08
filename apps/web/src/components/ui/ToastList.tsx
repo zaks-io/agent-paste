@@ -1,5 +1,5 @@
+import { cn } from "@agent-paste/ui";
 import { TriangleAlert, X } from "lucide-react";
-import { cn } from "../../lib/cn";
 import type { Toast } from "./toast-context";
 
 type Props = {

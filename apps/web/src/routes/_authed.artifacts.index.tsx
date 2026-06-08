@@ -1,15 +1,13 @@
 import type { WebArtifactListResponse } from "@agent-paste/contracts";
+import { Badge, Card, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
-import { Badge } from "../components/ui/Badge";
-import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { artifactsQuery } from "../lib/queries";

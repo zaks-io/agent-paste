@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "../lib/cn";
 
 type CardProps = HTMLAttributes<HTMLDivElement> & {
   /** Focal region: a hairline turns to the accent and the surface lifts one ladder step. */

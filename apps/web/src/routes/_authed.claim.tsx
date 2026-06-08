@@ -1,8 +1,7 @@
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { ClaimSuccessPanel } from "../components/claim/ClaimSuccessPanel";
-import { Button } from "../components/ui/Button";
-import { Card, CardHeader } from "../components/ui/Card";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";

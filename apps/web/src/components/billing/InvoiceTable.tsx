@@ -1,7 +1,6 @@
 import type { BillingInvoiceSummary } from "@agent-paste/contracts";
-import { SectionLabel } from "../ui/Card";
+import { SectionLabel, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { EmptyState } from "../ui/EmptyState";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 import { formatBillingDate, formatMoney } from "./format";
 
 export function InvoiceTable({ invoices }: { invoices: ReadonlyArray<BillingInvoiceSummary> }) {

@@ -1,6 +1,6 @@
+import { cn } from "@agent-paste/ui";
 import type { InputHTMLAttributes } from "react";
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   mono?: boolean;

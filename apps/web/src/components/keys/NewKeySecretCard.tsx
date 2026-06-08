@@ -1,5 +1,4 @@
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 
 type Props = {
   secret: string;

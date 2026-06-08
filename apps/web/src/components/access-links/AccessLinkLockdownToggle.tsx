@@ -1,8 +1,6 @@
+import { Badge, Button, Card } from "@agent-paste/ui";
 import { useState } from "react";
 import { setAccessLinkLockdownFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {

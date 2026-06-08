@@ -1,6 +1,6 @@
 import { PLATFORM_LOCKDOWN_REASON_CODES } from "@agent-paste/contracts";
+import { Card, CardHeader } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
-import { Card, CardHeader } from "../ui/Card";
 
 const WORKFLOW_STEPS = [
   "Filter platform events to Security focus and locate the workspace or artifact involved.",

@@ -1,3 +1,4 @@
+import { cn } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import {
   CreditCard,
@@ -10,7 +11,6 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { cn } from "../../lib/cn";
 
 type Item = {
   to: string;

@@ -1,7 +1,7 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
+import { cn } from "@agent-paste/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
 

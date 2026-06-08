@@ -1,14 +1,11 @@
 import type { LockdownDetail } from "@agent-paste/contracts";
+import { Badge, Button, Card, CardHeader, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useState } from "react";
 import type { ApiErrorInfo } from "../../lib/api-error";
 import { liftLockdownFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {

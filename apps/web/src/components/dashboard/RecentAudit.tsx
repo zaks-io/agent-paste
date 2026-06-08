@@ -1,7 +1,7 @@
 import type { WebAuditRow } from "@agent-paste/contracts";
+import { SectionLabel } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import type { ApiErrorInfo } from "../../lib/api-error";
-import { SectionLabel } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { RelativeTime } from "../ui/RelativeTime";
 

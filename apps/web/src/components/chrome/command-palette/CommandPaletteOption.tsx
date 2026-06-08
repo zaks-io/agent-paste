@@ -1,4 +1,4 @@
-import { cn } from "../../../lib/cn";
+import { cn } from "@agent-paste/ui";
 import type { CommandItem } from "./types";
 
 type CommandPaletteOptionProps = {

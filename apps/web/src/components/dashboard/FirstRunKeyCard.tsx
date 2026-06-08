@@ -1,6 +1,5 @@
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { useState } from "react";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 
 type Props = {
   secret: string | null;

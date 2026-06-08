@@ -1,6 +1,6 @@
-import { useClipboardCopy } from "../../lib/use-clipboard-copy";
-import { cn } from "../../lib/cn";
+import { cn } from "@agent-paste/ui";
 import { truncateId } from "../../lib/format";
+import { useClipboardCopy } from "../../lib/use-clipboard-copy";
 
 type Props = {
   value: string;

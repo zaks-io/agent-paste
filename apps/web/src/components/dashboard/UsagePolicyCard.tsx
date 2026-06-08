@@ -1,6 +1,6 @@
 import type { UsagePolicy } from "@agent-paste/contracts";
+import { SectionLabel } from "@agent-paste/ui";
 import { formatBytes } from "../../lib/format";
-import { SectionLabel } from "../ui/Card";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 

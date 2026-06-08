@@ -1,5 +1,5 @@
 import type { WebArtifactStatus } from "@agent-paste/contracts";
-import type { BadgeTone } from "../components/ui/Badge";
+import type { BadgeTone } from "@agent-paste/ui";
 
 const TONE_BY_STATUS: Record<WebArtifactStatus, BadgeTone> = {
   Published: "success",

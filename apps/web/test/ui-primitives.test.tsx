@@ -1,8 +1,6 @@
+import { Badge, Button, Card, CardHeader, SectionLabel } from "@agent-paste/ui";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Badge } from "../src/components/ui/Badge";
-import { Button } from "../src/components/ui/Button";
-import { Card, CardHeader, SectionLabel } from "../src/components/ui/Card";
 import { EmptyState } from "../src/components/ui/EmptyState";
 import { PageHeader } from "../src/components/ui/PageHeader";
 import { StatBand } from "../src/components/ui/StatBand";
