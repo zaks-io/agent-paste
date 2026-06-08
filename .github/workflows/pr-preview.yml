@@ -148,7 +148,6 @@ jobs:
           PR_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.hyperdrive_id }}
           CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           PR_PREVIEW_SECRET_SEED: ${{ secrets.PR_PREVIEW_SECRET_SEED }}
-          OPERATOR_EMAILS: isaac@zaks.io
           # Preview WorkOS environment API key; when unset, deploy-pr-preview.mjs
           # skips the web worker (the other workers need no WorkOS credential).
           WORKOS_PREVIEW_API_KEY: ${{ secrets.WORKOS_PREVIEW_API_KEY }}

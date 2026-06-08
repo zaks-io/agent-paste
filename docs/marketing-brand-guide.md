@@ -114,8 +114,7 @@ the agent loop. Pastebins and Gist are too narrow (single document, no isolation
 no manifest). File hosts have the right ephemerality but no artifact model.
 Deploy platforms (Vercel, Netlify, Pages) solve too much: they want a repo, a
 build, and an ongoing hosting liability. AI-native sharing (Claude Artifacts,
-Canvas, v0) proves the demand but is locked to one vendor's chat. See
-[`docs/research/competitor-analysis.md`](./research/competitor-analysis.md).
+Canvas, v0) proves the demand but is locked to one vendor's chat.
 
 ### The four reasons to believe
 
