@@ -26,6 +26,8 @@ declare module "node:crypto" {
 }
 
 declare module "node:fs" {
+  export function realpathSync(path: string): string;
+
   export const promises: {
     stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number; size: number }>;
     lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
