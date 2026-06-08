@@ -2,8 +2,9 @@
 
 Deferred work tied to the dedicated `.github/workflows/security.yml` security
 workflow ([ADR 0076](../adr/0076-public-open-source-security-posture-and-badges.md)).
-The private-phase gate is implemented; these are the remaining items, split into
-what can land while the repo is private and what waits for the public flip.
+The private-phase gate is implemented; the repo is now public (2026-06-08) with
+CodeQL, secret scanning, Dependabot alerts, and OpenSSF Scorecard live. The
+remaining items below are advisory-only scanner refinements and Snyk triage.
 The slow scanner bundle lives in `pnpm security:attest` and runs on `main`, the
 daily `Security` workflow, and release/deploy workflows. PR CI intentionally
 stays fast and does not run the full bundle.
@@ -76,18 +77,28 @@ Aggregator for the public-repo security toggles plus the source-link follow-up
 below is [AP-254](https://linear.app/zaks-io/issue/AP-254),
 filed off an external credibility review.
 
-- [ ] Ship the apex GitHub source link and keep tests covering the public source
-      link behavior.
-      Add a source link (footer + About + How it works) and keep the tests
-      asserting the public GitHub URL. The repo may still be private until the
-      visibility flip; the UI should not claim it is already public.
+- [x] Ship the apex GitHub source link and keep tests covering the public source
+      link behavior. Done 2026-06-07 (`83cde8c`): the `source-repository`
+      component adds the link to the footer + About + How it works, and
+      `apps/apex/src/index.test.ts` asserts the public GitHub URL. The repo is
+      now public (2026-06-08), so the source link resolves.
 - [x] Stand up a status page or public incident/update channel. Decision
       recorded 2026-06-07: the minimum public incident intake channel is the
       `support@agentpaste` mailbox, which routes through email into Linear. A
       separate hosted status page remains optional until the account/tooling
       stack is ready.
-- [ ] Enable GitHub CodeQL / code scanning, GitHub secret scanning, Dependabot
-      alerts + updates, and OpenSSF Scorecard (with published results).
+- [x] Enable **OpenSSF Scorecard** with published results. Done 2026-06-08
+      (`3d64126` workflow, `2de2280` badge): `.github/workflows/scorecard.yml`
+      runs on `main` push, weekly cron, and `branch_protection_rule`, publishing
+      to the public OpenSSF API so the README badge resolves. All external
+      Actions are SHA-pinned (`33474e4`, #436) and the repo `sha_pinning_required`
+      policy is on.
+- [x] Enable GitHub CodeQL / code scanning, GitHub secret scanning, and
+      Dependabot alerts. Done with the public flip (2026-06-08): the repo is
+      public, CodeQL runs via GitHub default setup (SARIF in code scanning),
+      secret scanning + push protection are on, and Dependabot alerts are on.
+      Dependabot version **updates** stay off by design — dependency bumps come
+      through the scheduled review agent, not Dependabot PRs.
 - [ ] Swap the advisory SARIF **artifact** uploads (Trivy, Semgrep) for
       `github/codeql-action/upload-sarif`, and add `security-events: write` to the
       relevant job's `permissions`. Keep the top-level default at `contents: read`.
@@ -96,7 +107,8 @@ filed off an external credibility review.
 - [x] Configure npm **trusted publishing (OIDC)** + provenance for
       `@zaks-io/agent-paste` from a protected release workflow (operator-confirmed
       2026-06-07; replaces long-lived npm tokens).
-- [ ] Add only externally-verifiable badges: CI, the security workflow, Scorecard,
+- [ ] Add only externally-verifiable badges: CI, the security workflow,
       OpenSSF Best Practices (if FLOSS requirements are met), and the Snyk **npm
       package** badge once the package is public. No badge may imply a private scan
-      result is publicly verifiable.
+      result is publicly verifiable. The OpenSSF Scorecard badge already ships in
+      `README.md` (`2de2280`).
