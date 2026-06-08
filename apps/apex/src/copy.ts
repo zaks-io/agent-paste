@@ -4,6 +4,11 @@ export const APP_BASE_URL = "https://app.agent-paste.sh";
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
 export const API_BASE_URL = "https://api.agent-paste.sh";
 export const MCP_BASE_URL = "https://mcp.agent-paste.sh";
+export const SOURCE_REPOSITORY = {
+  label: "View on GitHub",
+  slug: "zaks-io/agent-paste",
+  href: "https://github.com/zaks-io/agent-paste",
+};
 
 export const WORDMARK = {
   base: "agent-paste",
@@ -114,6 +119,7 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "About", href: "/about" },
       { label: "How it works", href: "/how-it-works" },
+      { label: SOURCE_REPOSITORY.label, href: SOURCE_REPOSITORY.href },
     ],
   },
   {

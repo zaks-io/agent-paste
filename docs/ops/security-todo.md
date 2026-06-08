@@ -78,9 +78,9 @@ filed off an external credibility review.
 
 - [ ] Ship the apex GitHub source link and keep tests covering the public source
       link behavior.
-      Add a source link (footer + About) and flip those test gates from
-      "absent" to "present" **in the same change as the visibility flip** —
-      never before.
+      Add a source link (footer + About + How it works) and keep the tests
+      asserting the public GitHub URL. The repo may still be private until the
+      visibility flip; the UI should not claim it is already public.
 - [x] Stand up a status page or public incident/update channel. Decision
       recorded 2026-06-07: the minimum public incident intake channel is the
       `support@agentpaste` mailbox, which routes through email into Linear. A
