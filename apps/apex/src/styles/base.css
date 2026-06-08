@@ -1,0 +1,311 @@
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+  letter-spacing: 0;
+}
+
+.font-display,
+.hero-headline,
+.legal-title,
+.feature-title,
+.prose-title,
+.docs-section-title,
+.docs-card-title {
+  font-family: var(--font-display);
+}
+
+:focus-visible {
+  border-radius: 3px;
+}
+
+body {
+  font-size: 15px;
+}
+
+:root {
+  --container: 920px;
+}
+
+.page {
+  min-height: 100svh;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding: 24px 24px 32px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 64px;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: 32px 40px 40px;
+    gap: 80px;
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(40px, 6vh, 64px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-mark {
+  display: block;
+}
+
+/* Wordmark (style-guide §6.2: 700, hyphen in accent). */
+.wordmark {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.wordmark-hyphen {
+  color: hsl(var(--accent));
+}
+
+.wordmark-tld {
+  color: hsl(var(--subtle));
+  font-weight: 600;
+}
+
+.wordmark-sm {
+  font-size: 14px;
+}
+
+.hero,
+.legal-hero,
+.docs-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding-bottom: clamp(32px, 5vh, 48px);
+  border-bottom: 1px solid hsl(var(--rule));
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  width: 100%;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--subtle));
+  margin: 0;
+}
+
+.eyebrow-link {
+  width: fit-content;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.eyebrow-link:hover,
+.eyebrow-link:focus-visible {
+  color: hsl(var(--foreground));
+}
+
+.eyebrow-link .eyebrow-back {
+  transition: transform 0.15s ease;
+}
+
+.eyebrow-link:hover .eyebrow-back,
+.eyebrow-link:focus-visible .eyebrow-back {
+  transform: translateX(-2px);
+}
+
+.hero-headline,
+.legal-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(34px, 5.2vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-feature-settings: "ss01";
+  color: hsl(var(--foreground));
+  margin: 0;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+
+.hero-stop {
+  color: hsl(var(--accent));
+}
+
+.hero-lead,
+.legal-lead {
+  font-size: clamp(16px, 1.4vw, 18px);
+  line-height: 1.6;
+  color: hsl(var(--muted));
+  margin: 0;
+  max-width: 60ch;
+}
+
+.legal-updated {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: hsl(var(--subtle));
+  margin: 0;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding-inline: 16px;
+  border-radius: var(--radius-xs);
+  font-weight: 500;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  transition:
+    background 80ms var(--ease-out),
+    border-color 80ms var(--ease-out),
+    color 80ms var(--ease-out),
+    filter 80ms var(--ease-out);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button-sm {
+  height: 30px;
+  padding-inline: 12px;
+  font-size: 13px;
+}
+
+.button-lg {
+  height: 42px;
+  padding-inline: 20px;
+  font-size: 14.5px;
+}
+
+/* Primary action is the one vermilion fill, matching the home CTA. */
+.button-primary {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-fg));
+  border-color: hsl(var(--accent));
+}
+
+.button-primary:hover {
+  filter: brightness(1.08);
+}
+
+.button-ghost {
+  background: transparent;
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--rule-strong));
+}
+
+.button-ghost:hover {
+  background: hsl(var(--surface-sunken));
+  border-color: hsl(var(--rule-strong));
+}
+
+.prose,
+.legal-sections {
+  display: flex;
+  flex-direction: column;
+  max-width: 70ch;
+}
+
+.prose-block,
+.legal-section {
+  padding: clamp(28px, 4vh, 40px) 0;
+  border-top: 1px solid hsl(var(--rule));
+}
+
+.prose-block:first-child,
+.legal-section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.legal-section,
+.docs-section {
+  scroll-margin-top: calc(var(--head-h, 64px) + 24px);
+}
+
+.prose-title,
+.feature-title,
+.docs-section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(20px, 2.2vw, 26px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+.prose-body,
+.feature-body {
+  margin-top: 14px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: hsl(var(--muted));
+}
+
+.prose-body + .prose-body {
+  margin-top: 14px;
+}
+
+.legal-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: hsl(var(--muted));
+}
+
+.legal-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.legal-list li::marker {
+  color: hsl(var(--accent));
+}
+
+/* Inline code, one treatment across every content surface. */
+.prose-body .code,
+.feature-body .code,
+.legal-body .code,
+.docs-paragraph .code,
+.docs-list .code,
+.docs-table .code,
+.docs-note .code {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+  font-size: 0.9em;
+  letter-spacing: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--surface-3));
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}

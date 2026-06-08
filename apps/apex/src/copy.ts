@@ -27,25 +27,6 @@ export const HERO = {
   secondary: { label: "Read the docs", href: "/docs" },
 };
 
-export type TranscriptLine =
-  | { kind: "prompt"; text: string }
-  | { kind: "comment"; text: string }
-  | { kind: "success"; text: string }
-  | { kind: "output"; text: string }
-  | { kind: "result"; origin: string; id: string };
-
-export const TRANSCRIPT: TranscriptLine[] = [
-  { kind: "prompt", text: "npx @zaks-io/agent-paste login" },
-  { kind: "comment", text: "opens your browser for OAuth. no API key to copy or paste." },
-  { kind: "success", text: "Signed in as you@example.com" },
-  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report" },
-  { kind: "result", origin: "https://agent-paste.sh/", id: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF" },
-  { kind: "comment", text: "no account? add --ephemeral. no login, no key." },
-  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report --ephemeral" },
-  { kind: "result", origin: "https://agent-paste.sh/", id: "art_01J2QK8R4DZ0WX5NT3YBE7MCFG" },
-  { kind: "output", text: "Claim: https://app.agent-paste.sh/claim#ap_ct_… (open it signed in to keep it)" },
-];
-
 export type Feature = {
   title: string;
   // Body prose; `backtick` spans render as inline <code> (see renderFeature).

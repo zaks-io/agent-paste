@@ -103,7 +103,7 @@ function SidebarLink({ to, label, Icon, exact }: Item) {
       activeProps={{
         className: cn(
           "text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] font-medium",
-          // Active rail: a square violet bar pinned to the left edge.
+          // Active rail: a square vermilion bar pinned to the left edge.
           "before:absolute before:left-0 before:top-[6px] before:bottom-[6px]",
           "before:w-[2px] before:bg-[hsl(var(--accent))]",
         ),

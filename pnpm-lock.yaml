@@ -137,22 +137,49 @@ importers:
       '@agent-paste/plans':
         specifier: workspace:*
         version: link:../../packages/plans
+      '@agent-paste/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
       '@sentry/cloudflare':
         specifier: ^10.53.1
         version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
-      hono:
-        specifier: ^4.12.21
-        version: 4.12.21
+      react:
+        specifier: ^19.1.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.6(react@19.2.6)
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260521.1
+        version: 4.20260521.1
+      '@tailwindcss/vite':
+        specifier: ^4.1.7
+        version: 4.3.0(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.2.15
+      '@types/react-dom':
+        specifier: ^19.1.0
+        version: 19.2.3(@types/react@19.2.15)
+      '@vitejs/plugin-react':
+        specifier: ^5.0.0
+        version: 5.2.0(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vite:
+        specifier: ^7.0.0
+        version: 7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0)
       vitest:
         specifier: 'catalog:'
         version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
+      wrangler:
+        specifier: ^4.94.0
+        version: 4.94.0(@cloudflare/workers-types@4.20260521.1)
 
   apps/api:
     dependencies:
@@ -414,12 +441,6 @@ importers:
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
-      '@fontsource-variable/bricolage-grotesque':
-        specifier: ^5.2.10
-        version: 5.2.10
-      '@fontsource/ibm-plex-mono':
-        specifier: ^5.2.7
-        version: 5.2.7
       '@sentry/cloudflare':
         specifier: ^10.53.1
         version: 10.53.1(@cloudflare/workers-types@4.20260521.1)
@@ -457,9 +478,9 @@ importers:
         specifier: ^3.3.0
         version: 3.6.0
     devDependencies:
-      '@agent-paste/brand':
+      '@agent-paste/ui':
         specifier: workspace:*
-        version: link:../../packages/brand
+        version: link:../../packages/ui
       '@cloudflare/vite-plugin':
         specifier: ^1.38.0
         version: 1.38.0(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260521.1)(wrangler@4.94.0(@cloudflare/workers-types@4.20260521.1))
@@ -487,9 +508,6 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
-      tailwindcss:
-        specifier: ^4.1.7
-        version: 4.3.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -692,6 +710,34 @@ importers:
         version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
   packages/tsconfig: {}
+
+  packages/ui:
+    dependencies:
+      '@agent-paste/brand':
+        specifier: workspace:*
+        version: link:../brand
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.2.15
+      '@types/react-dom':
+        specifier: ^19.1.0
+        version: 19.2.3(@types/react@19.2.15)
+      react:
+        specifier: ^19.1.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.6(react@19.2.6)
+      tailwindcss:
+        specifier: ^4.1.7
+        version: 4.3.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
   packages/worker-runtime:
     dependencies:
@@ -1679,12 +1725,6 @@ packages:
     resolution: {integrity: sha512-3TASCATfw+ctICSb4ymrv7iCm0qJ0N9CarB+CZ7zIJ7KqNbwI5JjyDL1/sxoC0ccTO1Zyd1iQ+oqncPg5FJXaA==}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
-
-  '@fontsource-variable/bricolage-grotesque@5.2.10':
-    resolution: {integrity: sha512-5EDsCqgGpKVcJWE4sg9ydli+t5WM97mISYw5lla/Ev4z71FwXh1oN0YUU8xjkRW9+wBCGD9R+ntAvI8G4bUFJg==}
-
-  '@fontsource/ibm-plex-mono@5.2.7':
-    resolution: {integrity: sha512-MKAb8qV+CaiMQn2B0dIi1OV3565NYzp3WN5b4oT6LTkk+F0jR6j0ZN+5BKJiIhffDC3rtBULsYZE65+0018z9w==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -6015,10 +6055,6 @@ snapshots:
       minimatch: 10.2.5
     transitivePeerDependencies:
       - supports-color
-
-  '@fontsource-variable/bricolage-grotesque@5.2.10': {}
-
-  '@fontsource/ibm-plex-mono@5.2.7': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:

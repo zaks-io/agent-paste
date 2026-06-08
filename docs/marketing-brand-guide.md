@@ -346,7 +346,7 @@ Transient by default. Revocable on demand.
 - **Product name:** `agent-paste`. Lowercase, hyphenated, always. Never "Agent
   Paste," "AgentPaste," "agentpaste," or "Agent-Paste." Avoid opening a sentence
   with the name; if unavoidable, keep it lowercase rather than capitalize it.
-- **Wordmark:** `agent-paste` in Bricolage Grotesque 700, `letter-spacing: -0.02em`.
+- **Wordmark:** `agent-paste` in Cabinet Grotesk 700, `letter-spacing: -0.02em`.
   Two registered colorings only: solid foreground, or foreground with the hyphen
   in `--accent`. When the domain is shown, the `.sh` is set in `--subtle`. See
   style-guide.md section 6.2.
@@ -375,39 +375,40 @@ Transient by default. Revocable on demand.
 
 The full system lives in [`style-guide.md`](./specs/style-guide.md) and is the
 source of truth. This section states only the brand-level essentials and exists
-to prevent drift. The accent is a considered electric violet, drawn from the
-brand mark, not a flat, generic blue.
+to prevent drift. The accent is a single hot vermilion — not a flat, generic
+blue.
 
-- **Aesthetic:** dark-first, square, one voltage. A cool indigo-black canvas, a
-  faintly warm off-white ink, depth from a surface ladder and 1px hairlines (no
-  drop shadows), and hierarchy by scale: one big figure, the rest a quiet mono
-  rail. Color appears only where it carries meaning. The marketing site and the
-  dashboard are one design system (style-guide.md §0), not two.
+- **Aesthetic:** flat, square, one voltage, two first-class themes. A neutral
+  near-black canvas (dark) and a warm paper canvas (light), a faintly warm ink,
+  depth from a surface ladder and 1px hairlines (no drop shadows), and hierarchy
+  by scale — one big figure, the rest a quiet mono rail. The surface is dead flat:
+  no grain, no aura, no gradient. Color appears only where it carries meaning.
+  The marketing site and the dashboard are one design system (style-guide.md §0),
+  not two.
 - **NOT:** brutalist, terminal-themed, glassmorphism, gradient hero, neon dark
-  mode, light-first, soft rounded "marketing-template," or anything that would
-  look identical to the rest of the category.
-- **Type:** Bricolage Grotesque (UI) and IBM Plex Mono (code, IDs, URLs,
-  timestamps). Never Inter, Geist, Space Grotesk, or system fonts. Shared from
-  `@agent-paste/brand` so web and the marketing site cannot drift.
-- **Accent:** one color, an electric violet drawn from the brand mark
-  (`hsl(248 64% 56%)` light, `hsl(248 73% 64%)` dark). One flat color, never a
-  gradient, never a second accent beside it. The accent means "go," "valid,"
-  "published," plus links and focus rings. It is the brand color, used quietly.
+  mode, soft rounded "marketing-template," or anything that would look identical
+  to the rest of the category.
+- **Type:** Cabinet Grotesk (display), Switzer (UI/body), and Spline Sans Mono
+  (code, IDs, URLs, timestamps). Never Inter, Geist, Space Grotesk, or system
+  fonts. Self-hosted variable faces shared from `@agent-paste/brand` so web and
+  the marketing site cannot drift.
+- **Accent:** one color, a hot vermilion (`hsl(10 100% 54%)` on both themes).
+  One flat color, never a gradient, never a second accent beside it. The accent
+  means "go," "valid," "published," plus links and focus rings. It is the brand
+  color, used quietly.
 - **Signature interaction:** the identifier. Artifact and Revision IDs rendered
   in mono, tinted, silently copyable. The product is about addressable objects,
   so this is where design budget goes, not hero animation.
 - **No decoration:** no mascots, illustrations, stock photos, AI-generated
-  images, or background patterns. The one permitted texture is a barely-there
-  fractal-noise grain on the page background (atmosphere, never legible as a
-  pattern), shared from `@agent-paste/brand`. Character comes from type and
-  restraint.
-- **Wordmark:** `agent-paste.sh`, with `agent`/`paste` in foreground, the hyphen in
-  the violet accent, `.sh` in subtle. The slash is never part of the mark, only a
-  breadcrumb separator in chrome. Identical on both surfaces; see
+  images, or background patterns. There is no grain texture and no hero aura — the
+  surface is dead flat. Character comes from type and restraint.
+- **Wordmark:** `agent-paste.sh` — `agent`/`paste` in foreground, the hyphen in
+  the vermilion accent, `.sh` in subtle. The slash is never part of the mark, only
+  a breadcrumb separator in chrome. Identical on both surfaces; see
   style-guide.md §6.2.
-- **Social / OG cards:** type-led on the dark indigo-black canvas. Wordmark, one
-  line, and either the publish transcript or a single Artifact ID. Never a
-  floating product screenshot, never a logo wall.
+- **Social / OG cards:** type-led on the near-black canvas. Wordmark, one line,
+  and either the publish transcript or a single Artifact ID. Never a floating
+  product screenshot, never a logo wall.
 
 ---
 
@@ -495,9 +496,9 @@ verifiable outcomes; if one fails, fix the copy or change the guide on purpose.
       emoji, no exclamation points in product voice.
 - [ ] Never calls the product a pastebin and never uses "GitHub-for-X" framing.
 - [ ] States any number (price, TTL, limit) only if it is true, or omits it.
-- [ ] Visuals defer to style-guide.md: dark-first / square / one-voltage,
-      Bricolage Grotesque plus IBM Plex Mono, single electric-violet accent, square
-      corners, no decoration beyond the shared grain and the one marketing hero aura.
+- [ ] Visuals defer to style-guide.md: flat / square / one-voltage / two
+      first-class themes, Cabinet Grotesk + Switzer + Spline Sans Mono, single
+      vermilion accent, square corners, no decoration (no grain, no hero aura).
 - [ ] Distinguishes open-source code from hosted-service terms whenever a public
       GitHub link or "open source" claim appears.
 - [ ] If it is a hero or headline, it earns the calm: the conviction is in the

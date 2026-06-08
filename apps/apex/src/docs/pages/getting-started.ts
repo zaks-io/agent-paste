@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const GETTING_STARTED_DOC: DocsPage = {
   slug: "getting-started",

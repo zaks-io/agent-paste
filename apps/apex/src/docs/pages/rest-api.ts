@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const REST_API_DOC: DocsPage = {
   slug: "rest-api",

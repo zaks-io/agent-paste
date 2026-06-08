@@ -84,6 +84,11 @@ await deploy("api", files.apiConfig, files.apiSecrets);
 await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
 await deploy("jobs", files.jobsConfig, files.jobsSecrets);
+// apex prerenders to static HTML, so build it before deploying the worker shim +
+// dist/client. Billing on (like the standing preview env) so /pricing renders.
+// No CF_WEB_ANALYTICS_TOKEN: per-PR ephemeral previews must not emit the beacon
+// and pollute production web-analytics.
+await run("pnpm", ["--filter", "@agent-paste/apex", "build"], { env: { BILLING_ENABLED: "true" } });
 await deploy("apex", files.apexConfig);
 const webDeployed = await deployWeb();
 
@@ -299,16 +304,19 @@ function jobsConfig() {
 
 function apexConfig() {
   return baseConfig("apex", {
-    main: workspacePath("apps/apex/src/index.ts"),
+    main: workspacePath("apps/apex/src/server.ts"),
     compatibility_flags: ["nodejs_compat"],
     assets: {
       binding: "ASSETS",
-      directory: workspacePath("apps/apex/public"),
+      directory: workspacePath("apps/apex/dist/client"),
       not_found_handling: "none",
       run_worker_first: true,
     },
     vars: {
       AGENT_PASTE_ENV: "preview",
+      // Match the billing-on build above so the runtime-served sitemap.xml/llms
+      // text assets list /pricing consistently with the prerendered HTML.
+      BILLING_ENABLED: "true",
     },
   });
 }

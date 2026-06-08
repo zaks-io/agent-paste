@@ -1,5 +1,6 @@
-import type { PageMeta } from "./components/chrome.js";
-import { META_DESCRIPTION, TITLE } from "./copy.js";
+export type PageMeta = { title: string; description: string; canonicalPath: string };
+
+import { META_DESCRIPTION, TITLE } from "./copy";
 
 export const HOME_META: PageMeta = {
   title: TITLE,

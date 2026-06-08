@@ -22,8 +22,6 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/plans": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
-    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
-    "@fontsource/ibm-plex-mono": "^5.2.7",
     "@sentry/cloudflare": "^10.53.1",
     "@sentry/tanstackstart-react": "^10.53.1",
     "@tanstack/react-query": "^5.100.14",
@@ -38,7 +36,7 @@
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
-    "@agent-paste/brand": "workspace:*",
+    "@agent-paste/ui": "workspace:*",
     "@cloudflare/vite-plugin": "^1.38.0",
     "@cloudflare/workers-types": "^4.20260521.1",
     "@tailwindcss/vite": "^4.1.7",
@@ -48,7 +46,6 @@
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
     "jsdom": "^26.1.0",
-    "tailwindcss": "^4.1.7",
     "typescript": "catalog:",
     "vite": "^7.0.0",
     "vitest": "catalog:",

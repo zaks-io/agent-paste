@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const LIMITS_DOC: DocsPage = {
   slug: "limits",

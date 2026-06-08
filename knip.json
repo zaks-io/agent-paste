@@ -6,6 +6,9 @@
   "workspaces": {
     "apps/web": {
       "entry": ["src/server.ts"]
+    },
+    "apps/apex": {
+      "entry": ["src/entry-server.tsx", "src/client.ts", "src/styles/apex.css"]
     }
   }
 }

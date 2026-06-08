@@ -1,5 +1,5 @@
-import { BILLING_PLANS_TABLE_COLUMNS, billingPlansTableRows } from "../../plan-tiers.js";
-import type { DocsPage } from "../types.js";
+import { BILLING_PLANS_TABLE_COLUMNS, billingPlansTableRows } from "../../plan-tiers";
+import type { DocsPage } from "../types";
 
 export const BILLING_DOC: DocsPage = {
   slug: "billing",

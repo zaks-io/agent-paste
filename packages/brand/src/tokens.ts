@@ -9,9 +9,10 @@
  * CSS is checked against it so the two cannot drift.
  *
  * Discipline (do not break it):
- *   - One accent: electric violet, one job (primary action, focus, live-state).
- *   - Cool indigo-black ladder for depth via lightness steps of one hue.
- *   - Warm-cool tension: cool dark canvas under a faintly warm ink.
+ *   - One accent: vermilion, one job (primary action, focus, live-state).
+ *   - Neutral near-black ladder (dark) and warm paper ladder (light), both
+ *     first-class; depth via lightness steps of a near-neutral hue.
+ *   - Warm-cool tension: a near-neutral canvas under a faintly warm ink.
  *   - Square-ish: radius is the exception, never the rule.
  */
 
@@ -40,7 +41,7 @@ export type ThemeTokens = {
   subtle: HslTriple;
   /** Faint text. */
   faint: HslTriple;
-  /** The one accent: electric violet. */
+  /** The one accent: vermilion. */
   accent: HslTriple;
   /** Dimmed accent for hover. */
   accentDim: HslTriple;
@@ -60,45 +61,45 @@ export type ThemeTokens = {
 
 export type ThemeName = "dark" | "light";
 
-/** Dark is the product. These match globals.css `:root, [data-theme="dark"]`. */
+/** Neutral near-black ladder, vermilion accent. Matches globals.css `:root, [data-theme="dark"]`. */
 export const DARK: ThemeTokens = {
-  background: "240 16% 6%",
-  surface: "240 13% 9%",
-  surface2: "240 12% 12%",
-  surface3: "240 11% 16%",
-  rule: "240 9% 18%",
-  ruleStrong: "240 9% 26%",
-  foreground: "250 30% 96%",
-  muted: "245 12% 78%",
-  subtle: "240 8% 58%",
-  faint: "240 7% 40%",
-  accent: "248 73% 64%",
-  accentDim: "248 50% 46%",
-  accentFg: "250 40% 97%",
-  accentTint: "248 73% 64% / 0.14",
-  selection: "248 73% 64% / 0.3",
+  background: "240 6% 5%",
+  surface: "240 7% 8%",
+  surface2: "240 7% 11%",
+  surface3: "240 8% 14%",
+  rule: "240 8% 15%",
+  ruleStrong: "240 7% 24%",
+  foreground: "60 9% 95%",
+  muted: "240 5% 80%",
+  subtle: "240 5% 55%",
+  faint: "240 5% 38%",
+  accent: "10 100% 54%",
+  accentDim: "10 78% 45%",
+  accentFg: "0 0% 100%",
+  accentTint: "10 100% 54% / 0.14",
+  selection: "10 100% 54% / 0.3",
   success: "152 56% 52%",
   warning: "36 84% 58%",
   destructive: "4 72% 60%",
 };
 
-/** Light alternate: warm paper, violet stays the voltage. Matches `[data-theme="light"]`. */
+/** Warm paper ladder, vermilion stays the voltage. Matches `[data-theme="light"]`. */
 export const LIGHT: ThemeTokens = {
-  background: "40 30% 97%",
-  surface: "40 33% 99.5%",
-  surface2: "40 20% 94%",
-  surface3: "38 16% 90%",
-  rule: "36 14% 86%",
-  ruleStrong: "34 12% 76%",
-  foreground: "250 22% 12%",
-  muted: "245 10% 34%",
-  subtle: "240 7% 48%",
-  faint: "240 6% 62%",
-  accent: "248 64% 56%",
-  accentDim: "248 50% 46%",
-  accentFg: "250 40% 98%",
-  accentTint: "248 64% 56% / 0.1",
-  selection: "248 64% 56% / 0.16",
+  background: "60 17% 98%",
+  surface: "0 0% 100%",
+  surface2: "48 18% 94%",
+  surface3: "45 16% 90%",
+  rule: "45 16% 88%",
+  ruleStrong: "44 13% 80%",
+  foreground: "0 0% 4%",
+  muted: "60 4% 22%",
+  subtle: "0 0% 42%",
+  faint: "50 3% 60%",
+  accent: "10 100% 54%",
+  accentDim: "10 82% 47%",
+  accentFg: "0 0% 100%",
+  accentTint: "10 100% 54% / 0.1",
+  selection: "10 100% 54% / 0.16",
   success: "152 52% 36%",
   warning: "32 80% 42%",
   destructive: "4 66% 48%",
@@ -149,27 +150,36 @@ export const TYPE = {
 } as const;
 
 /**
- * Brand fonts. Family names match the @fontsource packages the web app imports;
- * `webImports` are the npm CSS entrypoints; `apexFiles` are the self-hosted woff2
- * filenames the apex worker serves from its public/fonts dir (it cannot import
- * from npm at request time).
+ * Brand fonts: three self-hosted variable faces. `family` is the @font-face name
+ * both surfaces declare; `file` is the woff2 each app serves from its own
+ * public/fonts dir (web via @font-face in globals.css, apex via the inline
+ * fontFaceCss() below). All three carry a single weight axis, so one file covers
+ * every weight we use.
+ *   - display: Cabinet Grotesk (headlines, the wordmark)
+ *   - body:    Switzer (UI and prose)
+ *   - mono:    Spline Sans Mono (the data rail, identifiers, the command block)
  */
 export const FONTS = {
   display: {
-    family: "Bricolage Grotesque Variable",
-    stack: '"Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif',
-    webImport: "@fontsource-variable/bricolage-grotesque/opsz.css",
-    apexFile: "BricolageGrotesque-Variable.woff2",
-    /** Variable optical-size axis; emit with format("woff2-variations"). */
+    family: "Cabinet Grotesk",
+    stack: '"Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif',
+    file: "CabinetGrotesk-Variable.woff2",
     variable: true,
-    weightRange: "200 800",
+    weightRange: "100 900",
+  },
+  body: {
+    family: "Switzer",
+    stack: '"Switzer", ui-sans-serif, system-ui, sans-serif',
+    file: "Switzer-Variable.woff2",
+    variable: true,
+    weightRange: "100 900",
   },
   mono: {
-    family: "IBM Plex Mono",
-    stack: '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-    webImports: ["@fontsource/ibm-plex-mono/400.css", "@fontsource/ibm-plex-mono/500.css"],
-    apexFiles: { 400: "IBMPlexMono-Regular.woff2", 500: "IBMPlexMono-Medium.woff2" },
-    variable: false,
+    family: "Spline Sans Mono",
+    stack: '"Spline Sans Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+    file: "SplineSansMono-Variable.woff2",
+    variable: true,
+    weightRange: "300 700",
   },
 } as const;
 

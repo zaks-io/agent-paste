@@ -1,15 +1,21 @@
 import { BASELINE_SECURITY_HEADERS } from "@agent-paste/worker-runtime";
 
-// Enforcing CSP for the apex marketing site. Both script-src and style-src are
-// nonce-based with no 'unsafe-inline': apex renders a fixed set of inline assets
-// we control (one clipboard helper script, one <style> block, the CF Analytics
-// beacon), so a per-request nonce covers them all. 'strict-dynamic' lets the
-// nonce'd beacon load without a host allowlist.
-export function apexCsp(nonce: string): string {
+// Static CSP for the prerendered apex site. The stylesheet and the one
+// enhancement script are external hashed assets ('self'); the only inline script
+// is the fixed pre-paint theme-init, allowed by its sha256 hash. No nonces and no
+// 'unsafe-inline' anywhere, which is strictly stronger than the old nonce policy.
+//
+// THEME_INIT_SHA256 MUST match THEME_INIT_JS (apps/apex/src/app/scripts.ts)
+// byte-for-byte; security-headers.test.ts recomputes the hash and fails on drift.
+export const THEME_INIT_SHA256 = "sha256-EvYsRVn3eeHUA7+/EFOzuQUFA2JZcSUS2m51fpJd2U4=";
+
+const BEACON_HOST = "https://static.cloudflareinsights.com";
+
+export function apexCsp(): string {
   return [
     "default-src 'self'",
-    `script-src 'nonce-${nonce}' 'strict-dynamic'`,
-    `style-src 'nonce-${nonce}'`,
+    `script-src 'self' '${THEME_INIT_SHA256}' ${BEACON_HOST}`,
+    "style-src 'self'",
     "font-src 'self'",
     "img-src 'self' data:",
     "base-uri 'none'",
@@ -19,9 +25,9 @@ export function apexCsp(nonce: string): string {
   ].join("; ");
 }
 
-export function apexSecurityHeaders(nonce: string): HeadersInit {
+export function apexSecurityHeaders(): HeadersInit {
   return {
     ...BASELINE_SECURITY_HEADERS,
-    "content-security-policy": apexCsp(nonce),
+    "content-security-policy": apexCsp(),
   };
 }

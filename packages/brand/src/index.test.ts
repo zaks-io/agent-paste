@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cssVarsBlock, DARK, fontFaceCss, grainCss, LIGHT, themeVarLines } from "./index.js";
+import { cssVarsBlock, DARK, fontFaceCss, LIGHT, themeOverrideCss, themeVarLines } from "./index.js";
 
 describe("brand tokens", () => {
-  it("keeps the one violet accent in both themes", () => {
-    expect(DARK.accent).toBe("248 73% 64%");
-    expect(LIGHT.accent).toBe("248 64% 56%");
+  it("keeps the one vermilion accent in both themes", () => {
+    expect(DARK.accent).toBe("10 100% 54%");
+    expect(LIGHT.accent).toBe("10 100% 54%");
   });
 
-  it("dark canvas matches the brand mark frame (cool indigo-black)", () => {
-    expect(DARK.background).toBe("240 16% 6%");
+  it("dark canvas is a neutral near-black", () => {
+    expect(DARK.background).toBe("240 6% 5%");
   });
 });
 
@@ -21,9 +21,8 @@ describe("cssVarsBlock", () => {
   });
 
   it("maps the accent and canvas onto the expected var names", () => {
-    expect(css).toContain("--accent: 248 64% 56%;"); // light default
-    expect(css).toContain("--accent: 248 73% 64%;"); // dark override
-    expect(css).toContain("--background: 240 16% 6%;"); // dark canvas
+    expect(css).toContain("--accent: 10 100% 54%;"); // vermilion, both themes
+    expect(css).toContain("--background: 240 6% 5%;"); // dark canvas
   });
 
   it("binds --primary to the foreground for the high-contrast neutral button", () => {
@@ -32,29 +31,32 @@ describe("cssVarsBlock", () => {
   });
 });
 
-describe("fontFaceCss", () => {
-  const css = fontFaceCss();
+describe("themeOverrideCss", () => {
+  const css = themeOverrideCss();
 
-  it("declares Bricolage as a variable font and IBM Plex Mono at 400/500", () => {
-    expect(css).toContain('font-family: "Bricolage Grotesque Variable";');
-    expect(css).toContain('format("woff2-variations")');
-    expect(css).toContain("/fonts/BricolageGrotesque-Variable.woff2");
-    expect(css).toContain("/fonts/IBMPlexMono-Regular.woff2");
-    expect(css).toContain("/fonts/IBMPlexMono-Medium.woff2");
-  });
-
-  it("respects a custom base path", () => {
-    expect(fontFaceCss("/assets/fonts")).toContain("/assets/fonts/BricolageGrotesque-Variable.woff2");
+  it("emits attribute-selector blocks for a manual light/dark toggle", () => {
+    expect(css).toContain('[data-theme="light"] {');
+    expect(css).toContain('[data-theme="dark"] {');
+    // Carries the same tokens so the override is complete, not partial.
+    expect(css).toContain(`--background: ${DARK.background};`);
+    expect(css).toContain(`--background: ${LIGHT.background};`);
   });
 });
 
-describe("grainCss", () => {
-  it("is a CSP-safe data: URI overlay", () => {
-    const css = grainCss();
-    expect(css).toContain("body::before");
-    // The background image is an inline data: URI, not a remote fetch. (The
-    // SVG xmlns http URN inside the data payload is an identifier, not a request.)
-    expect(css).toContain('background-image: url("data:image/svg+xml');
-    expect(css).not.toMatch(/url\(["']?https?:\/\//);
+describe("fontFaceCss", () => {
+  const css = fontFaceCss();
+
+  it("declares the three self-hosted variable faces", () => {
+    expect(css).toContain('font-family: "Cabinet Grotesk";');
+    expect(css).toContain('font-family: "Switzer";');
+    expect(css).toContain('font-family: "Spline Sans Mono";');
+    expect(css).toContain("/fonts/CabinetGrotesk-Variable.woff2");
+    expect(css).toContain("/fonts/Switzer-Variable.woff2");
+    expect(css).toContain("/fonts/SplineSansMono-Variable.woff2");
+    expect(css).toContain('format("woff2")');
+  });
+
+  it("respects a custom base path", () => {
+    expect(fontFaceCss("/assets/fonts")).toContain("/assets/fonts/CabinetGrotesk-Variable.woff2");
   });
 });

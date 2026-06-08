@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const DASHBOARD_DOC: DocsPage = {
   slug: "dashboard",

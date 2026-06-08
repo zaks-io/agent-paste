@@ -1,0 +1,26 @@
+/*
+ * apex marketing layer (barrel).
+ *
+ * The apex marketing site's component CSS, layered on top of the shared design
+ * system at @agent-paste/ui/styles.css. The shared sheet provides Tailwind
+ * (Preflight + utilities), every design token, the @font-face blocks, the
+ * @theme font mappings, the :root / [data-theme] token blocks, the base resets,
+ * and the reduced-motion block — none of those are re-declared here.
+ *
+ * The apex-only marketing CSS is split into concern-scoped partials (kept small
+ * per repo convention); this file only wires them together in cascade order:
+ *   base.css       base type + layout + chrome header + buttons + prose/legal
+ *   sections.css   docs + pricing + page footer
+ *   home.css       home layout, sticky topbar, two-pane hero, command blocks
+ *   home-foot.css  home result/proof/closing/footer + scroll-reveal
+ * All @import rules must precede other rules (CSS spec), so @source follows.
+ */
+@import "@agent-paste/ui/styles.css";
+@import "./base.css";
+@import "./sections.css";
+@import "./home.css";
+@import "./home-foot.css";
+
+@source "../app";
+@source "../pages";
+@source "../routes.tsx";

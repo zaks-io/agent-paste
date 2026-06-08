@@ -1,5 +1,5 @@
-import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "./registry.js";
-import type { DocsBlock, DocsPage } from "./types.js";
+import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "./registry";
+import type { DocsBlock, DocsPage } from "./types";
 
 export function renderDocsIndexMarkdown(): string {
   return [
