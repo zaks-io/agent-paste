@@ -2,9 +2,9 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-07 (early-alpha production refresh: npm trusted publishing,
-preview Stripe test-mode verification, incident intake decision, and production
-secret cleanup captured).
+Last updated: 2026-06-08 (public repository flip: repo is public with CodeQL,
+secret scanning, Dependabot alerts, OpenSSF Scorecard + badge, and SHA-pinned
+Actions live; AP-254 public-repo security posture closed).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -45,12 +45,14 @@ Done for this section: every open item below is checked, or explicitly marked
 2. [x] **AP-254: Apex source link**. Done 2026-06-07 (`83cde8c`): the
        `source-repository` component wires the public GitHub link into the apex
        footer/About/How it works, and `apps/apex/src/index.test.ts` asserts the
-       `https://github.com/zaks-io/agent-paste` URL in all three. The link may
-       ship while the repo is private; it must not claim the repo is public.
-3. [ ] **AP-254: GitHub public security posture**. Done when CodeQL/code
-       scanning, secret scanning, Dependabot alerts/updates, OpenSSF Scorecard,
-       public SARIF uploads, and public badges are enabled or documented as not
-       applicable in [security-todo.md](./security-todo.md).
+       `https://github.com/zaks-io/agent-paste` URL in all three. The repo is
+       now public (2026-06-08), so the source link resolves.
+3. [x] **AP-254: GitHub public security posture**. Done 2026-06-08 with the
+       public flip: repo is public, CodeQL (default setup), secret scanning +
+       push protection, Dependabot alerts, OpenSSF Scorecard (`3d64126`) + README
+       badge (`2de2280`), and SHA-pinned Actions (`33474e4`) are all live.
+       Dependabot version updates stay off by design (scheduled review agent).
+       Detail in [security-todo.md](./security-todo.md).
 4. [ ] **AP-160: Snyk Code triage**. Done when the Snyk Code entitlement is
        enabled, initial HIGH findings are triaged, narrow ignores are committed
        for confirmed false positives, and the gating/advisory decision is
@@ -192,14 +194,16 @@ Highest-signal gaps:
 
 ## Public Repository Status
 
-Repo is still private pending the public visibility flip, licensed
-**Apache-2.0**, and the ADR 0076 private-phase security posture is complete
-(full-history gitleaks-clean, gating Snyk Open Source, advisory SAST/SBOM).
-Remaining public-repo/source-link and GitHub security
-feature toggles (apex GitHub source-link flip,
-CodeQL/secret-scanning/Dependabot/Scorecard, and public badges) are tracked in
-[security-todo.md](./security-todo.md) and aggregated under
-[AP-254](https://linear.app/zaks-io/issue/AP-254).
+Repo is **public** (flipped 2026-06-08), licensed **Apache-2.0**, and the ADR
+0076 security posture is complete: full-history gitleaks-clean, gating Snyk Open
+Source, advisory SAST/SBOM. The public GitHub security features are live —
+CodeQL (default setup), secret scanning + push protection, Dependabot alerts,
+OpenSSF Scorecard with its README badge, and SHA-pinned Actions. The apex
+GitHub source link resolves. Remaining advisory-only items (CodeQL-action SARIF
+upload for Trivy/Semgrep, promoting scanners advisory→gating) stay tracked in
+[security-todo.md](./security-todo.md) under
+[AP-254](https://linear.app/zaks-io/issue/AP-254). Dependabot version updates
+stay off by design (dependency bumps come through the scheduled review agent).
 
 A 2026-06-05 external credibility review confirmed most "reputable vendor"
 signals already ship (Apache-2.0, `SECURITY.md` private disclosure, GitHub

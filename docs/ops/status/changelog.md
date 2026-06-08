@@ -3,6 +3,41 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-08
+
+### Public repository flip + GitHub security posture (AP-254)
+
+The repo is now **public** (`github.com/zaks-io/agent-paste`). The public-repo
+security toggles tracked under AP-254 are live and verified against the GitHub
+API:
+
+- **OpenSSF Scorecard** — `.github/workflows/scorecard.yml` (`3d64126`, #444)
+  scores supply-chain posture on `main` push, weekly cron, and
+  `branch_protection_rule`, publishing to the public OpenSSF API; the README
+  badge (`2de2280`, #447) resolves.
+- **CodeQL code scanning** — enabled via GitHub default setup (SARIF visible in
+  the code-scanning tab; no committed `codeql.yml`).
+- **Secret scanning + push protection** — enabled.
+- **Dependabot alerts** — enabled. Version **updates** stay off by design;
+  dependency bumps come through the scheduled review agent, not Dependabot PRs.
+- **SHA-pinned Actions** — every external action across all workflows pinned to
+  a commit SHA (`33474e4`, #436) with the `sha_pinning_required` repo policy on.
+- **Pre-flip cleanup** — internal-only docs and a dead operator email dropped
+  before going public (`0e1eadd`, #437); NOTICE copyright updated (`92f6287`,
+  #435).
+
+Remaining AP-254 items are advisory-only refinements (route Trivy/Semgrep SARIF
+through `codeql-action/upload-sarif`; promote scanners advisory→gating) tracked
+in [security-todo.md](../security-todo.md).
+
+### CLI release plumbing fixes
+
+A run of CLI-release and CI hardening landed after the 2026-06-07 deploy:
+Windows entrypoint/stdout fixes, bun standalone-binary detection, npm
+release-publish hardening (#440), version-bake fix, release-asset restriction,
+PR-preview Neon branch idempotency (#439), and the AP-219 pre-push time-bomb
+fix (#438). See `git log` for the full list.
+
 ## 2026-06-07
 
 ### Early-alpha production operator updates

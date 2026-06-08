@@ -126,9 +126,9 @@ Launch-readiness secret notes:
   until the account/tooling stack is ready.
 - Hosted Stripe test-mode verification passed in preview. Production Stripe is
   not yet smoke-tested; run it only if billing is enabled for paid public launch.
-- Current public-launch account gates: repository visibility flip, apex GitHub
-  source link, GitHub CodeQL/code scanning, secret scanning, Dependabot, and
-  OpenSSF Scorecard.
+- Public-launch account gates done 2026-06-08: repo is public, apex GitHub
+  source link resolves, and GitHub CodeQL/code scanning, secret scanning + push
+  protection, Dependabot alerts, and OpenSSF Scorecard are all enabled.
 
 ## Deploy Order
 
