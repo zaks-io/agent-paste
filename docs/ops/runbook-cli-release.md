@@ -112,6 +112,18 @@ It:
    `preview` and `production` (`{ latest, min_supported }`, both set to the new
    version), resolving the namespace id from `apps/api/wrangler.jsonc`.
 
+The npm publish command must run from the public GitHub repository for the npm
+package to receive provenance. Trusted publishing can authenticate while the
+repository is private, but npm does not generate provenance for private-source
+publishes, even for public packages. Before publishing the first attested
+release, confirm:
+
+```sh
+gh repo view zaks-io/agent-paste --json visibility --jq .visibility
+```
+
+The result must be `PUBLIC`.
+
 No `api` redeploy. Within the update-check cache window (max-age 300s + a short
 per-isolate memo), stale CLIs on the binary channel start seeing
 `Run: agent-paste upgrade` and npm-global users see the `npm i -g …@latest` hint.
@@ -136,6 +148,10 @@ freshly advertised version can take a few minutes to appear.
   published so the package exists. No stored npm token. The npm publish job must
   stay on a GitHub-hosted runner (`ubuntu-24.04` today); npm trusted publishing
   does not support Blacksmith/self-hosted runners yet.
+- **Repository visibility public before publishing an attested npm release**.
+  This is separate from trusted-publisher configuration: npm provenance is not
+  generated from private repositories. AP-254 owns the GitHub-side public repo
+  flip.
 - **GitHub immutable releases** enabled for `zaks-io/agent-paste`. Keep this on:
   draft releases remain mutable for reruns, but published releases lock their
   assets and tag.

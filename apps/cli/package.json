@@ -15,7 +15,7 @@
     "directory": "apps/cli"
   },
   "bin": {
-    "agent-paste": "./dist/index.js"
+    "agent-paste": "dist/index.js"
   },
   "files": [
     "LICENSE",
