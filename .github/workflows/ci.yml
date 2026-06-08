@@ -119,7 +119,9 @@ jobs:
 
       - name: External PR short-circuit
         if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.trusted != 'true' }}
-        run: echo "Skipping CI for PRs outside ${{ github.repository_owner }} until no-secret public CI is defined."
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: echo "Skipping CI for PRs outside $REPO_OWNER until no-secret public CI is defined."
 
       - name: Checkout
         if: ${{ env.RUN_CODE == 'true' }}
