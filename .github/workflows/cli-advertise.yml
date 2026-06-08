@@ -81,11 +81,13 @@ jobs:
       # this workflow file); the package already exists (a 0.0.0 placeholder), so
       # no manual bootstrap publish is needed.
       #
-      # prepublishOnly (scripts/prepublish-guard.mjs) rebuilds the self-contained
-      # bundle and gates on license/bundle/files, so the build is implicit here.
-      # Skip if this version is already on npm so a re-published release (the
-      # event fires again on any edit) advertises to KV instead of aborting on
-      # npm's duplicate-version rejection. The KV write below is idempotent.
+      # npm normalizes package metadata before running prepublishOnly, including
+      # validating that bin targets exist. Build first so the command shim stays
+      # in the published manifest; prepublishOnly still rebuilds and gates the
+      # final package contents. Skip if this version is already on npm so a
+      # re-published release (the event fires again on any edit) advertises to KV
+      # instead of aborting on npm's duplicate-version rejection. The KV write
+      # below is idempotent.
       - name: Publish to npm
         working-directory: apps/cli
         env:
@@ -96,6 +98,7 @@ jobs:
             echo "@zaks-io/agent-paste@$VERSION already published; skipping npm publish."
             exit 0
           fi
+          npm run build
           npm publish --provenance --access public
 
       # latest == min_supported for now (no force-upgrade floor yet); revisit when
