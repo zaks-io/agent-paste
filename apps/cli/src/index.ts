@@ -261,7 +261,6 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
   return client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: inherent linear flag-parsing loop; splitting adds indirection without clarity. See docs/ops/complexity-todo.md.
 export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];
@@ -332,12 +331,21 @@ function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: bool
   return typeof value === "boolean" ? value : fallback;
 }
 
-function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
+async function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
   if (global.json) {
-    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    await writeStdout(`${JSON.stringify(value, null, 2)}\n`);
   } else if (!global.quiet) {
-    process.stdout.write(`${human}\n`);
+    await writeStdout(`${human}\n`);
   }
+}
+
+function writeStdout(value: string) {
+  return new Promise<void>((resolve, reject) => {
+    process.stdout.write(value, (error?: unknown) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 }
 
 type PublishResultShape = {
@@ -389,7 +397,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
 }
 
 function printHelp() {
-  process.stdout.write(`agent-paste
+  return writeStdout(`agent-paste
 
 Usage:
   agent-paste login

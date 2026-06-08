@@ -35,9 +35,16 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+function mockStdout() {
+  return vi.spyOn(process.stdout, "write").mockImplementation((_value, callback) => {
+    callback?.();
+    return true;
+  });
+}
+
 describe("cli ephemeral publish", () => {
   it("provisions, publishes, and prints share URL plus claim deep link in the hash", async () => {
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-"));
@@ -68,7 +75,7 @@ describe("cli ephemeral publish", () => {
   });
 
   it("never sends a client-chosen ttl_seconds on the create call", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-ttl-default-"));
     try {
@@ -86,7 +93,7 @@ describe("cli ephemeral publish", () => {
   });
 
   it("warns when env API key and stored login credentials are present", async () => {
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    mockStdout();
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_API_KEY", "ap_pk_preview_ignored_secret");
     vi.spyOn(credentials, "loadCredential").mockResolvedValue({
