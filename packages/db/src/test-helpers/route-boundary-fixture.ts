@@ -7,7 +7,12 @@ import { applyMigrations, executorForPglite, pgliteConnection, platformExecutor,
 const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
 
 const adminActor = { type: "admin" as const, id: "route-boundary-test" };
-const fixtureNow = "2026-06-05T00:00:00.000Z";
+// Routes such as getAgentView enforce the artifact's expiry against the real
+// wall clock (Date.now(), which can't be injected). A frozen past date makes the
+// seeded artifact expire once fixtureNow + the artifact TTL passes, so the suite
+// would start failing on a specific calendar day. Anchor to the real clock so the
+// expiry window is always open.
+const fixtureNow = new Date().toISOString();
 
 export type WorkspaceActorSeed = {
   id: string;
@@ -40,7 +45,7 @@ async function seedWorkspaceBilling(executor: ReturnType<typeof executorForPglit
     `insert into workspace_billing
        (workspace_id, stripe_customer_id, stripe_subscription_id, subscription_status,
         current_period_end, price_interval, synced_at, updated_at)
-     values ($1, 'cus_rls_a', 'sub_rls_a', 'active', '2026-07-01T00:00:00.000Z', 'month', now(), now())
+     values ($1, 'cus_rls_a', 'sub_rls_a', 'active', now() + interval '30 days', 'month', now(), now())
      on conflict (workspace_id) do update set
        stripe_customer_id = excluded.stripe_customer_id,
        stripe_subscription_id = excluded.stripe_subscription_id,
