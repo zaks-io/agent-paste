@@ -48,8 +48,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
     case "":
     case "help":
     case "--help":
-      printHelp();
-      return;
+      return printHelp();
     case "login":
       await login();
       return;
