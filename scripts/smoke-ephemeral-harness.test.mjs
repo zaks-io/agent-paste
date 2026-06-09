@@ -48,7 +48,7 @@ describe("smoke-ephemeral-harness", () => {
 
   it("checks exact Artifact URL origin when configured", async () => {
     await expect(
-      assertPublishOutput(samplePublishResult("https://agent-paste-web-pr-460.example.workers.dev"), {
+      assertPublishOutput(samplePublishResult("https://app.preview.agent-paste.sh.evil"), {
         apiBaseUrl: "https://api.example.test",
         contentBaseUrl: "https://content.example.test",
         webBaseUrl: "https://app.preview.agent-paste.sh",
@@ -56,6 +56,23 @@ describe("smoke-ephemeral-harness", () => {
         expectedClaimTokenPrefix: "ap_ct_preview_",
       }),
     ).rejects.toThrow(/artifact_url targets web origin/);
+  });
+
+  it("checks exact revision content URL origin", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult("https://app.preview.agent-paste.sh", {
+          revision_content_url: "https://content.example.test.evil/v/token/index.html",
+        }),
+        {
+          apiBaseUrl: "https://api.example.test",
+          contentBaseUrl: "https://content.example.test",
+          webBaseUrl: "https://app.preview.agent-paste.sh",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).rejects.toThrow(/revision_content_url targets content origin/);
   });
 });
 
@@ -166,7 +183,7 @@ function startProbeServer({ status, body }) {
   });
 }
 
-function samplePublishResult(artifactOrigin) {
+function samplePublishResult(artifactOrigin, overrides = {}) {
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
@@ -176,5 +193,6 @@ function samplePublishResult(artifactOrigin) {
     claim_token: "ap_ct_preview_test",
     claim_url: "https://app.preview.agent-paste.sh/claim#ap_ct_preview_test",
     expires_at: new Date(Date.now() + 60_000).toISOString(),
+    ...overrides,
   };
 }

@@ -47,18 +47,27 @@ const userEnv = {
 const published = await runCliJson(["publish", smokePath, "--ttl", "1d", "--title", config.title, "--json"], userEnv);
 assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
 assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
+const artifactUrl = parseRequiredUrl(published.artifact_url, "publish returned valid artifact_url");
 if (config.webBaseUrl) {
-  assert(published.artifact_url?.startsWith(config.webBaseUrl), `publish returned ${target} artifact_url`);
+  const webUrl = parseRequiredUrl(config.webBaseUrl, `${target} webBaseUrl is valid`);
+  assert(artifactUrl.origin === webUrl.origin, `publish returned ${target} artifact_url`);
 }
-assert(
-  published.artifact_url?.includes(`/artifacts/${published.artifact_id}`),
-  "publish returned Artifact URL for live viewer",
+assert(artifactUrl.pathname === `/artifacts/${published.artifact_id}`, "publish returned Artifact URL for live viewer");
+const revisionContentUrl = parseRequiredUrl(
+  published.revision_content_url,
+  "publish returned valid revision_content_url",
 );
+const contentUrl = parseRequiredUrl(config.contentBaseUrl, `${target} contentBaseUrl is valid`);
 assert(
-  published.revision_content_url?.startsWith(config.contentBaseUrl),
+  revisionContentUrl.origin === contentUrl.origin && revisionContentUrl.pathname.startsWith("/v/"),
   `publish returned ${target} revision_content_url`,
 );
-assert(published.agent_view_url?.startsWith(config.apiBaseUrl), `publish returned ${target} agent_view_url`);
+const agentViewUrl = parseRequiredUrl(published.agent_view_url, "publish returned valid agent_view_url");
+const apiUrl = parseRequiredUrl(config.apiBaseUrl, `${target} apiBaseUrl is valid`);
+assert(
+  agentViewUrl.origin === apiUrl.origin && agentViewUrl.pathname.startsWith("/v1/public/agent-view/"),
+  `publish returned ${target} agent_view_url`,
+);
 
 const agentViewJson = await fetchJson(published.agent_view_url);
 assert(agentViewJson.artifact_id === published.artifact_id, "Agent View JSON artifact id matches");
@@ -289,6 +298,17 @@ function requiredEnv(names) {
 
 function assert(condition, message) {
   if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function parseRequiredUrl(value, message) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(message);
+  }
+  try {
+    return new URL(value);
+  } catch {
     throw new Error(message);
   }
 }
