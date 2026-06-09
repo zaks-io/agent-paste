@@ -174,6 +174,36 @@ describe("runUpgrade (binary channel)", () => {
     expect(stdout).toHaveBeenCalledWith("Upgraded agent-paste to cli-v3.4.5.\n");
   });
 
+  it("short-circuits without downloading when already at or ahead of latest", async () => {
+    // CLI_VERSION is the build-time sentinel 0.0.0-dev (= 0.0.0) under test, so a
+    // resolved latest of 0.0.0 is "already current": nothing should be fetched or
+    // written, and it is a success (exit 0), not an error.
+    const { deps, fs, stdout } = binaryDeps({ resolveLatest: vi.fn(async () => "0.0.0") });
+    const fetchBytes = deps.fetchBytes as ReturnType<typeof vi.fn>;
+    const fetchText = deps.fetchText as ReturnType<typeof vi.fn>;
+
+    await runUpgrade({}, deps);
+
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining("already up to date"));
+    expect(fetchBytes).not.toHaveBeenCalled();
+    expect(fetchText).not.toHaveBeenCalled();
+    expect(fs.calls.writeFile).toEqual([]);
+    expect(fs.calls.rename).toEqual([]);
+    expect(process.exitCode ?? 0).toBe(0);
+  });
+
+  it("still downloads a pinned --version even when it is at or below the installed version", async () => {
+    // A pinned tag is a deliberate reinstall/downgrade request; the up-to-date
+    // guard must not apply. cli-v0.0.0 is not newer than the 0.0.0-dev sentinel.
+    const { deps } = binaryDeps();
+    const fetchBytes = deps.fetchBytes as ReturnType<typeof vi.fn>;
+    await runUpgrade({ version: "cli-v0.0.0" }, deps);
+    expect(deps.resolveLatest).not.toHaveBeenCalled();
+    expect(fetchBytes).toHaveBeenCalledWith(
+      "https://github.com/zaks-io/agent-paste/releases/download/cli-v0.0.0/agent-paste-linux-x64",
+    );
+  });
+
   it("pins the release tag from an explicit version and never resolves latest", async () => {
     const { deps } = binaryDeps();
     const fetchBytes = deps.fetchBytes as ReturnType<typeof vi.fn>;
