@@ -104,7 +104,7 @@ describe("member MCP repository operations", () => {
     // Opaque string matching MCP publish_artifact key shape; dedup is scoped by operation
     // plus key, not by deriveMcpIdempotencyKey formatting.
     const toolKey = IdempotencyKey.parse("mcp:user_01:7:publish_artifact");
-    const publishChainShareKey = mcpPublishAccessLinkIdempotencyKey(toolKey, "share");
+    const publishChainShareKey = mcpPublishAccessLinkIdempotencyKey(toolKey);
 
     const share = await repo.createMemberAccessLink({
       actor: member,

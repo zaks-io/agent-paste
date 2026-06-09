@@ -60,7 +60,7 @@ MCP exposes twelve tools:
 | Tool                      | Purpose                                                         |
 | ------------------------- | --------------------------------------------------------------- |
 | `whoami`                  | Return the authenticated member, Workspace, and derived scopes. |
-| `publish_artifact`        | Publish a new text-only Artifact and mint Revision Link.        |
+| `publish_artifact`        | Publish a new text-only Artifact and return its Artifact URL.   |
 | `add_revision`            | Add and publish a text-only Revision.                           |
 | `list_artifacts`          | List Artifacts in the Workspace.                                |
 | `read_artifact`           | Read the latest Agent View for an Artifact.                     |
@@ -72,9 +72,10 @@ MCP exposes twelve tools:
 | `list_access_links`       | List Share Links and Revision Links for an Artifact.            |
 | `revoke_access_link`      | Revoke a Share Link or Revision Link.                           |
 
-Publishing tools always return a Revision Link for the published Revision. Set
-`share: true` on publish tools when the agent should also mint a Share Link for
-the latest Revision.
+Publishing tools return `artifact_url` as the stable live viewer URL for humans.
+Set `share: true` on publish tools only when the agent should also mint a public
+Share Link. Use `create_revision_link` only when the reader must see one exact
+Revision.
 
 ## Capabilities
 

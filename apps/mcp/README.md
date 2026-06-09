@@ -40,20 +40,20 @@ Twelve tools, gated by MCP capabilities (`read`, `write`, `share`) derived by
 standard OAuth scopes; they do not directly grant these capabilities. Canonical
 contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
 
-| Tool                      | Scopes               | Purpose                                                  |
-| ------------------------- | -------------------- | -------------------------------------------------------- |
-| `whoami`                  | (none)               | Authenticated member, workspace, and derived scopes.     |
-| `list_artifacts`          | `read`               | List Artifacts in the workspace.                         |
-| `read_artifact`           | `read`               | Latest Agent View for an Artifact.                       |
-| `list_revisions`          | `read`               | List Revisions for an Artifact.                          |
-| `publish_artifact`        | `write, read, share` | Publish a new text Artifact; mint its Revision Link.     |
-| `add_revision`            | `write, read, share` | Add and publish a Revision; mint its Revision Link.      |
-| `delete_artifact`         | `write`              | Delete an Artifact.                                      |
-| `update_display_metadata` | `write`              | Update an Artifact's display title.                      |
-| `create_share_link`       | `read, share`        | Create and mint a Share Link for the latest Revision.    |
-| `create_revision_link`    | `read, share`        | Create and mint a Revision Link for a specific Revision. |
-| `list_access_links`       | `read, share`        | List an Artifact's Share Links and Revision Links.       |
-| `revoke_access_link`      | `share`              | Revoke a Share Link or Revision Link.                    |
+| Tool                      | Scopes        | Purpose                                                  |
+| ------------------------- | ------------- | -------------------------------------------------------- |
+| `whoami`                  | (none)        | Authenticated member, workspace, and derived scopes.     |
+| `list_artifacts`          | `read`        | List Artifacts in the workspace.                         |
+| `read_artifact`           | `read`        | Latest Agent View for an Artifact.                       |
+| `list_revisions`          | `read`        | List Revisions for an Artifact.                          |
+| `publish_artifact`        | `write, read` | Publish a new text Artifact; return its Artifact URL.    |
+| `add_revision`            | `write, read` | Add and publish a Revision; return its Artifact URL.     |
+| `delete_artifact`         | `write`       | Delete an Artifact.                                      |
+| `update_display_metadata` | `write`       | Update an Artifact's display title.                      |
+| `create_share_link`       | `read, share` | Create and mint a Share Link for the latest Revision.    |
+| `create_revision_link`    | `read, share` | Create and mint a Revision Link for a specific Revision. |
+| `list_access_links`       | `read, share` | List an Artifact's Share Links and Revision Links.       |
+| `revoke_access_link`      | `share`       | Revoke a Share Link or Revision Link.                    |
 
 ## Local verification
 

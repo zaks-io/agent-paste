@@ -75,8 +75,8 @@ export const MCP_DOC: DocsPage = {
           columns: ["Tool", "Purpose"],
           rows: [
             ["`whoami`", "Return authenticated member, Workspace, and derived scopes."],
-            ["`publish_artifact`", "Publish a new text-only Artifact and mint its Revision Link."],
-            ["`add_revision`", "Add and publish a new text-only Revision."],
+            ["`publish_artifact`", "Publish a new text-only Artifact and return its Artifact URL."],
+            ["`add_revision`", "Add and publish a new text-only Revision and return its Artifact URL."],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
             ["`list_revisions`", "List Revisions for an Artifact."],

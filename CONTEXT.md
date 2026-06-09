@@ -498,9 +498,10 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
 - The base REST/CLI **Publish Result** currently includes the **Artifact** id, **Revision** id, **Artifact URL**, direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
-- MCP publish tools create and mint a **Revision Link** for the published **Revision**
-- MCP publish fails if **Usage Policy** prevents creating the required **Revision Link**
-- **Publish** fails while an **Artifact** is in **Access Link Lockdown**
+- MCP publish tools return the stable **Artifact URL** as the human handoff URL
+- MCP publish tools do not create a **Revision Link** unless the agent explicitly calls **Create Revision Link**
+- MCP publish fails if a requested **Share Link** cannot be created
+- **Access Link Lockdown** blocks creating or resolving **Access Links**; plain **Publish** without requested link creation is not an **Access Link** operation
 - **Revision Links** are not created for **Draft Revisions**
 - **Share Links** always resolve to the latest **Published Revision**
 - Additional **Revision Links** can be created for an already published **Revision**
@@ -603,7 +604,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - An **API Key** requires a share **Scope** to change **Access Link Lockdown**
 - A share **Scope** does not imply a read **Scope**
 - A write **Scope** does not imply a share **Scope**
-- **Publish** requires write, read, and share **Scopes**
+- **Publish** requires write and read **Scopes**; requested **Access Link** creation additionally requires share **Scope**
 - **Upload Sessions** require a write **Scope**, not a share **Scope**
 - A write-only **API Key** can prepare a **Draft Revision** for another actor to **Publish**
 - A **Creator** is recorded for an **Artifact** but does not own it
@@ -631,7 +632,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - Any **API Key** with the right **Scope** in the owning **Workspace** can update **Display Metadata**
 - Updating a known **Artifact** does not require a read **Scope**
 - Updating **Display Metadata** for a known **Artifact** does not require a read **Scope**
-- **Publish** always requires a read **Scope** because it creates a **Revision Link**
+- **Publish** requires write and read **Scopes**; share **Scope** is required only when the actor requests a **Share Link**
 - An **Artifact** contains **Untrusted Content**
 - An **Artifact** can have zero or more **Safety Warnings**
 - A **Revision** can have zero or more **Safety Warnings**
@@ -763,7 +764,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an agent change **Access Link** **Expiration** during **Access Link Lockdown**?"
 > **Domain expert:** "Yes — expiration can change, but lockdown still prevents access."
 > **Dev:** "Can an agent publish a new **Revision** while **Access Link Lockdown** is active?"
-> **Domain expert:** "No — **Publish** requires a new **Revision Link**, and lockdown prevents new **Access Links**."
+> **Domain expert:** "Yes — plain **Publish** can create a new **Revision**. Lockdown blocks creating new **Access Links**, including requested **Share Links** or explicit **Revision Links**."
 > **Dev:** "Can another agent use a **Share Link** without an **API Key**?"
 > **Domain expert:** "Yes — a **Share Link** grants read-only access to the **Agent View** and published files."
 > **Dev:** "Can another agent use a **Revision Link** to inspect an exact **Revision**?"
@@ -817,9 +818,9 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Do **Unpublished Artifacts** count against creation limits?"
 > **Domain expert:** "Yes — **Usage Policy** controls their creation too."
 > **Dev:** "What is the simplest way for an agent to share a folder?"
-> **Domain expert:** "It should call **Publish** and receive usable links."
+> **Domain expert:** "It should call **Publish** and receive the stable **Artifact URL**. It should request a **Share Link** only when public access is needed."
 > **Dev:** "What does an agent get back after **Publish**?"
-> **Domain expert:** "A **Publish Result** with IDs, **Private Link**, **Revision Link**, agent-view links, **Bundle** status, and any **Safety Warnings**."
+> **Domain expert:** "A **Publish Result** with IDs, the stable **Artifact URL**, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings**."
 > **Dev:** "Does **Publish** make an **Artifact** shareable by default?"
 > **Domain expert:** "No — **Publish** creates a **Share Link** only when sharing is requested."
 > **Dev:** "What if a requested **Share Link** cannot be created during **Publish**?"
@@ -831,7 +832,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an agent create a **Share Link** while **Access Link Lockdown** is active?"
 > **Domain expert:** "No — lockdown prevents creating new **Access Links**."
 > **Dev:** "Does **Publish** create a pinned link for the exact **Revision**?"
-> **Domain expert:** "Yes — each published **Revision** receives a revocable **Revision Link**."
+> **Domain expert:** "No — **Publish** returns the stable **Artifact URL**. An agent must call **Create Revision Link** when it needs a pinned URL for the exact **Revision**."
 > **Dev:** "Can an agent create another **Revision Link** for the same **Revision**?"
 > **Domain expert:** "Yes — additional **Revision Links** can be created for separate audiences."
 > **Dev:** "Can an agent create an additional **Revision Link** during **Access Link Lockdown**?"
@@ -839,7 +840,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an agent create a **Revision Link** for a removed or draft **Revision**?"
 > **Domain expert:** "No — **Revision Links** can target only retained published **Revisions**."
 > **Dev:** "What if **Usage Policy** blocks the required **Revision Link**?"
-> **Domain expert:** "Then **Publish** fails before the **Revision** becomes visible."
+> **Domain expert:** "That failure applies only when the agent explicitly asks to create a pinned **Revision Link**. Plain **Publish** does not create one."
 > **Dev:** "Can an agent get a **Revision Link** for a **Draft Revision**?"
 > **Domain expert:** "No — **Revision Links** are created only when a **Revision** is published."
 > **Dev:** "Does an old **Revision Link** break when a newer **Revision** is published?"
@@ -875,9 +876,9 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Does share **Scope** include read **Scope**?"
 > **Domain expert:** "No — **Scopes** are independent."
 > **Dev:** "Does write **Scope** include share **Scope**?"
-> **Domain expert:** "No — **Publish** requires write, read, and share because they are separate powers."
+> **Domain expert:** "No — **Publish** requires write and read. Share is a separate power required only for creating or minting **Access Links**."
 > **Dev:** "Can an **API Key** publish with write **Scope** but no read or share **Scope**?"
-> **Domain expert:** "No — **Publish** creates a **Revision Link**, so it requires write, read, and share **Scopes**."
+> **Domain expert:** "No — **Publish** requires write and read **Scopes**. It requires share **Scope** only when a **Share Link** is requested."
 > **Dev:** "Does creating an **Upload Session** require a share **Scope**?"
 > **Domain expert:** "No — **Upload Sessions** create drafts, so write **Scope** is enough."
 > **Dev:** "Can one agent upload a draft and another publish it?"
@@ -895,7 +896,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an **API Key** update a known **Artifact** without reading it first?"
 > **Domain expert:** "Yes — update authority comes from the write **Scope**, not the read **Scope**."
 > **Dev:** "Can an **API Key** publish without read **Scope**?"
-> **Domain expert:** "No — **Publish** creates a **Revision Link** as an **Access Link Signed URL**, so read **Scope** is required."
+> **Domain expert:** "No — **Publish** returns a **Revision Content URL** and **Agent View** URL, so read **Scope** is required."
 > **Dev:** "Does updating **Display Metadata** require a read **Scope**?"
 > **Domain expert:** "No — write **Scope** is enough for a known **Artifact**."
 > **Dev:** "Can uploaded JavaScript call arbitrary external APIs?"

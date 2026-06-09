@@ -119,11 +119,12 @@ scopes** (`mcp.whoami` returns the derived set), not from the token. See
 | `write`   | `publish`        | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`       |
 | `share`   | `admin`          | `create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
 
-Publishing and revision tools require **`write read share`** together. Members
-are provisioned with all three (`DEFAULT_MEMBER_SCOPES`), so today every member
-has full capability; a future read-only or share-less member is a change to that
-member's stored scopes in `api`, with no host, token, or WorkOS change. The MCP
-Worker pre-flight-gates each tool by fetching the member's derived scopes via
+Publishing tools require **`write read`**. `share` is required only for link
+management or for publish calls that set `share: true`. Members are provisioned
+with all three (`DEFAULT_MEMBER_SCOPES`), so today every member has full
+capability; a future read-only or share-less member is a change to that member's
+stored scopes in `api`, with no host, token, or WorkOS change. The MCP Worker
+pre-flight-gates each tool by fetching the member's derived scopes via
 `mcp.whoami`; `api` re-enforces the member's scopes/RLS on every forwarded call.
 
 Prerequisite: the WorkOS user must already have a **Workspace Member** row
@@ -197,17 +198,18 @@ Text-only artifact operations per ADR 0061:
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
 
-`publish_artifact` and `add_revision` always return `revision_link_id` and
-`revision_link_url` for the published revision. Set `share: true` to also mint an
-optional `share_link_url`; `share` does not gate the required Revision Link.
+`publish_artifact` and `add_revision` return `artifact_url` as the stable live
+viewer URL. Set `share: true` only when the agent should also mint an optional
+`share_link_url`. Use `create_revision_link` for a pinned URL to one exact
+Revision.
 
 ### Publish retries and share-link idempotency
 
 `publish_artifact` and `add_revision` accept an optional tool idempotency key.
-The Worker threads that key through upload, publish, and access-link creates.
-Revision and share links use derived keys (`:revision-link` and `:share-link`
-suffixes) so a retried publish does not mint duplicate links or cross-replay
-cached rows between link types. See [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
+The Worker threads that key through upload and publish. When `share: true`, the
+optional Share Link create uses a derived `:share-link` key so a retried publish
+does not mint duplicate Share Links. See
+[ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
 Regression coverage: `apps/mcp/src/publish-chain.test.ts` (key forwarding) and
 `packages/db/src/member-mcp-operations.test.ts` (repository dedup).
 
@@ -271,7 +273,7 @@ pnpm --filter @agent-paste/mcp test
 | `401` with `workos_access_token` message    | Host sent a dashboard session token instead of MCP OAuth             |
 | `mcp_oauth_verifier_not_configured` (local) | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                   |
 | Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS or missing Resource Indicator |
-| `whoami` succeeds but publish fails         | Member's role lacks `write read share` together                      |
+| `whoami` succeeds but publish fails         | Member's role lacks `write read`, or lacks `share` for `share: true` |
 
 ## Verification boundary
 

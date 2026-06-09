@@ -61,20 +61,21 @@ export async function callMcpTool(
   }
 
   const contract = mcpToolContractByName(parsed.data.name);
-  if (contract.requiredScopes.length > 0) {
-    const granted = await resolveGrantedScopes(deps);
-    if (!granted.ok) {
-      return granted;
-    }
-    if (!mcpTokenHasRequiredScopes(granted.scopes, contract.requiredScopes)) {
-      return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
-    }
-  }
-
   const inputSchema = mcpToolInputSchemas[parsed.data.name];
   const inputParsed = inputSchema.safeParse(parsed.data.arguments ?? {});
   if (!inputParsed.success) {
     return { ok: false, error: mapMcpProtocolError("invalid_params", "invalid_params") };
+  }
+
+  const requiredScopes = requiredScopesForToolCall(parsed.data.name, contract.requiredScopes, inputParsed.data);
+  if (requiredScopes.length > 0) {
+    const granted = await resolveGrantedScopes(deps);
+    if (!granted.ok) {
+      return granted;
+    }
+    if (!mcpTokenHasRequiredScopes(granted.scopes, requiredScopes)) {
+      return { ok: false, error: mapMcpProtocolError("insufficient_scope", "insufficient_scope") };
+    }
   }
 
   switch (parsed.data.name) {
@@ -108,6 +109,21 @@ export async function callMcpTool(
         error: mapMcpProtocolError("method_not_found", "tools/call is not implemented yet"),
       };
   }
+}
+
+function requiredScopesForToolCall(
+  toolName: string,
+  baseScopes: readonly McpScope[],
+  input: unknown,
+): readonly McpScope[] {
+  if ((toolName !== "publish_artifact" && toolName !== "add_revision") || !requestsShareLink(input)) {
+    return baseScopes;
+  }
+  return Array.from(new Set<McpScope>([...baseScopes, "share"]));
+}
+
+function requestsShareLink(input: unknown): boolean {
+  return typeof input === "object" && input !== null && "share" in input && input.share === true;
 }
 
 function resolveIdempotencyKey(
