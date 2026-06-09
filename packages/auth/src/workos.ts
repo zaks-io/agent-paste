@@ -260,7 +260,7 @@ function remoteWorkOsJwks(options: WorkOsVerificationOptions): ReturnType<typeof
 }
 
 function workOsBaseUrl(value: string | undefined): string {
-  return (value ?? DEFAULT_WORKOS_API_BASE_URL).replace(/\/+$/, "");
+  return trimTrailingSlash(value ?? DEFAULT_WORKOS_API_BASE_URL);
 }
 
 function issuerMatches(actual: string | undefined, expected: readonly string[] | undefined): boolean {
@@ -273,7 +273,11 @@ function issuerMatches(actual: string | undefined, expected: readonly string[] |
 }
 
 function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, "");
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
 }
 
 function clientIdMatches(payload: JWTPayload, clientId: string, requireClaim: boolean): boolean {
