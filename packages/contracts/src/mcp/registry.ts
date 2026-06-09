@@ -3,7 +3,7 @@ import type { McpForwardedCall, McpToolContract } from "./types.js";
 
 const { publishChain: publishChainErrors, read: readErrors, shareLink: shareLinkErrors } = mcpToolErrorGroups;
 
-/** Shared upload → publish → access-link chain for `publish_artifact` and `add_revision`. */
+/** Shared upload → publish chain for `publish_artifact` and `add_revision`, with optional Share Link minting. */
 const publishChainForwardedCalls = [
   {
     routeId: "uploadSessions.create",
@@ -27,15 +27,6 @@ const publishChainForwardedCalls = [
   {
     routeId: "accessLinks.create",
     auth: "mcp_bearer",
-    idempotencyKey: "derived_revision_link",
-  },
-  {
-    routeId: "accessLinks.mint",
-    auth: "mcp_bearer",
-  },
-  {
-    routeId: "accessLinks.create",
-    auth: "mcp_bearer",
     idempotencyKey: "derived_share_link",
     optional: true,
   },
@@ -50,9 +41,9 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only artifact, mint the required Revision Link, and optionally mint a Share Link when share is true.",
+      "Publish a new text-only Artifact and return artifact_url as the stable live viewer. Optionally mint a Share Link when share is true.",
     auth: "mcp_oauth",
-    requiredScopes: ["write", "read", "share"],
+    requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "publish_artifact",
     outputSchema: "publish_artifact",
@@ -62,9 +53,9 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only revision, mint the required Revision Link, and optionally mint a Share Link when share is true.",
+      "Add and publish a text-only Revision and return artifact_url as the stable live viewer. Optionally mint a Share Link when share is true.",
     auth: "mcp_oauth",
-    requiredScopes: ["write", "read", "share"],
+    requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "add_revision",
     outputSchema: "add_revision",

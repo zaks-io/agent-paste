@@ -8,7 +8,7 @@ export type McpAuthRequirement = "mcp_oauth";
 
 export type McpForwardedAuth = "mcp_bearer" | "signed_upload_url";
 
-export type McpForwardedIdempotencyKey = "same_as_tool" | "derived_revision_link" | "derived_share_link";
+export type McpForwardedIdempotencyKey = "same_as_tool" | "derived_share_link";
 
 export type McpForwardedCall = {
   routeId: RouteId;

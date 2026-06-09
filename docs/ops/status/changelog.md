@@ -99,8 +99,8 @@ feature-complete surface (most delegated to Cursor):
   in the signed PUT path now returns 401 (not 500) by falling through to
   `not_authenticated`.
 - **MCP idempotency key overflow (#290):** a max-length client idempotency key no
-  longer overflows `IdempotencyKey.max` when the `:revision-link`/`:share-link`
-  suffix is appended — long keys are hashed via fnv1a32 first.
+  longer overflows `IdempotencyKey.max` when the optional `:share-link` suffix is
+  appended; long keys are hashed via fnv1a32 first.
 - **CLI fixes:** config dir is created `0700` even when update-check runs before
   login (AP-192, #291); a stale keyring entry is cleared when `setPassword`
   falls back to the file store so `load()` can't return an older credential

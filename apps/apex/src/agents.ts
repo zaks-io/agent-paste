@@ -162,10 +162,11 @@ Read (\`read\`):
 
 Write (\`write\`):
 
-- \`publish_artifact\` - publish a new text-only Artifact and mint its Revision
-  Link (also needs \`read\`, \`share\`).
-- \`add_revision\` - add and publish a new Revision to an Artifact (also needs
-  \`read\`, \`share\`).
+- \`publish_artifact\` - publish a new text-only Artifact and return its stable
+  Artifact URL (also needs \`read\`; \`share\` only when \`share: true\`).
+- \`add_revision\` - add and publish a new Revision to an Artifact and return
+  its stable Artifact URL (also needs \`read\`; \`share\` only when
+  \`share: true\`).
 - \`delete_artifact\` - delete an Artifact.
 - \`update_display_metadata\` - update an Artifact's display title.
 

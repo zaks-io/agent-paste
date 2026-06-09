@@ -54,12 +54,12 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
-  it("requires write read share for publish tools", () => {
-    expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["write", "read", "share"]);
-    expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read", "share"]);
+  it("requires write and read for publish tools", () => {
+    expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["write", "read"]);
+    expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read"]);
   });
 
-  it("threads publish chains through upload, publish, and access-link routes", () => {
+  it("threads publish chains through upload, publish, and optional share-link routes", () => {
     const publish = mcpToolContractByName("publish_artifact");
     expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual([
       "uploadSessions.create",
@@ -68,24 +68,21 @@ describe("MCP tool registry", () => {
       "revisions.publish",
       "accessLinks.create",
       "accessLinks.mint",
-      "accessLinks.create",
-      "accessLinks.mint",
     ]);
     const requiredAccessLinkCalls = publish.forwardedCalls.filter((call) => !("optional" in call && call.optional));
-    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.create")).toHaveLength(1);
-    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.mint")).toHaveLength(1);
+    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.create")).toHaveLength(0);
+    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.mint")).toHaveLength(0);
     expect(
       publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
     ).toBe(true);
   });
 
-  it("labels publish-chain access-link creates with derived idempotency keys, not same_as_tool", () => {
+  it("labels optional publish-chain share-link creates with derived idempotency keys, not same_as_tool", () => {
     for (const toolName of ["publish_artifact", "add_revision"] as const) {
       const tool = mcpToolContractByName(toolName);
       const accessLinkCreates = tool.forwardedCalls.filter((call) => call.routeId === "accessLinks.create");
-      expect(accessLinkCreates).toHaveLength(2);
-      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_revision_link");
-      expect(accessLinkCreates[1]?.idempotencyKey).toBe("derived_share_link");
+      expect(accessLinkCreates).toHaveLength(1);
+      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_share_link");
       expect(accessLinkCreates.every((call) => call.idempotencyKey !== "same_as_tool")).toBe(true);
     }
   });
@@ -211,44 +208,32 @@ describe("MCP auth and idempotency helpers", () => {
     expect(apiScopesToMcpScopes(["read"])).toEqual(["read"]);
   });
 
-  it("derives distinct publish access-link idempotency keys from the tool key", () => {
+  it("derives the optional publish share-link idempotency key from the tool key", () => {
     const toolKey = IdempotencyKey.parse("mcp:user_01:42:publish_artifact");
-    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "revision")).toBe(
-      "mcp:user_01:42:publish_artifact:revision-link",
-    );
-    expect(mcpPublishAccessLinkIdempotencyKey(toolKey, "share")).toBe("mcp:user_01:42:publish_artifact:share-link");
+    expect(mcpPublishAccessLinkIdempotencyKey(toolKey)).toBe("mcp:user_01:42:publish_artifact:share-link");
   });
 
-  it("derives valid access-link keys for max-length publish tool idempotency keys", () => {
+  it("derives valid share-link keys for max-length publish tool idempotency keys", () => {
     const maxToolKey = IdempotencyKey.parse("a".repeat(200));
-    const revisionKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "revision");
-    const shareKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey, "share");
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey);
 
-    expect(revisionKey.length).toBeLessThanOrEqual(200);
     expect(shareKey.length).toBeLessThanOrEqual(200);
-    expect(IdempotencyKey.safeParse(revisionKey).success).toBe(true);
     expect(IdempotencyKey.safeParse(shareKey).success).toBe(true);
-    expect(revisionKey).not.toBe(shareKey);
-    expect(revisionKey).toMatch(/:revision-link$/);
     expect(shareKey).toMatch(/:share-link$/);
   });
 
-  it("keeps hashed and direct access-link idempotency keyspaces disjoint", () => {
+  it("keeps hashed and direct share-link idempotency keyspaces disjoint", () => {
     const targetHash = "d4d70a05";
     const longToolKey = IdempotencyKey.parse(`${"x".repeat(190)}${"0".repeat(10)}`);
     const shortToolKey = IdempotencyKey.parse(`h${targetHash}`);
-    expect(`${longToolKey}:revision-link`.length).toBeGreaterThan(200);
+    expect(`${longToolKey}:share-link`.length).toBeGreaterThan(200);
 
-    const shortRevisionKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey, "revision");
-    const longRevisionKey = mcpPublishAccessLinkIdempotencyKey(longToolKey, "revision");
-    const shortShareKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey, "share");
-    const longShareKey = mcpPublishAccessLinkIdempotencyKey(longToolKey, "share");
+    const shortShareKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey);
+    const longShareKey = mcpPublishAccessLinkIdempotencyKey(longToolKey);
 
-    expect(shortRevisionKey).not.toBe(longRevisionKey);
     expect(shortShareKey).not.toBe(longShareKey);
-    expect(shortRevisionKey).toMatch(/^h[0-9a-f]{8}:revision-link$/);
-    expect(shortRevisionKey).not.toBe(`h${targetHash}:revision-link`);
-    expect(longRevisionKey).toBe(`h${targetHash}:revision-link`);
+    expect(shortShareKey).toMatch(/^h[0-9a-f]{8}:share-link$/);
+    expect(shortShareKey).not.toBe(`h${targetHash}:share-link`);
     expect(longShareKey).toBe(`h${targetHash}:share-link`);
   });
 

@@ -1,6 +1,6 @@
 import type { McpScope } from "@agent-paste/contracts";
 import { deriveMcpIdempotencyKey } from "@agent-paste/contracts";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as publishChain from "./publish-chain.js";
 import { callMcpTool } from "./tools.js";
 
@@ -49,6 +49,10 @@ function routeCall(api: ReturnType<typeof apiMock>, index: number): Request {
 
 describe("callMcpTool", () => {
   const upload = { fetch: vi.fn() };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
 
   it("rejects invalid tool call params", async () => {
     const result = await callMcpTool("not-a-tool", {}, auth, {
@@ -156,17 +160,34 @@ describe("callMcpTool", () => {
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },
-      revision_link_id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_link_url: "https://revision.example/al",
     };
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
-      api: apiMock(["write", "read", "share"]),
+      api: apiMock(["write", "read"]),
       upload: { fetch: vi.fn() },
       bearerToken: "token-all",
       jsonRpcId: 42,
     });
     expect(result).toEqual({ ok: true, result: published });
+  });
+
+  it("requires share scope when publish_artifact requests a share link", async () => {
+    const result = await callMcpTool(
+      "publish_artifact",
+      { title: "Note", body: "hello", render_mode: "text", share: true },
+      auth,
+      {
+        api: apiMock(["write", "read"]),
+        upload: { fetch: vi.fn() },
+        bearerToken: "token-write-read",
+        jsonRpcId: 42,
+      },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("insufficient_scope");
+    }
+    expect(publishChain.runTextPublishChain).not.toHaveBeenCalled();
   });
 
   it("lists revisions for an artifact", async () => {
@@ -232,8 +253,6 @@ describe("callMcpTool", () => {
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },
-      revision_link_id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_link_url: "https://revision.example/al",
     };
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool(
@@ -244,7 +263,7 @@ describe("callMcpTool", () => {
         render_mode: "text",
       },
       auth,
-      { api: apiMock(["write", "read", "share"]), upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
+      { api: apiMock(["write", "read"]), upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
     );
     expect(result).toEqual({ ok: true, result: published });
   });

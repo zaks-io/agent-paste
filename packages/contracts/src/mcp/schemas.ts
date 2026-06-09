@@ -110,8 +110,6 @@ export const McpWhoamiInput = z.object({}).strict();
 export type McpWhoamiInput = z.infer<typeof McpWhoamiInput>;
 
 export const McpPublishArtifactOutput = PublishResult.extend({
-  revision_link_id: AccessLinkId,
-  revision_link_url: UrlString,
   share_link_url: UrlString.optional(),
 }).strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;
