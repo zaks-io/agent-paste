@@ -35,6 +35,37 @@ export const HERO = {
   secondary: { label: "Read the docs", href: "/docs" },
 };
 
+// The home demo: a flat, hairline transcript shell showing one real publish
+// session (style-guide §8.1 sanctions the transcript; the terminal *look* is
+// still banned). Nothing in it animates.
+
+// The static demo artifact the transcript resolves to. It is a self-hosted
+// static page under public/ (NOT a live artifact), served at an id-shaped path
+// so the URL reads like a real minted Artifact. The slug must not collide with a
+// PRODUCT_PREFIXES redirect (redirects.ts) or the TEXT_ASSET_PATHS whitelist
+// (server.ts): `/a/` is free.
+export const EXAMPLE_ARTIFACT_PATH = "/a/art_8KQ2WSDIEGO7XR";
+export const EXAMPLE_ARTIFACT_URL = `agent-paste.sh${EXAMPLE_ARTIFACT_PATH}`;
+export const EXAMPLE_PROMPT = "What are some good weekend things to do in San Diego?";
+
+export type TranscriptLine =
+  | { kind: "prompt"; text: string }
+  | { kind: "comment"; text: string }
+  | { kind: "success"; text: string }
+  | { kind: "output"; text: string }
+  | { kind: "result"; url: string; href: string };
+
+// One real session: an agent renders a folder, you publish it, you get a link.
+// Kept tool-agnostic; the active tool shows in the shell header, not the body.
+export const TRANSCRIPT: TranscriptLine[] = [
+  { kind: "comment", text: `# you asked your agent: ${EXAMPLE_PROMPT}` },
+  { kind: "output", text: "it wrote the answer to ./san-diego as a small static site." },
+  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./san-diego" },
+  { kind: "success", text: "Published a weekend in San Diego" },
+  { kind: "result", url: EXAMPLE_ARTIFACT_URL, href: EXAMPLE_ARTIFACT_PATH },
+  { kind: "comment", text: "# open it on your phone, share it, or hand it to the next agent." },
+];
+
 export type Feature = {
   title: string;
   // Body prose; `backtick` spans render as inline <code> (see renderFeature).

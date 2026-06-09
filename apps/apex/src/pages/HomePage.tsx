@@ -1,5 +1,6 @@
 import { Prose } from "@agent-paste/ui";
 import type { ReactNode } from "react";
+import { TranscriptDemo } from "../components/TranscriptDemo";
 import { FEATURES, type Feature, HERO, SIGN_IN_URL } from "../copy";
 
 // The result gesture echoes the brand mark: a caret pointing along a wire into a
@@ -105,6 +106,7 @@ function DetailPane() {
         </p>
       </div>
 
+      <DemoBlock />
       <CommandBlock />
       <ProofBlock />
       <ClosingBlock />
@@ -117,11 +119,29 @@ function DetailPane() {
 const BLOCK = "py-[clamp(38px,5vh,56px)] [scroll-margin-top:calc(var(--head-h)+24px)] border-t border-rule";
 const MARKER = "font-mono text-mono-sm tracking-eyebrow uppercase text-subtle mb-6";
 
+// The lead set-piece: a flat transcript shell showing an agent build something
+// and the one command that turns it into a shareable link. This is the section
+// the home is built to draw the eye to.
+function DemoBlock() {
+  return (
+    <div className={`reveal d3 ${BLOCK}`} id="demo">
+      <div className={MARKER}>
+        <span className="text-accent">01</span> / See it happen
+      </div>
+      <p className="text-base leading-relaxed text-muted mb-5 max-w-[46ch]">
+        Your agent renders a folder, in whatever tool you already use. One command publishes it and hands back a link a
+        person can open and another agent can read.
+      </p>
+      <TranscriptDemo />
+    </div>
+  );
+}
+
 function CommandBlock() {
   return (
     <div className={`reveal d4 ${BLOCK}`} id="how">
       <div className={MARKER}>
-        <span className="text-accent">01</span> / The command
+        <span className="text-accent">02</span> / The command
       </div>
       <p className="text-base leading-relaxed text-muted mb-5 max-w-[46ch]">
         Sign in once over browser OAuth, then publish to hand off what your agent made. The same ID resolves to a page a
@@ -177,7 +197,7 @@ function ProofBlock() {
   return (
     <div className={`reveal d5 ${BLOCK}`} id="features">
       <div className={MARKER}>
-        <span className="text-accent">02</span> / Why it holds up
+        <span className="text-accent">03</span> / Why it holds up
       </div>
       <ol className="list-none m-0 p-0">
         {FEATURES.map((feature, index) => (
@@ -210,7 +230,7 @@ function ClosingBlock() {
   return (
     <div className={`reveal d6 ${BLOCK}`} id="docs">
       <div className={MARKER}>
-        <span className="text-accent">03</span> / Get started
+        <span className="text-accent">04</span> / Get started
       </div>
       <CommandBox cmd={INSTALL_CMD} />
       <p className="text-base leading-relaxed text-subtle mt-4 mb-8">

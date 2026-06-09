@@ -83,6 +83,15 @@ describe("home page", () => {
     expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
   });
 
+  it("renders the demo transcript wired to the static example artifact", () => {
+    // The demo's result row links AND clipboards the id-shaped static artifact
+    // path; the publish command is the San Diego one. Contract (href + clipboard
+    // + the served path), not copy — see feedback_never_unit_test_copy.
+    expect(body).toContain('href="/a/art_8KQ2WSDIEGO7XR"');
+    expect(body).toContain('data-clipboard="https://agent-paste.sh/a/art_8KQ2WSDIEGO7XR"');
+    expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste publish ./san-diego"');
+  });
+
   it("leads with OAuth login, not manual API keys", () => {
     expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
     expect(body).not.toContain("Get an API key");

@@ -666,7 +666,7 @@ The product has four visually distinct surfaces. Each commits to the shared syst
 Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It shares the dashboard's exact discipline: square corners (`--radius-xs/sm/md`), depth from the surface ladder + 1px hairlines, no decorative drop shadows, no accent glows, no card hover-lifts, no gradient fills, no grain, no hero aura (§6.4). The topbar's scroll-state `backdrop-filter` is shared chrome (§6.3). `apps/apex/src/index.test.ts` asserts the no-pill / no-accent-glow / no-gradient rules so it cannot regress.
 
 - Bleed-width hero: the brand mark (squared, no ring), an eyebrow with a flat live pip, the `--text-hero` headline (the accent appears only on the trailing stop), one lead paragraph, one primary CTA and one secondary arrow link.
-- A flat, hairline-bordered transcript shell shows the product in use.
+- A flat, hairline-bordered transcript shell shows the product in use. Nothing in it animates.
 - Feature / pillar / use-case sections are hairline-separated grids of flat `--surface` panels — hover shifts border-color and background, never position.
 - The CTA is a flat hairline panel (no gradient overlay) with a squared install command box (no pill).
 - Footer is a multi-column grid collapsing to fewer columns on small screens.
