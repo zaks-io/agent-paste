@@ -22,11 +22,11 @@ export function ThemeToggle() {
       aria-label={`Theme: ${preference}. Switch to ${NEXT_LABEL[preference]}.`}
       title={`Theme: ${preference}`}
       className="
-        grid place-items-center h-8 w-8 rounded-[var(--radius-md)]
-        text-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]
-        hover:bg-[hsl(var(--surface-raised))]
-        transition-colors duration-150 ease-[var(--ease-out)]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2
+        grid place-items-center h-8 w-8 rounded-md
+        text-muted hover:text-foreground
+        hover:bg-surface-raised
+        transition-colors duration-150 ease-out
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
       "
     >
       <Icon size={16} strokeWidth={1.75} aria-hidden="true" />

@@ -60,7 +60,7 @@ export function CreateAccessLinkPanel({ artifactId, revisions, latestRevisionId,
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid content-start gap-2">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Share Link</span>
+          <span className="text-xs text-muted">Share Link</span>
           <Button
             variant="primary"
             loading={pending === "share"}
@@ -71,14 +71,14 @@ export function CreateAccessLinkPanel({ artifactId, revisions, latestRevisionId,
           </Button>
         </div>
         <div className="grid content-start gap-2">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Revision Link</span>
+          <span className="text-xs text-muted">Revision Link</span>
           <div className="flex items-center gap-2">
             <select
               aria-label="Revision to pin"
               value={revisionId}
               disabled={locked || revisions.length === 0 || pending !== null}
               onChange={(event) => setRevisionId(event.target.value)}
-              className="h-[35px] min-w-0 flex-1 rounded-[var(--radius-sm)] border border-[hsl(var(--rule-strong))] bg-[hsl(var(--background))] px-3 font-mono text-[12.5px] text-[hsl(var(--foreground))] focus:border-[hsl(var(--accent))] focus:outline-none disabled:cursor-not-allowed disabled:opacity-45"
+              className="h-[35px] min-w-0 flex-1 rounded-sm border border-rule-strong bg-background px-3 font-mono text-mono text-foreground focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-45"
             >
               {revisions.length === 0 ? (
                 <option value="">No revisions</option>

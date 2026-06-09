@@ -53,8 +53,8 @@ export function Sidebar({ isOperator }: { isOperator: boolean }) {
     <aside
       className="
         w-[244px] shrink-0 hidden lg:block
-        border-r border-[hsl(var(--rule))]
-        bg-[hsl(var(--background))]
+        border-r border-rule
+        bg-background
       "
     >
       <nav className="px-3 py-4 grid gap-5 sticky top-[57px]">
@@ -76,7 +76,7 @@ export function Sidebar({ isOperator }: { isOperator: boolean }) {
 
 function SidebarSection({ section }: { section: Section }) {
   return (
-    <div className="grid gap-0.5">
+    <div className="grid gap-1">
       {section.heading ? <SectionLabel>{section.heading}</SectionLabel> : null}
       {section.items.map((item) => (
         <SidebarLink key={item.to} {...item} />
@@ -95,17 +95,17 @@ function SidebarLink({ to, label, Icon, exact }: Item) {
       to={to}
       activeOptions={{ exact: exact ?? false }}
       className={cn(
-        "group relative flex items-center gap-[11px] h-[33px] pl-[15px] pr-3",
-        "rounded-[var(--radius-sm)] text-[13px] text-[hsl(var(--muted))]",
-        "transition-colors duration-150 ease-[var(--ease-out)]",
-        "hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]",
+        "group relative flex items-center gap-3 h-[33px] pl-4 pr-3",
+        "rounded-sm text-sm text-muted",
+        "transition-colors duration-150 ease-out",
+        "hover:text-foreground hover:bg-surface-2",
       )}
       activeProps={{
         className: cn(
-          "text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] font-medium",
+          "text-foreground bg-surface-2 font-medium",
           // Active rail: a square vermilion bar pinned to the left edge.
           "before:absolute before:left-0 before:top-[6px] before:bottom-[6px]",
-          "before:w-[2px] before:bg-[hsl(var(--accent))]",
+          "before:w-[2px] before:bg-accent",
         ),
         "aria-current": "page",
       }}

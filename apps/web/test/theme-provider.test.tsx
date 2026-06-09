@@ -17,7 +17,9 @@ function Probe() {
 
 describe("ThemeProvider", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    // Clear the shared theme cookie between tests (host-only in jsdom on localhost).
+    // biome-ignore lint/suspicious/noDocumentCookie: test setup mirrors the provider's sync document.cookie use.
+    document.cookie = "agp_theme=; Path=/; Max-Age=0";
     document.documentElement.dataset.theme = "";
     document.documentElement.style.colorScheme = "";
     vi.stubGlobal(
@@ -41,14 +43,15 @@ describe("ThemeProvider", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 
-  it("persists explicit preference to localStorage", () => {
+  it("persists explicit preference to the shared cookie", () => {
     render(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "set light" }));
-    expect(window.localStorage.getItem("agp.theme")).toBe("light");
+    // The cookie is the cross-surface source of truth (shared with apex).
+    expect(document.cookie).toContain("agp_theme=light");
     expect(screen.getByTestId("preference")).toHaveTextContent("light");
     expect(document.documentElement.dataset.theme).toBe("light");
   });

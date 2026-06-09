@@ -14,20 +14,20 @@ export function MintedUrlReveal({ url, onDismiss }: Props) {
   const { copied, copy } = useClipboardCopy(url, 1200);
 
   return (
-    <div className="grid gap-2 rounded-[var(--radius-sm)] border border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))] p-3">
+    <div className="grid gap-2 rounded-sm border border-accent/30 bg-accent-tint p-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="eyebrow text-[hsl(var(--accent))]">Shown once · copied to clipboard</span>
+        <span className="eyebrow text-accent">Shown once · copied to clipboard</span>
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss minted URL"
-          className="text-[hsl(var(--subtle))] transition-colors hover:text-[hsl(var(--foreground))]"
+          className="text-subtle transition-colors hover:text-foreground"
         >
           <X size={14} strokeWidth={1.5} aria-hidden />
         </button>
       </div>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-[var(--radius-xs)] border border-[hsl(var(--rule))] bg-[hsl(var(--background))] px-2.5 py-1.5 font-mono text-[12px] text-[hsl(var(--foreground))]">
+        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-xs border border-rule bg-background px-2 py-2 font-mono text-xs text-foreground">
           {url}
         </code>
         <Button size="sm" variant="secondary" onClick={copy}>

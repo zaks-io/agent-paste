@@ -85,7 +85,7 @@ describe("Wordmark", () => {
 
   it("omits the seal when withMark is false", () => {
     const solid = (props: ComponentProps<typeof Wordmark>) => render(<Wordmark {...props} />);
-    const { container } = solid({ withMark: false, tone: "solid" });
+    const { container } = solid({ withMark: false });
     expect(container.querySelector("[aria-hidden]")).toBeNull();
   });
 });

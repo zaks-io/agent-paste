@@ -53,7 +53,7 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
       <CardHeader title="Workspace settings" subtitle="Name and auto-deletion window." className="mb-5" />
       <form className="grid max-w-[420px] gap-4" onSubmit={onSubmit}>
         <label htmlFor="workspace-name" className="grid gap-1">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Workspace name</span>
+          <span className="text-xs text-muted">Workspace name</span>
           <Input
             id="workspace-name"
             value={name}
@@ -63,7 +63,7 @@ export function SettingsForm({ settings }: { settings: WebSettingsResponse }) {
           />
         </label>
         <label htmlFor="auto-deletion-days" className="grid max-w-[200px] gap-1">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Auto-deletion (days)</span>
+          <span className="text-xs text-muted">Auto-deletion (days)</span>
           <Input
             id="auto-deletion-days"
             type="number"

@@ -5,8 +5,8 @@ import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 
 const SECONDARY_LINK =
-  "inline-flex h-[40px] items-center justify-center rounded-[var(--radius-sm)] border border-[hsl(var(--rule-strong))] " +
-  "px-[18px] text-[14px] font-medium text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--surface-2))]";
+  "inline-flex h-[40px] items-center justify-center rounded-sm border border-rule-strong " +
+  "px-4 text-base font-medium text-foreground transition-colors hover:bg-surface-2";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 /** Unclaimed ephemeral tier (ADR 0056); display-only comparison against claimed free. */
@@ -68,12 +68,12 @@ export function ClaimSuccessPanel({
 
   return (
     <div className="grid gap-5">
-      <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
+      <Card className="border-accent/30 bg-accent-tint">
         <CardHeader
           title="Content claimed"
           subtitle={`Reparented ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} into your Personal Workspace on the free plan.`}
         />
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Button size="lg" onClick={onViewArtifacts}>
             {viewLabel}
           </Button>
@@ -89,10 +89,10 @@ export function ClaimSuccessPanel({
         <SectionLabel className="mb-4">What changed</SectionLabel>
         <ul className="grid list-none gap-3 p-0">
           {CHANGES.map((item) => (
-            <li key={item.label} className="flex items-start gap-2.5 text-[13px] text-[hsl(var(--muted))]">
-              <Check aria-hidden size={14} strokeWidth={2.25} className="mt-0.5 shrink-0 text-[hsl(var(--accent))]" />
+            <li key={item.label} className="flex items-start gap-2 text-sm text-muted">
+              <Check aria-hidden size={14} strokeWidth={2.25} className="mt-1 shrink-0 text-accent" />
               <span>
-                <span className="font-medium text-[hsl(var(--foreground))]">{item.label}.</span>{" "}
+                <span className="font-medium text-foreground">{item.label}.</span>{" "}
                 {item.label === "Write allowance"
                   ? item.detail(usagePolicy.daily_new_artifact_allowance)
                   : item.label === "Retention"
@@ -106,14 +106,11 @@ export function ClaimSuccessPanel({
 
       <Card>
         <SectionLabel className="mb-4">Your free limits</SectionLabel>
-        <dl className="border-t border-[hsl(var(--rule))]">
+        <dl className="border-t border-rule">
           {freeLimitRows(usagePolicy).map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between border-b border-[hsl(var(--rule))] py-2.5 pl-3 pr-3"
-            >
-              <dt className="text-[12.5px] text-[hsl(var(--subtle))]">{label}</dt>
-              <dd className="font-mono text-[12.5px] tabular-nums text-[hsl(var(--foreground))]">{value}</dd>
+            <div key={label} className="flex items-center justify-between border-b border-rule py-2 pl-3 pr-3">
+              <dt className="text-mono text-subtle">{label}</dt>
+              <dd className="font-mono text-mono tabular-nums text-foreground">{value}</dd>
             </div>
           ))}
         </dl>
@@ -125,7 +122,7 @@ export function ClaimSuccessPanel({
             title="Need more durability?"
             subtitle={`Pro raises your daily write ceiling to ${PLANS.pro.dailyNewArtifactAllowance.toLocaleString("en")} and extends retention up to 90 days. Reads stay free either way.`}
           />
-          <Link to="/billing" className={cn(SECONDARY_LINK, "h-[35px] px-[15px] text-[13.5px]")}>
+          <Link to="/billing" className={cn(SECONDARY_LINK, "h-[35px] px-4 text-base")}>
             Compare plans and upgrade
           </Link>
         </Card>
@@ -138,7 +135,7 @@ export function ClaimSuccessPanel({
         </Card>
       )}
 
-      <p className="font-mono text-[11px] text-[hsl(var(--faint))]">
+      <p className="font-mono text-mono-sm text-faint">
         Next: {viewLabel.toLowerCase()} at {artifactDestination}
       </p>
     </div>

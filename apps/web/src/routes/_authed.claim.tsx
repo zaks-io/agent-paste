@@ -167,7 +167,7 @@ function ClaimPage() {
           }}
         />
       ) : success && !policy ? (
-        <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
+        <Card className="border-accent/30 bg-accent-tint">
           <CardHeader
             title="Content claimed"
             subtitle={`Reparented ${success.artifactIds.length} artifact${success.artifactIds.length === 1 ? "" : "s"} into your workspace.`}
@@ -179,8 +179,8 @@ function ClaimPage() {
       ) : (
         <Card>
           <form className="grid gap-4" onSubmit={onSubmit}>
-            <label className="grid gap-2 text-[13px]" htmlFor="claim-token-input">
-              <span className="text-[hsl(var(--muted))]">Claim token</span>
+            <label className="grid gap-2 text-sm" htmlFor="claim-token-input">
+              <span className="text-muted">Claim token</span>
               <Input
                 id="claim-token-input"
                 value={claimToken}

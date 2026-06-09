@@ -8,8 +8,19 @@
  * drift.
  */
 
+// Cross-surface theme persistence (shared cookie on .agent-paste.sh). Re-exported
+// from brand so apps depend only on @agent-paste/ui for the design system.
+export {
+  buildThemeCookie,
+  readThemeCookie,
+  THEME_COOKIE,
+  type ThemePreference,
+  themeCookieDomain,
+} from "@agent-paste/brand";
 export { Badge, type BadgeTone } from "./components/Badge";
-export { Button, type ButtonSize, type ButtonVariant } from "./components/Button";
+export { Button } from "./components/Button";
+export { ButtonAnchor } from "./components/ButtonAnchor";
+export { type ButtonSize, type ButtonVariant, buttonClasses } from "./components/buttonClasses";
 export { Card, CardHeader, SectionLabel } from "./components/Card";
 export { Prose, parseProse } from "./components/Prose";
 export { Table, TBody, TD, TH, THead, TR } from "./components/Table";

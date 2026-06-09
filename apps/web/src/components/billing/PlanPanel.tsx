@@ -31,10 +31,10 @@ export function PlanPanel({ status }: { status: BillingStatusResponse }) {
 
   return (
     <section>
-      <SectionLabel className="mb-[18px]">{isFree ? "Choose a plan" : "Your plan"}</SectionLabel>
+      <SectionLabel className="mb-4">{isFree ? "Choose a plan" : "Your plan"}</SectionLabel>
 
       {isFree && !status.operator_override ? (
-        <div className="mb-4 inline-flex overflow-hidden rounded-[var(--radius-sm)] border border-[hsl(var(--rule-strong))]">
+        <div className="mb-4 inline-flex overflow-hidden rounded-sm border border-rule-strong">
           {(["month", "year"] as const).map((value) => (
             <button
               key={value}
@@ -42,19 +42,19 @@ export function PlanPanel({ status }: { status: BillingStatusResponse }) {
               aria-pressed={interval === value}
               onClick={() => setInterval(value)}
               className={cn(
-                "border-0 bg-transparent px-3 py-1.5 font-mono text-[11.5px] uppercase tracking-[0.04em] text-[hsl(var(--muted))]",
-                "cursor-pointer transition-colors [&+button]:border-l [&+button]:border-[hsl(var(--rule-strong))]",
-                "aria-pressed:bg-[hsl(var(--accent-tint))] aria-pressed:text-[hsl(var(--foreground))]",
+                "border-0 bg-transparent px-3 py-2 font-mono text-mono-sm uppercase tracking-wide text-muted",
+                "cursor-pointer transition-colors [&+button]:border-l [&+button]:border-rule-strong",
+                "aria-pressed:bg-accent-tint aria-pressed:text-foreground",
               )}
             >
               {value === "month" ? "Monthly" : "Annual"}
-              {value === "year" ? <span className="ml-1.5 text-[hsl(var(--success))]">−2 mo</span> : null}
+              {value === "year" ? <span className="ml-2 text-success">−2 mo</span> : null}
             </button>
           ))}
         </div>
       ) : null}
 
-      <div className="grid gap-3.5">
+      <div className="grid gap-4">
         <PlanCard
           name={PLANS.free.name}
           price={freePrice?.amount ?? "$0"}
@@ -74,11 +74,11 @@ export function PlanPanel({ status }: { status: BillingStatusResponse }) {
       </div>
 
       {isFree && !status.operator_override ? (
-        <div className="mt-[18px] flex flex-wrap items-center gap-2.5">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button size="lg" loading={pending} onClick={upgrade}>
             Upgrade to Pro
           </Button>
-          <span className="font-mono text-[11px] text-[hsl(var(--faint))]">Opens Stripe Checkout · cancel anytime</span>
+          <span className="font-mono text-mono-sm text-faint">Opens Stripe Checkout · cancel anytime</span>
         </div>
       ) : null}
     </section>
@@ -105,32 +105,28 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "rounded-[var(--radius-md)] border px-[18px] py-4 transition-colors",
-        current
-          ? "border-[hsl(var(--rule-strong))] bg-[hsl(var(--surface-2))]"
-          : featured
-            ? "border-[hsl(var(--accent)/0.55)]"
-            : "border-[hsl(var(--rule))]",
+        "rounded-md border px-4 py-4 transition-colors",
+        current ? "border-rule-strong bg-surface-2" : featured ? "border-accent/55" : "border-rule",
       )}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="flex items-center gap-2 font-display text-[15px] font-semibold">
+        <span className="flex items-center gap-2 font-display text-h3 font-semibold">
           {name}
           {recommended ? (
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-[hsl(var(--accent))]">
-              <span className="h-[6px] w-[6px] rounded-full bg-[hsl(var(--accent))]" />
+            <span className="inline-flex items-center gap-2 font-mono text-meta font-medium uppercase tracking-wider text-accent">
+              <span className="h-[6px] w-[6px] rounded-full bg-accent" />
               Recommended
             </span>
           ) : null}
         </span>
-        <span className="font-mono text-[13px] tabular-nums text-[hsl(var(--subtle))]">
-          <b className="text-[17px] font-medium text-[hsl(var(--foreground))]">{price}</b> {per}
+        <span className="font-mono text-sm tabular-nums text-subtle">
+          <b className="text-lg font-medium text-foreground">{price}</b> {per}
         </span>
       </div>
-      <ul className="mt-3 grid list-none gap-[7px] p-0">
+      <ul className="mt-3 grid list-none gap-2 p-0">
         {features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2.5 text-[12.5px] text-[hsl(var(--muted))]">
-            <Check aria-hidden size={13} strokeWidth={2.25} className="mt-0.5 shrink-0 text-[hsl(var(--accent))]" />
+          <li key={feature} className="flex items-start gap-2 text-mono text-muted">
+            <Check aria-hidden size={13} strokeWidth={2.25} className="mt-1 shrink-0 text-accent" />
             {feature}
           </li>
         ))}

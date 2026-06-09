@@ -36,8 +36,20 @@
   toggle.addEventListener("click", () => {
     const next = current() === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
+    // Persist to the cookie shared with the dashboard (app.agent-paste.sh) so the
+    // theme follows the visitor across surfaces. Domain = the registrable parent;
+    // mirrors @agent-paste/brand themeCookieDomain()/buildThemeCookie().
     try {
-      localStorage.setItem("ap-theme", next);
+      const host = location.hostname;
+      const domain =
+        host === "agent-paste.sh" || host.endsWith(".agent-paste.sh")
+          ? host === "preview.agent-paste.sh" || host.includes(".preview.agent-paste.sh")
+            ? ".preview.agent-paste.sh"
+            : ".agent-paste.sh"
+          : "";
+      const secure = location.protocol === "https:" ? "; Secure" : "";
+      // biome-ignore lint/suspicious/noDocumentCookie: framework-free script; the async Cookie Store API can't be read by the synchronous first-paint init, so both surfaces share document.cookie.
+      document.cookie = `agp_theme=${next}; Path=/; Max-Age=31536000; SameSite=Lax${domain ? `; Domain=${domain}` : ""}${secure}`;
     } catch {}
     paint();
   });

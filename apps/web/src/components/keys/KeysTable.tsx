@@ -59,11 +59,11 @@ export function KeysTable({ rows, onRevoked }: Props) {
               <TD>
                 <Identifier value={row.public_id} />
               </TD>
-              <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+              <TD className="text-muted">{row.scopes.join(", ")}</TD>
+              <TD className="text-muted font-mono text-xs">
                 <OptionalRelativeTime value={row.last_used_at} />
               </TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+              <TD className="text-muted font-mono text-xs">
                 <OptionalRelativeTime value={row.expires_at} />
               </TD>
               <TD>

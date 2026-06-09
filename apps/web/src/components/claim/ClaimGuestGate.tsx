@@ -18,7 +18,7 @@ export function ClaimGuestGate() {
 
   return (
     <main className="min-h-screen grid place-items-center px-6">
-      <p className="text-[14px] text-[hsl(var(--muted))]">Redirecting to sign in…</p>
+      <p className="text-base text-muted">Redirecting to sign in…</p>
     </main>
   );
 }

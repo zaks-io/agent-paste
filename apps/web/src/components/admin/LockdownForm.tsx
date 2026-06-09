@@ -77,13 +77,13 @@ export function LockdownForm({ onSuccess, prefill }: Props) {
       <CardHeader title="Set lockdown" subtitle="Block link resolution for an artifact or workspace." />
       <form className="grid max-w-[420px] gap-4" onSubmit={onSubmit}>
         <div className="grid gap-1">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Scope</span>
-          <div className="inline-grid w-fit grid-cols-2 rounded-[var(--radius-md)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface-sunken))] p-1">
+          <span className="text-xs text-muted">Scope</span>
+          <div className="inline-grid w-fit grid-cols-2 rounded-md border border-rule bg-surface-sunken p-1">
             {scopes.map(({ value, label, Icon }) => (
               <button
                 key={value}
                 type="button"
-                className="inline-flex h-[30px] items-center justify-center gap-2 rounded-[var(--radius-sm)] px-3 text-[13px] font-medium data-[active=true]:bg-[hsl(var(--surface))] data-[active=true]:shadow-sm"
+                className="inline-flex h-[30px] items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium data-[active=true]:bg-surface data-[active=true]:shadow-sm"
                 data-active={scope === value ? "true" : undefined}
                 aria-pressed={scope === value}
                 onClick={() => setScope(value)}
@@ -96,7 +96,7 @@ export function LockdownForm({ onSuccess, prefill }: Props) {
           </div>
         </div>
         <label htmlFor="target-id" className="grid gap-1">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Target ID</span>
+          <span className="text-xs text-muted">Target ID</span>
           <Input
             id="target-id"
             value={targetId}
@@ -106,7 +106,7 @@ export function LockdownForm({ onSuccess, prefill }: Props) {
           />
         </label>
         <label htmlFor="reason-code" className="grid gap-1">
-          <span className="text-[12px] text-[hsl(var(--muted))]">Reason code</span>
+          <span className="text-xs text-muted">Reason code</span>
           <Input
             id="reason-code"
             list="platform-lockdown-reason-codes"

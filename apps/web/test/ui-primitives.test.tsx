@@ -25,7 +25,7 @@ describe("Badge", () => {
 describe("Card", () => {
   it("uses the accent hairline when elevated", () => {
     const { container } = render(<Card elevated>body</Card>);
-    expect(container.firstElementChild?.className).toContain("border-[hsl(var(--accent)/0.35)]");
+    expect(container.firstElementChild?.className).toContain("border-accent/35");
   });
 
   it("drops padding when flush", () => {
@@ -97,7 +97,7 @@ describe("StatBand", () => {
     );
     expect(screen.getByText("Artifacts")).toBeInTheDocument();
     expect(screen.getByText("now")).toBeInTheDocument();
-    expect(container.innerHTML).toContain("text-[hsl(var(--accent))]");
+    expect(container.innerHTML).toContain("text-accent");
   });
 });
 

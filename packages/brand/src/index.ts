@@ -17,6 +17,7 @@ import {
   TYPE,
 } from "./tokens.js";
 
+export * from "./theme-cookie.js";
 export * from "./tokens.js";
 
 /**
@@ -292,6 +293,8 @@ ${fontFaceCss()}
   --color-surface: hsl(var(--surface));
   --color-surface-2: hsl(var(--surface-2));
   --color-surface-3: hsl(var(--surface-3));
+  --color-surface-sunken: hsl(var(--surface-sunken));
+  --color-surface-raised: hsl(var(--surface-raised));
   --color-rule: hsl(var(--rule));
   --color-rule-strong: hsl(var(--rule-strong));
   --color-foreground: hsl(var(--foreground));
@@ -301,15 +304,75 @@ ${fontFaceCss()}
   --color-accent: hsl(var(--accent));
   --color-accent-dim: hsl(var(--accent-dim));
   --color-accent-foreground: hsl(var(--accent-fg));
+  /* Pre-composed translucent accent. Alpha is baked into the channel string, so
+   * use bg-accent-tint BARE — never with an /opacity modifier (would double-apply). */
+  --color-accent-tint: hsl(var(--accent-tint));
   --color-success: hsl(var(--success));
   --color-warning: hsl(var(--warning));
   --color-destructive: hsl(var(--destructive));
   --color-info: hsl(var(--info));
+  /* Scrim/overlay neutral. Theme-flipped (near-black dark / ink light); used as
+   * bg-neutral-900/<alpha> for modal backdrops. */
+  --color-neutral-900: hsl(var(--neutral-900));
 
   --radius: ${RADII.md};
   --radius-xs: ${RADII.xs};
   --radius-sm: ${RADII.sm};
   --radius-md: ${RADII.md};
+
+  /* Type scale — mints text-meta … text-hero. Generated from TYPE; the named
+   * step is the ONLY way to set a font size (no text-[..px] brackets). Each size
+   * pairs a sensible default line-height so a bare \`text-h2\` reads correctly. */
+  --text-meta: ${TYPE.meta};
+  --text-meta--line-height: 1.4;
+  --text-mono-sm: ${TYPE.monoSm};
+  --text-mono-sm--line-height: 1.45;
+  --text-xs: ${TYPE.xs};
+  --text-xs--line-height: 1.5;
+  --text-mono: ${TYPE.mono};
+  --text-mono--line-height: 1.5;
+  --text-sm: ${TYPE.sm};
+  --text-sm--line-height: 1.55;
+  --text-base: ${TYPE.body};
+  --text-base--line-height: 1.6;
+  --text-h3: ${TYPE.h3};
+  --text-h3--line-height: 1.4;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.5;
+  --text-h2: ${TYPE.h2};
+  --text-h2--line-height: 1.25;
+  --text-h1: ${TYPE.h1};
+  --text-h1--line-height: 1.1;
+  --text-hero: ${TYPE.hero};
+  --text-hero--line-height: 0.95;
+  /* Fluid display steps — cover every clamp() headline the mockup uses, so the
+   * panes/blocks set size with text-display-* instead of a bespoke clamp bracket. */
+  --text-display-sm: clamp(24px, 2.6vw, 34px);
+  --text-display-sm--line-height: 1.18;
+  --text-display-md: clamp(40px, 5vw, 66px);
+  --text-display-md--line-height: 1.02;
+  --text-display-lg: clamp(42px, 7vw, 72px);
+  --text-display-lg--line-height: 1.02;
+
+  /* Line-height — mints leading-flush … leading-loose. */
+  --leading-flush: 0.8;
+  --leading-tight: 1.04;
+  --leading-snug: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+  --leading-loose: 1.65;
+
+  /* Tracking — mints tracking-tightest … tracking-eyebrow. */
+  --tracking-tightest: -0.035em;
+  --tracking-tighter: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.08em;
+  --tracking-eyebrow: 0.16em;
+
+  /* Motion — mints the ease-out utility. Kills every ease-[var(--ease-out)]. */
+  --ease-out: ${EASE_OUT};
 }
 
 *,

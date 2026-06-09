@@ -17,14 +17,11 @@ export function UsagePolicyCard({ policy }: { policy: UsagePolicy }) {
   return (
     <section>
       <SectionLabel className="mb-4">Policy</SectionLabel>
-      <dl className="border-t border-[hsl(var(--rule))]">
+      <dl className="border-t border-rule">
         {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-center justify-between border-b border-[hsl(var(--rule))] py-2.5 pl-3 pr-3"
-          >
-            <dt className="text-[12.5px] text-[hsl(var(--subtle))]">{label}</dt>
-            <dd className="font-mono text-[12.5px] tabular-nums text-[hsl(var(--foreground))]">{value}</dd>
+          <div key={label} className="flex items-center justify-between border-b border-rule py-2 pl-3 pr-3">
+            <dt className="text-mono text-subtle">{label}</dt>
+            <dd className="font-mono text-mono tabular-nums text-foreground">{value}</dd>
           </div>
         ))}
       </dl>

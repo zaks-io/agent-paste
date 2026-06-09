@@ -14,10 +14,25 @@
  */
 @import "@agent-paste/ui/styles.css";
 
+/* Scan the shared @agent-paste/ui component source too: apex renders <Button>,
+ * <ButtonAnchor>, <Card>, <Table>, etc., so the utilities those compose (e.g. the
+ * lg button's h-[40px]/px-4) must be emitted here. Without this, shared-component
+ * classes that no apex file independently uses are dropped and the component
+ * renders unstyled (e.g. a button with no height/padding). */
+@source "../../../../packages/ui/src";
+
 @source "../app";
 @source "../pages";
 @source "../components";
 @source "../routes.tsx";
+
+/* Two-pane padding rhythm (mockup m5-cross .left/.right). The HomePage panes
+ * reference these in their padding shorthand; if they were undefined the whole
+ * shorthand would drop and the panes would lose their padding. */
+.home {
+  --pane-pad-y: clamp(48px, 7vh, 96px);
+  --pane-gutter: clamp(32px, 4vw, 64px);
+}
 
 /* Scroll-reveal entrance. The client script adds `.in` when an element scrolls
  * into view; `.d1`..`.d6` stagger the reveal. */

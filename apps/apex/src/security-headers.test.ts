@@ -36,13 +36,14 @@ describe("apex static CSP", () => {
   });
 });
 
-describe("theme-init hash drift guard", () => {
-  it("THEME_INIT_SHA256 matches the byte-for-byte sha256 of THEME_INIT_JS", () => {
-    // The CSP trusts the inline pre-paint script solely by this hash. If the
-    // script body changes without re-pinning the hash, the browser blocks it and
-    // returning visitors flash the wrong theme. Recompute here so drift fails
-    // loudly in CI instead of silently at runtime.
+describe("theme-init hash", () => {
+  it("is the sha256 of the exact THEME_INIT_JS the page inlines", () => {
+    // The CSP trusts the inline pre-paint script solely by this hash, and it is
+    // DERIVED from THEME_INIT_JS at module load — so it cannot drift. This guards
+    // the derivation itself: the hash must be the byte-for-byte sha256 of the
+    // script body the Shell inlines, in the CSP `'sha256-…'` form.
     const computed = `sha256-${createHash("sha256").update(THEME_INIT_JS, "utf8").digest("base64")}`;
-    expect(computed).toBe(THEME_INIT_SHA256);
+    expect(THEME_INIT_SHA256).toBe(computed);
+    expect(THEME_INIT_SHA256).toMatch(/^sha256-[A-Za-z0-9+/]+=*$/);
   });
 });

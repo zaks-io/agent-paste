@@ -21,9 +21,9 @@ type Props = {
 };
 
 const RAIL_TONE = {
-  default: "text-[hsl(var(--foreground))]",
-  accent: "text-[hsl(var(--accent))]",
-  warning: "text-[hsl(var(--warning))]",
+  default: "text-foreground",
+  accent: "text-accent",
+  warning: "text-warning",
 } as const;
 
 /*
@@ -33,24 +33,24 @@ const RAIL_TONE = {
  */
 export function HeroStat({ eyebrow, value, caption, detail, rail }: Props) {
   return (
-    <section className="flex flex-col gap-7 border-b border-[hsl(var(--rule))] pb-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+    <section className="flex flex-col gap-8 border-b border-rule pb-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
       <div className="flex items-end gap-5">
-        <span className="hero-figure text-[hsl(var(--foreground))]">{value}</span>
-        <div className="pb-1.5">
-          <p className="eyebrow mb-1.5">{eyebrow}</p>
-          <p className="font-display text-[var(--text-h2)] font-semibold leading-none tracking-[-0.01em]">{caption}</p>
-          {detail ? <p className="mt-1.5 font-mono text-[12px] text-[hsl(var(--subtle))]">{detail}</p> : null}
+        <span className="hero-figure text-foreground">{value}</span>
+        <div className="pb-2">
+          <p className="eyebrow mb-2">{eyebrow}</p>
+          <p className="font-display text-h2 font-semibold leading-none tracking-tight">{caption}</p>
+          {detail ? <p className="mt-2 font-mono text-xs text-subtle">{detail}</p> : null}
         </div>
       </div>
 
       {rail && rail.length > 0 ? (
-        <dl className="flex flex-wrap gap-x-9 gap-y-4 lg:justify-end">
+        <dl className="flex flex-wrap gap-x-8 gap-y-4 lg:justify-end">
           {rail.map((item) => (
-            <div key={item.label} className="grid gap-1.5">
+            <div key={item.label} className="grid gap-2">
               <dt className="eyebrow">{item.label}</dt>
               <dd
                 className={cn(
-                  "font-mono text-[18px] font-medium tabular-nums leading-none",
+                  "font-mono text-h2 font-medium tabular-nums leading-none",
                   RAIL_TONE[item.tone ?? "default"],
                 )}
               >

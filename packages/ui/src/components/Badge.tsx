@@ -4,21 +4,21 @@ import { cn } from "../lib/cn";
 export type BadgeTone = "neutral" | "success" | "warning" | "destructive" | "accent" | "info";
 
 const TEXT: Record<BadgeTone, string> = {
-  neutral: "text-[hsl(var(--subtle))]",
-  success: "text-[hsl(var(--success))]",
-  warning: "text-[hsl(var(--warning))]",
-  destructive: "text-[hsl(var(--destructive))]",
-  accent: "text-[hsl(var(--accent))]",
-  info: "text-[hsl(var(--info))]",
+  neutral: "text-subtle",
+  success: "text-success",
+  warning: "text-warning",
+  destructive: "text-destructive",
+  accent: "text-accent",
+  info: "text-info",
 };
 
 const DOT: Record<BadgeTone, string> = {
-  neutral: "bg-[hsl(var(--faint))]",
-  success: "bg-[hsl(var(--success))]",
-  warning: "bg-[hsl(var(--warning))]",
-  destructive: "bg-[hsl(var(--destructive))]",
-  accent: "bg-[hsl(var(--accent))]",
-  info: "bg-[hsl(var(--info))]",
+  neutral: "bg-faint",
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+  accent: "bg-accent",
+  info: "bg-info",
 };
 
 type Props = HTMLAttributes<HTMLSpanElement> & {
@@ -38,7 +38,7 @@ export function Badge({ tone = "neutral", dot, pulse, className, children, ...re
     <span
       data-tone={tone}
       className={cn(
-        "inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.1em]",
+        "inline-flex items-center gap-2 font-mono text-meta font-medium uppercase tracking-wider",
         TEXT[tone],
         className,
       )}

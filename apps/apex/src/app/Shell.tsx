@@ -64,7 +64,7 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         {bleed ? (
           children
         ) : (
-          <div className="mx-auto w-full max-w-[920px] flex-[1_0_auto] px-[24px] pt-[48px] pb-[72px] min-[640px]:px-[40px] min-[640px]:pt-[64px] min-[640px]:pb-[96px]">
+          <div className="mx-auto w-full max-w-[920px] flex-[1_0_auto] px-6 pt-12 pb-16 min-[640px]:px-10 min-[640px]:pt-16 min-[640px]:pb-24">
             {children}
           </div>
         )}

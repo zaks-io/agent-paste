@@ -33,12 +33,12 @@ function ArtifactsListPage() {
         meta={
           rows.length > 0 ? (
             <>
-              <span className="font-medium text-[hsl(var(--foreground))]">{rows.length}</span>
+              <span className="font-medium text-foreground">{rows.length}</span>
               <span>total</span>
-              <span aria-hidden className="px-1 text-[hsl(var(--rule-strong))]">
+              <span aria-hidden className="px-1 text-rule-strong">
                 ·
               </span>
-              <span className="font-medium text-[hsl(var(--accent))]">{liveCount}</span>
+              <span className="font-medium text-accent">{liveCount}</span>
               <span>live</span>
             </>
           ) : undefined
@@ -72,11 +72,7 @@ function ArtifactsListPage() {
               {rows.map((row) => (
                 <TR key={row.id} className="group">
                   <TD className="font-medium">
-                    <Link
-                      to="/artifacts/$artifactId"
-                      params={{ artifactId: row.id }}
-                      className="hover:text-[hsl(var(--accent))]"
-                    >
+                    <Link to="/artifacts/$artifactId" params={{ artifactId: row.id }} className="hover:text-accent">
                       {row.title || "Untitled"}
                     </Link>
                     {row.pinned ? (
@@ -93,7 +89,7 @@ function ArtifactsListPage() {
                       {row.status}
                     </Badge>
                   </TD>
-                  <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                  <TD className="font-mono text-xs text-muted">
                     {row.last_published_at ? <RelativeTime value={row.last_published_at} /> : "—"}
                   </TD>
                   <TD className="text-right">
@@ -101,7 +97,7 @@ function ArtifactsListPage() {
                       to="/artifacts/$artifactId"
                       params={{ artifactId: row.id }}
                       aria-label={`Open ${row.title || "artifact"}`}
-                      className="inline-flex text-[hsl(var(--subtle))] transition-colors hover:text-[hsl(var(--accent))]"
+                      className="inline-flex text-subtle transition-colors hover:text-accent"
                     >
                       <ArrowUpRight size={15} strokeWidth={1.75} />
                     </Link>

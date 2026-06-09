@@ -1,3 +1,4 @@
+import { buildThemeCookie, readThemeCookie } from "@agent-paste/ui";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
@@ -12,12 +13,19 @@ type Ctx = {
 };
 
 const ThemeContext = createContext<Ctx | null>(null);
-const STORAGE_KEY = "agp.theme";
 
+// The preference is persisted in a cookie scoped to the registrable parent domain
+// (.agent-paste.sh), so it is shared with the marketing site (apps/apex). Setting
+// the theme on either surface carries to the other. See @agent-paste/brand.
 function readPreference(): Preference {
-  if (typeof window === "undefined") return "system";
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  return raw === "dark" || raw === "light" || raw === "system" ? raw : "system";
+  if (typeof document === "undefined") return "system";
+  return readThemeCookie(document.cookie) ?? "system";
+}
+
+function writePreference(next: Preference) {
+  if (typeof document === "undefined") return;
+  // biome-ignore lint/suspicious/noDocumentCookie: the async Cookie Store API can't be read by the apex synchronous first-paint script; document.cookie is the shared mechanism both surfaces use.
+  document.cookie = buildThemeCookie(next, window.location.hostname, window.location.protocol === "https:");
 }
 
 function systemPrefersDark(): boolean {
@@ -51,9 +59,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setPreference = useCallback((next: Preference) => {
     setPreferenceState(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    }
+    writePreference(next);
   }, []);
 
   return (

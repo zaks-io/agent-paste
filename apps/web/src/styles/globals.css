@@ -6,3 +6,10 @@
  * tokens and regenerate. Web-only utilities (if any) may be appended below.
  */
 @import "@agent-paste/ui/styles.css";
+
+/* Scan the shared @agent-paste/ui component source: the dashboard renders <Card>,
+ * <Button>, <Table>, <Badge> etc., so the utilities those compose (e.g. the Card's
+ * p-5, the Button heights) must be emitted here. Without this, any shared-component
+ * class that no web app-file independently uses is dropped and the component
+ * renders unstyled — e.g. Cards with zero padding jammed against the rule. */
+@source "../../../../packages/ui/src";

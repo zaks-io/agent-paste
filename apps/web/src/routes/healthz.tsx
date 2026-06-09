@@ -9,7 +9,7 @@ export const Route = createFileRoute("/healthz")({
 function HealthPage() {
   const data = Route.useLoaderData();
   return (
-    <main className="p-6 font-mono text-[13px] leading-[1.55]">
+    <main className="p-6 font-mono text-sm leading-relaxed">
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </main>
   );

@@ -1,13 +1,16 @@
+import { createHash } from "node:crypto";
 import { BASELINE_SECURITY_HEADERS } from "@agent-paste/worker-runtime";
+import { THEME_INIT_JS } from "./app/scripts";
 
 // Static CSP for the prerendered apex site. The stylesheet and the one
 // enhancement script are external hashed assets ('self'); the only inline script
 // is the fixed pre-paint theme-init, allowed by its sha256 hash. No nonces and no
 // 'unsafe-inline' anywhere, which is strictly stronger than the old nonce policy.
 //
-// THEME_INIT_SHA256 MUST match THEME_INIT_JS (apps/apex/src/app/scripts.ts)
-// byte-for-byte; security-headers.test.ts recomputes the hash and fails on drift.
-export const THEME_INIT_SHA256 = "sha256-EvYsRVn3eeHUA7+/EFOzuQUFA2JZcSUS2m51fpJd2U4=";
+// The hash is DERIVED from THEME_INIT_JS at module load (node:crypto works in the
+// apex Worker under nodejs_compat), so the CSP can never drift from the script —
+// no hand-pinned constant to forget to update. computed once, not per request.
+export const THEME_INIT_SHA256 = `sha256-${createHash("sha256").update(THEME_INIT_JS, "utf8").digest("base64")}`;
 
 const BEACON_HOST = "https://static.cloudflareinsights.com";
 

@@ -1,24 +1,19 @@
 import { PLANS } from "@agent-paste/plans";
+import { ButtonAnchor } from "@agent-paste/ui";
+import {
+  Eyebrow,
+  PageHeader,
+  SectionHeading,
+  TABLE_CLASS,
+  TABLE_WRAP_CLASS,
+  TD_CLASS,
+  TH_CLASS,
+} from "../components/marketing";
 import { APP_BASE_URL } from "../copy";
 import { pricingComparisonRows } from "../plan-tiers";
 import { PRICING } from "../pricing";
 
 const BILLING_URL = `${APP_BASE_URL}/billing`;
-
-// Mirrors the shared Button's composed utilities for variant="primary" size="lg".
-// Button renders a <button>; this CTA must be an anchor, so we reuse the classes.
-const CTA_CLASS =
-  "inline-flex select-none items-center justify-center gap-2 rounded-[var(--radius-sm)] font-medium " +
-  "transition-[background-color,color,border-color] duration-150 ease-[var(--ease-out)] " +
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--accent))] " +
-  "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] hover:bg-[hsl(var(--accent-dim))] " +
-  "h-[40px] px-[18px] text-[14px]";
-
-const TABLE_WRAP_CLASS = "mt-[14px] overflow-x-auto rounded-[var(--radius-sm)] border border-[hsl(var(--rule))]";
-const TABLE_CLASS = "w-full min-w-[560px] border-collapse text-[13.5px] leading-[1.45]";
-const TH_CLASS =
-  "border-b border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-[12px] py-[11px] text-left align-top font-semibold text-[hsl(var(--foreground))]";
-const TD_CLASS = "border-b border-[hsl(var(--rule))] px-[12px] py-[11px] text-left align-top text-[hsl(var(--muted))]";
 
 export function PricingPage() {
   const freePrice = PLANS.free.price?.month;
@@ -28,55 +23,41 @@ export function PricingPage() {
   return (
     <main>
       <div className="flex flex-col gap-[clamp(40px,6vh,64px)]">
-        <section className="flex flex-col items-start gap-[18px] border-b border-[hsl(var(--rule))] pb-[clamp(32px,5vh,48px)]">
-          <div className="flex w-full flex-col items-start gap-[18px]">
-            <p className="m-0 inline-flex items-center gap-[9px] font-mono text-[11.5px] font-medium uppercase leading-none tracking-[0.16em] text-[hsl(var(--subtle))]">
-              {PRICING.eyebrow}
-            </p>
-            <h1 className="m-0 max-w-[18ch] font-display text-[clamp(34px,5.2vw,54px)] font-extrabold leading-[1.04] tracking-[-0.03em] text-balance text-[hsl(var(--foreground))] [font-feature-settings:'ss01']">
+        <PageHeader
+          eyebrow={<Eyebrow dot={false}>{PRICING.eyebrow}</Eyebrow>}
+          title={
+            <>
               {PRICING.headline}
-              <span className="text-[hsl(var(--accent))]">.</span>
-            </h1>
-            <p className="m-0 max-w-[60ch] text-[clamp(16px,1.4vw,18px)] leading-[1.6] text-[hsl(var(--muted))]">
-              {PRICING.lead}
-            </p>
-          </div>
-        </section>
+              <span className="text-accent">.</span>
+            </>
+          }
+          summary={PRICING.lead}
+        />
 
-        <section className="grid gap-[16px] sm:grid-cols-2" aria-label="Plan prices">
-          <div className="grid gap-[12px] rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] p-[20px]">
-            <h2 className="font-display text-[20px] font-bold tracking-[-0.015em] text-[hsl(var(--foreground))]">
-              {PLANS.free.name}
-            </h2>
-            <p className="m-0 flex items-baseline gap-[4px] font-mono">
-              <span className="text-[28px] text-[hsl(var(--foreground))]">{freePrice?.amount ?? "$0"}</span>
-              <span className="text-[13px] text-[hsl(var(--subtle))]">{freePrice?.per ?? "/ mo"}</span>
+        <section className="grid gap-4 sm:grid-cols-2" aria-label="Plan prices">
+          <div className="grid gap-3 rounded-sm border border-rule bg-surface p-5">
+            <h2 className="font-display text-h2 font-bold tracking-tighter text-foreground">{PLANS.free.name}</h2>
+            <p className="m-0 flex items-baseline gap-1 font-mono">
+              <span className="text-h1 text-foreground">{freePrice?.amount ?? "$0"}</span>
+              <span className="text-sm text-subtle">{freePrice?.per ?? "/ mo"}</span>
             </p>
-            <p className="text-[14px] leading-[1.5] text-[hsl(var(--muted))]">
-              For trying agent-paste and everyday handoffs.
-            </p>
+            <p className="text-base leading-normal text-muted">For trying agent-paste and everyday handoffs.</p>
           </div>
-          <div className="grid gap-[12px] rounded-[var(--radius-sm)] border border-[hsl(var(--rule-strong))] bg-[hsl(var(--surface))] p-[20px]">
-            <h2 className="font-display text-[20px] font-bold tracking-[-0.015em] text-[hsl(var(--foreground))]">
-              {PLANS.pro.name}
-            </h2>
-            <p className="m-0 flex items-baseline gap-[4px] font-mono">
-              <span className="text-[28px] text-[hsl(var(--foreground))]">{proPrice?.amount ?? ""}</span>
-              <span className="text-[13px] text-[hsl(var(--subtle))]">{proPrice?.per ?? "/ mo"}</span>
+          <div className="grid gap-3 rounded-sm border border-rule-strong bg-surface p-5">
+            <h2 className="font-display text-h2 font-bold tracking-tighter text-foreground">{PLANS.pro.name}</h2>
+            <p className="m-0 flex items-baseline gap-1 font-mono">
+              <span className="text-h1 text-foreground">{proPrice?.amount ?? ""}</span>
+              <span className="text-sm text-subtle">{proPrice?.per ?? "/ mo"}</span>
             </p>
-            <p className="text-[14px] leading-[1.5] text-[hsl(var(--muted))]">
-              Higher allowance, longer retention, and Live Updates.
-            </p>
-            <a className={`${CTA_CLASS} mt-[4px] justify-self-start`} href={BILLING_URL}>
+            <p className="text-base leading-normal text-muted">Higher allowance, longer retention, and Live Updates.</p>
+            <ButtonAnchor className="mt-1 justify-self-start" href={BILLING_URL} size="lg">
               Upgrade to Pro
-            </a>
+            </ButtonAnchor>
           </div>
         </section>
 
-        <section className="grid gap-[16px]" aria-label="Free vs Pro comparison">
-          <h2 className="m-0 font-display text-[clamp(20px,2.2vw,26px)] font-bold leading-[1.2] tracking-[-0.02em] text-[hsl(var(--foreground))]">
-            Compare plans
-          </h2>
+        <section className="grid gap-4" aria-label="Free vs Pro comparison">
+          <SectionHeading>Compare plans</SectionHeading>
           <div className={TABLE_WRAP_CLASS}>
             <table className={TABLE_CLASS}>
               <thead>
@@ -97,10 +78,10 @@ export function PricingPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-[14px] leading-[1.55] text-[hsl(var(--muted))]">
+          <p className="text-base leading-relaxed text-muted">
             Shared caps apply on every plan: 100 files per Revision, 100 lifetime published Revisions per Artifact, and
             rate limits for abuse protection. See{" "}
-            <a className="underline decoration-[hsl(var(--accent)/0.4)] underline-offset-2" href="/docs/billing">
+            <a className="underline decoration-accent/40 underline-offset-2" href="/docs/billing">
               Billing and Plans
             </a>{" "}
             for checkout and subscription details.

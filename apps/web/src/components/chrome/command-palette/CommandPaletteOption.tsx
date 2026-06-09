@@ -20,12 +20,12 @@ export function CommandPaletteOption({ item, listboxId, selected, onHover, onSel
         onMouseEnter={onHover}
         onClick={onSelect}
         className={cn(
-          "w-full flex items-center gap-[10px] h-[34px] px-2 rounded-[var(--radius-sm)]",
-          "text-[13px] text-[hsl(var(--foreground))] text-left",
+          "w-full flex items-center gap-2 h-[34px] px-2 rounded-sm",
+          "text-sm text-foreground text-left",
           "transition-colors duration-[80ms]",
           selected
-            ? "bg-[hsl(var(--surface-sunken))] outline-none ring-2 ring-[hsl(var(--accent))] ring-offset-2 ring-offset-[hsl(var(--surface))]"
-            : "hover:bg-[hsl(var(--surface-sunken))]",
+            ? "bg-surface-sunken outline-none ring-2 ring-accent ring-offset-2 ring-offset-surface"
+            : "hover:bg-surface-sunken",
         )}
       >
         <item.Icon size={16} strokeWidth={1.5} aria-hidden="true" />

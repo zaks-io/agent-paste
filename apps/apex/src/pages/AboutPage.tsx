@@ -1,19 +1,18 @@
 import { Prose } from "@agent-paste/ui";
 import { ABOUT, ABOUT_SECTIONS, type AboutSection } from "../about";
+import { Eyebrow, PageHeader, ProseBlock, SectionHeading } from "../components/marketing";
 import { SourceRepository } from "../components/SourceRepository";
 
 function AboutBlock({ section }: { section: AboutSection }) {
   return (
-    <article className="border-t border-[hsl(var(--rule))] py-[clamp(28px,4vh,40px)] first:border-t-0 first:pt-0">
-      <h2 className="m-0 font-display text-[clamp(20px,2.2vw,26px)] font-bold leading-[1.2] tracking-[-0.02em] text-[hsl(var(--foreground))]">
-        {section.title}
-      </h2>
+    <ProseBlock>
+      <SectionHeading>{section.title}</SectionHeading>
       {section.body.map((paragraph) => (
-        <p className="mt-[14px] text-[15.5px] leading-[1.65] text-[hsl(var(--muted))]" key={paragraph}>
+        <p className="mt-4 text-h3 leading-loose text-muted" key={paragraph}>
           <Prose text={paragraph} />
         </p>
       ))}
-    </article>
+    </ProseBlock>
   );
 }
 
@@ -21,20 +20,16 @@ export function AboutPage() {
   return (
     <main>
       <div className="flex flex-col gap-[clamp(40px,6vh,64px)]">
-        <section className="flex flex-col items-start gap-[18px] border-b border-[hsl(var(--rule))] pb-[clamp(32px,5vh,48px)]">
-          <div className="flex w-full flex-col items-start gap-[18px]">
-            <p className="m-0 inline-flex items-center gap-[9px] font-mono text-[11.5px] font-medium uppercase leading-none tracking-[0.16em] text-[hsl(var(--subtle))]">
-              {ABOUT.eyebrow}
-            </p>
-            <h1 className="m-0 max-w-[18ch] font-display text-[clamp(34px,5.2vw,54px)] font-extrabold leading-[1.04] tracking-[-0.03em] text-balance text-[hsl(var(--foreground))] [font-feature-settings:'ss01']">
+        <PageHeader
+          eyebrow={<Eyebrow dot={false}>{ABOUT.eyebrow}</Eyebrow>}
+          title={
+            <>
               {ABOUT.headline}
-              <span className="text-[hsl(var(--accent))]">.</span>
-            </h1>
-            <p className="m-0 max-w-[60ch] text-[clamp(16px,1.4vw,18px)] leading-[1.6] text-[hsl(var(--muted))]">
-              {ABOUT.lead}
-            </p>
-          </div>
-        </section>
+              <span className="text-accent">.</span>
+            </>
+          }
+          summary={ABOUT.lead}
+        />
 
         <section className="flex max-w-[70ch] flex-col" aria-label="About agent-paste">
           {ABOUT_SECTIONS.map((section) => (

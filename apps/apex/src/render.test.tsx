@@ -49,7 +49,11 @@ describe("apex shell", () => {
   });
 
   it("ships exactly one inline script: the pre-paint theme-init", () => {
-    expect(html).toContain('localStorage.getItem("ap-theme")');
+    // The pre-paint script reads the cross-surface theme cookie and pins
+    // data-theme before first paint (no flash). Assert the behavior, not the
+    // exact body.
+    expect(html).toContain("agp_theme");
+    expect(html).toContain('setAttribute("data-theme"');
     // A bare <script> (no attributes) is the inline theme-init; everything else
     // (client enhancement, beacon) is external/attributed. Pin the count so no
     // second inline script slips in under the static CSP.

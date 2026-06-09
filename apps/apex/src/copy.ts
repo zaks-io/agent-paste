@@ -1,9 +1,17 @@
-export const APP_BASE_URL = "https://app.agent-paste.sh";
+// Cross-app base URLs are baked at prerender time from the env apex is built for
+// (AGENT_PASTE_ENV, set per env in wrangler.jsonc and passed through by the deploy
+// layer the same way BILLING_ENABLED is). On the preview deploy this points every
+// CTA / dashboard / API link at the preview app, not production. Defaults to
+// production so a bare/unknown build is correct.
+const ENV = (typeof process !== "undefined" ? process.env.AGENT_PASTE_ENV : undefined) ?? "production";
+const SUBDOMAIN_PREFIX = ENV === "preview" ? "preview." : "";
+
+export const APP_BASE_URL = `https://app.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 // The app has no /login route; sign-in is initiated at /api/auth/sign-in
 // (root "/" also redirects there for unauthenticated visitors).
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
-export const API_BASE_URL = "https://api.agent-paste.sh";
-export const MCP_BASE_URL = "https://mcp.agent-paste.sh";
+export const API_BASE_URL = `https://api.${SUBDOMAIN_PREFIX}agent-paste.sh`;
+export const MCP_BASE_URL = `https://mcp.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 export const SOURCE_REPOSITORY = {
   label: "View on GitHub",
   slug: "zaks-io/agent-paste",

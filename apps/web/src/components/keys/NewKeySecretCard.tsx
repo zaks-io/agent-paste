@@ -7,7 +7,7 @@ type Props = {
 
 export function NewKeySecretCard({ secret, onDismiss }: Props) {
   return (
-    <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
+    <Card className="border-accent/30 bg-accent-tint">
       <CardHeader
         title="Copy your new key secret"
         subtitle="This is shown once and never again. Store it somewhere safe."
@@ -18,7 +18,7 @@ export function NewKeySecretCard({ secret, onDismiss }: Props) {
           </Button>
         }
       />
-      <code className="block overflow-x-auto rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface-sunken))] px-3 py-2 font-mono text-[12px]">
+      <code className="block overflow-x-auto rounded-sm border border-rule bg-surface-sunken px-3 py-2 font-mono text-xs">
         {secret}
       </code>
     </Card>

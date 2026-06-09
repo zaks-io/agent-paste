@@ -55,7 +55,7 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
       {error ? (
         <ErrorBanner title="Couldn't load lockdowns" message={error.message} requestId={error.requestId} />
       ) : activeLockdowns.length === 0 ? (
-        <p className="text-[13px] text-[hsl(var(--muted))]">No active lockdowns.</p>
+        <p className="text-sm text-muted">No active lockdowns.</p>
       ) : (
         <Table>
           <THead>
@@ -71,15 +71,15 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
           <TBody>
             {activeLockdowns.map((ld) => (
               <TR key={`${ld.scope}:${ld.target_id}`}>
-                <TD className="text-[13px]">
+                <TD className="text-sm">
                   <Badge tone={ld.scope === "workspace" ? "warning" : "destructive"}>{ld.scope}</Badge>
                 </TD>
                 <TD>
                   <Identifier value={ld.target_id} />
                 </TD>
-                <TD className="text-[13px]">{ld.reason_code}</TD>
-                <TD className="text-[13px]">{ld.set_by}</TD>
-                <TD className="font-mono text-[12px]">
+                <TD className="text-sm">{ld.reason_code}</TD>
+                <TD className="text-sm">{ld.set_by}</TD>
+                <TD className="font-mono text-xs">
                   <RelativeTime value={ld.set_at} />
                 </TD>
                 <TD className="text-right">

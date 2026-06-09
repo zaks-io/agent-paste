@@ -16,10 +16,8 @@ export function Card({ className, children, elevated, flush, ...rest }: CardProp
   return (
     <div
       className={cn(
-        "rounded-[var(--radius-md)]",
-        elevated
-          ? "border border-[hsl(var(--accent)/0.35)] bg-[hsl(var(--surface))]"
-          : "border border-[hsl(var(--rule))] bg-[hsl(var(--surface))]",
+        "rounded-md",
+        elevated ? "border border-accent/35 bg-surface" : "border border-rule bg-surface",
         flush ? "p-0" : "p-5",
         className,
       )}
@@ -44,8 +42,8 @@ export function CardHeader({
   return (
     <div className={cn("mb-4 flex items-start justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-[hsl(var(--foreground))]">{title}</h3>
-        {subtitle ? <p className="mt-1 text-[12.5px] text-[hsl(var(--subtle))]">{subtitle}</p> : null}
+        <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
+        {subtitle ? <p className="mt-1 text-mono text-subtle">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-3">{actions}</div> : null}
     </div>
@@ -57,7 +55,7 @@ export function SectionLabel({ children, className }: { children: ReactNode; cla
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <span className="eyebrow shrink-0">{children}</span>
-      <span aria-hidden className="h-px flex-1 bg-[hsl(var(--rule))]" />
+      <span aria-hidden className="h-px flex-1 bg-rule" />
     </div>
   );
 }

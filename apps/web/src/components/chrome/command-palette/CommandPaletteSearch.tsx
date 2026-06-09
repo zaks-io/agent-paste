@@ -17,12 +17,12 @@ export function CommandPaletteSearch({
   onQueryChange,
 }: CommandPaletteSearchProps) {
   return (
-    <div className="px-4 py-3 border-b border-[hsl(var(--rule))]">
+    <div className="px-4 py-3 border-b border-rule">
       <div className="relative">
         <Search
           size={16}
           strokeWidth={1.5}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted))]"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
           aria-hidden="true"
         />
         <input
@@ -37,10 +37,10 @@ export function CommandPaletteSearch({
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search commands…"
           className="
-            w-full h-9 pl-9 pr-3 rounded-[var(--radius-sm)]
-            border border-[hsl(var(--rule))] bg-[hsl(var(--surface-sunken))]
-            text-[13px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--subtle))]
-            outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2
+            w-full h-9 pl-8 pr-3 rounded-sm
+            border border-rule bg-surface-sunken
+            text-sm text-foreground placeholder:text-subtle
+            outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
           "
         />
       </div>

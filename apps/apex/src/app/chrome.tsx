@@ -1,103 +1,81 @@
-import { Wordmark } from "@agent-paste/ui";
+import { ButtonAnchor, Wordmark } from "@agent-paste/ui";
 import { FOOTER, type FooterColumn, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy";
 
-const WRAP = "mx-auto max-w-[1240px] px-[clamp(20px,4vw,72px)]";
+// One wrapper width for topbar + footer, straight from the mockup: 1280px max,
+// fluid clamp gutter.
+const WRAP = "mx-auto max-w-[1280px] px-[clamp(20px,4vw,72px)]";
 
-// Get-started CTA. The shared Button renders a <button>; the header CTA must be
-// an anchor, so we reproduce the primary/sm Button utilities on an <a> verbatim.
-const CTA =
-  "inline-flex items-center justify-center gap-2 select-none font-medium whitespace-nowrap " +
-  "rounded-[var(--radius-sm)] h-[30px] px-[12px] text-[12.5px] " +
-  "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] hover:bg-[hsl(var(--accent-dim))] " +
-  "transition-[background-color,color,border-color] duration-150 ease-[var(--ease-out)] " +
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--accent))]";
-
+// .nav a — dim link with an accent underline that wipes in from the left on hover
+// (the mockup's signature interaction). Colors are theme utilities; the underline
+// transform/easing stay arbitrary (no token for them).
 const NAV_LINK =
-  "relative font-mono text-[12.5px] tracking-[0.01em] py-[4px] " +
-  "text-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] " +
-  "transition-colors duration-200 ease-[var(--ease-out)] " +
+  "relative text-base text-subtle py-1 " +
+  "transition-colors duration-200 ease-out hover:text-foreground " +
   "after:content-[''] after:absolute after:left-0 after:bottom-0 after:w-full after:h-px " +
-  "after:bg-[hsl(var(--accent))] after:origin-left after:scale-x-0 hover:after:scale-x-100 " +
-  "after:transition-transform after:duration-[280ms] after:ease-[var(--ease-out)]";
+  "after:bg-accent after:origin-left after:scale-x-0 hover:after:scale-x-100 " +
+  "after:transition-transform after:duration-[280ms] after:ease-[cubic-bezier(.2,.7,.2,1)]";
 
-// The single marketing header for every apex page: brand left, nav center,
-// "Get started free" right, sticky. The "How it works"/"Features" links target
-// the home sections by absolute anchor (/#how, /#features) so they resolve from
-// docs/about/legal too, not just the home page.
+// A footer column link: dim, brightens to the accent on hover (a small accent
+// splash on every footer link).
+const FOOT_LINK = "text-base text-muted hover:text-accent transition-colors duration-[120ms] ease-out";
+
+// The single marketing header for every apex page. Mockup .topbar: 60px,
+// translucent canvas, hairline bottom, sticky. Brand left, nav + theme chip right.
+// One accent only — no swatch picker (no client handler; style guide bans
+// multiple accents).
 export function Header({ billingEnabled }: { billingEnabled: boolean }) {
   return (
-    <header
-      id="topbar"
-      className={
-        "sticky top-0 z-50 border-b border-transparent " +
-        "transition-[background-color,border-color,backdrop-filter] duration-200 ease-[var(--ease-out)] " +
-        "data-[stuck=true]:bg-[hsl(var(--background)/0.82)] data-[stuck=true]:backdrop-blur-[14px] " +
-        "data-[stuck=true]:backdrop-saturate-[140%] data-[stuck=true]:border-b-[hsl(var(--rule))]"
-      }
-    >
-      <div className={`${WRAP} grid grid-cols-[1fr_auto_1fr] items-center gap-x-[12px] h-[var(--head-h)]`}>
-        <a
-          className="justify-self-start inline-flex items-center gap-[8px]"
-          href="/"
-          aria-label={`${WORDMARK.base}${WORDMARK.tld}`}
-        >
+    <header id="topbar" className="sticky top-0 z-50 bg-background/88 backdrop-blur-[10px] border-b border-rule">
+      <div className={`${WRAP} flex h-[60px] items-center justify-between gap-6`}>
+        <a className="inline-flex items-center" href="/" aria-label={`${WORDMARK.base}${WORDMARK.tld}`}>
           <Wordmark withMark={false} />
         </a>
-        <nav className="hidden justify-self-center items-center gap-[clamp(14px,1.6vw,26px)] min-[880px]:inline-flex">
-          <a className={NAV_LINK} href="/#how">
-            How it works
-          </a>
-          <a className={NAV_LINK} href="/#features">
-            Features
-          </a>
-          <a className={NAV_LINK} href="/docs">
-            Docs
-          </a>
-          {billingEnabled ? (
-            <a className={NAV_LINK} href="/pricing">
-              Pricing
+        <div className="flex items-center gap-[clamp(14px,2vw,30px)]">
+          <nav className="hidden items-center gap-[clamp(14px,1.6vw,26px)] min-[640px]:flex" aria-label="Primary">
+            <a className={NAV_LINK} href="/#how">
+              How it works
             </a>
-          ) : null}
-          <a className={NAV_LINK} href="/about">
-            About
-          </a>
-        </nav>
-        <div className="justify-self-end inline-flex items-center gap-[14px]">
+            <a className={NAV_LINK} href="/#features">
+              Why
+            </a>
+            <a className={NAV_LINK} href="/docs">
+              Docs
+            </a>
+            {billingEnabled ? (
+              <a className={NAV_LINK} href="/pricing">
+                Pricing
+              </a>
+            ) : null}
+          </nav>
           <button
             type="button"
             id="theme-toggle"
-            aria-label="Toggle light or dark theme"
-            className={
-              "inline-flex items-center gap-[7px] h-[32px] px-[10px] " +
-              "font-mono text-[11.5px] tracking-[0.02em] " +
-              "text-[hsl(var(--muted))] bg-transparent border border-[hsl(var(--rule))] " +
-              "rounded-[var(--radius-xs)] cursor-pointer " +
-              "transition-[color,border-color] duration-[120ms] ease-[var(--ease-out)] " +
-              "hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--rule-strong))]"
-            }
+            aria-pressed="false"
+            aria-label="Toggle dark mode"
+            className="inline-flex items-center gap-2 leading-none font-mono text-xs tracking-wide text-subtle bg-transparent border border-rule rounded-xs px-2 py-1 cursor-pointer transition-[color,border-color] duration-200 ease-out hover:text-foreground hover:border-rule-strong"
           >
             <span className="tt-icon [&>svg]:block [&>svg]:w-[13px] [&>svg]:h-[13px]" aria-hidden="true" />
-            <span className="tt-label min-w-[30px] text-left max-[560px]:hidden">Theme</span>
+            <span className="tt-label min-w-[32px] text-left max-[560px]:hidden">Theme</span>
           </button>
-          <a className={CTA} href={SIGN_IN_URL}>
-            Get started free
-          </a>
+          <ButtonAnchor size="sm" className="whitespace-nowrap rounded-xs" href={SIGN_IN_URL}>
+            Get started
+          </ButtonAnchor>
         </div>
       </div>
     </header>
   );
 }
 
+// Inject the Pricing link into the Product column only when billing is on, so the
+// pricing route appears in the footer (and the render contract for >=2 /pricing
+// hrefs holds) without it leaking into the no-billing build.
 function footerColumns(billingEnabled: boolean): FooterColumn[] {
   if (!billingEnabled) {
     return FOOTER;
   }
   return FOOTER.map((column) =>
     column.heading === "Product"
-      ? {
-          ...column,
-          links: [{ label: "Pricing", href: "/pricing" }, ...column.links],
-        }
+      ? { ...column, links: [{ label: "Pricing", href: "/pricing" }, ...column.links] }
       : column,
   );
 }
@@ -105,16 +83,11 @@ function footerColumns(billingEnabled: boolean): FooterColumn[] {
 function FooterCol({ column }: { column: FooterColumn }) {
   return (
     <div>
-      <p className="font-mono text-[11px] font-medium tracking-[0.08em] uppercase text-[hsl(var(--subtle))] mb-[14px]">
-        {column.heading}
-      </p>
-      <ul className="grid gap-[9px]">
+      <p className="font-mono text-mono-sm font-medium tracking-wider uppercase text-subtle mb-4">{column.heading}</p>
+      <ul className="grid gap-2">
         {column.links.map((link) => (
           <li key={link.href}>
-            <a
-              className="text-[13.5px] text-[hsl(var(--muted))] hover:text-[hsl(var(--accent))] transition-colors duration-[120ms] ease-[var(--ease-out)]"
-              href={link.href}
-            >
+            <a className={FOOT_LINK} href={link.href}>
               {link.label}
             </a>
           </li>
@@ -124,16 +97,21 @@ function FooterCol({ column }: { column: FooterColumn }) {
   );
 }
 
+// The single marketing footer for every apex page: a wordmark + blurb column then
+// four link columns (Product / For agents / Project / Legal), with an install +
+// legal base row. Driven by FOOTER + INSTALL_LINKS so it cannot drift from copy.ts;
+// it also carries every render-contract href (docs/about/how-it-works/legal/agents
+// twins/repo/install scripts) on every page.
 export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
   return (
-    <footer className="border-t border-[hsl(var(--rule))] pt-[56px] pb-[40px]">
+    <footer className="border-t border-rule pt-12 pb-10">
       <div className={WRAP}>
-        <div className="grid grid-cols-1 gap-[40px] min-[640px]:grid-cols-[1.4fr_repeat(4,1fr)] min-[640px]:gap-x-[40px] min-[640px]:gap-y-[48px]">
-          <div className="grid gap-[14px] content-start max-w-[32ch]">
-            <a className="inline-flex items-center gap-[8px]" href="/" aria-label={`${WORDMARK.base}${WORDMARK.tld}`}>
+        <div className="grid grid-cols-1 gap-10 min-[640px]:grid-cols-[1.4fr_repeat(4,1fr)] min-[640px]:gap-x-10 min-[640px]:gap-y-12">
+          <div className="grid gap-4 content-start max-w-[32ch]">
+            <a className="inline-flex items-center gap-2" href="/" aria-label={`${WORDMARK.base}${WORDMARK.tld}`}>
               <Wordmark small />
             </a>
-            <p className="text-[13.5px] leading-[1.55] text-[hsl(var(--subtle))]">
+            <p className="text-base leading-relaxed text-subtle">
               The neutral hand-off layer for what your agent makes. Publish once, open it anywhere.
             </p>
           </div>
@@ -141,23 +119,21 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
             <FooterCol key={column.heading} column={column} />
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-[12px] mt-[48px] pt-[28px] border-t border-[hsl(var(--rule))]">
-          <span className="font-mono text-[11.5px] text-[hsl(var(--faint))]">where agents publish</span>
-          <span className="flex flex-wrap items-baseline gap-[14px] ml-auto">
-            <span className="font-mono text-[11px] tracking-[0.04em] text-[hsl(var(--faint)/0.7)]">install</span>
+        <div className="flex flex-wrap items-center gap-3 mt-12 pt-8 border-t border-rule">
+          <span className="font-mono text-mono-sm text-faint">where agents publish</span>
+          <span className="flex flex-wrap items-baseline gap-4 ml-auto">
+            <span className="font-mono text-mono-sm tracking-wide text-faint/70">install</span>
             {INSTALL_LINKS.map((link) => (
               <a
                 key={link.href}
-                className="font-mono text-[11px] text-[hsl(var(--faint))] hover:text-[hsl(var(--subtle))] transition-colors duration-[120ms] ease-[var(--ease-out)]"
+                className="font-mono text-mono-sm text-faint hover:text-accent transition-colors duration-[120ms] ease-out"
                 href={link.href}
               >
                 {link.label}
               </a>
             ))}
           </span>
-          <span className="font-mono text-[11.5px] text-[hsl(var(--subtle))]">
-            © {new Date().getFullYear()} zaks-io
-          </span>
+          <span className="font-mono text-mono-sm text-subtle">Apache-2.0 (c) zaks-io</span>
         </div>
       </div>
     </footer>

@@ -16,20 +16,14 @@ export function AbuseTriageGuide() {
         title="Abuse triage"
         subtitle="Respond to phishing, malware, or policy reports without destroying bytes."
       />
-      <ol className="mb-4 list-decimal space-y-2 pl-5 text-[13px] text-[hsl(var(--foreground))]">
+      <ol className="mb-4 list-decimal space-y-2 pl-5 text-sm text-foreground">
         {WORKFLOW_STEPS.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>
-      <p className="mb-2 text-[12px] text-[hsl(var(--muted))]">Suggested reason codes</p>
-      <p className="mb-4 font-mono text-[12px] text-[hsl(var(--muted))]">
-        {PLATFORM_LOCKDOWN_REASON_CODES.join(" · ")}
-      </p>
-      <Link
-        to="/admin"
-        search={{ focus: "security" }}
-        className="text-[13px] font-medium text-[hsl(var(--accent))] hover:underline"
-      >
+      <p className="mb-2 text-xs text-muted">Suggested reason codes</p>
+      <p className="mb-4 font-mono text-xs text-muted">{PLATFORM_LOCKDOWN_REASON_CODES.join(" · ")}</p>
+      <Link to="/admin" search={{ focus: "security" }} className="text-sm font-medium text-accent hover:underline">
         Browse security events
       </Link>
     </Card>

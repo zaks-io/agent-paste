@@ -277,9 +277,11 @@ async function deployApp(app, target) {
   }
   // apex prerenders to static HTML at build time, so the deploy script must
   // build env-specifically before `wrangler deploy`. The per-env build switches
-  // (BILLING_ENABLED, CF_WEB_ANALYTICS_TOKEN) have a single source — apex's
-  // wrangler.jsonc `vars` — which we resolve here and hand to the build via the
-  // process env. The app itself never reaches across the tree to read wrangler.
+  // (AGENT_PASTE_ENV, BILLING_ENABLED, CF_WEB_ANALYTICS_TOKEN) have a single
+  // source — apex's wrangler.jsonc `vars` — which we resolve here and hand to the
+  // build via the process env. AGENT_PASTE_ENV is what bakes the right cross-app
+  // base URLs (app/api/mcp) into the prerendered HTML, so the preview build links
+  // to preview, not production. The app itself never reaches across the tree.
   if (app === "apex") {
     await run("pnpm", ["--filter", "@agent-paste/apex", `deploy:${target}`], null, apexBuildEnv(target));
     return;
@@ -293,7 +295,7 @@ function apexBuildEnv(target) {
     cwd: root,
     env,
     envName: target,
-    keys: ["BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
+    keys: ["AGENT_PASTE_ENV", "BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
   });
   return env;
 }
