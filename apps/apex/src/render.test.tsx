@@ -45,7 +45,7 @@ describe("apex shell", () => {
   it("emits a static document with external hashed CSS and JS", () => {
     expect(html).toContain("<!doctype html>");
     expect(html).toContain('<link rel="stylesheet" href="/assets/styles.css"/>');
-    expect(html).toContain('<script src="/assets/client.js" defer="">');
+    expect(html).toContain('<script type="module" src="/assets/client.js">');
   });
 
   it("ships exactly one inline script: the pre-paint theme-init", () => {

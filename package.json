@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "check": "turbo run check",
     "cli:dev": "pnpm --filter @zaks-io/agent-paste dev --",
+    "dev:apex": "pnpm --filter @agent-paste/apex preview:watch",
     "dev:all": "pnpm build && node scripts/local-mvp-server.mjs",
     "dev:web": "node scripts/dev-web-local.mjs",
     "bootstrap:preview": "node scripts/bootstrap-secrets.mjs preview",
