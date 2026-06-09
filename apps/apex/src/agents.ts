@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy.js";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 

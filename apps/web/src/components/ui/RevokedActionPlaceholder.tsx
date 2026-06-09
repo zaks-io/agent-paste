@@ -4,5 +4,5 @@ type Props = {
 };
 
 export function RevokedActionPlaceholder({ placeholder = "—" }: Props) {
-  return <span className="text-[hsl(var(--subtle))]">{placeholder}</span>;
+  return <span className="text-subtle">{placeholder}</span>;
 }

@@ -1,4 +1,4 @@
-import type { BadgeTone } from "../components/ui/Badge";
+import type { BadgeTone } from "@agent-paste/ui";
 
 export type EntityState = { label: string; tone: BadgeTone };
 

@@ -1,18 +1,16 @@
 import type { WebAccessLinkRow } from "@agent-paste/contracts";
+import { Badge, Button, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
 import { accessLinkState } from "../../lib/access-link-state";
 import { useHydrated } from "../../lib/use-hydrated";
 import { mintAccessLinkFn, revokeAccessLinkFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import { DataTable } from "../ui/DataTable";
 import { Identifier } from "../ui/Identifier";
 import { OptionalRelativeTime } from "../ui/OptionalRelativeTime";
 import { RelativeTime } from "../ui/RelativeTime";
 import { RevokedActionPlaceholder } from "../ui/RevokedActionPlaceholder";
 import { StateBadge } from "../ui/StateBadge";
-import { TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 import { MintedUrlReveal } from "./MintedUrlReveal";
 
@@ -115,19 +113,19 @@ export function AccessLinksTable({ rows, showArtifact = false, locked = false, o
                     <Link
                       to="/artifacts/$artifactId"
                       params={{ artifactId: row.artifact_id }}
-                      className="font-mono text-[12px] text-[hsl(var(--subtle))] hover:text-[hsl(var(--accent))]"
+                      className="font-mono text-xs text-subtle hover:text-accent"
                     >
                       {row.artifact_id}
                     </Link>
                   </TD>
                 ) : null}
-                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                <TD className="text-muted font-mono text-xs">
                   {row.revision_id ? <Identifier value={row.revision_id} /> : "latest"}
                 </TD>
-                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                <TD className="text-muted font-mono text-xs">
                   <RelativeTime value={row.created_at} />
                 </TD>
-                <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+                <TD className="text-muted font-mono text-xs">
                   <OptionalRelativeTime value={row.expires_at} />
                 </TD>
                 <TD>
@@ -163,7 +161,7 @@ export function AccessLinksTable({ rows, showArtifact = false, locked = false, o
               </TR>
               {minted ? (
                 <TR>
-                  <TD colSpan={columnCount} className="bg-[hsl(var(--surface-2))]">
+                  <TD colSpan={columnCount} className="bg-surface-2">
                     <MintedUrlReveal url={minted} onDismiss={() => dismissMinted(row.id)} />
                   </TD>
                 </TR>

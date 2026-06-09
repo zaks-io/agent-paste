@@ -1,9 +1,17 @@
-export const APP_BASE_URL = "https://app.agent-paste.sh";
+// Cross-app base URLs are baked at prerender time from the env apex is built for
+// (AGENT_PASTE_ENV, set per env in wrangler.jsonc and passed through by the deploy
+// layer the same way BILLING_ENABLED is). On the preview deploy this points every
+// CTA / dashboard / API link at the preview app, not production. Defaults to
+// production so a bare/unknown build is correct.
+const ENV = (typeof process !== "undefined" ? process.env.AGENT_PASTE_ENV : undefined) ?? "production";
+const SUBDOMAIN_PREFIX = ENV === "preview" ? "preview." : "";
+
+export const APP_BASE_URL = `https://app.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 // The app has no /login route; sign-in is initiated at /api/auth/sign-in
 // (root "/" also redirects there for unauthenticated visitors).
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
-export const API_BASE_URL = "https://api.agent-paste.sh";
-export const MCP_BASE_URL = "https://mcp.agent-paste.sh";
+export const API_BASE_URL = `https://api.${SUBDOMAIN_PREFIX}agent-paste.sh`;
+export const MCP_BASE_URL = `https://mcp.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 export const SOURCE_REPOSITORY = {
   label: "View on GitHub",
   slug: "zaks-io/agent-paste",
@@ -26,25 +34,6 @@ export const HERO = {
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
   secondary: { label: "Read the docs", href: "/docs" },
 };
-
-export type TranscriptLine =
-  | { kind: "prompt"; text: string }
-  | { kind: "comment"; text: string }
-  | { kind: "success"; text: string }
-  | { kind: "output"; text: string }
-  | { kind: "result"; origin: string; id: string };
-
-export const TRANSCRIPT: TranscriptLine[] = [
-  { kind: "prompt", text: "npx @zaks-io/agent-paste login" },
-  { kind: "comment", text: "opens your browser for OAuth. no API key to copy or paste." },
-  { kind: "success", text: "Signed in as you@example.com" },
-  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report" },
-  { kind: "result", origin: "https://agent-paste.sh/", id: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF" },
-  { kind: "comment", text: "no account? add --ephemeral. no login, no key." },
-  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./report --ephemeral" },
-  { kind: "result", origin: "https://agent-paste.sh/", id: "art_01J2QK8R4DZ0WX5NT3YBE7MCFG" },
-  { kind: "output", text: "Claim: https://app.agent-paste.sh/claim#ap_ct_… (open it signed in to keep it)" },
-];
 
 export type Feature = {
   title: string;

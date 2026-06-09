@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const CLI_DOC: DocsPage = {
   slug: "cli",

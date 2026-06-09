@@ -1,4 +1,4 @@
-import type { DocsPage } from "../types.js";
+import type { DocsPage } from "../types";
 
 export const ARTIFACT_MODEL_DOC: DocsPage = {
   slug: "artifact-model",

@@ -1,15 +1,15 @@
-import { ARTIFACT_MODEL_DOC } from "./pages/artifact-model.js";
-import { BILLING_DOC } from "./pages/billing.js";
-import { CLI_DOC } from "./pages/cli.js";
-import { DASHBOARD_DOC } from "./pages/dashboard.js";
-import { EPHEMERAL_DOC } from "./pages/ephemeral.js";
-import { GETTING_STARTED_DOC } from "./pages/getting-started.js";
-import { LIMITS_DOC } from "./pages/limits.js";
-import { MCP_DOC } from "./pages/mcp.js";
-import { REST_API_DOC } from "./pages/rest-api.js";
-import { SAFETY_DOC } from "./pages/safety.js";
-import { SHARING_DOC } from "./pages/sharing.js";
-import type { DocsPage } from "./types.js";
+import { ARTIFACT_MODEL_DOC } from "./pages/artifact-model";
+import { BILLING_DOC } from "./pages/billing";
+import { CLI_DOC } from "./pages/cli";
+import { DASHBOARD_DOC } from "./pages/dashboard";
+import { EPHEMERAL_DOC } from "./pages/ephemeral";
+import { GETTING_STARTED_DOC } from "./pages/getting-started";
+import { LIMITS_DOC } from "./pages/limits";
+import { MCP_DOC } from "./pages/mcp";
+import { REST_API_DOC } from "./pages/rest-api";
+import { SAFETY_DOC } from "./pages/safety";
+import { SHARING_DOC } from "./pages/sharing";
+import type { DocsPage } from "./types";
 
 export const DOCS_PAGES = [
   GETTING_STARTED_DOC,
@@ -24,12 +24,6 @@ export const DOCS_PAGES = [
   LIMITS_DOC,
   SAFETY_DOC,
 ] as const satisfies readonly DocsPage[];
-
-const DOCS_PAGE_BY_SLUG = new Map(DOCS_PAGES.map((page) => [page.slug, page]));
-
-export function docsPageForSlug(slug: string): DocsPage | null {
-  return DOCS_PAGE_BY_SLUG.get(slug) ?? null;
-}
 
 export function docsHtmlPath(page: DocsPage): string {
   return `/docs/${page.slug}`;

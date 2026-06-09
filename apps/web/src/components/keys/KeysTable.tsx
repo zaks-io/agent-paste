@@ -1,15 +1,14 @@
 import type { WebApiKeyRow } from "@agent-paste/contracts";
+import { Button, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useState } from "react";
 import { revocableEntityState } from "../../lib/revocable-entity-state";
 import { useHydrated } from "../../lib/use-hydrated";
 import { revokeKeyFn } from "../../rpc/web-mutations";
-import { Button } from "../ui/Button";
 import { DataTable } from "../ui/DataTable";
 import { Identifier } from "../ui/Identifier";
 import { OptionalRelativeTime } from "../ui/OptionalRelativeTime";
 import { RevokedActionPlaceholder } from "../ui/RevokedActionPlaceholder";
 import { StateBadge } from "../ui/StateBadge";
-import { TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {
@@ -60,11 +59,11 @@ export function KeysTable({ rows, onRevoked }: Props) {
               <TD>
                 <Identifier value={row.public_id} />
               </TD>
-              <TD className="text-[hsl(var(--muted))]">{row.scopes.join(", ")}</TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+              <TD className="text-muted">{row.scopes.join(", ")}</TD>
+              <TD className="text-muted font-mono text-xs">
                 <OptionalRelativeTime value={row.last_used_at} />
               </TD>
-              <TD className="text-[hsl(var(--muted))] font-mono text-[12px]">
+              <TD className="text-muted font-mono text-xs">
                 <OptionalRelativeTime value={row.expires_at} />
               </TD>
               <TD>

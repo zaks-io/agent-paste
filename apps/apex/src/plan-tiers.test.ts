@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BILLING_DOC } from "./docs/pages/billing.js";
-import { billingPlansTableRows, pricingComparisonRows } from "./plan-tiers.js";
+import { BILLING_DOC } from "./docs/pages/billing";
+import { billingPlansTableRows, pricingComparisonRows } from "./plan-tiers";
 
 describe("plan-tiers", () => {
   it("keeps pricing comparison numbers aligned with the billing docs table", () => {

@@ -1,14 +1,11 @@
 import type { LockdownDetail } from "@agent-paste/contracts";
+import { Badge, Button, Card, CardHeader, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useState } from "react";
 import type { ApiErrorInfo } from "../../lib/api-error";
 import { liftLockdownFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {
@@ -58,7 +55,7 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
       {error ? (
         <ErrorBanner title="Couldn't load lockdowns" message={error.message} requestId={error.requestId} />
       ) : activeLockdowns.length === 0 ? (
-        <p className="text-[13px] text-[hsl(var(--muted))]">No active lockdowns.</p>
+        <p className="text-sm text-muted">No active lockdowns.</p>
       ) : (
         <Table>
           <THead>
@@ -74,15 +71,15 @@ export function LockdownList({ lockdowns, error, onLift }: Props) {
           <TBody>
             {activeLockdowns.map((ld) => (
               <TR key={`${ld.scope}:${ld.target_id}`}>
-                <TD className="text-[13px]">
+                <TD className="text-sm">
                   <Badge tone={ld.scope === "workspace" ? "warning" : "destructive"}>{ld.scope}</Badge>
                 </TD>
                 <TD>
                   <Identifier value={ld.target_id} />
                 </TD>
-                <TD className="text-[13px]">{ld.reason_code}</TD>
-                <TD className="text-[13px]">{ld.set_by}</TD>
-                <TD className="font-mono text-[12px]">
+                <TD className="text-sm">{ld.reason_code}</TD>
+                <TD className="text-sm">{ld.set_by}</TD>
+                <TD className="font-mono text-xs">
                   <RelativeTime value={ld.set_at} />
                 </TD>
                 <TD className="text-right">

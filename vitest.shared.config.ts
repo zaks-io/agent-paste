@@ -60,6 +60,11 @@ const sharedCoverageExcludes = [
 // excluded when v8 under-counts thin entrypoints or coverage would duplicate
 // generated/schema noise. See the ledger for each file's test anchor.
 const workspaceCoverageExcludes: Record<string, string[]> = {
+  // Browser-only progressive enhancement (theme toggle, sticky header, clipboard,
+  // scroll-reveal). Ships in the bundled client.js and touches document/navigator/
+  // IntersectionObserver; it is never imported by a node test and degrades
+  // gracefully. apex's analog of web's excluded theme-provider.tsx/runtime.ts.
+  "@agent-paste/apex": ["src/client.ts"],
   // Worker bootstrap: `handleRequest` and route wiring tested in src/index.test.ts;
   // default Sentry export is not instrumented in unit runs.
   "@agent-paste/api": ["src/index.ts"],

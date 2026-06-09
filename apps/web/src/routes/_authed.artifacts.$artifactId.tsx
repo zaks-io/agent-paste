@@ -1,4 +1,5 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
+import { Badge, Card, cn, SectionLabel } from "@agent-paste/ui";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -6,15 +7,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AccessLinkLockdownToggle } from "../components/access-links/AccessLinkLockdownToggle";
 import { AccessLinksTable } from "../components/access-links/AccessLinksTable";
 import { CreateAccessLinkPanel } from "../components/access-links/CreateAccessLinkPanel";
-import { Badge } from "../components/ui/Badge";
-import { Card, SectionLabel } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
 import { artifactStatusTone } from "../lib/artifact-status";
-import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
@@ -141,16 +139,16 @@ function ArtifactDetailPage() {
         <div className="grid gap-6">
           {iframeSrc ? (
             <Card elevated flush className="overflow-hidden">
-              <div className="flex items-center justify-between border-b border-[hsl(var(--rule))] px-5 py-3">
+              <div className="flex items-center justify-between border-b border-rule px-5 py-3">
                 <div className="flex items-baseline gap-3">
                   <span className="eyebrow">Published viewer</span>
-                  <span className="text-[12px] text-[hsl(var(--subtle))]">live on each revision</span>
+                  <span className="text-xs text-subtle">live on each revision</span>
                 </div>
                 <Badge tone="success" dot pulse>
                   Live
                 </Badge>
               </div>
-              <div className="h-[min(70vh,720px)] bg-[hsl(var(--background))]">
+              <div className="h-[min(70vh,720px)] bg-background">
                 <iframe
                   title="Artifact content"
                   src={iframeSrc}
@@ -166,14 +164,11 @@ function ArtifactDetailPage() {
         </div>
         <div className="h-fit">
           <SectionLabel className="mb-4">Latest revision</SectionLabel>
-          <dl className="border-t border-[hsl(var(--rule))]">
+          <dl className="border-t border-rule">
             {meta.map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-4 border-b border-[hsl(var(--rule))] py-2.5 pl-3 pr-3"
-              >
-                <dt className="text-[12.5px] text-[hsl(var(--subtle))]">{label}</dt>
-                <dd className="truncate text-right font-mono text-[12px] tabular-nums">{value}</dd>
+              <div key={label} className="flex items-center justify-between gap-4 border-b border-rule py-2 pl-3 pr-3">
+                <dt className="text-mono text-subtle">{label}</dt>
+                <dd className="truncate text-right font-mono text-xs tabular-nums">{value}</dd>
               </div>
             ))}
           </dl>

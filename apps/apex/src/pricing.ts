@@ -1,4 +1,4 @@
-import type { PageMeta } from "./components/chrome.js";
+import type { PageMeta } from "./meta";
 
 export const PRICING_TITLE = "Pricing - agent-paste.sh";
 export const PRICING_DESCRIPTION =

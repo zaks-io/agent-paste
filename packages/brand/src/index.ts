@@ -4,8 +4,20 @@
  * color/type/spacing stays bound to the same source as the web dashboard.
  */
 
-import { EASE_OUT, FONTS, RADII, THEMES, type ThemeName, type ThemeTokens, TYPE } from "./tokens.js";
+import {
+  DARK,
+  EASE_OUT,
+  FONTS,
+  LIGHT,
+  RADII,
+  SPACE,
+  THEMES,
+  type ThemeName,
+  type ThemeTokens,
+  TYPE,
+} from "./tokens.js";
 
+export * from "./theme-cookie.js";
 export * from "./tokens.js";
 
 /**
@@ -43,7 +55,7 @@ function themeVars(t: ThemeTokens): Record<string, string> {
 /** Static (theme-independent) tokens: fonts, radii, easing, type scale, container. */
 function staticVars(): Record<string, string> {
   return {
-    "--font-ui": FONTS.display.stack,
+    "--font-ui": FONTS.body.stack,
     "--font-display": FONTS.display.stack,
     "--font-mono": FONTS.mono.stack,
     "--radius-xs": RADII.xs,
@@ -80,64 +92,443 @@ export function cssVarsBlock(): string {
   ].join("\n");
 }
 
+/**
+ * Manual-override blocks: `[data-theme="light"]` and `[data-theme="dark"]` with
+ * the full theme tokens. Emitted *after* `cssVarsBlock()` so a `data-theme`
+ * attribute on the root wins over the `prefers-color-scheme` default at equal
+ * specificity (later rule in source order). This is what lets a light/dark
+ * toggle pin the theme regardless of the OS setting.
+ */
+export function themeOverrideCss(): string {
+  return (Object.keys(THEMES) as ThemeName[])
+    .map((name) => [`[data-theme="${name}"] {`, declarations(themeVars(THEMES[name])), "}"].join("\n"))
+    .join("\n\n");
+}
+
 /** Just one theme's variables as `--name: value;` lines (for tests / web parity checks). */
 export function themeVarLines(theme: ThemeName): Record<string, string> {
   return themeVars(THEMES[theme]);
 }
 
 /**
- * @font-face blocks for apex's self-hosted woff2. `basePath` is the URL prefix the
- * worker serves fonts from (default "/fonts"). Bricolage is emitted as a variable
- * font (woff2-variations) so its optical-size axis works.
+ * @font-face blocks for the self-hosted woff2. `basePath` is the URL prefix each
+ * surface serves fonts from (default "/fonts"). All three faces are variable
+ * (single weight axis), emitted with their supported weight range.
  */
 export function fontFaceCss(basePath = "/fonts"): string {
-  const { display, mono } = FONTS;
-  return [
-    "@font-face {",
-    `  font-family: "${display.family}";`,
-    `  src: url("${basePath}/${display.apexFile}") format("woff2-variations");`,
-    `  font-weight: ${display.weightRange};`,
-    "  font-style: normal;",
-    "  font-display: swap;",
-    "}",
-    "@font-face {",
-    `  font-family: "${mono.family}";`,
-    `  src: url("${basePath}/${mono.apexFiles[400]}") format("woff2");`,
-    "  font-weight: 400;",
-    "  font-style: normal;",
-    "  font-display: swap;",
-    "}",
-    "@font-face {",
-    `  font-family: "${mono.family}";`,
-    `  src: url("${basePath}/${mono.apexFiles[500]}") format("woff2");`,
-    "  font-weight: 500;",
-    "  font-style: normal;",
-    "  font-display: swap;",
-    "}",
-  ].join("\n");
+  return Object.values(FONTS)
+    .map(({ family, file, weightRange }) =>
+      [
+        "@font-face {",
+        `  font-family: "${family}";`,
+        `  src: url("${basePath}/${file}") format("woff2");`,
+        `  font-weight: ${weightRange};`,
+        "  font-style: normal;",
+        "  font-display: swap;",
+        "}",
+      ].join("\n"),
+    )
+    .join("\n");
 }
 
+/** Editorial column widths. Not theme tokens; layout constants shared by both surfaces. */
+const CONTAINER = { default: "1180px", wide: "1360px" } as const;
+
 /**
- * The grain overlay (the web app's signature atmosphere): a fixed, low-opacity
- * fractal-noise SVG behind content. The data: URI is CSP-safe under `img-src 'self'
- * data:`. Caller must also lift content above it (e.g. `body > * { z-index: 1 }`).
+ * The complete Tailwind v4 stylesheet, generated from the tokens above. This is
+ * the single source the design system ships: `@agent-paste/ui` writes it to a
+ * `.css` file that BOTH the web dashboard and the apex marketing site import, so
+ * neither hand-authors tokens and the two cannot drift. Regenerate with
+ * `pnpm --filter @agent-paste/ui test -u` after changing tokens.
  */
-export function grainCss(): string {
-  const svg =
-    "data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
-  return [
-    "body::before {",
-    '  content: "";',
-    "  position: fixed;",
-    "  inset: 0;",
-    "  z-index: 0;",
-    "  pointer-events: none;",
-    "  opacity: 0.035;",
-    `  background-image: url("${svg}");`,
-    "  background-size: 200px 200px;",
-    "}",
-    "@media (prefers-color-scheme: light) {",
-    "  body::before { opacity: 0.025; mix-blend-mode: multiply; }",
-    "}",
-  ].join("\n");
+export function globalsCss(): string {
+  const D = DARK;
+  const L = LIGHT;
+  return `@import "tailwindcss";
+
+/* Self-hosted variable faces (served from public/fonts). Generated from FONTS. */
+${fontFaceCss()}
+
+/*
+ * agent-paste design system — GENERATED from @agent-paste/brand tokens.
+ * Do not edit by hand: change packages/brand/src/tokens.ts and regenerate
+ * (pnpm --filter @agent-paste/ui test -u). Both apps/web and apps/apex import
+ * this file, so they cannot drift.
+ *
+ * Discipline (enforced, not decorated):
+ *   - Surface LADDER + 1px hairlines for depth. No cards. No drop shadows.
+ *   - ONE accent (vermilion) with one job: primary action, focus, live-state.
+ *   - Mono data rail with tabular figures. Square corners. No pills.
+ */
+
+:root {
+  /* Neutral near-black ladder. Depth = lightness steps of a near-neutral hue. */
+  --ink-0: ${D.background}; /* canvas */
+  --ink-1: ${D.surface}; /* raised surface */
+  --ink-2: ${D.surface2}; /* hover / inset */
+  --ink-3: ${D.surface3}; /* strong inset */
+  --line: ${D.rule}; /* hairline */
+  --line-2: ${D.ruleStrong}; /* hairline strong */
+
+  /* Faintly warm off-white ink ramp. */
+  --fg-0: ${D.foreground};
+  --fg-1: ${D.muted};
+  --fg-2: ${D.subtle};
+  --fg-3: ${D.faint};
+
+  /* The one voltage. Vermilion. */
+  --vermilion: ${D.accent};
+  --vermilion-dim: ${D.accentDim};
+
+  /* Semantic only — never decorative. */
+  --live: ${D.success};
+  --warn: ${D.warning};
+  --gone: ${D.destructive};
+
+  --space-px: ${SPACE[0.25]};
+  --space-1: ${SPACE[1]};
+  --space-2: ${SPACE[2]};
+  --space-3: ${SPACE[3]};
+  --space-4: ${SPACE[4]};
+  --space-5: ${SPACE[5]};
+  --space-6: ${SPACE[6]};
+  --space-8: ${SPACE[8]};
+  --space-10: ${SPACE[10]};
+  --space-12: ${SPACE[12]};
+  --space-16: ${SPACE[16]};
+  --space-20: ${SPACE[20]};
+  --space-24: ${SPACE[24]};
+  --space-32: ${SPACE[32]};
+
+  --container-default: ${CONTAINER.default};
+  --container-wide: ${CONTAINER.wide};
+
+  /* Square-ish. Radius is the exception, never the rule. */
+  --radius-xs: ${RADII.xs};
+  --radius-sm: ${RADII.sm};
+  --radius-md: ${RADII.md};
+
+  --ease-out: ${EASE_OUT};
+
+  --text-hero: ${TYPE.hero};
+  --text-h1: ${TYPE.h1};
+  --text-h2: ${TYPE.h2};
+  --text-h3: ${TYPE.h3};
+  --text-body: ${TYPE.body};
+  --text-sm: ${TYPE.sm};
+  --text-xs: ${TYPE.xs};
+  --text-meta: ${TYPE.meta};
+  --text-mono: ${TYPE.mono};
+  --text-mono-sm: ${TYPE.monoSm};
+}
+
+/* Dark is the product. Bare :root is dark so SSR first-paint is correct. */
+:root,
+[data-theme="dark"] {
+  --background: var(--ink-0);
+  --surface: var(--ink-1);
+  --surface-2: var(--ink-2);
+  --surface-3: var(--ink-3);
+  --rule: var(--line);
+  --rule-strong: var(--line-2);
+  --foreground: var(--fg-0);
+  --muted: var(--fg-1);
+  --subtle: var(--fg-2);
+  --faint: var(--fg-3);
+
+  --accent: var(--vermilion);
+  --accent-dim: var(--vermilion-dim);
+  --accent-fg: ${D.accentFg};
+  --accent-tint: ${D.accentTint};
+  --selection: ${D.selection};
+
+  --success: var(--live);
+  --warning: var(--warn);
+  --destructive: var(--gone);
+  --info: var(--fg-2);
+
+  /* Compat aliases for surfaces referenced by chrome/command-palette/forms. */
+  --surface-sunken: var(--ink-0);
+  --surface-raised: var(--surface-2);
+  --neutral-900: var(--ink-0);
+  --neutral-50: var(--fg-0);
+}
+
+/* Light — warm paper, vermilion stays the voltage. First-class, co-equal with dark. */
+[data-theme="light"] {
+  --background: ${L.background};
+  --surface: ${L.surface};
+  --surface-2: ${L.surface2};
+  --surface-3: ${L.surface3};
+  --rule: ${L.rule};
+  --rule-strong: ${L.ruleStrong};
+  --foreground: ${L.foreground};
+  --muted: ${L.muted};
+  --subtle: ${L.subtle};
+  --faint: ${L.faint};
+
+  --accent: ${L.accent};
+  --accent-dim: ${L.accentDim};
+  --accent-fg: ${L.accentFg};
+  --accent-tint: ${L.accentTint};
+  --selection: ${L.selection};
+
+  --success: ${L.success};
+  --warning: ${L.warning};
+  --destructive: ${L.destructive};
+  --info: ${L.muted};
+
+  --surface-sunken: var(--surface-2);
+  --surface-raised: var(--surface-2);
+  --neutral-900: ${L.foreground};
+  --neutral-50: ${L.background};
+}
+
+@theme {
+  --font-display: ${FONTS.display.stack};
+  --font-ui: ${FONTS.body.stack};
+  --font-mono: ${FONTS.mono.stack};
+
+  --color-background: hsl(var(--background));
+  --color-surface: hsl(var(--surface));
+  --color-surface-2: hsl(var(--surface-2));
+  --color-surface-3: hsl(var(--surface-3));
+  --color-surface-sunken: hsl(var(--surface-sunken));
+  --color-surface-raised: hsl(var(--surface-raised));
+  --color-rule: hsl(var(--rule));
+  --color-rule-strong: hsl(var(--rule-strong));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-subtle: hsl(var(--subtle));
+  --color-faint: hsl(var(--faint));
+  --color-accent: hsl(var(--accent));
+  --color-accent-dim: hsl(var(--accent-dim));
+  --color-accent-foreground: hsl(var(--accent-fg));
+  /* Pre-composed translucent accent. Alpha is baked into the channel string, so
+   * use bg-accent-tint BARE — never with an /opacity modifier (would double-apply). */
+  --color-accent-tint: hsl(var(--accent-tint));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-destructive: hsl(var(--destructive));
+  --color-info: hsl(var(--info));
+  /* Scrim/overlay neutral. Theme-flipped (near-black dark / ink light); used as
+   * bg-neutral-900/<alpha> for modal backdrops. */
+  --color-neutral-900: hsl(var(--neutral-900));
+
+  --radius: ${RADII.md};
+  --radius-xs: ${RADII.xs};
+  --radius-sm: ${RADII.sm};
+  --radius-md: ${RADII.md};
+
+  /* Type scale — mints text-meta … text-hero. Generated from TYPE; the named
+   * step is the ONLY way to set a font size (no text-[..px] brackets). Each size
+   * pairs a sensible default line-height so a bare \`text-h2\` reads correctly. */
+  --text-meta: ${TYPE.meta};
+  --text-meta--line-height: 1.4;
+  --text-mono-sm: ${TYPE.monoSm};
+  --text-mono-sm--line-height: 1.45;
+  --text-xs: ${TYPE.xs};
+  --text-xs--line-height: 1.5;
+  --text-mono: ${TYPE.mono};
+  --text-mono--line-height: 1.5;
+  --text-sm: ${TYPE.sm};
+  --text-sm--line-height: 1.55;
+  --text-base: ${TYPE.body};
+  --text-base--line-height: 1.6;
+  --text-h3: ${TYPE.h3};
+  --text-h3--line-height: 1.4;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.5;
+  --text-h2: ${TYPE.h2};
+  --text-h2--line-height: 1.25;
+  --text-h1: ${TYPE.h1};
+  --text-h1--line-height: 1.1;
+  --text-hero: ${TYPE.hero};
+  --text-hero--line-height: 0.95;
+  /* Fluid display steps — cover every clamp() headline the mockup uses, so the
+   * panes/blocks set size with text-display-* instead of a bespoke clamp bracket. */
+  --text-display-sm: clamp(24px, 2.6vw, 34px);
+  --text-display-sm--line-height: 1.18;
+  --text-display-md: clamp(40px, 5vw, 66px);
+  --text-display-md--line-height: 1.02;
+  --text-display-lg: clamp(42px, 7vw, 72px);
+  --text-display-lg--line-height: 1.02;
+
+  /* Line-height — mints leading-flush … leading-loose. */
+  --leading-flush: 0.8;
+  --leading-tight: 1.04;
+  --leading-snug: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+  --leading-loose: 1.65;
+
+  /* Tracking — mints tracking-tightest … tracking-eyebrow. */
+  --tracking-tightest: -0.035em;
+  --tracking-tighter: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.08em;
+  --tracking-eyebrow: 0.16em;
+
+  /* Motion — mints the ease-out utility. Kills every ease-[var(--ease-out)]. */
+  --ease-out: ${EASE_OUT};
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  font-feature-settings: "ss01";
+}
+
+::selection {
+  background: hsl(var(--selection));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: 2px;
+}
+
+/* Cabinet Grotesk as display: lean on weight. Tight tracking at large sizes. */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* The hero figure: bold anchor, sits inline on the baseline with its caption. */
+.hero-figure {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  font-feature-settings: "ss01", "tnum";
+}
+
+/* Eyebrow / rail labels: uppercase mono, positive tracking — the instrument voice. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: hsl(var(--subtle));
+}
+
+.tnum {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inline code chip. One treatment everywhere the shared Prose renders \`code\`,
+ * so both surfaces match. */
+.code {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+  font-size: 0.9em;
+  letter-spacing: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--surface-3));
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.rise {
+  animation: rise-in 0.55s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: a11y override must defeat author styles */
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: a11y override must defeat author styles */
+  }
+}
+`;
 }

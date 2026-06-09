@@ -1,4 +1,4 @@
-import type { LegalDocument } from "./legal.js";
+import type { LegalDocument } from "./legal-types";
 
 export const TERMS: LegalDocument = {
   path: "/terms",

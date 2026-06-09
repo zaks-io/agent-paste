@@ -1,9 +1,7 @@
 import type { BillingStatusResponse } from "@agent-paste/contracts";
+import { Button, cn, SectionLabel } from "@agent-paste/ui";
 import { useState } from "react";
-import { cn } from "../../lib/cn";
 import { openPortalFn } from "../../rpc/web-mutations";
-import { Button } from "../ui/Button";
-import { SectionLabel } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
 import { BillingNote } from "./BillingNote";
 import { formatBillingDate } from "./format";
@@ -49,24 +47,24 @@ export function SubscriptionPanel({ status }: { status: BillingStatusResponse })
 
   return (
     <aside>
-      <SectionLabel className="mb-[18px]">Subscription</SectionLabel>
+      <SectionLabel className="mb-4">Subscription</SectionLabel>
       <dl className="grid">
         {rows.map(([label, value], i) => (
           <div
             key={label}
             className={cn(
               "flex items-baseline justify-between gap-4 py-3",
-              i < rows.length - 1 && "border-b border-[hsl(var(--rule))]",
+              i < rows.length - 1 && "border-b border-rule",
             )}
           >
-            <dt className="text-[13px] text-[hsl(var(--subtle))]">{label}</dt>
-            <dd className="m-0 text-right font-mono text-[13px] tabular-nums text-[hsl(var(--foreground))]">{value}</dd>
+            <dt className="text-sm text-subtle">{label}</dt>
+            <dd className="m-0 text-right font-mono text-sm tabular-nums text-foreground">{value}</dd>
           </div>
         ))}
       </dl>
 
       {sub ? (
-        <div className="mt-[18px]">
+        <div className="mt-4">
           <Button variant="secondary" className="w-full" loading={pending} onClick={manage}>
             Manage in Stripe
           </Button>

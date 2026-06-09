@@ -1,0 +1,56 @@
+import { AGENTS_MD } from "../agents";
+import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "../docs/markdown";
+import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "../docs/registry";
+import { INSTALL_PS1 } from "../install-ps1";
+import { INSTALL_SH } from "../install-sh";
+import { renderLlmsTxt } from "../llms";
+
+const TEXT_PLAIN = "text/plain; charset=utf-8";
+const TEXT_MARKDOWN = "text/markdown; charset=utf-8";
+const TEXT_XML = "application/xml; charset=utf-8";
+const TEXT_SHELL = "text/x-shellscript; charset=utf-8";
+
+export type TextAsset = { path: string; contentType: string; body: string };
+
+export function textAssets(opts: { origin: string; billingEnabled: boolean }): TextAsset[] {
+  return [
+    { path: "/docs.md", contentType: TEXT_MARKDOWN, body: renderDocsIndexMarkdown() },
+    ...DOCS_PAGES.map((page) => ({
+      path: docsMarkdownPath(page),
+      contentType: TEXT_MARKDOWN,
+      body: renderDocsPageMarkdown(page),
+    })),
+    { path: "/llms-full.txt", contentType: TEXT_PLAIN, body: renderLlmsFullText() },
+    { path: "/llms.txt", contentType: TEXT_PLAIN, body: renderLlmsTxt(opts.billingEnabled) },
+    { path: "/agents.md", contentType: TEXT_MARKDOWN, body: AGENTS_MD },
+    { path: "/install.sh", contentType: TEXT_SHELL, body: INSTALL_SH },
+    { path: "/install.ps1", contentType: TEXT_PLAIN, body: INSTALL_PS1 },
+    { path: "/robots.txt", contentType: TEXT_PLAIN, body: robotsTxt(opts.origin) },
+    { path: "/sitemap.xml", contentType: TEXT_XML, body: sitemapXml(opts.origin, opts.billingEnabled) },
+  ];
+}
+
+function robotsTxt(origin: string): string {
+  return `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`;
+}
+
+function sitemapXml(origin: string, billingEnabled: boolean): string {
+  const urls = [
+    "/",
+    "/about",
+    "/how-it-works",
+    ...(billingEnabled ? ["/pricing"] : []),
+    "/docs",
+    "/docs.md",
+    ...DOCS_PAGES.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),
+    "/terms",
+    "/privacy",
+    "/llms.txt",
+    "/llms-full.txt",
+    "/agents.md",
+    "/install.sh",
+    "/install.ps1",
+  ];
+  const entries = urls.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+}

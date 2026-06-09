@@ -1,5 +1,5 @@
+import { Wordmark } from "@agent-paste/ui";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Wordmark } from "../components/chrome/Wordmark";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { publicPageMeta } from "../lib/page-meta";
 import { loadRootAuthFn } from "../rpc/web-loaders";
@@ -36,11 +36,11 @@ function HomePage() {
             <Wordmark />
           </div>
           <div className="grid gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--accent))]">Workspace</p>
-            <h1 className="font-display text-[34px] leading-[1.08] text-[hsl(var(--foreground))]">
+            <p className="text-mono-sm font-semibold uppercase tracking-eyebrow text-accent">Workspace</p>
+            <h1 className="font-display text-h1 leading-tight text-foreground">
               The record room for what your agents publish.
             </h1>
-            <p className="mx-auto max-w-[34ch] text-[14px] leading-relaxed text-[hsl(var(--muted))]">
+            <p className="mx-auto max-w-[34ch] text-base leading-relaxed text-muted">
               Sign in to manage artifacts, keys, and the audit trail for your workspace.
             </p>
           </div>
@@ -48,10 +48,10 @@ function HomePage() {
           <a
             href="/api/auth/sign-in"
             className="
-              flex h-11 items-center justify-center rounded-[var(--radius-md)]
-              bg-[hsl(var(--accent))] text-[14px] font-medium text-[hsl(var(--accent-foreground))]
+              flex h-11 items-center justify-center rounded-md
+              bg-accent text-base font-medium text-accent-foreground
               shadow-[0_1px_2px_hsl(0_0%_0%/0.2)]
-              transition-colors duration-150 ease-[var(--ease-out)] hover:bg-[hsl(var(--accent-strong))]
+              transition-colors duration-150 ease-out hover:bg-accent-dim
             "
           >
             Continue with WorkOS

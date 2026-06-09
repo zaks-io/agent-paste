@@ -11,7 +11,7 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 - Sealed `__agp_session` cookie owned by AuthKit (iron-session blob, HttpOnly, Secure, SameSite=Lax, no `Domain`). Cookie name is set via `WORKOS_COOKIE_NAME`. PKCE state lives in short-lived AuthKit-owned cookies cleared on callback.
 - Service binding `API` to `agent-paste-api-{preview,production}`; the WorkOS access token is forwarded as `Authorization: Bearer`.
 - Tailwind v4 with style-guide `@theme` tokens. Hand-rolled component primitives (no shadcn dependency at runtime - only the pattern).
-- Self-hosted Bricolage Grotesque + IBM Plex Mono via `@fontsource*`.
+- Self-hosted variable faces via `@font-face` (Cabinet Grotesk, Switzer, Spline Sans Mono) served from `public/fonts`.
 
 ## Routes
 

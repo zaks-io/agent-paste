@@ -14,16 +14,16 @@ export function ErrorBanner({
     <div
       role="alert"
       className="
-        flex items-start gap-3 border-l-2 border-[hsl(var(--destructive))]
-        bg-[hsl(var(--destructive)/0.07)] text-[hsl(var(--foreground))]
+        flex items-start gap-3 border-l-2 border-destructive
+        bg-destructive/7 text-foreground
         rounded-r-[var(--radius-sm)] px-4 py-3
       "
     >
-      <TriangleAlert size={17} className="mt-[2px] text-[hsl(var(--destructive))]" strokeWidth={1.75} />
+      <TriangleAlert size={17} className="mt-1 text-destructive" strokeWidth={1.75} />
       <div className="grid gap-1">
-        <p className="font-semibold text-[14px]">{title}</p>
-        <p className="text-[13px] text-[hsl(var(--muted))]">{message}</p>
-        {requestId ? <p className="text-[11px] font-mono text-[hsl(var(--subtle))]">request_id: {requestId}</p> : null}
+        <p className="font-semibold text-base">{title}</p>
+        <p className="text-sm text-muted">{message}</p>
+        {requestId ? <p className="text-mono-sm font-mono text-subtle">request_id: {requestId}</p> : null}
       </div>
     </div>
   );

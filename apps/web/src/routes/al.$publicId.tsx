@@ -1,7 +1,7 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
+import { cn } from "@agent-paste/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
 
@@ -128,7 +128,7 @@ function AccessLinkViewer() {
   if (state.kind === "loading") {
     return (
       <main className="min-h-screen grid place-items-center">
-        <p className="text-[14px] text-[hsl(var(--muted))]">Resolving…</p>
+        <p className="text-base text-muted">Resolving…</p>
       </main>
     );
   }
@@ -137,9 +137,9 @@ function AccessLinkViewer() {
     return (
       <main className="min-h-screen grid place-items-center px-6">
         <div className="text-center grid gap-2 max-w-prose">
-          <p className="text-[11px] uppercase tracking-[0.04em] text-[hsl(var(--muted))]">Access link</p>
-          <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Not found.</h1>
-          <p className="text-[14px] text-[hsl(var(--muted))]">
+          <p className="text-mono-sm uppercase tracking-wide text-muted">Access link</p>
+          <h1 className="text-h1 font-semibold tracking-tighter">Not found.</h1>
+          <p className="text-base text-muted">
             This link is invalid, expired, locked, or the secret in the URL is wrong.
           </p>
         </div>
@@ -149,9 +149,9 @@ function AccessLinkViewer() {
 
   return (
     <main className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between border-b border-[hsl(var(--rule))] px-6 h-[52px]">
-        <h1 className="text-[14px] font-semibold">{state.title ?? "Shared artifact"}</h1>
-        <span className="text-[11px] uppercase tracking-[0.04em] text-[hsl(var(--muted))]">{state.render_mode}</span>
+      <header className="flex items-center justify-between border-b border-rule px-6 h-[52px]">
+        <h1 className="text-base font-semibold">{state.title ?? "Shared artifact"}</h1>
+        <span className="text-mono-sm uppercase tracking-wide text-muted">{state.render_mode}</span>
       </header>
       <div className="flex-1 grid">
         {state.iframe_src ? (
@@ -163,7 +163,7 @@ function AccessLinkViewer() {
             className={cn("w-full h-full border-0")}
           />
         ) : (
-          <p className="m-auto text-[14px] text-[hsl(var(--muted))]">No preview available.</p>
+          <p className="m-auto text-base text-muted">No preview available.</p>
         )}
       </div>
     </main>

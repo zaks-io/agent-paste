@@ -10,25 +10,25 @@ The audience is technical and discerning. Developers, agent builders, security-m
 
 The marketing worker (`apps/apex`) and the dashboard (`apps/web`) share **one** visual language. They are different code stacks — apex is a server-rendered hono/jsx worker with inlined CSS, web is React + Tailwind v4 — but they pull from a single token source and read as one product.
 
-- **One token source:** `@agent-paste/brand` (`packages/brand/src/tokens.ts`) is the single source of truth for color, type, spacing, radii, and easing. The web app derives `globals.css` from it (guard-tested by `apps/web/test/brand-tokens-parity.test.ts`); apex builds its inline `<style>` from the same package's helpers (`cssVarsBlock`, `fontFaceCss`, `grainCss`). Neither surface hardcodes a brand value.
-- **One of everything that matters:** one type system, one accent (electric violet), one radius scale (2/3/4px), one wordmark (`agent-paste.sh`), one grain overlay.
+- **One token source:** `@agent-paste/brand` (`packages/brand/src/tokens.ts`) is the single source of truth for color, type, spacing, radii, and easing. The web app derives `globals.css` from it (guard-tested by `apps/web/test/brand-tokens-parity.test.ts`); apex builds its inline `<style>` from the same package's helpers (`cssVarsBlock`, `fontFaceCss`). Neither surface hardcodes a brand value.
+- **One of everything that matters:** one type system, one accent (vermilion), one radius scale (2/3/4px), one wordmark (`agent-paste.sh`), and a dead-flat surface (no grain, no glows).
 - **What differs is content layout, not visual language.** The dashboard is data-dense (the overview's big-figure composition, §8.2); marketing is a wide editorial column (§8.1). Same tokens, same chrome, same discipline — different information density.
 
 When you touch one surface, assume the other inherits the same rule. If you need a new token or a new shape, add it to `@agent-paste/brand` so both surfaces get it, never to one app's CSS.
 
 ---
 
-## 1. Aesthetic Direction: Dark, square, one voltage
+## 1. Aesthetic Direction: Flat, square, one voltage
 
 The product is infrastructure — a control room for addressable **Artifacts** and **Revisions**. It should feel like infrastructure done well: precise, dense where it earns it, quiet everywhere else. Four commitments shape every decision below.
 
-**Dark is the product.** The canvas is a cool indigo-tinted near-black (`--ink-0`, `240 16% 6%`), and the bare `:root` is dark so first paint is correct without JS. Light is a supported warm-paper alternate (`[data-theme="light"]`), not the default. Design dark first; verify light second.
+**Two first-class themes, dead flat.** Dark is a neutral near-black (`--ink-0`, `240 6% 5%`); light is a warm paper (`--background`, `60 17% 98%`). Both are designed, not afterthoughts — the bare `:root` is dark so first paint is correct without JS, but light is held to the same bar. The surface is flat: no grain, no glow, no gradient. Atmosphere comes from type, whitespace, and the one accent, nothing layered behind them.
 
-**Depth from a surface ladder and 1px hairlines, not shadows.** One hue stepped by lightness (`--ink-0…3`, `--line`/`--line-2`) builds every layer. The default separator is a hairline rule; the secondary separator is a tone step. Drop shadows are reserved for overlays that genuinely float (modals, dropdowns, popovers) — never on a card, never as decoration.
+**Depth from a surface ladder and 1px hairlines, not shadows.** A near-neutral hue stepped by lightness (`--ink-0…3`, `--line`/`--line-2`) builds every layer. The default separator is a hairline rule; the secondary separator is a tone step. Drop shadows are reserved for overlays that genuinely float (modals, dropdowns, popovers) — never on a card, never as decoration.
 
 **Hierarchy by scale.** One big figure dominates a view (the overview's hero stat, the marketing headline); everything else recedes to a tiny mono rail with tabular figures. We earn interest from the size jump between the one loud element and the quiet data around it — not from color, not from ornament. This is the composition the dashboard overview makes canonical (§8.2).
 
-**One voltage, square corners.** A single electric violet accent (`--violet`, `248 73% 64%`) does one job: primary action, focus ring, live-state. Never a gradient wash, never a second accent. Corners are square-ish — radius is the exception (2/3/4px), never the rule. The signature interaction is the identifier: mono, tinted, silently copyable (§5.11). Spend design budget there, not on hero animations.
+**One voltage, square corners.** A single vermilion accent (`--vermilion`, `10 100% 54%`) does one job: primary action, focus ring, live-state. Never a gradient wash, never a second accent. Corners are square-ish — radius is the exception (2/3/4px), never the rule. The signature interaction is the identifier: mono, tinted, silently copyable (§5.11). Spend design budget there, not on hero animations.
 
 **What we are not.** Not a glassmorphism dashboard. Not a gradient-mesh hero. Not a neon dark mode. Not editorial / archival / terminal-themed. Not chasing a metaphor. If a design choice would feel out of place at Linear, Stripe, or Vercel's cleaner work, look closer; if it would feel _identical_ to any of them, look closer still.
 
@@ -38,25 +38,27 @@ The product is infrastructure — a control room for addressable **Artifacts** a
 
 ### 2.1 Faces
 
-Two faces. No third without an ADR.
+Three faces. No fourth without an ADR.
 
-| Role     | Family                         | Source      | Used For                                                                   |
-| -------- | ------------------------------ | ----------- | -------------------------------------------------------------------------- |
-| **UI**   | Bricolage Grotesque (variable) | Self-hosted | Everything: headings, body, labels, navigation, forms                      |
-| **Mono** | IBM Plex Mono                  | Self-hosted | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
+| Role        | Family                      | Source      | Used For                                                                   |
+| ----------- | --------------------------- | ----------- | -------------------------------------------------------------------------- |
+| **Display** | Cabinet Grotesk (variable)  | Self-hosted | The hero figure, large headlines, the wordmark                             |
+| **UI**      | Switzer (variable)          | Self-hosted | Body, labels, navigation, forms — everything that isn't a headline or mono |
+| **Mono**    | Spline Sans Mono (variable) | Self-hosted | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
 
-Bricolage Grotesque is a humanist grotesque with idiosyncratic display proportions and an optical-size axis, so the same family carries a 84px hero and a 14px label — the difference is weight, size, and `opsz`, not a second display face. Its character shows most at hero scale, which is where the landing page earns its voice. IBM Plex Mono is a calm, technical mono with sane disambiguation (`0`, `O`, `l`, `1`) that holds up at small sizes for IDs and URLs.
+Cabinet Grotesk is a confident geometric grotesque that holds its character at hero scale, where the landing page earns its voice. Switzer is a clean, neutral workhorse grotesque that stays quiet and legible at body and label sizes, so the display face never has to do double duty. Spline Sans Mono is a calm, technical mono with sane disambiguation (`0`, `O`, `l`, `1`) that holds up at small sizes for IDs and URLs.
 
 **Why not Inter / Geist / Space Grotesk:** ubiquity. Modern minimalist done well needs typography that is its own voice, not the same voice as every other product in the category.
 
 ### 2.2 Weight subsets to ship
 
-Ship only the weights we use.
+All three are variable faces, so one woff2 per family covers every weight we use.
 
-- **Bricolage Grotesque (variable):** weight axis 200–800 with the `opsz` optical-size axis. Load the variable file once; let CSS choose weight and optical size.
-- **IBM Plex Mono:** 400, 500.
+- **Cabinet Grotesk (variable):** weight axis 100–900. Used at 500/700/800 for display.
+- **Switzer (variable):** weight axis 100–900. Used at 400/500/600 for UI and body.
+- **Spline Sans Mono (variable):** weight axis 300–700. Used at 400/500/600.
 
-Self-host via `@fontsource-variable/bricolage-grotesque` and `@fontsource/ibm-plex-mono`. Do not call out to Google's CDN from production — the content origin's CSP (ADR 0030) forbids it, and the trusted origin should match for consistency.
+Self-host all three: the woff2 files live in each app's `public/fonts` and are declared with `@font-face` (web's `globals.css`, apex's `fontFaceCss()`). Do not call out to Google's or Fontshare's CDN from production — the content origin's CSP (ADR 0030) forbids it, and the trusted origin should match for consistency.
 
 The shared token source is `@agent-paste/brand`. Both the web app (`apps/web/src/styles/globals.css`, guard-tested for parity) and the apex marketing worker derive their CSS variables and `@font-face` blocks from it, so the families above cannot drift between surfaces.
 
@@ -95,7 +97,7 @@ One `--text-hero` per marketing page, never elsewhere. One `--text-h1` per page.
 
 ### 2.6 Italics
 
-Bricolage Grotesque italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the _Published Revision_") or quoted phrases. Avoid italic in tables and form labels.
+Switzer italic is restrained and pleasant; use it for emphasis on first use of a domain term ("the _Published Revision_") or quoted phrases. Avoid italic in tables and form labels.
 
 ---
 
@@ -109,23 +111,23 @@ Dark is the bare `:root` (so SSR first paint is correct); light is the `[data-th
 
 ```css
 :root {
-  /* Cool indigo-tinted near-black ladder. Depth = lightness steps of one hue. */
-  --ink-0: 240 16% 6%; /* canvas */
-  --ink-1: 240 13% 9%; /* raised surface */
-  --ink-2: 240 12% 12%; /* hover / inset */
-  --ink-3: 240 11% 16%; /* strong inset */
-  --line: 240 9% 18%; /* hairline */
-  --line-2: 240 9% 26%; /* hairline strong */
+  /* Neutral near-black ladder. Depth = lightness steps of a near-neutral hue. */
+  --ink-0: 240 6% 5%; /* canvas */
+  --ink-1: 240 7% 8%; /* raised surface */
+  --ink-2: 240 7% 11%; /* hover / inset */
+  --ink-3: 240 8% 14%; /* strong inset */
+  --line: 240 8% 15%; /* hairline */
+  --line-2: 240 7% 24%; /* hairline strong */
 
-  /* Faintly warm off-white ink ramp, against the cool dark. */
-  --fg-0: 250 30% 96%; /* primary text */
-  --fg-1: 245 12% 78%; /* secondary */
-  --fg-2: 240 8% 58%; /* tertiary */
-  --fg-3: 240 7% 40%; /* faint */
+  /* Faintly warm off-white ink ramp, against the neutral dark. */
+  --fg-0: 60 9% 95%; /* primary text */
+  --fg-1: 240 5% 80%; /* secondary */
+  --fg-2: 240 5% 55%; /* tertiary */
+  --fg-3: 240 5% 38%; /* faint */
 
-  /* The one voltage. Electric violet. */
-  --violet: 248 73% 64%;
-  --violet-dim: 248 50% 46%;
+  /* The one voltage. Vermilion. */
+  --vermilion: 10 100% 54%;
+  --vermilion-dim: 10 78% 45%;
 
   /* Semantic only — never decorative. */
   --live: 152 56% 52%; /* published / live */
@@ -133,7 +135,7 @@ Dark is the bare `:root` (so SSR first paint is correct); light is the `[data-th
   --gone: 4 72% 60%; /* destructive / deleted */
 }
 
-/* Dark is the product. */
+/* Dark: neutral near-black, the SSR default. */
 :root,
 [data-theme="dark"] {
   --background: var(--ink-0);
@@ -147,11 +149,11 @@ Dark is the bare `:root` (so SSR first paint is correct); light is the `[data-th
   --subtle: var(--fg-2);
   --faint: var(--fg-3);
 
-  --accent: var(--violet);
-  --accent-dim: var(--violet-dim);
-  --accent-fg: 250 40% 97%;
-  --accent-tint: 248 73% 64% / 0.14; /* low-alpha tint backgrounds */
-  --selection: 248 73% 64% / 0.3;
+  --accent: var(--vermilion);
+  --accent-dim: var(--vermilion-dim);
+  --accent-fg: 0 0% 100%;
+  --accent-tint: 10 100% 54% / 0.14; /* low-alpha tint backgrounds */
+  --selection: 10 100% 54% / 0.3;
 
   --success: var(--live);
   --warning: var(--warn);
@@ -159,29 +161,29 @@ Dark is the bare `:root` (so SSR first paint is correct); light is the `[data-th
   --info: var(--fg-2);
 }
 
-/* Light alternate — warm paper, violet stays the voltage. Supported, not primary. */
+/* Light — warm paper, vermilion stays the voltage. First-class, co-equal with dark. */
 [data-theme="light"] {
-  --background: 40 30% 97%;
-  --surface: 40 33% 99.5%;
-  --surface-2: 40 20% 94%;
-  --surface-3: 38 16% 90%;
-  --rule: 36 14% 86%;
-  --rule-strong: 34 12% 76%;
-  --foreground: 250 22% 12%;
-  --muted: 245 10% 34%;
-  --subtle: 240 7% 48%;
-  --faint: 240 6% 62%;
+  --background: 60 17% 98%;
+  --surface: 0 0% 100%;
+  --surface-2: 48 18% 94%;
+  --surface-3: 45 16% 90%;
+  --rule: 45 16% 88%;
+  --rule-strong: 44 13% 80%;
+  --foreground: 0 0% 4%;
+  --muted: 60 4% 22%;
+  --subtle: 0 0% 42%;
+  --faint: 50 3% 60%;
 
-  --accent: 248 64% 56%;
-  --accent-dim: 248 50% 46%;
-  --accent-fg: 250 40% 98%;
-  --accent-tint: 248 64% 56% / 0.1;
-  --selection: 248 64% 56% / 0.16;
+  --accent: 10 100% 54%;
+  --accent-dim: 10 82% 47%;
+  --accent-fg: 0 0% 100%;
+  --accent-tint: 10 100% 54% / 0.1;
+  --selection: 10 100% 54% / 0.16;
 
   --success: 152 52% 36%;
   --warning: 32 80% 42%;
   --destructive: 4 66% 48%;
-  --info: 245 10% 34%;
+  --info: 60 4% 22%;
 }
 ```
 
@@ -190,7 +192,7 @@ A high-contrast neutral button pair (`--primary` / `--primary-fg`) is derived in
 ### 3.2 Usage rules
 
 - **Body text** is always `hsl(var(--foreground))`. **Secondary** is `hsl(var(--muted))`, **tertiary** `hsl(var(--subtle))`, **faint** `hsl(var(--faint))` (labels/timestamps only). Below faint, text is not readable — restructure rather than add a fifth tier.
-- **The one accent does one job.** Use `--accent` for: the primary call-to-action, focus rings, selection, live/published state, and prose links in long-form content. Never two accents on a page, never a gradient of it, never an accent glow (a colored `box-shadow`). The neutral `--primary` pair is for high-emphasis neutral buttons where violet would be too loud.
+- **The one accent does one job.** Use `--accent` for: the primary call-to-action, focus rings, selection, live/published state, and prose links in long-form content. Never two accents on a page, never a gradient of it, never an accent glow (a colored `box-shadow`). The neutral `--primary` pair is for high-emphasis neutral buttons where vermilion would be too loud.
 - **Depth is the surface ladder, not shadows.** Nest by tone: `--background` (canvas) → `--surface` (panels, the transcript) → `--surface-2` (hover/inset) → `--surface-3` (strong inset). Separate with a 1px `--rule` (or `--rule-strong`). No drop shadow on a card (§4.5).
 - **Selection background** is `--selection`; set it on `::selection`.
 - **Color is never the only signal.** Pair every status hue with an icon, label, or text string.
@@ -591,7 +593,7 @@ Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same 
 
 ### 6.2 Logo
 
-The canonical wordmark is **`agent-paste.sh`**, set in the display face (Bricolage Grotesque) at the chrome size (~15px) with tight `letter-spacing: -0.03em`. It has three parts, always in these color roles:
+The canonical wordmark is **`agent-paste.sh`**, set in the display face (Cabinet Grotesk) at the chrome size (~15px) with tight `letter-spacing: -0.03em`. It has three parts, always in these color roles:
 
 - `agent` and `paste` in `--foreground`.
 - the **hyphen** between them in `--accent` (the one place the wordmark carries voltage).
@@ -612,15 +614,11 @@ The sidebar uses `--space-2` interior padding, items ~30px tall, label left-alig
 
 ### 6.4 No decoration
 
-There are no illustrations, mascots, sticker icons, or background patterns. There is no gradient mesh and no gradient fill anywhere — the accent is one flat color. The system earns its character through type, color discipline, and interaction quality — not through ornamentation.
+There are no illustrations, mascots, sticker icons, or background patterns. There is no gradient mesh and no gradient fill anywhere — the accent is one flat color. The surface is dead flat: no grain overlay, no hero aura, no atmosphere layered behind the content. The system earns its character through type, color discipline, and interaction quality — not through ornamentation.
 
-Two exceptions, and only two, both held to the same "atmosphere, never legible" bar:
+There are **no exceptions**. There is no grain texture and no hero radial; both were removed so every surface — dashboard and marketing — is the same flat canvas. Everything that was once a gradient (the old CTA wash, the accent glows, the orbit ring, the hero aura) has been removed so apex matches the dashboard.
 
-1. **Grain overlay (both surfaces).** A single very low-opacity fractal-noise overlay on the page background (`body::before`, opacity ~0.035 dark / ~0.025 with `mix-blend-mode: multiply` light), emitted from `@agent-paste/brand` (`grainCss`) as an inline `data:` SVG so it stays CSP-safe. It must never be legible as a texture, never tile a visible pattern, never carry meaning. If you can _see_ the grain rather than just feel the surface settle, it is too strong.
-
-2. **Hero aura (marketing only).** One faint violet radial behind the apex hero (`.home::before`), blurred and well below "legible," held to the same bar as the grain. This is the single permitted gradient anywhere in the system, and it exists only on the marketing home — not the dashboard, not cards, not CTAs. Everything else that was once a gradient (the old CTA wash, the accent glows, the orbit ring) has been removed so apex matches the dashboard.
-
-If a surface feels like it needs decoration beyond those two, it needs better typography and more whitespace.
+If a surface feels like it needs decoration, it needs better typography and more whitespace.
 
 ---
 
@@ -665,14 +663,14 @@ The product has four visually distinct surfaces. Each commits to the shared syst
 
 ### 8.1 Marketing (`apps/apex`, `agent-paste.sh/`)
 
-Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It shares the dashboard's exact discipline: square corners (`--radius-xs/sm/md`), depth from the surface ladder + 1px hairlines, no decorative drop shadows, no accent glows, no card hover-lifts, no gradient fills. The two permitted atmospheres are the shared grain and the single faint hero aura (§6.4); the topbar's scroll-state `backdrop-filter` is shared chrome (§6.3). `apps/apex/src/index.test.ts` asserts the no-pill / no-accent-glow rules so it cannot regress.
+Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It shares the dashboard's exact discipline: square corners (`--radius-xs/sm/md`), depth from the surface ladder + 1px hairlines, no decorative drop shadows, no accent glows, no card hover-lifts, no gradient fills, no grain, no hero aura (§6.4). The topbar's scroll-state `backdrop-filter` is shared chrome (§6.3). `apps/apex/src/index.test.ts` asserts the no-pill / no-accent-glow / no-gradient rules so it cannot regress.
 
 - Bleed-width hero: the brand mark (squared, no ring), an eyebrow with a flat live pip, the `--text-hero` headline (the accent appears only on the trailing stop), one lead paragraph, one primary CTA and one secondary arrow link.
 - A flat, hairline-bordered transcript shell shows the product in use.
 - Feature / pillar / use-case sections are hairline-separated grids of flat `--surface` panels — hover shifts border-color and background, never position.
 - The CTA is a flat hairline panel (no gradient overlay) with a squared install command box (no pill).
 - Footer is a multi-column grid collapsing to fewer columns on small screens.
-- **No carousels, no autoplaying video, no gradient washes beyond the one hero aura, no "Featured in" logo strips, no testimonial slider, no card lifts.**
+- **No carousels, no autoplaying video, no gradient washes, no hero aura, no "Featured in" logo strips, no testimonial slider, no card lifts.**
 
 ### 8.2 Dashboard (`apps/web`, `/app/*`)
 
@@ -705,7 +703,7 @@ These render Markdown, text, and eventually directory listings for **Render Mode
 - **Text render:** mono at `--text-mono`, line numbers in `--subtle` if the file > 50 lines, wrap turned off.
 - **Directory render:** a single-column table with name, size (mono, tabular), modified timestamp. No icons — keep the renderer JS bundle minimal.
 
-These pages inherit the token system but ship a self-contained CSS file. They do not call into the trusted origin for fonts; subset Bricolage Grotesque and IBM Plex Mono into the renderer bundle.
+These pages inherit the token system but ship a self-contained CSS file. They do not call into the trusted origin for fonts; subset Switzer and Spline Sans Mono into the renderer bundle.
 
 ---
 
@@ -733,9 +731,9 @@ The dashboard uses Tailwind via the shadcn/ui convention (ADR 0033 leaves this o
 @import "tailwindcss";
 
 @theme {
-  --font-ui:
-    "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Switzer", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, "SF Mono", monospace;
 
   --color-background: hsl(var(--background));
   --color-surface: hsl(var(--surface));
@@ -765,7 +763,7 @@ Use Tailwind utilities for layout and spacing. Use CSS modules or shadcn's `cn()
 
 Things we have seen agents produce that violate the guide. Do not do these.
 
-- **Gradient backgrounds or fills.** The violet accent is one flat color, never a gradient. The _only_ permitted gradient anywhere is the single faint marketing hero aura (§6.4) — no CTA washes, no card gradients, no gradient hero text.
+- **Gradient backgrounds or fills.** The vermilion accent is one flat color, never a gradient. There is **no** permitted gradient anywhere in the system — no hero aura, no CTA washes, no card gradients, no gradient hero text.
 - **Accent glows.** An accent-tinted `box-shadow` (a glow) is banned. Shadows are neutral and overlay-only (§4.5).
 - **Card hover-lifts.** No `translateY`/`translateX` on cards or buttons on hover. Hover shifts border-color or background, never position (§7.2).
 - **Glassmorphism / backdrop-blur cards.** No. The only `backdrop-filter` is the shared topbar scroll-state (§6.3).

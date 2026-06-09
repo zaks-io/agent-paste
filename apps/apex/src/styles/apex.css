@@ -1,0 +1,109 @@
+/*
+ * apex marketing layer.
+ *
+ * The shared design system (@agent-paste/ui/styles.css) provides Tailwind
+ * (Preflight + utilities), every design token, the @font-face blocks, the
+ * @theme font mappings, the :root / [data-theme] token blocks, base resets, the
+ * shared `.code` inline-code chip, and the reduced-motion block. Every apex
+ * component styles itself with Tailwind utilities inline.
+ *
+ * What remains here is the handful of marketing-only effects that cannot be
+ * expressed as inline utilities: the scroll-reveal entrance (driven by the
+ * vanilla enhancement script toggling `.in`), the live-pulse eyebrow dot, and
+ * the result-gesture wire. These are apex-only; they are not shared.
+ */
+@import "@agent-paste/ui/styles.css";
+
+/* Scan the shared @agent-paste/ui component source too: apex renders <Button>,
+ * <ButtonAnchor>, <Card>, <Table>, etc., so the utilities those compose (e.g. the
+ * lg button's h-[40px]/px-4) must be emitted here. Without this, shared-component
+ * classes that no apex file independently uses are dropped and the component
+ * renders unstyled (e.g. a button with no height/padding). */
+@source "../../../../packages/ui/src";
+
+@source "../app";
+@source "../pages";
+@source "../components";
+@source "../routes.tsx";
+
+/* Two-pane padding rhythm (mockup m5-cross .left/.right). The HomePage panes
+ * reference these in their padding shorthand; if they were undefined the whole
+ * shorthand would drop and the panes would lose their padding. */
+.home {
+  --pane-pad-y: clamp(48px, 7vh, 96px);
+  --pane-gutter: clamp(32px, 4vw, 64px);
+}
+
+/* Scroll-reveal entrance. The client script adds `.in` when an element scrolls
+ * into view; `.d1`..`.d6` stagger the reveal. */
+.home .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.home .reveal.in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.7s var(--ease-out);
+}
+
+.home .d1 {
+  transition-delay: 0.05s;
+}
+.home .d2 {
+  transition-delay: 0.14s;
+}
+.home .d3 {
+  transition-delay: 0.22s;
+}
+.home .d4 {
+  transition-delay: 0.3s;
+}
+.home .d5 {
+  transition-delay: 0.38s;
+}
+.home .d6 {
+  transition-delay: 0.46s;
+}
+
+/* Live-pulse eyebrow dot. */
+.dot {
+  animation: home-live-pulse 2.4s var(--ease-out) infinite;
+}
+
+@keyframes home-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The result gesture: a caret-along-a-wire into an accent node (the hand-off
+ * motif). The wire is U+2500, deliberately not an em dash. */
+.t-gesture {
+  color: hsl(var(--muted));
+  letter-spacing: -0.04em;
+  margin-right: 6px;
+}
+
+.t-gesture-node {
+  color: hsl(var(--accent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home .reveal {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the inline reveal transition. */
+    opacity: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the JS-added .in-state transform. */
+    transform: none !important;
+  }
+  .dot {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must stop the live-pulse keyframe animation. */
+    animation: none !important;
+  }
+}

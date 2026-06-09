@@ -1,35 +1,38 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import {
+  NEXT_THEME,
+  THEME_ICON,
+  THEME_ICON_CLASS,
+  THEME_TOGGLE_CLASS,
+  type ThemeState,
+  themeToggleAria,
+} from "@agent-paste/ui";
 import { useTheme } from "../theme-provider";
 
-const ORDER = ["system", "dark", "light"] as const;
-const ICON = { system: Monitor, dark: Moon, light: Sun } as const;
-const NEXT_LABEL = { system: "dark", dark: "light", light: "system" } as const;
-
+/*
+ * The dashboard's driver for the shared header toggle. The look (button class,
+ * icon SVGs, cycle order, aria copy) all come from @agent-paste/ui so it is
+ * byte-identical to the marketing header's toggle (apps/apex). React only
+ * supplies the live state via useTheme; everything visual is shared.
+ */
 export function ThemeToggle() {
   const { preference, setPreference } = useTheme();
-  const Icon = ICON[preference];
-
-  const cycle = () => {
-    const i = ORDER.indexOf(preference);
-    const next = ORDER[(i + 1) % ORDER.length] ?? "system";
-    setPreference(next);
-  };
+  const state = preference as ThemeState;
 
   return (
     <button
       type="button"
-      onClick={cycle}
-      aria-label={`Theme: ${preference}. Switch to ${NEXT_LABEL[preference]}.`}
-      title={`Theme: ${preference}`}
-      className="
-        grid place-items-center h-8 w-8 rounded-[var(--radius-md)]
-        text-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]
-        hover:bg-[hsl(var(--surface-raised))]
-        transition-colors duration-150 ease-[var(--ease-out)]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2
-      "
+      onClick={() => setPreference(NEXT_THEME[state])}
+      aria-label={themeToggleAria(state)}
+      title={themeToggleAria(state)}
+      className={THEME_TOGGLE_CLASS}
     >
-      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+      {/* Shared glyph: same SVG string the apex script injects for this state. */}
+      <span
+        aria-hidden
+        className={THEME_ICON_CLASS}
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: a static, in-repo SVG constant from @agent-paste/ui (no user input); the apex twin injects the same string.
+        dangerouslySetInnerHTML={{ __html: THEME_ICON[state] }}
+      />
     </button>
   );
 }

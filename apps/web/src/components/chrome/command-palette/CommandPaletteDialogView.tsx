@@ -1,8 +1,8 @@
 import { X } from "lucide-react";
 import type { RefObject } from "react";
-import type { CommandGroupSection, CommandItem } from "./types";
 import { CommandPaletteResults } from "./CommandPaletteResults";
 import { CommandPaletteSearch } from "./CommandPaletteSearch";
+import type { CommandGroupSection, CommandItem } from "./types";
 
 type CommandPaletteDialogViewProps = {
   titleId: string;
@@ -39,7 +39,7 @@ export function CommandPaletteDialogView({
         type="button"
         aria-label="Close command palette"
         className="
-          absolute inset-0 bg-[hsl(var(--neutral-900)/0.45)]
+          absolute inset-0 bg-neutral-900/45
           dark:bg-[hsl(0_0%_0%/0.65)]
           motion-safe:animate-[fade-in_140ms_var(--ease-out)_both]
         "
@@ -53,13 +53,13 @@ export function CommandPaletteDialogView({
           aria-labelledby={titleId}
           className="
             pointer-events-auto w-full max-w-[560px]
-            rounded-[var(--radius-lg)] border border-[hsl(var(--rule))]
-            bg-[hsl(var(--surface))] shadow-[var(--shadow-overlay)]
+            rounded-md border border-rule
+            bg-surface shadow-[var(--shadow-overlay)]
             motion-safe:animate-[modal-in_160ms_var(--ease-out)_both]
           "
         >
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--rule))]">
-            <h2 id={titleId} className="text-[16px] font-semibold tracking-[-0.005em]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-rule">
+            <h2 id={titleId} className="text-lg font-semibold tracking-tight">
               Command palette
             </h2>
             <button
@@ -67,8 +67,8 @@ export function CommandPaletteDialogView({
               aria-label="Close"
               onClick={onClose}
               className="
-                size-7 grid place-items-center rounded-[var(--radius-sm)]
-                text-[hsl(var(--muted))] hover:bg-[hsl(var(--surface-sunken))] hover:text-[hsl(var(--foreground))]
+                size-7 grid place-items-center rounded-sm
+                text-muted hover:bg-surface-sunken hover:text-foreground
                 transition-colors duration-[80ms]
               "
             >

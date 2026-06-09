@@ -4,32 +4,38 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "node scripts/prerender.mjs",
     "check": "pnpm typecheck",
     "deploy:live": "pnpm deploy:production",
-    "deploy:preview": "wrangler deploy --config wrangler.jsonc --env preview",
-    "deploy:production": "wrangler deploy --config wrangler.jsonc --env production",
+    "deploy:preview": "pnpm build && wrangler deploy --config wrangler.jsonc --env preview",
+    "deploy:production": "pnpm build && wrangler deploy --config wrangler.jsonc --env production",
     "dev": "wrangler dev --config wrangler.jsonc",
     "lint": "biome lint .",
+    "preview": "vite preview --outDir dist/client",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --env preview"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260521.1",
+    "@tailwindcss/vite": "^4.1.7",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vite": "^7.0.0",
+    "vitest": "catalog:",
+    "wrangler": "^4.94.0"
   },
   "dependencies": {
-    "@agent-paste/brand": "workspace:*",
     "@agent-paste/config": "workspace:*",
     "@agent-paste/plans": "workspace:*",
+    "@agent-paste/ui": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.53.1",
-    "hono": "^4.12.21"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

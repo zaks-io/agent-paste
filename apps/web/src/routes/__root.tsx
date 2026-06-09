@@ -76,10 +76,10 @@ function RootError({ error }: { error: Error }) {
     <RootDocument>
       <div className="grid place-items-center min-h-screen p-8">
         <div className="max-w-prose text-center grid gap-4">
-          <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Something went wrong.</h1>
-          <p className="text-[14px] text-[hsl(var(--muted))]">An unexpected error occurred. Try refreshing the page.</p>
+          <h1 className="text-h1 font-semibold tracking-tighter">Something went wrong.</h1>
+          <p className="text-base text-muted">An unexpected error occurred. Try refreshing the page.</p>
           {import.meta.env.DEV ? (
-            <pre className="font-mono text-[13px] text-left bg-[hsl(var(--surface-sunken))] p-4 rounded-[var(--radius-sm)] overflow-x-auto">
+            <pre className="font-mono text-sm text-left bg-surface-sunken p-4 rounded-sm overflow-x-auto">
               {error.message}
             </pre>
           ) : null}
@@ -93,9 +93,9 @@ function NotFound() {
   return (
     <div className="grid place-items-center min-h-screen p-8">
       <div className="text-center grid gap-2">
-        <p className="text-[11px] uppercase tracking-[0.04em] text-[hsl(var(--muted))]">404</p>
-        <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Not found.</h1>
-        <a href="/" className="text-[hsl(var(--accent))] underline-offset-4 hover:underline">
+        <p className="text-mono-sm uppercase tracking-wide text-muted">404</p>
+        <h1 className="text-h1 font-semibold tracking-tighter">Not found.</h1>
+        <a href="/" className="text-accent underline-offset-4 hover:underline">
           Back to home
         </a>
       </div>

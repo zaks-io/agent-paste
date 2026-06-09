@@ -1,8 +1,7 @@
+import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { ClaimSuccessPanel } from "../components/claim/ClaimSuccessPanel";
-import { Button } from "../components/ui/Button";
-import { Card, CardHeader } from "../components/ui/Card";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -168,7 +167,7 @@ function ClaimPage() {
           }}
         />
       ) : success && !policy ? (
-        <Card className="border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent-tint))]">
+        <Card className="border-accent/30 bg-accent-tint">
           <CardHeader
             title="Content claimed"
             subtitle={`Reparented ${success.artifactIds.length} artifact${success.artifactIds.length === 1 ? "" : "s"} into your workspace.`}
@@ -180,8 +179,8 @@ function ClaimPage() {
       ) : (
         <Card>
           <form className="grid gap-4" onSubmit={onSubmit}>
-            <label className="grid gap-2 text-[13px]" htmlFor="claim-token-input">
-              <span className="text-[hsl(var(--muted))]">Claim token</span>
+            <label className="grid gap-2 text-sm" htmlFor="claim-token-input">
+              <span className="text-muted">Claim token</span>
               <Input
                 id="claim-token-input"
                 value={claimToken}

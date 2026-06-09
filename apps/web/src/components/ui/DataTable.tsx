@@ -1,6 +1,5 @@
+import { Card, Table } from "@agent-paste/ui";
 import type { ReactNode } from "react";
-import { Card } from "./Card";
-import { Table } from "./Table";
 
 type Props = {
   children: ReactNode;

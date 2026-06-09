@@ -21,7 +21,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
+      "env": ["BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN", "CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
       "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**", ".output/**"]
     },
     "dev": {

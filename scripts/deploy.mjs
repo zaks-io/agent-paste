@@ -33,6 +33,7 @@ import {
   secretsForApp,
 } from "./lib/secret-routing.mjs";
 import { resolveSecretValue } from "./lib/secret-values.mjs";
+import { loadWranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { listWorkerSecrets, workerName } from "./wrangler-secrets.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -274,7 +275,29 @@ async function deployApp(app, target) {
     await run("pnpm", ["--filter", "@agent-paste/web", `deploy:${target}`]);
     return;
   }
+  // apex prerenders to static HTML at build time, so the deploy script must
+  // build env-specifically before `wrangler deploy`. The per-env build switches
+  // (AGENT_PASTE_ENV, BILLING_ENABLED, CF_WEB_ANALYTICS_TOKEN) have a single
+  // source — apex's wrangler.jsonc `vars` — which we resolve here and hand to the
+  // build via the process env. AGENT_PASTE_ENV is what bakes the right cross-app
+  // base URLs (app/api/mcp) into the prerendered HTML, so the preview build links
+  // to preview, not production. The app itself never reaches across the tree.
+  if (app === "apex") {
+    await run("pnpm", ["--filter", "@agent-paste/apex", `deploy:${target}`], null, apexBuildEnv(target));
+    return;
+  }
   await run("pnpm", ["exec", "wrangler", "deploy", "--config", `apps/${app}/wrangler.jsonc`, "--env", target]);
+}
+
+function apexBuildEnv(target) {
+  const env = {};
+  loadWranglerEnvVars("apps/apex/wrangler.jsonc", {
+    cwd: root,
+    env,
+    envName: target,
+    keys: ["AGENT_PASTE_ENV", "BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
+  });
+  return env;
 }
 
 async function listWorkerSecretsSafe(worker) {

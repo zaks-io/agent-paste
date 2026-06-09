@@ -1,13 +1,12 @@
 import type { WebAuditListResponse } from "@agent-paste/contracts";
+import { Card, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../components/ui/Table";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { auditQuery } from "../lib/queries";
 
@@ -37,7 +36,7 @@ function AuditPage() {
         description="Every meaningful action in this workspace, in order."
       />
       {highlightedRequestId && !highlightMatched ? (
-        <p className="mb-4 text-[13px] text-[hsl(var(--muted))]">
+        <p className="mb-4 text-sm text-muted">
           No recent event matches request_id <span className="font-mono">{highlightedRequestId}</span>. It may be older
           than the latest page.
         </p>
@@ -69,15 +68,15 @@ function AuditPage() {
                   key={row.id}
                   aria-current={highlightedRequestId === row.request_id ? "true" : undefined}
                   data-highlighted={highlightedRequestId === row.request_id ? "true" : undefined}
-                  className="data-[highlighted=true]:bg-[hsl(var(--accent)/0.08)]"
+                  className="data-[highlighted=true]:bg-accent/8"
                 >
-                  <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                  <TD className="font-mono text-xs text-muted">
                     <RelativeTime value={row.time} />
                   </TD>
-                  <TD className="text-[13px]">{row.actor}</TD>
+                  <TD className="text-sm">{row.actor}</TD>
                   <TD className="font-medium">{row.action}</TD>
-                  <TD className="max-w-[280px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
-                  <TD className="text-[hsl(var(--muted))]">{row.target}</TD>
+                  <TD className="max-w-[280px] text-sm text-muted">{row.change_summary || "—"}</TD>
+                  <TD className="text-muted">{row.target}</TD>
                   <TD>
                     <Identifier value={row.request_id} />
                   </TD>

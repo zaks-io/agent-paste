@@ -1,8 +1,6 @@
+import { Badge, Button, Card } from "@agent-paste/ui";
 import { useState } from "react";
 import { setAccessLinkLockdownFn } from "../../rpc/web-mutations";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 import { errorToast, useToast } from "../ui/toast-context";
 
 type Props = {
@@ -44,14 +42,12 @@ export function AccessLinkLockdownToggle({ artifactId, locked, onChanged }: Prop
     <Card className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-[hsl(var(--foreground))]">
-            Access Link Lockdown
-          </h3>
+          <h3 className="text-base font-semibold tracking-tight text-foreground">Access Link Lockdown</h3>
           <Badge tone={locked ? "destructive" : "neutral"} dot>
             {locked ? "Engaged" : "Off"}
           </Badge>
         </div>
-        <p className="mt-1 text-[12.5px] text-[hsl(var(--subtle))]">
+        <p className="mt-1 text-mono text-subtle">
           Blocks creating and minting links. Revoke and the list below stay available.
         </p>
       </div>

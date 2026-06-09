@@ -1,16 +1,13 @@
 import type { WebOperatorEventFocus, WebOperatorEventListResponse } from "@agent-paste/contracts";
+import { Badge, Button, Card, CardHeader, Table, TBody, TD, TH, THead, TR } from "@agent-paste/ui";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useRef } from "react";
 import type { ApiErrorInfo } from "../../lib/api-error";
 import { lockdownTriageFromEvent, lockdownTriageQueryString } from "../../lib/lockdown-triage";
 import type { OperatorEventSearch } from "../../lib/operator-events";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
-import { Table, TBody, TD, TH, THead, TR } from "../ui/Table";
 
 type Props = {
   events: WebOperatorEventListResponse | null;
@@ -69,13 +66,13 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
         subtitle="Cross-workspace audit and operation events. Use filters to find security or lifecycle activity."
       />
       <form ref={formRef} className="mb-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3" onSubmit={handleSubmit}>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Focus
           <select
             name="focus"
             value={search.focus ?? ""}
             onChange={handleFilterChange}
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 text-[13px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 text-sm"
           >
             {FOCUS_OPTIONS.map((option) => (
               <option key={option.label} value={option.value}>
@@ -84,23 +81,23 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Workspace ID
           <input
             name="workspace_id"
             value={search.workspace_id ?? ""}
             onChange={handleFilterChange}
             placeholder="Filter by workspace"
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 font-mono text-xs"
           />
         </label>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Actor type
           <select
             name="actor_type"
             value={search.actor_type ?? ""}
             onChange={handleFilterChange}
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 text-[13px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 text-sm"
           >
             {ACTOR_TYPE_OPTIONS.map((value) => (
               <option key={value || "any"} value={value}>
@@ -109,34 +106,34 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Action
           <input
             name="action"
             value={search.action ?? ""}
             onChange={handleFilterChange}
             placeholder="e.g. platform.lockdown.set"
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 font-mono text-xs"
           />
         </label>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Target type
           <input
             name="target_type"
             value={search.target_type ?? ""}
             onChange={handleFilterChange}
             placeholder="workspace, artifact, …"
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 font-mono text-xs"
           />
         </label>
-        <label className="grid gap-1 text-[12px] text-[hsl(var(--muted))]">
+        <label className="grid gap-1 text-xs text-muted">
           Request ID
           <input
             name="request_id"
             value={search.request_id ?? ""}
             onChange={handleFilterChange}
             placeholder="req_…"
-            className="h-8 rounded-[var(--radius-sm)] border border-[hsl(var(--rule))] bg-[hsl(var(--surface))] px-2 font-mono text-[12px]"
+            className="h-8 rounded-sm border border-rule bg-surface px-2 font-mono text-xs"
           />
         </label>
         <div className="flex items-end gap-2 md:col-span-2 lg:col-span-3">
@@ -151,7 +148,7 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
       {error ? (
         <ErrorBanner title="Couldn't load platform events" message={error.message} requestId={error.requestId} />
       ) : rows.length === 0 ? (
-        <p className="text-[13px] text-[hsl(var(--muted))]">No events match the current filters.</p>
+        <p className="text-sm text-muted">No events match the current filters.</p>
       ) : (
         <Table>
           <THead>
@@ -169,30 +166,30 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
           <TBody>
             {rows.map((row) => (
               <TR key={row.id}>
-                <TD className="font-mono text-[12px] text-[hsl(var(--muted))]">
+                <TD className="font-mono text-xs text-muted">
                   <RelativeTime value={row.time} />
                 </TD>
                 <TD>
-                  {row.workspace_id ? <Identifier value={row.workspace_id} /> : <span className="text-[13px]">—</span>}
+                  {row.workspace_id ? <Identifier value={row.workspace_id} /> : <span className="text-sm">—</span>}
                 </TD>
-                <TD className="text-[13px]">
+                <TD className="text-sm">
                   <Badge tone={row.actor_type === "platform" ? "warning" : "neutral"}>{row.actor_type}</Badge>
-                  <span className="ml-1 text-[hsl(var(--muted))]">{row.actor.split(":")[1] ?? row.actor}</span>
+                  <span className="ml-1 text-muted">{row.actor.split(":")[1] ?? row.actor}</span>
                 </TD>
-                <TD className="font-medium text-[13px]">{row.action}</TD>
-                <TD className="max-w-[240px] text-[13px] text-[hsl(var(--muted))]">{row.change_summary || "—"}</TD>
-                <TD className="text-[13px] text-[hsl(var(--muted))]">{row.target}</TD>
+                <TD className="font-medium text-sm">{row.action}</TD>
+                <TD className="max-w-[240px] text-sm text-muted">{row.change_summary || "—"}</TD>
+                <TD className="text-sm text-muted">{row.target}</TD>
                 <TD>
                   {row.request_id ? (
                     <Link
                       to="/audit"
                       search={{ request_id: row.request_id }}
-                      className="font-mono text-[12px] text-[hsl(var(--accent))] hover:underline"
+                      className="font-mono text-xs text-accent hover:underline"
                     >
                       {row.request_id}
                     </Link>
                   ) : (
-                    <span className="text-[13px] text-[hsl(var(--muted))]">—</span>
+                    <span className="text-sm text-muted">—</span>
                   )}
                 </TD>
                 <TD>
@@ -203,13 +200,13 @@ export function OperatorEventsPanel({ events, error, search }: Props) {
                       change_summary: row.change_summary,
                     });
                     if (!triage) {
-                      return <span className="text-[13px] text-[hsl(var(--muted))]">—</span>;
+                      return <span className="text-sm text-muted">—</span>;
                     }
                     return (
                       <Link
                         to="/admin"
                         search={{ ...search, ...lockdownTriageQueryString(triage) }}
-                        className="text-[12px] font-medium text-[hsl(var(--accent))] hover:underline"
+                        className="text-xs font-medium text-accent hover:underline"
                       >
                         Lock down
                       </Link>

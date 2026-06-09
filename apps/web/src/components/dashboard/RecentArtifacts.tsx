@@ -1,9 +1,8 @@
 import type { WebArtifactRow } from "@agent-paste/contracts";
+import { Badge, SectionLabel } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
 import type { ApiErrorInfo } from "../../lib/api-error";
 import { artifactStatusTone } from "../../lib/artifact-status";
-import { Badge } from "../ui/Badge";
-import { SectionLabel } from "../ui/Card";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { Identifier } from "../ui/Identifier";
 import { RelativeTime } from "../ui/RelativeTime";
@@ -17,35 +16,37 @@ type Props = {
 export function RecentArtifacts({ rows, error }: Props) {
   return (
     <section>
-      <div className="mb-4 flex items-baseline justify-between">
-        <SectionLabel className="flex-1">Recent</SectionLabel>
-        <Link
-          to="/artifacts"
-          className="shrink-0 pl-4 font-mono text-[11px] uppercase tracking-[0.1em] text-[hsl(var(--subtle))] hover:text-[hsl(var(--accent))]"
-        >
-          All artifacts →
-        </Link>
-      </div>
+      <SectionLabel
+        className="mb-4"
+        action={
+          <Link
+            to="/artifacts"
+            className="font-mono text-mono-sm uppercase tracking-wider text-subtle hover:text-accent"
+          >
+            All artifacts →
+          </Link>
+        }
+      >
+        Recent
+      </SectionLabel>
       {error ? (
         <ErrorBanner title="Couldn't load artifacts" message={error.message} requestId={error.requestId} />
       ) : rows.length === 0 ? (
-        <p className="border-t border-[hsl(var(--rule))] pt-4 text-[13px] text-[hsl(var(--subtle))]">
-          No artifacts published yet.
-        </p>
+        <p className="border-t border-rule pt-4 text-sm text-subtle">No artifacts published yet.</p>
       ) : (
-        <ul className="border-t border-[hsl(var(--rule))]">
+        <ul className="border-t border-rule">
           {rows.map((row) => (
-            <li key={row.id} className="border-b border-[hsl(var(--rule))]">
+            <li key={row.id} className="border-b border-rule">
               <Link
                 to="/artifacts/$artifactId"
                 params={{ artifactId: row.id }}
-                className="group grid grid-cols-[1fr_auto] items-center gap-4 py-3 transition-colors hover:bg-[hsl(var(--surface-2))]"
+                className="group grid grid-cols-[1fr_auto] items-center gap-4 py-3 transition-colors hover:bg-surface-2"
               >
                 <div className="min-w-0 pl-3">
-                  <div className="truncate text-[14px] font-medium text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--accent))]">
+                  <div className="truncate text-base font-medium text-foreground group-hover:text-accent">
                     {row.title || "Untitled"}
                   </div>
-                  <div className="mt-0.5">
+                  <div className="mt-1">
                     <Identifier value={row.id} />
                   </div>
                 </div>
@@ -53,7 +54,7 @@ export function RecentArtifacts({ rows, error }: Props) {
                   <Badge tone={artifactStatusTone(row.status)} dot>
                     {row.status}
                   </Badge>
-                  <span className="hidden w-[90px] text-right font-mono text-[11.5px] text-[hsl(var(--subtle))] sm:block">
+                  <span className="hidden w-[90px] text-right font-mono text-mono-sm text-subtle sm:block">
                     {row.last_published_at ? <RelativeTime value={row.last_published_at} /> : "—"}
                   </span>
                 </div>
