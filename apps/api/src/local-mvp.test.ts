@@ -216,7 +216,7 @@ class MemoryDb {
       file_count: session.files.length,
       size_bytes: session.files.reduce((sum, file) => sum + file.size_bytes, 0),
     });
-    const view_url = await mintContentUrl({
+    const revisionContentUrl = await mintContentUrl({
       baseUrl: "http://content.local",
       secret: "content-secret",
       payload: {
@@ -232,7 +232,7 @@ class MemoryDb {
       artifact_id: session.artifact_id,
       revision_id: session.revision_id,
       title: session.title,
-      view_url,
+      revision_content_url: revisionContentUrl,
       agent_view_url: `http://api.local/v1/public/agent-view/${session.artifact_id}.${session.revision_id}`,
       expires_at: "2030-01-02T00:00:00.000Z",
     };
@@ -266,7 +266,7 @@ class MemoryDb {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2030-01-02T00:00:00.000Z",
       entrypoint: session.entrypoint,
-      view_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
+      revision_content_url: `http://content.local/v/${session.artifact_id}.${session.revision_id}/${session.entrypoint}`,
       files: session.files.map((file) => ({
         path: file.path,
         size_bytes: file.size_bytes,
@@ -405,7 +405,7 @@ describe("local MVP vertical slice", () => {
       },
     );
     expect(publishResponse.status).toBe(200);
-    const published = (await publishResponse.json()) as { view_url: string; agent_view_url: string };
+    const published = (await publishResponse.json()) as { revision_content_url: string; agent_view_url: string };
     const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
       AUTH: auth,
       DB: db,
@@ -416,7 +416,7 @@ describe("local MVP vertical slice", () => {
     expect(agentViewResponse.status).toBe(200);
     await expect(agentViewResponse.json()).resolves.toMatchObject({ title: "demo", files: [{ path: "index.html" }] });
 
-    const contentResponse = await contentWorker.fetch(new Request(published.view_url), {
+    const contentResponse = await contentWorker.fetch(new Request(published.revision_content_url), {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
       ...rateLimitEnv,

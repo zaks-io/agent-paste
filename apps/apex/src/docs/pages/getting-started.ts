@@ -60,11 +60,15 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, publishes it, and returns an Artifact ID plus human and agent URLs. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, publishes it, and returns an Artifact ID plus Artifact and Agent View URLs. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",
           text: "A folder entrypoint is inferred from `index.html`, `index.md`, `README.md`, or the only file in the folder. Pass `--entrypoint` when that is not enough.",
+        },
+        {
+          kind: "paragraph",
+          text: "For a stable link that follows later publishes, use the Artifact URL. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision and does not Live Update.",
         },
       ],
     },
@@ -79,7 +83,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace and key, publishes once, and prints a one-time Claim Token as `/claim#<token>`. A signed-in human opens the claim link to keep the Artifact.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace and key, publishes once, and prints a one-time Claim Token as `/claim#<token>`. A signed-in human opens the claim link to keep the Artifact. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for JavaScript-heavy interactive work.",
         },
       ],
     },

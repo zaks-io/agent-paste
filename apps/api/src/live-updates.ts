@@ -104,15 +104,15 @@ async function authorizeAccessLink(
   const signedView = (await signAgentViewImpl(resolved.agent_view, env, {
     accessLinkId: resolved.access_link_id,
     workspaceId: resolved.workspace_id,
-  })) as { view_url?: unknown };
-  const viewUrl = signedView.view_url;
-  if (typeof viewUrl !== "string") {
+  })) as { revision_content_url?: unknown };
+  const revisionContentUrl = signedView.revision_content_url;
+  if (typeof revisionContentUrl !== "string") {
     return null;
   }
 
   const pointer = LiveUpdatePointer.safeParse({
     revision_id: resolved.agent_view.revision_id,
-    iframe_src: viewUrl,
+    iframe_src: revisionContentUrl,
     render_mode: resolved.render_mode,
     title: resolved.title,
   });
@@ -164,15 +164,15 @@ async function authorizeDashboard(
     return null;
   }
   const signedView = (await signAgentViewImpl(view, env, { workspaceId: actor.workspace_id })) as {
-    view_url?: unknown;
+    revision_content_url?: unknown;
   };
-  const viewUrl = signedView.view_url;
-  if (typeof viewUrl !== "string") {
+  const revisionContentUrl = signedView.revision_content_url;
+  if (typeof revisionContentUrl !== "string") {
     return null;
   }
   const pointer = LiveUpdatePointer.safeParse({
     revision_id: view.revision_id,
-    iframe_src: viewUrl,
+    iframe_src: revisionContentUrl,
     render_mode: inferRenderMode(view.entrypoint),
     title: view.title,
   });

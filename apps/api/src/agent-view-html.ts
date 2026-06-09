@@ -12,7 +12,7 @@ export function htmlAgentViewResponse(context: AppContext, view: unknown): Respo
     artifact_id?: string;
     revision_id?: string;
     title?: string;
-    view_url?: string;
+    revision_content_url?: string;
     ephemeral_tier?: boolean;
     files?: Array<{ path?: string; url?: string; content_type?: string; size_bytes?: number }>;
   };
@@ -35,7 +35,7 @@ export function htmlAgentViewResponse(context: AppContext, view: unknown): Respo
     <h1>${escapeHtml(data.title ?? "Agent View")}</h1>
     <p><strong>Artifact:</strong> <code>${escapeHtml(data.artifact_id ?? "")}</code></p>
     <p><strong>Revision:</strong> <code>${escapeHtml(data.revision_id ?? "")}</code></p>
-    ${data.view_url ? `<p><a href="${escapeAttribute(data.view_url)}">Open entrypoint</a></p>` : ""}
+    ${data.revision_content_url ? `<p><a href="${escapeAttribute(data.revision_content_url)}">Open entrypoint</a></p>` : ""}
     <h2>Files</h2>
     <ul>
       ${files

@@ -125,7 +125,7 @@ describe("callMcpTool", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.md",
-      view_url: "https://view.example",
+      revision_content_url: "https://view.example",
       files: [
         {
           path: "index.md",
@@ -151,7 +151,8 @@ describe("callMcpTool", () => {
       artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       title: "Note",
-      view_url: "https://view.example",
+      artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_content_url: "https://content.example/v/token/index.html",
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },
@@ -226,7 +227,8 @@ describe("callMcpTool", () => {
       artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       title: "Revision",
-      view_url: "https://view.example",
+      artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_content_url: "https://content.example/v/token/index.html",
       agent_view_url: "https://agent-view.example",
       expires_at: "2026-12-01T00:00:00.000Z",
       bundle: { status: "pending", retry_after_seconds: 30 },

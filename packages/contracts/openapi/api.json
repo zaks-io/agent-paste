@@ -684,7 +684,7 @@
             "minLength": 1,
             "maxLength": 4096
           },
-          "view_url": {
+          "revision_content_url": {
             "type": "string",
             "format": "uri"
           },
@@ -863,7 +863,7 @@
           "created_at",
           "expires_at",
           "entrypoint",
-          "view_url",
+          "revision_content_url",
           "files",
           "bundle"
         ]
@@ -904,7 +904,7 @@
             "minLength": 1,
             "maxLength": 4096
           },
-          "view_url": {
+          "revision_content_url": {
             "type": "string",
             "format": "uri"
           },
@@ -1163,7 +1163,7 @@
           "created_at",
           "expires_at",
           "entrypoint",
-          "view_url",
+          "revision_content_url",
           "files",
           "bundle"
         ]

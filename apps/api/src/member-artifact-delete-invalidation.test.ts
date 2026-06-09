@@ -75,7 +75,7 @@ async function memberWithPublishedArtifact(repo: LocalRepository) {
   if (!artifact?.revision_id) {
     throw new Error("expected published revision");
   }
-  const viewUrl = await mintContentUrl({
+  const revisionContentUrl = await mintContentUrl({
     baseUrl: "http://content.local",
     secret: "content-secret",
     payload: {
@@ -87,7 +87,7 @@ async function memberWithPublishedArtifact(repo: LocalRepository) {
     },
     path: "index.md",
   });
-  return { member, artifactId: finalized.artifact_id, revisionId: artifact.revision_id, viewUrl };
+  return { member, artifactId: finalized.artifact_id, revisionId: artifact.revision_id, revisionContentUrl };
 }
 
 describe("member MCP artifact delete invalidation", () => {
@@ -95,10 +95,10 @@ describe("member MCP artifact delete invalidation", () => {
     vi.restoreAllMocks();
   });
 
-  it("denies a minted view_url after member delete writes the artifact denylist", async () => {
+  it("denies a minted Revision Content URL after member delete writes the artifact denylist", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const denylist = new MemoryKv();
-    const { member, artifactId, revisionId, viewUrl } = await memberWithPublishedArtifact(repo);
+    const { member, artifactId, revisionId, revisionContentUrl } = await memberWithPublishedArtifact(repo);
 
     vi.spyOn(mcpAuth, "authenticateMcpBearer").mockResolvedValue({
       identity: {
@@ -142,7 +142,7 @@ describe("member MCP artifact delete invalidation", () => {
     expect(denylist.values.get(`ad:${artifactId}`)).toEqual(expect.any(String));
     expect(purgeSend).toHaveBeenCalledTimes(1);
 
-    const afterDelete = await contentWorker.fetch(new Request(viewUrl), {
+    const afterDelete = await contentWorker.fetch(new Request(revisionContentUrl), {
       DENYLIST: denylist,
       CONTENT_SIGNING_SECRET: "content-secret",
       ARTIFACTS: {

@@ -50,7 +50,7 @@ export function createLiveUpdatesE2eHarness(options?: { includeSecondArtifact?: 
   wireLiveUpdateDeps({
     signAgentView: async (view) => ({
       ...(view as object),
-      view_url: pointerForRevision(
+      revision_content_url: pointerForRevision(
         (view as { artifact_id: string; revision_id: string }).artifact_id,
         (view as { revision_id: string }).revision_id,
       ),
@@ -183,7 +183,7 @@ function createLiveUpdateDb(options: {
           created_at: "2026-01-01T00:00:00.000Z",
           expires_at: "2030-01-01T00:00:00.000Z",
           entrypoint: "index.html",
-          view_url: pointerForRevision(artifactId, revisionId),
+          revision_content_url: pointerForRevision(artifactId, revisionId),
           files: [],
         },
       };

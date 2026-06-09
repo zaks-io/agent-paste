@@ -34,9 +34,14 @@ _Avoid_: Partial update, pending files
 The **Revision** currently visible through stable **Artifact** links.
 _Avoid_: Live version, current snapshot
 
+<a id="artifact-url"></a>
+**Artifact URL**:
+The app-origin URL for opening an **Artifact**'s live viewer. It resolves to the latest **Published Revision** and can receive a **Live Update**. Publish surfaces return it as `artifact_url`, and agents should use it as the default human handoff URL.
+_Avoid_: Permalink, Revision Content URL, content URL, deploy URL
+
 <a id="live-update"></a>
 **Live Update**:
-The behavior by which an already-open **Private Link** or **Share Link** viewer advances to the latest **Published Revision** without a manual reload. A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**. A viewer that has fallen behind reconciles to the current **Published Revision** rather than replaying the **Revisions** it missed.
+The behavior by which an already-open **Artifact URL**, **Private Link**, or **Share Link** viewer advances to the latest **Published Revision** without a manual reload. A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**. A viewer that has fallen behind reconciles to the current **Published Revision** rather than replaying the **Revisions** it missed.
 _Avoid_: Live edit, real-time sync, hot reload, watch mode
 
 <a id="upload-session"></a>
@@ -46,8 +51,13 @@ _Avoid_: Upload batch, direct upload, pending upload
 
 <a id="revision-link"></a>
 **Revision Link**:
-An **Access Link** that resolves to one specific **Revision** of an **Artifact**.
+An **Access Link** that resolves to one specific **Revision** of an **Artifact**. It is stable for that retained **Revision** and never receives a **Live Update**.
 _Avoid_: Historical share link, frozen artifact link
+
+<a id="revision-content-url"></a>
+**Revision Content URL**:
+A direct signed **Content Origin** URL shaped `https://usercontent.agent-paste.sh/v/{token}/{path}` for one file path in one **Revision**. Publish surfaces return it as `revision_content_url`. It expires with its signed token and never receives a **Live Update**.
+_Avoid_: Share link, Artifact URL, permalink, live link
 
 <a id="bundle"></a>
 **Bundle**:
@@ -286,8 +296,13 @@ _Avoid_: Suspension, ban, freeze, admin lock
 
 <a id="share-link"></a>
 **Share Link**:
-An **Access Link** that resolves to the latest **Published Revision** of an **Artifact**.
-_Avoid_: Public link, permalink, latest link
+An **Access Link** that resolves to the latest **Published Revision** of an **Artifact**. It can authorize public access to a live **Artifact URL** viewer and can receive a **Live Update**. A **Share Link** is revocable and may expire, so avoid calling it a permalink.
+_Avoid_: Public link, permalink, Revision Content URL
+
+<a id="share-url"></a>
+**Share URL**:
+The URL string that carries an **Access Link** credential for public access to an **Artifact** viewer. Current shipped Access Link Signed URLs use `/al/{publicId}#{blob}`. First-class Share URL output should keep this as a separate public access-bearing URL, not replace the default `artifact_url`.
+_Avoid_: Permalink, public Artifact URL, Revision Content URL
 
 <a id="expiration"></a>
 **Expiration**:
@@ -443,7 +458,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Private Link** cannot be pinned to an older **Revision**
 - A **Private Link** grants authenticated read access to human views and the **Agent View**
 - A **Private Link** is not an **Access Link**
-- A **Live Update** advances an open **Private Link** or **Share Link** viewer to the latest **Published Revision** without a manual reload
+- A **Live Update** advances an open **Artifact URL**, **Private Link**, or **Share Link** viewer to the latest **Published Revision** without a manual reload
 - A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**
 - A **Revision Link** never receives a **Live Update** because it is pinned to one **Revision**
 - A viewer that has fallen behind reconciles to the current **Published Revision** on reconnect rather than replaying missed **Revisions**
@@ -482,18 +497,18 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Revision Link** can continue resolving to an older **Revision** after a newer **Revision** is published
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
-- **Publish** creates a **Revision Link** for the published **Revision**
-- **Publish** fails if **Usage Policy** prevents creating the required **Revision Link**
+- The base REST/CLI **Publish Result** currently includes the **Artifact** id, **Revision** id, **Artifact URL**, direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
+- MCP publish tools create and mint a **Revision Link** for the published **Revision**
+- MCP publish fails if **Usage Policy** prevents creating the required **Revision Link**
 - **Publish** fails while an **Artifact** is in **Access Link Lockdown**
 - **Revision Links** are not created for **Draft Revisions**
 - **Share Links** always resolve to the latest **Published Revision**
 - Additional **Revision Links** can be created for an already published **Revision**
 - Additional **Revision Links** can target any retained published **Revision**
-- **Publish** does not create a **Share Link** unless sharing is requested
+- **Publish** does not create a **Share Link** unless sharing is requested by a surface that supports that option
 - **Publish** fails if a requested **Share Link** cannot be created
-- A **Share Link** can be created during **Publish** or after **Publish**
-- A **Publish Result** always includes a **Private Link** and the created **Revision Link**
-- A **Publish Result** includes a **Share Link** only when one is created during **Publish**
+- A **Share Link** can be created during supported MCP publish flows or after **Publish**
+- The current CLI **Publish Result** prints the **Artifact URL** first and also includes the exact **Revision Content URL**; first-class **Share URL** output remains a follow-up
 - A **Publish Result** includes separate human-view links and agent-view links
 - A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**

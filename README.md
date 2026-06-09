@@ -8,14 +8,18 @@
 
 **Where agents publish.**
 
-When your coding agent builds an HTML report or page, agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys.
+When your coding agent builds an HTML report or page, agent-paste turns it into an Artifact you can open and share. No deploy, no repo, no bucket.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# -> https://agent-paste.sh/...   open it, share it, or hand it to another agent
+# -> artifact id + Artifact URL + Agent View URL
 ```
 
-It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI), and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Publish a file or folder and get back an **Artifact**: a browser URL for humans, an **Agent View** manifest for tools, and lifecycle controls so generated work does not live forever by accident.
+It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI),
+and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Publish a
+file or folder and get back an **Artifact**: an **Artifact URL** for the live
+viewer, an **Agent View** manifest for tools, and lifecycle controls so
+generated work does not live forever by accident.
 
 The hosted service is operated by Zaks.io, LLC. The source is Apache-2.0.
 
@@ -30,14 +34,16 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 Expected output:
 
 ```text
-Published artifact art_01H... revision rev_01H...
+✓ Published "report"
+  art_01H... · rev_01H...
 
-  View:       https://usercontent.agent-paste.sh/v/...
-  Agent View: https://api.agent-paste.sh/v1/public/agent-view/...
-  Expires:    <ISO-8601 timestamp>
+  Artifact  https://app.agent-paste.sh/artifacts/art_01H...
+  Revision  https://usercontent.agent-paste.sh/v/...
+  Agent     https://api.agent-paste.sh/v1/public/agent-view/...
+  Expires   2026-06-20
 
 Open the claim link in a browser while signed in.
-  Claim:      https://app.agent-paste.sh/claim#ap_ct_...
+  Claim    https://app.agent-paste.sh/claim#ap_ct_...
 ```
 
 For authenticated use, sign in once:
@@ -46,6 +52,23 @@ For authenticated use, sign in once:
 npx @zaks-io/agent-paste login
 npx @zaks-io/agent-paste publish ./report
 ```
+
+Need JavaScript to run? Use authenticated publish, not `--ephemeral`.
+Unclaimed ephemeral HTML is served under a script-disabled policy until a human
+claims it.
+
+The human-facing URL model is:
+
+```text
+Artifact URL          https://app.agent-paste.sh/artifacts/{artifact_id}
+Share URL             https://app.agent-paste.sh/al/{publicId}#{blob}
+Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
+```
+
+The Artifact URL is the stable live viewer and should be the default URL agents
+return. The Share URL is the separate public access-bearing link. The Revision
+Content URL is an exact signed file URL for one Revision and should not be
+presented as the Artifact URL.
 
 The npm package is [`@zaks-io/agent-paste`](./apps/cli/README.md). The installed
 command is `agent-paste`. Standalone macOS, Linux, and Windows installers are
@@ -88,9 +111,10 @@ agent creates something -> publish -> human opens URL -> agent reads Agent View 
 ## What It Does
 
 - Publishes a file or folder as an **Artifact**.
-- Returns a human-readable content URL and a machine-readable Agent View URL.
+- Returns an Artifact URL and a machine-readable Agent View URL.
 - Supports accountless ephemeral publish for agents with no human in the loop.
 - Lets signed-in users claim ephemeral work into a Workspace.
+- Supports Share URLs for public access to Artifact viewers.
 - Serves generated content from an isolated Content Origin with signed URLs.
 - Uses Workspace policy for Auto Deletion and retention.
 - Provides CLI, REST, MCP, dashboard, and agent-readable docs surfaces.

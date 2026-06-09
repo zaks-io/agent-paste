@@ -3,11 +3,11 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 const LLMS_TXT_BASE = `# agent-paste
 
 > Durable, addressable artifacts for AI agents. One publish call returns an
-> Artifact ID, a human URL, and an Agent View URL for machine-readable handoff.
+> Artifact ID, an Artifact URL, and an Agent View URL for machine-readable handoff.
 
 agent-paste gives agents a stable, addressable place to publish work products.
 An Artifact is a folder of one or more files. Each publish returns the browser
-view a human opens and an Agent View manifest another agent can read.
+Artifact URL a human can open and an Agent View manifest another agent can read.
 
 ## What you can do here
 
@@ -17,12 +17,17 @@ view a human opens and an Agent View manifest another agent can read.
 - Publish with no account: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
   needs no login or key. The Artifact lives 24h and prints a one-time claim link
   (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to keep the Artifact.
+  Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for
+  JavaScript-heavy interactive visualizations.
 - Read an artifact from agent-facing surfaces: \`${API_BASE_URL}/v1/artifacts/{id}/agent-view\`,
   \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Share an artifact with a revocable Access Link. A human opens it at
   \`${APP_BASE_URL}/al/{public_id}\`; an agent reads the same link through
   \`${API_BASE_URL}/v1/public/agent-view/{token}\`. Revoke it without deleting
   the underlying Artifact.
+- For live-updating human handoff, return the Artifact URL, not the
+  \`usercontent.agent-paste.sh/v/...\` Revision Content URL. Artifact URLs
+  resolve to the latest Published Revision and Live Update.
 
 ## Entry points
 
@@ -40,9 +45,14 @@ takes a WorkOS-issued bearer token, not an API key.
 
 - Artifact - addressable, named container (folder).
 - Revision - immutable saved state. New publishes append a new Revision.
+- Artifact URL - app-origin live viewer for an Artifact. It resolves to the
+  latest Published Revision and Live Updates.
+- Revision Content URL - signed \`usercontent.agent-paste.sh/v/...\` content URL
+  for one exact Revision. It expires and does not Live Update.
 - Access Link - revocable, signed URL pointing at an Artifact or Revision;
   opened at \`/al/{public_id}\` by a human or via the public agent-view token
   by an agent.
+- Share URL - public access-bearing URL for an Artifact viewer.
 
 ## Longer agent guide
 

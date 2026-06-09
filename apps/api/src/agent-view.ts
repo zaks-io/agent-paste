@@ -4,7 +4,7 @@ import { resolveAgentViewTokenSigner, resolveContentTokenSigner } from "@agent-p
 import { type AgentViewTokenPayload, mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
 import { mintBundleUrl, mintContentUrl } from "@agent-paste/tokens/content";
 import type { Env } from "./env.js";
-import { apiBaseUrl, contentBaseUrl } from "./runtime.js";
+import { apiBaseUrl, contentBaseUrl, webBaseUrl } from "./runtime.js";
 
 export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promise<AgentViewTokenPayload | null> {
   const signer = resolveAgentViewTokenSigner(env);
@@ -17,7 +17,7 @@ type AgentViewRecord = {
   revision_id?: unknown;
   entrypoint?: unknown;
   expires_at?: unknown;
-  view_url?: unknown;
+  revision_content_url?: unknown;
   ephemeral_tier?: unknown;
   bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
   files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
@@ -30,8 +30,10 @@ type ContentSigningAuth = {
   scriptDisabled?: boolean;
 };
 
-function stripInternalWorkspaceId(data: AgentViewRecord): Omit<AgentViewRecord, "workspace_id"> {
-  const { workspace_id: _internalWorkspaceId, ...publicFields } = data;
+function stripInternalAgentViewFields(
+  data: AgentViewRecord,
+): Omit<AgentViewRecord, "workspace_id" | "revision_content_url"> {
+  const { workspace_id: _internalWorkspaceId, revision_content_url: _rawRevisionContentUrl, ...publicFields } = data;
   return publicFields;
 }
 
@@ -110,22 +112,26 @@ async function signReadyAgentViewBundle(
   };
 }
 
-async function resolveSignedAgentViewUrl(
+async function resolveRevisionContentUrl(
   env: Env,
   artifactId: string,
   revisionId: string,
   entrypoint: string | undefined,
-  storedViewUrl: unknown,
+  storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
 ): Promise<string | undefined> {
   if (entrypoint) {
     return signedContentUrl(env, artifactId, revisionId, entrypoint, expiresAt, contentAuth);
   }
-  if (typeof storedViewUrl === "string") {
-    return storedViewUrl;
+  if (typeof storedRevisionContentUrl === "string") {
+    return storedRevisionContentUrl;
   }
   return undefined;
+}
+
+function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
+  return typeof data.revision_content_url === "string" ? data.revision_content_url : undefined;
 }
 
 export async function signAgentViewContentUrls(
@@ -138,14 +144,14 @@ export async function signAgentViewContentUrls(
   }
 
   const data = view as AgentViewRecord;
-  const publicFields = stripInternalWorkspaceId(data);
+  const publicFields = stripInternalAgentViewFields(data);
 
   if (!contentSigningSecret(env)) {
-    return publicFields;
+    return { ...publicFields, revision_content_url: existingRevisionContentUrl(data) };
   }
 
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
-    return publicFields;
+    return { ...publicFields, revision_content_url: existingRevisionContentUrl(data) };
   }
 
   const artifactId = data.artifact_id;
@@ -155,15 +161,23 @@ export async function signAgentViewContentUrls(
   const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
   const contentAuth = buildContentSigningAuth(options, workspaceId, isEphemeralAgentView(data, options));
 
-  const [files, bundle, view_url] = await Promise.all([
+  const [files, bundle, revisionContentUrl] = await Promise.all([
     signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
     signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
-    resolveSignedAgentViewUrl(env, artifactId, revisionId, entrypoint, data.view_url, expiresAt, contentAuth),
+    resolveRevisionContentUrl(
+      env,
+      artifactId,
+      revisionId,
+      entrypoint,
+      data.revision_content_url,
+      expiresAt,
+      contentAuth,
+    ),
   ]);
 
   return {
     ...publicFields,
-    view_url,
+    revision_content_url: revisionContentUrl,
     files,
     bundle,
   };
@@ -177,17 +191,25 @@ export async function signPublishResult(
   if (!result || typeof result !== "object") {
     return result;
   }
-  const data = result as {
+  const data = result as Record<string, unknown> & {
     artifact_id?: unknown;
     revision_id?: unknown;
-    view_url?: unknown;
+    artifact_url?: unknown;
+    revision_content_url?: unknown;
     agent_view_url?: unknown;
     expires_at?: unknown;
   };
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
     return result;
   }
-  const entrypointPath = typeof data.view_url === "string" ? entrypointPathFromViewUrl(data.view_url) : "index.html";
+  const {
+    artifact_url: _rawArtifactUrl,
+    revision_content_url: rawRevisionContentUrl,
+    agent_view_url: rawAgentViewUrl,
+    ...rest
+  } = data;
+  const entrypointPath =
+    typeof rawRevisionContentUrl === "string" ? entrypointPathFromContentUrl(rawRevisionContentUrl) : "index.html";
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const secret = agentViewSigningSecret(env);
   const contentAuth = auth?.workspaceId
@@ -198,9 +220,18 @@ export async function signPublishResult(
           : { scriptDisabled: false as const }),
       }
     : undefined;
+  const revisionContentUrl = await signedContentUrl(
+    env,
+    data.artifact_id,
+    data.revision_id,
+    entrypointPath,
+    expiresAt,
+    contentAuth,
+  );
   return {
-    ...data,
-    view_url: await signedContentUrl(env, data.artifact_id, data.revision_id, entrypointPath, expiresAt, contentAuth),
+    ...rest,
+    artifact_url: `${webBaseUrl(env)}/artifacts/${encodeURIComponent(data.artifact_id)}`,
+    revision_content_url: revisionContentUrl,
     agent_view_url: secret
       ? await mintAgentViewUrl({
           baseUrl: apiBaseUrl(env),
@@ -211,14 +242,14 @@ export async function signPublishResult(
             exp: contentTokenExpiration(expiresAt),
           },
         })
-      : typeof data.agent_view_url === "string"
-        ? data.agent_view_url
+      : typeof rawAgentViewUrl === "string"
+        ? rawAgentViewUrl
         : `${apiBaseUrl(env)}/v1/public/agent-view/${data.artifact_id}.${data.revision_id}`,
   };
 }
 
-export function entrypointPathFromViewUrl(viewUrl: string): string {
-  const match = viewUrl.match(/\/v\/[^/]+\/([^?#]+)$/);
+export function entrypointPathFromContentUrl(contentUrl: string): string {
+  const match = contentUrl.match(/\/v\/[^/]+\/([^?#]+)$/);
   const raw = match?.[1] ?? "index.html";
   try {
     return decodeURIComponent(raw);

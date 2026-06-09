@@ -64,7 +64,7 @@ export async function resolveAccessLinkFromEntities(
     agent_view: agentView,
     render_mode: revision.render_mode,
     title: agentView.title,
-    iframe_src: agentView.view_url,
+    iframe_src: agentView.revision_content_url,
   };
 }
 

@@ -1,7 +1,7 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
 import { writeArtifactEvent } from "@agent-paste/worker-runtime";
-import { entrypointPathFromViewUrl, signPublishResult } from "./agent-view.js";
+import { entrypointPathFromContentUrl, signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
@@ -199,8 +199,8 @@ async function notifyPublishedRevision(env: Env, result: PublishResult, signed: 
     return;
   }
   const entrypoint =
-    typeof (signed as { view_url?: string }).view_url === "string"
-      ? entrypointPathFromViewUrl((signed as { view_url: string }).view_url)
+    typeof (signed as { revision_content_url?: string }).revision_content_url === "string"
+      ? entrypointPathFromContentUrl((signed as { revision_content_url: string }).revision_content_url)
       : "index.html";
   const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, publish.title);
   if (!revision) {

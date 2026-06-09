@@ -118,7 +118,8 @@ The returned `put_url` values are opaque upload-worker URLs. They are not R2 URL
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "artifact_url": "https://app.agent-paste.sh/artifacts/art_...",
+  "revision_content_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
   "expires_at": "2026-06-19T12:00:00.000Z",
   "bundle": {
@@ -131,6 +132,11 @@ The returned `put_url` values are opaque upload-worker URLs. They are not R2 URL
 Finalize verifies every expected file exists in R2 and returns a draft Revision
 summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
+
+`artifact_url` is the app-origin **Artifact URL** for the live viewer. It opens
+the latest Published Revision and can Live Update. `revision_content_url` is the
+direct signed Content Origin URL for the exact `revision_id` returned in this
+response, expires with its signed token, and does not Live Update.
 
 ## Content Routes
 
@@ -166,3 +172,5 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
+The previous `revision_content_url` continues to point at the older Revision.
+The `artifact_url` remains the stable live viewer for the Artifact.

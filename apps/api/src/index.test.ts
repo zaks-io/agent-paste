@@ -1662,7 +1662,7 @@ describe("api worker", () => {
             revision_id: "rev_1",
             title: "Browser Proof",
             ephemeral_tier: true,
-            view_url: "https://content.test/v/token/index.html",
+            revision_content_url: "https://content.test/v/token/index.html",
             files: [
               {
                 path: "index.html",
@@ -1752,7 +1752,7 @@ describe("api worker", () => {
               created_at: "2026-01-01T00:00:00.000Z",
               expires_at: "2030-01-01T00:00:00.000Z",
               entrypoint: "index.html",
-              view_url: "https://content.test/v/art_1.rev_1/index.html",
+              revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
               files: [
                 {
                   path: "index.html",
@@ -2433,7 +2433,7 @@ describe("api worker", () => {
             artifact_id: input.artifactId,
             revision_id: input.revisionId,
             title: "Demo",
-            view_url: "https://content.test/v/art.rev/index.html",
+            revision_content_url: "https://content.test/v/art.rev/index.html",
             agent_view_url: "https://api.test/v1/public/agent-view/art.rev",
             expires_at: "2026-02-01T00:00:00.000Z",
           };
@@ -2552,7 +2552,7 @@ describe("api worker", () => {
               artifact_id: input.artifactId,
               revision_id: input.revisionId,
               title: "Demo",
-              view_url: "https://content.test/v/art.rev/index.html",
+              revision_content_url: "https://content.test/v/art.rev/index.html",
               agent_view_url: "https://api.test/v1/public/agent-view/art.rev",
               expires_at: "2026-02-01T00:00:00.000Z",
               bundle: null,
@@ -2599,16 +2599,16 @@ describe("api worker", () => {
 
     expect(latest.status).toBe(200);
     expect(revision.status).toBe(200);
-    const latestBody = (await latest.json()) as { view_url: string; files?: Array<{ url?: string }> };
-    expect(latestBody.view_url).toContain("https://content.test/v/");
-    expect(latestBody.view_url).toContain("/index.html");
-    expect(latestBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    const latestBody = (await latest.json()) as { revision_content_url: string; files?: Array<{ url?: string }> };
+    expect(latestBody.revision_content_url).toContain("https://content.test/v/");
+    expect(latestBody.revision_content_url).toContain("/index.html");
+    expect(latestBody.revision_content_url).not.toBe("https://content.test/v/old/index.html");
     expect(latestBody.files?.[0]?.url).toContain("https://content.test/v/");
     expect(latestBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
-    const revisionBody = (await revision.json()) as { view_url: string; files?: Array<{ url?: string }> };
-    expect(revisionBody.view_url).toContain("https://content.test/v/");
-    expect(revisionBody.view_url).toContain("/index.html");
-    expect(revisionBody.view_url).not.toBe("https://content.test/v/old/index.html");
+    const revisionBody = (await revision.json()) as { revision_content_url: string; files?: Array<{ url?: string }> };
+    expect(revisionBody.revision_content_url).toContain("https://content.test/v/");
+    expect(revisionBody.revision_content_url).toContain("/index.html");
+    expect(revisionBody.revision_content_url).not.toBe("https://content.test/v/old/index.html");
     expect(revisionBody.files?.[0]?.url).toContain("https://content.test/v/");
     expect(revisionBody.files?.[0]?.url).not.toBe("https://content.test/v/old/index.html");
     expect(seen).toEqual([
@@ -2644,7 +2644,7 @@ describe("api worker", () => {
             created_at: "2026-01-01T00:00:00.000Z",
             expires_at: "2026-12-01T00:00:00.000Z",
             entrypoint: "index.html",
-            view_url: `https://content.test/v/${input.artifactId}.${input.revisionId ?? revisionId}/index.html`,
+            revision_content_url: `https://content.test/v/${input.artifactId}.${input.revisionId ?? revisionId}/index.html`,
             files: [
               {
                 path: "index.html",
@@ -2669,7 +2669,7 @@ describe("api worker", () => {
             created_at: "2026-01-01T00:00:00.000Z",
             expires_at: "2026-12-01T00:00:00.000Z",
             entrypoint: "index.html",
-            view_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+            revision_content_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
             files: [
               {
                 path: "index.html",
@@ -2749,7 +2749,7 @@ describe("api worker", () => {
             created_at: "2026-01-01T00:00:00.000Z",
             expires_at: "2026-12-01T00:00:00.000Z",
             entrypoint: "index.html",
-            view_url: "https://content.test/v/old/index.html",
+            revision_content_url: "https://content.test/v/old/index.html",
             files: [
               {
                 path: "index.html",
@@ -3453,7 +3453,7 @@ function agentViewFixture(artifactId: string, revisionId: string) {
     title: "Agent View",
     entrypoint: "index.html",
     expires_at: "2026-12-01T00:00:00.000Z",
-    view_url: "https://content.test/v/old/index.html",
+    revision_content_url: "https://content.test/v/old/index.html",
     files: [
       { path: "index.html", url: "https://content.test/v/old/index.html", content_type: "text/html", size_bytes: 12 },
     ],

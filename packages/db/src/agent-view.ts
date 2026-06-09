@@ -56,7 +56,7 @@ export function buildAgentView(
     created_at: artifact.created_at,
     expires_at: artifact.expires_at,
     entrypoint: artifact.entrypoint,
-    view_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
+    revision_content_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
     files: files.map((file) => ({
       path: file.path,
       size_bytes: file.size_bytes,
@@ -120,7 +120,7 @@ export function buildPublishResult(
     artifact_id: artifact.id,
     revision_id: revision.id,
     title: artifact.title,
-    view_url: `${contentBaseUrl}/v/${artifact.id}.${revision.id}/${encodePath(artifact.entrypoint)}`,
+    revision_content_url: `${contentBaseUrl}/v/${artifact.id}.${revision.id}/${encodePath(artifact.entrypoint)}`,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
     bundle: buildBundleAvailability(revision),

@@ -211,7 +211,8 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        view_url: "https://app.test/view",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
         agent_view_url: "https://api.test/agent-view",
         expires_at: "2026-02-01T00:00:00.000Z",
       });
@@ -245,7 +246,8 @@ describe("cli command dispatch", () => {
       const out = stdoutValues(stdout).join("");
       expect(out).toContain(artifactId);
       expect(out).toContain(revisionId);
-      expect(out).toContain("https://app.test/view");
+      expect(out).toContain("https://app.test/artifacts/art_1");
+      expect(out).toContain("https://content.test/v/token/index.html");
     } finally {
       await removePublishFixture(root);
     }
