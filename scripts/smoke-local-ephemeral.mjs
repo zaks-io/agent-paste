@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { createSign, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
+import { listenHttpPort } from "./lib/smoke-port.mjs";
 import {
   assertAgentView,
   assertClaimRedemption,
@@ -15,7 +16,6 @@ import {
   EphemeralSmokeError,
   toBoundaryError,
 } from "./smoke-ephemeral-harness.mjs";
-import { listenHttpPort } from "./lib/smoke-port.mjs";
 
 /**
  * End-to-end ephemeral publish + claim smoke against a running local MVP harness.
@@ -111,7 +111,7 @@ export async function runLocalEphemeralSmoke(options) {
     claimWebOrigin,
     expectedClaimTokenPrefix: "ap_ct_preview_",
   });
-  await assertContentPolicy(published.view_url, published.claim_token);
+  await assertContentPolicy(published.revision_content_url, published.claim_token);
   await assertAgentView(published, { apiBaseUrl, contentBaseUrl });
   await assertClaimRedemption({
     apiBaseUrl,
@@ -122,6 +122,8 @@ export async function runLocalEphemeralSmoke(options) {
 
   return {
     artifact_id: published.artifact_id,
+    artifact_url: published.artifact_url,
+    revision_content_url: published.revision_content_url,
     workspace_id: published.workspace_id,
     member_workspace_id: memberWorkspaceId,
     claim_url: published.claim_url,

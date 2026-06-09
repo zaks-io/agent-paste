@@ -269,6 +269,7 @@ export type RepositoryOptions = {
   apiKeyEnv?: "preview" | "production";
   apiBaseUrl?: string;
   contentBaseUrl?: string;
+  webBaseUrl?: string;
   /** When false (default), `workspaces.plan` is ignored and caps default to `pro`. */
   billingEnabled?: boolean;
 };

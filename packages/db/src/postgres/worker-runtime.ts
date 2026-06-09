@@ -13,6 +13,7 @@ export type WorkerPostgresEnv = {
   API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
+  WEB_BASE_URL?: string;
   BILLING_ENABLED?: string;
 };
 
@@ -27,7 +28,7 @@ export type PostgresRuntime = {
 
 export type CreatePostgresRuntimeOptions<TEnv extends WorkerPostgresEnv> = {
   pickDb: (services: ReturnType<typeof createPostgresServices>) => Repository;
-  resolveServiceUrls?: (env: TEnv) => Pick<RepositoryOptions, "apiBaseUrl" | "contentBaseUrl">;
+  resolveServiceUrls?: (env: TEnv) => Pick<RepositoryOptions, "apiBaseUrl" | "contentBaseUrl" | "webBaseUrl">;
 };
 
 export function createPostgresRuntime<TEnv extends WorkerPostgresEnv>(

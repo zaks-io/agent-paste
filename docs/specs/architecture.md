@@ -106,7 +106,7 @@ sequenceDiagram
   A->>P: runCommand writes metadata, idempotency, audit
   A->>Q: enqueue warning, bundle, and lifecycle work
   A-->>U: PublishResult
-  U-->>C: Artifact ID, Revision ID, view URL, Agent View URL
+  U-->>C: Artifact ID, Revision ID, Artifact URL, Revision Content URL, Agent View URL
 ```
 
 Key invariants:

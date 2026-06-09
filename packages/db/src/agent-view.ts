@@ -116,10 +116,12 @@ export function buildPublishResult(
 ) {
   const contentBaseUrl = trimTrailingSlash(options.contentBaseUrl ?? "http://127.0.0.1:8789");
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
+  const webBaseUrl = trimTrailingSlash(options.webBaseUrl ?? "http://127.0.0.1:5173");
   const result = {
     artifact_id: artifact.id,
     revision_id: revision.id,
     title: artifact.title,
+    artifact_url: `${webBaseUrl}/artifacts/${encodeURIComponent(artifact.id)}`,
     revision_content_url: `${contentBaseUrl}/v/${artifact.id}.${revision.id}/${encodePath(artifact.entrypoint)}`,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,

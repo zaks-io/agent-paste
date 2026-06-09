@@ -14,6 +14,7 @@ export function postgresRuntime(env: Env) {
     resolveServiceUrls: (workerEnv) => ({
       apiBaseUrl: apiBaseUrl(workerEnv),
       contentBaseUrl: contentBaseUrl(workerEnv),
+      webBaseUrl: webBaseUrl(workerEnv),
     }),
   });
 }

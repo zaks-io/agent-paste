@@ -121,11 +121,11 @@ async function resolveRevisionContentUrl(
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
 ): Promise<string | undefined> {
-  if (entrypoint) {
-    return signedContentUrl(env, artifactId, revisionId, entrypoint, expiresAt, contentAuth);
-  }
-  if (typeof storedRevisionContentUrl === "string") {
-    return storedRevisionContentUrl;
+  const contentPath =
+    entrypoint ??
+    (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
+  if (contentPath) {
+    return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth);
   }
   return undefined;
 }
@@ -249,13 +249,39 @@ export async function signPublishResult(
 }
 
 export function entrypointPathFromContentUrl(contentUrl: string): string {
-  const match = contentUrl.match(/\/v\/[^/]+\/([^?#]+)$/);
-  const raw = match?.[1] ?? "index.html";
+  let raw = "index.html";
+  try {
+    const parsed = new URL(contentUrl, "http://agent-paste.local");
+    raw = entrypointPathFromParsedUrl(parsed, contentUrl);
+  } catch {
+    raw = entrypointPathFromFallback(contentUrl);
+  }
   try {
     return decodeURIComponent(raw);
   } catch {
     return raw || "index.html";
   }
+}
+
+function entrypointPathFromParsedUrl(parsed: URL, original: string): string {
+  const segments = parsed.pathname.split("/");
+  const versionSegmentIndex = segments.indexOf("v");
+  if (versionSegmentIndex >= 0 && segments.length > versionSegmentIndex + 2) {
+    return segments.slice(versionSegmentIndex + 2).join("/") || "index.html";
+  }
+  const path = parsed.pathname.replace(/^\/+/, "");
+  if (!/^[a-z][a-z\d+\-.]*:/i.test(original)) {
+    return path.includes("/") || path.includes(".") ? path : "index.html";
+  }
+  return path.includes(".") ? path : "index.html";
+}
+
+function entrypointPathFromFallback(contentUrl: string): string {
+  const withoutFragment = contentUrl.split("#", 1)[0] ?? "";
+  const withoutQuery = withoutFragment.split("?", 1)[0] ?? "";
+  const match = withoutQuery.match(/\/v\/[^/]+\/(.+)$/);
+  const path = match?.[1] ?? withoutQuery.replace(/^\/+/, "");
+  return path.includes("/") || path.includes(".") ? path : "index.html";
 }
 
 function contentSigningSecret(env: Env): string | undefined {

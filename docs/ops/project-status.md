@@ -2,7 +2,7 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-08 (public repository flip: repo is public with CodeQL,
+Last updated: 2026-06-09 (public repository flip: repo is public with CodeQL,
 secret scanning, Dependabot alerts, OpenSSF Scorecard + badge, and SHA-pinned
 Actions live; AP-254 public-repo security posture closed).
 See [changelog.md](./status/changelog.md) for what shipped.

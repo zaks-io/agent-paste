@@ -47,7 +47,17 @@ const userEnv = {
 const published = await runCliJson(["publish", smokePath, "--ttl", "1d", "--title", config.title, "--json"], userEnv);
 assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
 assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-assert(published.view_url?.startsWith(config.contentBaseUrl), `publish returned ${target} content view_url`);
+if (config.webBaseUrl) {
+  assert(published.artifact_url?.startsWith(config.webBaseUrl), `publish returned ${target} artifact_url`);
+}
+assert(
+  published.artifact_url?.includes(`/artifacts/${published.artifact_id}`),
+  "publish returned Artifact URL for live viewer",
+);
+assert(
+  published.revision_content_url?.startsWith(config.contentBaseUrl),
+  `publish returned ${target} revision_content_url`,
+);
 assert(published.agent_view_url?.startsWith(config.apiBaseUrl), `publish returned ${target} agent_view_url`);
 
 const agentViewJson = await fetchJson(published.agent_view_url);
@@ -64,7 +74,7 @@ const agentHtmlText = await agentViewHtml.text();
 assert(agentHtmlText.includes(published.artifact_id), "Agent View HTML renders artifact id");
 assert(agentHtmlText.includes("index.html"), "Agent View HTML renders file list");
 
-const content = await fetch(published.view_url);
+const content = await fetch(published.revision_content_url);
 assert(content.status === 200, `content HTML returned ${content.status}`);
 assert(content.headers.get("content-type")?.includes("text/html"), "content response is HTML");
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
@@ -82,8 +92,9 @@ process.stdout.write(`${config.label} smoke passed.
 
 Workspace:      ${provisioned.workspaceId}
 Artifact:       ${published.artifact_id}
+Artifact URL:   ${published.artifact_url}
 Agent View URL: ${published.agent_view_url}
-Content URL:    ${published.view_url}
+Revision URL:   ${published.revision_content_url}
 Apex:           ${config.apexBaseUrl}
 ${config.webBaseUrl ? `Web:            ${config.webBaseUrl}\n` : ""}`);
 
@@ -373,7 +384,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
     purgeRecovery.deleted_r2_objects >= before.length,
     `purge-recovery deleted_r2_objects=${purgeRecovery.deleted_r2_objects}, expected at least ${before.length} for prefix ${prefix}: ${JSON.stringify(purgeRecovery)}`,
   );
-  await waitForStatus(publishedArtifact.view_url, 404, "deleted content");
+  await waitForStatus(publishedArtifact.revision_content_url, 404, "deleted content");
 
   await waitForR2Empty(prefix, "delete purge");
 
@@ -400,7 +411,7 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
     `cleanup deleted_r2_objects=${cleanup.deleted_r2_objects}, expected at least ${before.length} for prefix ${prefix}: ${JSON.stringify(cleanup)}`,
   );
 
-  await waitForStatus(expiryPublish.view_url, 404, "expired content");
+  await waitForStatus(expiryPublish.revision_content_url, 404, "expired content");
 
   await waitForR2Empty(prefix, "expiry cleanup purge");
 

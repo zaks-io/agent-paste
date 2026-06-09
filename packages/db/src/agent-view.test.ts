@@ -61,9 +61,11 @@ describe("agent-view helpers", () => {
       buildPublishResult(artifact, publishedRevision, "upl_1", {
         contentBaseUrl: "https://content.test",
         apiBaseUrl: "https://api.test",
+        webBaseUrl: "https://app.test",
       }),
     ).toMatchObject({
       upload_session_id: "upl_1",
+      artifact_url: "https://app.test/artifacts/art_1",
       revision_content_url: "https://content.test/v/art_1.rev_2/docs/read%20me.md",
       agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_2",
       bundle: { status: "pending", retry_after_seconds: 5 },
@@ -72,6 +74,7 @@ describe("agent-view helpers", () => {
       buildPublishResult(artifact, publishedRevision, undefined, {
         contentBaseUrl: "https://content.test",
         apiBaseUrl: "https://api.test",
+        webBaseUrl: "https://app.test",
       }),
     ).not.toHaveProperty("upload_session_id");
   });

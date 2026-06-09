@@ -144,7 +144,12 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
   assertBoundary(claimToken?.startsWith("ap_ct_"), "publish", "JSON output includes Claim Token");
   assertBoundary(published.claim_url?.includes(`#${claimToken}`), "publish", "claim_url carries token in URL hash");
   assertBoundary(!published.claim_url?.includes("?"), "publish", "claim_url does not use query string");
-  assertBoundary(!published.view_url?.includes(claimToken), "publish", "view_url does not embed Claim Token");
+  assertBoundary(!published.artifact_url?.includes(claimToken), "publish", "artifact_url does not embed Claim Token");
+  assertBoundary(
+    !published.revision_content_url?.includes(claimToken),
+    "publish",
+    "revision_content_url does not embed Claim Token",
+  );
   assertBoundary(
     !published.agent_view_url?.includes(claimToken),
     "publish",
@@ -157,11 +162,23 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
 
 export async function assertPublishOutput(
   published,
-  { apiBaseUrl, contentBaseUrl, claimWebOrigin, expectedClaimTokenPrefix },
+  { apiBaseUrl, contentBaseUrl, webBaseUrl, claimWebOrigin, expectedClaimTokenPrefix },
 ) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
-  assertBoundary(published.view_url?.startsWith(contentBaseUrl), "content", "view_url targets content origin");
+  if (webBaseUrl) {
+    assertBoundary(published.artifact_url?.startsWith(webBaseUrl), "publish", "artifact_url targets web origin");
+  }
+  assertBoundary(
+    published.artifact_url?.includes(`/artifacts/${published.artifact_id}`),
+    "publish",
+    "artifact_url targets Artifact viewer",
+  );
+  assertBoundary(
+    published.revision_content_url?.startsWith(contentBaseUrl),
+    "content",
+    "revision_content_url targets content origin",
+  );
   assertBoundary(
     published.agent_view_url?.startsWith(apiBaseUrl) && published.agent_view_url.includes("/v1/public/agent-view/"),
     "content",
@@ -190,9 +207,9 @@ export async function assertPublishOutput(
   );
 }
 
-export async function assertContentPolicy(viewUrl, claimToken) {
-  const response = await fetch(viewUrl);
-  assertBoundary(response.status === 200, "content", `view_url returned ${response.status}`);
+export async function assertContentPolicy(revisionContentUrl, claimToken) {
+  const response = await fetch(revisionContentUrl);
+  assertBoundary(response.status === 200, "content", `revision_content_url returned ${response.status}`);
   const csp = response.headers.get("content-security-policy") ?? "";
   assertBoundary(csp.includes("script-src 'none'"), "policy", "content CSP is script-disabled for ephemeral tier");
   assertBoundary(
@@ -202,7 +219,11 @@ export async function assertContentPolicy(viewUrl, claimToken) {
   );
   const html = await response.text();
   assertBoundary(!html.includes(claimToken), "content", "served HTML does not embed Claim Token");
-  assertBoundary(html.includes("Ephemeral Local Smoke"), "content", "view served ephemeral fixture HTML");
+  assertBoundary(
+    html.includes("Ephemeral Local Smoke"),
+    "content",
+    "revision_content_url served ephemeral fixture HTML",
+  );
   assertBoundary(
     html.includes("<title>Agent Paste Ephemeral Smoke</title>"),
     "policy",
@@ -213,6 +234,16 @@ export async function assertContentPolicy(viewUrl, claimToken) {
 export async function assertAgentView(published, { apiBaseUrl, contentBaseUrl }) {
   const agentView = await fetchJson(published.agent_view_url, { boundary: "content" });
   assertBoundary(agentView.artifact_id === published.artifact_id, "content", "agent view artifact id matches publish");
+  assertBoundary(
+    agentView.revision_content_url?.startsWith(contentBaseUrl),
+    "content",
+    "agent view revision_content_url targets content origin",
+  );
+  assertBoundary(
+    !agentView.revision_content_url?.includes(published.claim_token),
+    "content",
+    "agent view revision_content_url does not embed Claim Token",
+  );
   const indexFile = agentView.files?.find((file) => file.path === "index.html");
   assertBoundary(
     indexFile?.url?.startsWith(contentBaseUrl),

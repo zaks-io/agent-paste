@@ -242,7 +242,7 @@ describe("cli command dispatch", () => {
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey);
       // Assert the published identifiers and the human URL reach stdout, not the
       // output's wording or spacing. The format is free to change without this
-      // test breaking; what matters is the ids and the view URL are surfaced.
+      // test breaking; what matters is the ids and URL fields are surfaced.
       const out = stdoutValues(stdout).join("");
       expect(out).toContain(artifactId);
       expect(out).toContain(revisionId);

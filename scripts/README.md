@@ -166,7 +166,7 @@ Assertions:
 
 - proof-of-work provision and ephemeral daily write allowance via API
 - CLI `publish --ephemeral` on `examples/local-harness/ephemeral-site`
-- content `view_url` and Agent View JSON/HTML, including `noindex` and script-disabled CSP
+- `revision_content_url` and Agent View JSON/HTML, including `noindex` and script-disabled CSP
 - Claim Token never appears in public URLs or stderr
 - optional claim redemption when `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` is set
 - preview/PR cleanup via smoke harness `__test__/delete-artifact` when harness secret is present
@@ -199,7 +199,7 @@ Optional endpoint overrides:
 Assertions:
 
 - smoke harness provisions a workspace and API key (preview/PR) or uses a pre-provisioned production key
-- CLI publish returns content `view_url` and API `agent_view_url`
+- CLI publish returns `artifact_url`, content `revision_content_url`, and API `agent_view_url`
 - Agent View JSON returns the published artifact and file list
 - browser Agent View HTML returns `text/html` and renders the artifact/file list
 - content HTML returns the published fixture
