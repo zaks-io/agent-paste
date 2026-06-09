@@ -70,9 +70,12 @@ Run the local CI-equivalent:
 pnpm verify
 ```
 
+**Test policy:** new or changed functionality must ship with tests in the same change. This is enforced, not
+aspirational: CI's `Validate` job runs `pnpm test:coverage` against global coverage thresholds, so a feature without
+tests fails the gate. New `apps/web` component and lib code in particular needs branch tests.
+
 **Important:** `pnpm verify` does **not** run coverage. CI's `Validate` job runs `pnpm test:coverage` separately,
-enforcing global coverage thresholds, and the pre-push hook runs it too. New `apps/web` component and lib code needs
-branch tests, or the coverage gate fails even when `pnpm verify` is green.
+enforcing those global coverage thresholds, and the pre-push hook runs it too — even when `pnpm verify` is green.
 
 Formatting and lint are codified, not hand-applied:
 

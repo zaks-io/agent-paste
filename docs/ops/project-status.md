@@ -53,25 +53,31 @@ Done for this section: every open item below is checked, or explicitly marked
        badge (`2de2280`), and SHA-pinned Actions (`33474e4`) are all live.
        Dependabot version updates stay off by design (scheduled review agent).
        Detail in [security-todo.md](./security-todo.md).
-4. [ ] **AP-160: Snyk Code triage**. Done when the Snyk Code entitlement is
+4. [ ] **AP-254: OpenSSF Best Practices badge**. Now that the repo is public,
+       apply for the **Passing** tier. The two Passing gaps (`release_notes`,
+       `test_policy`) are closed; the criterion-by-criterion self-assessment,
+       form-answer cribs, and Silver/Gold scope are in
+       [openssf-best-practices.md](./openssf-best-practices.md). Done when the
+       project is registered, Passing is green, and the README badge is added.
+5. [ ] **AP-160: Snyk Code triage**. Done when the Snyk Code entitlement is
        enabled, initial HIGH findings are triaged, narrow ignores are committed
        for confirmed false positives, and the gating/advisory decision is
        recorded.
-5. [ ] **AP-235: Hosted-content provenance badge**. Done when hosted content
+6. [ ] **AP-235: Hosted-content provenance badge**. Done when hosted content
        visibly distinguishes Agent Paste hosted pages and the behavior is covered
        by docs/tests.
-6. [ ] **Conditional: Production Stripe smoke**. Required before enabling paid
+7. [ ] **Conditional: Production Stripe smoke**. Required before enabling paid
        billing publicly. Done when Checkout, webhook activation,
        Portal/invoice access, and plan sync are smoke-tested in production;
        otherwise mark "not currently required" here.
-7. [x] **Production deploy of current main**. Done on 2026-06-07: `6ad04f5`
+8. [x] **Production deploy of current main**. Done on 2026-06-07: `6ad04f5`
        deployed by manual run `27101054536` with migration, Worker deploy, and
        read-only production smoke green.
-8. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
+9. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
        OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
-9. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agentpaste`
-       routes to email and then into Linear.
-10. [x] **Hosted Stripe test-mode preview check**. Done on 2026-06-07; production
+10. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agentpaste`
+        routes to email and then into Linear.
+11. [x] **Hosted Stripe test-mode preview check**. Done on 2026-06-07; production
         Stripe remains conditional above.
 
 ## Snapshot

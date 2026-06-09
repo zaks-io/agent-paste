@@ -455,9 +455,14 @@ jobs:
             done
             gh release upload "$TAG" "${release_assets[@]}" --clobber
           else
+            # --generate-notes prepends a human-readable changelog (merged PRs /
+            # commits since the previous cli-v* tag) so each release has real
+            # release notes; --notes keeps the supply-chain evidence footer below
+            # it. fetch-depth: 0 (above) gives gh the tag history it needs.
             gh release create "$TAG" "${release_assets[@]}" \
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
+              --generate-notes \
               --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`) and an attached SLSA provenance sidecar (\`*.intoto.jsonl\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft - review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi
