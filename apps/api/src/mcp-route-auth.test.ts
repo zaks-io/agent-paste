@@ -107,6 +107,34 @@ describe("API MCP route-boundary auth", () => {
       await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
     });
 
+    it("returns a retryable error when WorkOS JWKS verification is unavailable", async () => {
+      const unavailableJwksUrl = "https://tenant.authkit.app/oauth2/jwks-unavailable";
+      const fixture = await mcpTokenFixture({ scope: "read" });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string | URL | Request) => {
+          const href = url instanceof Request ? url.url : String(url);
+          if (href === unavailableJwksUrl) {
+            return new Response("bad gateway", { status: 502 });
+          }
+          return new Response("not found", { status: 404 });
+        }),
+      );
+
+      const response = await handleRequest(
+        new Request("https://api.test/v1/mcp/whoami", {
+          headers: { authorization: `Bearer ${fixture.token}` },
+        }),
+        {
+          ...mcpEnv(memberDb()),
+          WORKOS_MCP_JWKS_URL: unavailableJwksUrl,
+        },
+      );
+
+      expect(response.status).toBe(503);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "database_unavailable" } });
+    });
+
     it("rejects malformed bearer tokens", async () => {
       const response = await handleRequest(
         new Request("https://api.test/v1/mcp/whoami", {

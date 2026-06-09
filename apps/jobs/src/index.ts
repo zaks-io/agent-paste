@@ -4,6 +4,7 @@ import { type Context, Hono } from "hono";
 import { runScheduledJobs, type ScheduledEvent } from "./cron.js";
 import type { Env } from "./env.js";
 import { jobsEnabled } from "./env.js";
+import { logOpError } from "./op-log.js";
 import { handleQueueBatch, type MessageBatch } from "./queue.js";
 import {
   authenticateSmokeHarness,
@@ -33,6 +34,18 @@ export async function runQueueConsumer(batch: MessageBatch, env: Env): Promise<v
   await handleQueueBatch(batch, env);
 }
 
+export async function runScheduledEvent(event: ScheduledEvent, env: Env): Promise<void> {
+  try {
+    await runScheduledJobs(event, env);
+  } catch (error) {
+    logOpError("cron.unhandled", {
+      cron: event.cron,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
+}
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", securityHeadersMiddleware());
@@ -57,7 +70,7 @@ const worker = {
     return await app.fetch(request, env);
   },
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    await runScheduledJobs(event, env);
+    await runScheduledEvent(event, env);
   },
   async queue(batch: MessageBatch, env: Env): Promise<void> {
     await runQueueConsumer(batch, env);

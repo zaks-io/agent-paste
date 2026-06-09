@@ -5,6 +5,7 @@ import {
   verifyWorkOsAccessToken,
   type WorkOsIdentity,
   type WorkOsVerificationOptions,
+  WorkOsVerificationUnavailableError,
 } from "./workos.js";
 
 export type McpAuthEnv = {
@@ -92,6 +93,7 @@ export async function authenticateMcpBearer(
   if (!options) {
     return null;
   }
+  options.throwOnUnavailable = true;
 
   const verified = await verifyWorkOsAccessToken(token, options);
   if (!verified) {
@@ -124,6 +126,8 @@ export async function authenticateMcpBearer(
     },
   };
 }
+
+export { WorkOsVerificationUnavailableError };
 
 export async function resolveMcpMemberActor(
   principal: McpAuthenticatedPrincipal,

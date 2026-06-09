@@ -100,8 +100,8 @@ Revision and is the default human URL agents should return. A **Share URL** is
 the separate public access-bearing link. A **Revision Content URL** is a signed
 Content Origin URL for one exact Revision; it expires and does not Live Update.
 
-The CLI prints the Artifact URL first. JSON output carries `artifact_url` and
-`revision_content_url`.
+The CLI prints the Artifact URL first. JSON output carries `artifact_url`,
+`revision_content_url`, and `agent_view_url`.
 
 ## Ephemeral publish fallback
 

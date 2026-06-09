@@ -184,11 +184,12 @@ function startProbeServer({ status, body }) {
 }
 
 function samplePublishResult(artifactOrigin, overrides = {}) {
+  const revisionContentUrl = overrides.revision_content_url ?? "https://content.example.test/v/token/index.html";
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
     artifact_url: `${artifactOrigin}/artifacts/art_test`,
-    revision_content_url: "https://content.example.test/v/token/index.html",
+    revision_content_url: revisionContentUrl,
     agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
     claim_token: "ap_ct_preview_test",
     claim_url: "https://app.preview.agent-paste.sh/claim#ap_ct_preview_test",
