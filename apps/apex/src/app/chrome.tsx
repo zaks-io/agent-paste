@@ -1,4 +1,4 @@
-import { ButtonAnchor, Wordmark } from "@agent-paste/ui";
+import { ButtonAnchor, THEME_ICON_CLASS, THEME_TOGGLE_CLASS, Wordmark } from "@agent-paste/ui";
 import { FOOTER, type FooterColumn, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy";
 
 // One wrapper width for topbar + footer, straight from the mockup: 1280px max,
@@ -47,15 +47,11 @@ export function Header({ billingEnabled }: { billingEnabled: boolean }) {
               </a>
             ) : null}
           </nav>
-          <button
-            type="button"
-            id="theme-toggle"
-            aria-pressed="false"
-            aria-label="Toggle dark mode"
-            className="inline-flex items-center gap-2 leading-none font-mono text-xs tracking-wide text-subtle bg-transparent border border-rule rounded-xs px-2 py-1 cursor-pointer transition-[color,border-color] duration-200 ease-out hover:text-foreground hover:border-rule-strong"
-          >
-            <span className="tt-icon [&>svg]:block [&>svg]:w-[13px] [&>svg]:h-[13px]" aria-hidden="true" />
-            <span className="tt-label min-w-[32px] text-left max-[560px]:hidden">Theme</span>
+          {/* The shared header toggle. Look (class + icons + cycle) comes from
+              @agent-paste/ui so it is identical to the dashboard's; the framework-
+              free client.ts script paints the icon + drives the cycle on click. */}
+          <button type="button" id="theme-toggle" aria-label="Toggle theme" className={THEME_TOGGLE_CLASS}>
+            <span className={`tt-icon ${THEME_ICON_CLASS}`} aria-hidden="true" />
           </button>
           <ButtonAnchor size="sm" className="whitespace-nowrap rounded-xs" href={SIGN_IN_URL}>
             Get started

@@ -14,15 +14,16 @@ type Props = {
 export function RecentAudit({ rows, error }: Props) {
   return (
     <section>
-      <div className="mb-4 flex items-baseline justify-between">
-        <SectionLabel className="flex-1">Activity</SectionLabel>
-        <Link
-          to="/audit"
-          className="shrink-0 pl-4 font-mono text-mono-sm uppercase tracking-wider text-subtle hover:text-accent"
-        >
-          Audit log →
-        </Link>
-      </div>
+      <SectionLabel
+        className="mb-4"
+        action={
+          <Link to="/audit" className="font-mono text-mono-sm uppercase tracking-wider text-subtle hover:text-accent">
+            Audit log →
+          </Link>
+        }
+      >
+        Activity
+      </SectionLabel>
       {error ? (
         <ErrorBanner title="Couldn't load activity" message={error.message} requestId={error.requestId} />
       ) : rows.length === 0 ? (

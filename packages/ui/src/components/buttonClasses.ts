@@ -10,7 +10,7 @@ export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "dest
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 font-medium select-none rounded-sm " +
+  "inline-flex items-center justify-center gap-2 font-medium select-none rounded-sm whitespace-nowrap " +
   "transition-[background-color,color,border-color] duration-150 ease-out " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent " +
   "disabled:opacity-45 disabled:cursor-not-allowed";

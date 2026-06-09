@@ -50,12 +50,26 @@ export function CardHeader({
   );
 }
 
-/** A ruled section header: uppercase mono label, then a hairline spanning the row. */
-export function SectionLabel({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * A ruled section header: uppercase mono label, a hairline that fills the row,
+ * and an optional trailing action (e.g. a "See all →" link). The rule is the only
+ * flex-growing element, so the label and the action never overlap it — pass the
+ * action via the `action` prop rather than as a sibling.
+ */
+export function SectionLabel({
+  children,
+  action,
+  className,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <span className="eyebrow shrink-0">{children}</span>
       <span aria-hidden className="h-px flex-1 bg-rule" />
+      {action ? <span className="shrink-0">{action}</span> : null}
     </div>
   );
 }

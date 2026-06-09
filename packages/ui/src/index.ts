@@ -24,5 +24,15 @@ export { type ButtonSize, type ButtonVariant, buttonClasses } from "./components
 export { Card, CardHeader, SectionLabel } from "./components/Card";
 export { Prose, parseProse } from "./components/Prose";
 export { Table, TBody, TD, TH, THead, TR } from "./components/Table";
+export {
+  NEXT_THEME,
+  THEME_CYCLE,
+  THEME_ICON,
+  THEME_ICON_CLASS,
+  THEME_LABEL,
+  THEME_TOGGLE_CLASS,
+  type ThemeState,
+  themeToggleAria,
+} from "./components/themeToggle";
 export { Wordmark } from "./components/Wordmark";
 export { cn } from "./lib/cn";

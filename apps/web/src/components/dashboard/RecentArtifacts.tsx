@@ -16,15 +16,19 @@ type Props = {
 export function RecentArtifacts({ rows, error }: Props) {
   return (
     <section>
-      <div className="mb-4 flex items-baseline justify-between">
-        <SectionLabel className="flex-1">Recent</SectionLabel>
-        <Link
-          to="/artifacts"
-          className="shrink-0 pl-4 font-mono text-mono-sm uppercase tracking-wider text-subtle hover:text-accent"
-        >
-          All artifacts →
-        </Link>
-      </div>
+      <SectionLabel
+        className="mb-4"
+        action={
+          <Link
+            to="/artifacts"
+            className="font-mono text-mono-sm uppercase tracking-wider text-subtle hover:text-accent"
+          >
+            All artifacts →
+          </Link>
+        }
+      >
+        Recent
+      </SectionLabel>
       {error ? (
         <ErrorBanner title="Couldn't load artifacts" message={error.message} requestId={error.requestId} />
       ) : rows.length === 0 ? (
