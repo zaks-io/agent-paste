@@ -27,7 +27,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Production MCP runs at `https://mcp.agent-paste.sh`. The transport endpoint is `POST /` using Streamable HTTP JSON-RPC. Protected Resource Metadata is at `/.well-known/oauth-protected-resource`.",
+          text: "Production MCP runs at `https://mcp.agent-paste.sh`. The transport endpoint is `POST /` using Streamable HTTP JSON-RPC. Protected Resource Metadata is at `/.well-known/oauth-protected-resource`; the root OAuth resource is `https://mcp.agent-paste.sh/`.",
         },
         {
           kind: "paragraph",

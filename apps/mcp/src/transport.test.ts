@@ -47,7 +47,7 @@ function mcpPost(
       body: JSON.stringify(body),
     }),
     {
-      MCP_RESOURCE: options.resource ?? "https://mcp.preview.agent-paste.sh",
+      MCP_RESOURCE: options.resource ?? "https://mcp.preview.agent-paste.sh/",
     },
     { verifyBearer: testAuth },
   );
@@ -72,13 +72,13 @@ describe("MCP streamable HTTP transport", () => {
         headers: { "content-type": "text/plain" },
         body: "not json",
       }),
-      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh" },
+      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/" },
       { verifyBearer: testAuth },
     );
 
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(
-      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh"),
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh/"),
     );
     const payload = (await response.json()) as { error: { data: { code: string } } };
     expect(payload.error.data.code).toBe("invalid_token");
@@ -91,13 +91,13 @@ describe("MCP streamable HTTP transport", () => {
         headers: { "content-type": "application/json" },
         body: "{not-json",
       }),
-      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh" },
+      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/" },
       { verifyBearer: testAuth },
     );
 
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(
-      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh"),
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh/"),
     );
     const payload = (await response.json()) as { error: { data: { code: string } } };
     expect(payload.error.data.code).toBe("invalid_token");
@@ -117,7 +117,7 @@ describe("MCP streamable HTTP transport", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(
-      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh"),
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh/"),
     );
     const payload = (await response.json()) as { error: { data: { code: string } } };
     expect(payload.error.data.code).toBe("invalid_token");
@@ -320,7 +320,7 @@ describe("MCP streamable HTTP transport", () => {
   it("uses the default resource indicator challenge on production resource", async () => {
     const response = await mcpPost(
       { jsonrpc: "2.0", id: 1, method: "ping" },
-      { resource: "https://mcp.agent-paste.sh" },
+      { resource: "https://mcp.agent-paste.sh/" },
     );
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(mcpWwwAuthenticateHeader());

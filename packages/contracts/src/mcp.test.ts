@@ -172,7 +172,8 @@ describe("MCP auth and idempotency helpers", () => {
         authorizationServers: ["https://auth.example.test"],
       }),
     ).toEqual({
-      resource: "https://mcp.agent-paste.sh",
+      resource: "https://mcp.agent-paste.sh/",
+      resource_name: "Agent Paste MCP",
       authorization_servers: ["https://auth.example.test"],
       bearer_methods_supported: ["header"],
       scopes_supported: ["openid", "profile", "email", "offline_access"],

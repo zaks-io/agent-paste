@@ -18,7 +18,8 @@ describe("mcp worker", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      resource: "https://mcp.agent-paste.sh",
+      resource: "https://mcp.agent-paste.sh/",
+      resource_name: "Agent Paste MCP",
       authorization_servers: [],
       bearer_methods_supported: ["header"],
       scopes_supported: ["openid", "profile", "email", "offline_access"],
@@ -27,14 +28,51 @@ describe("mcp worker", () => {
 
   it("serves configured OAuth protected-resource metadata", async () => {
     const response = await request("/.well-known/oauth-protected-resource", {
-      MCP_RESOURCE: "https://mcp.preview.agent-paste.sh",
+      MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",
       MCP_AUTHORIZATION_SERVER: "https://auth.example.test",
     });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      resource: "https://mcp.preview.agent-paste.sh",
+      resource: "https://mcp.preview.agent-paste.sh/",
       authorization_servers: ["https://auth.example.test"],
+    });
+  });
+
+  it("serves configured OAuth authorization-server metadata", async () => {
+    const response = await request("/.well-known/oauth-authorization-server", {
+      MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",
+      MCP_AUTHORIZATION_SERVER: "https://auth.example.test",
+      WORKOS_MCP_ISSUER: "https://auth.example.test",
+      WORKOS_MCP_JWKS_URL: "https://auth.example.test/oauth2/jwks",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      issuer: "https://auth.example.test",
+      authorization_endpoint: "https://auth.example.test/oauth2/authorize",
+      token_endpoint: "https://auth.example.test/oauth2/token",
+      registration_endpoint: "https://auth.example.test/oauth2/register",
+      jwks_uri: "https://auth.example.test/oauth2/jwks",
+      code_challenge_methods_supported: ["S256"],
+      scopes_supported: ["openid", "profile", "email", "offline_access"],
+      client_id_metadata_document_supported: true,
+      resource: "https://mcp.preview.agent-paste.sh/",
+      resource_metadata: "https://mcp.preview.agent-paste.sh/.well-known/oauth-protected-resource",
+      protected_resources: ["https://mcp.preview.agent-paste.sh/", "https://mcp.preview.agent-paste.sh"],
+    });
+  });
+
+  it("serves path-suffixed OAuth metadata fallbacks", async () => {
+    const response = await request("/.well-known/openid-configuration/mcp", {
+      MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",
+      MCP_AUTHORIZATION_SERVER: "https://auth.example.test/",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      issuer: "https://auth.example.test",
+      authorization_endpoint: "https://auth.example.test/oauth2/authorize",
     });
   });
 

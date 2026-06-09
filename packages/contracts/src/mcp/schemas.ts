@@ -29,6 +29,7 @@ export type McpScope = z.infer<typeof McpScope>;
 export const McpProtectedResourceMetadata = z
   .object({
     resource: UrlString,
+    resource_name: z.string().min(1).max(80).optional(),
     authorization_servers: z.array(UrlString).max(10),
     bearer_methods_supported: z.tuple([z.literal("header")]),
     scopes_supported: z.array(z.string()).min(1).max(20),

@@ -4,18 +4,19 @@ import type { McpScope as McpScopeValue } from "./schemas.js";
 import { McpProtectedResourceMetadata } from "./schemas.js";
 
 export function mcpProtectedResourceMetadata(
-  input: { resource?: string; authorizationServers?: readonly string[] } = {},
+  input: { resource?: string; resourceName?: string; authorizationServers?: readonly string[] } = {},
 ): McpProtectedResourceMetadata {
   return McpProtectedResourceMetadata.parse({
     resource: input.resource ?? MCP_RESOURCE_INDICATOR,
+    resource_name: input.resourceName ?? "Agent Paste MCP",
     authorization_servers: [...(input.authorizationServers ?? [])],
     bearer_methods_supported: ["header"],
     scopes_supported: [...MCP_AUTHKIT_OAUTH_SCOPES],
   });
 }
 
-export function mcpWwwAuthenticateHeader(resource = MCP_RESOURCE_INDICATOR): string {
-  const resourceMetadata = `${resource}/.well-known/oauth-protected-resource`;
+export function mcpWwwAuthenticateHeader(resource: string = MCP_RESOURCE_INDICATOR): string {
+  const resourceMetadata = `${resource.replace(/\/+$/, "")}/.well-known/oauth-protected-resource`;
   return `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resourceMetadata}"`;
 }
 

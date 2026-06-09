@@ -40,8 +40,8 @@ export function mcpSmokeConfig(target) {
     return {
       label: "Preview",
       mcpBaseUrl: env("AGENT_PASTE_PREVIEW_MCP_URL", "https://mcp.preview.agent-paste.sh"),
-      resource: env("AGENT_PASTE_PREVIEW_MCP_RESOURCE", "https://mcp.preview.agent-paste.sh"),
-      audience: MCP_RESOURCE_INDICATOR,
+      resource: env("AGENT_PASTE_PREVIEW_MCP_RESOURCE", "https://mcp.preview.agent-paste.sh/"),
+      audience: env("AGENT_PASTE_PREVIEW_MCP_AUDIENCE", "https://mcp.preview.agent-paste.sh/"),
       authorizationServers: [authServer],
     };
   }
@@ -129,11 +129,9 @@ export async function assertMcpUnauthorizedChallenge(mcpBaseUrl, resource) {
   });
   assert(response.status === 401, `missing bearer returned ${response.status}, expected 401`);
   const challenge = response.headers.get("www-authenticate") ?? "";
+  const resourceMetadata = `${resource.replace(/\/+$/, "")}/.well-known/oauth-protected-resource`;
   assert(challenge.includes("invalid_token"), "WWW-Authenticate includes invalid_token");
-  assert(
-    challenge.includes(`${resource}/.well-known/oauth-protected-resource`),
-    "WWW-Authenticate references protected resource metadata",
-  );
+  assert(challenge.includes(resourceMetadata), "WWW-Authenticate references protected resource metadata");
   assert(payload?.error?.data?.code === "invalid_token", "JSON-RPC envelope reports invalid_token");
 }
 
