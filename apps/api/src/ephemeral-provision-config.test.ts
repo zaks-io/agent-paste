@@ -35,9 +35,10 @@ describe("reconcileVersionedProvisionConfig", () => {
   });
 
   it("fails closed on stale unset reads after a newer version was applied", () => {
-    expect(
-      reconcileVersionedProvisionConfig(null, { config_version: 2, limit_per_minute: 5 }),
-    ).toEqual({ ok: false, reason: "stale" });
+    expect(reconcileVersionedProvisionConfig(null, { config_version: 2, limit_per_minute: 5 })).toEqual({
+      ok: false,
+      reason: "stale",
+    });
   });
 
   it("fails closed on invalid KV values and stale older versions", () => {

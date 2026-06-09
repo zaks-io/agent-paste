@@ -45,12 +45,7 @@ describe("command item builders", () => {
       const close = vi.fn();
       const items = buildActionCommandItems(setPreference, close);
 
-      expect(items.map((item) => item.id)).toEqual([
-        "theme-light",
-        "theme-dark",
-        "theme-system",
-        "sign-out",
-      ]);
+      expect(items.map((item) => item.id)).toEqual(["theme-light", "theme-dark", "theme-system", "sign-out"]);
       expect(items.every((item) => item.group === "actions")).toBe(true);
     });
 

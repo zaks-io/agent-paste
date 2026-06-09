@@ -87,7 +87,12 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const configKv = versionedConfigKv(loweredLimit, 1);
 
     for (let index = 0; index < loweredLimit; index += 1) {
-      const response = await gateConsume(storage, `nonce-${index}`, EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, configKv);
+      const response = await gateConsume(
+        storage,
+        `nonce-${index}`,
+        EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+        configKv,
+      );
       expect(response.status).toBe(200);
     }
 

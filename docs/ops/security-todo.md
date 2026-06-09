@@ -107,8 +107,11 @@ filed off an external credibility review.
 - [x] Configure npm **trusted publishing (OIDC)** + provenance for
       `@zaks-io/agent-paste` from a protected release workflow (operator-confirmed
       2026-06-07; replaces long-lived npm tokens).
-- [ ] Add only externally-verifiable badges: CI, the security workflow,
-      OpenSSF Best Practices (if FLOSS requirements are met), and the Snyk **npm
-      package** badge once the package is public. No badge may imply a private scan
-      result is publicly verifiable. The OpenSSF Scorecard badge already ships in
-      `README.md` (`2de2280`).
+- [ ] Add only externally-verifiable badges: CI, the security workflow, the
+      OpenSSF Best Practices **Passing** badge, and the Snyk **npm package** badge
+      once the package is public. No badge may imply a private scan result is
+      publicly verifiable. The OpenSSF Scorecard badge already ships in `README.md`
+      (`2de2280`). The Best Practices target tier and the criterion-by-criterion
+      self-assessment (Passing met; Silver delta; Gold out of scope) live in
+      [`openssf-best-practices.md`](./openssf-best-practices.md); its README badge
+      is added once Passing is green (snippet in that doc).

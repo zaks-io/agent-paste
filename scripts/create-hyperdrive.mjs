@@ -46,15 +46,7 @@ async function createHyperdrive(name, connectionString) {
 }
 
 async function refreshHyperdrive(id, name, connectionString) {
-  await run("pnpm", [
-    "exec",
-    "wrangler",
-    "hyperdrive",
-    "update",
-    id,
-    "--connection-string",
-    connectionString,
-  ]);
+  await run("pnpm", ["exec", "wrangler", "hyperdrive", "update", id, "--connection-string", connectionString]);
   process.stdout.write(`Updated Hyperdrive ${name} (${id}) to ${maskConnectionUri(connectionString)}\n`);
   return id;
 }

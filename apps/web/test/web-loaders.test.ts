@@ -258,12 +258,20 @@ describe("web server loaders", () => {
   it("loads claim page billing and usage policy alongside the Turnstile site key", async () => {
     state.apiFetchOrEmpty.mockImplementation(async (path: string) => {
       if (path === "/v1/web/billing") {
-        return { data: { plan: "free", operator_override: false, subscription: null, daily_new_artifact_allowance: 100 }, empty: false, error: null };
+        return {
+          data: { plan: "free", operator_override: false, subscription: null, daily_new_artifact_allowance: 100 },
+          empty: false,
+          error: null,
+        };
       }
       if (path === "/v1/web/workspace") {
         return {
           data: {
-            workspace: { id: "00000000-0000-4000-8000-000000000001", name: "Personal", created_at: "2026-01-01T00:00:00.000Z" },
+            workspace: {
+              id: "00000000-0000-4000-8000-000000000001",
+              name: "Personal",
+              created_at: "2026-01-01T00:00:00.000Z",
+            },
             workspace_member: {
               id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
               workspace_id: "00000000-0000-4000-8000-000000000001",

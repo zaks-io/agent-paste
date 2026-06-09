@@ -32,10 +32,7 @@ export function formatRelativeTime(input: Date | string | number, now: number = 
 // Client-only cadence for <RelativeTime> live ticks. Matches formatRelativeTime
 // precision so labels refresh when the displayed unit can change, without a 1s poll
 // on every timestamp on a page.
-export function getRelativeTimeTickIntervalMs(
-  input: Date | string | number,
-  now: number = Date.now(),
-): number {
+export function getRelativeTimeTickIntervalMs(input: Date | string | number, now: number = Date.now()): number {
   const date = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(date.getTime())) return Number.POSITIVE_INFINITY;
 

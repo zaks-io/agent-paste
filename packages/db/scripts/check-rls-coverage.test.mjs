@@ -54,8 +54,7 @@ describe("RLS coverage check", () => {
             policy_name: "example_rows_tenant",
             permissive: "PERMISSIVE",
             qual: "workspace_id is not null and current_setting('app.workspace_id', true) is not null",
-            with_check:
-              "workspace_id is not null and current_setting('app.workspace_id', true) is not null",
+            with_check: "workspace_id is not null and current_setting('app.workspace_id', true) is not null",
           },
         ],
       ),

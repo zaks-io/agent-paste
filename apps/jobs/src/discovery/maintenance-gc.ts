@@ -3,18 +3,10 @@ import { AUDIT_RETENTION_DAYS, IDEMPOTENCY_RETENTION_DAYS, MAINTENANCE_GC_SWEEP_
 import { withPlatformScope } from "../db.js";
 import type { R2Bucket } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
-import {
-  archiveAuditRows,
-  deleteAuditRowsByIds,
-  selectExpiringAuditRows,
-} from "./audit-archive.js";
+import { archiveAuditRows, deleteAuditRowsByIds, selectExpiringAuditRows } from "./audit-archive.js";
 import type { SweepResult } from "./types.js";
 
-export async function runMaintenanceGc(
-  executor: SqlExecutor,
-  now: string,
-  artifacts?: R2Bucket,
-): Promise<SweepResult> {
+export async function runMaintenanceGc(executor: SqlExecutor, now: string, artifacts?: R2Bucket): Promise<SweepResult> {
   const platformExecutor = withPlatformScope(executor);
   const idempotencyCutoff = subtractDays(now, IDEMPOTENCY_RETENTION_DAYS);
   const auditCutoff = subtractDays(now, AUDIT_RETENTION_DAYS);

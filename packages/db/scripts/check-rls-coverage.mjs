@@ -140,9 +140,7 @@ function missingCoverageForTable(table, policies) {
   const unsafePermissivePolicies = policies.filter(isUnsafePermissivePolicy);
   if (unsafePermissivePolicies.length > 0) {
     missing.push(
-      `no broad permissive policies (${unsafePermissivePolicies
-        .map((policy) => policy.policy_name)
-        .join(", ")})`,
+      `no broad permissive policies (${unsafePermissivePolicies.map((policy) => policy.policy_name).join(", ")})`,
     );
   }
   return missing;

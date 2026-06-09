@@ -1,7 +1,7 @@
 import type { UsagePolicy } from "@agent-paste/contracts";
 import { PLANS } from "@agent-paste/plans";
-import { Check } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { Check } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { Button } from "../ui/Button";
 import { Card, CardHeader, SectionLabel } from "../ui/Card";
@@ -66,8 +66,7 @@ export function ClaimSuccessPanel({
   onViewArtifacts,
 }: ClaimSuccessPanelProps) {
   const maxRetentionDays = retentionDays(usagePolicy.max_ttl_seconds);
-  const viewLabel =
-    artifactCount === 1 ? "View artifact" : `View ${artifactCount} artifacts`;
+  const viewLabel = artifactCount === 1 ? "View artifact" : `View ${artifactCount} artifacts`;
 
   return (
     <div className="grid gap-5">

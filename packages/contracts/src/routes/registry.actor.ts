@@ -1,9 +1,6 @@
 import { routeErrorGroups } from "./errors.js";
 
-const {
-  apiKeyRead: apiKeyReadErrors,
-  apiKeyActorRead: apiKeyActorReadErrors,
-} = routeErrorGroups;
+const { apiKeyRead: apiKeyReadErrors, apiKeyActorRead: apiKeyActorReadErrors } = routeErrorGroups;
 
 /**
  * Actor identity and API-key route contracts, split out of `registry.ts` to keep

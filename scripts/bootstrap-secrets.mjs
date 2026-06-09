@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import {
-  forbiddenSecretsForApp,
-  formatForbiddenSecretDeleteInstructions,
-} from "./lib/secret-routing.mjs";
+import { forbiddenSecretsForApp, formatForbiddenSecretDeleteInstructions } from "./lib/secret-routing.mjs";
 import { findSecretCollisions, listWorkerSecrets, putWorkerSecret, workerName } from "./wrangler-secrets.mjs";
 
 const target = parseTarget(process.argv.slice(2));

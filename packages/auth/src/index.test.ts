@@ -147,8 +147,9 @@ describe("auth helpers", () => {
 
   it("evicts the oldest insertion when the cache is full", async () => {
     const namespace = `lru-order-${crypto.randomUUID()}`;
-    const keys = Array.from({ length: MEMORY_CACHE_MAX_ENTRIES + 1 }, (_, index) =>
-      `key-${String(index).padStart(4, "0")}`,
+    const keys = Array.from(
+      { length: MEMORY_CACHE_MAX_ENTRIES + 1 },
+      (_, index) => `key-${String(index).padStart(4, "0")}`,
     );
 
     for (const key of keys) {
