@@ -60,6 +60,11 @@ describe("selectApps", () => {
     expect(selectApps(["preview", "--app= apex , , web "])).toEqual(["apex", "web"]);
   });
 
+  it("throws loud on an empty app scope", () => {
+    expect(() => selectApps(["preview", "--app="])).toThrow(/Empty --app value/);
+    expect(() => selectApps(["preview", "--app= , "])).toThrow(/Empty --app value/);
+  });
+
   it("throws loud on an unknown app name", () => {
     expect(() => selectApps(["preview", "--app=marketing"])).toThrow(/Unknown --app value\(s\): marketing/);
   });

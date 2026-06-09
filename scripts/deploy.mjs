@@ -113,6 +113,9 @@ export function selectApps(argv) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  if (requested.length === 0) {
+    throw new Error(`Empty --app value. Valid apps: ${APPS.join(", ")}`);
+  }
   const unknown = requested.filter((a) => !APPS.includes(a));
   if (unknown.length > 0) {
     throw new Error(`Unknown --app value(s): ${unknown.join(", ")}. Valid apps: ${APPS.join(", ")}`);
