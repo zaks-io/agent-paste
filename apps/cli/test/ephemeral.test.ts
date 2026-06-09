@@ -66,7 +66,7 @@ describe("cli ephemeral publish", () => {
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
       expect(human).toContain("https://app.test/view");
-      expect(human).toContain(`Claim:      ${claimUrl}`);
+      expect(human).toContain(claimUrl);
       expect(human).not.toContain(`?${claimToken}`);
       expect(human).not.toContain(`https://app.test/view/${claimToken}`);
     } finally {

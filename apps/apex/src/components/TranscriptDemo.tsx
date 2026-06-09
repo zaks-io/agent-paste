@@ -14,38 +14,35 @@ const GESTURE_NODE = "●";
 function Line({ line }: { line: TranscriptLine }) {
   switch (line.kind) {
     case "prompt":
+      // Preserve newlines in the command so a backslash line-continuation renders
+      // as two lines, like a real shell. The continuation indent lives in the
+      // copy string after the "\\\n".
       return (
-        <button
-          type="button"
-          className="t-line t-prompt group/line w-full text-left bg-transparent border-0 p-0 [cursor:copy] rounded-xs transition-[background] duration-[140ms] ease-out hover:bg-accent-tint data-[copied=true]:bg-accent/22"
-          data-clipboard={line.text}
-          aria-label={`Copy: ${line.text}`}
-        >
+        <div className="t-line">
           <span className="text-accent select-none" aria-hidden="true">
             ${" "}
           </span>
-          <span className="text-foreground">{line.text}</span>
-        </button>
+          <span className="text-foreground font-medium whitespace-pre-wrap">{line.text}</span>
+        </div>
       );
     case "comment":
-      return <div className="t-line text-subtle">{line.text}</div>;
+      return <div className="t-line text-faint">{line.text}</div>;
     case "success":
       return (
-        <div className="t-line text-muted">
-          <span className="text-success select-none" aria-hidden="true">
+        <div className="t-line text-success">
+          <span className="select-none" aria-hidden="true">
             ✓{" "}
           </span>
           {line.text}
         </div>
       );
     case "output":
-      return <div className="t-line text-muted">{line.text}</div>;
+      return <div className="t-line text-subtle pl-[1.2ch]">{line.text}</div>;
     case "result":
       return (
         <a
           className="t-line t-result block break-all text-muted no-underline rounded-xs px-1 -mx-1 transition-[background] duration-[140ms] ease-out hover:bg-accent-tint"
           href={line.href}
-          data-clipboard={`https://${line.url}`}
           aria-label={`Open the example artifact: ${line.url}`}
         >
           <span className="t-gesture" aria-hidden="true">
@@ -65,7 +62,7 @@ export function TranscriptDemo() {
       <div className="t-head flex items-center px-4 py-2 border-b border-rule">
         <span className="font-mono text-mono-sm tracking-eyebrow uppercase text-subtle">agent session</span>
       </div>
-      <div className="t-body font-mono text-mono leading-[1.75] px-4 py-4 [font-feature-settings:'zero'] overflow-x-auto">
+      <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-auto">
         {TRANSCRIPT.map((line) => (
           <Line key={line.kind === "result" ? line.url : `${line.kind}:${line.text}`} line={line} />
         ))}

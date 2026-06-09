@@ -125,12 +125,12 @@ The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query 
 Default human-readable output:
 
 ```text
-Published artifact art_01H... revision rev_01H...
+✓ Published "report"
+  art_01H... · rev_01H...
 
-  Title:      report
-  View:       https://usercontent.agent-paste.sh/v/...
-  Agent View: https://api.agent-paste.sh/v1/public/agent-view/...
-  Expires:    2026-06-20T00:00:00.000Z
+  Open     https://usercontent.agent-paste.sh/v/...
+  Agent    https://api.agent-paste.sh/v1/public/agent-view/...
+  Expires  2026-06-20
 ```
 
 With `--json`, stdout is exactly the publish result:
@@ -158,7 +158,7 @@ With `--ephemeral`, the human-readable output appends the claim link:
 
 ```text
 Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).
-  Claim:      https://app.agent-paste.sh/claim#ap_ct_...
+  Claim    https://app.agent-paste.sh/claim#ap_ct_...
 ```
 
 With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.

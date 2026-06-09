@@ -358,14 +358,25 @@ type PublishResultShape = {
   expires_at: string;
 };
 
+// Render expires_at as a plain calendar date when it parses as an ISO instant;
+// otherwise pass the raw value through unchanged. Never fabricate a date.
+function formatExpiry(expiresAt: string) {
+  const date = new Date(expiresAt);
+  return Number.isNaN(date.getTime()) ? expiresAt : date.toISOString().slice(0, 10);
+}
+
+// Human-readable publish result. Title-led so a person sees what shipped first;
+// the ids sit on a dim second line for reference; the two URLs are the handoff
+// (Open is the human page, Agent is the machine manifest). The apex landing demo
+// shows a truthful slice of this exact shape (the success line + the Open row).
 function formatPublishResult(result: PublishResultShape) {
   return [
-    `Published artifact ${result.artifact_id} revision ${result.revision_id}`,
+    `✓ Published "${result.title}"`,
+    `  ${result.artifact_id} · ${result.revision_id}`,
     "",
-    `  Title:      ${result.title}`,
-    `  View:       ${result.view_url}`,
-    `  Agent View: ${result.agent_view_url}`,
-    `  Expires:    ${result.expires_at}`,
+    `  Open     ${result.view_url}`,
+    `  Agent    ${result.agent_view_url}`,
+    `  Expires  ${formatExpiry(result.expires_at)}`,
   ].join("\n");
 }
 
@@ -380,7 +391,7 @@ function formatEphemeralPublishResult(result: PublishResultShape, claimUrl: stri
     formatPublishResult(result),
     "",
     "Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).",
-    `  Claim:      ${claimUrl}`,
+    `  Claim    ${claimUrl}`,
   ].join("\n");
 }
 

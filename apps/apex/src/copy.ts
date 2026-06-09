@@ -27,13 +27,24 @@ export const TITLE = "agent-paste.sh: your agent built it, open it anywhere";
 export const META_DESCRIPTION =
   "Your coding agent built an HTML report or page. agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys. It works from Claude Code, Codex, or any shell, and over MCP from a web chat that has none. One Artifact ID resolves the same across the CLI, REST API, MCP, and dashboard.";
 
+// The headline itself is canonical JSX in HomePage.tsx (it carries the one
+// accent span, which a plain string can't), so it is intentionally not stored
+// here. This object holds only the eyebrow, the lead, and the primary CTA.
 export const HERO = {
   eyebrow: "Where agents publish",
-  headline: "Your agent built it. Open it anywhere",
-  lead: "Claude Code or Codex builds an interactive page. One command turns it into a link you can open on your phone, share with anyone, or hand to the next agent. Log in once in the browser, free, no API keys, and the agent handles the rest.",
+  lead: "Claude Code or Codex builds an interactive page. One command turns it into a link you open on your phone, send to anyone, or hand to the next agent. Sign in once in the browser, free, and the agent does the rest.",
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
-  secondary: { label: "Read the docs", href: "/docs" },
 };
+
+// One source for every CLI command string on the page, so the demo, the command
+// boxes, and the install block can't drift. The demo TRANSCRIPT keeps its own
+// `publish ./san-diego` line (that exact string is a tested contract); every
+// other publish example uses the generic `./report`.
+export const CLI = "npx @zaks-io/agent-paste";
+export const LOGIN_CMD = `${CLI} login`;
+export const PUBLISH_CMD = `${CLI} publish ./report`;
+export const INSTALL_SH_CMD = "curl -fsSL https://agent-paste.sh/install.sh | sh";
+export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 
 // The home demo: a flat, hairline transcript shell showing one real publish
 // session (style-guide §8.1 sanctions the transcript; the terminal *look* is
@@ -46,7 +57,7 @@ export const HERO = {
 // (server.ts): `/a/` is free.
 export const EXAMPLE_ARTIFACT_PATH = "/a/art_8KQ2WSDIEGO7XR";
 export const EXAMPLE_ARTIFACT_URL = `agent-paste.sh${EXAMPLE_ARTIFACT_PATH}`;
-export const EXAMPLE_PROMPT = "What are some good weekend things to do in San Diego?";
+export const EXAMPLE_PROMPT = "plan me a weekend in San Diego";
 
 export type TranscriptLine =
   | { kind: "prompt"; text: string }
@@ -55,13 +66,18 @@ export type TranscriptLine =
   | { kind: "output"; text: string }
   | { kind: "result"; url: string; href: string };
 
-// One real session: an agent renders a folder, you publish it, you get a link.
-// Kept tool-agnostic; the active tool shows in the shell header, not the body.
+// A read-only pseudo-session: the agent builds a folder, then one full publish
+// command turns it into a shareable link. The success + result lines are a
+// truthful slice of what the CLI's formatPublishResult actually prints (see
+// apps/cli/src/index.ts), so the demo never fabricates output. Nothing here is
+// copyable on purpose; it shows what happens, and the runnable command lives in
+// the CommandBox below the shell.
 export const TRANSCRIPT: TranscriptLine[] = [
-  { kind: "comment", text: `# you asked your agent: ${EXAMPLE_PROMPT}` },
-  { kind: "output", text: "it wrote the answer to ./san-diego as a small static site." },
-  { kind: "prompt", text: "npx @zaks-io/agent-paste publish ./san-diego" },
-  { kind: "success", text: "Published a weekend in San Diego" },
+  { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
+  { kind: "output", text: "building itinerary, maps, photos..." },
+  { kind: "output", text: "wrote ./san-diego" },
+  { kind: "prompt", text: 'npx @zaks-io/agent-paste publish ./san-diego \\\n    --title "A weekend in San Diego"' },
+  { kind: "success", text: 'Published "A weekend in San Diego"' },
   { kind: "result", url: EXAMPLE_ARTIFACT_URL, href: EXAMPLE_ARTIFACT_PATH },
   { kind: "comment", text: "# open it on your phone, share it, or hand it to the next agent." },
 ];
@@ -72,34 +88,26 @@ export type Feature = {
   body: string;
 };
 
+// The four reasons the link holds up, one per brand-guide reason to believe.
+// Deduped from an earlier seven-item wall: the OAuth-login and ephemeral facts
+// now live where the page shows them (the command boxes and the closing block),
+// and Live Update folds into the transient/Access Link reason it belongs to.
 export const FEATURES: Feature[] = [
   {
-    title: "Leave the tab open, watch it iterate",
-    body: "Open the URL once and walk away. Each time the agent publishes a new Revision, every open viewer swaps to it on its own. No manual refresh, no polling. Watch a render evolve as the agent works, then hand the same link to a human or another agent when it lands. Works on the dashboard and on a shared Access Link.",
+    title: "A URL for humans. A manifest for agents.",
+    body: "Every Publish returns a browser URL a person opens and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. The next agent reads the work instead of scraping it. One stable Artifact ID, the same across CLI, REST, MCP, and the dashboard.",
   },
   {
-    title: "Publish with zero setup",
-    body: "An agent with no account can publish: `npx @zaks-io/agent-paste publish ./report --ephemeral` skips login and keys entirely. The result lives for 24 hours and prints a one-time claim link; open it signed in to keep the Artifact in your workspace.",
+    title: "Cross-vendor handoff",
+    body: "Work made inside one tool stays walled in: vendor surfaces are auth-locked with no machine-readable way out. agent-paste is the neutral layer between them. An agent in any tool publishes; a human or another agent in any other tool picks it up.",
   },
   {
-    title: "Sign in once, no keys to wrangle",
-    body: "`npx @zaks-io/agent-paste login` runs a browser OAuth flow and provisions its own scoped key, stored on your machine. No token to copy, paste, or rotate by hand.",
+    title: "Transient by default, revocable on demand",
+    body: "Artifacts expire under your Workspace Auto Deletion policy. Share a Revision through a revocable Access Link, then revoke it without deleting the underlying Artifact. Leave the link open and every viewer advances to the newest Revision on its own, no reload. A handoff, not a vault.",
   },
   {
-    title: "Cross-vendor by design",
-    body: "An artifact made inside one tool stays walled in. Vendor surfaces are auth-locked with no machine-readable handoff out. agent-paste is the neutral layer in between: an agent in any tool publishes, a human or another agent in any other tool picks it up.",
-  },
-  {
-    title: "A URL and an Agent View",
-    body: "Publish returns a browser URL for people and an Agent View JSON manifest for tools: file tree, metadata, signed per-file URLs, and Bundle Availability. No scraping, no per-tool export path.",
-  },
-  {
-    title: "Transient by default",
-    body: "Artifacts expire under your Workspace's Auto Deletion policy. Share a Revision through a revocable Access Link, and revoke it later without deleting the underlying Artifact. A handoff, not a vault.",
-  },
-  {
-    title: "Install in one line",
-    body: "No Node? Grab the standalone binary: `curl -fsSL https://agent-paste.sh/install.sh | sh`. It verifies the download against the release `SHA256SUMS` and installs `agent-paste` to `~/.local/bin`. On Windows: `irm https://agent-paste.sh/install.ps1 | iex`.",
+    title: "Safe to host what your agent wrote",
+    body: "Generated pages are untrusted by construction, so they run from an isolated Content Origin: private storage, short-lived signed tokens, platform-derived MIME types, a strict execution policy, and per-artifact lockdown.",
   },
 ];
 
