@@ -1,4 +1,9 @@
-import { MCP_AUTHKIT_OAUTH_SCOPES, MCP_RESOURCE_INDICATOR, mcpProtectedResourceMetadata } from "@agent-paste/contracts";
+import {
+  MCP_AUTHKIT_OAUTH_SCOPES,
+  MCP_RESOURCE_INDICATOR,
+  mcpProtectedResourceMetadata,
+  trimTrailingSlashes,
+} from "@agent-paste/contracts";
 import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
@@ -85,7 +90,7 @@ function authorizationServerMetadata(env: Env): Record<string, unknown> | null {
     scopes_supported: [...MCP_AUTHKIT_OAUTH_SCOPES],
     client_id_metadata_document_supported: true,
     resource,
-    resource_metadata: `${resource.replace(/\/+$/, "")}/.well-known/oauth-protected-resource`,
+    resource_metadata: `${trimTrailingSlashes(resource)}/.well-known/oauth-protected-resource`,
     protected_resources: protectedResources,
   };
 }
@@ -94,11 +99,11 @@ function normalizedUrl(value: string | undefined): string | null {
   if (!value) {
     return null;
   }
-  return value.replace(/\/+$/, "");
+  return trimTrailingSlashes(value);
 }
 
 function resourceAliases(resource: string): string[] {
-  const trimmed = resource.replace(/\/+$/, "");
+  const trimmed = trimTrailingSlashes(resource);
   const withSlash = `${trimmed}/`;
   return resource.endsWith("/") ? [withSlash, trimmed] : [trimmed, withSlash];
 }

@@ -18,8 +18,10 @@ import {
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
+  mcpWwwAuthenticateHeader,
   resolveMcpForwardedCall,
   toMcpJsonRpcError,
+  trimTrailingSlashes,
 } from "./mcp.js";
 import { IdempotencyKey } from "./primitives.js";
 import { routeContractById } from "./routes.js";
@@ -178,6 +180,14 @@ describe("MCP auth and idempotency helpers", () => {
       bearer_methods_supported: ["header"],
       scopes_supported: ["openid", "profile", "email", "offline_access"],
     });
+  });
+
+  it("builds OAuth discovery URLs without regex backtracking on slash-heavy resources", () => {
+    expect(trimTrailingSlashes("https://mcp.example.test////")).toBe("https://mcp.example.test");
+    expect(trimTrailingSlashes("////")).toBe("");
+    expect(mcpWwwAuthenticateHeader(`${"https://mcp.example.test"}${"/".repeat(4096)}`)).toContain(
+      'resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource"',
+    );
   });
 
   it("derives entrypoints from render mode", () => {

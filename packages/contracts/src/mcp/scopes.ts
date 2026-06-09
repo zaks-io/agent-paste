@@ -15,8 +15,16 @@ export function mcpProtectedResourceMetadata(
   });
 }
 
+export function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
+}
+
 export function mcpWwwAuthenticateHeader(resource: string = MCP_RESOURCE_INDICATOR): string {
-  const resourceMetadata = `${resource.replace(/\/+$/, "")}/.well-known/oauth-protected-resource`;
+  const resourceMetadata = `${trimTrailingSlashes(resource)}/.well-known/oauth-protected-resource`;
   return `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resourceMetadata}"`;
 }
 
