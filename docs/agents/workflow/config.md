@@ -3,7 +3,8 @@
 Last updated: 2026-06-09
 
 Last verification (2026-06-09, refresh): deploy command table + CodeRabbit mode
-re-verified against live repo. Evidence: `package.json` scripts (`deploy:preview`/
+(incl. `@coderabbitai ignore` opt-out policy for trivial PRs) re-verified against
+live repo. Evidence: `package.json` scripts (`deploy:preview`/
 `deploy:production` now `node scripts/deploy.mjs <target>`, migrate decoupled),
 `turbo.json` (`deploy:preview`/`deploy:production` tasks present), `.coderabbit.yaml`
 (`auto_review.enabled: true`), Linear read-only `list_issues team="Agent Paste"`
@@ -150,6 +151,11 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   every PR automatically — do NOT manually trigger. Local `ziw-code-review` before
   PR is still good practice. Use `@coderabbitai full review` only to force a fresh
   pass on a high-risk PR whose head moved past the last review.
+- CodeRabbit opt-out for trivial PRs: since auto-review is on, suppress it on
+  trivial changes (docs/comments/copy/formatting/version bumps/config-only with no
+  logic change) by adding `@coderabbitai ignore` to the PR description at creation.
+  This conserves the review budget for changes that matter. Do NOT add it to PRs
+  touching logic, auth, secrets, schemas, deploy/CI, or anything `risk-*`-labeled.
 - Issue update: attach PR, move to `In Review`, comment checks/review verdict;
   never move to `Done`
 - Merge authority: see Work Coordination
