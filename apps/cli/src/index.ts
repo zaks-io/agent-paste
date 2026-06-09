@@ -353,7 +353,8 @@ type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
-  view_url: string;
+  artifact_url: string;
+  revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
 };
@@ -366,17 +367,17 @@ function formatExpiry(expiresAt: string) {
 }
 
 // Human-readable publish result. Title-led so a person sees what shipped first;
-// the ids sit on a dim second line for reference; the two URLs are the handoff
-// (Open is the human page, Agent is the machine manifest). The apex landing demo
-// shows a truthful slice of this exact shape (the success line + the Open row).
+// the ids sit on a dim second line for reference. Artifact is the stable live
+// app viewer; Revision is the exact content-origin URL retained for snapshots.
 function formatPublishResult(result: PublishResultShape) {
   return [
     `✓ Published "${result.title}"`,
     `  ${result.artifact_id} · ${result.revision_id}`,
     "",
-    `  Open     ${result.view_url}`,
-    `  Agent    ${result.agent_view_url}`,
-    `  Expires  ${formatExpiry(result.expires_at)}`,
+    `  Artifact  ${result.artifact_url}`,
+    `  Revision  ${result.revision_content_url}`,
+    `  Agent     ${result.agent_view_url}`,
+    `  Expires   ${formatExpiry(result.expires_at)}`,
   ].join("\n");
 }
 
@@ -403,7 +404,11 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   if (claimUrl.includes("?") && claimUrl.includes(claimToken)) {
     throw new Error("Claim Token must not appear in the URL query string");
   }
-  if (result.view_url.includes(claimToken) || result.agent_view_url.includes(claimToken)) {
+  if (
+    result.artifact_url.includes(claimToken) ||
+    result.revision_content_url.includes(claimToken) ||
+    result.agent_view_url.includes(claimToken)
+  ) {
     throw new Error("Claim Token must not appear in public share URLs");
   }
 }

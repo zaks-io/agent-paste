@@ -67,7 +67,7 @@ export class RepositoryCoreContext {
           warnings,
         );
         viewer = {
-          iframe_src: agentView.view_url,
+          iframe_src: agentView.revision_content_url,
           render_mode: revision.render_mode,
         };
       }

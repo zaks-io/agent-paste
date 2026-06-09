@@ -106,7 +106,7 @@ sequenceDiagram
   A->>P: runCommand writes metadata, idempotency, audit
   A->>Q: enqueue warning, bundle, and lifecycle work
   A-->>U: PublishResult
-  U-->>C: Artifact ID, Revision ID, view URL, Agent View URL
+  U-->>C: Artifact ID, Revision ID, Artifact URL, Revision Content URL, Agent View URL
 ```
 
 Key invariants:
@@ -127,8 +127,10 @@ Key invariants:
 
 ## Read And Share Flow
 
-There are two public read shapes: direct signed content URLs and Access Link
-Signed URLs. Both end at the Content Origin for file bytes.
+Human handoff starts at the app origin. An Artifact URL opens the live viewer
+for an Artifact and resolves to the latest Published Revision. Public sharing
+adds a Share URL with an Access Link credential. Direct signed content URLs are
+delivery URLs for one exact Revision.
 
 ```mermaid
 flowchart TD
@@ -152,6 +154,10 @@ Access Link rules:
 
 - The shareable credential lives in the URL fragment, not in the path or query
   string.
+- A Share URL grants public access to an Artifact viewer.
+- A Share Link resolves to the latest Published Revision and can Live Update
+  through that viewer.
+- A Revision Link resolves to exactly one Revision and does not Live Update.
 - The fragment is read by the browser and posted to `api` as `{ public_id, blob
 }`.
 - The `access_links` row stores no bearer secret.
@@ -171,8 +177,12 @@ Content Origin rules:
 
 ## Live Updates
 
-Live Updates let already-open Private Link or Share Link viewers advance to the
-latest Published Revision after a publish.
+Live Updates let already-open Artifact URL, Private Link, or Share Link viewers
+advance to the latest Published Revision after a publish.
+
+Direct signed content URLs and Revision Links are intentionally pinned to one
+Revision. Updating an Artifact with `--artifact-id` does not change what an
+already-open `revision_content_url` displays.
 
 ```mermaid
 flowchart LR

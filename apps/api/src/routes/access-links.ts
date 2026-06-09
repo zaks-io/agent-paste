@@ -133,12 +133,12 @@ export async function resolveAccessLinkRoute(
     accessLinkId: resolved.access_link_id,
     workspaceId: resolved.workspace_id,
   });
-  const view = signedView as { view_url?: string; title?: string };
+  const view = signedView as { revision_content_url?: string; title?: string };
   return getBoundResponders(context).respondJson({
     agent_view: signedView,
     render_mode: resolved.render_mode,
     title: resolved.title,
-    iframe_src: typeof view.view_url === "string" ? view.view_url : resolved.iframe_src,
+    iframe_src: typeof view.revision_content_url === "string" ? view.revision_content_url : resolved.iframe_src,
   });
 }
 

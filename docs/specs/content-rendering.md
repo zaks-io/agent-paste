@@ -2,11 +2,16 @@
 
 The `content` Worker serves untrusted artifact files from `usercontent.agent-paste.sh`. It reads private R2 objects and a KV denylist. It has no Hyperdrive binding.
 
+Content URLs are delivery URLs for exact Revisions, not Artifact URLs. A URL
+shaped `/v/{token}/{path}` never advances to a newer Revision after another
+publish. Latest-moving viewers start on the app origin through an Artifact URL;
+public access to that viewer is granted by a separate Share URL.
+
 ## URL Shape
 
 | Shape               | Meaning                                      |
 | ------------------- | -------------------------------------------- |
-| `/v/{token}/{path}` | File bytes for one signed artifact revision. |
+| `/v/{token}/{path}` | File bytes for one signed artifact Revision. |
 
 The token is an opaque signed content token minted during publish. Content tokens
 live in the URL path. Access Link Signed URLs use a separate
@@ -103,7 +108,7 @@ error envelopes, and non-content routes keep `frame-ancestors 'none'` and `X-Fra
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:
 
-| Entrypoint               | Viewer URL              | Notes                                                                  |
+| Entrypoint               | Revision Content URL    | Notes                                                                  |
 | ------------------------ | ----------------------- | ---------------------------------------------------------------------- |
 | Single `.html` file      | `/v/{token}/{file}`     | Direct file response.                                                  |
 | Folder with `index.html` | `/v/{token}/index.html` | Direct file response; relative assets load from the same signed token. |

@@ -271,7 +271,7 @@ describe("AP-91 revision route modules", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.html",
-      view_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+      revision_content_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
       files: [
         {
           path: "index.html",
@@ -317,13 +317,13 @@ describe("AP-91 revision route modules", () => {
     expect(authenticated.status).toBe(200);
     const body = (await authenticated.json()) as {
       workspace_id?: string;
-      view_url: string;
+      revision_content_url: string;
       lockdown?: unknown;
     };
     expect(body.workspace_id).toBeUndefined();
     expect(body.lockdown).toEqual(lockedView.lockdown);
 
-    const token = decodeURIComponent(body.view_url.split("/v/")[1]?.split("/")[0] ?? "");
+    const token = decodeURIComponent(body.revision_content_url.split("/v/")[1]?.split("/")[0] ?? "");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload).toMatchObject({
       workspace_id: workspaceId,
@@ -338,7 +338,7 @@ describe("AP-91 revision route modules", () => {
       artifact_id: "art_1",
       revision_id: "rev_1",
       title: "Published",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       bundle: { status: "pending" },
     }));
     const queue = {
@@ -382,7 +382,7 @@ describe("AP-91 revision route modules", () => {
       artifact_id: "art_1",
       revision_id: "rev_1",
       title: "Published",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       bundle: { status: "disabled" },
     }));
     const writeDataPoint = vi.fn();
@@ -422,7 +422,7 @@ describe("AP-91 revision route modules", () => {
       artifact_id: "art_1",
       revision_id: "rev_1",
       title: "Published",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       bundle: { status: "disabled" },
     }));
     const db = {
@@ -462,7 +462,7 @@ describe("AP-91 revision route modules", () => {
       artifact_id: "art_1",
       revision_id: "rev_1",
       title: "Published",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       bundle: { status: "disabled" },
     }));
     const db = {
@@ -494,7 +494,7 @@ describe("AP-91 revision route modules", () => {
         artifact_id: "art_1",
         revision_id: "rev_1",
         title: "Published",
-        view_url: "https://content.test/v/art_1.rev_1/index.html",
+        revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
         bundle: { status: "disabled" },
       });
     const db = {
@@ -565,7 +565,7 @@ describe("AP-91 revision route modules", () => {
         artifact_id: "art_1",
         revision_id: "rev_1",
         title: "Published",
-        view_url: "https://content.test/v/art_1.rev_1/index.html",
+        revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
         bundle: { status: "disabled" },
       })),
     };

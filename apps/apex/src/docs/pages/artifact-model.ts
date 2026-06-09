@@ -18,7 +18,16 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
             ["Artifact", "A durable, addressable folder-like package containing one or more files."],
             ["Revision", "An immutable saved state of an Artifact after publish. New publishes append Revisions."],
             ["Published Revision", "The Revision currently visible through stable Artifact links."],
+            [
+              "Artifact URL",
+              "The app-origin live viewer for an Artifact. It resolves to the latest Published Revision.",
+            ],
+            [
+              "Revision Content URL",
+              "A signed Content Origin URL for one exact Revision. It expires and does not Live Update.",
+            ],
             ["Access Link", "A revocable signed URL for a Share Link or a Revision Link."],
+            ["Share Link", "An Access Link that resolves to the latest Published Revision of an Artifact."],
             ["Bundle", "A downloadable archive generated from a complete Revision file tree."],
           ],
         },
@@ -30,7 +39,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish returns stable Artifact and Revision IDs plus the URLs each reader needs: a browser view for humans and Agent View JSON for tools.",
+          text: "Publish returns stable Artifact and Revision IDs plus an Artifact URL for the live viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision.",
         },
         {
           kind: "code",
@@ -49,7 +58,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "On Pro, Live Updates let already-open Private Link or Share Link viewers advance to the latest Published Revision without a manual reload. Draft Revisions are never revealed.",
+          text: "On Pro, Live Updates let already-open Artifact URL, Private Link, or Share Link viewers advance to the latest Published Revision without a manual reload. Revision Links and Revision Content URLs are pinned to one Revision and do not Live Update. Draft Revisions are never revealed.",
         },
       ],
     },

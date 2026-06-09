@@ -1,7 +1,7 @@
 import { USAGE_POLICY } from "@agent-paste/config";
 import { verifyContentToken } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { entrypointPathFromViewUrl, signAgentViewContentUrls } from "./agent-view.js";
+import { entrypointPathFromContentUrl, signAgentViewContentUrls } from "./agent-view.js";
 import type { Env } from "./env.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -18,13 +18,25 @@ function bundleTokenFromUrl(url: string): string {
   return decodeURIComponent(url.split("/b/")[1]?.split("?")[0] ?? "");
 }
 
-describe("entrypointPathFromViewUrl", () => {
-  it("decodes valid entrypoint paths from view URLs", () => {
-    expect(entrypointPathFromViewUrl("https://content.test/v/art.rev/nested%2Findex.html")).toBe("nested/index.html");
+describe("entrypointPathFromContentUrl", () => {
+  it("decodes valid entrypoint paths from content URLs", () => {
+    expect(entrypointPathFromContentUrl("https://content.test/v/art.rev/nested%2Findex.html")).toBe(
+      "nested/index.html",
+    );
+  });
+
+  it("ignores query strings and fragments when extracting entrypoint paths", () => {
+    expect(entrypointPathFromContentUrl("https://content.test/v/art.rev/nested%2Findex.html?download=1#section")).toBe(
+      "nested/index.html",
+    );
+  });
+
+  it("accepts relative entrypoint paths from stored content metadata", () => {
+    expect(entrypointPathFromContentUrl("docs/read%20me.md?download=1#section")).toBe("docs/read me.md");
   });
 
   it("keeps malformed encoded entrypoint paths from throwing", () => {
-    expect(entrypointPathFromViewUrl("https://content.test/v/art.rev/%E0%A4%A")).toBe("%E0%A4%A");
+    expect(entrypointPathFromContentUrl("https://content.test/v/art.rev/%E0%A4%A")).toBe("%E0%A4%A");
   });
 });
 
@@ -60,7 +72,7 @@ describe("signAgentViewContentUrls characterization", () => {
       workspace_id: workspaceId,
       artifact_id: "art_1",
       revision_id: "rev_1",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       files: [{ path: "index.html", url: "https://content.test/old" }],
       bundle: { status: "ready", url: "https://content.test/b/old" },
     };
@@ -70,7 +82,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed).toEqual({
       artifact_id: "art_1",
       revision_id: "rev_1",
-      view_url: "https://content.test/v/art_1.rev_1/index.html",
+      revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
       files: [{ path: "index.html", url: "https://content.test/old" }],
       bundle: { status: "ready", url: "https://content.test/b/old" },
     });
@@ -80,7 +92,7 @@ describe("signAgentViewContentUrls characterization", () => {
     const view = {
       workspace_id: workspaceId,
       artifact_id: "art_1",
-      view_url: "https://content.test/old",
+      revision_content_url: "https://content.test/old",
       files: [{ path: "index.html", url: "https://content.test/old" }],
     };
 
@@ -88,12 +100,12 @@ describe("signAgentViewContentUrls characterization", () => {
 
     expect(signed).toEqual({
       artifact_id: "art_1",
-      view_url: "https://content.test/old",
+      revision_content_url: "https://content.test/old",
       files: [{ path: "index.html", url: "https://content.test/old" }],
     });
   });
 
-  it("signs the entrypoint view_url and file URLs with access-link auth metadata", async () => {
+  it("signs the entrypoint revision_content_url and file URLs with access-link auth metadata", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -109,16 +121,16 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId, accessLinkId: "al_1" },
-    )) as { view_url: string; files: Array<{ url: string }>; bundle: { url: string } };
+    )) as { revision_content_url: string; files: Array<{ url: string }>; bundle: { url: string } };
 
-    expect(signed.view_url).toContain("https://content.test/v/");
-    expect(signed.view_url).toContain("/nested/index.html");
+    expect(signed.revision_content_url).toContain("https://content.test/v/");
+    expect(signed.revision_content_url).toContain("/nested/index.html");
     expect(signed.files[0]?.url).toContain("https://content.test/v/");
     expect(signed.files[0]?.url).toContain("/nested/index.html");
     expect(signed.files[1]?.url).toBe("kept");
     expect(signed.bundle.url).toContain("https://content.test/b/");
 
-    const viewPayload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const viewPayload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(viewPayload).toMatchObject({
       artifact_id: "art_1",
       revision_id: "rev_1",
@@ -141,36 +153,49 @@ describe("signAgentViewContentUrls characterization", () => {
     });
   });
 
-  it("passes through view_url when no entrypoint is present", async () => {
+  it("re-signs stored revision_content_url when no entrypoint is present", async () => {
+    const storedUrl = "https://content.test/v/old.token/docs%2Findex.html?download=1#section";
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
         artifact_id: "art_1",
         revision_id: "rev_1",
-        view_url: "https://content.test/existing",
+        revision_content_url: storedUrl,
         files: [{ path: "index.html", url: "old" }],
       },
       signingEnv,
-      { workspaceId },
-    )) as { view_url: string };
+      { workspaceId, accessLinkId: "al_1" },
+    )) as { revision_content_url: string };
 
-    expect(signed.view_url).toBe("https://content.test/existing");
+    expect(signed.revision_content_url).not.toBe(storedUrl);
+    expect(signed.revision_content_url).toContain("https://content.test/v/");
+    expect(signed.revision_content_url).toContain("/docs/index.html");
+
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
+    expect(payload).toMatchObject({
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      workspace_id: workspaceId,
+      access_link_id: "al_1",
+      paths: ["docs/index.html"],
+      script_disabled: false,
+    });
   });
 
-  it("omits view_url when there is no entrypoint and the stored view_url is not a string", async () => {
+  it("omits revision_content_url when there is no entrypoint and the stored revision_content_url is not a string", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
         artifact_id: "art_1",
         revision_id: "rev_1",
-        view_url: 123,
+        revision_content_url: 123,
         files: [{ path: "index.html", url: "old" }],
       },
       signingEnv,
       { workspaceId },
-    )) as { view_url?: string };
+    )) as { revision_content_url?: string };
 
-    expect(signed.view_url).toBeUndefined();
+    expect(signed.revision_content_url).toBeUndefined();
   });
 
   it("passes through non-array files unchanged", async () => {
@@ -231,9 +256,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId, ephemeralTier: true },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
     expect(payload?.script_disabled).toBe(true);
   });
@@ -250,9 +275,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
     expect(payload?.script_disabled).toBe(true);
   });
@@ -269,9 +294,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.script_disabled).toBe(false);
     expect(payload?.noindex).toBeUndefined();
   });
@@ -285,9 +310,9 @@ describe("signAgentViewContentUrls characterization", () => {
         expires_at: "2030-01-01T00:00:00.000Z",
       },
       signingEnv,
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.script_disabled).toBeUndefined();
     expect(payload?.workspace_id).toBeUndefined();
   });
@@ -304,9 +329,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId: overrideWorkspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.workspace_id).toBe(overrideWorkspaceId);
   });
 
@@ -320,9 +345,9 @@ describe("signAgentViewContentUrls characterization", () => {
         expires_at: "2030-01-01T00:00:00.000Z",
       },
       signingEnv,
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.workspace_id).toBe(workspaceId);
   });
 
@@ -340,9 +365,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const payload = await verifyContentToken(contentTokenFromUrl(signed.view_url), "content-secret");
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.exp).toBe(Math.floor(Date.now() / 1000) + USAGE_POLICY.default_ttl_seconds);
   });
 });

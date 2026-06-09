@@ -119,12 +119,13 @@ export async function webArtifactDetail(
           artifact_id: detail.id,
           revision_id: detail.latest_revision_id,
           entrypoint: detail.entrypoint,
-          view_url: detail.viewer.iframe_src,
+          revision_content_url: detail.viewer.iframe_src,
         },
         context.env,
         { workspaceId: actor.workspace_id },
-      )) as { view_url?: unknown };
-      const iframeSrc = typeof signed.view_url === "string" ? signed.view_url : detail.viewer.iframe_src;
+      )) as { revision_content_url?: unknown };
+      const iframeSrc =
+        typeof signed.revision_content_url === "string" ? signed.revision_content_url : detail.viewer.iframe_src;
       return respondJson({ ...detail, viewer: { ...detail.viewer, iframe_src: iframeSrc } });
     }
     return respondJson(detail);

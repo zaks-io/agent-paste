@@ -37,7 +37,7 @@ export const EPHEMERAL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit.",
+          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit. Unclaimed ephemeral content is also served with scripts disabled: static HTML and CSS render, but JavaScript does not execute until the Artifact is claimed and new content URLs are minted from a claimed Workspace.",
         },
       ],
     },

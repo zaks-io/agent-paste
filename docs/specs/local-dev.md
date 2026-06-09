@@ -70,7 +70,7 @@ The complete local CLI smoke test is:
 pnpm smoke:local
 ```
 
-It starts the local harness, creates a Workspace and API Key through the smoke harness, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `view_url`, fetches the returned `agent_view_url`, deletes the Artifact and verifies purge, then publishes `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`, checks ephemeral policy boundaries (noindex, script-disabled CSP, write allowance, Claim Token isolation), and redeems the Claim Token through the local WorkOS stub into a member workspace.
+It starts the local harness, creates a Workspace and API Key through the smoke harness, runs `agent-paste whoami`, publishes `examples/local-harness/site`, fetches the returned `artifact_url`, fetches the returned `revision_content_url`, fetches the returned `agent_view_url`, deletes the Artifact and verifies purge, then publishes `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`, checks ephemeral policy boundaries (noindex, script-disabled CSP, write allowance, Claim Token isolation), and redeems the Claim Token through the local WorkOS stub into a member workspace.
 
 The faster in-process Worker vertical slice is:
 
@@ -186,8 +186,8 @@ The first local vertical slice is complete when:
 1. A Workspace and API Key can be created locally.
 2. `agent-paste whoami` succeeds using `AGENT_PASTE_API_KEY`.
 3. CLI can publish a folder with `index.html`.
-4. Publish returns `artifact_id`, `revision_id`, `view_url`, `agent_view_url`, and `expires_at`.
-5. `view_url` serves the entrypoint under the content origin.
+4. Publish returns `artifact_id`, `revision_id`, `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`.
+5. `artifact_url` opens the Artifact viewer and `revision_content_url` serves the entrypoint under the content origin.
 6. `agent_view_url` returns Agent View JSON with full per-file URLs.
 7. Admin CLI can list and inspect the artifact.
 8. Manual cleanup can dry-run and admin delete invalidates content URLs.

@@ -27,7 +27,7 @@ Goal: prove the artifact handoff loop.
 - Storage: private R2.
 - Metadata: Postgres through Cloudflare Hyperdrive using Drizzle.
 - Publish: single HTML file or folder with `index.html`.
-- Output: `artifact_id`, `revision_id`, direct signed `view_url`, public signed `agent_view_url`, `expires_at`.
+- Output: `artifact_id`, `revision_id`, `artifact_url`, direct signed `revision_content_url`, public signed `agent_view_url`, `expires_at`.
 - Agent View: simple JSON with full per-file URLs.
 - Retention: default `30d`, max `90d`, scheduled cleanup.
 - Operator: WorkOS `/v1/web/admin/*` lockdown routes; non-production smokes use the harness secret.

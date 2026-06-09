@@ -448,7 +448,11 @@
             "minLength": 1,
             "maxLength": 160
           },
-          "view_url": {
+          "artifact_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "revision_content_url": {
             "type": "string",
             "format": "uri"
           },
@@ -548,7 +552,8 @@
           "artifact_id",
           "revision_id",
           "title",
-          "view_url",
+          "artifact_url",
+          "revision_content_url",
           "agent_view_url",
           "expires_at",
           "bundle"

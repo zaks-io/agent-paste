@@ -3,8 +3,8 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 export const AGENTS_MD = `# agent-paste for agents
 
 agent-paste gives AI agents a durable, addressable place to publish work
-products. Each publish returns an Artifact ID, a browser URL for humans, and an
-Agent View URL for machine-readable handoff.
+products. Each publish returns an Artifact ID, an Artifact URL for the live
+viewer, and an Agent View URL for machine-readable handoff.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
@@ -25,12 +25,19 @@ agent-paste has three objects an agent needs to know:
   Revision. A human opens it at \`${APP_BASE_URL}/al/{public_id}\`; an agent
   reads the same link through \`GET /v1/public/agent-view/{token}\`. The
   workspace owner can revoke a link without revoking the underlying Artifact.
+- **Artifact URL** - The stable app-origin live viewer for an Artifact. It
+  resolves to the latest Published Revision and Live Updates.
+- **Revision Content URL** - A signed \`usercontent.agent-paste.sh/v/...\` URL
+  for the exact Revision returned by publish. It expires and does not Live
+  Update.
+- **Share URL** - A public access-bearing URL for an Artifact viewer.
 
 ## CLI quickstart
 
 Sign in once, then publish a folder. \`npx @zaks-io/agent-paste login\` runs a browser OAuth flow and
 provisions its own scoped key, so there is no API key to copy or paste. Publish
-returns an Artifact ID plus human and agent URLs.
+returns an Artifact ID, an Artifact URL, a Revision Content URL, and an Agent
+View URL.
 
 \`\`\`
 npx @zaks-io/agent-paste login
@@ -38,8 +45,32 @@ npx @zaks-io/agent-paste publish ./report
 # => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
 \`\`\`
 
+Human-readable output prints the Artifact URL first:
+
+\`\`\`
+✓ Published "report"
+  art_... · rev_...
+
+  Artifact  ${APP_BASE_URL}/artifacts/art_...
+  Revision  https://usercontent.agent-paste.sh/v/...
+  Agent     ${API_BASE_URL}/v1/public/agent-view/...
+  Expires   2026-06-20
+\`\`\`
+
+JSON output has these URL fields:
+
+- \`artifact_url\` - stable live Artifact viewer. Return this to humans by
+  default.
+- \`revision_content_url\` - exact signed Content Origin URL for this Revision.
+  It expires and does not Live Update.
+- \`agent_view_url\` - machine-readable Agent View JSON for tools.
+
 Publish creates a new Artifact by default. To append and publish a new Revision
 on an existing Artifact, pass \`--artifact-id art_...\`.
+
+If the user asks for a stable link, live-updating link, or a link they can keep
+open while you iterate, return the Artifact URL. Do not return the
+\`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Publish without an account
 
@@ -57,13 +88,18 @@ and keep it. The token rides the URL **hash** only: it never appears in the
 query string or in any public share URL. \`--ephemeral\` ignores
 \`AGENT_PASTE_API_KEY\` and any stored login.
 
+Unclaimed ephemeral HTML is script-disabled. Static HTML and CSS render, but
+JavaScript does not run until a human claims the Artifact and new content URLs
+are minted from the claimed Workspace. For an interactive visualization that
+needs JavaScript, use authenticated publish rather than \`--ephemeral\`.
+
 ## REST entry points
 
 Base: \`${API_BASE_URL}\`
 
 - \`GET /v1/whoami\` - verify the calling API key, return actor + workspace.
 - \`GET /v1/artifacts/{id}/agent-view\` - agent-optimized JSON view of an
-  artifact: file tree, content-base URL, signed file URLs.
+  artifact: file tree, \`revision_content_url\`, signed file URLs.
 - \`GET /v1/artifacts/{id}/revisions/{rev}/agent-view\` - same view, pinned to
   a specific Revision.
 - \`GET /v1/public/agent-view/{token}\` - public counterpart, no auth, scoped

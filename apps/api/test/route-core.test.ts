@@ -2,7 +2,7 @@ import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { RepositoryError, repositoryErrorToAppError } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import {
-  entrypointPathFromViewUrl,
+  entrypointPathFromContentUrl,
   signAgentViewContentUrls,
   signPublishResult,
   verifyAgentViewTokenForEnv,
@@ -192,9 +192,9 @@ describe("AP-91 shared API route helpers", () => {
       },
       { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
       { workspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const token = decodeURIComponent(signed.view_url.split("/v/")[1]?.split("/")[0] ?? "");
+    const token = decodeURIComponent(signed.revision_content_url.split("/v/")[1]?.split("/")[0] ?? "");
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload?.noindex).toBe(true);
@@ -213,9 +213,9 @@ describe("AP-91 shared API route helpers", () => {
       },
       { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
       { workspaceId },
-    )) as { view_url: string };
+    )) as { revision_content_url: string };
 
-    const token = decodeURIComponent(signed.view_url.split("/v/")[1]?.split("/")[0] ?? "");
+    const token = decodeURIComponent(signed.revision_content_url.split("/v/")[1]?.split("/")[0] ?? "");
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload?.script_disabled).toBe(false);
@@ -237,11 +237,16 @@ describe("AP-91 shared API route helpers", () => {
       },
       { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
       { workspaceId, accessLinkId: "al_1" },
-    )) as { workspace_id?: string; view_url: string; files: Array<{ url: string }>; bundle: { url: string } };
+    )) as {
+      workspace_id?: string;
+      revision_content_url: string;
+      files: Array<{ url: string }>;
+      bundle: { url: string };
+    };
 
     expect(signed.workspace_id).toBeUndefined();
-    expect(signed.view_url).toContain("https://content.test/v/");
-    expect(signed.view_url).toContain("/nested/index.html");
+    expect(signed.revision_content_url).toContain("https://content.test/v/");
+    expect(signed.revision_content_url).toContain("/nested/index.html");
     expect(signed.files[0]?.url).toContain("https://content.test/v/");
     expect(signed.files[0]?.url).toContain("/nested/index.html");
     expect(signed.files[1]?.url).toBe("kept");
@@ -252,12 +257,17 @@ describe("AP-91 shared API route helpers", () => {
     await expect(verifyAgentViewTokenForEnv("bad", {})).resolves.toBeNull();
     expect(await signAgentViewContentUrls(null, {})).toBeNull();
     const signed = (await signPublishResult(
-      { artifact_id: "art_1", revision_id: "rev_1", view_url: "https://old.test/v/art.rev/docs%2Findex.html" },
-      { API_BASE_URL: "https://api.test", CONTENT_BASE_URL: "https://content.test" },
-    )) as { view_url: string; agent_view_url: string };
-    expect(signed.view_url).toBe("https://content.test/v/art_1.rev_1/docs/index.html");
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        revision_content_url: "https://old.test/v/art.rev/docs%2Findex.html",
+      },
+      { API_BASE_URL: "https://api.test", CONTENT_BASE_URL: "https://content.test", WEB_BASE_URL: "https://app.test" },
+    )) as { artifact_url: string; revision_content_url: string; agent_view_url: string };
+    expect(signed.artifact_url).toBe("https://app.test/artifacts/art_1");
+    expect(signed.revision_content_url).toBe("https://content.test/v/art_1.rev_1/docs/index.html");
     expect(signed.agent_view_url).toBe("https://api.test/v1/public/agent-view/art_1.rev_1");
-    expect(entrypointPathFromViewUrl("not-a-view-url")).toBe("index.html");
+    expect(entrypointPathFromContentUrl("not-a-content-url")).toBe("index.html");
   });
 
   it("renders HTML Agent View responses with escaped untrusted fields", async () => {
@@ -270,7 +280,7 @@ describe("AP-91 shared API route helpers", () => {
       title: "<script>",
       artifact_id: "art_1",
       revision_id: "rev_1",
-      view_url: 'https://content.test/"',
+      revision_content_url: 'https://content.test/"',
       files: [{ path: "<index>.html", url: "https://content.test/`", content_type: "text/html", size_bytes: 12 }],
     });
 
@@ -288,7 +298,7 @@ describe("AP-91 shared API route helpers", () => {
       artifact_id: "art_1",
       revision_id: "rev_1",
       ephemeral_tier: true,
-      view_url: "https://content.test/v/token/index.html",
+      revision_content_url: "https://content.test/v/token/index.html",
       files: [],
     });
 

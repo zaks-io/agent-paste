@@ -211,7 +211,8 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        view_url: "https://app.test/view",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
         agent_view_url: "https://api.test/agent-view",
         expires_at: "2026-02-01T00:00:00.000Z",
       });
@@ -241,11 +242,12 @@ describe("cli command dispatch", () => {
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey);
       // Assert the published identifiers and the human URL reach stdout, not the
       // output's wording or spacing. The format is free to change without this
-      // test breaking; what matters is the ids and the view URL are surfaced.
+      // test breaking; what matters is the ids and URL fields are surfaced.
       const out = stdoutValues(stdout).join("");
       expect(out).toContain(artifactId);
       expect(out).toContain(revisionId);
-      expect(out).toContain("https://app.test/view");
+      expect(out).toContain("https://app.test/artifacts/art_1");
+      expect(out).toContain("https://content.test/v/token/index.html");
     } finally {
       await removePublishFixture(root);
     }

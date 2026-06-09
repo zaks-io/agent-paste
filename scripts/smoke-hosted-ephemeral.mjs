@@ -50,6 +50,7 @@ async function runHostedEphemeralSmoke() {
   }
 
   const claimWebOrigin = config.webBaseUrl.replace(/\/+$/, "");
+  const artifactWebOrigin = target === "pr" && !process.env.AGENT_PASTE_PR_WEB_URL ? undefined : claimWebOrigin;
   const cliEnv = {
     ...process.env,
     AGENT_PASTE_API_URL: config.apiBaseUrl,
@@ -104,10 +105,11 @@ async function runHostedEphemeralSmoke() {
   await assertPublishOutput(published, {
     apiBaseUrl: config.apiBaseUrl,
     contentBaseUrl: config.contentBaseUrl,
+    webBaseUrl: artifactWebOrigin,
     claimWebOrigin,
     expectedClaimTokenPrefix: config.expectedClaimTokenPrefix,
   });
-  await assertContentPolicy(published.view_url, published.claim_token);
+  await assertContentPolicy(published.revision_content_url, published.claim_token);
   await assertAgentView(published, {
     apiBaseUrl: config.apiBaseUrl,
     contentBaseUrl: config.contentBaseUrl,
@@ -135,7 +137,8 @@ async function runHostedEphemeralSmoke() {
 Environment:  ${target}
 Artifact:     ${published.artifact_id}
 Workspace:    ${published.workspace_id}
-View URL:     ${published.view_url}
+Artifact URL: ${published.artifact_url}
+Revision URL: ${published.revision_content_url}
 Agent View:   ${published.agent_view_url}
 Claim URL:    ${published.claim_url.replace(/#.*$/, "#<redacted>")}
 PoW probe:    pow_required challenge issued

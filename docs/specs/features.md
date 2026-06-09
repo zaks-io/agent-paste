@@ -9,15 +9,15 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 
 ### CLI
 
-| Feature                      | Current behavior                                                                      | Primary users     |
-| ---------------------------- | ------------------------------------------------------------------------------------- | ----------------- |
-| `agent-paste login`          | Runs browser OAuth, mints a scoped API Key, and stores it locally.                    | Humans, agents    |
-| `agent-paste logout`         | Revokes the stored key when possible and removes local credentials.                   | Humans, agents    |
-| `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                  | Humans, agents    |
-| `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`.                   | Agents, CI        |
-| `--ephemeral`                | Publishes with no login/key, then prints a hash-only Claim Token link.                | Unattended agents |
-| Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets. | Humans, agents    |
-| `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset. | Humans, agents    |
+| Feature                      | Current behavior                                                                                                         | Primary users     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| `agent-paste login`          | Runs browser OAuth, mints a scoped API Key, and stores it locally.                                                       | Humans, agents    |
+| `agent-paste logout`         | Revokes the stored key when possible and removes local credentials.                                                      | Humans, agents    |
+| `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                                                     | Humans, agents    |
+| `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`; returns an Artifact URL plus exact Revision content. | Agents, CI        |
+| `--ephemeral`                | Publishes with no login/key, then prints a hash-only Claim Token link.                                                   | Unattended agents |
+| Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets.                                    | Humans, agents    |
+| `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset.                                    | Humans, agents    |
 
 ### Hosted Surfaces
 
@@ -33,16 +33,19 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 
 ### Artifact Lifecycle
 
-| Feature        | Current behavior                                                                              | Primary users              |
-| -------------- | --------------------------------------------------------------------------------------------- | -------------------------- |
-| Artifact       | Durable, addressable package owned by one Workspace.                                          | All readers and publishers |
-| Revision       | Immutable saved state. Publishing to an existing Artifact appends a new Published Revision.   | Publishers                 |
-| Upload Session | Temporary workflow for collecting expected files before finalize.                             | CLI, REST, MCP             |
-| Access Link    | Revocable signed URL using `/al/{publicId}#{blob}` with fragment-carried credential material. | Humans, agents             |
-| Share Link     | Access Link for the latest Published Revision.                                                | Humans, agents             |
-| Revision Link  | Access Link pinned to a specific Revision.                                                    | Humans, agents             |
-| Bundle         | Generated archive for a complete Revision file tree.                                          | Humans, agents             |
-| Live Updates   | Pro viewers advance to the latest Published Revision without manual refresh.                  | Humans                     |
+| Feature              | Current behavior                                                                              | Primary users              |
+| -------------------- | --------------------------------------------------------------------------------------------- | -------------------------- |
+| Artifact             | Durable, addressable package owned by one Workspace.                                          | All readers and publishers |
+| Revision             | Immutable saved state. Publishing to an existing Artifact appends a new Published Revision.   | Publishers                 |
+| Upload Session       | Temporary workflow for collecting expected files before finalize.                             | CLI, REST, MCP             |
+| Artifact URL         | App-origin live viewer for the latest Published Revision of an Artifact.                      | Humans                     |
+| Access Link          | Revocable signed URL using `/al/{publicId}#{blob}` with fragment-carried credential material. | Humans, agents             |
+| Share URL            | Public access-bearing URL for an Artifact viewer.                                             | Humans, agents             |
+| Share Link           | Access Link for the latest Published Revision.                                                | Humans, agents             |
+| Revision Link        | Access Link pinned to a specific Revision.                                                    | Humans, agents             |
+| Revision Content URL | Direct signed Content Origin URL for one Revision; expires and does not Live Update.          | Humans, agents             |
+| Bundle               | Generated archive for a complete Revision file tree.                                          | Humans, agents             |
+| Live Updates         | Pro viewers advance to the latest Published Revision without manual refresh.                  | Humans                     |
 
 ### Billing And Limits
 

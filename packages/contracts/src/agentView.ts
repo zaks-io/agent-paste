@@ -79,7 +79,7 @@ const AgentViewBase = z.object({
   created_at: IsoDateTime,
   expires_at: IsoDateTime,
   entrypoint: FilePath,
-  view_url: UrlString,
+  revision_content_url: UrlString,
   files: z.array(AgentViewFile).min(1).max(100),
   safety_warnings: z.array(SafetyWarning).max(100).default([]),
   bundle: BundleAvailability,

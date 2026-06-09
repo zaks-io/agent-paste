@@ -2,12 +2,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
-import {
-  close as closeHttpServer,
-  createLocalEphemeralWorkOsStub,
-  listen as listenHttpServer,
-  runLocalEphemeralSmoke,
-} from "./smoke-local-ephemeral.mjs";
 import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import {
   DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
@@ -21,6 +15,12 @@ import {
   smokeHarnessSecretFromEnv,
   waitForHealthz,
 } from "./smoke-harness.mjs";
+import {
+  close as closeHttpServer,
+  createLocalEphemeralWorkOsStub,
+  listen as listenHttpServer,
+  runLocalEphemeralSmoke,
+} from "./smoke-local-ephemeral.mjs";
 
 const root = new URL("..", import.meta.url);
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
@@ -106,13 +106,14 @@ try {
   );
   assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
   assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-  assert(published.view_url?.startsWith(contentBaseUrl), "publish returned local content view_url");
+  assert(published.artifact_url?.includes(`/artifacts/${published.artifact_id}`), "publish returned Artifact URL");
+  assert(published.revision_content_url?.startsWith(contentBaseUrl), "publish returned local revision_content_url");
   assert(published.agent_view_url?.startsWith(apiBaseUrl), "publish returned local agent_view_url");
 
-  const view = await fetch(published.view_url);
-  assert(view.status === 200, `view_url returned ${view.status}`);
+  const view = await fetch(published.revision_content_url);
+  assert(view.status === 200, `revision_content_url returned ${view.status}`);
   const html = await view.text();
-  assert(html.includes("Agent Paste Local"), "view_url served the published HTML");
+  assert(html.includes("Agent Paste Local"), "revision_content_url served the published HTML");
 
   const agentView = await fetchJson(published.agent_view_url);
   assert(agentView.artifact_id === published.artifact_id, "agent view artifact matches publish result");
@@ -146,7 +147,8 @@ try {
 
   Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
-  View URL:  ${published.view_url}
+  Artifact URL: ${published.artifact_url}
+  Revision URL: ${published.revision_content_url}
   Ephemeral: ${ephemeral.artifact_id} (claimed into ${ephemeral.member_workspace_id})
 
 `);
@@ -227,7 +229,7 @@ async function assertBytesPurgedAfterDelete(published) {
   const after = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
 
-  const deletedView = await fetch(published.view_url);
+  const deletedView = await fetch(published.revision_content_url);
   assert(deletedView.status === 404, `deleted content URL returned ${deletedView.status}, expected 404`);
 
   const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${published.artifact_id}`, harnessSecret);
@@ -252,7 +254,7 @@ async function assertBytesPurgedAfterExpiry(apiEnv) {
   const after = await listR2Keys(apiBaseUrl, prefix, harnessSecret);
   assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
 
-  const expiredView = await fetch(expiryPublish.view_url);
+  const expiredView = await fetch(expiryPublish.revision_content_url);
   assert(expiredView.status === 404, `expired content URL returned ${expiredView.status}, expected 404`);
 
   const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${expiryPublish.artifact_id}`, harnessSecret);

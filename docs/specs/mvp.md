@@ -90,13 +90,17 @@ Publish returns:
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "artifact_url": "https://app.agent-paste.sh/artifacts/art_...",
+  "revision_content_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
   "expires_at": "2026-06-19T12:00:00.000Z"
 }
 ```
 
-`view_url` is a direct signed content URL. The token lives in the path for the MVP. Fragment-based access links are a later phase.
+`artifact_url` is the stable app-origin Artifact viewer and the default human
+handoff URL. `revision_content_url` is a direct signed content URL for the exact
+Revision. The content token lives in the path. Fragment-based access links are a
+later phase.
 
 `agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
 
@@ -112,7 +116,7 @@ MVP Agent View is simple JSON with full URLs. It does not use `content_prefix`.
   "created_at": "2026-05-20T12:00:00.000Z",
   "expires_at": "2026-06-19T12:00:00.000Z",
   "entrypoint": "index.html",
-  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "revision_content_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "files": [
     {
       "path": "index.html",
@@ -236,7 +240,7 @@ The MVP is buildable when the API-key publish loop works end to end. Phase 3 mem
 - `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
-- Publish returns `artifact_id`, `revision_id`, `view_url`, `agent_view_url`, and `expires_at`.
-- `view_url` opens the HTML from the content origin.
+- Publish returns `artifact_id`, `revision_id`, `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`.
+- `artifact_url` opens the stable Artifact viewer, and `revision_content_url` opens the exact Revision HTML from the content origin.
 - `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.

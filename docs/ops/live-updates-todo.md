@@ -4,6 +4,12 @@ Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-l
 
 Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies); the SSE-driven live UI landed in AP-164 (publishing a revision live-updates the whole artifact card / iframe with no reload, verified on preview 2026-06-04). Two deferred-polish items remain, tracked in [AP-166](https://linear.app/zaks-io/issue/AP-166): the Access Link Lockdown disconnect hook and an operator-tunable viewer cap.
 
+Publish-handoff fix shipped: publish results now distinguish the app-origin
+Artifact URL (`artifact_url`) from exact content-origin Revision content
+(`revision_content_url`). The remaining product change is public access: add
+first-class `share_url` output as the separately named access-bearing URL,
+without replacing the default `artifact_url`.
+
 ## Dependencies
 
 - [x] Phase 4 multi-revision **Artifacts** (ADR 0048 revisions piece, ADR 0053).
@@ -50,3 +56,7 @@ Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web 
 
 - [x] Add an ADR 0069 row to the ADR Coverage table in [`status/coverage.md`](./status/coverage.md) (Deferred) and reference this file from the Phase 4 backlog.
 - [x] Add the `stream` Worker to [`status/implementation.md`](./status/implementation.md).
+- [ ] Add first-class `share_url` support for public Artifact viewers. Done
+      when public sharing opens the same live Artifact URL model with an Access
+      Link credential, while `revision_content_url` remains the exact snapshot
+      content URL.

@@ -2,7 +2,7 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-08 (public repository flip: repo is public with CodeQL,
+Last updated: 2026-06-09 (public repository flip: repo is public with CodeQL,
 secret scanning, Dependabot alerts, OpenSSF Scorecard + badge, and SHA-pinned
 Actions live; AP-254 public-repo security posture closed).
 See [changelog.md](./status/changelog.md) for what shipped.
@@ -190,6 +190,11 @@ Highest-signal gaps:
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
+- Stable live publish handoff for shell-only agents: publish results now
+  distinguish `artifact_url` (the app-origin live Artifact viewer) from
+  `revision_content_url` (the exact content-origin Revision URL). Remaining
+  follow-up: add first-class `share_url` support as the separately named public
+  access-bearing URL, without replacing the default `artifact_url`.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust

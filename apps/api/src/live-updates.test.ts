@@ -53,7 +53,7 @@ function signingSignAgentView(view: unknown, env: Env, options?: { accessLinkId?
       exp,
     },
     path: data.entrypoint,
-  }).then((view_url) => ({ ...(view as object), view_url }));
+  }).then((revision_content_url) => ({ ...(view as object), revision_content_url }));
 }
 
 function streamAuthorizeRequest(init: RequestInit = {}): Request {
@@ -137,7 +137,7 @@ describe("handleLiveUpdateAuthorize", () => {
     wireLiveUpdateDeps({
       signAgentView: async (view) => ({
         ...(view as object),
-        view_url: "https://content.test/v/art.rev/index.html",
+        revision_content_url: "https://content.test/v/art.rev/index.html",
       }),
       authenticateWeb: async () => null,
     });
@@ -173,7 +173,7 @@ describe("handleLiveUpdateAuthorize", () => {
               created_at: "2026-01-01T00:00:00.000Z",
               expires_at: "2030-01-01T00:00:00.000Z",
               entrypoint: "index.html",
-              view_url: "https://content.test/v/art.rev/index.html",
+              revision_content_url: "https://content.test/v/art.rev/index.html",
               files: [],
             },
           };
@@ -192,7 +192,7 @@ describe("handleLiveUpdateAuthorize", () => {
             created_at: "2026-01-01T00:00:00.000Z",
             expires_at: "2030-01-01T00:00:00.000Z",
             entrypoint: "index.html",
-            view_url: "https://content.test/v/art.rev/index.html",
+            revision_content_url: "https://content.test/v/art.rev/index.html",
             files: [],
           },
         };
@@ -248,7 +248,7 @@ describe("handleLiveUpdateAuthorize", () => {
     wireLiveUpdateDeps({
       signAgentView: async (view) => ({
         ...(view as object),
-        view_url: "https://content.test/v/art.rev/index.html",
+        revision_content_url: "https://content.test/v/art.rev/index.html",
       }),
       authenticateWeb: async () => null,
     });
@@ -286,7 +286,7 @@ describe("handleLiveUpdateAuthorize", () => {
               created_at: "2026-01-01T00:00:00.000Z",
               expires_at: "2030-01-01T00:00:00.000Z",
               entrypoint: "index.html",
-              view_url: "https://content.test/v/art.rev/index.html",
+              revision_content_url: "https://content.test/v/art.rev/index.html",
               files: [],
             },
           };
@@ -329,7 +329,7 @@ describe("handleLiveUpdateAuthorize", () => {
     wireLiveUpdateDeps({
       signAgentView: async (view) => ({
         ...(view as object),
-        view_url: "https://content.test/v/art.rev/index.html",
+        revision_content_url: "https://content.test/v/art.rev/index.html",
       }),
       authenticateWeb: async (authorization) =>
         authorization === "Bearer member"
@@ -378,7 +378,7 @@ describe("handleLiveUpdateAuthorize", () => {
     await expect(ok.json()).resolves.toMatchObject({ audience: "dashboard" });
 
     wireLiveUpdateDeps({
-      signAgentView: async () => ({ view_url: 1 }),
+      signAgentView: async () => ({ revision_content_url: 1 }),
       authenticateWeb: async () => ({ member: { workspace_id: "ws" } as never }),
     });
     const badViewUrl = await handleLiveUpdateAuthorize(
@@ -479,7 +479,7 @@ describe("handleLiveUpdateAuthorize", () => {
             created_at: "2026-01-01T00:00:00.000Z",
             expires_at: "2030-01-01T00:00:00.000Z",
             entrypoint: "index.html",
-            view_url: "https://content.test/v/art.rev/index.html",
+            revision_content_url: "https://content.test/v/art.rev/index.html",
             files: [],
           },
         };
@@ -551,7 +551,7 @@ describe("buildRevisionNoticeFromPublishResult", () => {
       {
         artifact_id: artifactId,
         revision_id: pointer.revision_id,
-        view_url: pointer.iframe_src,
+        revision_content_url: pointer.iframe_src,
       },
       "index.html",
       pointer.title,

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import {
+  assertPublishOutput,
   ephemeralHostedConfig,
   normalizeEphemeralHostedTarget,
   probeEphemeralPowReady,
@@ -31,6 +32,47 @@ describe("smoke-ephemeral-harness", () => {
 
   it("requires PR URLs for pr target", () => {
     expect(() => ephemeralHostedConfig("pr")).toThrow(/AGENT_PASTE_PR_API_URL/);
+  });
+
+  it("allows PR smoke to skip exact Artifact URL origin assertion", async () => {
+    await expect(
+      assertPublishOutput(samplePublishResult("https://agent-paste-web-pr-460.example.workers.dev"), {
+        apiBaseUrl: "https://api.example.test",
+        contentBaseUrl: "https://content.example.test",
+        webBaseUrl: undefined,
+        claimWebOrigin: "https://app.preview.agent-paste.sh",
+        expectedClaimTokenPrefix: "ap_ct_preview_",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("checks exact Artifact URL origin when configured", async () => {
+    await expect(
+      assertPublishOutput(samplePublishResult("https://app.preview.agent-paste.sh.evil"), {
+        apiBaseUrl: "https://api.example.test",
+        contentBaseUrl: "https://content.example.test",
+        webBaseUrl: "https://app.preview.agent-paste.sh",
+        claimWebOrigin: "https://app.preview.agent-paste.sh",
+        expectedClaimTokenPrefix: "ap_ct_preview_",
+      }),
+    ).rejects.toThrow(/artifact_url targets web origin/);
+  });
+
+  it("checks exact revision content URL origin", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult("https://app.preview.agent-paste.sh", {
+          revision_content_url: "https://content.example.test.evil/v/token/index.html",
+        }),
+        {
+          apiBaseUrl: "https://api.example.test",
+          contentBaseUrl: "https://content.example.test",
+          webBaseUrl: "https://app.preview.agent-paste.sh",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).rejects.toThrow(/revision_content_url targets content origin/);
   });
 });
 
@@ -139,4 +181,18 @@ function startProbeServer({ status, body }) {
       });
     });
   });
+}
+
+function samplePublishResult(artifactOrigin, overrides = {}) {
+  return {
+    artifact_id: "art_test",
+    revision_id: "rev_test",
+    artifact_url: `${artifactOrigin}/artifacts/art_test`,
+    revision_content_url: "https://content.example.test/v/token/index.html",
+    agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
+    claim_token: "ap_ct_preview_test",
+    claim_url: "https://app.preview.agent-paste.sh/claim#ap_ct_preview_test",
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    ...overrides,
+  };
 }

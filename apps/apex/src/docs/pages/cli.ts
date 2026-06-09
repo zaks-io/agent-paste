@@ -52,12 +52,19 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful publish returns `artifact_id`, `revision_id`, `title`, `view_url`, `agent_view_url`, `expires_at`, and `bundle`. `view_url` opens the content origin. `agent_view_url` returns machine-readable Agent View JSON.",
+          text: "A successful publish returns `artifact_id`, `revision_id`, `title`, `artifact_url`, `revision_content_url`, `agent_view_url`, `expires_at`, and `bundle`. `artifact_url` is the app-origin live viewer for the Artifact. `revision_content_url` is a signed Content Origin URL for this exact Revision and does not Live Update. `agent_view_url` returns machine-readable Agent View JSON.",
         },
         {
           kind: "code",
           language: "json",
-          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "title": "My Publication Title",\n  "view_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
+          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "title": "My Publication Title",\n  "artifact_url": "https://app.agent-paste.sh/artifacts/art_01H...",\n  "revision_content_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
+        },
+        {
+          kind: "note",
+          title: "Artifact URL is the live viewer",
+          body: [
+            "When a human should keep one URL open while an agent publishes more Revisions, return `artifact_url`. Use public sharing only when the viewer needs unauthenticated access; that access belongs in a separate Share URL.",
+          ],
         },
       ],
     },

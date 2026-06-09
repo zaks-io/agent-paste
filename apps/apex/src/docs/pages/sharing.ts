@@ -17,6 +17,12 @@ export const SHARING_DOC: DocsPage = {
             ["Private Link", "Authenticated dashboard viewer for Workspace members."],
             ["Share Link", "Access Link for the latest Published Revision of an Artifact."],
             ["Revision Link", "Access Link pinned to one specific Revision."],
+            ["Artifact URL", "App-origin live viewer for the latest Published Revision of an Artifact."],
+            ["Share URL", "Public access-bearing URL for an Artifact viewer."],
+            [
+              "Revision Content URL",
+              "Direct signed `usercontent.agent-paste.sh/v/...` content URL for one specific Revision.",
+            ],
             ["Agent View URL", "JSON manifest for agents, either authenticated or public through a signed token."],
           ],
         },
@@ -33,6 +39,10 @@ export const SHARING_DOC: DocsPage = {
         {
           kind: "paragraph",
           text: "The `publicId` identifies the link row. The fragment is the credential. Re-minting creates a fresh signed URL with a fresh expiration.",
+        },
+        {
+          kind: "paragraph",
+          text: "Use Artifact URLs for stable human handoff. Use Share URLs when the same viewer needs public access. Use Revision Links or Revision Content URLs only when the reader must see one exact Revision.",
         },
       ],
     },
