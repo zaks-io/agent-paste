@@ -4,7 +4,8 @@ import path from "node:path";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
 import { CliVersionResponse } from "@agent-paste/contracts";
 import { configDir, ensureConfigDir } from "./credentials.js";
-import { type Channel, detectChannel, upgradeCommand } from "./update-check.js";
+import { type Channel, compareSemver, detectChannel, upgradeCommand } from "./update-check.js";
+import { CLI_VERSION } from "./version.js";
 
 // `agent-paste upgrade` (ADR 0080 §5): a standalone binary install downloads the
 // matching release asset from the GitHub Release, verifies it against
@@ -119,6 +120,10 @@ export type UpgradeDeps = {
 
 type UpgradePlan = {
   tag: string;
+  // The bare resolved latest semver when the tag came from resolveLatest, or
+  // undefined when --version pinned it. Drives the "already up to date" guard,
+  // which must never short-circuit an explicit pin (reinstall/downgrade).
+  latest?: string;
   asset: string;
   releaseBase: string;
   binaryPath: string;
@@ -297,12 +302,13 @@ async function createUpgradePlan(opts: { version?: string }, deps: UpgradeDeps):
   const ops = deps.fsOps ?? fs;
   const rand = deps.rand ?? (() => Buffer.from(randomBytes(6)).toString("hex"));
 
-  const tag = await resolveReleaseTag(opts, deps, baseUrl, fetchImpl);
+  const { tag, latest } = await resolveReleaseTag(opts, deps, baseUrl, fetchImpl);
   const asset = assetNameFor(platform, arch);
   const rescueStage = deps.rescueStage ?? ((bytes: Bytes, mode: number) => defaultRescueStage(ops, rand, bytes, mode));
 
   return {
     tag,
+    ...(latest ? { latest } : {}),
     asset,
     releaseBase: `${RELEASE_BASE}/${tag}`,
     binaryPath,
@@ -319,13 +325,18 @@ async function resolveReleaseTag(
   deps: UpgradeDeps,
   baseUrl: string,
   fetchImpl: typeof fetch,
-): Promise<string> {
+): Promise<{ tag: string; latest?: string }> {
+  // A pinned --version is the full release tag (cli-vX.Y.Z) and is returned with
+  // no `latest`, so the up-to-date guard never short-circuits a deliberate
+  // reinstall/downgrade. Otherwise resolve latest and build the tag, so the
+  // bytes and SHA256SUMS come from one exact release; the bare resolved version
+  // flows out for the CLI_VERSION comparison. Validate before the URL (RELEASE_TAG).
+  if (opts.version) {
+    return { tag: assertReleaseTag(opts.version) };
+  }
   const resolveLatest = deps.resolveLatest ?? (() => defaultResolveLatest(baseUrl, fetchImpl));
-  // A pinned --version is the full release tag (cli-vX.Y.Z); otherwise resolve
-  // latest and build the tag, so the bytes and SHA256SUMS come from one exact
-  // release. Validate the tag before it reaches the URL (see RELEASE_TAG).
-  const tag = opts.version ?? `cli-v${await resolveLatest()}`;
-  return assertReleaseTag(tag);
+  const latest = await resolveLatest();
+  return { tag: assertReleaseTag(`cli-v${latest}`), latest };
 }
 
 async function downloadVerifiedAsset(plan: UpgradePlan): Promise<Bytes> {
@@ -374,6 +385,15 @@ export async function runUpgrade(opts: { version?: string } = {}, deps: UpgradeD
   if (redirectNonBinaryChannel(channel, stderr)) return;
 
   const plan = await createUpgradePlan(opts, deps);
+
+  // Nothing to do when the installed version is already at or ahead of latest.
+  // Skipped on a pinned --version (plan.latest is undefined) so an explicit
+  // reinstall/downgrade still proceeds. "Already current" is success, not error.
+  if (plan.latest && compareSemver(CLI_VERSION, plan.latest) >= 0) {
+    stdout(`agent-paste ${CLI_VERSION} is already up to date (latest: ${plan.latest}).\n`);
+    return;
+  }
+
   stdout(`Downloading ${plan.asset} (${plan.tag})...\n`);
 
   const bytes = await downloadVerifiedAsset(plan);
