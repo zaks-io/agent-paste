@@ -69,7 +69,7 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
           </div>
         )}
         <Footer billingEnabled={billingEnabled} />
-        <script type="module" src={assets.jsHref} defer />
+        <script type="module" src={assets.jsHref} />
       </body>
     </html>
   );
