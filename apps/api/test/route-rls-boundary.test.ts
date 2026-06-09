@@ -6,11 +6,7 @@ import {
 } from "@agent-paste/db/test-helpers/route-boundary-fixture";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  createAccessLinkRoute,
-  listAccessLinksRoute,
-  revokeAccessLinkRoute,
-} from "../src/routes/access-links.js";
+import { createAccessLinkRoute, listAccessLinksRoute, revokeAccessLinkRoute } from "../src/routes/access-links.js";
 import { billingStatus } from "../src/routes/billing.js";
 import { authenticatedAgentView, listRevisions } from "../src/routes/revisions.js";
 import { webArtifactDetail } from "../src/routes/web.js";

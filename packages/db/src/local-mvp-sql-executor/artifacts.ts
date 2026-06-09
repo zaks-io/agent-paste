@@ -6,11 +6,7 @@ export function handleArtifactInspect<Row>(
   params: readonly SqlValue[],
   context: HandlerContext,
 ): SqlQueryResult<Row> | null {
-  if (
-    !normalized.includes("from artifacts") ||
-    !normalized.includes("where id = $1") ||
-    params.length !== 1
-  ) {
+  if (!normalized.includes("from artifacts") || !normalized.includes("where id = $1") || params.length !== 1) {
     return null;
   }
   const artifact = context.state.artifacts.get(String(params[0]));

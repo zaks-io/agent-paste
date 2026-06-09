@@ -112,13 +112,9 @@ async function archivePartitionRows(
   }
 
   const body = sortedRows.map((row) => JSON.stringify(serializeAuditEventRow(row))).join("\n") + "\n";
-  await putObject(
-    key,
-    new TextEncoder().encode(body),
-    {
-      httpMetadata: { contentType: "application/x-ndjson" },
-    },
-  );
+  await putObject(key, new TextEncoder().encode(body), {
+    httpMetadata: { contentType: "application/x-ndjson" },
+  });
   return sortedRows.length;
 }
 

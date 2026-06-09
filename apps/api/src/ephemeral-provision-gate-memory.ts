@@ -1,8 +1,5 @@
 import type { AppliedProvisionConfig, EphemeralProvisionConfigKv } from "./ephemeral-provision-config.js";
-import {
-  type EphemeralProvisionGateStorage,
-  handleEphemeralProvisionGateRequest,
-} from "./ephemeral-provision-gate.js";
+import { type EphemeralProvisionGateStorage, handleEphemeralProvisionGateRequest } from "./ephemeral-provision-gate.js";
 import type { StoredGateState } from "./ephemeral-provision-gate-state.js";
 
 type MemoryStorage = {

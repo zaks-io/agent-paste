@@ -1,7 +1,7 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod.js";
-import { schemaRef, standardJsonResponses } from "./responses.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
+import { schemaRef, standardJsonResponses } from "./responses.js";
 
 function registerWebAuthAndWorkspacePaths(registry: OpenAPIRegistry, helpers: ApiPathHelpers): void {
   const { requestIdHeader } = helpers;
@@ -28,14 +28,8 @@ function registerWebAuthAndWorkspacePaths(registry: OpenAPIRegistry, helpers: Ap
 }
 
 function registerWebArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPathHelpers): void {
-  const {
-    params,
-    pathStringParam,
-    queryCursorParam,
-    queryPageSizeParam,
-    idempotencyKeyHeader,
-    requestIdHeader,
-  } = helpers;
+  const { params, pathStringParam, queryCursorParam, queryPageSizeParam, idempotencyKeyHeader, requestIdHeader } =
+    helpers;
 
   registry.registerPath({
     method: "get",

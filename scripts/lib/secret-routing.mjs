@@ -102,7 +102,9 @@ export function forbiddenSecretsForApp(app, env) {
  */
 export function formatForbiddenSecretDeleteInstructions(forbiddenSecrets) {
   return forbiddenSecrets
-    .map((entry) => `  - ${entry.worker}:${entry.name}\n    wrangler secret delete ${entry.name} --name ${entry.worker}`)
+    .map(
+      (entry) => `  - ${entry.worker}:${entry.name}\n    wrangler secret delete ${entry.name} --name ${entry.worker}`,
+    )
     .join("\n");
 }
 

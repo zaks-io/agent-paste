@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { createTransactionalSqlExecutor } from "../test-helpers/sql-executor.js";
 import type { AuditEventRow } from "./audit-archive.js";
 import { archiveAuditRows, deleteAuditRowsByIds, selectExpiringAuditRows } from "./audit-archive.js";
 import { runMaintenanceGc } from "./maintenance-gc.js";
-import { createTransactionalSqlExecutor } from "../test-helpers/sql-executor.js";
 
 const sampleAuditRow = (overrides: Partial<AuditEventRow> = {}): AuditEventRow => ({
   id: "evt_01",
@@ -164,9 +164,7 @@ describe("audit archive helpers", () => {
     const executor = createTransactionalSqlExecutor(async () => ({ rows: [{ id: "evt_01" }] }));
     const deleted = await deleteAuditRowsByIds(executor, ["evt_01"]);
     expect(deleted).toBe(1);
-    expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("delete from operation_events"), [
-      ["evt_01"],
-    ]);
+    expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("delete from operation_events"), [["evt_01"]]);
   });
 
   it("selects expiring audit rows in stable order", async () => {

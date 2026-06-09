@@ -215,11 +215,7 @@ async function readRevisionFileBytes(input: {
   });
 }
 
-async function loadWorkspaceUsagePolicy(
-  executor: SqlExecutor,
-  workspaceId: string,
-  env: Env,
-) {
+async function loadWorkspaceUsagePolicy(executor: SqlExecutor, workspaceId: string, env: Env) {
   const result = await executor.query<{ plan: WorkspacePlan }>(`select plan from workspaces where id = $1`, [
     workspaceId,
   ]);

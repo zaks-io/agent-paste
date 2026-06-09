@@ -20,10 +20,7 @@ describe("op-log sentry forwarding", () => {
   it("forwards error-level logs to Sentry", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     logOpError("queue.failed", { revision_id: "rev_test" });
-    expect(captureMessage).toHaveBeenCalledWith(
-      "queue.failed",
-      expect.objectContaining({ level: "error" }),
-    );
+    expect(captureMessage).toHaveBeenCalledWith("queue.failed", expect.objectContaining({ level: "error" }));
     errorSpy.mockRestore();
   });
 

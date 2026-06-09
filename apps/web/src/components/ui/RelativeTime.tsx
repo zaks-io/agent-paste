@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  formatAbsoluteTime,
-  formatRelativeTime,
-  getRelativeTimeTickIntervalMs,
-} from "../../lib/format";
+import { formatAbsoluteTime, formatRelativeTime, getRelativeTimeTickIntervalMs } from "../../lib/format";
 
 type Props = {
   value: string | number | Date;

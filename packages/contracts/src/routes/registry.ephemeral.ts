@@ -1,9 +1,6 @@
 import { routeErrorGroups } from "./errors.js";
 
-const {
-  ephemeralProvision: ephemeralProvisionErrors,
-  ephemeralClaim: ephemeralClaimErrors,
-} = routeErrorGroups;
+const { ephemeralProvision: ephemeralProvisionErrors, ephemeralClaim: ephemeralClaimErrors } = routeErrorGroups;
 
 /**
  * Ephemeral workspace route contracts, split out of `registry.ts` to keep

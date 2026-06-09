@@ -16,9 +16,7 @@ export function handleSafetyWarningsSelect<Row>(
   const rows = [...context.state.safetyWarnings.values()]
     .filter(
       (warning) =>
-        warning.workspace_id === workspaceId &&
-        warning.revision_id === revisionId &&
-        warning.scanner_id === scannerId,
+        warning.workspace_id === workspaceId && warning.revision_id === revisionId && warning.scanner_id === scannerId,
     )
     .sort((left, right) => {
       const scope = left.scope.localeCompare(right.scope);

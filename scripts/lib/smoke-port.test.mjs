@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  extractPortInUseFromHarnessLog,
-  formatPortInUseError,
-  LOCAL_SERVER_PORT_ENV,
-} from "./smoke-port.mjs";
+import { extractPortInUseFromHarnessLog, formatPortInUseError, LOCAL_SERVER_PORT_ENV } from "./smoke-port.mjs";
 
 describe("smoke-port", () => {
   it("formats port-in-use errors with env var override", () => {
