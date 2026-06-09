@@ -52,7 +52,6 @@ export const PublishResult = z.object({
   title: PlainTextTitle,
   artifact_url: UrlString,
   revision_content_url: UrlString,
-  view_url: UrlString,
   agent_view_url: UrlString,
   expires_at: IsoDateTime,
   bundle: BundleAvailability,

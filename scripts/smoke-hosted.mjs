@@ -57,13 +57,11 @@ const revisionContentUrl = parseRequiredUrl(
   published.revision_content_url,
   "publish returned valid revision_content_url",
 );
-const viewUrl = parseRequiredUrl(published.view_url, "publish returned valid view_url");
 const contentUrl = parseRequiredUrl(config.contentBaseUrl, `${target} contentBaseUrl is valid`);
 assert(
   revisionContentUrl.origin === contentUrl.origin && revisionContentUrl.pathname.startsWith("/v/"),
   `publish returned ${target} revision_content_url`,
 );
-assert(viewUrl.href === revisionContentUrl.href, "publish returned view_url alias for revision_content_url");
 const agentViewUrl = parseRequiredUrl(published.agent_view_url, "publish returned valid agent_view_url");
 const apiUrl = parseRequiredUrl(config.apiBaseUrl, `${target} apiBaseUrl is valid`);
 assert(

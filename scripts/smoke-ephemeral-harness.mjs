@@ -150,7 +150,6 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
     "publish",
     "revision_content_url does not embed Claim Token",
   );
-  assertBoundary(!published.view_url?.includes(claimToken), "publish", "view_url does not embed Claim Token");
   assertBoundary(
     !published.agent_view_url?.includes(claimToken),
     "publish",
@@ -173,7 +172,6 @@ export async function assertPublishOutput(
     "content",
     "revision_content_url is a valid URL",
   );
-  const viewUrl = parseSmokeUrl(published.view_url, "content", "view_url is a valid URL");
   const agentViewUrl = parseSmokeUrl(published.agent_view_url, "content", "agent_view_url is a valid URL");
   if (webBaseUrl) {
     const webUrl = parseSmokeUrl(webBaseUrl, "publish", "webBaseUrl is a valid URL");
@@ -190,7 +188,6 @@ export async function assertPublishOutput(
     "content",
     "revision_content_url targets content origin",
   );
-  assertBoundary(viewUrl.href === revisionContentUrl.href, "content", "view_url aliases revision_content_url");
   const apiUrl = parseSmokeUrl(apiBaseUrl, "content", "apiBaseUrl is a valid URL");
   assertBoundary(
     agentViewUrl.origin === apiUrl.origin && agentViewUrl.pathname.startsWith("/v1/public/agent-view/"),

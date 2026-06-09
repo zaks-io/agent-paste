@@ -33,7 +33,6 @@ const publishBody = {
   title: "Note",
   artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
   revision_content_url: "https://content.example/v/token/index.md",
-  view_url: "https://content.example/v/token/index.md",
   agent_view_url: "https://agent-view.example",
   expires_at: expiresAt,
   bundle: { status: "pending" as const, retry_after_seconds: 30 },

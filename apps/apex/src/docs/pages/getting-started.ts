@@ -60,7 +60,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, publishes it, and returns `artifact_id`, `artifact_url`, `revision_content_url`, `view_url`, and `agent_view_url`. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, publishes it, and returns `artifact_id`, `artifact_url`, `revision_content_url`, and `agent_view_url`. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",

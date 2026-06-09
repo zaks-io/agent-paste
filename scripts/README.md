@@ -199,7 +199,7 @@ Optional endpoint overrides:
 Assertions:
 
 - smoke harness provisions a workspace and API key (preview/PR) or uses a pre-provisioned production key
-- CLI publish returns `artifact_url`, content `revision_content_url`, compatibility `view_url`, and API `agent_view_url`
+- CLI publish returns `artifact_url`, content `revision_content_url`, and API `agent_view_url`
 - Agent View JSON returns the published artifact and file list
 - browser Agent View HTML returns `text/html` and renders the artifact/file list
 - content HTML returns the published fixture

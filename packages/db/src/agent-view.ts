@@ -124,7 +124,6 @@ export function buildPublishResult(
     title: artifact.title,
     artifact_url: `${webBaseUrl}/artifacts/${encodeURIComponent(artifact.id)}`,
     revision_content_url: revisionContentUrl,
-    view_url: revisionContentUrl,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
     bundle: buildBundleAvailability(revision),
