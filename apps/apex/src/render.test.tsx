@@ -108,6 +108,14 @@ describe("home page", () => {
     expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
   });
 
+  it("exposes machine-readable docs hints for agents on the landing page", () => {
+    expect(body).toContain('data-agent-guide="/agents.md"');
+    expect(body).toContain('data-agent-docs="/docs.md"');
+    expect(body).toContain('data-agent-summary="/llms.txt"');
+    expect(body).toContain('data-agent-corpus="/llms-full.txt"');
+    expect(body).toContain('data-agent-docs="/docs/mcp.md"');
+  });
+
   // Marketing shares the dashboard's discipline (docs/specs/style-guide.md §11):
   // square corners, no accent glow, no gradients, no grain, banned display fonts.
   // These are house-style INVARIANTS, not copy.

@@ -14,11 +14,18 @@ Artifact URL a human can open and an Agent View manifest another agent can read.
 - Sign in once with \`npx @zaks-io/agent-paste login\` (browser OAuth, no API key to
   copy), then publish: \`npx @zaks-io/agent-paste publish ./path\` returns an Artifact ID
   synchronously, idempotent on retry.
-- Publish with no account: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
-  needs no login or key. The Artifact lives 24h and prints a one-time claim link
-  (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to keep the Artifact.
-  Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for
-  JavaScript-heavy interactive visualizations.
+- Before using the accountless path, run \`npx @zaks-io/agent-paste whoami\`.
+  If it succeeds, publish normally. If it fails, ask the user to run
+  \`npx @zaks-io/agent-paste login\` when interactive auth is possible.
+- Ephemeral fallback: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
+  ignores stored login and \`AGENT_PASTE_API_KEY\`. Use it only when no auth is
+  available or the user explicitly asks for accountless publish. Ephemeral is not
+  the Free Plan: it is an unclaimed restricted tier. The Artifact lives 24h and
+  prints a one-time claim link (\`${APP_BASE_URL}/claim#<token>\`); a signed-in
+  human opens it to keep the Artifact. Use it for non-interactive text,
+  markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is
+  script-disabled, so use authenticated publish for interactive pages, browser
+  apps, or visualizations that need JavaScript.
 - Read an artifact from agent-facing surfaces: \`${API_BASE_URL}/v1/artifacts/{id}/agent-view\`,
   \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Share an artifact with a revocable Access Link. A human opens it at

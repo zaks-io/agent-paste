@@ -103,22 +103,36 @@ Content Origin URL for one exact Revision; it expires and does not Live Update.
 The CLI prints the Artifact URL first. JSON output carries `artifact_url` and
 `revision_content_url`.
 
-## Publish without signing in
+## Ephemeral publish fallback
 
-For agents with no human auth, `--ephemeral` skips login entirely. The CLI self-provisions a short-lived **Workspace** and key, publishes, and prints a one-time **Claim Token** as a claim link.
+Before using `--ephemeral`, agents should check for an existing login or
+environment key:
+
+```sh
+npx @zaks-io/agent-paste whoami
+```
+
+If `whoami` succeeds, publish normally without `--ephemeral`. If it fails and
+interactive auth is possible, run `agent-paste login` first. Use `--ephemeral`
+only when no human auth or `AGENT_PASTE_API_KEY` is available, or when the user
+explicitly asks for accountless publish. The CLI self-provisions a short-lived
+**Workspace** and key, publishes, and prints a one-time **Claim Token** as a
+claim link. Use this path for non-interactive work such as text, markdown,
+images, and static HTML/CSS.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
-`--ephemeral` ignores `AGENT_PASTE_API_KEY` and any stored login credential (it prints a one-line note to stderr when it does). The Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then auto-deletes. To keep it, a signed-in human opens the claim link to reparent the Artifact into their Personal Workspace.
+`--ephemeral` ignores `AGENT_PASTE_API_KEY` and any stored login credential (it prints a one-line note to stderr when it does). It is not the Free Plan; it is an unclaimed restricted tier. The Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then auto-deletes. To keep it, a signed-in human opens the claim link to reparent the Artifact into their Personal Workspace.
 
 The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
 Ephemeral content uses the script-disabled execution policy until claimed.
-Static HTML and CSS render, but JavaScript, inline event handlers, and `.js`
-assets do not execute. For an interactive visualization that needs JavaScript,
-publish from a signed-in Workspace instead of passing `--ephemeral`.
+Text, markdown, images, and static HTML/CSS render, but JavaScript, inline event
+handlers, and `.js` assets do not execute. For an interactive page, browser app,
+or visualization that needs JavaScript, publish from a signed-in Workspace
+instead of passing `--ephemeral`.
 
 ## Commands
 
@@ -133,15 +147,15 @@ publish from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                   | Purpose                                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                           |
-| `--title <text>`       | Set the title. Default: path basename.                                                                  |
-| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                     |
-| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.               |
-| `--ephemeral`          | Publish with no login or key. Self-provisions a short-lived Workspace and prints a one-time claim link. |
-| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                            |
-| `--quiet`              | Suppress human-readable stdout output.                                                                  |
+| Flag                   | Purpose                                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                      |
+| `--title <text>`       | Set the title. Default: path basename.                                                                                             |
+| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                |
+| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                          |
+| `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key and prints a one-time claim link. |
+| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                       |
+| `--quiet`              | Suppress human-readable stdout output.                                                                                             |
 
 ## Output
 

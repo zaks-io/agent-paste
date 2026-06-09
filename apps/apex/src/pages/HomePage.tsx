@@ -89,6 +89,8 @@ function HeroPane() {
         <a
           className="font-ui text-base text-muted py-1 transition-colors duration-200 ease-out hover:text-foreground"
           href="/docs"
+          data-agent-docs="/docs.md"
+          data-agent-guide="/agents.md"
         >
           Read the docs
         </a>
@@ -223,7 +225,12 @@ function McpBlock() {
       </div>
       <p className="mt-4 text-mono leading-normal text-subtle max-w-[52ch]">
         Add it as a remote MCP server in your client.{" "}
-        <a className="text-muted underline decoration-rule-strong hover:text-foreground" href="/docs">
+        <a
+          className="text-muted underline decoration-rule-strong hover:text-foreground"
+          href="/docs"
+          data-agent-docs="/docs/mcp.md"
+          data-agent-guide="/agents.md"
+        >
           See the setup docs
         </a>
         .
@@ -235,7 +242,7 @@ function McpBlock() {
 function ClosingBlock() {
   return (
     <div className={`reveal d6 ${BLOCK}`} id="docs">
-      <div className={MARKER}>Start free, or publish with no account</div>
+      <div className={MARKER}>Start signed in, or fallback accountless</div>
       <div className="flex flex-col gap-3">
         <CommandBox label="macOS / Linux" cmd={INSTALL_SH_CMD} />
         <CommandBox label="Windows" prompt=">" cmd={INSTALL_PS1_CMD} />
@@ -245,8 +252,8 @@ function ClosingBlock() {
         <code className="font-mono text-[0.9em] text-foreground bg-surface-3 px-1 py-px rounded-sm [font-feature-settings:'zero']">
           --ephemeral
         </code>{" "}
-        to publish with no account: static HTML, no JS, kept for 24 hours, with a one-time link to claim it into your
-        Workspace.
+        only when no login is available: text, images, static HTML, no JS, kept for 24 hours, with a one-time link to
+        claim it into your Workspace.
       </p>
       <HeroCta href={SIGN_IN_URL}>Get started free</HeroCta>
     </div>
@@ -255,7 +262,12 @@ function ClosingBlock() {
 
 export function HomePage() {
   return (
-    <main>
+    <main
+      data-agent-guide="/agents.md"
+      data-agent-docs="/docs.md"
+      data-agent-summary="/llms.txt"
+      data-agent-corpus="/llms-full.txt"
+    >
       <div className="max-w-[1280px] mx-auto px-[clamp(20px,4vw,72px)]">
         <div className="grid grid-cols-1 min-[900px]:grid-cols-[40%_60%] min-[900px]:items-start">
           <HeroPane />

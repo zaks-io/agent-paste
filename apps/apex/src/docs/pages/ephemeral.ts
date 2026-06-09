@@ -4,8 +4,22 @@ export const EPHEMERAL_DOC: DocsPage = {
   slug: "ephemeral",
   title: "Ephemeral Publish and Claim Tokens",
   shortTitle: "Ephemeral",
-  summary: "Publish without an account, then let a signed-in human claim the result before it expires.",
+  summary: "Restricted accountless publish for when no login or API Key is available.",
   sections: [
+    {
+      id: "when-to-use",
+      title: "Use authenticated publish first",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Agents should run `agent-paste whoami` before choosing `--ephemeral`. If `whoami` succeeds, publish normally without `--ephemeral`. If it fails and the user can interact, run `agent-paste login` first. Use `--ephemeral` only when no login or `AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for accountless publish.",
+        },
+        {
+          kind: "paragraph",
+          text: "Ephemeral is not the Free Plan. It is an unclaimed restricted tier: low write caps, 24 hour Auto Deletion, `noindex`, and script-disabled content serving until the Artifact is claimed. Use it for non-interactive text, markdown, images, and static HTML/CSS.",
+        },
+      ],
+    },
     {
       id: "flow",
       title: "Flow",
@@ -37,7 +51,7 @@ export const EPHEMERAL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit. Unclaimed ephemeral content is also served with scripts disabled: static HTML and CSS render, but JavaScript does not execute until the Artifact is claimed and new content URLs are minted from a claimed Workspace.",
+          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit. Unclaimed ephemeral content is also served with scripts disabled: text, markdown, images, and static HTML/CSS render, but JavaScript does not execute until the Artifact is claimed and new content URLs are minted from a claimed Workspace. For interactive HTML, browser apps, or visualizations that need JavaScript, use authenticated publish instead.",
         },
       ],
     },

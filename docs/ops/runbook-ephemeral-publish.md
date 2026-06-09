@@ -236,7 +236,15 @@ hash client-side; do not ask users to convert the link to a query parameter.
 agent-paste publish <path> --ephemeral [--title <text>] [--json]
 ```
 
+- Before suggesting `--ephemeral`, ask agents or users to run `agent-paste whoami`.
+  If it succeeds, use normal authenticated publish. If it fails and interactive
+  auth is possible, use `agent-paste login` first.
 - Ignores `AGENT_PASTE_API_KEY` and stored login credentials.
+- Not the Free Plan: ephemeral is the unclaimed restricted tier, with low caps,
+  `noindex`, 24h Auto Deletion, and script-disabled serving until claimed.
+- Suitable for non-interactive text, markdown, images, and static HTML/CSS.
+  Interactive HTML/JS, browser apps, and visualizations that need JavaScript
+  require authenticated publish.
 - Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `artifact_url`,
   `revision_content_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.
