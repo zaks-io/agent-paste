@@ -57,7 +57,9 @@ describe("apex shell", () => {
     // A bare <script> (no attributes) is the inline theme-init; everything else
     // (client enhancement, beacon) is external/attributed. Pin the count so no
     // second inline script slips in under the static CSP.
-    expect((html.match(/<script>/g) ?? []).length).toBe(1);
+    // Case-insensitive so the count can't be fooled by a <SCRIPT> variant
+    // (CodeQL flags a lowercase-only HTML tag regex even in a test count).
+    expect((html.match(/<script>/gi) ?? []).length).toBe(1);
   });
 
   it("renders the Cloudflare Analytics beacon when a token is configured", () => {

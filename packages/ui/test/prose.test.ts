@@ -28,4 +28,21 @@ describe("Prose", () => {
   it("passes plain text through unchanged", () => {
     expect(render("just plain text, no markup")).toBe("just plain text, no markup");
   });
+
+  it("matches the inner [label](href) when brackets nest, not the outer span", () => {
+    // The label/href classes exclude their own opening delimiter, so an inner
+    // pair wins instead of the regex greedily spanning the whole string.
+    expect(render("[outer [inner](/in) tail")).toBe('[outer <a href="/in">inner</a> tail');
+  });
+
+  it("does not over-match adversarial bracket runs (the ReDoS-safe shape)", () => {
+    // The naive [^\]]+ / [^)]+ form backtracks polynomially on this input; the
+    // delimiter-excluding form cannot, because no '[' is ever consumed inside a
+    // label. Deterministic guard (no wall-clock assertion): the run has no
+    // complete [label](href) pair, so it passes through escaped, unchanged.
+    const evil = `[${"[\\".repeat(2000)}`;
+    const html = render(evil);
+    expect(html).not.toContain("<a ");
+    expect(html.replace(/&lt;|&gt;|&amp;|&#x27;|&quot;/g, "")).toContain("[[\\");
+  });
 });

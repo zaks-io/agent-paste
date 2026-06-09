@@ -12,7 +12,12 @@ import type { ReactNode } from "react";
  * the result is structurally injection-safe with no dangerouslySetInnerHTML,
  * no raw(), and no hand-rolled HTML escaping.
  */
-const PROSE_PATTERN = /\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`/g;
+// The label and href classes exclude their own opening delimiter ([ and (
+// respectively), not just the closing one. That makes each alternative
+// unambiguous so the engine never backtracks across them — the match is linear,
+// not polynomial, even on adversarial input like "[" + "[\\".repeat(n) (a real
+// ReDoS in the naive [^\]]+ / [^)]+ form). Behavior on valid prose is identical.
+const PROSE_PATTERN = /\[([^\][]+)\]\(([^()]+)\)|`([^`]+)`/g;
 
 export function parseProse(text: string, linkClassName?: string): ReactNode[] {
   const nodes: ReactNode[] = [];
