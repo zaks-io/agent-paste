@@ -88,7 +88,10 @@ async function handleRequest(server, req, res, next) {
     return;
   }
 
-  const { render, ROUTE_PATHS } = await server.ssrLoadModule("/src/entry-server.tsx");
+  const [{ render, ROUTE_PATHS }, { apexSecurityHeaders }] = await Promise.all([
+    server.ssrLoadModule("/src/entry-server.tsx"),
+    server.ssrLoadModule("/src/security-headers.ts"),
+  ]);
   const routePath = normalizeRoutePath(url.pathname);
   if (!ROUTE_PATHS.includes(routePath)) {
     await serveWorkerFallback(server, req, res, url);
@@ -97,6 +100,7 @@ async function handleRequest(server, req, res, next) {
 
   const html = await server.transformIndexHtml(url.pathname, render(routePath, DEV_ASSETS));
   res.statusCode = 200;
+  setNodeHeaders(res, apexSecurityHeaders());
   res.setHeader("content-type", "text/html; charset=utf-8");
   res.end(req.method === "HEAD" ? undefined : html);
 }
@@ -218,6 +222,12 @@ async function writeFetchResponse(res, response, method) {
     return;
   }
   res.end(Buffer.from(await response.arrayBuffer()));
+}
+
+function setNodeHeaders(res, headers) {
+  new Headers(headers).forEach((value, name) => {
+    res.setHeader(name, value);
+  });
 }
 
 function normalizeRoutePath(pathname) {
