@@ -4,7 +4,7 @@ declare const process: {
   platform: string;
   arch: string;
   execPath: string;
-  stdout: { write(value: string): void; isTTY?: boolean };
+  stdout: { write(value: string, callback?: (error?: unknown) => void): boolean; isTTY?: boolean };
   stderr: { write(value: string): void };
   exitCode: number | undefined;
 };
@@ -26,6 +26,8 @@ declare module "node:crypto" {
 }
 
 declare module "node:fs" {
+  export function realpathSync(path: string): string;
+
   export const promises: {
     stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number; size: number }>;
     lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
@@ -66,6 +68,11 @@ declare module "node:path" {
     sep: string;
   };
   export default path;
+}
+
+declare module "node:url" {
+  export function fileURLToPath(value: string): string;
+  export function pathToFileURL(value: string): { href: string; toString(): string };
 }
 
 declare module "node:util" {

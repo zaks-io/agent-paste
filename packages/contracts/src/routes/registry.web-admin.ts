@@ -1,9 +1,6 @@
 import { routeErrorGroups } from "./errors.js";
 
-const {
-  operatorMutation: operatorMutationErrors,
-  operatorRead: operatorReadErrors,
-} = routeErrorGroups;
+const { operatorMutation: operatorMutationErrors, operatorRead: operatorReadErrors } = routeErrorGroups;
 
 /**
  * Web operator-admin route contracts, split out of `registry.ts` to keep

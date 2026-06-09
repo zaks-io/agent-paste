@@ -74,8 +74,11 @@ Before adding public security badges or publishing the CLI:
 - Configure npm trusted publishing for `@zaks-io/agent-paste` from the
   protected release workflow.
 - Add only badges backed by public, inspectable signals: CI, security workflow,
-  Scorecard, OpenSSF Best Practices when applicable, and Snyk npm package
-  status once the package exists.
+  Scorecard, the OpenSSF Best Practices **Passing** badge, and Snyk npm package
+  status once the package exists. The target tier and the criterion-by-criterion
+  self-assessment (Passing met; Silver delta; Gold out of scope, blocked by the
+  solo `bus_factor`/`contributors_unassociated` criteria) live in
+  [`docs/ops/openssf-best-practices.md`](../ops/openssf-best-practices.md).
 
 ## Done
 

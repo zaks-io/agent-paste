@@ -950,6 +950,31 @@ describe("LocalRepository", () => {
       request_id: "req_5",
       occurred_at: "2026-01-01T00:00:04.000Z",
     });
+    // Internal actors in the member's own workspace must not surface in the tenant trail.
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z6", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z6",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "system",
+      actor_id: "stripe_webhook",
+      action: "workspace.plan.updated",
+      target_type: "workspace",
+      target_id: memberActor.workspace_id,
+      details: { previous_plan: "free", plan: "pro", source: "stripe_webhook" },
+      request_id: "req_6",
+      occurred_at: "2026-01-01T00:00:05.000Z",
+    });
+    repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z7", {
+      id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z7",
+      workspace_id: memberActor.workspace_id,
+      actor_type: "platform",
+      actor_id: "operator@example.com",
+      action: "platform.lockdown.set",
+      target_type: "workspace",
+      target_id: memberActor.workspace_id,
+      details: { scope: "workspace", reason_code: "phishing_report" },
+      request_id: "req_7",
+      occurred_at: "2026-01-01T00:00:06.000Z",
+    });
 
     expect((await repo.listWebAuditEvents(memberActor)).items.map((item) => item.action)).toEqual([
       "fourth",

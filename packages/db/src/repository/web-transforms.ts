@@ -1,4 +1,4 @@
-import { formatChangeSummary } from "../audit/change-summary.js";
+import { formatAuditActorLabel, formatChangeSummary } from "../audit/change-summary.js";
 import { repositoryError } from "../repository-error.js";
 import type { Artifact, OperationEvent, PlatformLockdown } from "../types.js";
 
@@ -47,7 +47,7 @@ export function toWebAuditRow(event: OperationEvent) {
   return {
     id: event.id,
     time: event.occurred_at,
-    actor: `${event.actor_type}:${event.actor_id ?? "unknown"}`,
+    actor: formatAuditActorLabel(event.actor_type, event.actor_id),
     action: event.action,
     target: `${event.target_type}:${event.target_id}`,
     change_summary: formatChangeSummary(event.action, event.details),
@@ -55,9 +55,12 @@ export function toWebAuditRow(event: OperationEvent) {
   };
 }
 
+// The operator surface is cross-workspace and intentionally sees internals, so it
+// restores the raw `actor_type:actor_id` that toWebAuditRow redacts for tenants.
 export function toWebOperatorEventRow(event: OperationEvent) {
   return {
     ...toWebAuditRow(event),
+    actor: `${event.actor_type}:${event.actor_id ?? "unknown"}`,
     workspace_id: event.workspace_id,
     actor_type: event.actor_type,
     target_type: event.target_type,

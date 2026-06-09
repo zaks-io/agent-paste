@@ -91,6 +91,23 @@ function formatWorkspaceSettingsUpdated(safe: Record<string, unknown>): string {
   return days === undefined ? "Workspace settings updated" : `Workspace settings updated (${days}-day auto-deletion)`;
 }
 
+function planLabel(plan: string | undefined): string | undefined {
+  if (plan === "pro") {
+    return "Pro";
+  }
+  if (plan === "free") {
+    return "Free";
+  }
+  return undefined;
+}
+
+// Tenant-safe: never echoes `details.source` (e.g. `stripe_webhook`), which would
+// leak the payment processor and internal billing routing into a tenant audit row.
+function formatWorkspacePlanUpdated(safe: Record<string, unknown>): string {
+  const plan = planLabel(readString(safe, "plan"));
+  return plan ? `Plan changed to ${plan}` : "Plan updated";
+}
+
 function formatArtifactPublished(safe: Record<string, unknown>): string {
   const revisionNumber = readNumber(safe, "revision_number");
   const fileCount = readNumber(safe, "file_count");
@@ -123,6 +140,7 @@ const CHANGE_SUMMARY_FORMATTERS: Record<string, ChangeSummaryFormatter> = {
   "api_key.created": formatApiKeyCreated,
   "api_key.revoked": constant("API key revoked"),
   "workspace.created": constant("Workspace created"),
+  "workspace.plan.updated": formatWorkspacePlanUpdated,
   "workspace.settings.updated": formatWorkspaceSettingsUpdated,
   "artifact.created": constant("Artifact created"),
   "artifact.published": formatArtifactPublished,
@@ -136,6 +154,37 @@ const CHANGE_SUMMARY_FORMATTERS: Record<string, ChangeSummaryFormatter> = {
   "upload_session.failed": constant("Upload session failed"),
   "cleanup.run": formatCleanupRun,
 };
+
+/**
+ * Actor types whose events belong in a tenant's own audit trail: the workspace's
+ * own members, API keys, and workspace-scoped admin actions. `system` and `platform`
+ * are Agent Paste acting internally (Stripe webhooks, reconciliation, retention,
+ * operator lockdowns/overrides) and are filtered out of the tenant `/audit` query
+ * entirely — the operator surface sees them. Keep this as the single source of truth
+ * for the tenant query filter so no internal-actor row can reach the tenant payload.
+ */
+export const TENANT_AUDIT_ACTOR_TYPES = ["member", "api_key", "admin"] as const;
+
+/**
+ * Tenant-safe Actor label for the dashboard audit log.
+ *
+ * `system` and `platform` actors are Agent Paste itself acting on the workspace
+ * (Stripe webhooks, reconciliation, retention, operator lockdowns/overrides). Their
+ * `actor_id` is an internal identifier — `stripe_webhook`, an operator's email — that
+ * must not surface to tenants. Collapse them to coarse labels. A workspace's own
+ * actors (`member`, `api_key`, `admin`) keep their id so the owner can identify them.
+ *
+ * The operator surface bypasses this and renders the raw `actor_type:actor_id`.
+ */
+export function formatAuditActorLabel(actorType: string, actorId: string | null): string {
+  if (actorType === "system") {
+    return "System";
+  }
+  if (actorType === "platform") {
+    return "Agent Paste staff";
+  }
+  return `${actorType}:${actorId ?? "unknown"}`;
+}
 
 /** Format a tenant-safe Change Summary for dashboard and operator surfaces. */
 export function formatChangeSummary(action: string, details: Record<string, unknown>): string {

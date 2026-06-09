@@ -31,6 +31,7 @@ jobs:
       # explicit git diff rather than a path-matcher action so the docs-only
       # rule is unambiguous and auditable.
       code: ${{ steps.diff.outputs.code }}
+      trusted: ${{ steps.diff.outputs.trusted }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -41,8 +42,16 @@ jobs:
         id: diff
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TRUSTED_SOURCE: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.owner.login == github.repository_owner }}
         run: |
           set -euo pipefail
+          echo "trusted=$TRUSTED_SOURCE" >> "$GITHUB_OUTPUT"
+          if [ "$TRUSTED_SOURCE" != "true" ]; then
+            # Public external PR CI needs a separate no-secret path. Until that
+            # exists, do not run this secret-bearing/internal validation stack.
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -z "${BASE_SHA:-}" ]; then
             # Not a PR (push to main / manual dispatch): always run code checks.
             echo "code=true" >> "$GITHUB_OUTPUT"
@@ -66,7 +75,7 @@ jobs:
     # Fast, incremental PR-range scan for quick feedback. The full-history scan
     # (plus a daily cron) lives in the dedicated Security workflow (ADR 0076).
     needs: changes
-    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.trusted == 'true' && needs.changes.outputs.code == 'true' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
 
@@ -105,8 +114,14 @@ jobs:
 
     steps:
       - name: Docs-only short-circuit
-        if: ${{ env.RUN_CODE != 'true' }}
+        if: ${{ env.RUN_CODE != 'true' && needs.changes.outputs.trusted == 'true' }}
         run: echo "Docs-only change; skipping build/verify/coverage."
+
+      - name: External PR short-circuit
+        if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.trusted != 'true' }}
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: echo "Skipping CI for PRs outside $REPO_OWNER until no-secret public CI is defined."
 
       - name: Checkout
         if: ${{ env.RUN_CODE == 'true' }}
@@ -160,17 +175,19 @@ jobs:
             if (config.futureFlags?.longerSignatureKey !== true) throw new Error("turbo.json must enforce longer remote cache signature keys");
           '
 
-      - name: Verify Turbo remote cache credentials
+      - name: Report Turbo remote cache mode
         if: ${{ env.RUN_CODE == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
           missing=0
           for name in TURBO_TOKEN TURBO_TEAM TURBO_REMOTE_CACHE_SIGNATURE_KEY; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name is required for signed Turborepo remote caching"
+              echo "::warning::$name is not set; Turborepo will run with local cache only"
               missing=1
             fi
           done
-          exit "$missing"
+          if [ "$missing" -eq 0 ]; then
+            echo "Signed Turborepo remote cache credentials are configured."
+          fi
 
       - name: Validate
         if: ${{ env.RUN_CODE == 'true' }}

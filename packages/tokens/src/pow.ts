@@ -67,11 +67,7 @@ export async function verifyPowSolution(input: VerifyPowSolutionInput): Promise<
   return countLeadingZeroBits(digest) >= input.challenge.difficulty;
 }
 
-export async function consumePowNonce(
-  store: PowNonceStore,
-  nonce: string,
-  ttlSeconds: number,
-): Promise<boolean> {
+export async function consumePowNonce(store: PowNonceStore, nonce: string, ttlSeconds: number): Promise<boolean> {
   // KV get-then-put is not atomic; concurrent replays of the same solved challenge could
   // both pass before either write lands. Blast radius is bounded by provision rate limits;
   // hashcash-over-KV accepts this window rather than a DO or compare-and-swap primitive.

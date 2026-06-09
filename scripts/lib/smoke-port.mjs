@@ -12,10 +12,7 @@ export const LOCAL_MVP_READY_MARKER = "agent-paste local MVP running";
  * @param {string} [label]
  */
 export function formatPortInUseError(port, envVar, label = "server") {
-  return (
-    `Port ${port} is already in use (${label} on 127.0.0.1:${port}). ` +
-    `Set ${envVar} to a free port and retry.`
-  );
+  return `Port ${port} is already in use (${label} on 127.0.0.1:${port}). ` + `Set ${envVar} to a free port and retry.`;
 }
 
 /**
@@ -103,9 +100,7 @@ async function waitForHarnessStartup(child, getLog, { readyPattern, timeoutMs })
   if (portError) {
     throw portError;
   }
-  throw new Error(
-    `Local harness did not become ready within ${timeoutMs}ms${log.trim() ? `:\n${log.trim()}` : ""}`,
-  );
+  throw new Error(`Local harness did not become ready within ${timeoutMs}ms${log.trim() ? `:\n${log.trim()}` : ""}`);
 }
 
 /**
@@ -122,9 +117,7 @@ export function extractPortInUseFromHarnessLog(log) {
     return new Error(harnessMatch[1].trim());
   }
 
-  const legacyMatch = log.match(
-    /agent-paste local (\w+) server failed on port (\d+):.*EADDRINUSE/i,
-  );
+  const legacyMatch = log.match(/agent-paste local (\w+) server failed on port (\d+):.*EADDRINUSE/i);
   if (legacyMatch) {
     const envVar = LOCAL_SERVER_PORT_ENV[legacyMatch[1]] ?? "AGENT_PASTE_LOCAL_API_PORT";
     return new Error(formatPortInUseError(Number(legacyMatch[2]), envVar, `${legacyMatch[1]} server`));

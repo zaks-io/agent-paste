@@ -1,9 +1,6 @@
 import { routeErrorGroups } from "./errors.js";
 
-const {
-  apiKeyActorRead: apiKeyActorReadErrors,
-  apiKeyMutation: apiKeyMutationErrors,
-} = routeErrorGroups;
+const { apiKeyActorRead: apiKeyActorReadErrors, apiKeyMutation: apiKeyMutationErrors } = routeErrorGroups;
 
 /**
  * Artifact, revision, access-link, and agent-view API route contracts, split out

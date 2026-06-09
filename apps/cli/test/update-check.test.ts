@@ -68,6 +68,13 @@ describe("detectChannel", () => {
     expect(detectChannel({}, "/home/u/.local/bin/agent-paste", "/home/u/.local/bin/agent-paste")).toBe("binary");
   });
 
+  it("classifies a real bun-compiled binary shape as binary", () => {
+    expect(detectChannel({}, "/$bunfs/root/index.js", "/home/u/.local/bin/agent-paste", "bun")).toBe("binary");
+    expect(detectChannel({}, "/$bunfs/root/index.js", "/home/u/.local/bin/agent-paste", "/usr/local/bin/bun")).toBe(
+      "binary",
+    );
+  });
+
   it("does not call an extensionless Node-launched shim a binary", () => {
     // A global npm bin shim runs under Node, so execPath (node) never equals
     // argv1. Without a node_modules marker it is unknown, never binary.

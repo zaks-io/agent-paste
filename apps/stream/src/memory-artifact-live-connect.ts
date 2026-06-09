@@ -13,10 +13,7 @@ type ConnectPayload = {
   auth?: unknown;
 };
 
-export async function handleMemoryArtifactLiveConnect(
-  request: Request,
-  hub: ArtifactLiveHub,
-): Promise<Response> {
+export async function handleMemoryArtifactLiveConnect(request: Request, hub: ArtifactLiveHub): Promise<Response> {
   const body = await readMemoryArtifactLiveJsonBody(request);
   if (typeof body !== "object" || body === null) {
     return new Response("invalid_request", { status: 400 });

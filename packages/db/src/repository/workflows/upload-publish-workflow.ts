@@ -6,8 +6,8 @@ import { toRevisionSummary } from "../../queries/revisions.js";
 import { repositoryError } from "../../repository-error.js";
 import type { ApiActor, Artifact, PublishBundleStatus, Revision, Workspace } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
-import type { Entities } from "../ports.js";
 import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
+import type { Entities } from "../ports.js";
 import {
   createUploadSessionInEntities,
   finalizeUploadSessionInEntities,
@@ -157,11 +157,7 @@ type PublishRevisionInput = {
   now: string;
 };
 
-async function loadActivePublishTargets(
-  entities: Entities,
-  ctx: RepositoryCoreContext,
-  input: PublishRevisionInput,
-) {
+async function loadActivePublishTargets(entities: Entities, ctx: RepositoryCoreContext, input: PublishRevisionInput) {
   const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
   const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
   if (!artifact || artifact.status !== "active") {

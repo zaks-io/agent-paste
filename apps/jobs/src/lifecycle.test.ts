@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { AUTO_DELETION_SWEEP_CAP, RETENTION_SWEEP_CAP } from "./constants.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
-import { runRetentionDiscovery } from "./discovery/retention.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
+import { runRetentionDiscovery } from "./discovery/retention.js";
 import { enqueueArtifactBytePurge } from "./lifecycle/byte-purge-enqueue.js";
 import { writeArtifactDenylist } from "./lifecycle/denylist.js";
 import { applyArtifactPurgeSideEffects } from "./lifecycle/purge-side-effects.js";
@@ -529,9 +529,9 @@ describe("auto deletion discovery", () => {
       };
       const result = await runAutoDeletionDiscovery(executor, env, "2026-05-20T00:00:00.000Z");
       expect(result).toMatchObject({ discovered: 1, enqueued: 0, cap_hit: false });
-      expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.auto_deletion.artifact_failed")),
-      ).toBe(true);
+      expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.auto_deletion.artifact_failed"))).toBe(
+        true,
+      );
     } finally {
       runCommand.mockRestore();
       errorSpy.mockRestore();

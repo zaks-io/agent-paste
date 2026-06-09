@@ -26,7 +26,7 @@ Related docs:
 
 **`apps/cli/package.json`'s `version`** drives everything:
 
-- the version **baked into** each binary (`--define:__AGENT_PASTE_CLI_VERSION__`),
+- the version **baked into** each binary (`--define __AGENT_PASTE_CLI_VERSION__=...`),
 - the **npm** package version,
 - the `latest`/`min_supported` advertised in the `CLI_RELEASE` **KV** value,
 - the GitHub **release tag** (`cli-v<version>`), derived by CI — never typed by hand.
@@ -76,7 +76,8 @@ It cross-compiles the four binaries on native per-OS runners
 (`agent-paste-{linux-x64,linux-arm64,darwin-arm64,windows-x64.exe}`), bakes the
 `package.json` version into each, codesigns + notarizes the macOS binary,
 attaches a CycloneDX SBOM + grype report + build-provenance attestations, and
-creates (or updates) a **draft** GitHub release tagged `cli-v<version>` with a
+exports SLSA provenance sidecars (`*.intoto.jsonl`) for each binary. It creates
+(or updates) a **draft** GitHub release tagged `cli-v<version>` with a
 `SHA256SUMS` manifest. New draft releases and draft reruns are pinned to the
 workflow build SHA; reruns may clobber draft assets only, never assets on a
 published release.
@@ -86,8 +87,9 @@ semver the job fails before creating the release.
 
 ### 3. Review and publish the draft
 
-Open the draft release. Confirm the four assets + `SHA256SUMS` are present and
-the tag matches the version you bumped. Optionally verify a binary's provenance:
+Open the draft release. Confirm the four binaries, four `*.intoto.jsonl`
+provenance sidecars, and `SHA256SUMS` are present and the tag matches the version
+you bumped. Optionally verify a binary's provenance:
 
 ```sh
 gh attestation verify <binary> --repo zaks-io/agent-paste
@@ -110,7 +112,13 @@ It:
    no stored token; skipped idempotently if that version is already on npm),
 3. writes the `cli-release` key in the `CLI_RELEASE` KV namespace for **both**
    `preview` and `production` (`{ latest, min_supported }`, both set to the new
-   version), resolving the namespace id from `apps/api/wrangler.jsonc`.
+   version), resolving the namespace id from `apps/api/wrangler.jsonc` and using
+   Wrangler remote mode so the hosted Workers see the update.
+
+If npm published but the KV advertise step needs to be retried, dispatch
+**CLI Advertise Release** manually with the already-published `cli-v<version>`
+tag. The npm step is idempotent and skips versions already present on npm; the KV
+write is rerun.
 
 The npm publish command must run from the public GitHub repository for the npm
 package to receive provenance. Trusted publishing can authenticate while the
@@ -130,12 +138,12 @@ per-isolate memo), stale CLIs on the binary channel start seeing
 
 ## Verifying a release landed
 
-| Channel    | Check                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| GitHub     | `gh release view cli-v<version>` is published (not draft) with 4 assets + `SHA256SUMS`.    |
-| npm        | `npm view @zaks-io/agent-paste version` returns the new version.                           |
-| Update API | `curl -sS <api-origin>/v1/public/cli-version` returns `{ latest, min_supported }` updated. |
-| Binary     | On a binary install, `agent-paste upgrade` downloads + verifies + self-replaces.           |
+| Channel    | Check                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GitHub     | `gh release view cli-v<version>` is published (not draft) with 4 binaries, 4 `*.intoto.jsonl` sidecars, and `SHA256SUMS`. |
+| npm        | `npm view @zaks-io/agent-paste version` returns the new version.                                                          |
+| Update API | `curl -sS <api-origin>/v1/public/cli-version` returns `{ latest, min_supported }` updated.                                |
+| Binary     | On a binary install, `agent-paste upgrade` downloads + verifies + self-replaces.                                          |
 
 `<api-origin>` is the per-environment API base (preview or production). The
 endpoint is public and unauthenticated; CF edge-caches it for ~5 minutes, so a
@@ -162,13 +170,13 @@ freshly advertised version can take a few minutes to appear.
 
 ## Failure modes
 
-| Symptom                                             | Likely cause                                               | Action                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                              | Fix `apps/cli/package.json`, merge, re-dispatch.                  |
-| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs      | Ensure the bump merged before dispatching; re-cut from `main`.    |
-| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits) | Expected; the KV write still runs and is idempotent.              |
-| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift             | Re-run; if persistent, re-cut the release (do **not** hand-edit). |
-| Update check never shows the new version            | Edge cache not yet expired, or KV write failed             | Wait ~5 min; check the Advertise run's KV step logs.              |
+| Symptom                                             | Likely cause                                                            | Action                                                                                                                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                                           | Fix `apps/cli/package.json`, merge, re-dispatch.                                                                                                                         |
+| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs                   | Ensure the bump merged before dispatching; re-cut from `main`.                                                                                                           |
+| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits)              | Expected; the KV write still runs and is idempotent.                                                                                                                     |
+| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift                          | Re-run; if persistent, re-cut the release (do **not** hand-edit).                                                                                                        |
+| Update check never shows the new version            | Edge cache not yet expired, KV write failed, or Wrangler wrote local KV | Wait ~5 min; check the Advertise run's KV step logs for `--remote`/`Resource location: remote`, then manually dispatch CLI Advertise Release for the same tag if needed. |
 
 ## Verification boundary
 

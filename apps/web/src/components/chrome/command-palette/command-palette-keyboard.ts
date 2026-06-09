@@ -15,12 +15,20 @@ function handleEscape(event: KeyboardEvent, onOpenChange: (open: boolean) => voi
   onOpenChange(false);
 }
 
-function handleArrowDown(event: KeyboardEvent, flatItems: CommandItem[], setActiveIndex: PaletteKeyContext["setActiveIndex"]): void {
+function handleArrowDown(
+  event: KeyboardEvent,
+  flatItems: CommandItem[],
+  setActiveIndex: PaletteKeyContext["setActiveIndex"],
+): void {
   event.preventDefault();
   setActiveIndex((current) => (flatItems.length === 0 ? 0 : (current + 1) % flatItems.length));
 }
 
-function handleArrowUp(event: KeyboardEvent, flatItems: CommandItem[], setActiveIndex: PaletteKeyContext["setActiveIndex"]): void {
+function handleArrowUp(
+  event: KeyboardEvent,
+  flatItems: CommandItem[],
+  setActiveIndex: PaletteKeyContext["setActiveIndex"],
+): void {
   event.preventDefault();
   setActiveIndex((current) => (flatItems.length === 0 ? 0 : (current - 1 + flatItems.length) % flatItems.length));
 }

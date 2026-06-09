@@ -376,8 +376,7 @@ describe("ephemeral provision gate route", () => {
     const loweredLimit = 2;
     const env = provisionEnv({
       EPHEMERAL_PROVISION_CONFIG: {
-        get: async (key) =>
-          key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? versionedConfig(loweredLimit, 1) : null,
+        get: async (key) => (key === EPHEMERAL_PROVISION_CONFIG_KV_KEY ? versionedConfig(loweredLimit, 1) : null),
         put: async () => {},
         delete: async () => {},
       },

@@ -5,13 +5,13 @@ import { APP_RUNTIME_ROLE } from "../../scripts/credentials.mjs";
 import { createId } from "../id.js";
 import {
   bindDrizzleToExecutor,
-  drizzleForExecutor,
   type DrizzleConnection,
   type DrizzleDb,
+  drizzleForExecutor,
 } from "../postgres/drizzle.js";
 import * as schema from "../schema.js";
-import type { Artifact, SqlExecutor, SqlValue, UploadSession } from "../types.js";
 import { applyMigrations } from "../test-helpers/pglite.js";
+import type { Artifact, SqlExecutor, SqlValue, UploadSession } from "../types.js";
 import { PostgresUnitOfWork } from "./postgres-unit-of-work.js";
 
 function runtimePgliteConnection(client: PGlite): DrizzleConnection {
@@ -499,6 +499,43 @@ describe("postgresEntities PGlite coverage", () => {
           request_id: "req_test",
           occurred_at: now,
         });
+      });
+    });
+
+    it("excludes internal system/platform events from the tenant web page", async () => {
+      await fixture.uow.read({ kind: "workspace", workspaceId }, async (entities) => {
+        await entities.operationEvents.insert({
+          actorType: "api_key",
+          actorId: "key_1",
+          action: "artifact.published",
+          targetType: "artifact",
+          targetId: "art_filter",
+          workspaceId,
+          details: {},
+          occurredAt: "2026-01-01T00:00:10.000Z",
+        });
+        await entities.operationEvents.insert({
+          actorType: "system",
+          actorId: "stripe_webhook",
+          action: "workspace.plan.updated",
+          targetType: "workspace",
+          targetId: workspaceId,
+          workspaceId,
+          details: { plan: "pro", source: "stripe_webhook" },
+          // Newest event: would sort first if the filter failed.
+          occurredAt: "2026-01-01T00:00:11.000Z",
+        });
+
+        const webPage = await entities.operationEvents.listWebPage({ workspaceId, limit: 50 });
+        const actorTypes = new Set(webPage.map((event) => event.actor_type));
+        expect(actorTypes.has("system")).toBe(false);
+        expect(actorTypes.has("platform")).toBe(false);
+        expect(webPage.some((event) => event.action === "artifact.published")).toBe(true);
+        expect(webPage.some((event) => event.action === "workspace.plan.updated")).toBe(false);
+
+        // The operator-grade read still sees the internal row.
+        const all = await entities.operationEvents.listForWorkspace(workspaceId);
+        expect(all.some((event) => event.actor_type === "system")).toBe(true);
       });
     });
   });

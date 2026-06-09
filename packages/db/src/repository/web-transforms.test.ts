@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Artifact, OperationEvent } from "../types.js";
-import { toWebArtifactRow, toWebAuditRow, webArtifactStatus } from "./web-transforms.js";
+import { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow, webArtifactStatus } from "./web-transforms.js";
 
 const base: Artifact = {
   id: "art_1",
@@ -61,11 +61,42 @@ describe("web audit transforms", () => {
 
   it("maps operation events to tenant-safe audit rows", () => {
     expect(toWebAuditRow(event)).toMatchObject({
-      actor: "platform:operator@example.com",
       action: "platform.lockdown.set",
       target: "workspace:ws_1",
       change_summary: "Platform lockdown set on workspace (reason: phishing_report)",
       request_id: "req_1",
+    });
+  });
+
+  it("redacts internal actor identity from tenant rows", () => {
+    // platform actor: never leak the operator's identity to the tenant.
+    expect(toWebAuditRow(event).actor).toBe("Agent Paste staff");
+    // system actor: never leak the payment processor / internal routing name.
+    const billingEvent: OperationEvent = {
+      ...event,
+      actor_type: "system",
+      actor_id: "stripe_webhook",
+      action: "workspace.plan.updated",
+      details: { previous_plan: "free", plan: "pro", subscription_status: "active", source: "stripe_webhook" },
+    };
+    const row = toWebAuditRow(billingEvent);
+    expect(row.actor).toBe("System");
+    // change summary must not echo details.source (stripe_webhook).
+    expect(row.change_summary).toBe("Plan changed to Pro");
+    expect(JSON.stringify(row)).not.toContain("stripe_webhook");
+  });
+
+  it("keeps the workspace's own actors identifiable", () => {
+    expect(toWebAuditRow({ ...event, actor_type: "member", actor_id: "mem_1" }).actor).toBe("member:mem_1");
+    expect(toWebAuditRow({ ...event, actor_type: "api_key", actor_id: "key_1" }).actor).toBe("api_key:key_1");
+  });
+
+  it("preserves raw actor identity for the operator surface", () => {
+    expect(toWebOperatorEventRow(event)).toMatchObject({
+      actor: "platform:operator@example.com",
+      actor_type: "platform",
+      workspace_id: "ws_1",
+      target_type: "workspace",
     });
   });
 });

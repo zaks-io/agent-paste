@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyAuditAction,
+  formatAuditActorLabel,
   formatChangeSummary,
   isSecurityRelevantAction,
   redactAuditDetails,
@@ -89,5 +90,26 @@ describe("change-summary", () => {
 
   it("skips non-object detail values when redacting", () => {
     expect(redactAuditDetails({ tags: ["public"], secret: "x" })).toEqual({ tags: ["public"] });
+  });
+
+  it("summarizes plan updates without echoing the internal source", () => {
+    const summary = formatChangeSummary("workspace.plan.updated", {
+      previous_plan: "free",
+      plan: "pro",
+      subscription_status: "active",
+      source: "stripe_webhook",
+    });
+    expect(summary).toBe("Plan changed to Pro");
+    expect(summary).not.toContain("stripe_webhook");
+    expect(formatChangeSummary("workspace.plan.updated", {})).toBe("Plan updated");
+  });
+
+  it("redacts internal actor identity, keeps workspace actors", () => {
+    expect(formatAuditActorLabel("system", "stripe_webhook")).toBe("System");
+    expect(formatAuditActorLabel("system", "retention")).toBe("System");
+    expect(formatAuditActorLabel("platform", "operator@example.com")).toBe("Agent Paste staff");
+    expect(formatAuditActorLabel("member", "mem_1")).toBe("member:mem_1");
+    expect(formatAuditActorLabel("api_key", "key_1")).toBe("api_key:key_1");
+    expect(formatAuditActorLabel("admin", null)).toBe("admin:unknown");
   });
 });

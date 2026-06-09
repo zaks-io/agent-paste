@@ -102,7 +102,7 @@ jobs:
           bun build src/index.ts \
             --compile \
             --conditions=types \
-            --define:__AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
+            --define __AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
             --target="$BUN_TARGET" \
             --outfile "$ASSET" \
             --metafile=meta.json
@@ -155,7 +155,7 @@ jobs:
           cd "$RUNNER_TEMP"
           "./$ASSET" --help
           VERSION="$(node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version")"
-          test "$("./$ASSET" --version)" = "$VERSION"
+          test "$("./$ASSET" version)" = "$VERSION"
           "./$ASSET" whoami
 
       - name: Smoke-check binary (Windows)
@@ -168,9 +168,9 @@ jobs:
           Set-Location "$env:RUNNER_TEMP"
           & ".\$env:ASSET" --help
           $version = node -p "require(process.env.GITHUB_WORKSPACE + '/apps/cli/package.json').version"
-          $actual = (& ".\$env:ASSET" --version).Trim()
+          $actual = (& ".\$env:ASSET" version).Trim()
           if ($actual -ne $version.Trim()) {
-            throw "expected $env:ASSET --version to print $version, got $actual"
+            throw "expected $env:ASSET version to print $version, got $actual"
           }
           & ".\$env:ASSET" whoami
 
@@ -263,6 +263,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      attestations: read
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -307,6 +308,51 @@ jobs:
 
       - name: Attach repo security attestation bundle
         run: tar -czf dist-binaries/repo-security-attestation.tgz -C artifacts/security .
+
+      # GitHub artifact attestations live in GitHub's attestation store, but
+      # OpenSSF Scorecard's Signed-Releases check only scans release asset
+      # filenames. Export the SLSA provenance bundles as *.intoto.jsonl sidecars
+      # so downstream users can verify offline and Scorecard can detect them.
+      - name: Export provenance sidecars
+        working-directory: dist-binaries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          binary_assets=(
+            "agent-paste-linux-x64"
+            "agent-paste-linux-arm64"
+            "agent-paste-darwin-arm64"
+            "agent-paste-windows-x64.exe"
+          )
+          for asset in "${binary_assets[@]}"; do
+            rm -f sha256:*.jsonl sha256-*.jsonl
+            gh attestation download "$asset" \
+              --repo "$REPO" \
+              --predicate-type https://slsa.dev/provenance/v1 \
+              --limit 1
+            downloaded="$(find . -maxdepth 1 -type f \( -name 'sha256:*.jsonl' -o -name 'sha256-*.jsonl' \) -print)"
+            downloaded_count="$(printf '%s\n' "$downloaded" | sed '/^$/d' | wc -l | tr -d ' ')"
+            if [ "$downloaded_count" != "1" ]; then
+              echo "::error::Expected one provenance bundle for $asset, found $downloaded_count"
+              exit 1
+            fi
+            sidecar="$asset.intoto.jsonl"
+            mv "$(printf '%s\n' "$downloaded" | sed -n '1p')" "$sidecar"
+
+            expected_digest="$(sha256sum "$asset" | awk '{print $1}')"
+            attested_digest="$(
+              jq -r --arg name "$asset" \
+                '.dsseEnvelope.payload | @base64d | fromjson | .subject[] | select(.name == $name) | .digest.sha256 // empty' \
+                "$sidecar" | head -n 1
+            )"
+            if [ "$attested_digest" != "$expected_digest" ]; then
+              echo "::error::Provenance digest mismatch for $asset: expected $expected_digest, got $attested_digest"
+              exit 1
+            fi
+          done
 
       # Checksums cover only the binaries — the per-OS globs deliberately exclude
       # the agent-paste-cli.* SBOM/report files, which carry their own provenance.
@@ -364,6 +410,27 @@ jobs:
             exit 1
           fi
           TAG="cli-v$VERSION"
+          release_assets=(
+            "dist-binaries/agent-paste-linux-x64"
+            "dist-binaries/agent-paste-linux-arm64"
+            "dist-binaries/agent-paste-darwin-arm64"
+            "dist-binaries/agent-paste-windows-x64.exe"
+            "dist-binaries/agent-paste-linux-x64.intoto.jsonl"
+            "dist-binaries/agent-paste-linux-arm64.intoto.jsonl"
+            "dist-binaries/agent-paste-darwin-arm64.intoto.jsonl"
+            "dist-binaries/agent-paste-windows-x64.exe.intoto.jsonl"
+            "dist-binaries/agent-paste-cli.sbom.cdx.json"
+            "dist-binaries/agent-paste-cli.grype.json"
+            "dist-binaries/scan-metadata.json"
+            "dist-binaries/repo-security-attestation.tgz"
+            "dist-binaries/SHA256SUMS"
+          )
+          for asset in "${release_assets[@]}"; do
+            if [ ! -s "$asset" ]; then
+              echo "::error::Expected release asset is missing or empty: $asset"
+              exit 1
+            fi
+          done
           # Drafts stay mutable for test reruns. Published releases are immutable
           # by repo setting, and this job refuses to upload to non-drafts.
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -373,11 +440,29 @@ jobs:
               exit 1
             fi
             gh release edit "$TAG" --draft --target "$GITHUB_SHA"
-            gh release upload "$TAG" dist-binaries/* --clobber
+            mapfile -t current_assets < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+            for current_asset in "${current_assets[@]}"; do
+              keep=false
+              for asset in "${release_assets[@]}"; do
+                if [ "$(basename "$asset")" = "$current_asset" ]; then
+                  keep=true
+                  break
+                fi
+              done
+              if [ "$keep" != "true" ]; then
+                gh release delete-asset "$TAG" "$current_asset" --yes
+              fi
+            done
+            gh release upload "$TAG" "${release_assets[@]}" --clobber
           else
-            gh release create "$TAG" dist-binaries/* \
+            # --generate-notes prepends a human-readable changelog (merged PRs /
+            # commits since the previous cli-v* tag) so each release has real
+            # release notes; --notes keeps the supply-chain evidence footer below
+            # it. fetch-depth: 0 (above) gives gh the tag history it needs.
+            gh release create "$TAG" "${release_assets[@]}" \
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft — review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --generate-notes \
+              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`) and an attached SLSA provenance sidecar (\`*.intoto.jsonl\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft - review and publish manually. Verify downloads against \`SHA256SUMS\`."
           fi

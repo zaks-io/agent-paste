@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { promises as fs } from "node:fs";
+import { promises as fs, realpathSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type AgentPasteAuth,
   AgentPasteError,
@@ -48,8 +50,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
     case "":
     case "help":
     case "--help":
-      printHelp();
-      return;
+      return printHelp();
     case "login":
       await login();
       return;
@@ -261,7 +262,6 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
   return client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: inherent linear flag-parsing loop; splitting adds indirection without clarity. See docs/ops/complexity-todo.md.
 export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];
@@ -332,12 +332,21 @@ function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: bool
   return typeof value === "boolean" ? value : fallback;
 }
 
-function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
+async function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
   if (global.json) {
-    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    await writeStdout(`${JSON.stringify(value, null, 2)}\n`);
   } else if (!global.quiet) {
-    process.stdout.write(`${human}\n`);
+    await writeStdout(`${human}\n`);
   }
+}
+
+function writeStdout(value: string) {
+  return new Promise<void>((resolve, reject) => {
+    process.stdout.write(value, (error?: unknown) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 }
 
 type PublishResultShape = {
@@ -389,7 +398,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
 }
 
 function printHelp() {
-  process.stdout.write(`agent-paste
+  return writeStdout(`agent-paste
 
 Usage:
   agent-paste login
@@ -401,7 +410,28 @@ Usage:
 `);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, platform = process.platform) {
+  if (!argv1) {
+    return false;
+  }
+  const modulePath = executablePath(fileURLToPath(metaUrl));
+  const entryPath = executablePath(argv1);
+  if (platform === "win32") {
+    return modulePath.toLowerCase() === entryPath.toLowerCase();
+  }
+  return modulePath === entryPath;
+}
+
+function executablePath(value: string) {
+  const resolved = path.resolve(value);
+  try {
+    return realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+if (isMainEntrypoint(import.meta.url, process.argv[1])) {
   main().catch((error: unknown) => {
     const asError = error instanceof Error ? error : new Error(String(error));
     const code = error instanceof AgentPasteError ? error.code : "cli_error";

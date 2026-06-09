@@ -90,8 +90,7 @@ async function llamaGuardWarnings(
     if (!verdict || verdict.label !== "unsafe") {
       return [];
     }
-    const categoryDetail =
-      verdict.categories.length > 0 ? ` (${verdict.categories.join(", ")})` : "";
+    const categoryDetail = verdict.categories.length > 0 ? ` (${verdict.categories.join(", ")})` : "";
     return [
       {
         code: "llama_guard_unsafe",
@@ -105,9 +104,7 @@ async function llamaGuardWarnings(
   }
 }
 
-export type LlamaGuardVerdict =
-  | { label: "safe" }
-  | { label: "unsafe"; categories: readonly string[] };
+export type LlamaGuardVerdict = { label: "safe" } | { label: "unsafe"; categories: readonly string[] };
 
 const LLAMA_GUARD_CATEGORY_PATTERN = /\bS(?:1[0-4]|[1-9])\b/g;
 

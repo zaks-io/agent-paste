@@ -11,10 +11,8 @@ export function createLocalMvpSqlExecutor(state: LocalState): SqlExecutor {
   const idempotencyRecords = new Map<string, IdempotencyRecord>();
   const context = { state, idempotencyRecords };
 
-  const query = async <Row = Record<string, unknown>>(
-    sql: string,
-    params: readonly SqlValue[] = [],
-  ) => dispatchLocalMvpSqlQuery<Row>(sql, params, context);
+  const query = async <Row = Record<string, unknown>>(sql: string, params: readonly SqlValue[] = []) =>
+    dispatchLocalMvpSqlQuery<Row>(sql, params, context);
 
   const executor: SqlExecutor = {
     query: query as SqlExecutor["query"],

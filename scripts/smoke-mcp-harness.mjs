@@ -144,7 +144,10 @@ export async function assertMcpRejectsApiKey(mcpBaseUrl) {
     { authorization: "Bearer ap_pk_preview_smoke_reject" },
   );
   assert(response.status === 401, `API key bearer returned ${response.status}, expected 401`);
-  assert(response.headers.get("www-authenticate")?.includes("invalid_token"), "API key rejection sets WWW-Authenticate");
+  assert(
+    response.headers.get("www-authenticate")?.includes("invalid_token"),
+    "API key rejection sets WWW-Authenticate",
+  );
 }
 
 export async function mcpInitializeSession(mcpBaseUrl, accessToken) {

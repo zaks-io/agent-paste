@@ -34,6 +34,7 @@
     "security:attest": "node scripts/security-attest.mjs",
     "format": "pnpm format:code && pnpm format:docs",
     "format:code": "biome format --write .",
+    "format:code:check": "biome format .",
     "format:docs": "prettier --write \"**/*.md\"",
     "format:docs:check": "prettier --check \"**/*.md\"",
     "hooks:install": "node scripts/install-hooks.mjs",
@@ -69,7 +70,7 @@
     "test:coverage": "node scripts/clean-coverage.mjs && turbo run test:coverage && node scripts/merge-coverage.mjs",
     "typecheck": "turbo run typecheck",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
-    "verify": "pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
+    "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
