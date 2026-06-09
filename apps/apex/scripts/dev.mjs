@@ -46,9 +46,7 @@ const vite = await createServer({
 
 await vite.listen();
 vite.printUrls();
-console.log(
-  `apex preview: AGENT_PASTE_ENV=${process.env.AGENT_PASTE_ENV} BILLING_ENABLED=${process.env.BILLING_ENABLED}`,
-);
+console.log(`apex preview: local preview defaults active on ${host}:${port}`);
 
 function apexPreviewPlugin() {
   return {
