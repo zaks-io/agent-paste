@@ -76,11 +76,16 @@ describe("apex shell", () => {
 describe("home page", () => {
   const body = renderPage("/");
 
-  it("preloads the brand fonts and keeps the clipboard handoff affordance", () => {
+  it("preloads the brand fonts", () => {
     expect(body).toContain("/fonts/CabinetGrotesk-Variable.woff2");
     expect(body).toContain("/fonts/Switzer-Variable.woff2");
     expect(body).toContain("/fonts/SplineSansMono-Variable.woff2");
-    expect(body).toContain('data-clipboard="https://agent-paste.sh/art_01HZ8K2X9NPQR3VW7TYBE5MCDF"');
+  });
+
+  it("renders the demo transcript linked to the static example artifact", () => {
+    // The transcript's result row LINKS to the id-shaped static artifact path.
+    // Contract (the served href), not copy — see feedback_never_unit_test_copy.
+    expect(body).toContain('href="/a/art_8KQ2WSDIEGO7XR"');
   });
 
   it("leads with OAuth login, not manual API keys", () => {

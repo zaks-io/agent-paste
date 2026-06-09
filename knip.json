@@ -2,7 +2,13 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreDependencies": ["cloudflare", "jscpd"],
   "ignoreExportsUsedInFile": true,
-  "ignoreFiles": ["**/worker-configuration.d.ts", ".claude/skills/**", ".agents/skills/**", ".codex/skills/**"],
+  "ignoreFiles": [
+    "**/worker-configuration.d.ts",
+    ".claude/skills/**",
+    ".agents/skills/**",
+    ".codex/skills/**",
+    "apps/apex/public/**"
+  ],
   "workspaces": {
     "apps/web": {
       "entry": ["src/server.ts"]

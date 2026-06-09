@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!.agents",
+      "!.claude",
       "!node_modules",
       "!dist",
       "!**/dist",
