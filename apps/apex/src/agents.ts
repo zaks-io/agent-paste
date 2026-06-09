@@ -34,13 +34,21 @@ agent-paste has three objects an agent needs to know:
 
 ## CLI quickstart
 
-Sign in once, then publish a folder. \`npx @zaks-io/agent-paste login\` runs a browser OAuth flow and
-provisions its own scoped key, so there is no API key to copy or paste. Publish
-returns an Artifact ID, an Artifact URL, a Revision Content URL, and an Agent
-View URL.
+Before choosing a publish mode, check whether the user already has auth:
+
+\`\`\`
+npx @zaks-io/agent-paste whoami
+\`\`\`
+
+If \`whoami\` succeeds, publish normally. If it fails and the user can interact,
+run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a browser
+OAuth flow and provisions its own scoped key, so there is no API key to copy or
+paste. Publish returns an Artifact ID, an Artifact URL, a Revision Content URL,
+and an Agent View URL.
 
 \`\`\`
 npx @zaks-io/agent-paste login
+npx @zaks-io/agent-paste whoami
 npx @zaks-io/agent-paste publish ./report
 # => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
 \`\`\`
@@ -72,26 +80,30 @@ If the user asks for a stable link, live-updating link, or a link they can keep
 open while you iterate, return the Artifact URL. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
-## Publish without an account
+## Ephemeral publish fallback
 
-An agent with no human auth can publish directly. \`--ephemeral\` self-provisions
-a short-lived Workspace and key, so there is no login step and nothing to store:
+Use \`--ephemeral\` only when \`whoami\` fails and no login or
+\`AGENT_PASTE_API_KEY\` is available, or when the user explicitly asks for
+accountless publish. It ignores stored login credentials and environment API
+keys, so do not use it after a successful auth check. It is suitable for
+non-interactive work such as text, markdown, images, and static HTML/CSS.
 
 \`\`\`
 npx @zaks-io/agent-paste publish ./report --ephemeral
 \`\`\`
 
-The Artifact lives for up to 24 hours, then auto-deletes. Publish prints a
-one-time **Claim Token** as a claim link (\`${APP_BASE_URL}/claim#<token>\`). A
-signed-in human opens that link to reparent the Artifact into their Workspace
-and keep it. The token rides the URL **hash** only: it never appears in the
-query string or in any public share URL. \`--ephemeral\` ignores
-\`AGENT_PASTE_API_KEY\` and any stored login.
+Ephemeral is not the Free Plan. It is an unclaimed restricted tier with low
+write caps, \`noindex\`, a 24 hour lifetime, and script-disabled content serving.
+Publish prints a one-time **Claim Token** as a claim link
+(\`${APP_BASE_URL}/claim#<token>\`). A signed-in human opens that link to
+reparent the Artifact into their Workspace and keep it. The token rides the URL
+**hash** only: it never appears in the query string or in any public share URL.
 
-Unclaimed ephemeral HTML is script-disabled. Static HTML and CSS render, but
-JavaScript does not run until a human claims the Artifact and new content URLs
-are minted from the claimed Workspace. For an interactive visualization that
-needs JavaScript, use authenticated publish rather than \`--ephemeral\`.
+Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
+HTML/CSS render, but JavaScript does not run until a human claims the Artifact
+and new content URLs are minted from the claimed Workspace. For an interactive
+page, browser app, or visualization that needs JavaScript, use authenticated
+publish rather than \`--ephemeral\`.
 
 ## REST entry points
 
@@ -113,9 +125,10 @@ authenticates with **OAuth** (WorkOS). They are separate credentials.
 
 - **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
   stores a scoped API key for you. Nothing to copy or paste.
-- **Ephemeral:** \`npx @zaks-io/agent-paste publish --ephemeral\` needs no human
-  auth at all. The CLI self-provisions a short-lived, low-cap key and returns a
-  one-time Claim Token; a signed-in human redeems it later to keep the Artifact.
+- **Ephemeral:** \`npx @zaks-io/agent-paste publish --ephemeral\` is the
+  restricted fallback when \`whoami\` fails and no login or key is available. The
+  CLI self-provisions a short-lived, low-cap key and returns a one-time Claim
+  Token; a signed-in human redeems it later to keep the Artifact.
 - **REST:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI or
   headless use on the dashboard API Keys page
   ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`

@@ -41,8 +41,8 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
   {
     title: "Unclaimed work expires quickly",
     body: [
-      "An agent can publish before a human signs in. Those unclaimed handoffs use short-lived credentials, low write caps, 24 hour cleanup, noindex, and a script-disabled content policy.",
-      "A human can claim the Artifact into a Workspace before it expires. Until then, it is treated as a short-lived handoff, not a permanent place to keep data.",
+      "An agent should check auth first, then publish normally when a Workspace login or API Key is available. If no auth is available, it can publish a non-interactive unclaimed handoff with short-lived credentials, low write caps, 24 hour cleanup, noindex, and a script-disabled content policy.",
+      "Text, markdown, images, and static pages work in that tier. Interactive HTML/JS does not; a human must claim the Artifact or the agent must publish from an authenticated Workspace.",
     ],
   },
   {

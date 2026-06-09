@@ -4,7 +4,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
   slug: "getting-started",
   title: "Getting Started",
   shortTitle: "Start",
-  summary: "Install the CLI, sign in or publish ephemerally, and hand off your first Artifact.",
+  summary: "Install the CLI, check auth, publish, and hand off your first Artifact.",
   sections: [
     {
       id: "install",
@@ -47,6 +47,10 @@ export const GETTING_STARTED_DOC: DocsPage = {
           kind: "paragraph",
           text: "For CI or a headless agent, set `AGENT_PASTE_API_KEY`. The CLI never accepts secrets as flags. If both a stored login and `AGENT_PASTE_API_KEY` exist, the environment key wins.",
         },
+        {
+          kind: "paragraph",
+          text: "Agents should run `agent-paste whoami` before falling back to accountless publish. A successful `whoami` means use normal authenticated publish, not `--ephemeral`.",
+        },
       ],
     },
     {
@@ -74,7 +78,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
     },
     {
       id: "no-account",
-      title: "Publish with no account",
+      title: "Ephemeral fallback",
       blocks: [
         {
           kind: "code",
@@ -83,7 +87,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace and key, publishes once, and prints a one-time Claim Token as `/claim#<token>`. A signed-in human opens the claim link to keep the Artifact. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for JavaScript-heavy interactive work.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace and key, publishes once, and prints a one-time Claim Token as `/claim#<token>`. It ignores stored login and `AGENT_PASTE_API_KEY`, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
         },
       ],
     },

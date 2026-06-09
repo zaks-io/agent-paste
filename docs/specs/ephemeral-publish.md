@@ -15,6 +15,17 @@ agent-paste publish ./sim --ephemeral
 
 The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints the share URL and a one-time **Claim Token**, and the link works at once. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
+Selection rule for agents: check for authenticated publish before choosing
+Ephemeral Publish. If `agent-paste whoami` succeeds, publish normally without
+`--ephemeral`. If it fails and interactive auth is possible, run
+`agent-paste login` first. Use `--ephemeral` only when no login or
+`AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for
+accountless publish. Ephemeral is not the `free` **Plan**; it is the unclaimed
+restricted tier. Use it for non-interactive text, markdown, images, and static
+HTML/CSS. In particular, interactive HTML/JavaScript work that needs script
+execution requires authenticated publish, because unclaimed ephemeral content is
+served under the script-disabled **Execution Policy**.
+
 ## Actors
 
 **Ephemeral Publisher**:

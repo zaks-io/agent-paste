@@ -39,7 +39,10 @@ export const CLI_DOC: DocsPage = {
               "`--render-mode <mode>`",
               "Override inferred mode: `html`, `markdown`, `text`, `image`, `audio`, or `video`.",
             ],
-            ["`--ephemeral`", "Publish with no login or key, then print a one-time claim link."],
+            [
+              "`--ephemeral`",
+              "Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key, disables scripts until claimed, and prints a one-time claim link.",
+            ],
             ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
             ["`--quiet`", "Suppress human-readable stdout."],
           ],
@@ -64,6 +67,13 @@ export const CLI_DOC: DocsPage = {
           title: "Artifact URL is the live viewer",
           body: [
             "When a human should keep one URL open while an agent publishes more Revisions, return `artifact_url`. Use public sharing only when the viewer needs unauthenticated access; that access belongs in a separate Share URL.",
+          ],
+        },
+        {
+          kind: "note",
+          title: "Check auth before ephemeral",
+          body: [
+            "Agents should run `agent-paste whoami` before using `--ephemeral`. If `whoami` succeeds, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled until the Artifact is claimed.",
           ],
         },
       ],

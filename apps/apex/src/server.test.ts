@@ -39,6 +39,9 @@ describe("text and data assets", () => {
     expect(body).toContain("# agent-paste");
     expect(body).toContain("npx @zaks-io/agent-paste publish");
     expect(body).toContain("agent-paste login");
+    expect(body).toContain("npx @zaks-io/agent-paste whoami");
+    expect(body).toMatch(/Ephemeral is not\s+the Free Plan/);
+    expect(body).toContain("non-interactive text");
     expect(body).toContain("/llms-full.txt");
   });
 
@@ -50,7 +53,10 @@ describe("text and data assets", () => {
     expect(body).toContain("# agent-paste for agents");
     expect(body).toContain("Mental model");
     expect(body).toContain("npx @zaks-io/agent-paste login");
+    expect(body).toContain("npx @zaks-io/agent-paste whoami");
     expect(body).toContain("AGENT_PASTE_API_KEY");
+    expect(body).toMatch(/Ephemeral is not\s+the Free Plan/);
+    expect(body).toContain("non-interactive work");
     expect(body).toContain("https://agent-paste.sh/docs");
     expect(body).toContain("https://agent-paste.sh/llms-full.txt");
   });

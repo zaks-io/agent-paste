@@ -25,7 +25,17 @@ The hosted service is operated by Zaks.io, LLC. The source is Apache-2.0.
 
 ## Quick Start
 
-Publish with no account:
+Agents should check for an existing login before using the accountless path:
+
+```sh
+npx @zaks-io/agent-paste whoami
+# if that succeeds:
+npx @zaks-io/agent-paste publish ./report
+```
+
+If there is no login or `AGENT_PASTE_API_KEY`, publish non-interactive work
+such as text, markdown, images, or static HTML/CSS with the restricted
+ephemeral path:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
@@ -53,9 +63,11 @@ npx @zaks-io/agent-paste login
 npx @zaks-io/agent-paste publish ./report
 ```
 
-Need JavaScript to run? Use authenticated publish, not `--ephemeral`.
+Need interactivity or JavaScript? Use authenticated publish, not `--ephemeral`.
 Unclaimed ephemeral HTML is served under a script-disabled policy until a human
-claims it.
+claims it. Text, markdown, images, and static pages are fine; browser apps and
+interactive visualizations are not. Ephemeral is not the Free Plan; it is an
+unclaimed restricted tier.
 
 The human-facing URL model is:
 
