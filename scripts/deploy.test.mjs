@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  assertDeployScopeAllowed,
   createSecretPlanner,
   formatForbiddenProductionSecretsMessage,
   formatMissingProviderSecretsMessage,
@@ -86,6 +87,22 @@ describe("shouldMigrate", () => {
   });
 });
 
+describe("assertDeployScopeAllowed", () => {
+  it("allows scoped preview deploys", () => {
+    expect(() => assertDeployScopeAllowed(["apex"], "preview")).not.toThrow();
+  });
+
+  it("allows full-fleet production deploys", () => {
+    expect(() => assertDeployScopeAllowed(FULL_FLEET, "production")).not.toThrow();
+  });
+
+  it("rejects scoped production deploys", () => {
+    expect(() => assertDeployScopeAllowed(["api"], "production")).toThrow(
+      /Production deploys must deploy the full fleet/,
+    );
+  });
+});
+
 describe("turboDeployArgs", () => {
   it("uses no --filter for a full-fleet deploy", () => {
     expect(turboDeployArgs(FULL_FLEET, "preview")).toEqual(["exec", "turbo", "run", "deploy:preview"]);
@@ -101,15 +118,14 @@ describe("turboDeployArgs", () => {
     ]);
   });
 
-  it("targets the production deploy task", () => {
-    expect(turboDeployArgs(["api", "web"], "production")).toEqual([
-      "exec",
-      "turbo",
-      "run",
-      "deploy:production",
-      "--filter=@agent-paste/api",
-      "--filter=@agent-paste/web",
-    ]);
+  it("targets the production deploy task for the full fleet", () => {
+    expect(turboDeployArgs(FULL_FLEET, "production")).toEqual(["exec", "turbo", "run", "deploy:production"]);
+  });
+
+  it("rejects production filters", () => {
+    expect(() => turboDeployArgs(["api", "web"], "production")).toThrow(
+      /Production deploys must deploy the full fleet/,
+    );
   });
 });
 

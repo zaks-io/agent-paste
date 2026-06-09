@@ -47,7 +47,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   Migration is NOT glued to deploy (decoupled 2026-06-09, AP-278). Laptop preview
   deploys are fine and expected.
 - Production deploy path: `.github/workflows/deploy-production.yml`
-  (CI/CD only; `pnpm deploy:production` is the manual path and is gated; no `--app`
+  (GitHub Actions CI/CD only; `pnpm deploy:production` is the manual path and is gated; no `--app`
   scoping for production)
 - Production approval required: yes
 

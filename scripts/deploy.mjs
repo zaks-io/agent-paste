@@ -3,7 +3,7 @@
 // One command to deploy everything — migrations, secrets, build, and Workers. Per ADR 0078.
 //
 //   node scripts/deploy.mjs preview                # migrate (if needed) + deploy all
-//   node scripts/deploy.mjs preview --app=apex     # deploy only apex (no migration)
+//   node scripts/deploy.mjs preview --app=apex     # deploy only apex to preview (no migration)
 //   node scripts/deploy.mjs preview --no-migrate   # deploy all, skip migration
 //   node scripts/deploy.mjs production
 //
@@ -17,7 +17,7 @@
 //      are missing, and pipes them into `wrangler secret bulk` over stdin.
 //   4. Hands build + deploy to Turbo (`turbo run deploy:<target>`), which builds
 //      every workspace dependency in graph order (cached) before wrangler runs.
-//      Scope to one Worker with --app; a full run deploys the whole fleet.
+//      Scope preview deploys to one Worker with --app; production deploys the whole fleet.
 //
 // Idempotent: a secret that already exists is left untouched, so re-running never
 // rotates anything and is always safe. Generation is the ONLY way a value comes
@@ -92,6 +92,8 @@ const PACKAGE_NAMES = {
 // depend on the schema, so migrations run first. The rest (stream, content, mcp,
 // apex, web) have no DB, so a scoped deploy of only those never needs a migration.
 const DB_BACKED_APPS = new Set(["api", "upload", "jobs"]);
+const PRODUCTION_SCOPE_ERROR =
+  "Production deploys must deploy the full fleet; --app scoping is only supported for preview deploys.";
 
 /**
  * Resolve which apps to deploy from argv. With no --app flag, returns the full
@@ -134,6 +136,19 @@ export function shouldMigrate(apps, noMigrateFlag) {
 }
 
 /**
+ * Production deploys are intentionally full-fleet only. Preview can be scoped
+ * for fast Worker-specific iteration.
+ * @param {string[]} apps
+ * @param {"local"|"preview"|"production"} target
+ */
+export function assertDeployScopeAllowed(apps, target) {
+  const isFullFleet = apps.length === APPS.length && APPS.every((app, index) => apps[index] === app);
+  if (target === "production" && !isFullFleet) {
+    throw new Error(PRODUCTION_SCOPE_ERROR);
+  }
+}
+
+/**
  * Build the `turbo run deploy:<target>` argv. A full-fleet deploy needs no
  * filters; a scoped deploy passes one --filter per selected app.
  * @param {string[]} apps
@@ -141,6 +156,7 @@ export function shouldMigrate(apps, noMigrateFlag) {
  * @returns {string[]}
  */
 export function turboDeployArgs(apps, target) {
+  assertDeployScopeAllowed(apps, target);
   const args = ["exec", "turbo", "run", `deploy:${target}`];
   if (apps.length < APPS.length) {
     for (const app of apps) {
@@ -484,12 +500,13 @@ async function main() {
     fail("Usage: node scripts/deploy.mjs <local|preview|production> [--app=<name>] [--no-migrate] [--smoke]");
   }
 
-  // --app=<name>: deploy only the named app(s), comma-separated. Scopes BOTH secret
-  // provisioning and the Turbo build+deploy to one Worker (e.g. apex, the marketing
-  // page) instead of the whole fleet. A typo fails loud, not silently.
+  // --app=<name>: for preview deploys, deploy only the named app(s),
+  // comma-separated. Scopes BOTH secret provisioning and the Turbo build+deploy
+  // to one Worker (e.g. apex, the marketing page). A typo fails loud, not silently.
   let apps;
   try {
     apps = selectApps(argv);
+    assertDeployScopeAllowed(apps, target);
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }
