@@ -50,6 +50,7 @@ async function runHostedEphemeralSmoke() {
   }
 
   const claimWebOrigin = config.webBaseUrl.replace(/\/+$/, "");
+  const artifactWebOrigin = target === "pr" && !process.env.AGENT_PASTE_PR_WEB_URL ? undefined : claimWebOrigin;
   const cliEnv = {
     ...process.env,
     AGENT_PASTE_API_URL: config.apiBaseUrl,
@@ -104,7 +105,7 @@ async function runHostedEphemeralSmoke() {
   await assertPublishOutput(published, {
     apiBaseUrl: config.apiBaseUrl,
     contentBaseUrl: config.contentBaseUrl,
-    webBaseUrl: claimWebOrigin,
+    webBaseUrl: artifactWebOrigin,
     claimWebOrigin,
     expectedClaimTokenPrefix: config.expectedClaimTokenPrefix,
   });
