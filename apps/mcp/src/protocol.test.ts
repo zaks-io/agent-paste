@@ -69,6 +69,30 @@ describe("handleMcpProtocolMethod tools/call", () => {
       });
     }
   });
+
+  it("accepts the MCP-reserved _meta member on tools/call params", async () => {
+    const whoami = {
+      workspace_member: { id: "mem_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", email: "user@example.com" },
+      workspace: {
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        name: "Personal",
+        created_at: "2026-05-20T12:00:00.000Z",
+      },
+      scopes: ["read"],
+    };
+    const handled = await handleMcpProtocolMethod({
+      method: "tools/call",
+      params: { name: "whoami", arguments: {}, _meta: { progressToken: 1 } },
+      id: 4,
+      auth,
+      toolDeps: {
+        api: { fetch: vi.fn(async () => Response.json(whoami)) },
+        upload: { fetch: vi.fn() },
+        bearerToken: auth.bearerToken,
+      },
+    });
+    expect(handled.kind).toBe("result");
+  });
 });
 
 describe("handleMcpProtocolMethod protocol errors", () => {
