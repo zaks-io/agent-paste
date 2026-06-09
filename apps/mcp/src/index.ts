@@ -157,13 +157,7 @@ function openApiDocument(): Record<string, unknown> {
                 "application/json": {
                   schema: {
                     type: "object",
-                    required: [
-                      "resource",
-                      "resource_name",
-                      "authorization_servers",
-                      "bearer_methods_supported",
-                      "scopes_supported",
-                    ],
+                    required: ["resource", "authorization_servers", "bearer_methods_supported", "scopes_supported"],
                     properties: {
                       resource: { type: "string", format: "uri" },
                       resource_name: { type: "string" },
