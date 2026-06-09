@@ -31,6 +31,10 @@ Add `https://mcp.agent-paste.sh` as a remote MCP server in the host, then
 complete the OAuth flow when prompted. MCP does not accept API Keys, dashboard
 cookies, or copied session tokens.
 
+OAuth discovery is hosted at `/.well-known/oauth-protected-resource`. The root
+MCP resource identifier is `https://mcp.agent-paste.sh/`; clients should discover
+it automatically and should not require a manually configured OAuth resource.
+
 The WorkOS user must already belong to a Workspace. Signing in to the dashboard
 or running `agent-paste login` creates the member row. Once connected, run the
 `whoami` tool first; it reports the Workspace and the derived MCP capabilities
@@ -38,12 +42,13 @@ available to the agent.
 
 Common remote-MCP hosts:
 
-| Host           | Setup                                                                    |
-| -------------- | ------------------------------------------------------------------------ |
-| Cursor         | Add a remote MCP server with URL `https://mcp.agent-paste.sh`.           |
-| Claude Desktop | Add the server URL in connector settings and complete OAuth.             |
-| Claude.ai      | Add a custom MCP connector with server URL `https://mcp.agent-paste.sh`. |
-| ChatGPT        | Register the MCP connector with server URL `https://mcp.agent-paste.sh`. |
+| Host           | Setup                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| Cursor         | Add a remote MCP server with URL `https://mcp.agent-paste.sh`.                                        |
+| Codex          | Run `codex mcp add agent-paste --url https://mcp.agent-paste.sh`, then `codex mcp login agent-paste`. |
+| Claude Desktop | Add the server URL in connector settings and complete OAuth.                                          |
+| Claude.ai      | Add a custom MCP connector with server URL `https://mcp.agent-paste.sh`.                              |
+| ChatGPT        | Register the MCP connector with server URL `https://mcp.agent-paste.sh`.                              |
 
 Host-specific OAuth and redirect notes live in
 [`docs/ops/runbook-mcp-hosts.md`](./ops/runbook-mcp-hosts.md).

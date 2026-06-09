@@ -1,5 +1,5 @@
 /** OAuth resource indicator for MCP-issued tokens (ADR 0061). */
-export const MCP_RESOURCE_INDICATOR = "https://mcp.agent-paste.sh" as const;
+export const MCP_RESOURCE_INDICATOR = "https://mcp.agent-paste.sh/" as const;
 
 /** The MCP capability vocabulary; a member's granted subset is derived in `api` from their role (ADR 0079). */
 export const MCP_DELEGATED_SCOPES = ["write", "read", "share"] as const;

@@ -23,7 +23,7 @@ export type McpTransportDeps = {
 };
 
 function resourceFromEnv(env: McpTransportEnv): string {
-  return env.MCP_RESOURCE ?? "https://mcp.agent-paste.sh";
+  return env.MCP_RESOURCE ?? MCP_RESOURCE_INDICATOR;
 }
 
 function unauthorizedMcpResponse(message: string, resource: string): Response {
@@ -33,12 +33,8 @@ function unauthorizedMcpResponse(message: string, resource: string): Response {
 }
 
 function authenticateChallengeHeaders(resource: string): Headers {
-  const header =
-    resource === MCP_RESOURCE_INDICATOR
-      ? mcpWwwAuthenticateHeader()
-      : `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resource}/.well-known/oauth-protected-resource"`;
   return new Headers({
-    "www-authenticate": header,
+    "www-authenticate": mcpWwwAuthenticateHeader(resource),
   });
 }
 

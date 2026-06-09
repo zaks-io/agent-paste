@@ -9,6 +9,7 @@ Responsibilities:
 
 - Streamable HTTP MCP transport.
 - OAuth protected resource metadata.
+- OAuth authorization-server metadata facade for compatibility clients.
 - WorkOS JWT bearer verification.
 - Forwarding to `api` and `upload` over service bindings.
 - Text-only MCP tool surface (twelve tools).
@@ -23,6 +24,8 @@ Current endpoints:
 - `GET /` - returns `405` in stateless v1 (no standalone SSE stream)
 - `GET /healthz`
 - `GET /.well-known/oauth-protected-resource`
+- `GET /.well-known/oauth-authorization-server`
+- `GET /.well-known/openid-configuration`
 - `GET /openapi.json`
 
 Transport auth is OAuth-bearer only via WorkOS JWT verification. Authenticated

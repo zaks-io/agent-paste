@@ -113,7 +113,7 @@ describe("member MCP artifact delete invalidation", () => {
     const purgeSend = vi.fn(async () => ({}));
     const env: Env = {
       WORKOS_API_KEY: "sk_test",
-      WORKOS_MCP_AUDIENCE: "https://mcp.agent-paste.sh",
+      WORKOS_MCP_AUDIENCE: "https://mcp.agent-paste.sh/",
       DB: repo,
       DENYLIST: denylist,
       ...allowRateLimits(),

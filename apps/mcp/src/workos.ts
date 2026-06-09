@@ -1,4 +1,4 @@
-import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
+import { MCP_RESOURCE_INDICATOR, trimTrailingSlashes } from "@agent-paste/contracts";
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 
 export type McpWorkOsEnv = {
@@ -18,7 +18,7 @@ const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
 // MCP clients append the resource URL with or without a trailing slash, and
 // AuthKit stamps aud from the requested resource verbatim, so compare normalized.
 function normalizeResource(value: string): string {
-  return value.replace(/\/+$/, "");
+  return trimTrailingSlashes(value);
 }
 
 function audienceMatches(aud: unknown, resource: string): boolean {
@@ -36,8 +36,8 @@ function issuerMatches(actual: string | undefined, expected: readonly string[] |
   if (!actual || !expected || expected.length === 0) {
     return false;
   }
-  const normalized = actual.replace(/\/+$/, "");
-  return expected.some((issuer) => issuer.replace(/\/+$/, "") === normalized);
+  const normalized = trimTrailingSlashes(actual);
+  return expected.some((issuer) => trimTrailingSlashes(issuer) === normalized);
 }
 
 function remoteJwks(env: McpWorkOsEnv): ReturnType<typeof createRemoteJWKSet> | null {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { MCP_RESOURCE_INDICATOR } from "../packages/contracts/dist/mcp.js";
 import { MCP_TOOL_NAMES, mcpSmokeConfig, normalizeMcpSmokeTarget } from "./smoke-mcp-harness.mjs";
 
 describe("smoke-mcp-harness", () => {
@@ -14,7 +13,7 @@ describe("smoke-mcp-harness", () => {
     const config = mcpSmokeConfig("preview");
     expect(config.mcpBaseUrl).toContain("mcp.preview.agent-paste.sh");
     expect(config.resource).toContain("mcp.preview.agent-paste.sh");
-    expect(config.audience).toBe(MCP_RESOURCE_INDICATOR);
+    expect(config.audience).toBe("https://mcp.preview.agent-paste.sh/");
     expect(config.authorizationServers[0]).toContain("authkit.app");
   });
 

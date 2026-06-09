@@ -25,20 +25,23 @@ Related docs:
 
 ## MCP endpoint
 
-| Environment | MCP URL                              | OAuth resource indicator (`aud`) |
-| ----------- | ------------------------------------ | -------------------------------- |
-| Preview     | `https://mcp.preview.agent-paste.sh` | `https://mcp.agent-paste.sh`     |
-| Production  | `https://mcp.agent-paste.sh`         | `https://mcp.agent-paste.sh`     |
+| Environment | MCP URL                              | Canonical OAuth resource indicator (`aud`) |
+| ----------- | ------------------------------------ | ------------------------------------------ |
+| Preview     | `https://mcp.preview.agent-paste.sh` | `https://mcp.preview.agent-paste.sh/`      |
+| Production  | `https://mcp.agent-paste.sh`         | `https://mcp.agent-paste.sh/`              |
 
-Both environments mint tokens for the **production resource indicator**
-`https://mcp.agent-paste.sh`. Preview advertises a preview `resource` URL in
-Protected Resource Metadata, but token verification still pins `aud` to the
-production indicator per ADR 0061.
+The root Streamable HTTP endpoint is `/`, so the canonical RFC 9728 resource
+identifier includes the trailing slash. The Workers also accept no-slash
+audiences for old tokens and manual host overrides by normalizing trailing
+slashes during token verification.
 
 Discovery:
 
 - `GET /.well-known/oauth-protected-resource` — RFC 9728 metadata (resource,
   authorization servers, supported scopes).
+- `GET /.well-known/oauth-authorization-server` and
+  `GET /.well-known/openid-configuration` — WorkOS AuthKit metadata facade for
+  clients that probe the MCP host directly.
 - `GET /healthz` — Worker health (`{"ok":true,"app":"mcp"}`).
 - `POST /` — Streamable HTTP MCP transport (JSON-RPC; optional SSE responses).
 
@@ -61,8 +64,13 @@ Required WorkOS Dashboard settings (per environment):
    client identification path.
 2. **Dynamic Client Registration (DCR)** — keep enabled for hosts that have not
    adopted CIMD yet (RFC 7591 compatibility).
-3. **Resource indicator** — register `https://mcp.agent-paste.sh` as a valid
-   resource so issued tokens carry `aud=https://mcp.agent-paste.sh`.
+3. **Resource indicators** — register the canonical resource for the target:
+   production `https://mcp.agent-paste.sh/`, preview
+   `https://mcp.preview.agent-paste.sh/`. Also keep the no-slash aliases
+   (`https://mcp.agent-paste.sh`, `https://mcp.preview.agent-paste.sh`) during
+   alpha because older host configs and manual overrides may still request them.
+   Issued tokens must carry an `aud` matching the target resource, modulo the
+   server's trailing-slash normalization.
 
 ### Redirect URI allowlist (DCR compatibility)
 
@@ -165,6 +173,18 @@ stay enabled in WorkOS until CIMD support is confirmed for your build.
 **Quirk:** Connector OAuth UX varies by ChatGPT rollout; if discovery fails,
 confirm Protected Resource Metadata is reachable from the host's egress.
 
+### Codex
+
+1. Add the remote server: `codex mcp add agent-paste --url https://mcp.agent-paste.sh`.
+2. Authenticate: `codex mcp login agent-paste`.
+3. Start a fresh Codex session after login so the tool inventory is reloaded.
+
+**Quirk:** Current Codex/rmcp sends the root resource as
+`https://mcp.agent-paste.sh/`. Do not require users to pass `--oauth-resource`;
+register the trailing-slash Resource Indicator in WorkOS instead. If a user
+already logged in before this fix, run `codex mcp logout agent-paste` and login
+again.
+
 ## Tool surface (initial twelve)
 
 Text-only artifact operations per ADR 0061:
@@ -230,6 +250,8 @@ Environment overrides:
 | Variable                             | Purpose                                      |
 | ------------------------------------ | -------------------------------------------- |
 | `AGENT_PASTE_PREVIEW_MCP_URL`        | Preview MCP base URL override                |
+| `AGENT_PASTE_PREVIEW_MCP_RESOURCE`   | Preview OAuth resource override              |
+| `AGENT_PASTE_PREVIEW_MCP_AUDIENCE`   | Preview token audience override              |
 | `AGENT_PASTE_PRODUCTION_MCP_URL`     | Production MCP base URL override             |
 | `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` | Bearer token for authenticated hosted checks |
 
@@ -248,7 +270,7 @@ pnpm --filter @agent-paste/mcp test
 | `401` with API key message                  | Host sent an API key; MCP accepts OAuth only                         |
 | `401` with `workos_access_token` message    | Host sent a dashboard session token instead of MCP OAuth             |
 | `mcp_oauth_verifier_not_configured` (local) | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                   |
-| Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS                               |
+| Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS or missing Resource Indicator |
 | `whoami` succeeds but publish fails         | Member's role lacks `write read share` together                      |
 
 ## Verification boundary
