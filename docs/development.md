@@ -70,6 +70,7 @@ pnpm hooks:install
 | Command                  | Purpose                                                                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `pnpm dev:web`           | Build packages and start the local API/upload/content/jobs/stream harness plus the web dashboard on `localhost:5173`. |
+| `pnpm dev:apex`          | Start the apex preview server with Vite hot reload on `localhost:5174`.                                               |
 | `pnpm dev:all`           | Build packages and start only the local MVP API/upload/content/jobs/stream harness.                                   |
 | `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                                                                      |
 | `pnpm cli:test`          | Run only the CLI test suite.                                                                                          |

@@ -23,7 +23,7 @@ describe("entry-server prerender contract", () => {
     expect(html.startsWith("<!doctype html>\n")).toBe(true);
     expect(html).toContain("Where agents publish");
     expect(html).toContain('<link rel="stylesheet" href="/assets/styles.css"/>');
-    expect(html).toContain('<script src="/assets/client.js" defer="">');
+    expect(html).toContain('<script type="module" src="/assets/client.js" defer="">');
     // Billing off in the test process: no beacon, no pricing link.
     expect(html).not.toContain("cloudflareinsights.com");
     expect(html).not.toContain('href="/pricing"');

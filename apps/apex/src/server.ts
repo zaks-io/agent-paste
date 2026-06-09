@@ -32,7 +32,7 @@ const TEXT_ASSET_PATHS = new Set([
   "/sitemap.xml",
 ]);
 
-function isTextAssetPath(pathname: string): boolean {
+export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
 }
 

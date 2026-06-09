@@ -81,6 +81,7 @@ All standard commands are documented in `docs/development.md`. Highlights for cl
 | Local E2E smoke test                    | `pnpm smoke:local`                                                                           |
 | Start local dev server                  | `pnpm dev:all` (builds first, then starts in-memory API/Upload/Content on :8787/:8788/:8789) |
 | Deploy to preview                       | `pnpm deploy:preview` (whole fleet) or `pnpm deploy:preview --app=apex` (one Worker)         |
+| Preview apex marketing site             | `pnpm dev:apex` (Vite hot reload on :5174, preview-shaped links and billing flag)            |
 
 Deploying to preview is a single command: `pnpm deploy:preview`. It builds (Turbo,
 cached, in dependency order), provisions secrets, and deploys. Scope to one Worker
@@ -96,6 +97,7 @@ local: it deploys the full fleet through CI on merge to `main`.
 - The harness self-seeds a `local-proof-workspace` and proof artifacts on startup and prints the API/Upload/Content/Jobs/Stream base URLs plus the `AGENT_PASTE_*_URL` exports to copy. The legacy `ADMIN_TOKEN` / `admin workspace create` / `admin key create` flow was removed in AP-12/AP-13 and no longer exists.
 - Follow the harness's own printed guidance to publish: `pnpm cli:dev login`, `pnpm cli:dev whoami`, `pnpm cli:dev publish examples/local-harness/site`.
 - The CLI resolves paths relative to `apps/cli/`, so use absolute paths when calling `pnpm cli:dev publish`.
+- `pnpm dev:apex` serves the apex marketing site locally on `http://127.0.0.1:5174` with Vite hot reload. It defaults to the preview shape (`AGENT_PASTE_ENV=preview`, `BILLING_ENABLED=true`) without touching hosted preview.
 
 ### Worktree env + web dev server
 
