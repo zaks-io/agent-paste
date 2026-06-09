@@ -20,6 +20,10 @@ export const McpToolCallParams = z
   .object({
     name: McpToolName,
     arguments: z.record(z.string(), z.unknown()).optional(),
+    // `_meta` is reserved by the MCP base protocol (Request.params) and is sent by
+    // real clients (e.g. progress tokens). Accept and ignore it instead of failing
+    // the whole tools/call envelope with invalid_params.
+    _meta: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 export type McpToolCallParams = z.infer<typeof McpToolCallParams>;
