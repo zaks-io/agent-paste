@@ -85,10 +85,14 @@ await deploy("upload", files.uploadConfig, files.uploadSecrets);
 await deploy("content", files.contentConfig, files.contentSecrets);
 await deploy("jobs", files.jobsConfig, files.jobsSecrets);
 // apex prerenders to static HTML, so build it before deploying the worker shim +
-// dist/client. Billing on (like the standing preview env) so /pricing renders.
-// No CF_WEB_ANALYTICS_TOKEN: per-PR ephemeral previews must not emit the beacon
-// and pollute production web-analytics.
-await run("pnpm", ["--filter", "@agent-paste/apex", "build"], { env: { BILLING_ENABLED: "true" } });
+// dist/client. AGENT_PASTE_ENV=preview is what bakes the preview cross-app base
+// URLs (app/api/mcp) into the prerendered HTML via copy.ts — without it the
+// preview build links to production. Billing on (like the standing preview env)
+// so /pricing renders. No CF_WEB_ANALYTICS_TOKEN: per-PR ephemeral previews must
+// not emit the beacon and pollute production web-analytics.
+await run("pnpm", ["--filter", "@agent-paste/apex", "build"], {
+  env: { AGENT_PASTE_ENV: "preview", BILLING_ENABLED: "true" },
+});
 await deploy("apex", files.apexConfig);
 const webDeployed = await deployWeb();
 

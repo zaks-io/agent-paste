@@ -38,7 +38,7 @@ export function PricingPage() {
           <div className="grid gap-3 rounded-sm border border-rule bg-surface p-5">
             <h2 className="font-display text-h2 font-bold tracking-tighter text-foreground">{PLANS.free.name}</h2>
             <p className="m-0 flex items-baseline gap-1 font-mono">
-              <span className="text-h1 text-foreground">{freePrice?.amount ?? "$0"}</span>
+              <span className="text-h1 text-foreground">{freePrice?.amount ?? "—"}</span>
               <span className="text-sm text-subtle">{freePrice?.per ?? "/ mo"}</span>
             </p>
             <p className="text-base leading-normal text-muted">For trying agent-paste and everyday handoffs.</p>
@@ -46,7 +46,7 @@ export function PricingPage() {
           <div className="grid gap-3 rounded-sm border border-rule-strong bg-surface p-5">
             <h2 className="font-display text-h2 font-bold tracking-tighter text-foreground">{PLANS.pro.name}</h2>
             <p className="m-0 flex items-baseline gap-1 font-mono">
-              <span className="text-h1 text-foreground">{proPrice?.amount ?? ""}</span>
+              <span className="text-h1 text-foreground">{proPrice?.amount ?? "—"}</span>
               <span className="text-sm text-subtle">{proPrice?.per ?? "/ mo"}</span>
             </p>
             <p className="text-base leading-normal text-muted">Higher allowance, longer retention, and Live Updates.</p>

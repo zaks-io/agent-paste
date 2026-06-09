@@ -1,5 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
-import { forwardRef } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { type ButtonSize, type ButtonVariant, buttonClasses } from "./buttonClasses";
 
 export type { ButtonSize, ButtonVariant } from "./buttonClasses";
@@ -8,12 +7,21 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  // React 19: ref is a regular prop, no forwardRef needed.
+  ref?: Ref<HTMLButtonElement>;
 };
 
-export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { className, variant = "primary", size = "md", loading, children, disabled, type, ...rest },
+export function Button({
+  className,
+  variant = "primary",
+  size = "md",
+  loading,
+  children,
+  disabled,
+  type,
   ref,
-) {
+  ...rest
+}: Props) {
   return (
     <button
       ref={ref}
@@ -37,4 +45,4 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       )}
     </button>
   );
-});
+}
