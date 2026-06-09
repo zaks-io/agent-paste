@@ -268,6 +268,7 @@ function fakePublishClient() {
     title: "Published",
     artifact_url: "https://app.test/artifacts/art_1",
     revision_content_url: "https://content.test/v/token/index.html",
+    view_url: "https://content.test/v/token/index.html",
     agent_view_url: "https://api.test/agent-view/token",
     expires_at: "2026-02-01T00:00:00.000Z",
   });

@@ -8,6 +8,7 @@ import {
   type McpAuthenticatedPrincipal,
   mcpVerifyOptions,
   resolveMcpMemberActor,
+  WorkOsVerificationUnavailableError,
 } from "./mcp-auth.js";
 
 const subject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
@@ -151,6 +152,28 @@ describe("MCP OAuth bearer verification", () => {
     expect(
       await authenticateMcpBearer(request("https://upload.test/v1/upload-sessions", fixture.token), baseEnv()),
     ).toBeNull();
+  });
+
+  it("throws when WorkOS JWKS verification is unavailable", async () => {
+    const unavailableJwksUrl = "https://tenant.authkit.app/oauth2/jwks-unavailable";
+    const fixture = await mcpTokenFixture({ scope: "read" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request) => {
+        const href = url instanceof Request ? url.url : String(url);
+        if (href === unavailableJwksUrl) {
+          return new Response("bad gateway", { status: 502 });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    await expect(
+      authenticateMcpBearer(
+        request("https://upload.test/v1/upload-sessions", fixture.token),
+        baseEnv({ WORKOS_MCP_JWKS_URL: unavailableJwksUrl }),
+      ),
+    ).rejects.toBeInstanceOf(WorkOsVerificationUnavailableError);
   });
 
   it("resolves member actors from the database with their stored scopes intact", async () => {

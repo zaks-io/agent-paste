@@ -7,7 +7,7 @@ import {
   QUEUE_BYTE_PURGE,
   QUEUE_SAFETY_SCAN,
 } from "./constants.js";
-import worker, { type Env, handleQueueBatch, runQueueConsumer, runScheduledJobs } from "./index.js";
+import worker, { type Env, handleQueueBatch, runQueueConsumer, runScheduledEvent, runScheduledJobs } from "./index.js";
 import * as queue from "./queue.js";
 import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
@@ -62,6 +62,22 @@ describe("jobs worker", () => {
       ),
     ).resolves.toBeUndefined();
     expect(executor.query).not.toHaveBeenCalled();
+  });
+
+  it("logs and swallows unhandled scheduled job failures", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const executor = createTransactionalSqlExecutor(async () => {
+      throw new Error("db_timeout");
+    });
+    await expect(
+      runScheduledEvent(
+        { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
+        { DB: executor, BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() } },
+      ),
+    ).resolves.toBeUndefined();
+    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.unhandled"))).toBe(true);
+    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("db_timeout"))).toBe(true);
+    errorSpy.mockRestore();
   });
 
   it("leaves upload sessions pending when purge enqueue fails", async () => {

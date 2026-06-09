@@ -19,6 +19,7 @@ export type WebCallbackIdentity = (WorkOsIdentity & { token_id: string }) | (Wor
 export type WorkOsRejectReason =
   | "no_bearer"
   | "verify_threw"
+  | "verification_unavailable"
   | "missing_sub"
   | "bad_exp"
   | "issuer_mismatch"
@@ -36,6 +37,7 @@ export type WorkOsVerificationOptions = {
   requireClientIdClaim?: boolean;
   /** When true, do not require `client_id`/`azp` to match `clientId` (caller pins via `aud` instead). */
   skipClientIdClaimVerification?: boolean;
+  throwOnUnavailable?: boolean;
   onReject?: (reason: WorkOsRejectReason, detail?: Record<string, unknown>) => void;
 };
 
@@ -54,6 +56,14 @@ const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
 // the per-request WorkOS user fetch. CLI and MCP tokens have no template, so the
 // fetch stays the fallback for them. See ADR 0082.
 const WORKOS_EMAIL_CLAIM = "zaks-io:email";
+
+export class WorkOsVerificationUnavailableError extends Error {
+  readonly name = "WorkOsVerificationUnavailableError";
+
+  constructor(message = "workos_verification_unavailable") {
+    super(message);
+  }
+}
 
 export async function resolveWorkOsIdentity(
   bearerValue: string,
@@ -146,7 +156,15 @@ export async function verifyWorkOsAccessToken(
       ...(tokenId ? { tokenId } : {}),
     };
   } catch (error) {
-    options.onReject?.("verify_threw", { error: errorLabel(error) });
+    const detail = { error: errorLabel(error) };
+    if (isVerificationDependencyError(error)) {
+      options.onReject?.("verification_unavailable", detail);
+      if (options.throwOnUnavailable) {
+        throw new WorkOsVerificationUnavailableError();
+      }
+      return null;
+    }
+    options.onReject?.("verify_threw", detail);
     return null;
   }
 }
@@ -164,7 +182,7 @@ function errorLabel(error: unknown): string {
 
 export async function fetchWorkOsUser(
   workosUserId: string,
-  options: Pick<WorkOsVerificationOptions, "apiBaseUrl" | "apiKey" | "onReject">,
+  options: Pick<WorkOsVerificationOptions, "apiBaseUrl" | "apiKey" | "onReject" | "throwOnUnavailable">,
 ): Promise<WorkOsUser | null> {
   try {
     const response = await fetch(
@@ -175,6 +193,9 @@ export async function fetchWorkOsUser(
     );
     if (!response.ok) {
       options.onReject?.("user_fetch_failed", { status: response.status });
+      if (response.status >= 500 && options.throwOnUnavailable) {
+        throw new WorkOsVerificationUnavailableError();
+      }
       return null;
     }
     const value = await response.json();
@@ -188,9 +209,31 @@ export async function fetchWorkOsUser(
     }
     return user;
   } catch (error) {
+    if (error instanceof WorkOsVerificationUnavailableError) {
+      throw error;
+    }
     options.onReject?.("user_fetch_failed", { error: errorLabel(error) });
+    if (options.throwOnUnavailable) {
+      throw new WorkOsVerificationUnavailableError();
+    }
     return null;
   }
+}
+
+function isVerificationDependencyError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  if (code === "ERR_JWKS_TIMEOUT") {
+    return true;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("json web key set http response") ||
+    message.includes("jwks request timed out") ||
+    message.includes("fetch failed")
+  );
 }
 
 function parseBearerToken(value: string): string | null {

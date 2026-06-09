@@ -74,6 +74,23 @@ describe("smoke-ephemeral-harness", () => {
       ),
     ).rejects.toThrow(/revision_content_url targets content origin/);
   });
+
+  it("checks view_url is the revision content URL alias", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult("https://app.preview.agent-paste.sh", {
+          view_url: "https://content.example.test/v/other/index.html",
+        }),
+        {
+          apiBaseUrl: "https://api.example.test",
+          contentBaseUrl: "https://content.example.test",
+          webBaseUrl: "https://app.preview.agent-paste.sh",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).rejects.toThrow(/view_url aliases revision_content_url/);
+  });
 });
 
 describe("probeEphemeralPowReady", () => {
@@ -184,11 +201,13 @@ function startProbeServer({ status, body }) {
 }
 
 function samplePublishResult(artifactOrigin, overrides = {}) {
+  const revisionContentUrl = overrides.revision_content_url ?? "https://content.example.test/v/token/index.html";
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
     artifact_url: `${artifactOrigin}/artifacts/art_test`,
-    revision_content_url: "https://content.example.test/v/token/index.html",
+    revision_content_url: revisionContentUrl,
+    view_url: revisionContentUrl,
     agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
     claim_token: "ap_ct_preview_test",
     claim_url: "https://app.preview.agent-paste.sh/claim#ap_ct_preview_test",

@@ -5,6 +5,7 @@ export {
   type McpAuthenticatedPrincipal,
   mcpVerifyOptions,
   resolveMcpMemberActor,
+  WorkOsVerificationUnavailableError,
 } from "./mcp-auth.js";
 export {
   buildErrorBody,

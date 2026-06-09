@@ -108,6 +108,7 @@ try {
   assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
   assert(published.artifact_url?.includes(`/artifacts/${published.artifact_id}`), "publish returned Artifact URL");
   assert(published.revision_content_url?.startsWith(contentBaseUrl), "publish returned local revision_content_url");
+  assert(published.view_url === published.revision_content_url, "publish returned view_url alias");
   assert(published.agent_view_url?.startsWith(apiBaseUrl), "publish returned local agent_view_url");
 
   const view = await fetch(published.revision_content_url);

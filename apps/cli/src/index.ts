@@ -355,6 +355,7 @@ type PublishResultShape = {
   title: string;
   artifact_url: string;
   revision_content_url: string;
+  view_url?: string;
   agent_view_url: string;
   expires_at: string;
 };
@@ -407,6 +408,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   if (
     result.artifact_url.includes(claimToken) ||
     result.revision_content_url.includes(claimToken) ||
+    result.view_url?.includes(claimToken) ||
     result.agent_view_url.includes(claimToken)
   ) {
     throw new Error("Claim Token must not appear in public share URLs");

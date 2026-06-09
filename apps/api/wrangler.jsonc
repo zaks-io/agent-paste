@@ -17,6 +17,11 @@
     }
   },
   "upload_source_maps": true,
+  // The jobs Worker owns all cron discovery. Keep this explicit so deploys clear
+  // any stale scheduled triggers left from older API cleanup ownership.
+  "triggers": {
+    "crons": []
+  },
   "vars": {
     "AGENT_PASTE_ENV": "dev",
     "API_KEY_ENV": "preview",

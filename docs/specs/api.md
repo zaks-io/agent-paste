@@ -120,6 +120,7 @@ The returned `put_url` values are opaque upload-worker URLs. They are not R2 URL
   "title": "demo",
   "artifact_url": "https://app.agent-paste.sh/artifacts/art_...",
   "revision_content_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
+  "view_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
   "expires_at": "2026-06-19T12:00:00.000Z",
   "bundle": {
@@ -137,6 +138,8 @@ Artifact state, signs the URLs, and returns `PublishResult`.
 the latest Published Revision and can Live Update. `revision_content_url` is the
 direct signed Content Origin URL for the exact `revision_id` returned in this
 response, expires with its signed token, and does not Live Update.
+`view_url` is a compatibility alias for `revision_content_url`; new clients
+should not present it as the default handoff URL.
 
 ## Content Routes
 

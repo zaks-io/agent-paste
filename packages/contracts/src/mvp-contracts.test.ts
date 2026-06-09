@@ -463,6 +463,7 @@ describe("MVP schemas", () => {
         bundle: { status: "pending", retry_after_seconds: 5 },
         artifact_url: "https://app.agent-paste.sh/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        view_url: "https://usercontent.agent-paste.sh/v/token/index.html",
         agent_view_url: "https://api.agent-paste.sh/v1/public/agent-view/token",
         expires_at: "2026-06-19T12:00:00.000Z",
       }),

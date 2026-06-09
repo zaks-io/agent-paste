@@ -138,7 +138,7 @@ Smokes assert, without logging secrets:
 - Provision → publish → **Agent View** / content fetch
 - `script-src 'none'` on content CSP, `x-robots-tag: noindex, nofollow`
 - Inline script in the fixture does not execute (title unchanged)
-- **Claim Token** not present in `artifact_url`, `revision_content_url`, **Agent View** JSON/HTML, or stderr
+- **Claim Token** not present in `artifact_url`, `revision_content_url`, `view_url`, **Agent View** JSON/HTML, or stderr
 - Fresh ephemeral **usage-policy** daily allowance = 20
 - Claim redemption when WorkOS member auth is available (local smoke always; hosted optional)
 
@@ -238,7 +238,7 @@ agent-paste publish <path> --ephemeral [--title <text>] [--json]
 
 - Ignores `AGENT_PASTE_API_KEY` and stored login credentials.
 - Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `artifact_url`,
-  `revision_content_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
+  `revision_content_url`, `view_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.
 - Provision challenge failures and rate limits surface as stable CLI error codes
   (for example `ephemeral_provision_rate_limited`).

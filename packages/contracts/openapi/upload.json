@@ -456,6 +456,10 @@
             "type": "string",
             "format": "uri"
           },
+          "view_url": {
+            "type": "string",
+            "format": "uri"
+          },
           "agent_view_url": {
             "type": "string",
             "format": "uri"
@@ -554,6 +558,7 @@
           "title",
           "artifact_url",
           "revision_content_url",
+          "view_url",
           "agent_view_url",
           "expires_at",
           "bundle"

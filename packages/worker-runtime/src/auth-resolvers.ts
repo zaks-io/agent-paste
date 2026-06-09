@@ -1,4 +1,9 @@
-import { authenticateMcpBearer, type McpAuthEnv, resolveMcpMemberActor } from "@agent-paste/auth";
+import {
+  authenticateMcpBearer,
+  type McpAuthEnv,
+  resolveMcpMemberActor,
+  WorkOsVerificationUnavailableError,
+} from "@agent-paste/auth";
 import type { ApiKeyActor, Repository } from "@agent-paste/db";
 import type { AuthResolver } from "./registrar.js";
 
@@ -30,7 +35,15 @@ async function resolveMcpPrincipal(
   env: McpAuthEnv,
   db: Repository | undefined,
 ): Promise<Awaited<ReturnType<AuthResolver>>> {
-  const authenticated = await authenticateMcpBearer(request, env);
+  let authenticated: Awaited<ReturnType<typeof authenticateMcpBearer>>;
+  try {
+    authenticated = await authenticateMcpBearer(request, env);
+  } catch (error) {
+    if (error instanceof WorkOsVerificationUnavailableError) {
+      return { ok: false, code: "database_unavailable" } as const;
+    }
+    throw error;
+  }
   if (!authenticated) {
     return { ok: false, code: "not_authenticated" } as const;
   }

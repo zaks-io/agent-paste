@@ -100,8 +100,8 @@ Revision and is the default human URL agents should return. A **Share URL** is
 the separate public access-bearing link. A **Revision Content URL** is a signed
 Content Origin URL for one exact Revision; it expires and does not Live Update.
 
-The CLI prints the Artifact URL first. JSON output carries `artifact_url` and
-`revision_content_url`.
+The CLI prints the Artifact URL first. JSON output carries `artifact_url`,
+`revision_content_url`, and the older `view_url` alias.
 
 ## Publish without signing in
 
@@ -113,7 +113,7 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 
 `--ephemeral` ignores `AGENT_PASTE_API_KEY` and any stored login credential (it prints a one-line note to stderr when it does). The Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then auto-deletes. To keep it, a signed-in human opens the claim link to reparent the Artifact into their Personal Workspace.
 
-The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
+The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, `view_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
 Ephemeral content uses the script-disabled execution policy until claimed.
 Static HTML and CSS render, but JavaScript, inline event handlers, and `.js`
@@ -166,6 +166,7 @@ With `--json`, stdout is exactly the publish result:
   "title": "report",
   "artifact_url": "https://app.agent-paste.sh/artifacts/art_01H...",
   "revision_content_url": "https://usercontent.agent-paste.sh/v/...",
+  "view_url": "https://usercontent.agent-paste.sh/v/...",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
   "expires_at": "2026-06-20T00:00:00.000Z",
   "bundle": {
@@ -178,7 +179,8 @@ With `--json`, stdout is exactly the publish result:
 `artifact_url` is the app-origin live viewer for the Artifact.
 `revision_content_url` is served from the isolated content origin
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
-does not Live Update. `agent_view_url` is the Agent View JSON on the API origin.
+does not Live Update. `view_url` is the same URL kept for older CLIs and
+scripts. `agent_view_url` is the Agent View JSON on the API origin.
 `bundle` reports whether the revision archive is pending, ready, failed, or
 disabled.
 

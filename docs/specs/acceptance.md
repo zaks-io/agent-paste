@@ -12,15 +12,15 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Public CLI
 
-| Scenario                            | Expected Result                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Missing `AGENT_PASTE_API_KEY`       | `agent-paste whoami` and `publish` fail with a clear local error before network calls.                                     |
-| Valid API key                       | `agent-paste whoami` returns workspace and API key identity without secret material.                                       |
-| Publish single HTML file            | Creates one Artifact and one Revision, returns `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`. |
-| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                     |
-| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                             |
-| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                      |
-| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                          |
+| Scenario                            | Expected Result                                                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing `AGENT_PASTE_API_KEY`       | `agent-paste whoami` and `publish` fail with a clear local error before network calls.                                                 |
+| Valid API key                       | `agent-paste whoami` returns workspace and API key identity without secret material.                                                   |
+| Publish single HTML file            | Creates one Artifact and one Revision, returns `artifact_url`, `revision_content_url`, `view_url`, `agent_view_url`, and `expires_at`. |
+| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                                 |
+| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                                         |
+| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                                  |
+| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                                      |
 
 `revision_content_url` is the direct signed content URL for the published
 Revision. It is not a Share URL or Live Update viewer.
