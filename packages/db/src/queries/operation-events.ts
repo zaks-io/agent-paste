@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm";
+import { TENANT_AUDIT_ACTOR_TYPES } from "../audit/change-summary.js";
 import { createId } from "../id.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { operationEvents } from "../schema.js";
@@ -62,7 +63,11 @@ export const operationEventQueries = {
     db: DrizzleDb,
     input: { workspaceId: string; limit: number; cursor?: OperationEventCursor },
   ): Promise<OperationEvent[]> {
-    const conditions: SQL[] = [eq(operationEvents.workspaceId, input.workspaceId)];
+    const conditions: SQL[] = [
+      eq(operationEvents.workspaceId, input.workspaceId),
+      // Internal system/platform events stay on the operator surface only.
+      inArray(operationEvents.actorType, [...TENANT_AUDIT_ACTOR_TYPES]),
+    ];
     if (input.cursor) {
       const cursorPredicate = or(
         lt(operationEvents.occurredAt, input.cursor.occurredAt),

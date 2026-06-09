@@ -1,7 +1,10 @@
+import { TENANT_AUDIT_ACTOR_TYPES } from "../../audit/change-summary.js";
 import { createId } from "../../id.js";
 import type { OperationEvent } from "../../types.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
+
+const TENANT_AUDIT_ACTOR_TYPE_SET = new Set<string>(TENANT_AUDIT_ACTOR_TYPES);
 
 function compareOperationEventsForWeb(left: OperationEvent, right: OperationEvent) {
   const occurred = right.occurred_at.localeCompare(left.occurred_at);
@@ -40,6 +43,7 @@ export function localOperationEvents(state: LocalState): Entities["operationEven
       const cursorId = input.cursor?.id ?? null;
       return [...state.operationEvents.values()]
         .filter((event) => event.workspace_id === input.workspaceId)
+        .filter((event) => TENANT_AUDIT_ACTOR_TYPE_SET.has(event.actor_type))
         .filter(
           (event) =>
             cursorOccurredAt === null ||

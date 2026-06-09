@@ -153,20 +153,44 @@ Primary key `(upload_session_id, path)`.
 
 ### `operation_events`
 
-| Column         | Type                                  | Notes                                                                        |
-| -------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| `id`           | `TEXT PRIMARY KEY`                    | `evt_...`.                                                                   |
-| `workspace_id` | `UUID NULL REFERENCES workspaces(id)` | Null only for system-wide admin events.                                      |
-| `actor_type`   | `TEXT NOT NULL`                       | `api_key`, `member`, `admin`, `system`, or `platform`.                       |
-| `actor_id`     | `TEXT NULL`                           | API key id, member/admin identity, or null for system/platform.              |
-| `action`       | `TEXT NOT NULL`                       | Stable dotted string (for example `revision.retained`).                      |
-| `target_type`  | `TEXT NOT NULL`                       | `workspace`, `api_key`, `upload_session`, `artifact`, `revision`, `cleanup`. |
-| `target_id`    | `TEXT NOT NULL`                       |                                                                              |
-| `details`      | `JSONB NOT NULL`                      | Redacted details only.                                                       |
-| `request_id`   | `TEXT NULL`                           |                                                                              |
-| `occurred_at`  | `TIMESTAMPTZ NOT NULL`                |                                                                              |
+| Column         | Type                                  | Notes                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | `TEXT PRIMARY KEY`                    | `evt_...`.                                                                                                                                                                                                                                                                                                             |
+| `workspace_id` | `UUID NULL REFERENCES workspaces(id)` | Null only for system-wide admin events.                                                                                                                                                                                                                                                                                |
+| `actor_type`   | `TEXT NOT NULL`                       | `api_key`, `member`, `admin`, `system`, or `platform`.                                                                                                                                                                                                                                                                 |
+| `actor_id`     | `TEXT NULL`                           | API key id, member/admin identity, or the internal `system`/`platform` actor id (`stripe_webhook`, `billing_reconcile`, an operator identity). Used by operators for provenance; **redacted from tenant-facing audit rows** — see [Audit actor redaction](#audit-actor-redaction). Null only when no actor id applies. |
+| `action`       | `TEXT NOT NULL`                       | Stable dotted string (for example `revision.retained`).                                                                                                                                                                                                                                                                |
+| `target_type`  | `TEXT NOT NULL`                       | `workspace`, `api_key`, `upload_session`, `artifact`, `revision`, `cleanup`.                                                                                                                                                                                                                                           |
+| `target_id`    | `TEXT NOT NULL`                       |                                                                                                                                                                                                                                                                                                                        |
+| `details`      | `JSONB NOT NULL`                      | Redacted details only.                                                                                                                                                                                                                                                                                                 |
+| `request_id`   | `TEXT NULL`                           |                                                                                                                                                                                                                                                                                                                        |
+| `occurred_at`  | `TIMESTAMPTZ NOT NULL`                |                                                                                                                                                                                                                                                                                                                        |
 
 Operation events are intentionally lightweight but should be shaped so they can evolve into full audit events later.
+
+#### Audit actor redaction
+
+`operation_events` rows are surfaced on two distinct UIs with different trust
+boundaries:
+
+- **Tenant `/audit`** (dashboard members): scoped to the member's workspace AND
+  filtered to the workspace's own actors — `member`, `api_key`, `admin`
+  (`TENANT_AUDIT_ACTOR_TYPES`). Internal `system`/`platform` events (Stripe
+  webhooks, reconciliation, retention, operator lockdowns/overrides) are excluded
+  by the query (`operationEvents.listWebPage`), so they never enter the tenant
+  payload. As defense in depth, the transform also redacts any `system`/`platform`
+  actor that reaches it (`system` → `System`, `platform` → `Agent Paste staff`)
+  and the change-summary formatters never echo internal provenance such as
+  `details.source`.
+- **Operator `/admin`** (cross-workspace, `admin` role): `listOperatorPage` applies
+  no actor-type allowlist and the transform restores the raw `actor_type:actor_id`
+  for full traceability.
+
+The tenant boundary lives in the data layer: the query filter
+(`packages/db/src/queries/operation-events.ts` and its local twin) plus the
+repository transforms (`toWebAuditRow` redacts; `toWebOperatorEventRow` restores)
+and change-summary formatters (`packages/db/src/audit/change-summary.ts`). Do not
+move actor filtering or formatting into the React components.
 
 ### `idempotency_records`
 
