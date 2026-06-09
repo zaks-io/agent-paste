@@ -75,8 +75,11 @@ describe("jobs worker", () => {
         { DB: executor, BYTE_PURGE_QUEUE: { send: vi.fn(), sendBatch: vi.fn() } },
       ),
     ).resolves.toBeUndefined();
-    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("cron.unhandled"))).toBe(true);
-    expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("db_timeout"))).toBe(true);
+    const cronLog = errorSpy.mock.calls.map((call) => String(call[0])).find((line) => line.includes("cron.unhandled"));
+    expect(cronLog).toBeDefined();
+    const payload = JSON.parse(cronLog ?? "{}");
+    expect(payload).toMatchObject({ event: "cron.unhandled", error: "db_timeout" });
+    expect(payload.stack).toContain("Error: db_timeout");
     errorSpy.mockRestore();
   });
 
