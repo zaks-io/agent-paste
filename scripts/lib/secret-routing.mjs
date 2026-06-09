@@ -1,7 +1,7 @@
 // @ts-check
 // Single source of truth for which Worker consumes which secret, per ADR 0078.
 //
-// Every deploy path (standing preview/production in deploy-preview.mjs, per-PR in
+// Every deploy path (standing preview/production in deploy.mjs, per-PR in
 // deploy-pr-preview.mjs) and the first-deploy generator (bootstrap-secrets.mjs)
 // reads routing from here. The same data drives each Worker's `secrets.required`
 // in wrangler.jsonc, so the declaration in config and the values written at deploy

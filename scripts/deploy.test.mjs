@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  assertDeployScopeAllowed,
   createSecretPlanner,
   formatForbiddenProductionSecretsMessage,
   formatMissingProviderSecretsMessage,
   GENERATABLE,
   generatedByteLength,
   runDeployPlan,
+  selectApps,
+  shouldMigrate,
   TRANSIENT_32_BYTE_SECRETS,
+  turboDeployArgs,
 } from "./deploy.mjs";
 import { workerName } from "./wrangler-secrets.mjs";
 
@@ -36,6 +40,170 @@ function productionEnv(overrides = {}) {
 function listNoSecrets() {
   return async () => [];
 }
+
+const FULL_FLEET = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
+
+describe("selectApps", () => {
+  it("returns the full fleet with no --app flag", () => {
+    expect(selectApps(["preview"])).toEqual(FULL_FLEET);
+  });
+
+  it("returns only the named app", () => {
+    expect(selectApps(["preview", "--app=apex"])).toEqual(["apex"]);
+  });
+
+  it("preserves canonical order regardless of flag order", () => {
+    expect(selectApps(["preview", "--app=web,api"])).toEqual(["api", "web"]);
+  });
+
+  it("trims whitespace and ignores empty entries", () => {
+    expect(selectApps(["preview", "--app= apex , , web "])).toEqual(["apex", "web"]);
+  });
+
+  it("throws loud on an empty app scope", () => {
+    expect(() => selectApps(["preview", "--app="])).toThrow(/Empty --app value/);
+    expect(() => selectApps(["preview", "--app= , "])).toThrow(/Empty --app value/);
+  });
+
+  it("throws loud on an unknown app name", () => {
+    expect(() => selectApps(["preview", "--app=marketing"])).toThrow(/Unknown --app value\(s\): marketing/);
+  });
+});
+
+describe("shouldMigrate", () => {
+  it("migrates for the full fleet", () => {
+    expect(shouldMigrate(FULL_FLEET, false)).toBe(true);
+  });
+
+  it("skips migration for a DB-free app like apex", () => {
+    expect(shouldMigrate(["apex"], false)).toBe(false);
+  });
+
+  it("skips migration for a set of only DB-free apps", () => {
+    expect(shouldMigrate(["stream", "content", "mcp", "apex", "web"], false)).toBe(false);
+  });
+
+  it("migrates when the set includes a DB-backed app", () => {
+    expect(shouldMigrate(["apex", "api"], false)).toBe(true);
+  });
+
+  it("never migrates when --no-migrate is set, even with DB apps", () => {
+    expect(shouldMigrate(["api", "upload", "jobs"], true)).toBe(false);
+  });
+});
+
+describe("assertDeployScopeAllowed", () => {
+  it("allows scoped preview deploys", () => {
+    expect(() => assertDeployScopeAllowed(["apex"], "preview")).not.toThrow();
+  });
+
+  it("allows full-fleet production deploys", () => {
+    expect(() => assertDeployScopeAllowed(FULL_FLEET, "production")).not.toThrow();
+  });
+
+  it("rejects scoped production deploys", () => {
+    expect(() => assertDeployScopeAllowed(["api"], "production")).toThrow(
+      /Production deploys must deploy the full fleet/,
+    );
+  });
+});
+
+describe("turboDeployArgs", () => {
+  it("uses no --filter for a full-fleet deploy", () => {
+    expect(turboDeployArgs(FULL_FLEET, "preview")).toEqual(["exec", "turbo", "run", "deploy:preview"]);
+  });
+
+  it("adds one --filter per scoped app", () => {
+    expect(turboDeployArgs(["apex"], "preview")).toEqual([
+      "exec",
+      "turbo",
+      "run",
+      "deploy:preview",
+      "--filter=@agent-paste/apex",
+    ]);
+  });
+
+  it("targets the production deploy task for the full fleet", () => {
+    expect(turboDeployArgs(FULL_FLEET, "production")).toEqual(["exec", "turbo", "run", "deploy:production"]);
+  });
+
+  it("rejects production filters", () => {
+    expect(() => turboDeployArgs(["api", "web"], "production")).toThrow(
+      /Production deploys must deploy the full fleet/,
+    );
+  });
+});
+
+describe("runDeployPlan deploy step", () => {
+  it("binds every selected secret BEFORE the single turbo deploy call", async () => {
+    // content consumes CONTENT_SIGNING_SECRET + ARTIFACT_BYTES_ENCRYPTION_KEY, both
+    // generatable, so this exercises real provisioning (unlike apex, which has none).
+    const calls = [];
+    const planner = createSecretPlanner({
+      target: "preview",
+      env: previewEnv(),
+      listSecretsForWorker: listNoSecrets(),
+      randomBytesFn: deterministicRandomBytes,
+    });
+    const provisionPlan = await planner.buildProvisionPlan(["content"]);
+    expect(provisionPlan.get("content")?.length).toBeGreaterThan(0);
+
+    const runFn = vi.fn(async () => {
+      calls.push("provision");
+    });
+    const deployFn = vi.fn(async (apps, target) => {
+      calls.push(`deploy:${apps.join("+")}:${target}`);
+    });
+
+    await runDeployPlan({
+      target: "preview",
+      planner,
+      provisionPlan,
+      apps: ["content"],
+      runFn,
+      deployFn,
+      failFn: () => {
+        throw new Error("should not fail");
+      },
+      write: () => {},
+    });
+
+    // Secrets bound first, then exactly one turbo deploy over the scoped set.
+    expect(calls.at(-1)).toBe("deploy:content:preview");
+    expect(calls.indexOf("provision")).toBeLessThan(calls.indexOf("deploy:content:preview"));
+    expect(deployFn).toHaveBeenCalledOnce();
+    expect(deployFn).toHaveBeenCalledWith(["content"], "preview");
+  });
+
+  it("deploys an app with no secrets in a single turbo call (no provisioning)", async () => {
+    const planner = createSecretPlanner({
+      target: "preview",
+      env: previewEnv(),
+      listSecretsForWorker: listNoSecrets(),
+      randomBytesFn: deterministicRandomBytes,
+    });
+    const provisionPlan = await planner.buildProvisionPlan(["apex"]);
+    const runFn = vi.fn(async () => {});
+    const deployFn = vi.fn(async () => {});
+
+    await runDeployPlan({
+      target: "preview",
+      planner,
+      provisionPlan,
+      apps: ["apex"],
+      runFn,
+      deployFn,
+      failFn: () => {
+        throw new Error("should not fail");
+      },
+      write: () => {},
+    });
+
+    expect(runFn).not.toHaveBeenCalled();
+    expect(deployFn).toHaveBeenCalledOnce();
+    expect(deployFn).toHaveBeenCalledWith(["apex"], "preview");
+  });
+});
 
 describe("deploy secret planning", () => {
   describe("generatedByteLength", () => {

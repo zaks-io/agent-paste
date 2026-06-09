@@ -1,6 +1,17 @@
 # Agent Config
 
-Last updated: 2026-06-06
+Last updated: 2026-06-09
+
+Last verification (2026-06-09, refresh): deploy command table + CodeRabbit mode
+(incl. `@coderabbitai ignore` opt-out policy for trivial PRs) re-verified against
+live repo. Evidence: `package.json` scripts (`deploy:preview`/
+`deploy:production` now `node scripts/deploy.mjs <target>`, migrate decoupled),
+`turbo.json` (`deploy:preview`/`deploy:production` tasks present), `.coderabbit.yaml`
+(`auto_review.enabled: true`), Linear read-only `list_issues team="Agent Paste"`
+(team `64852379-2e05-41f5-af59-275b68be78ae`, project `agent-paste Roadmap`
+`a9161ce3-5868-45fe-a5cc-177881c84cf9` resolve; `status`/`statusType` fields
+confirmed). Not re-verified this pass: full label/state inventory, milestone IDs
+(unchanged since 2026-06-06).
 
 Metadata-only config consumed by the `ziw-*` skills. Authoritative detail
 lives in the linked docs; this file is the distilled, machine-readable index.
@@ -28,8 +39,16 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   (`db:check`); regenerate, never hand-edit
 - Smoke: `pnpm smoke:local`, `pnpm smoke:mcp`, `pnpm smoke:web`
 - Preview checks: PR-preview deploy + hosted smoke via `.github/workflows/pr-preview.yml`
+- Manual preview deploy: `pnpm deploy:preview` (whole fleet) or
+  `pnpm deploy:preview --app=<worker>` (one Worker; `stream|api|upload|content|jobs|mcp|apex|web`).
+  Single entry `scripts/deploy.mjs`: migrates only when a DB-backed app
+  (`api`/`upload`/`jobs`) is in scope unless `--no-migrate`, provisions secrets,
+  then `turbo run deploy:<target>` (build is a Turbo task, `dependsOn: build`).
+  Migration is NOT glued to deploy (decoupled 2026-06-09, AP-278). Laptop preview
+  deploys are fine and expected.
 - Production deploy path: `.github/workflows/deploy-production.yml`
-  (CI/CD only; `pnpm deploy:production` is the manual path and is gated)
+  (GitHub Actions CI/CD only; `pnpm deploy:production` is the manual path and is gated; no `--app`
+  scoping for production)
 - Production approval required: yes
 
 ## Issue Tracker
@@ -126,8 +145,17 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   preview smoke for hosted-affecting changes
 - Code review: `ziw-code-review` before PR; `ziw-review` for
   PR review
-- CodeRabbit: on-demand only (auto-run disabled, 12/hr cap) — use when local
-  review recommends it or change is high-risk
+- CodeRabbit: auto-review ENABLED (verified live in `.coderabbit.yaml` 2026-06-09:
+  `reviews.auto_review.enabled: true`, `profile: assertive`, drafts reviewed,
+  `auto_pause_after_reviewed_commits: 5`, `base_branches: [main]`). It reviews
+  every PR automatically — do NOT manually trigger. Local `ziw-code-review` before
+  PR is still good practice. Use `@coderabbitai full review` only to force a fresh
+  pass on a high-risk PR whose head moved past the last review.
+- CodeRabbit opt-out for trivial PRs: since auto-review is on, suppress it on
+  trivial changes (docs/comments/copy/formatting/version bumps/config-only with no
+  logic change) by adding `@coderabbitai ignore` to the PR description at creation.
+  This conserves the review budget for changes that matter. Do NOT add it to PRs
+  touching logic, auth, secrets, schemas, deploy/CI, or anything `risk-*`-labeled.
 - Issue update: attach PR, move to `In Review`, comment checks/review verdict;
   never move to `Done`
 - Merge authority: see Work Coordination

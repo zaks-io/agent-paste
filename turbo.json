@@ -21,8 +21,34 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN", "CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
+      "env": ["AGENT_PASTE_ENV", "BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN", "CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
       "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**", ".output/**"]
+    },
+    "deploy:preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "AGENT_PASTE_ENV",
+        "BILLING_ENABLED",
+        "CF_WEB_ANALYTICS_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ENV",
+        "SENTRY_AUTH_TOKEN"
+      ]
+    },
+    "deploy:production": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "AGENT_PASTE_ENV",
+        "BILLING_ENABLED",
+        "CF_WEB_ANALYTICS_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ENV",
+        "SENTRY_AUTH_TOKEN"
+      ]
     },
     "dev": {
       "cache": false,

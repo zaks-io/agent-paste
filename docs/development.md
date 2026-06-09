@@ -108,29 +108,49 @@ pnpm hooks:install
 
 ### Deploy
 
-| Command                                                | Purpose                                                                                                                     |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm bootstrap:preview`                               | Generate/write preview Worker secrets.                                                                                      |
-| `pnpm bootstrap:production`                            | Generate/write production Worker secrets.                                                                                   |
-| `pnpm bootstrap:live`                                  | Alias for `pnpm bootstrap:production`.                                                                                      |
-| `node scripts/deploy.mjs <local\|preview\|production>` | Bind every secret to its consumer Workers and deploy. `local` writes a gitignored `.env`. Idempotent; never prints a value. |
-| `pnpm secrets:local`                                   | Generate independent local-only secrets into a gitignored `.env` for `pnpm dev:all`.                                        |
-| `pnpm secrets:rotate:content-signing:preview`          | Overlap rotation for content signing on preview (`--step` required).                                                        |
-| `pnpm secrets:rotate:content-signing:production`       | Same for production.                                                                                                        |
-| `pnpm secrets:rotate:upload-signing:preview`           | Overlap rotation for upload signing on preview.                                                                             |
-| `pnpm secrets:rotate:upload-signing:production`        | Same for production.                                                                                                        |
-| `pnpm secrets:rotate:api-key-pepper:preview`           | Overlap rotation for API key pepper on preview.                                                                             |
-| `pnpm secrets:rotate:api-key-pepper:production`        | Same for production.                                                                                                        |
-| `pnpm secrets:rotate:artifact-bytes:preview`           | Overlap rotation for artifact-byte encryption keys on preview.                                                              |
-| `pnpm secrets:rotate:artifact-bytes:production`        | Same for production.                                                                                                        |
-| `pnpm secrets:rotate:workos-api-key:preview`           | Write `WORKOS_API_KEY` to preview `api` then `web` (requires `--value`).                                                    |
-| `pnpm secrets:rotate:workos-api-key:production`        | Same for production.                                                                                                        |
-| `pnpm secrets:rotate:workos-cookie:preview`            | Rotate preview `WORKOS_COOKIE_PASSWORD` on `web`.                                                                           |
-| `pnpm secrets:rotate:workos-cookie:production`         | Same for production.                                                                                                        |
-| `pnpm deploy:preview`                                  | Run preview migrations, then deploy `api`, `upload`, `content`, `jobs`, `apex`, and `web` in order.                         |
-| `pnpm deploy:production`                               | Run production migrations, then deploy `api`, `upload`, `content`, `jobs`, `apex`, and `web` in order.                      |
-| `pnpm deploy:live`                                     | Alias for `pnpm deploy:production`.                                                                                         |
-| `pnpm security:attest`                                 | Run the release security attestation gate (`scripts/security-attest.mjs`); writes evidence under `artifacts/security`.      |
+`deploy:preview` is the one command for preview. It builds (via Turbo, so every
+workspace dependency is built in graph order and cached), provisions secrets, and
+deploys. Scope it to a single Worker with `--app=<name>`:
+
+```sh
+pnpm deploy:preview                    # migrate (if needed) + build + deploy all
+pnpm deploy:preview --app=apex         # deploy only apex (the marketing page)
+pnpm deploy:preview --app=web,api      # deploy a few Workers
+pnpm deploy:preview --no-migrate       # deploy all Workers, skip migrations
+```
+
+Migrations run automatically only when the deploy includes a DB-backed Worker
+(`api`, `upload`, `jobs`); a scoped deploy of DB-free Workers (`stream`, `content`,
+`mcp`, `apex`, `web`) never migrates. Build + deploy is a Turbo task
+(`deploy:<target>` dependsOn `build`), so a clean tree builds dependencies in graph
+order before `wrangler deploy` runs. Valid `--app` values: `stream`, `api`,
+`upload`, `content`, `jobs`, `mcp`, `apex`, `web`. There is no production equivalent
+of `--app` — production deploys the full fleet through CI on merge to `main`; do not
+deploy production from a laptop.
+
+| Command                                                | Purpose                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm bootstrap:preview`                               | Generate/write preview Worker secrets.                                                                                                                                                                                                                                          |
+| `pnpm bootstrap:production`                            | Generate/write production Worker secrets.                                                                                                                                                                                                                                       |
+| `pnpm bootstrap:live`                                  | Alias for `pnpm bootstrap:production`.                                                                                                                                                                                                                                          |
+| `node scripts/deploy.mjs <local\|preview\|production>` | Migrate (when a DB-backed app is in scope), provision secrets, then build + deploy via Turbo. `--app=<name>` scopes preview deploys only; production is full-fleet only. `--no-migrate` skips migrations. `local` writes a gitignored `.env`. Idempotent; never prints a value. |
+| `pnpm secrets:local`                                   | Generate independent local-only secrets into a gitignored `.env` for `pnpm dev:all`.                                                                                                                                                                                            |
+| `pnpm secrets:rotate:content-signing:preview`          | Overlap rotation for content signing on preview (`--step` required).                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:content-signing:production`       | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:upload-signing:preview`           | Overlap rotation for upload signing on preview.                                                                                                                                                                                                                                 |
+| `pnpm secrets:rotate:upload-signing:production`        | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:api-key-pepper:preview`           | Overlap rotation for API key pepper on preview.                                                                                                                                                                                                                                 |
+| `pnpm secrets:rotate:api-key-pepper:production`        | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:artifact-bytes:preview`           | Overlap rotation for artifact-byte encryption keys on preview.                                                                                                                                                                                                                  |
+| `pnpm secrets:rotate:artifact-bytes:production`        | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:workos-api-key:preview`           | Write `WORKOS_API_KEY` to preview `api` then `web` (requires `--value`).                                                                                                                                                                                                        |
+| `pnpm secrets:rotate:workos-api-key:production`        | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm secrets:rotate:workos-cookie:preview`            | Rotate preview `WORKOS_COOKIE_PASSWORD` on `web`.                                                                                                                                                                                                                               |
+| `pnpm secrets:rotate:workos-cookie:production`         | Same for production.                                                                                                                                                                                                                                                            |
+| `pnpm deploy:preview`                                  | Deploy to preview: migrate (if a DB-backed Worker is in scope), build + deploy via Turbo. `--app=<name>` deploys one Worker; `--no-migrate` skips migrations.                                                                                                                   |
+| `pnpm deploy:production`                               | Deploy the full fleet to production: run production migrations, build + deploy every Worker via Turbo.                                                                                                                                                                          |
+| `pnpm deploy:live`                                     | Alias for `pnpm deploy:production`.                                                                                                                                                                                                                                             |
+| `pnpm security:attest`                                 | Run the release security attestation gate (`scripts/security-attest.mjs`); writes evidence under `artifacts/security`.                                                                                                                                                          |
 
 ### Smoke Tests
 

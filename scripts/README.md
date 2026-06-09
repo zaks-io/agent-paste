@@ -108,7 +108,8 @@ Use `--print-only` to verify generation shape without calling Wrangler. Use `--s
 Steady-state secret application is folded into the deploy. `scripts/deploy.mjs <local|preview|production>` is the one command:
 
 - For each Worker it lists the secret **names** it already has (`wrangler secret list` — values are never readable) and provisions only the **missing** required secrets, generating random symmetric values in memory and piping them to `wrangler secret bulk` over stdin. No value is ever printed or written to disk in cleartext.
-- It then deploys every Worker in dependency order. Routing (which secret binds to which Worker) is the single source of truth in `lib/secret-routing.mjs`, and the same data backs each Worker's `secrets.required` in `wrangler.jsonc`, so a missing required secret fails the deploy.
+- It then hands build + deploy to Turbo (`turbo run deploy:<target>`, which dependsOn `build`), so every workspace dependency is built in graph order (cached) before `wrangler deploy` runs. Routing (which secret binds to which Worker) is the single source of truth in `lib/secret-routing.mjs`, and the same data backs each Worker's `secrets.required` in `wrangler.jsonc`, so a missing required secret fails the deploy.
+- Preview-only `--app=<name>` (comma-separated) scopes both provisioning and the Turbo deploy to the selected Worker set (e.g. `--app=apex` for the marketing page); production deploys are full-fleet only. `--no-migrate` skips migrations. Migrations run automatically only when a DB-backed Worker (`api`, `upload`, `jobs`) is in scope.
 - It is **idempotent**: a secret that already exists is left untouched, so re-running never rotates anything. Generation is the only way a value comes into being, and it goes straight from `randomBytes()` to the Worker.
 - A value supplied via the environment (`PRODUCTION_<NAME>` / `PREVIEW_<NAME>`, e.g. GitHub environment secrets) is used in preference to generating one — that is how provider-issued values (`WORKOS_API_KEY`, `CF_ACCESS_AUD`) reach the Workers.
 - `node scripts/deploy.mjs local` writes independent local-only values to a gitignored `.env` for `pnpm dev:all`; roll one by deleting its line and re-running.
@@ -126,25 +127,23 @@ DATABASE_URL_MIGRATIONS_PRODUCTION=postgres://... pnpm migrate:production
 
 The script exports the selected migration URL as `DATABASE_URL`, sets `DATABASE_RUNTIME_ROLE=app_role` for migrations that harden the runtime role, and runs the committed SQL migrations from `packages/db`. Hyperdrive configs must use `DATABASE_URL_RUNTIME_*` (`app_role`). See [`docs/ops/runbook-neon-database-roles.md`](../docs/ops/runbook-neon-database-roles.md).
 
-### `deploy-preview.mjs`
+### Deploy build + ordering
 
-Preview/production deploy runner:
+`scripts/deploy.mjs` (above) migrates, provisions secrets, ensures shared Cloudflare
+Queues exist (DLQs first), then runs `turbo run deploy:<target>`. Turbo owns the
+build and deploy order via the task graph (`deploy:<target>` dependsOn `build`,
+`build` dependsOn `^build`), so every workspace dependency is built before its
+Worker deploys. Per-env build switches reach the build through the env handed to
+Turbo: `AGENT_PASTE_ENV`/`CLOUDFLARE_ENV` (set to the target) plus apex's
+`BILLING_ENABLED`/`CF_WEB_ANALYTICS_TOKEN` (resolved from `apps/apex/wrangler.jsonc`),
+all declared on the `build`/`deploy:*` task `env` in `turbo.json`. `apps/web` is
+built with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the
+target-specific deploy config that `wrangler deploy` then reads.
 
-```sh
-pnpm deploy:preview
-pnpm deploy:production
-```
-
-It ensures shared preview/production Cloudflare Queues exist (DLQs first), then deploys hosted Workers in dependency order:
-
-1. `api`
-2. `upload`
-3. `content`
-4. `jobs`
-5. `apex`
-6. `web`
-
-Queue provisioning runs before `api` because the API and jobs Workers bind `bundle-generate-*` producers/consumers. The web deploy runs last because its service binding targets the deployed API Worker. `apps/web` builds with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific deploy config.
+Queue provisioning runs before the deploy because the API and jobs Workers bind
+`bundle-generate-*` producers/consumers. Cloudflare service bindings (e.g.
+`web` → `api`) resolve by name at request time, so deploy order between live Workers
+is not a correctness gate.
 
 ### `smoke-hosted-ephemeral.mjs`
 
