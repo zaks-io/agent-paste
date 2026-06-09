@@ -131,7 +131,10 @@ jobs:
           PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET }}
           PREVIEW_STRIPE_PRICE_ID_MONTHLY: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_MONTHLY }}
           PREVIEW_STRIPE_PRICE_ID_ANNUAL: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_ANNUAL }}
-        run: node scripts/deploy.mjs preview
+        # --no-migrate: migrations already ran in the gated "Migrate preview database"
+        # step above. deploy.mjs would otherwise migrate again (idempotent but redundant,
+        # and would fail when that step was skipped for a missing migration URL).
+        run: node scripts/deploy.mjs preview --no-migrate
 
       - name: Smoke preview (read-only, no credentials)
         run: pnpm smoke:preview:readonly

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 // @ts-check
-// One command to deploy everything, secrets and all. Per ADR 0078.
+// One command to deploy everything — migrations, secrets, build, and Workers. Per ADR 0078.
 //
-//   node scripts/deploy.mjs preview
+//   node scripts/deploy.mjs preview                # migrate (if needed) + deploy all
+//   node scripts/deploy.mjs preview --app=apex     # deploy only apex (no migration)
+//   node scripts/deploy.mjs preview --no-migrate   # deploy all, skip migration
 //   node scripts/deploy.mjs production
 //
 // What it does, machine-to-machine, with NO secret value ever printed or written
 // to disk in cleartext:
-//   1. For each Worker, lists the secret NAMES it already has (wrangler secret
-//      list returns names only — values are never readable).
-//   2. Generates random values IN MEMORY only for required symmetric secrets that
+//   1. Runs DB migrations first when the deploy includes a DB-backed app
+//      (api/upload/jobs) and --no-migrate is not set; skipped otherwise.
+//   2. For each selected Worker, lists the secret NAMES it already has (wrangler
+//      secret list returns names only — values are never readable).
+//   3. Generates random values IN MEMORY only for required symmetric secrets that
 //      are missing, and pipes them into `wrangler secret bulk` over stdin.
-//   3. Deploys every Worker in dependency order.
+//   4. Hands build + deploy to Turbo (`turbo run deploy:<target>`), which builds
+//      every workspace dependency in graph order (cached) before wrangler runs.
+//      Scope to one Worker with --app; a full run deploys the whole fleet.
 //
 // Idempotent: a secret that already exists is left untouched, so re-running never
 // rotates anything and is always safe. Generation is the ONLY way a value comes
@@ -65,8 +71,84 @@ export function generatedByteLength(name) {
   return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;
 }
 
-// Deploy order: stream/api first (service bindings), web last.
+// Every deployable app. Build order and per-app deploy order are owned by Turbo's
+// task graph (turbo run deploy:<target>, which dependsOn build); this list is only
+// used for secret provisioning and --app validation.
 const APPS = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
+
+// Workspace package name per app, for `turbo run ... --filter`.
+const PACKAGE_NAMES = {
+  stream: "@agent-paste/stream",
+  api: "@agent-paste/api",
+  upload: "@agent-paste/upload",
+  content: "@agent-paste/content",
+  jobs: "@agent-paste/jobs",
+  mcp: "@agent-paste/mcp",
+  apex: "@agent-paste/apex",
+  web: "@agent-paste/web",
+};
+
+// Apps whose Workers bind the database (Hyperdrive). Deploying any of these can
+// depend on the schema, so migrations run first. The rest (stream, content, mcp,
+// apex, web) have no DB, so a scoped deploy of only those never needs a migration.
+const DB_BACKED_APPS = new Set(["api", "upload", "jobs"]);
+
+/**
+ * Resolve which apps to deploy from argv. With no --app flag, returns the full
+ * fleet. With `--app=apex` (comma-separated for several), returns only those,
+ * preserving APPS order. Throws on an unknown name so a typo fails loud instead
+ * of silently deploying nothing.
+ * @param {string[]} argv
+ * @returns {string[]}
+ */
+export function selectApps(argv) {
+  const appFlag = argv.find((a) => a.startsWith("--app="));
+  if (!appFlag) {
+    return APPS;
+  }
+  const requested = appFlag
+    .slice("--app=".length)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const unknown = requested.filter((a) => !APPS.includes(a));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown --app value(s): ${unknown.join(", ")}. Valid apps: ${APPS.join(", ")}`);
+  }
+  return APPS.filter((a) => requested.includes(a));
+}
+
+/**
+ * Decide whether to run migrations before deploying the given apps.
+ * `--no-migrate` always wins. Otherwise migrate only when the deploy includes a
+ * DB-backed app, so a scoped deploy of DB-free apps (e.g. just apex) skips it.
+ * @param {string[]} apps
+ * @param {boolean} noMigrateFlag
+ * @returns {boolean}
+ */
+export function shouldMigrate(apps, noMigrateFlag) {
+  if (noMigrateFlag) {
+    return false;
+  }
+  return apps.some((app) => DB_BACKED_APPS.has(app));
+}
+
+/**
+ * Build the `turbo run deploy:<target>` argv. A full-fleet deploy needs no
+ * filters; a scoped deploy passes one --filter per selected app.
+ * @param {string[]} apps
+ * @param {"preview"|"production"} target
+ * @returns {string[]}
+ */
+export function turboDeployArgs(apps, target) {
+  const args = ["exec", "turbo", "run", `deploy:${target}`];
+  if (apps.length < APPS.length) {
+    for (const app of apps) {
+      args.push(`--filter=${PACKAGE_NAMES[app]}`);
+    }
+  }
+  return args;
+}
 
 // --- smoke ----------------------------------------------------------------
 
@@ -190,12 +272,20 @@ export function createSecretPlanner({
     return { toSet, missingProvider, forbiddenProductionSecrets };
   }
 
-  async function buildProvisionPlan() {
+  /**
+   * @param {string[]} [scopeApps] Restrict provisioning to this app set (a scoped
+   *   --app deploy). Defaults to every secret-consuming app (full deploy).
+   */
+  async function buildProvisionPlan(scopeApps) {
     /** @type {Map<string, string[]> & { missingProvider?: string[], forbiddenProductionSecrets?: Array<{ worker: string, name: string }> }} */
     const plan = new Map();
     const missingProvider = [];
     const forbiddenProductionSecrets = [];
+    const scope = scopeApps ? new Set(scopeApps) : null;
     for (const app of secretConsumingApps()) {
+      if (scope && !scope.has(app)) {
+        continue;
+      }
       const {
         toSet,
         missingProvider: appMissing,
@@ -257,6 +347,9 @@ export async function runDeployPlan({
   planner.reportForbiddenProductionSecrets(provisionPlan, failFn);
   planner.reportMissingProviderSecrets(provisionPlan, failFn);
 
+  // Bind secrets to every selected Worker BEFORE deploying any of them: Turbo
+  // deploys the set together (in build-graph order), so all secrets must already
+  // be in place when the first Worker goes live.
   for (const app of apps) {
     const worker = workerName(app, target);
     const toSet = provisionPlan.get(app) ?? [];
@@ -264,38 +357,36 @@ export async function runDeployPlan({
       write(`Provisioning ${worker} secrets: ${toSet.join(", ")}\n`);
       await planner.bulkSetSecrets(worker, toSet, runFn);
     }
-    write(`Deploying ${worker}...\n`);
-    await deployFn(app, target);
-    write("\n");
   }
+
+  // Build + deploy is Turbo's job: `turbo run deploy:<target>` dependsOn build, so
+  // every workspace dependency is built (cached) in graph order before wrangler
+  // runs, and apex/web bake the right per-env URLs from AGENT_PASTE_ENV/CLOUDFLARE_ENV
+  // (set on the env we hand Turbo). A scoped deploy passes one --filter per app.
+  write(`Deploying ${apps.join(", ")} via Turbo...\n`);
+  await deployFn(apps, target);
+  write("\n");
 }
 
-async function deployApp(app, target) {
-  if (app === "web") {
-    await run("pnpm", ["--filter", "@agent-paste/web", `deploy:${target}`]);
-    return;
-  }
-  // apex prerenders to static HTML at build time, so the deploy script must
-  // build env-specifically before `wrangler deploy`. The per-env build switches
-  // (AGENT_PASTE_ENV, BILLING_ENABLED, CF_WEB_ANALYTICS_TOKEN) have a single
-  // source — apex's wrangler.jsonc `vars` — which we resolve here and hand to the
-  // build via the process env. AGENT_PASTE_ENV is what bakes the right cross-app
-  // base URLs (app/api/mcp) into the prerendered HTML, so the preview build links
-  // to preview, not production. The app itself never reaches across the tree.
-  if (app === "apex") {
-    await run("pnpm", ["--filter", "@agent-paste/apex", `deploy:${target}`], null, apexBuildEnv(target));
-    return;
-  }
-  await run("pnpm", ["exec", "wrangler", "deploy", "--config", `apps/${app}/wrangler.jsonc`, "--env", target]);
+// Default deploy step: hand build + deploy to Turbo with the per-env build switches
+// set so prerendered/bundled output bakes the correct environment. Overridable in
+// tests via runDeployPlan({ deployFn }).
+async function turboDeploy(apps, target) {
+  await run("pnpm", turboDeployArgs(apps, target), null, buildSwitchesFor(target));
 }
 
-function apexBuildEnv(target) {
-  const env = {};
+// Per-env build switches handed to Turbo's deploy run. AGENT_PASTE_ENV/CLOUDFLARE_ENV
+// pick the environment (cross-app URLs, emitted web config); BILLING_ENABLED and
+// CF_WEB_ANALYTICS_TOKEN are resolved from apex's wrangler.jsonc `vars` (their single
+// source) so the prerendered HTML bakes the right billing/analytics state per env.
+// Turbo passes these through because they are declared on the build/deploy task env.
+function buildSwitchesFor(target) {
+  const env = { AGENT_PASTE_ENV: target, CLOUDFLARE_ENV: target };
   loadWranglerEnvVars("apps/apex/wrangler.jsonc", {
     cwd: root,
     env,
     envName: target,
-    keys: ["AGENT_PASTE_ENV", "BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
+    keys: ["BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
   });
   return env;
 }
@@ -390,8 +481,19 @@ async function main() {
   const rawTarget = argv.find((a) => !a.startsWith("--")) ?? "preview";
   const target = rawTarget === "live" ? "production" : rawTarget;
   if (target !== "local" && target !== "preview" && target !== "production") {
-    fail("Usage: node scripts/deploy.mjs <local|preview|production> [--smoke]");
+    fail("Usage: node scripts/deploy.mjs <local|preview|production> [--app=<name>] [--no-migrate] [--smoke]");
   }
+
+  // --app=<name>: deploy only the named app(s), comma-separated. Scopes BOTH secret
+  // provisioning and the Turbo build+deploy to one Worker (e.g. apex, the marketing
+  // page) instead of the whole fleet. A typo fails loud, not silently.
+  let apps;
+  try {
+    apps = selectApps(argv);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
+
   // --smoke: after deploying preview, rotate SMOKE_HARNESS_SECRET to a fresh
   // value, bind it to its consumer Workers, and run the hosted smoke with that
   // exact value held in memory. Production smoke uses AGENT_PASTE_PRODUCTION_SMOKE_API_KEY.
@@ -429,13 +531,23 @@ async function main() {
     listSecretsForWorker: (worker) => listWorkerSecretsSafe(worker),
   });
 
-  process.stdout.write(`Deploying agent-paste to ${target}.\n\n`);
+  process.stdout.write(`Deploying agent-paste to ${target}: ${apps.join(", ")}.\n\n`);
+
+  // Migrations run before any Worker is deployed, and only when the deploy touches a
+  // DB-backed app (skipped for e.g. an apex-only deploy, or with --no-migrate). Owning
+  // this here — not in a package.json `&&` chain — is what lets a scoped deploy of a
+  // DB-free Worker skip the migration cleanly.
+  if (shouldMigrate(apps, argv.includes("--no-migrate"))) {
+    process.stdout.write(`Running ${target} migrations...\n`);
+    await run("pnpm", ["exec", "node", "scripts/migrate.mjs", target]);
+    process.stdout.write("\n");
+  }
 
   process.stdout.write(`Ensuring hosted ${target} Cloudflare Queues exist...\n`);
   await ensureJobQueues(hostedJobQueues(target).creationOrder);
 
-  const provisionPlan = await planner.buildProvisionPlan();
-  await runDeployPlan({ target, planner, provisionPlan, runFn: run, deployFn: deployApp });
+  const provisionPlan = await planner.buildProvisionPlan(apps);
+  await runDeployPlan({ target, planner, provisionPlan, apps, runFn: run, deployFn: turboDeploy });
 
   process.stdout.write(`${target} deploy complete. No secret values were displayed.\n`);
 

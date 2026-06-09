@@ -80,6 +80,15 @@ All standard commands are documented in `docs/development.md`. Highlights for cl
 | Build all packages                      | `pnpm build`                                                                                 |
 | Local E2E smoke test                    | `pnpm smoke:local`                                                                           |
 | Start local dev server                  | `pnpm dev:all` (builds first, then starts in-memory API/Upload/Content on :8787/:8788/:8789) |
+| Deploy to preview                       | `pnpm deploy:preview` (whole fleet) or `pnpm deploy:preview --app=apex` (one Worker)         |
+
+Deploying to preview is a single command: `pnpm deploy:preview`. It builds (Turbo,
+cached, in dependency order), provisions secrets, and deploys. Scope to one Worker
+with `--app=<name>` (`stream`, `api`, `upload`, `content`, `jobs`, `mcp`, `apex`,
+`web`) and skip migrations with `--no-migrate`. Migrations run only when a DB-backed
+Worker (`api`, `upload`, `jobs`) is in scope, so `--app=apex` (the marketing page)
+just works. Just do it — it is cheap and expected. Production is never deployed from
+local: it deploys the full fleet through CI on merge to `main`.
 
 ### Local dev server notes
 
