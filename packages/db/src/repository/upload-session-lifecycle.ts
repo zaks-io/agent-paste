@@ -1,3 +1,4 @@
+import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { buildFinalizeResult, inferRenderMode } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
@@ -19,7 +20,7 @@ export type CreateUploadSessionRequest = {
   title?: string;
   entrypoint?: string;
   render_mode?: RenderMode;
-  files: Array<{ path: string; size_bytes: number }>;
+  files: Array<{ path: string; size_bytes: number; sha256?: string }>;
 };
 
 export type ObservedUploadFile = { path: string; objectKey: string; sizeBytes: number };
@@ -78,16 +79,30 @@ export async function createUploadSessionInEntities(
     finalized_at: null,
   };
   await entities.uploadSessions.insert(session);
-  const storedFiles: StoredFile[] = files.map((file) => ({
-    workspace_id: input.actor.workspace_id,
-    upload_session_id: session.id,
-    path: file.path,
-    size_bytes: file.size_bytes,
-    content_type: contentTypeForPath(file.path),
-    r2_key: objectKeyFor(session.artifact_id, session.revision_id, file.path),
-    uploaded_at: null,
-    put_url_expires_at: session.expires_at,
-  }));
+  const storedFiles: StoredFile[] = [];
+  for (const file of files) {
+    const blob = file.sha256
+      ? await entities.contentBlobs.find({
+          workspaceId: input.actor.workspace_id,
+          sha256: file.sha256,
+          sizeBytes: file.size_bytes,
+        })
+      : null;
+    storedFiles.push({
+      workspace_id: input.actor.workspace_id,
+      upload_session_id: session.id,
+      path: file.path,
+      size_bytes: file.size_bytes,
+      content_type: contentTypeForPath(file.path),
+      r2_key: file.sha256
+        ? workspaceBlobObjectKeyFor({ workspaceId: input.actor.workspace_id, sha256: file.sha256 })
+        : objectKeyFor(session.artifact_id, session.revision_id, file.path),
+      sha256: file.sha256 ?? null,
+      storage_kind: file.sha256 ? "blob" : "revision",
+      uploaded_at: blob ? input.now : null,
+      put_url_expires_at: session.expires_at,
+    });
+  }
   for (const file of storedFiles) {
     await entities.uploadSessionFiles.insert(session.id, file);
   }

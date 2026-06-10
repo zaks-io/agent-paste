@@ -6,6 +6,8 @@ export const AUTO_DELETION_SWEEP_CAP = 200;
 export const RETENTION_SWEEP_CAP = 500;
 /** Maintenance GC idempotency row cap per docs/specs/jobs.md */
 export const MAINTENANCE_GC_SWEEP_CAP = 5000;
+/** Workspace content blob GC sweep cap. */
+export const CONTENT_BLOB_GC_SWEEP_CAP = 500;
 
 /** Platform audit retention for maintenance GC (days). */
 export const AUDIT_RETENTION_DAYS = 90;

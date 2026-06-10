@@ -41,8 +41,12 @@ CREATE TABLE "artifact_files" (
 	"size_bytes" bigint NOT NULL,
 	"served_content_type" text NOT NULL,
 	"r2_key" text NOT NULL,
+	"sha256" text,
+	"storage_kind" text DEFAULT 'revision' NOT NULL,
 	"uploaded_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "artifact_files_artifact_id_revision_id_path_pk" PRIMARY KEY("artifact_id","revision_id","path")
+	CONSTRAINT "artifact_files_artifact_id_revision_id_path_pk" PRIMARY KEY("artifact_id","revision_id","path"),
+	CONSTRAINT "artifact_files_storage_kind_check" CHECK ("artifact_files"."storage_kind" in ('revision', 'blob')),
+	CONSTRAINT "artifact_files_sha256_check" CHECK ("artifact_files"."sha256" is null or "artifact_files"."sha256" ~ '^[a-f0-9]{64}$')
 );
 
 CREATE TABLE "artifacts" (
@@ -76,6 +80,18 @@ CREATE TABLE "claim_tokens" (
 	"redeemed_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "claim_tokens_id_format" CHECK ("claim_tokens"."id" ~ '^ct_[0-9A-HJKMNP-TV-Z]{26}$')
+);
+
+CREATE TABLE "content_blobs" (
+	"workspace_id" uuid NOT NULL,
+	"sha256" text NOT NULL,
+	"size_bytes" bigint NOT NULL,
+	"r2_key" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "content_blobs_workspace_id_sha256_size_bytes_pk" PRIMARY KEY("workspace_id","sha256","size_bytes"),
+	CONSTRAINT "content_blobs_sha256_check" CHECK ("content_blobs"."sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "content_blobs_size_bytes_check" CHECK ("content_blobs"."size_bytes" >= 0)
 );
 
 CREATE TABLE "idempotency_records" (
@@ -176,9 +192,13 @@ CREATE TABLE "upload_session_files" (
 	"size_bytes" bigint NOT NULL,
 	"served_content_type" text NOT NULL,
 	"r2_key" text NOT NULL,
+	"sha256" text,
+	"storage_kind" text DEFAULT 'revision' NOT NULL,
 	"uploaded_at" timestamp with time zone,
 	"put_url_expires_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "upload_session_files_upload_session_id_path_pk" PRIMARY KEY("upload_session_id","path")
+	CONSTRAINT "upload_session_files_upload_session_id_path_pk" PRIMARY KEY("upload_session_id","path"),
+	CONSTRAINT "upload_session_files_storage_kind_check" CHECK ("upload_session_files"."storage_kind" in ('revision', 'blob')),
+	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$')
 );
 
 CREATE TABLE "upload_sessions" (
@@ -253,6 +273,7 @@ ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifact
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "claim_tokens" ADD CONSTRAINT "claim_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "content_blobs" ADD CONSTRAINT "content_blobs_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
@@ -267,11 +288,13 @@ CREATE UNIQUE INDEX "access_links_public_id_unique" ON "access_links" USING btre
 CREATE INDEX "access_links_artifact_created_idx" ON "access_links" USING btree ("artifact_id","created_at");
 CREATE INDEX "access_links_workspace_idx" ON "access_links" USING btree ("workspace_id");
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
+CREATE INDEX "artifact_files_blob_idx" ON "artifact_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree ("workspace_id","id");
 CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "claim_tokens_public_id_unique" ON "claim_tokens" USING btree ("public_id");
+CREATE UNIQUE INDEX "content_blobs_r2_key_unique" ON "content_blobs" USING btree ("r2_key");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;
@@ -283,6 +306,7 @@ CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btre
 CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
 CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
 CREATE INDEX "stripe_webhook_events_processed_idx" ON "stripe_webhook_events" USING btree ("processed_at");
+CREATE INDEX "upload_session_files_blob_idx" ON "upload_session_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "workspace_billing_stripe_subscription_id_unique" ON "workspace_billing" USING btree ("stripe_subscription_id") WHERE "workspace_billing"."stripe_subscription_id" is not null;
 CREATE INDEX "workspace_billing_stripe_customer_idx" ON "workspace_billing" USING btree ("stripe_customer_id") WHERE "workspace_billing"."stripe_customer_id" is not null;

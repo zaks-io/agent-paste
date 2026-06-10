@@ -15,6 +15,7 @@ type ExpiredSessionRow = {
 
 type SessionFileRow = {
   r2_key: string;
+  storage_kind?: string;
 };
 
 export async function runUploadCleanupDiscovery(
@@ -42,12 +43,12 @@ export async function runUploadCleanupDiscovery(
   for (const session of batch) {
     try {
       const files = await platformExecutor.query<SessionFileRow>(
-        `select r2_key
+        `select r2_key, storage_kind
          from upload_session_files
          where upload_session_id = $1`,
         [session.id],
       );
-      const prefixes = uniquePrefixes(files.rows.map((row) => row.r2_key));
+      const prefixes = uniquePrefixes(files.rows.filter((row) => row.storage_kind !== "blob").map((row) => row.r2_key));
       if (prefixes.length > 0) {
         const message = BytePurgeMessage.parse({
           type: "byte.purge.v1",

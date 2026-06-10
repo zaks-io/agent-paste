@@ -8,8 +8,11 @@ export type SignedUploadPayload = {
   path: string;
   key: string;
   size: number;
+  sha256?: string;
   exp: number;
 };
+
+const sha256Pattern = /^[a-f0-9]{64}$/u;
 
 export function isValidUploadPayload(value: unknown): value is SignedUploadPayload {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -28,6 +31,7 @@ export function isValidUploadPayload(value: unknown): value is SignedUploadPaylo
     typeof payload.size === "number" &&
     Number.isSafeInteger(payload.size) &&
     payload.size >= 0 &&
+    (payload.sha256 === undefined || (typeof payload.sha256 === "string" && sha256Pattern.test(payload.sha256))) &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );

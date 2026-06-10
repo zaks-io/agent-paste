@@ -48,13 +48,14 @@ export async function runTextPublishChain(
 
   const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
   const bodyBytes = new TextEncoder().encode(input.body);
+  const sha256 = await sha256Hex(bodyBytes);
   // TTL is a server-side policy decision derived from the workspace tier (ephemeral
   // workspaces are hard-capped at one day). Clients cannot request or influence it.
   const createBody = CreateUploadSessionRequest.parse({
     ...("artifact_id" in input ? { artifact_id: input.artifact_id } : {}),
     title: "title" in input ? input.title : "Revision",
     entrypoint,
-    files: [{ path: entrypoint, size_bytes: bodyBytes.byteLength }],
+    files: [{ path: entrypoint, size_bytes: bodyBytes.byteLength, sha256 }],
   });
 
   const sessionCreated = await forwardToUploadRoute({
@@ -78,15 +79,25 @@ export async function runTextPublishChain(
     return { ok: false, error: mapInternal() };
   }
 
-  const uploaded = await putSignedUploadFile({
-    putUrl: target.put_url,
-    body: bodyBytes,
-    contentType: contentTypeForEntrypoint(entrypoint),
-    requiredHeaders: target.required_headers,
-  });
-  if (!uploaded.ok) {
-    return uploaded;
+  if (target.status === "upload_required") {
+    const uploaded = await putSignedUploadFile({
+      putUrl: target.put_url,
+      body: bodyBytes,
+      contentType: contentTypeForEntrypoint(entrypoint),
+      requiredHeaders: target.required_headers,
+    });
+    if (!uploaded.ok) {
+      return uploaded;
+    }
   }
+  const uploadStats = {
+    total_files: session.data.files.length,
+    total_bytes: bodyBytes.byteLength,
+    uploaded_files: target.status === "upload_required" ? 1 : 0,
+    uploaded_bytes: target.status === "upload_required" ? bodyBytes.byteLength : 0,
+    reused_files: target.status === "reused" ? 1 : 0,
+    reused_bytes: target.status === "reused" ? bodyBytes.byteLength : 0,
+  };
 
   const finalized = await forwardToUploadRoute({
     upload: deps.upload,
@@ -135,12 +146,20 @@ export async function runTextPublishChain(
   const output = McpPublishArtifactOutput.safeParse({
     ...publishResult.data,
     ...(shareLinkUrl ? { share_link_url: shareLinkUrl } : {}),
+    upload_stats: uploadStats,
   });
   if (!output.success) {
     return { ok: false, error: mapInternal() };
   }
 
   return { ok: true, status: 200, body: output.data };
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const source = new Uint8Array(bytes.byteLength);
+  source.set(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", source));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 type MintAccessLinkInput = {

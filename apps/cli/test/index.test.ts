@@ -190,6 +190,7 @@ describe("cli command dispatch", () => {
         expires_at: "2026-01-01T00:00:00.000Z",
         files: [
           {
+            status: "upload_required",
             path: "index.html",
             put_url: "https://upload.test/index",
             required_headers: {},
@@ -230,7 +231,13 @@ describe("cli command dispatch", () => {
         expect.objectContaining({
           title: "Published",
           entrypoint: "index.html",
-          files: [{ path: "index.html", size_bytes: 14 }],
+          files: [
+            expect.objectContaining({
+              path: "index.html",
+              size_bytes: 14,
+              sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            }),
+          ],
         }),
         expect.stringMatching(/^cli_publish_/),
       );
@@ -250,6 +257,64 @@ describe("cli command dispatch", () => {
       expect(out).toContain(revisionId);
       expect(out).toContain("https://app.test/artifacts/art_1");
       expect(out).toContain("https://content.test/v/token/index.html");
+      expect(out).toContain("Upload    1/1 files, 14 B sent, 0 B reused");
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("skips reused upload targets and reports upload stats", async () => {
+    const stdout = mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [{ status: "reused", path: "index.html" }],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 14,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const putFile = vi.fn().mockResolvedValue(undefined);
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile,
+      });
+
+      await main(["publish", root, "--entrypoint=index.html", "--render-mode", "html", "--json"], client);
+
+      expect(putFile).not.toHaveBeenCalled();
+      const payload = JSON.parse(stdoutValues(stdout).join("")) as { upload_stats: unknown };
+      expect(payload.upload_stats).toEqual({
+        total_files: 1,
+        total_bytes: 14,
+        uploaded_files: 0,
+        uploaded_bytes: 0,
+        reused_files: 1,
+        reused_bytes: 14,
+      });
     } finally {
       await removePublishFixture(root);
     }
@@ -323,7 +388,7 @@ describe("cli command dispatch", () => {
         uploadSessions: {
           create: vi.fn().mockResolvedValue({
             upload_session_id: uploadSessionId,
-            files: [{ path: "missing.html", put_url: "https://upload.test/missing" }],
+            files: [{ status: "upload_required", path: "missing.html", put_url: "https://upload.test/missing" }],
           }),
           finalize: vi.fn(),
         },

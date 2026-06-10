@@ -1,10 +1,12 @@
 import type { Env } from "./env.js";
 
 type RecordUploadedFileInput = {
+  workspaceId?: string;
   sessionId: string;
   path: string;
   objectKey?: string;
   sizeBytes?: number;
+  sha256?: string;
   uploadedAt: string;
 };
 

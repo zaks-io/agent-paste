@@ -30,26 +30,40 @@ export async function buildCreateUploadSessionWireResponse(
   revision_id: string;
   status: "pending";
   expires_at: string;
-  files: Array<{
-    path: string;
-    put_url: string;
-    required_headers: { "content-length": string };
-    expires_at: string;
-  }>;
+  files: Array<
+    | {
+        status: "upload_required";
+        path: string;
+        put_url: string;
+        required_headers: { "content-length": string };
+        expires_at: string;
+      }
+    | {
+        status: "reused";
+        path: string;
+      }
+  >;
 }> {
-  // files[].expires_at advertises how long the signed PUT URL stays valid, so it
-  // must come from the token signing path, not the (much longer) session TTL.
-  const signedFiles = await Promise.all(
-    session.files.map(async (file: UploadSessionFileDescriptor) => {
-      const signed = await signing.signPutUrl(session, file);
-      return {
-        path: file.path,
-        put_url: signed.url,
-        required_headers: { "content-length": String(file.size_bytes) },
-        expires_at: signed.expiresAt,
-      };
-    }),
-  );
+  const signedByObjectKey = new Set<string>();
+  const files = [];
+  for (const file of session.files as UploadSessionFileDescriptor[]) {
+    const objectKey = resolveSessionObjectKey(session, file.path, file.object_key);
+    const alreadySatisfied = file.uploaded_at !== null && file.uploaded_at !== undefined;
+    const shouldUpload = !alreadySatisfied && !signedByObjectKey.has(objectKey);
+    if (!shouldUpload) {
+      files.push({ status: "reused" as const, path: file.path });
+      continue;
+    }
+    signedByObjectKey.add(objectKey);
+    const signed = await signing.signPutUrl(session, file);
+    files.push({
+      status: "upload_required" as const,
+      path: file.path,
+      put_url: signed.url,
+      required_headers: { "content-length": String(file.size_bytes) },
+      expires_at: signed.expiresAt,
+    });
+  }
 
   return {
     upload_session_id: session.session_id,
@@ -57,7 +71,7 @@ export async function buildCreateUploadSessionWireResponse(
     revision_id: session.revision_id,
     status: "pending",
     expires_at: session.expires_at,
-    files: signedFiles,
+    files,
   };
 }
 

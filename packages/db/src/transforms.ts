@@ -51,6 +51,9 @@ export function toUploadSessionRecord(session: UploadSession, files: StoredFile[
       path: file.path,
       size_bytes: file.size_bytes,
       object_key: file.r2_key,
+      sha256: file.sha256 ?? null,
+      storage_kind: file.storage_kind ?? "revision",
+      uploaded_at: file.uploaded_at,
       expires_at: file.put_url_expires_at ?? session.expires_at,
     })),
   };

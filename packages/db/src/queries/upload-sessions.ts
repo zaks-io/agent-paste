@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { uploadSessionFiles, uploadSessions } from "../schema.js";
-import type { StoredFile, UploadSession } from "../types.js";
+import type { StoredFile, StoredFileStorageKind, UploadSession } from "../types.js";
 
 export const uploadSessionQueries = {
   async insert(db: DrizzleDb, row: UploadSession) {
@@ -60,6 +60,8 @@ export const uploadSessionFileQueries = {
       sizeBytes: file.size_bytes,
       servedContentType: file.content_type,
       r2Key: file.r2_key,
+      sha256: file.sha256 ?? null,
+      storageKind: file.storage_kind ?? "revision",
       uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : null,
       // putUrlExpiresAt is notNull in schema; fall back to "now" rather than producing an Invalid Date.
       putUrlExpiresAt: file.put_url_expires_at ? new Date(file.put_url_expires_at) : new Date(),
@@ -77,12 +79,21 @@ export const uploadSessionFileQueries = {
 
   async recordUpload(
     db: DrizzleDb,
-    input: { sessionId: string; path: string; objectKey?: string; sizeBytes?: number; uploadedAt: string },
+    input: {
+      sessionId: string;
+      path: string;
+      objectKey?: string;
+      sizeBytes?: number;
+      sha256?: string;
+      uploadedAt: string;
+    },
   ) {
-    const conditions = [
-      eq(uploadSessionFiles.uploadSessionId, input.sessionId),
-      eq(uploadSessionFiles.path, input.path),
-    ];
+    const conditions = [eq(uploadSessionFiles.uploadSessionId, input.sessionId)];
+    if (input.sha256) {
+      conditions.push(eq(uploadSessionFiles.sha256, input.sha256));
+    } else {
+      conditions.push(eq(uploadSessionFiles.path, input.path));
+    }
     if (input.objectKey) {
       conditions.push(eq(uploadSessionFiles.r2Key, input.objectKey));
     }
@@ -125,6 +136,8 @@ function mapUploadSessionFile(row: typeof uploadSessionFiles.$inferSelect): Stor
     size_bytes: Number(row.sizeBytes),
     content_type: row.servedContentType,
     r2_key: row.r2Key,
+    sha256: row.sha256,
+    storage_kind: (row.storageKind ?? "revision") as StoredFileStorageKind,
     uploaded_at: row.uploadedAt ? row.uploadedAt.toISOString() : null,
     put_url_expires_at: row.putUrlExpiresAt.toISOString(),
   };

@@ -130,6 +130,7 @@ const SCOPE_KEYS: { [K in keyof LocalState]: ScopeKey<RowOf<K>> } = {
   accessLinks: byWorkspaceId,
   safetyWarnings: byWorkspaceId,
   claimTokens: byWorkspaceId,
+  contentBlobs: byWorkspaceId,
 };
 
 function scopeOne<K extends keyof LocalState>(state: LocalState, name: K, workspaceId: string): LocalState[K] {

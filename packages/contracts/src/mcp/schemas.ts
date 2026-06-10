@@ -109,8 +109,21 @@ export type McpRevokeAccessLinkInput = z.infer<typeof McpRevokeAccessLinkInput>;
 export const McpWhoamiInput = z.object({}).strict();
 export type McpWhoamiInput = z.infer<typeof McpWhoamiInput>;
 
+export const McpUploadStats = z
+  .object({
+    total_files: z.number().int().nonnegative(),
+    total_bytes: z.number().int().nonnegative(),
+    uploaded_files: z.number().int().nonnegative(),
+    uploaded_bytes: z.number().int().nonnegative(),
+    reused_files: z.number().int().nonnegative(),
+    reused_bytes: z.number().int().nonnegative(),
+  })
+  .strict();
+export type McpUploadStats = z.infer<typeof McpUploadStats>;
+
 export const McpPublishArtifactOutput = PublishResult.extend({
   share_link_url: UrlString.optional(),
+  upload_stats: McpUploadStats.optional(),
 }).strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;
 

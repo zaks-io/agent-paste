@@ -4,6 +4,7 @@ import {
   decryptArtifactBytesWithKeyRing,
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
+  parseWorkspaceBlobObjectKey,
 } from "@agent-paste/storage";
 import type { R2ObjectBody } from "../env.js";
 
@@ -18,6 +19,21 @@ export async function readRevisionFileBytes(input: {
     throw new Error("artifact_bytes_metadata_missing");
   }
   const keyParts = parseRevisionFileObjectKey(input.objectKey);
+  const blobKeyParts = parseWorkspaceBlobObjectKey(input.objectKey);
+  if (!keyParts && !blobKeyParts) {
+    throw new Error("artifact_bytes_invalid_object_key");
+  }
+  if (blobKeyParts && blobKeyParts.workspaceId !== input.workspaceId) {
+    throw new Error("artifact_bytes_invalid_object_key");
+  }
+  if (blobKeyParts) {
+    return decryptArtifactBytesWithKeyRing({
+      ciphertext,
+      ring: input.encryptionRing,
+      metadata: input.object.customMetadata,
+      context: { kind: "blob", workspaceId: input.workspaceId, sha256: blobKeyParts.sha256 },
+    });
+  }
   if (!keyParts) {
     throw new Error("artifact_bytes_invalid_object_key");
   }

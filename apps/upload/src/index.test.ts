@@ -105,7 +105,10 @@ describe("upload worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { files: Array<{ put_url: string; expires_at: string }> };
+    const body = (await response.json()) as {
+      files: Array<{ status: string; put_url?: string; expires_at?: string }>;
+    };
+    expect(body.files[0]?.status).toBe("upload_required");
     expect(body.files[0]?.put_url).toContain("/v1/upload-sessions/upl_1/files/index.html?token=");
 
     const fileExpiresAtMs = Date.parse(body.files[0]?.expires_at ?? "");
@@ -364,8 +367,12 @@ describe("upload worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
+    const body = (await response.json()) as {
+      upload_session_id: string;
+      files: Array<{ status: string; put_url?: string }>;
+    };
     expect(body.upload_session_id).toBe("upl_replay");
+    expect(body.files[0]?.status).toBe("upload_required");
     expect(body.files[0]?.put_url).toContain("upl_replay");
     expect(rateLimitCalls).toEqual({ actor: 0, workspace: 0 });
   });

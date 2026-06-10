@@ -7,6 +7,7 @@ import {
   decryptArtifactBytesWithKeyRing,
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
+  parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
   withFrameAncestors,
@@ -175,6 +176,7 @@ async function prepareEncryptedObjectResponse(input: {
   }
   const normalizedPath = input.path.length > 0 ? input.path : BUNDLE_FILENAME;
   const keyParts = normalizedPath === BUNDLE_FILENAME ? null : parseRevisionFileObjectKey(input.objectKey);
+  const blobKeyParts = normalizedPath === BUNDLE_FILENAME ? null : parseWorkspaceBlobObjectKey(input.objectKey);
   const artifactId = keyParts?.artifactId ?? input.payload.artifact_id;
   const revisionId = keyParts?.revisionId ?? input.payload.revision_id;
   const emitRead = (bytes: number) =>
@@ -198,16 +200,20 @@ async function prepareEncryptedObjectResponse(input: {
   }
   const ciphertext = await bytesFromReadableBody(input.object.body);
   try {
+    const decryptContext =
+      blobKeyParts && blobKeyParts.workspaceId === workspaceId
+        ? { kind: "blob" as const, workspaceId, sha256: blobKeyParts.sha256 }
+        : {
+            workspaceId,
+            artifactId,
+            revisionId,
+            normalizedPath,
+          };
     const plaintext = await decryptArtifactBytesWithKeyRing({
       ciphertext,
       ring: encryptionRing,
       metadata: input.object.customMetadata,
-      context: {
-        workspaceId,
-        artifactId,
-        revisionId,
-        normalizedPath,
-      },
+      context: decryptContext,
     });
     emitRead(plaintext.byteLength);
     return { bytes: plaintext, plaintextSize: plaintext.byteLength };
@@ -258,11 +264,37 @@ export function objectKeyFor(payload: ContentTokenPayload, path: string): string
 }
 
 function objectKeyForPayload(payload: ContentTokenPayload, path: string): string | null {
+  const mappedObjectKey = payload.object_keys?.[path];
+  if (mappedObjectKey) {
+    return isAllowedObjectKey(payload, path, mappedObjectKey) ? mappedObjectKey : null;
+  }
+  if (payload.object_key) {
+    if (payload.paths?.length !== 1) {
+      return null;
+    }
+    return isAllowedObjectKey(payload, path, payload.object_key) ? payload.object_key : null;
+  }
   const prefix = fileKeyPrefixForPayload(payload);
   if (!prefix) {
     return null;
   }
   return `${prefix.replace(/\/+$/, "")}/${path}`;
+}
+
+function isAllowedObjectKey(payload: ContentTokenPayload, path: string, objectKey: string): boolean {
+  if (!isSafePath(path) || !payload.paths?.includes(path) || !isSafeKeyPrefix(objectKey)) {
+    return false;
+  }
+  const revisionKey = parseRevisionFileObjectKey(objectKey);
+  if (revisionKey) {
+    return (
+      revisionKey.artifactId === payload.artifact_id &&
+      revisionKey.revisionId === payload.revision_id &&
+      revisionKey.path === path
+    );
+  }
+  const blobKey = parseWorkspaceBlobObjectKey(objectKey);
+  return Boolean(blobKey && payload.workspace_id && blobKey.workspaceId === payload.workspace_id);
 }
 
 function fileKeyPrefixForPayload(payload: ContentTokenPayload): string | null {

@@ -221,10 +221,17 @@ export const uploadSessionFiles = pgTable(
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     servedContentType: text("served_content_type").notNull(),
     r2Key: text("r2_key").notNull(),
+    sha256: text("sha256"),
+    storageKind: text("storage_kind").notNull().default("revision"),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
     putUrlExpiresAt: timestamp("put_url_expires_at", { withTimezone: true }).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.uploadSessionId, table.path] })],
+  (table) => [
+    primaryKey({ columns: [table.uploadSessionId, table.path] }),
+    index("upload_session_files_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
+    check("upload_session_files_storage_kind_check", sql`${table.storageKind} in ('revision', 'blob')`),
+    check("upload_session_files_sha256_check", sql`${table.sha256} is null or ${table.sha256} ~ '^[a-f0-9]{64}$'`),
+  ],
 );
 
 export const revisions = pgTable(
@@ -301,6 +308,26 @@ export const artifacts = pgTable(
   ],
 );
 
+export const contentBlobs = pgTable(
+  "content_blobs",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    sha256: text("sha256").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    r2Key: text("r2_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.sha256, table.sizeBytes] }),
+    uniqueIndex("content_blobs_r2_key_unique").on(table.r2Key),
+    check("content_blobs_sha256_check", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
+    check("content_blobs_size_bytes_check", sql`${table.sizeBytes} >= 0`),
+  ],
+);
+
 export const artifactFiles = pgTable(
   "artifact_files",
   {
@@ -317,9 +344,16 @@ export const artifactFiles = pgTable(
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     servedContentType: text("served_content_type").notNull(),
     r2Key: text("r2_key").notNull(),
+    sha256: text("sha256"),
+    storageKind: text("storage_kind").notNull().default("revision"),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.artifactId, table.revisionId, table.path] })],
+  (table) => [
+    primaryKey({ columns: [table.artifactId, table.revisionId, table.path] }),
+    index("artifact_files_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
+    check("artifact_files_storage_kind_check", sql`${table.storageKind} in ('revision', 'blob')`),
+    check("artifact_files_sha256_check", sql`${table.sha256} is null or ${table.sha256} ~ '^[a-f0-9]{64}$'`),
+  ],
 );
 
 export const safetyWarnings = pgTable(

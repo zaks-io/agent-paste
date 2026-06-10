@@ -9,6 +9,11 @@ const signingEnv: Env = {
   CONTENT_SIGNING_SECRET: "content-secret",
   CONTENT_BASE_URL: "https://content.test",
 };
+const sha256 = "a".repeat(64);
+
+function workspaceBlobKey(workspaceId: string, digest: string): string {
+  return `workspaces/${workspaceId}/blobs/sha256/${digest.slice(0, 2)}/${digest}`;
+}
 
 function contentTokenFromUrl(url: string): string {
   return decodeURIComponent(url.split("/v/")[1]?.split("/")[0] ?? "");
@@ -103,6 +108,25 @@ describe("signAgentViewContentUrls characterization", () => {
       revision_content_url: "https://content.test/old",
       files: [{ path: "index.html", url: "https://content.test/old" }],
     });
+  });
+
+  it("strips internal object keys from public files while signing them into content tokens", async () => {
+    const objectKey = workspaceBlobKey(workspaceId, sha256);
+    const signed = (await signAgentViewContentUrls(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", url: "old", object_key: objectKey }],
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { files: Array<{ url: string; object_key?: string }> };
+
+    expect(signed.files[0]?.object_key).toBeUndefined();
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.files[0]?.url ?? ""), "content-secret");
+    expect(payload?.object_key).toBe(objectKey);
   });
 
   it("signs the entrypoint revision_content_url and file URLs with access-link auth metadata", async () => {
@@ -287,6 +311,64 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.paths).toBeUndefined();
+  });
+
+  it("scopes publish-result entrypoint URLs when signing an explicit object key", async () => {
+    const objectKey = workspaceBlobKey(workspaceId, sha256);
+    const signed = (await signPublishResult(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        title: "Artifact",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
+        agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_1",
+        entrypoint_object_key: objectKey,
+        expires_at: "2030-01-01T00:00:00.000Z",
+        bundle: { status: "disabled" },
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { entrypoint_object_key?: string; revision_content_url: string };
+
+    expect(signed.entrypoint_object_key).toBeUndefined();
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
+    expect(payload?.object_key).toBe(objectKey);
+    expect(payload?.paths).toEqual(["index.html"]);
+  });
+
+  it("signs publish-result revision URLs with per-path object keys", async () => {
+    const indexKey = workspaceBlobKey(workspaceId, sha256);
+    const assetKey = workspaceBlobKey(workspaceId, "b".repeat(64));
+    const signed = (await signPublishResult(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        title: "Artifact",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
+        agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_1",
+        entrypoint_object_key: indexKey,
+        file_object_keys: {
+          "index.html": indexKey,
+          "assets/app.js": assetKey,
+        },
+        expires_at: "2030-01-01T00:00:00.000Z",
+        bundle: { status: "disabled" },
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { entrypoint_object_key?: string; file_object_keys?: unknown; revision_content_url: string };
+
+    expect(signed.entrypoint_object_key).toBeUndefined();
+    expect(signed.file_object_keys).toBeUndefined();
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
+    expect(payload?.object_key).toBeUndefined();
+    expect(payload?.object_keys).toEqual({
+      "index.html": indexKey,
+      "assets/app.js": assetKey,
+    });
+    expect(payload?.paths).toEqual(["index.html", "assets/app.js"]);
   });
 
   it("sets noindex and script_disabled when ephemeral_tier is present on the view payload", async () => {

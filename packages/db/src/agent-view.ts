@@ -61,6 +61,7 @@ export function buildAgentView(
       path: file.path,
       size_bytes: file.size_bytes,
       content_type: file.content_type,
+      object_key: file.r2_key,
       url: `${prefix}/${encodePath(file.path)}`,
     })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
@@ -112,7 +113,7 @@ export function buildPublishResult(
   },
   uploadSessionId: string | undefined,
   options: RepositoryOptions,
-  publishMeta?: { ephemeral_tier?: boolean },
+  publishMeta?: { ephemeral_tier?: boolean; entrypoint_object_key?: string; file_object_keys?: Record<string, string> },
 ) {
   const contentBaseUrl = trimTrailingSlash(options.contentBaseUrl ?? "http://127.0.0.1:8789");
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
@@ -127,6 +128,8 @@ export function buildPublishResult(
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
     bundle: buildBundleAvailability(revision),
+    ...(publishMeta?.entrypoint_object_key ? { entrypoint_object_key: publishMeta.entrypoint_object_key } : {}),
+    ...(publishMeta?.file_object_keys ? { file_object_keys: publishMeta.file_object_keys } : {}),
     ...(publishMeta?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
   };
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;

@@ -6,6 +6,7 @@ import type {
   ApiKey,
   Artifact,
   ClaimToken,
+  ContentBlob,
   OperationEvent,
   PlatformLockdown,
   RepositoryOptions,
@@ -34,6 +35,7 @@ export class LocalRepository extends RepositoryCore {
   readonly accessLinks: Map<string, AccessLink>;
   readonly safetyWarnings: Map<string, SafetyWarning>;
   readonly claimTokens: Map<string, ClaimToken>;
+  readonly contentBlobs: Map<string, ContentBlob>;
 
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
@@ -51,6 +53,7 @@ export class LocalRepository extends RepositoryCore {
     this.accessLinks = state.accessLinks;
     this.safetyWarnings = state.safetyWarnings;
     this.claimTokens = state.claimTokens;
+    this.contentBlobs = state.contentBlobs;
   }
 }
 

@@ -55,7 +55,7 @@ agent-paste whoami
 Owns API-key auth, artifact metadata, public Agent View, web/operator routes, and operation events.
 
 **Upload Worker**:
-Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, and R2 writes.
+Owns upload sessions, signed upload-worker PUT URLs, upload size/count validation, digest reuse decisions, and R2 writes.
 
 **Content Worker**:
 Serves untrusted artifact bytes from private R2 through signed content URLs. It has R2 read access and KV denylist read access. It has no Hyperdrive binding.
@@ -163,7 +163,7 @@ Current policy values are subject to Workspace/Plan configuration.
 - Every artifact has `expires_at`.
 - Every upload session has `expires_at`.
 - Expired artifacts stop resolving and their R2 bytes are deleted by cleanup.
-- Expired upload sessions delete partial R2 bytes.
+- Expired upload sessions delete partial legacy revision-key R2 bytes. Workspace shared blob keys are not prefix-purged from session cleanup; jobs-owned blob GC removes unreferenced blob index rows. v1 leaves the deterministic R2 object bytes in place rather than racing concurrent first uploads that reuse the same key.
 - No forever retention in MVP.
 - No pinning in MVP.
 
@@ -192,7 +192,7 @@ Uploaded HTML is untrusted content:
 - Network egress is restricted by CSP.
 - Tokens and full signed URLs must not be logged.
 
-Application-layer encryption is deferred. Private R2 plus isolated content serving is the MVP safety baseline.
+Application-layer artifact-byte encryption is active. Legacy revision objects and bundles use AAD bound to Artifact/Revision/path; workspace shared blobs use digest-bound AAD so one verified blob can be referenced by multiple active revisions in the same workspace.
 
 ## Operation Events
 

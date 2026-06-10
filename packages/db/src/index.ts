@@ -99,6 +99,7 @@ export type {
   ApiKeyActor,
   Artifact,
   ClaimToken,
+  ContentBlob,
   HyperdriveBinding,
   OperationEvent,
   PlatformActor,
@@ -110,6 +111,7 @@ export type {
   SqlQueryResult,
   SqlValue,
   StoredFile,
+  StoredFileStorageKind,
   StripeWebhookEvent,
   SubscriptionStatus,
   UploadSession,
@@ -124,6 +126,7 @@ export {
   type ObjectStoragePort,
   observeUploadSessionForFinalize,
   resolveSessionObjectKey,
+  type UploadSessionFileDescriptor,
   type UploadSessionRecord,
   type UploadSigningPort,
 } from "./upload-session-lifecycle.js";

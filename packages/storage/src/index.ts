@@ -1,5 +1,6 @@
 export {
   ARTIFACT_BYTES_AAD_VERSION,
+  ARTIFACT_BYTES_BLOB_AAD_VERSION,
   ARTIFACT_BYTES_DERIVATION_INFO,
   ARTIFACT_BYTES_ENCRYPTION_ALG,
   ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
@@ -9,6 +10,7 @@ export {
   type ArtifactBytesAadContext,
   type ArtifactBytesEncryptionMetadata,
   type ArtifactBytesKeyRing,
+  type BlobArtifactBytesAadContext,
   bytesFromReadableBody,
   bytesFromReadableBodyCapped,
   ciphertextByteLengthForPlaintext,
@@ -20,9 +22,13 @@ export {
   encryptionMetadataForKid,
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
+  parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
   ReadableBodyTooLargeError,
+  type RevisionArtifactBytesAadContext,
   type RevisionFileObjectKeyParts,
+  type WorkspaceBlobObjectKeyParts,
+  workspaceBlobObjectKeyFor,
 } from "./artifact-bytes-encryption.js";
 
 export const MIME_TYPES_BY_EXTENSION = {

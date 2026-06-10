@@ -1,4 +1,5 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { type BoundRespondersVariables, boundRespondersMiddleware } from "@agent-paste/worker-runtime";
 import { Hono } from "hono";
@@ -20,6 +21,12 @@ import {
 } from "./serve-object.js";
 
 const ETAG = '"test-etag"';
+const workspaceId = "00000000-0000-4000-8000-000000000001";
+const otherWorkspaceId = "00000000-0000-4000-8000-000000000002";
+const artifactBytesEncryptionEnv = {
+  ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+};
+const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
 function basePayload(overrides: Partial<ContentTokenPayload> = {}): ContentTokenPayload {
   return {
@@ -28,6 +35,14 @@ function basePayload(overrides: Partial<ContentTokenPayload> = {}): ContentToken
     exp: Math.floor(Date.now() / 1000) + 3600,
     ...overrides,
   };
+}
+
+function objectServingApp(payload: ContentTokenPayload, path = "index.html") {
+  const app = new Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>();
+  app.use("*", requestIdMiddleware());
+  app.use("*", boundRespondersMiddleware({ defaultErrorHeaders: () => ({}) }));
+  app.get("/file", (context) => serveSignedObject(context as AppContext, payload, path));
+  return app;
 }
 
 describe("serve-object path allowlist", () => {
@@ -231,6 +246,100 @@ describe("serve-object noindex meta injection", () => {
 describe("serve-object object keys", () => {
   it("builds default artifact revision file keys", () => {
     expect(objectKeyFor(basePayload(), "index.html")).toBe("artifacts/art_1/revisions/rev_1/files/index.html");
+  });
+
+  it("serves signed workspace blob object keys with v2 artifact-byte AAD", async () => {
+    const blobKey = workspaceBlobObjectKeyFor({ workspaceId, sha256: HELLO_SHA256 });
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("hello"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: { kind: "blob", workspaceId, sha256: HELLO_SHA256 },
+    });
+    const get = vi.fn(async (key: string) => {
+      expect(key).toBe(blobKey);
+      return {
+        body: new Blob([encrypted.ciphertext]).stream(),
+        size: encrypted.ciphertext.byteLength,
+        customMetadata: encrypted.customMetadata,
+      };
+    });
+    const response = await objectServingApp(
+      basePayload({
+        workspace_id: workspaceId,
+        paths: ["index.html"],
+        object_key: blobKey,
+      }),
+    ).fetch(new Request("https://content.test/file"), {
+      CONTENT_SIGNING_SECRET: "secret",
+      ...artifactBytesEncryptionEnv,
+      DENYLIST: { get: async () => null },
+      ARTIFACTS: { get },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("hello");
+  });
+
+  it("resolves path-specific object key maps for multi-file revision URLs", () => {
+    const indexKey = workspaceBlobObjectKeyFor({ workspaceId, sha256: HELLO_SHA256 });
+    const assetKey = workspaceBlobObjectKeyFor({
+      workspaceId,
+      sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    });
+
+    expect(
+      objectKeyFor(
+        basePayload({
+          workspace_id: workspaceId,
+          paths: ["index.html", "assets/app.js"],
+          object_keys: {
+            "index.html": indexKey,
+            "assets/app.js": assetKey,
+          },
+        }),
+        "assets/app.js",
+      ),
+    ).toBe(assetKey);
+  });
+
+  it("rejects a single signed object key on multi-path tokens", async () => {
+    const get = vi.fn(async () => null);
+    const response = await objectServingApp(
+      basePayload({
+        workspace_id: workspaceId,
+        paths: ["index.html", "assets/app.js"],
+        object_key: workspaceBlobObjectKeyFor({ workspaceId, sha256: HELLO_SHA256 }),
+      }),
+      "assets/app.js",
+    ).fetch(new Request("https://content.test/file"), {
+      CONTENT_SIGNING_SECRET: "secret",
+      ...artifactBytesEncryptionEnv,
+      DENYLIST: { get: async () => null },
+      ARTIFACTS: { get },
+    });
+
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe signed object keys before reading R2", async () => {
+    const get = vi.fn(async () => null);
+    const response = await objectServingApp(
+      basePayload({
+        workspace_id: workspaceId,
+        paths: ["index.html"],
+        object_key: workspaceBlobObjectKeyFor({ workspaceId: otherWorkspaceId, sha256: HELLO_SHA256 }),
+      }),
+    ).fetch(new Request("https://content.test/file"), {
+      CONTENT_SIGNING_SECRET: "secret",
+      ...artifactBytesEncryptionEnv,
+      DENYLIST: { get: async () => null },
+      ARTIFACTS: { get },
+    });
+
+    expect(response.status).toBe(404);
+    expect(get).not.toHaveBeenCalled();
   });
 });
 

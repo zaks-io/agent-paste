@@ -248,22 +248,44 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
     title: inferred.title,
     entrypoint: inferred.entrypoint,
     ...(explicitRenderMode ? { render_mode: explicitRenderMode } : {}),
-    files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes })),
+    files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes, sha256: file.sha256 })),
   });
   const session = await client.uploadSessions.create(createSessionRequest, idempotencyKey);
 
+  let uploadedFiles = 0;
+  let uploadedBytes = 0;
+  let reusedFiles = 0;
+  let reusedBytes = 0;
   for (const target of session.files) {
     const local = files.find((file) => file.path === target.path);
     if (!local) {
       throw new Error(`Upload session returned unknown file ${target.path}`);
     }
+    if (target.status === "reused") {
+      reusedFiles += 1;
+      reusedBytes += local.sizeBytes;
+      continue;
+    }
     await client.putFile(target.put_url, await fs.readFile(local.absolutePath), {
       "content-type": contentTypeForLocalPath(local.path),
     });
+    uploadedFiles += 1;
+    uploadedBytes += local.sizeBytes;
   }
 
   const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
-  return client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
+  const published = await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
+  return {
+    ...published,
+    upload_stats: {
+      total_files: session.files.length,
+      total_bytes: files.reduce((sum, file) => sum + file.sizeBytes, 0),
+      uploaded_files: uploadedFiles,
+      uploaded_bytes: uploadedBytes,
+      reused_files: reusedFiles,
+      reused_bytes: reusedBytes,
+    },
+  };
 }
 
 export function parseArgs(argv: string[]): Parsed {
@@ -361,6 +383,14 @@ type PublishResultShape = {
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
+  upload_stats?: {
+    total_files: number;
+    total_bytes: number;
+    uploaded_files: number;
+    uploaded_bytes: number;
+    reused_files: number;
+    reused_bytes: number;
+  };
 };
 
 // Render expires_at as a plain calendar date when it parses as an ISO instant;
@@ -368,6 +398,10 @@ type PublishResultShape = {
 function formatExpiry(expiresAt: string) {
   const date = new Date(expiresAt);
   return Number.isNaN(date.getTime()) ? expiresAt : date.toISOString().slice(0, 10);
+}
+
+function uploadStatsLine(stats: NonNullable<PublishResultShape["upload_stats"]>) {
+  return `  Upload    ${stats.uploaded_files}/${stats.total_files} files, ${stats.uploaded_bytes} B sent, ${stats.reused_bytes} B reused`;
 }
 
 // Human-readable publish result. Title-led so a person sees what shipped first;
@@ -382,6 +416,7 @@ function formatPublishResult(result: PublishResultShape) {
     `  Revision  ${result.revision_content_url}`,
     `  Agent     ${result.agent_view_url}`,
     `  Expires   ${formatExpiry(result.expires_at)}`,
+    ...(result.upload_stats ? [uploadStatsLine(result.upload_stats)] : []),
   ].join("\n");
 }
 

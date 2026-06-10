@@ -88,7 +88,8 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
   "files": [
     {
       "path": "index.html",
-      "size_bytes": 12345
+      "size_bytes": 12345,
+      "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
     }
   ]
 }
@@ -113,6 +114,9 @@ Rules:
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
 - Max file count is `100`.
+- `sha256` is optional for compatibility. New CLI/MCP clients send lowercase
+  hex SHA-256 for each file. Legacy clients that omit it keep the full-upload
+  revision-object path and do not participate in deduplication.
 
 ### `CreateUploadSessionResponse`
 
@@ -124,16 +128,27 @@ Rules:
   "expires_at": "2026-05-21T12:00:00.000Z",
   "files": [
     {
+      "status": "upload_required",
       "path": "index.html",
       "put_url": "https://upload.agent-paste.sh/v1/upload-sessions/upl_.../files/index.html?...",
       "required_headers": {},
       "expires_at": "2026-05-20T12:15:00.000Z"
+    },
+    {
+      "status": "reused",
+      "path": "style.css"
     }
   ]
 }
 ```
 
 The returned `put_url` values are opaque upload-worker URLs. They are not R2 URLs.
+`upload_required` means the client must PUT the file bytes. `reused` means the
+workspace already has a verified blob for the same `(sha256, size_bytes)`, or the
+same upload session already requires that blob once; the client must skip PUT for
+that path. Signed upload tokens include the expected `sha256` when the request
+provided one, and the upload Worker rejects plaintext whose computed digest does
+not match.
 
 The top-level `expires_at` is the Upload Session expiry. Each `files[].expires_at`
 is the validity of that file's signed `put_url` (the signed token's expiry, much
@@ -191,9 +206,11 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 
 ## Publish Flow
 
-1. CLI validates local input and computes file metadata.
+1. CLI validates local input and computes file metadata, including SHA-256 for
+   hash-aware clients.
 2. CLI or MCP calls `POST upload /v1/upload-sessions`.
-3. CLI PUTs each file to returned upload-worker URLs.
+3. CLI PUTs only `upload_required` files to returned upload-worker URLs and skips
+   `reused` files.
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
 5. `upload` verifies files and returns the finalized draft Revision.
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
@@ -203,3 +220,7 @@ Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
 The `artifact_url` remains the stable live viewer for the Artifact.
+
+Workspace-wide publish deduplication starts only for new hash-aware uploads after
+the digest-manifest contract shipped. There is no historical backfill of legacy
+revision-key objects.

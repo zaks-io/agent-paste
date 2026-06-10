@@ -306,6 +306,10 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 26214400
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$/u"
                 }
               },
               "required": [
@@ -351,33 +355,64 @@
           "files": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "path": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 4096
-                },
-                "put_url": {
-                  "type": "string",
-                  "format": "uri"
-                },
-                "required_headers": {
+              "oneOf": [
+                {
                   "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at"
+                  ]
                 },
-                "expires_at": {
-                  "type": "string",
-                  "format": "date-time"
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "reused"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path"
+                  ]
                 }
-              },
-              "required": [
-                "path",
-                "put_url",
-                "required_headers",
-                "expires_at"
               ]
             },
             "maxItems": 100
@@ -873,6 +908,10 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 26214400
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$/u"
                         }
                       },
                       "required": [

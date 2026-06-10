@@ -4,6 +4,7 @@ import { postgresApiKeys } from "./postgres-entities/api-keys.js";
 import { postgresArtifactFiles } from "./postgres-entities/artifact-files.js";
 import { postgresArtifacts } from "./postgres-entities/artifacts.js";
 import { postgresClaimTokens } from "./postgres-entities/claim-tokens.js";
+import { postgresContentBlobs } from "./postgres-entities/content-blobs.js";
 import type { PostgresContext } from "./postgres-entities/context.js";
 import { postgresMembers } from "./postgres-entities/members.js";
 import { postgresOperationEvents } from "./postgres-entities/operation-events.js";
@@ -24,6 +25,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
     workspaces: postgresWorkspaces(ctx),
     apiKeys: postgresApiKeys(ctx),
     claimTokens: postgresClaimTokens(ctx),
+    contentBlobs: postgresContentBlobs(ctx),
     members: postgresMembers(ctx),
     artifacts: postgresArtifacts(ctx),
     accessLinks: postgresAccessLinks(ctx),
