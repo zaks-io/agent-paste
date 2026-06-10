@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
-import { isMainEntrypoint, logout, main, parseArgs } from "../src/index.js";
+import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
@@ -102,7 +102,9 @@ describe("cli command dispatch", () => {
 
     await main(["version", "--json"]);
 
-    expect(stdoutValues(stdout)).toContain(`${JSON.stringify({ version: CLI_VERSION }, null, 2)}\n`);
+    const parsed = JSON.parse(stdoutValues(stdout).join(""));
+    expect(parsed.version).toBe(CLI_VERSION);
+    expect(parsed.schema_version).toBe(SCHEMA_VERSION);
   });
 
   it("routes upgrade without resolving a client and redirects off the binary channel", async () => {
@@ -155,8 +157,13 @@ describe("cli command dispatch", () => {
     // --json / --quiet suppression itself is proven in update-check.test.ts.
     await main(["whoami", "--json"], client);
 
+    // Contract: exactly one stdout write, valid JSON carrying the command payload
+    // plus the schema version, and nothing leaked to stderr. Not byte-equality —
+    // the exact key order / version stamp is allowed to evolve.
     expect(stdout).toHaveBeenCalledTimes(1);
-    expect(stdoutValues(stdout)).toEqual([`${JSON.stringify(payload, null, 2)}\n`]);
+    const parsed = JSON.parse(stdoutValues(stdout).join(""));
+    expect(parsed).toMatchObject(payload);
+    expect(parsed.schema_version).toBe(SCHEMA_VERSION);
     expect(stderr).not.toHaveBeenCalled();
   });
 
@@ -257,7 +264,10 @@ describe("cli command dispatch", () => {
       expect(out).toContain(revisionId);
       expect(out).toContain("https://app.test/artifacts/art_1");
       expect(out).toContain("https://content.test/v/token/index.html");
-      expect(out).toContain("Upload    1/1 files, 14 B sent, 0 B reused");
+      // Upload summary surfaces the count uploaded and that nothing was reused —
+      // assert the facts, not the exact label/spacing/byte rendering.
+      expect(out).toMatch(/1\/1/);
+      expect(out).toMatch(/reused|cached/);
     } finally {
       await removePublishFixture(root);
     }

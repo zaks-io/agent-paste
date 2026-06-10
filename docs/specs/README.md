@@ -23,6 +23,8 @@ records implementation status; these specs own the behavioral contract.
 - [`data-model.md`](./data-model.md): Postgres table target, indexes, and invariants.
 - [`content-rendering.md`](./content-rendering.md): content origin URL, token, MIME, CSP, and cache rules.
 - [`local-dev.md`](./local-dev.md): local bootstrap and command model.
+- [`cli.md`](./cli.md): CLI output-mode (rich/plain/json), channel discipline,
+  `schema_version`, and exit-code contract.
 - [`acceptance.md`](./acceptance.md): testable MVP acceptance matrix.
 
 Later-phase specs are now current where the corresponding feature shipped:

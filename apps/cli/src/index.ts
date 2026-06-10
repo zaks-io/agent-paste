@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type AgentPasteAuth,
-  AgentPasteError,
   ApiClient,
   createIdempotencyKey,
   type EphemeralProvisionOptions,
@@ -19,13 +18,26 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
+import {
+  createProgress,
+  exitCodeFor,
+  formatBytes,
+  formatError,
+  hyperlink,
+  type OutputMode,
+  paint,
+  resolveMode,
+} from "./render.js";
 import { runUpdateCheck } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
 
+export const SCHEMA_VERSION = "1";
+
 export type GlobalFlags = {
   json: boolean;
   quiet: boolean;
+  color?: boolean | undefined;
 };
 
 type Parsed = {
@@ -190,7 +202,8 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
       uploadBaseUrl: provisionClient.uploadBaseUrl,
       auth: { type: "api_key", apiKey: provisioned.api_key_secret },
     });
-  const result = await runPublish(parsed, publishClient);
+  const mode = outputModeFor(parsed.global);
+  const result = await runPublish(parsed, publishClient, mode);
   const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
   const payload = {
     ...result,
@@ -200,7 +213,7 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
     api_key_id: provisioned.api_key_id,
     claim_token_id: provisioned.claim_token_id,
   };
-  return output(payload, parsed.global, formatEphemeralPublishResult(result, claimUrl));
+  return output(payload, parsed.global, formatEphemeralPublishResult(mode, result, claimUrl));
 }
 
 async function noteEphemeralCredentialPrecedence() {
@@ -218,11 +231,12 @@ function unauthenticatedClient() {
 }
 
 async function publish(parsed: Parsed, client: ApiClient) {
-  const result = await runPublish(parsed, client);
-  return output(result, parsed.global, formatPublishResult(result));
+  const mode = outputModeFor(parsed.global);
+  const result = await runPublish(parsed, client, mode);
+  return output(result, parsed.global, formatPublishResult(mode, result));
 }
 
-async function runPublish(parsed: Parsed, client: ApiClient) {
+async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const inputPath = requiredArg(parsed, 0, "path");
   const files = await walkLocalPath(inputPath);
   const policy = await client.usagePolicy();
@@ -256,6 +270,10 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
   let uploadedBytes = 0;
   let reusedFiles = 0;
   let reusedBytes = 0;
+  // Per-file progress, granularity-agnostic: the serial loop ticks 1/N, 2/N…;
+  // a future parallel upload would call update() on each completion unchanged.
+  const toUpload = session.files.filter((target) => target.status !== "reused").length;
+  const progress = createProgress(mode);
   for (const target of session.files) {
     const local = files.find((file) => file.path === target.path);
     if (!local) {
@@ -271,7 +289,9 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
     });
     uploadedFiles += 1;
     uploadedBytes += local.sizeBytes;
+    progress.update({ done: uploadedFiles, total: toUpload, bytes: uploadedBytes });
   }
+  progress.done();
 
   const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
   const published = await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
@@ -327,7 +347,11 @@ export function parseArgs(argv: string[]): Parsed {
     command,
     positionals: positionals.slice(command.length),
     flags,
-    global: { json: booleanFlag({ flags }, "json", false), quiet: booleanFlag({ flags }, "quiet", false) },
+    global: {
+      json: booleanFlag({ flags }, "json", false),
+      quiet: booleanFlag({ flags }, "quiet", false),
+      color: optionalBooleanFlag({ flags }, "color"),
+    },
   };
 }
 
@@ -358,9 +382,33 @@ function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: bool
   return typeof value === "boolean" ? value : fallback;
 }
 
+// Tri-state: --color forces rich, --no-color forces plain, absent (undefined)
+// defers to TTY/NO_COLOR/CI detection in resolveMode.
+function optionalBooleanFlag(parsed: Pick<Parsed, "flags">, name: string): boolean | undefined {
+  const value = parsed.flags.get(name);
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function outputModeFor(global: GlobalFlags): OutputMode {
+  return resolveMode({
+    json: global.json,
+    color: global.color,
+    env: {
+      isTTY: Boolean(process.stdout.isTTY),
+      NO_COLOR: process.env.NO_COLOR,
+      CI: process.env.CI,
+      TERM: process.env.TERM,
+    },
+  });
+}
+
 async function output(value: unknown, global: GlobalFlags, human = JSON.stringify(value, null, 2)) {
   if (global.json) {
-    await writeStdout(`${JSON.stringify(value, null, 2)}\n`);
+    const payload =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? { schema_version: SCHEMA_VERSION, ...(value as Record<string, unknown>) }
+        : { schema_version: SCHEMA_VERSION, value };
+    await writeStdout(`${JSON.stringify(payload, null, 2)}\n`);
   } else if (!global.quiet) {
     await writeStdout(`${human}\n`);
   }
@@ -400,23 +448,29 @@ function formatExpiry(expiresAt: string) {
   return Number.isNaN(date.getTime()) ? expiresAt : date.toISOString().slice(0, 10);
 }
 
-function uploadStatsLine(stats: NonNullable<PublishResultShape["upload_stats"]>) {
-  return `  Upload    ${stats.uploaded_files}/${stats.total_files} files, ${stats.uploaded_bytes} B sent, ${stats.reused_bytes} B reused`;
+function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape["upload_stats"]>) {
+  const uploaded = paint(mode, "green", `${stats.uploaded_files}/${stats.total_files} uploaded`);
+  return `  ${paint(mode, "dim", "Upload")}    ${uploaded}, ${stats.reused_files} reused · ${formatBytes(stats.uploaded_bytes)} sent, ${formatBytes(stats.reused_bytes)} cached`;
 }
 
 // Human-readable publish result. Title-led so a person sees what shipped first;
 // the ids sit on a dim second line for reference. Artifact is the stable live
 // app viewer; Revision is the exact content-origin URL retained for snapshots.
-function formatPublishResult(result: PublishResultShape) {
+// Colour, clickable URLs, and the next-step hint only render in rich mode;
+// plain mode emits the same layout with ANSI stripped (safe to pipe).
+function formatPublishResult(mode: OutputMode, result: PublishResultShape) {
+  const label = (text: string) => paint(mode, "dim", text);
   return [
-    `✓ Published "${result.title}"`,
-    `  ${result.artifact_id} · ${result.revision_id}`,
+    `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
+    label(`  ${result.artifact_id} · ${result.revision_id}`),
     "",
-    `  Artifact  ${result.artifact_url}`,
-    `  Revision  ${result.revision_content_url}`,
-    `  Agent     ${result.agent_view_url}`,
-    `  Expires   ${formatExpiry(result.expires_at)}`,
-    ...(result.upload_stats ? [uploadStatsLine(result.upload_stats)] : []),
+    `  ${label("Artifact")}  ${hyperlink(mode, result.artifact_url)}`,
+    `  ${label("Revision")}  ${hyperlink(mode, result.revision_content_url)}`,
+    `  ${label("Agent")}     ${hyperlink(mode, result.agent_view_url)}`,
+    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
+    ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
+    "",
+    paint(mode, "cyan", `  → open ${result.artifact_url}`),
   ].join("\n");
 }
 
@@ -425,13 +479,13 @@ export function ephemeralClaimUrl(claimToken: string) {
   return `${base}/claim#${claimToken}`;
 }
 
-function formatEphemeralPublishResult(result: PublishResultShape, claimUrl: string) {
+function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string) {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   return [
-    formatPublishResult(result),
+    formatPublishResult(mode, result),
     "",
     "Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).",
-    `  Claim    ${claimUrl}`,
+    `  ${paint(mode, "dim", "Claim")}    ${hyperlink(mode, claimUrl)}`,
   ].join("\n");
 }
 
@@ -462,6 +516,12 @@ Usage:
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
+
+Output:
+  --json        Machine-readable JSON on stdout (stable, carries schema_version).
+  --quiet       Suppress the human summary; errors and exit code still apply.
+  --color       Force colour/rich output; --no-color forces plain.
+                Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.
 `);
 }
 
@@ -488,9 +548,11 @@ function executablePath(value: string) {
 
 if (isMainEntrypoint(import.meta.url, process.argv[1])) {
   main().catch((error: unknown) => {
-    const asError = error instanceof Error ? error : new Error(String(error));
-    const code = error instanceof AgentPasteError ? error.code : "cli_error";
-    process.stderr.write(`agent-paste: ${code}: ${asError.message}\n`);
-    process.exitCode = 1;
+    // Errors go to stderr so stdout stays a clean channel (pure JSON under
+    // --json). JSON error envelope only when --json is set; otherwise the
+    // human-facing renderer, rich when stderr is a TTY.
+    const mode = process.argv.includes("--json") ? "json" : process.stderr.isTTY ? "rich" : "plain";
+    process.stderr.write(formatError(mode, error));
+    process.exitCode = exitCodeFor(error);
   });
 }
