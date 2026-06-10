@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import {
   DEFAULT_LOCAL_SMOKE_HARNESS_SECRET,
@@ -32,8 +33,8 @@ const uploadBaseUrl = `http://127.0.0.1:${uploadPort}`;
 const contentBaseUrl = `http://127.0.0.1:${contentPort}`;
 const jobsBaseUrl = `http://127.0.0.1:${jobsPort}`;
 const harnessSecret = smokeHarnessSecretFromEnv();
-const cliEntry = new URL("../apps/cli/dist/index.js", import.meta.url).pathname;
-const serverEntry = new URL("./local-mvp-server.mjs", import.meta.url).pathname;
+const cliEntry = fileURLToPath(new URL("../apps/cli/dist/index.js", import.meta.url));
+const serverEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
 const workosPort = intEnv("AGENT_PASTE_LOCAL_EPHEMERAL_WORKOS_PORT", 18790);
 const workosBaseUrl = `http://127.0.0.1:${workosPort}`;
 const workosApiKey = "sk_test_local_ephemeral_smoke";
@@ -121,6 +122,10 @@ try {
     agentView.files.some((file) => file.path === "index.html" && file.url.startsWith(contentBaseUrl)),
     "agent view lists index.html",
   );
+  const nestedFile = agentView.files.find((file) => file.path === "assets/app.js");
+  assert(nestedFile, "agent view lists nested assets/app.js");
+  const nestedView = await fetch(nestedFile.url);
+  assert(nestedView.status === 200, `nested file URL returned ${nestedView.status}`);
   const browserAgentView = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
   assert(browserAgentView.status === 200, `browser agent view returned ${browserAgentView.status}`);
   assert(browserAgentView.headers.get("content-type")?.includes("text/html"), "browser agent view returns HTML");
@@ -188,6 +193,7 @@ function run(command, args, env) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
+    child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) {
         resolve(stdout.trim());

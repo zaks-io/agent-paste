@@ -31,7 +31,7 @@ export function postgresArtifacts(ctx: PostgresContext): Entities["artifacts"] {
       const result = await sql.query<{ id: string }>(
         `select id
          from artifacts
-         where status = 'active' and expires_at <= $1
+         where status = 'active' and pinned_at is null and expires_at <= $1
          order by expires_at asc
          limit $2`,
         [now, limit],
@@ -42,7 +42,7 @@ export function postgresArtifacts(ctx: PostgresContext): Entities["artifacts"] {
       await sql.query(
         `update artifacts
          set status = 'expired', deleted_at = $1, delete_reason = 'expired', updated_at = $1
-         where status = 'active' and expires_at <= $1 and id = any($2::text[])`,
+         where status = 'active' and pinned_at is null and expires_at <= $1 and id = any($2::text[])`,
         [now, ids],
       );
     },

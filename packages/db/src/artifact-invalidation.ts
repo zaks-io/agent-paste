@@ -6,6 +6,7 @@ import {
   writeDenylistKey,
 } from "./byte-purge-shared.js";
 import type { SqlExecutor } from "./types.js";
+import { envScopedArtifactPrefix } from "./validation.js";
 
 export type {
   ArtifactBytePurgeHooks,
@@ -26,6 +27,15 @@ export function artifactPurgePrefix(artifactId: string): string {
   return `artifacts/${artifactId}/`;
 }
 
+// Revision files live under artifact-scoped keys; derived bundles live under
+// env-scoped keys (ADR 0021). Both must be purged or bundle zips orphan in R2.
+export function artifactPurgePrefixes(env: ArtifactInvalidationEnv, workspaceId: string, artifactId: string): string[] {
+  return [
+    artifactPurgePrefix(artifactId),
+    envScopedArtifactPrefix({ workspaceId, artifactId, storageEnv: env.AGENT_PASTE_ENV }),
+  ];
+}
+
 export function writeArtifactDenylist(
   env: ArtifactInvalidationEnv,
   artifactId: string,
@@ -43,7 +53,12 @@ export function enqueueArtifactBytePurge(
   input: ArtifactBytePurgeInput,
   hooks?: ArtifactBytePurgeHooks,
 ): Promise<boolean> {
-  return enqueueBytePurge(env, executor, { ...input, prefixes: [artifactPurgePrefix(input.artifactId)] }, hooks);
+  return enqueueBytePurge(
+    env,
+    executor,
+    { ...input, prefixes: artifactPurgePrefixes(env, input.workspaceId, input.artifactId) },
+    hooks,
+  );
 }
 
 /** Post-commit invalidation: denylist first, then byte-purge enqueue (ADR 0049). */

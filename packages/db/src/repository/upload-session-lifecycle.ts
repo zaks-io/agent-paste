@@ -10,7 +10,7 @@ import {
 } from "../policy.js";
 import { repositoryError } from "../repository-error.js";
 import { toUploadSessionRecord } from "../transforms.js";
-import type { ApiActor, Artifact, Revision, StoredFile, UploadSession, Workspace } from "../types.js";
+import type { ApiActor, Artifact, RenderMode, Revision, StoredFile, UploadSession, Workspace } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
 
@@ -18,6 +18,7 @@ export type CreateUploadSessionRequest = {
   artifact_id?: string;
   title?: string;
   entrypoint?: string;
+  render_mode?: RenderMode;
   files: Array<{ path: string; size_bytes: number }>;
 };
 
@@ -66,6 +67,7 @@ export async function createUploadSessionInEntities(
     status: "pending",
     title: input.request.title ?? baseArtifact?.title ?? "untitled",
     entrypoint,
+    render_mode: input.request.render_mode ?? null,
     artifact_expires_at: new Date(new Date(input.now).getTime() + artifactTtlSeconds * 1000).toISOString(),
     file_count: files.length,
     size_bytes: totalSize,
@@ -208,7 +210,8 @@ export async function finalizeUploadSessionInEntities(
     revision_number: null,
     status: "draft",
     entrypoint: session.entrypoint,
-    render_mode: inferRenderMode(session.entrypoint),
+    // Explicit client choice (stored on the session) wins; otherwise infer.
+    render_mode: session.render_mode ?? inferRenderMode(session.entrypoint),
     file_count: session.file_count,
     size_bytes: session.size_bytes,
     bundle_status: "disabled",

@@ -1,6 +1,6 @@
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveWorkOsIdentity, type WorkOsVerificationOptions } from "./workos.js";
+import { resolveWorkOsIdentity, type WorkOsVerificationOptions, WorkOsVerificationUnavailableError } from "./workos.js";
 
 const clientId = "client_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 const apiKey = "sk_test_123";
@@ -238,6 +238,33 @@ describe("WorkOS access-token verification", () => {
 
     await resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ onReject }));
     expect(onReject).toHaveBeenCalledWith("user_fetch_failed", { status: 404 });
+  });
+
+  it("throws the unavailable error when the user fetch is rate limited and throwOnUnavailable is set", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, { userResponse: new Response("slow down", { status: 429 }) });
+
+    await expect(
+      resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ throwOnUnavailable: true })),
+    ).rejects.toBeInstanceOf(WorkOsVerificationUnavailableError);
+  });
+
+  it("throws the unavailable error when the user fetch times out upstream and throwOnUnavailable is set", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, { userResponse: new Response("timeout", { status: 408 }) });
+
+    await expect(
+      resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ throwOnUnavailable: true })),
+    ).rejects.toBeInstanceOf(WorkOsVerificationUnavailableError);
+  });
+
+  it("still resolves null for a definitive user-fetch failure when throwOnUnavailable is set", async () => {
+    const fixture = await tokenFixture({ client_id: clientId });
+    stubWorkOsFetch(fixture.publicJwk, { userResponse: new Response("nope", { status: 404 }) });
+
+    await expect(
+      resolveWorkOsIdentity(`Bearer ${fixture.token}`, options({ throwOnUnavailable: true })),
+    ).resolves.toBeNull();
   });
 
   it("reports user_fetch_failed with an error label when the user fetch throws", async () => {

@@ -24,8 +24,14 @@ const session = {
 
 describe("upload-session-lifecycle worker orchestration", () => {
   it("builds create-session wire response with signed put URLs", async () => {
+    // The PUT-URL token expiry is much shorter than the session TTL; the wire
+    // response must advertise the token expiry on each file, not the session's.
+    const putUrlExpiresAt = "2026-05-31T00:15:00.000Z";
     const response = await buildCreateUploadSessionWireResponse(session, {
-      signPutUrl: async (_uploadSession, file) => `https://upload.example/put/${file.path}`,
+      signPutUrl: async (_uploadSession, file) => ({
+        url: `https://upload.example/put/${file.path}`,
+        expiresAt: putUrlExpiresAt,
+      }),
     });
 
     expect(response).toEqual({
@@ -39,26 +45,10 @@ describe("upload-session-lifecycle worker orchestration", () => {
           path: "index.html",
           put_url: "https://upload.example/put/index.html",
           required_headers: { "content-length": "128" },
-          expires_at: "2026-06-01T00:00:00.000Z",
+          expires_at: putUrlExpiresAt,
         },
       ],
     });
-  });
-
-  it("reuses an existing put_url when the repository already minted one", async () => {
-    const response = await buildCreateUploadSessionWireResponse(
-      {
-        ...session,
-        files: [{ ...session.files[0], put_url: "https://upload.example/existing" }],
-      },
-      {
-        signPutUrl: async () => {
-          throw new Error("signPutUrl should not run when put_url is preset");
-        },
-      },
-    );
-
-    expect(response.files[0]?.put_url).toBe("https://upload.example/existing");
   });
 
   it("observes uploaded bytes before finalize", async () => {

@@ -67,6 +67,13 @@ async function prepareRequest<Db, Contract extends RouteContract>(
     return db;
   }
 
+  // Order fixed by ADR 0039/0064: scope checks precede idempotency replay, and
+  // replays resolve before the rate limiter so they never consume budget.
+  const scopes = enforceScopes(context, options.contract, principal.principal, options.errorOptions);
+  if (!scopes.ok) {
+    return scopes;
+  }
+
   const replay = await replayCompletedRequest(context, options, principal.principal, db.db, headerGuard.state);
   if (replay) {
     return replay;
@@ -81,11 +88,6 @@ async function prepareRequest<Db, Contract extends RouteContract>(
   );
   if (!rateLimit.ok) {
     return rateLimit;
-  }
-
-  const scopes = enforceScopes(context, options.contract, principal.principal, options.errorOptions);
-  if (!scopes.ok) {
-    return scopes;
   }
 
   const body = await parseBody(context, options.contract, options.errorOptions);

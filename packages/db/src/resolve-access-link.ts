@@ -1,6 +1,7 @@
 import { ACCESS_LINK_SCOPE } from "@agent-paste/tokens/access-link";
 import { isAccessLinkRowExpired, isArtifactAccessLinkLocked } from "./access-links.js";
 import { buildAgentView } from "./agent-view.js";
+import { isArtifactExpired } from "./artifact-expiry.js";
 import { isEphemeralWorkspace } from "./policy.js";
 import type { Entities } from "./repository/ports.js";
 import type { AccessLink, Artifact, Revision } from "./types.js";
@@ -88,7 +89,7 @@ function isArtifactResolvable(artifact: Artifact | null, nowMs: number): artifac
   if (!artifact || artifact.status !== "active" || artifact.deleted_at) {
     return false;
   }
-  return new Date(artifact.expires_at).getTime() > nowMs;
+  return !isArtifactExpired(artifact, nowMs);
 }
 
 async function hasActivePlatformLockdown(

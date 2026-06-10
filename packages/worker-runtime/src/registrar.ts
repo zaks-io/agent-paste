@@ -103,11 +103,11 @@ export function createRegistrar<Db = void>(deps: RegistrarDeps<Db>): Registrar<D
 }
 
 function honoPath(path: string): string {
-  if (path === "/v/{token}/{path}") {
-    // Hono needs a trailing wildcard for content tokens whose signed path spans the rest of the URL.
-    return "/v/:token/*";
-  }
-  return path.replaceAll(/\{([^}]+)\}/gu, ":$1");
+  // A trailing {path} param spans the rest of the URL (file paths keep their `/`
+  // separators), which Hono can only match with a wildcard; handlers derive the
+  // signed path from the raw URL instead of route params.
+  const normalized = path.endsWith("/{path}") ? `${path.slice(0, -"{path}".length)}*` : path;
+  return normalized.replaceAll(/\{([^}]+)\}/gu, ":$1");
 }
 
 export { jsonResponse };

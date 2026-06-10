@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { Env, QueueMessage } from "../env.js";
 import { handleBytePurgeBatch } from "./byte-purge.js";
 
+const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const envScopedPrefix = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/`;
 
 describe("handleBytePurgeBatch", () => {
   it("deletes only prefixes scoped to the target artifact", async () => {
@@ -26,6 +28,39 @@ describe("handleBytePurgeBatch", () => {
     await handleBytePurgeBatch([message], env);
 
     expect(deleted).toEqual([[`artifacts/${artifactId}/index.html`]]);
+    expect(message.ack).toHaveBeenCalled();
+    expect(message.retry).not.toHaveBeenCalled();
+  });
+
+  it("deletes env-scoped bundle prefixes alongside artifact-scoped file prefixes", async () => {
+    const deleted: string[][] = [];
+    const bundleKey = `${envScopedPrefix}bundle.zip`;
+    const env: Env = {
+      ARTIFACTS: {
+        async list({ prefix }) {
+          if (prefix === `artifacts/${artifactId}/`) {
+            return {
+              objects: [{ key: `artifacts/${artifactId}/revisions/${revisionId}/files/index.html` }],
+              truncated: false,
+            };
+          }
+          if (prefix === envScopedPrefix) {
+            return { objects: [{ key: bundleKey }], truncated: false };
+          }
+          return { objects: [], truncated: false };
+        },
+        async delete(keys) {
+          deleted.push(keys);
+        },
+      },
+    };
+    const message = queueMessage({
+      prefixes: [`artifacts/${artifactId}/`, envScopedPrefix],
+    });
+
+    await handleBytePurgeBatch([message], env);
+
+    expect(deleted).toEqual([[`artifacts/${artifactId}/revisions/${revisionId}/files/index.html`], [bundleKey]]);
     expect(message.ack).toHaveBeenCalled();
     expect(message.retry).not.toHaveBeenCalled();
   });
@@ -54,6 +89,18 @@ describe("handleBytePurgeBatch", () => {
     { name: "artifact prefix missing trailing slash", prefixes: [`artifacts/${artifactId}`] },
     { name: "non-artifact prefix", prefixes: ["env/dev/workspaces/ws_1/"] },
     { name: "all prefixes out of scope", prefixes: ["artifacts/other_artifact/"] },
+    {
+      name: "env-scoped prefix for another artifact",
+      prefixes: [`env/live/workspaces/${workspaceId}/artifacts/art_other/`],
+    },
+    {
+      name: "env-scoped prefix for another workspace",
+      prefixes: [`env/live/workspaces/00000000-0000-4000-8000-000000000002/artifacts/${artifactId}/`],
+    },
+    {
+      name: "env-scoped prefix missing artifact trailing slash",
+      prefixes: [`env/live/workspaces/${workspaceId}/artifacts/${artifactId}`],
+    },
   ])("retries without listing for $name", async ({ prefixes }) => {
     const env: Env = {
       ARTIFACTS: {
@@ -76,7 +123,7 @@ function queueMessage(overrides: { prefixes: string[] }): QueueMessage {
   return {
     body: {
       type: "byte.purge.v1",
-      workspace_id: "00000000-0000-4000-8000-000000000001",
+      workspace_id: workspaceId,
       artifact_id: artifactId,
       revision_id: revisionId,
       upload_session_id: null,

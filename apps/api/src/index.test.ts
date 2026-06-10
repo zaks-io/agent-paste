@@ -934,6 +934,48 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it("signs the dashboard viewer token with the artifact expiry", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const expiresAt = "2030-01-01T00:00:00.000Z";
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      CONTENT_SIGNING_SECRET: "content-secret",
+      CONTENT_BASE_URL: "https://content.test",
+      DB: webMemberDbForTests(["read"], {
+        async getWebArtifact() {
+          return {
+            id: artifactId,
+            title: "Detail",
+            status: "Published",
+            latest_revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            pinned: false,
+            lockdown: false,
+            last_published_at: "2026-01-01T00:00:00.000Z",
+            auto_delete_at: expiresAt,
+            entrypoint: "index.html",
+            file_count: 1,
+            size_bytes: 12,
+            viewer: { iframe_src: "https://content.test/v/old/index.html", render_mode: "html" },
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${artifactId}`, {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { viewer: { iframe_src: string } };
+    const token = decodeURIComponent(body.viewer.iframe_src.split("/v/")[1]?.split("/")[0] ?? "");
+    const { verifyContentToken } = await import("@agent-paste/tokens/content");
+    const payload = await verifyContentToken(token, "content-secret");
+    expect(payload?.exp).toBe(Math.floor(new Date(expiresAt).getTime() / 1000));
+  });
+
   it("maps pinned_artifact_cap_exceeded to a 409 contract error on pin", async () => {
     const env: Env = {
       AUTH: webAuthForTests(),

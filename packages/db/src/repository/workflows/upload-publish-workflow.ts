@@ -1,5 +1,6 @@
 import type { AgentViewLockdownState } from "@agent-paste/contracts";
 import { buildAgentView, buildPublishResult } from "../../agent-view.js";
+import { isArtifactExpired } from "../../artifact-expiry.js";
 import { operationActorFromApiActor } from "../../created-by.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
@@ -9,6 +10,7 @@ import type { RepositoryCoreContext } from "../core-context.js";
 import { PLATFORM_SCOPE, workspaceCommandActor, workspaceScope } from "../core-helpers.js";
 import type { Entities } from "../ports.js";
 import {
+  type CreateUploadSessionRequest,
   createUploadSessionInEntities,
   finalizeUploadSessionInEntities,
   readUploadSessionInEntities,
@@ -21,12 +23,7 @@ export async function createUploadSession(
   input: {
     actor: ApiActor;
     idempotencyKey: string;
-    request: {
-      artifact_id?: string;
-      title?: string;
-      entrypoint?: string;
-      files: Array<{ path: string; size_bytes: number }>;
-    };
+    request: CreateUploadSessionRequest;
     now: string;
   },
 ) {
@@ -338,7 +335,7 @@ export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { to
   const requestedRevisionId = dotIndex === -1 ? undefined : input.token.slice(dotIndex + 1);
   return ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
     const artifact = await entities.artifacts.findById(artifactId);
-    if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
+    if (!artifact || artifact.status !== "active" || isArtifactExpired(artifact, Date.now())) {
       return null;
     }
     const platformLockdown = await agentViewPlatformLockdownState(entities, {
@@ -391,7 +388,7 @@ export async function getAgentView(
 
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
     const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-    if (!artifact || artifact.status !== "active" || new Date(artifact.expires_at).getTime() <= Date.now()) {
+    if (!artifact || artifact.status !== "active" || isArtifactExpired(artifact, Date.now())) {
       return null;
     }
     const lockdown = agentViewLockdownState(artifact, platformLockdown);

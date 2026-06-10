@@ -9,6 +9,7 @@ import {
   type DrizzleDb,
   drizzleForExecutor,
 } from "../postgres/drizzle.js";
+import { rlsExecutor } from "../postgres/rls.js";
 import * as schema from "../schema.js";
 import { applyMigrations } from "../test-helpers/pglite.js";
 import type { Artifact, SqlExecutor, SqlValue, UploadSession } from "../types.js";
@@ -65,6 +66,7 @@ type SeedState = {
   expiredArtifactId: string;
   futureArtifactId: string;
   deletedArtifactId: string;
+  pinnedArtifactId: string;
   otherWorkspaceArtifactId: string;
   expiredSessionId: string;
   futureSessionId: string;
@@ -76,6 +78,7 @@ function artifactRow(input: {
   workspaceId: string;
   status: Artifact["status"];
   expiresAt: string;
+  pinnedAt?: string | null;
   deletedAt?: string | null;
   deleteReason?: string | null;
 }): Artifact {
@@ -89,7 +92,7 @@ function artifactRow(input: {
     file_count: 1,
     size_bytes: 12,
     expires_at: input.expiresAt,
-    pinned_at: null,
+    pinned_at: input.pinnedAt ?? null,
     created_by_type: "api_key",
     created_by_id: apiKeyId,
     access_link_lockdown_at: null,
@@ -116,6 +119,7 @@ function uploadSessionRow(input: {
     status: input.status,
     title: "demo",
     entrypoint: "index.html",
+    render_mode: null,
     artifact_expires_at: future,
     file_count: 1,
     size_bytes: 12,
@@ -136,6 +140,7 @@ async function seedFixture(): Promise<SeedState> {
   const expiredArtifactId = createId("art");
   const futureArtifactId = createId("art");
   const deletedArtifactId = createId("art");
+  const pinnedArtifactId = createId("art");
   const otherWorkspaceArtifactId = createId("art");
   const expiredSessionId = createId("ups");
   const futureSessionId = createId("ups");
@@ -198,6 +203,9 @@ async function seedFixture(): Promise<SeedState> {
         deleteReason: "admin_delete",
       }),
     );
+    await entities.artifacts.insert(
+      artifactRow({ id: pinnedArtifactId, workspaceId, status: "active", expiresAt: past, pinnedAt: now }),
+    );
     await entities.uploadSessions.insert(
       uploadSessionRow({
         id: expiredSessionId,
@@ -240,6 +248,7 @@ async function seedFixture(): Promise<SeedState> {
     expiredArtifactId,
     futureArtifactId,
     deletedArtifactId,
+    pinnedArtifactId,
     otherWorkspaceArtifactId,
     expiredSessionId,
     futureSessionId,
@@ -298,6 +307,22 @@ describe("postgresEntities PGlite coverage", () => {
         });
         expect(stillFuture).toMatchObject({ status: "active", deleted_at: null, delete_reason: null });
         expect(stillDeleted).toMatchObject({ status: "deleted", delete_reason: "admin_delete" });
+      });
+    });
+
+    it("does not list or expire pinned artifacts past their stored expiry", async () => {
+      await fixture.uow.read({ kind: "workspace", workspaceId }, async (entities) => {
+        const rows = await entities.artifacts.listExpiring(now, 10);
+        expect(rows.some((row) => row.id === fixture.pinnedArtifactId)).toBe(false);
+
+        await entities.artifacts.expireBatch(now, [fixture.pinnedArtifactId]);
+        const pinned = await entities.artifacts.findById(fixture.pinnedArtifactId, workspaceId);
+        expect(pinned).toMatchObject({
+          status: "active",
+          pinned_at: now,
+          deleted_at: null,
+          delete_reason: null,
+        });
       });
     });
 
@@ -537,6 +562,51 @@ describe("postgresEntities PGlite coverage", () => {
         const all = await entities.operationEvents.listForWorkspace(workspaceId);
         expect(all.some((event) => event.actor_type === "system")).toBe(true);
       });
+    });
+  });
+
+  // PeekReplayResult contract parity with the local backend: missing -> null,
+  // fresh in_flight -> { inFlight: true }, completed -> { result }.
+  describe("peekReplay idempotency state", () => {
+    const operation = "test.peek.operation";
+    const peekActor = { type: "api_key" as const, id: apiKeyId, workspaceId };
+    const scope = { kind: "workspace", workspaceId } as const;
+
+    async function insertInFlightRecord(key: string, createdAt: string) {
+      await rlsExecutor(fixture.connection.sql, scope).transaction((tx) =>
+        tx.query(
+          `insert into idempotency_records
+             (workspace_id, actor_type, actor_id, operation, idempotency_key, status, result_json, created_at, completed_at)
+           values ($1, $2, $3, $4, $5, 'in_flight', null, $6, null)`,
+          [workspaceId, peekActor.type, peekActor.id, operation, key, createdAt],
+        ),
+      );
+    }
+
+    function peek(key: string) {
+      return fixture.uow.peekReplay<unknown>({ actor: peekActor, operation, idempotencyKey: key, scope });
+    }
+
+    it("returns null for unknown idempotency keys", async () => {
+      await expect(peek("idem_missing")).resolves.toBeNull();
+    });
+
+    it("reports a fresh in-flight record as inFlight", async () => {
+      await insertInFlightRecord("idem_in_flight", new Date().toISOString());
+      await expect(peek("idem_in_flight")).resolves.toEqual({ inFlight: true });
+    });
+
+    it("treats a stale in-flight record as reclaimable, not in-flight", async () => {
+      await insertInFlightRecord("idem_stale", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+      await expect(peek("idem_stale")).resolves.toBeNull();
+    });
+
+    it("returns the stored result for completed commands", async () => {
+      await fixture.uow.command(
+        { actor: peekActor, operation, idempotencyKey: "idem_done", scope, now: new Date().toISOString() },
+        async () => ({ ok: true }),
+      );
+      await expect(peek("idem_done")).resolves.toEqual({ result: { ok: true } });
     });
   });
 });

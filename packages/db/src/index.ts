@@ -27,6 +27,7 @@ export {
   type ArtifactInvalidationEnv,
   applyArtifactPurgeSideEffects,
   artifactPurgePrefix,
+  artifactPurgePrefixes,
   enqueueArtifactBytePurge,
   writeArtifactDenylist,
 } from "./artifact-invalidation.js";
@@ -84,6 +85,7 @@ export {
   type RevisionBytePurgeInput,
   type RevisionInvalidationEnv,
   revisionPurgePrefix,
+  revisionPurgePrefixes,
   writeRevisionDenylist,
 } from "./revision-invalidation.js";
 export * as schema from "./schema.js";
@@ -125,4 +127,10 @@ export {
   type UploadSessionRecord,
   type UploadSigningPort,
 } from "./upload-session-lifecycle.js";
-export { bundleKeyFor, objectKeyFor, storageEnvSegment } from "./validation.js";
+export {
+  bundleKeyFor,
+  envScopedArtifactPrefix,
+  envScopedRevisionPrefix,
+  objectKeyFor,
+  storageEnvSegment,
+} from "./validation.js";

@@ -177,9 +177,18 @@ describe("agent-view helpers", () => {
     ["notes.markdown", "markdown"],
     ["photo.png", "image"],
     ["clip.mp4", "video"],
+    ["clip.mov", "video"],
     ["audio.mp3", "audio"],
+    ["voice.m4a", "audio"],
+    ["sound.ogg", "audio"],
     ["plain.txt", "text"],
+    ["plain.text", "text"],
   ] as const)("infers render mode %s -> %s", (entrypoint, renderMode) => {
     expect(inferRenderMode(entrypoint)).toBe(renderMode);
+  });
+
+  it("falls back to html for unknown or missing extensions", () => {
+    expect(inferRenderMode("data.json")).toBe("html");
+    expect(inferRenderMode("Makefile")).toBe("html");
   });
 });

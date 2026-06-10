@@ -60,25 +60,31 @@ MVP API keys grant the publish/read capability needed by the public CLI. Granula
 
 ### `artifacts`
 
-| Column            | Type                                      | Notes                                        |
-| ----------------- | ----------------------------------------- | -------------------------------------------- |
-| `id`              | `TEXT PRIMARY KEY`                        | `art_...`.                                   |
-| `workspace_id`    | `UUID NOT NULL REFERENCES workspaces(id)` |                                              |
-| `revision_id`     | `TEXT NOT NULL UNIQUE`                    | `rev_...`; one revision per artifact in MVP. |
-| `status`          | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.           |
-| `title`           | `TEXT NOT NULL`                           | Plain text.                                  |
-| `entrypoint`      | `TEXT NOT NULL`                           | Normalized file path.                        |
-| `file_count`      | `INTEGER NOT NULL`                        |                                              |
-| `size_bytes`      | `BIGINT NOT NULL`                         | Total uploaded bytes.                        |
-| `expires_at`      | `TIMESTAMPTZ NOT NULL`                    | Required.                                    |
-| `created_by_type` | `TEXT NOT NULL`                           | `api_key` or `member`.                       |
-| `created_by_id`   | `TEXT NOT NULL`                           | Creator id for the stored type.              |
-| `deleted_at`      | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.             |
-| `delete_reason`   | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason. |
-| `created_at`      | `TIMESTAMPTZ NOT NULL`                    |                                              |
-| `updated_at`      | `TIMESTAMPTZ NOT NULL`                    |                                              |
+| Column            | Type                                      | Notes                                         |
+| ----------------- | ----------------------------------------- | --------------------------------------------- |
+| `id`              | `TEXT PRIMARY KEY`                        | `art_...`.                                    |
+| `workspace_id`    | `UUID NOT NULL REFERENCES workspaces(id)` |                                               |
+| `revision_id`     | `TEXT NOT NULL UNIQUE`                    | `rev_...`; one revision per artifact in MVP.  |
+| `status`          | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.            |
+| `title`           | `TEXT NOT NULL`                           | Plain text.                                   |
+| `entrypoint`      | `TEXT NOT NULL`                           | Normalized file path.                         |
+| `file_count`      | `INTEGER NOT NULL`                        |                                               |
+| `size_bytes`      | `BIGINT NOT NULL`                         | Total uploaded bytes.                         |
+| `expires_at`      | `TIMESTAMPTZ NOT NULL`                    | Required.                                     |
+| `pinned_at`       | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion. |
+| `created_by_type` | `TEXT NOT NULL`                           | `api_key` or `member`.                        |
+| `created_by_id`   | `TEXT NOT NULL`                           | Creator id for the stored type.               |
+| `deleted_at`      | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.              |
+| `delete_reason`   | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.  |
+| `created_at`      | `TIMESTAMPTZ NOT NULL`                    |                                               |
+| `updated_at`      | `TIMESTAMPTZ NOT NULL`                    |                                               |
 
-No artifact can be created without `expires_at`.
+No artifact can be created without `expires_at`. While `pinned_at` is set, the
+stored `expires_at` is retained but not enforced: the Auto Deletion sweep skips
+the Artifact and reads (Agent Views, Access Links, dashboard viewer) do not
+treat it as expired even when `expires_at` is in the past. Content tokens for
+such an Artifact fall back to the default TTL instead of the stale expiry.
+Unpinning re-arms the stored `expires_at` as-is.
 
 ### `artifact_files`
 
@@ -118,36 +124,37 @@ exposing scanner internals.
 
 ### `upload_sessions`
 
-| Column                | Type                                      | Notes                                           |
-| --------------------- | ----------------------------------------- | ----------------------------------------------- |
-| `id`                  | `TEXT PRIMARY KEY`                        | `upl_...`.                                      |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                                 |
-| `artifact_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
-| `revision_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.       |
-| `status`              | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`. |
-| `title`               | `TEXT NOT NULL`                           | Plain text.                                     |
-| `entrypoint`          | `TEXT NOT NULL`                           | Normalized file path.                           |
-| `artifact_expires_at` | `TIMESTAMPTZ NOT NULL`                    | Copied to `artifacts.expires_at` on finalize.   |
-| `file_count`          | `INTEGER NOT NULL`                        | Expected files.                                 |
-| `size_bytes`          | `BIGINT NOT NULL`                         | Expected total bytes.                           |
-| `created_by_type`     | `TEXT NOT NULL`                           | `api_key` or `member`.                          |
-| `created_by_id`       | `TEXT NOT NULL`                           | Creator id for the stored type.                 |
-| `expires_at`          | `TIMESTAMPTZ NOT NULL`                    | Upload session TTL, typically 24 hours.         |
-| `created_at`          | `TIMESTAMPTZ NOT NULL`                    |                                                 |
-| `finalized_at`        | `TIMESTAMPTZ NULL`                        |                                                 |
+| Column                | Type                                      | Notes                                                                                                                                                                            |
+| --------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | `TEXT PRIMARY KEY`                        | `upl_...`.                                                                                                                                                                       |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                                                                                                  |
+| `artifact_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.                                                                                                                                        |
+| `revision_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.                                                                                                                                        |
+| `status`              | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`.                                                                                                                                  |
+| `title`               | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                      |
+| `entrypoint`          | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                            |
+| `render_mode`         | `TEXT NULL`                               | Explicit client override (`html`, `markdown`, `text`, `image`, `audio`, `video`). Null means infer from the entrypoint extension at finalize. Copied to `revisions.render_mode`. |
+| `artifact_expires_at` | `TIMESTAMPTZ NOT NULL`                    | Copied to `artifacts.expires_at` on finalize.                                                                                                                                    |
+| `file_count`          | `INTEGER NOT NULL`                        | Expected files.                                                                                                                                                                  |
+| `size_bytes`          | `BIGINT NOT NULL`                         | Expected total bytes.                                                                                                                                                            |
+| `created_by_type`     | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                                                                                                           |
+| `created_by_id`       | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                                                                                                  |
+| `expires_at`          | `TIMESTAMPTZ NOT NULL`                    | Upload session TTL, typically 24 hours.                                                                                                                                          |
+| `created_at`          | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                  |
+| `finalized_at`        | `TIMESTAMPTZ NULL`                        |                                                                                                                                                                                  |
 
 ### `upload_session_files`
 
-| Column                | Type                                           | Notes                                        |
-| --------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                              |
-| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                              |
-| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                       |
-| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                               |
-| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.           |
-| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                   |
-| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT.                    |
-| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Expiration for signed upload-worker PUT URL. |
+| Column                | Type                                           | Notes                                                                                                                                                                     |
+| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                                                                                                                                                           |
+| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                                                                                                                                                           |
+| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                                                                                                                                                    |
+| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                                                                                                                                                            |
+| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.                                                                                                                                        |
+| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                                                                                                                                                |
+| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT.                                                                                                                                                 |
+| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Upper bound for PUT writes (session expiry). The actual signed PUT-URL token expiry is minted by the upload worker at response time and returned as `files[].expires_at`. |
 
 Primary key `(upload_session_id, path)`.
 

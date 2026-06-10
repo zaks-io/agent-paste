@@ -32,20 +32,22 @@ async function putWithBody(input: {
   contentLength: string;
   env: Env;
   signedSize?: number;
+  path?: string;
 }): Promise<Response> {
+  const path = input.path ?? "index.html";
   const token = await mintUploadToken(
     {
       sid: "upl_1",
       wid: WORKSPACE_ID,
-      path: "index.html",
-      key: OBJECT_KEY,
+      path,
+      key: `artifacts/art_1/revisions/rev_1/files/${path}`,
       size: input.signedSize ?? SIGNED_SIZE,
       exp: Math.floor(Date.now() / 1000) + 3600,
     },
     "secret",
   );
   return handleRequest(
-    new Request(`https://upload.test/v1/upload-sessions/upl_1/files/index.html?token=${encodeURIComponent(token)}`, {
+    new Request(`https://upload.test/v1/upload-sessions/upl_1/files/${path}?token=${encodeURIComponent(token)}`, {
       method: "PUT",
       headers: { "content-length": input.contentLength, "content-type": "text/html" },
       body: input.body,
@@ -97,6 +99,18 @@ describe("upload put body-size hardening", () => {
       body: "hello",
       contentLength: String(SIGNED_SIZE),
       env: putEnv({ onPut: () => (putCalled = true) }),
+    });
+    expect(response.status).toBe(204);
+    expect(putCalled).toBe(true);
+  });
+
+  it("stores a file at a nested path", async () => {
+    let putCalled = false;
+    const response = await putWithBody({
+      body: "hello",
+      contentLength: String(SIGNED_SIZE),
+      env: putEnv({ onPut: () => (putCalled = true) }),
+      path: "assets/app.js",
     });
     expect(response.status).toBe(204);
     expect(putCalled).toBe(true);
@@ -166,6 +180,25 @@ describe("upload put session-state hardening", () => {
   it("rejects a PUT for a session that no longer exists", async () => {
     const response = await putAgainstSession({ missing: true });
     await expectError(response, 404, "upload_session_not_found");
+  });
+
+  it("rejects a replayed PUT when the session finalizes between the guard and the write", async () => {
+    // TOCTOU: the session is pending at the initial guard, then finalize completes
+    // while the body is being read. The pre-write re-check must reject the write so
+    // published bytes are never mutated under an unchanged strong ETag.
+    let putCalled = false;
+    let recorded = false;
+    const response = await putWithBody({
+      body: "hello",
+      contentLength: String(SIGNED_SIZE),
+      env: putEnv({
+        db: uploadDbStub({ statusSequence: ["pending", "finalized"], onRecord: () => (recorded = true) }),
+        onPut: () => (putCalled = true),
+      }),
+    });
+    await expectError(response, 409, "upload_session_expired");
+    expect(putCalled).toBe(false);
+    expect(recorded).toBe(false);
   });
 
   it("fails closed when no database binding is configured", async () => {

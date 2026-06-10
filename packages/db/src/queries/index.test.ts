@@ -605,6 +605,7 @@ function uploadSessionEntity() {
     status: "pending" as const,
     title: "Demo",
     entrypoint: "index.html",
+    render_mode: null,
     artifact_expires_at: "2026-01-01T00:00:00.000Z",
     file_count: 1,
     size_bytes: 12,

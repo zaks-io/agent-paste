@@ -4,6 +4,7 @@ import {
   enqueueArtifactBytePurge,
   writeArtifactDenylist,
 } from "./artifact-invalidation.js";
+import { bundleKeyFor } from "./validation.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -55,6 +56,28 @@ describe("artifact invalidation", () => {
       revisionId,
       artifactId,
     ]);
+  });
+
+  it("enqueues artifact-scoped and env-scoped prefixes covering the bundle key", async () => {
+    const send = vi.fn(async () => ({}));
+    const query = vi.fn(async () => ({ rows: [{ id: revisionId }] }));
+    const executor = { query, transaction: vi.fn(async (run) => run({ query, transaction: vi.fn() })) };
+    await expect(
+      enqueueArtifactBytePurge({ AGENT_PASTE_ENV: "production", BYTE_PURGE_QUEUE: { send } }, executor, {
+        workspaceId,
+        artifactId,
+        revisionId,
+        reason: "deletion",
+      }),
+    ).resolves.toBe(true);
+    const envScopedPrefix = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/`;
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prefixes: [`artifacts/${artifactId}/`, envScopedPrefix],
+      }),
+    );
+    const bundleKey = bundleKeyFor({ workspaceId, artifactId, revisionId, storageEnv: "production" });
+    expect(bundleKey.startsWith(envScopedPrefix)).toBe(true);
   });
 
   it("runs denylist before enqueue in applyArtifactPurgeSideEffects", async () => {

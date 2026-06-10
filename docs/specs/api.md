@@ -39,6 +39,21 @@ Secrets are never accepted as query parameters or flags.
 | `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                                                           |
 | `signed_content_token`    | Public token in `/v/{token}/{path}`.                                                                       |
 
+## Request Guard Order
+
+Authenticated `api` and `upload` routes enforce guards in a fixed order
+([ADR 0039](../adr/0039-authenticated-rate-limits-under-usage-policy.md),
+[ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)):
+
+1. Authentication. Failures return `401` (or `404` for signed-token routes)
+   before anything else runs or counts against any budget.
+2. Scope enforcement. Missing scopes return `403` before idempotency replay and
+   before rate limiting, so a key with revoked scopes is never served a cached
+   replay and `403` takes precedence over `429`.
+3. Completed idempotency replay. A cached completed response is returned without
+   consuming Actor Rate Limit or Workspace Burst Cap budget.
+4. Rate limits. Breaches return `429` with `Retry-After`.
+
 ## Public API Routes
 
 | Method | Path                                                          | Auth                      | Idempotency | Request | Response               |
@@ -69,6 +84,7 @@ Secrets are never accepted as query parameters or flags.
 {
   "title": "demo",
   "entrypoint": "index.html",
+  "render_mode": "html",
   "files": [
     {
       "path": "index.html",
@@ -85,6 +101,12 @@ Rules:
   client input.
 - Single-file publishes use the file name as `entrypoint`.
 - Folder publishes require an explicit or inferred `entrypoint`.
+- `render_mode` is optional: one of `html`, `markdown`, `text`, `image`,
+  `audio`, `video`. When present it is stored on the Upload Session and copied
+  verbatim to the draft Revision at finalize, overriding inference. When absent
+  the server infers the Render Mode from the entrypoint extension via the
+  shared map in `packages/contracts/src/renderMode.ts` (the CLI uses the same
+  map), falling back to `html` for unknown extensions.
 - Paths are normalized POSIX paths.
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
@@ -103,13 +125,18 @@ Rules:
       "path": "index.html",
       "put_url": "https://upload.agent-paste.sh/v1/upload-sessions/upl_.../files/index.html?...",
       "required_headers": {},
-      "expires_at": "2026-05-21T12:00:00.000Z"
+      "expires_at": "2026-05-20T12:15:00.000Z"
     }
   ]
 }
 ```
 
 The returned `put_url` values are opaque upload-worker URLs. They are not R2 URLs.
+
+The top-level `expires_at` is the Upload Session expiry. Each `files[].expires_at`
+is the validity of that file's signed `put_url` (the signed token's expiry, much
+shorter than the session lifetime); a PUT after it returns `not_authenticated`
+even while the session is still open.
 
 ### `PublishResult`
 

@@ -25,6 +25,21 @@ export type WriteAllowanceConsumeResult =
 
 const STORAGE_KEY = "daily_new_artifacts";
 
+const RESERVATION_HASH_LENGTH = 32;
+
+// Idempotency keys are client-supplied (up to 200 chars). Storing them raw in
+// the single counter value blows past the Durable Object 128 KiB per-value
+// limit around publish #645 of a 2000/day Pro allowance, hard-failing every
+// publish until the midnight alarm. A fixed 128-bit SHA-256 prefix keeps a
+// full Pro day under ~70 KB while making an accidental collision (which would
+// silently merge two reservations) astronomically unlikely.
+async function hashReservationKey(key: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, RESERVATION_HASH_LENGTH);
+}
+
 export async function getWriteAllowanceStatus(
   namespace: WriteAllowanceNamespace | undefined,
   workspaceId: string,
@@ -149,7 +164,7 @@ export async function handleWriteAllowanceRequest(request: Request, storage: Wri
   if (url.pathname.endsWith("/consume")) {
     const idempotencyKey =
       body && typeof body.idempotency_key === "string" && body.idempotency_key.length > 0
-        ? body.idempotency_key
+        ? await hashReservationKey(body.idempotency_key)
         : undefined;
     const outcome = consumeCounterSlot(stored, limit, undefined, idempotencyKey);
     await storage.put(STORAGE_KEY, outcome.next);
@@ -169,7 +184,7 @@ export async function handleWriteAllowanceRequest(request: Request, storage: Wri
     if (!idempotencyKey) {
       return new Response("invalid_request", { status: 400 });
     }
-    const outcome = releaseCounterReservation(stored, idempotencyKey);
+    const outcome = releaseCounterReservation(stored, await hashReservationKey(idempotencyKey));
     await storage.put(STORAGE_KEY, outcome.next);
     await storage.setAlarm(outcome.alarmAt);
     return Response.json({ released: outcome.released });

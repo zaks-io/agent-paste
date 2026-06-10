@@ -105,8 +105,77 @@ describe("upload worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { files: Array<{ put_url: string }> };
+    const body = (await response.json()) as { files: Array<{ put_url: string; expires_at: string }> };
     expect(body.files[0]?.put_url).toContain("/v1/upload-sessions/upl_1/files/index.html?token=");
+
+    // files[].expires_at advertises PUT-URL validity: the signed token's expiry
+    // (default 900s TTL), never the ~24h session expiry sitting on the record.
+    const fileExpiresAtMs = Date.parse(body.files[0]?.expires_at ?? "");
+    const secondsUntilExpiry = (fileExpiresAtMs - Date.now()) / 1000;
+    expect(secondsUntilExpiry).toBeGreaterThan(800);
+    expect(secondsUntilExpiry).toBeLessThanOrEqual(900);
+    expect(fileExpiresAtMs).toBeLessThan(Date.parse(session.expires_at));
+  });
+
+  it("forwards an explicit render_mode to the repository and omits it when absent", async () => {
+    const session: UploadSessionRecord = {
+      session_id: "upl_1",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      expires_at: "2030-01-01T00:00:00.000Z",
+      files: [{ path: "index.html", size_bytes: 12 }],
+    };
+    const createUploadSession = vi.fn(async (_input: { request: Record<string, unknown> }) => session);
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
+        },
+      },
+      DB: {
+        createUploadSession,
+        async getUploadSession() {
+          return session;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
+        },
+      },
+    };
+
+    const post = (body: Record<string, unknown>, idempotencyKey: string) =>
+      handleRequest(
+        new Request("https://upload.test/v1/upload-sessions", {
+          method: "POST",
+          headers: {
+            authorization: "Bearer ok",
+            "idempotency-key": idempotencyKey,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }),
+        env,
+      );
+
+    const explicit = await post({ ...createUploadRequestBody(), render_mode: "markdown" }, "idem-explicit");
+    expect(explicit.status).toBe(200);
+    expect(createUploadSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ request: expect.objectContaining({ render_mode: "markdown" }) }),
+    );
+
+    const absent = await post(createUploadRequestBody(), "idem-absent");
+    expect(absent.status).toBe(200);
+    expect(createUploadSession.mock.lastCall?.[0].request).not.toHaveProperty("render_mode");
+
+    const junk = await post({ ...createUploadRequestBody(), render_mode: "quicktime" }, "idem-junk");
+    expect(junk.status).toBe(400);
+    expect(createUploadSession).toHaveBeenCalledTimes(2);
   });
 
   it("returns 429 when the workspace rate limit fires", async () => {

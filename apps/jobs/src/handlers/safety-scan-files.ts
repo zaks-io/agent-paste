@@ -1,5 +1,7 @@
 import type { SqlExecutor } from "@agent-paste/db";
+import type { ArtifactBytesKeyRing } from "@agent-paste/storage";
 import type { Env } from "../env.js";
+import { readRevisionFileBytes } from "./revision-file-bytes.js";
 
 type R2GetObject = NonNullable<NonNullable<Env["ARTIFACTS"]>["get"]>;
 
@@ -9,17 +11,14 @@ type RevisionFileRow = {
   served_content_type: string;
 };
 
-type R2ObjectWithBody = {
-  body?: ReadableStream | ArrayBuffer | Uint8Array | null;
-  arrayBuffer?: () => Promise<ArrayBuffer>;
-};
-
 export async function loadScannerFiles(
   executor: SqlExecutor,
   input: {
+    workspaceId: string;
     artifactId: string;
     revisionId: string;
     getObject: R2GetObject;
+    encryptionRing: ArtifactBytesKeyRing;
   },
 ): Promise<Array<{ path: string; contentType: string; bytes: Uint8Array }>> {
   const files = await loadRevisionFiles(executor, input.artifactId, input.revisionId);
@@ -32,7 +31,12 @@ export async function loadScannerFiles(
     scannerFiles.push({
       path: file.path,
       contentType: file.served_content_type,
-      bytes: await readObjectBytes(object),
+      bytes: await readRevisionFileBytes({
+        object,
+        objectKey: file.r2_key,
+        workspaceId: input.workspaceId,
+        encryptionRing: input.encryptionRing,
+      }),
     });
   }
   return scannerFiles;
@@ -51,29 +55,4 @@ async function loadRevisionFiles(
     [artifactId, revisionId],
   );
   return result.rows;
-}
-
-async function readObjectBytes(object: R2ObjectWithBody): Promise<Uint8Array> {
-  if (object.arrayBuffer) {
-    return new Uint8Array(await object.arrayBuffer());
-  }
-  if (object.body instanceof ArrayBuffer) {
-    return new Uint8Array(object.body);
-  }
-  if (object.body instanceof Uint8Array) {
-    return object.body;
-  }
-  if (object.body instanceof ReadableStream) {
-    return new Uint8Array(await new Response(object.body).arrayBuffer());
-  }
-  const unsupportedBody: unknown = object.body;
-  const bodyType =
-    unsupportedBody === null
-      ? "null"
-      : unsupportedBody === undefined
-        ? "undefined"
-        : unsupportedBody instanceof Object
-          ? unsupportedBody.constructor.name
-          : typeof unsupportedBody;
-  throw new Error(`unsupported_r2_object_body:${bodyType}`);
 }
