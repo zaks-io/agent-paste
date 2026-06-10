@@ -10,6 +10,7 @@ import {
   UploadSessionId,
   UrlString,
 } from "./primitives.js";
+import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
 export const UploadSessionFileInput = z.object({
@@ -20,10 +21,13 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
 // TTL is a server-side policy decision derived from the workspace tier, never a
 // client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
+// render_mode is an explicit client override; when absent the server infers it
+// from the entrypoint extension at publish time.
 export const CreateUploadSessionRequest = z.object({
   artifact_id: ArtifactId.optional(),
   title: PlainTextTitle,
   entrypoint: FilePath,
+  render_mode: RenderMode.optional(),
   files: z.array(UploadSessionFileInput).min(1).max(100),
 });
 export type CreateUploadSessionRequest = z.infer<typeof CreateUploadSessionRequest>;
