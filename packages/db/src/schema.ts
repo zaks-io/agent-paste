@@ -188,6 +188,7 @@ export const uploadSessions = pgTable(
     status: text("status").notNull(),
     title: text("title").notNull(),
     entrypoint: text("entrypoint").notNull(),
+    renderMode: text("render_mode"),
     artifactExpiresAt: timestamp("artifact_expires_at", { withTimezone: true }).notNull(),
     fileCount: integer("file_count").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
@@ -200,6 +201,10 @@ export const uploadSessions = pgTable(
   (table) => [
     index("upload_sessions_pending_expiry_idx").on(table.workspaceId, table.expiresAt),
     check("upload_sessions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
+    check(
+      "upload_sessions_render_mode_check",
+      sql`${table.renderMode} is null or ${table.renderMode} in ('html', 'markdown', 'text', 'image', 'audio', 'video')`,
+    ),
   ],
 );
 

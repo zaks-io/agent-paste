@@ -8,6 +8,7 @@ import { RepositoryCoreContext } from "./core-context.js";
 import type { Repository } from "./interface.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { UnitOfWork } from "./ports.js";
+import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
@@ -190,12 +191,7 @@ export class RepositoryCore implements Repository {
   async createUploadSession(input: {
     actor: ApiActor;
     idempotencyKey: string;
-    request: {
-      artifact_id?: string;
-      title?: string;
-      entrypoint?: string;
-      files: Array<{ path: string; size_bytes: number }>;
-    };
+    request: CreateUploadSessionRequest;
     now: string;
   }) {
     return uploadPublishWorkflow.createUploadSession(this.ctx, input);

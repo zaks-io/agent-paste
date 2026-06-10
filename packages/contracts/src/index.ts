@@ -16,6 +16,7 @@ export * from "./mcp.js";
 export * from "./openapi/index.js";
 export * from "./operator.js";
 export * from "./primitives.js";
+export * from "./renderMode.js";
 export * from "./revisions.js";
 export * from "./routes.js";
 export * from "./uploadSessions.js";

@@ -1,5 +1,5 @@
-import type { AgentViewLockdownState } from "@agent-paste/contracts";
-import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
+import { type AgentViewLockdownState, inferRenderModeFromEntrypoint } from "@agent-paste/contracts";
+import type { Artifact, BundleStatus, RenderMode, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
 
@@ -132,24 +132,11 @@ export function buildPublishResult(
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;
 }
 
-function inferRenderMode(entrypoint: string): "html" | "markdown" | "text" | "image" | "audio" | "video" {
-  const ext = entrypoint.slice(entrypoint.lastIndexOf(".")).toLowerCase();
-  if (ext === ".md" || ext === ".markdown") {
-    return "markdown";
-  }
-  if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"].includes(ext)) {
-    return "image";
-  }
-  if ([".mp3", ".wav", ".ogg"].includes(ext)) {
-    return "audio";
-  }
-  if ([".mp4", ".webm"].includes(ext)) {
-    return "video";
-  }
-  if (ext === ".txt") {
-    return "text";
-  }
-  return "html";
+// Server-side inference: the shared extension map (single source of truth in
+// contracts, used by the CLI too) with an html fallback for unknown extensions,
+// because a stored Revision must always have a Render Mode.
+function inferRenderMode(entrypoint: string): RenderMode {
+  return inferRenderModeFromEntrypoint(entrypoint) ?? "html";
 }
 
 export { inferRenderMode };
