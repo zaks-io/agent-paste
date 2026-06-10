@@ -64,7 +64,7 @@ export async function peekAdminArtifactDeleteReplay(
     operation: ADMIN_ARTIFACT_DELETE_OPERATION,
     idempotencyKey: input.idempotencyKey,
   });
-  return replay !== null;
+  return replay !== null && "result" in replay;
 }
 
 export async function peekMemberArtifactDeleteReplay(
@@ -77,7 +77,7 @@ export async function peekMemberArtifactDeleteReplay(
     operation: MEMBER_ARTIFACT_DELETE_OPERATION,
     idempotencyKey: input.idempotencyKey,
   });
-  return replay !== null;
+  return replay !== null && "result" in replay;
 }
 
 /**

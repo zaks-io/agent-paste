@@ -110,7 +110,10 @@ async function commitPublish(
       now,
     });
   } catch (error) {
-    if (consumedAllowance) {
+    // An in-flight duplicate proves a concurrent winner is publishing under the same
+    // idempotency key; the reservation is keyed by that same key, so releasing it here
+    // would refund the allowance the winner's publish legitimately spends.
+    if (consumedAllowance && !(error instanceof IdempotencyInFlightError)) {
       await releaseNewArtifactWriteAllowance(deps.env.WRITE_ALLOWANCE, input.actor.workspace_id, input.idempotencyKey);
     }
     throw error;

@@ -88,6 +88,47 @@ describe("contract-driven registrar", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it("routes nested file paths through trailing {path} contract params", async () => {
+    const seen: Array<{ pathname: string; sessionId: string | undefined }> = [];
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async signed_upload_url() {
+          return { ok: true, principal: { kind: "signed_upload_url", payload: {} } };
+        },
+      },
+    }).mount(
+      {
+        ...baseContract,
+        method: "PUT",
+        auth: "signed_upload_url",
+        path: "/v1/upload-sessions/{upload_session_id}/files/{path}",
+      },
+      async (context) => {
+        seen.push({
+          pathname: new URL(context.req.raw.url).pathname,
+          sessionId: context.req.param("upload_session_id"),
+        });
+        return jsonOk({ ok: true });
+      },
+    );
+
+    const nested = await app.fetch(
+      new Request("https://worker.test/v1/upload-sessions/upl_1/files/assets/app.js", { method: "PUT" }),
+    );
+    const flat = await app.fetch(
+      new Request("https://worker.test/v1/upload-sessions/upl_1/files/index.html", { method: "PUT" }),
+    );
+
+    expect(nested.status).toBe(200);
+    expect(flat.status).toBe(200);
+    expect(seen).toEqual([
+      { pathname: "/v1/upload-sessions/upl_1/files/assets/app.js", sessionId: "upl_1" },
+      { pathname: "/v1/upload-sessions/upl_1/files/index.html", sessionId: "upl_1" },
+    ]);
+  });
+
   it("returns actor and workspace rate-limit errors with retry headers", async () => {
     const actorLimited = await rateLimitedResponse({ actor: { success: false } });
     expect(actorLimited.status).toBe(429);
@@ -268,7 +309,9 @@ describe("contract-driven registrar", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "idempotency_in_flight" } });
   });
 
-  it("checks rate-limit before scopes", async () => {
+  // ADR 0039/0064: limits run after authentication and scope checks, so a
+  // missing scope returns 403 without touching rate-limit budget.
+  it("checks scopes before rate-limit", async () => {
     const calls: string[] = [];
     const app = newApp();
     createRegistrar({
@@ -294,8 +337,8 @@ describe("contract-driven registrar", () => {
 
     const response = await app.fetch(new Request("https://worker.test/test"));
 
-    expect(response.status).toBe(429);
-    expect(calls).toEqual(["auth", "rate-limit"]);
+    expect(response.status).toBe(403);
+    expect(calls).toEqual(["auth"]);
   });
 
   it("returns completed idempotency replay before rate-limit", async () => {
@@ -330,6 +373,34 @@ describe("contract-driven registrar", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ replay: true });
     expect(rateLimitCalls.count).toBe(0);
+  });
+
+  it("rejects completed idempotency replay with 403 when required scopes are absent", async () => {
+    const replayCalls = { count: 0 };
+    const app = newApp();
+    createRegistrar({
+      app,
+      auth: {
+        async api_key() {
+          return principal([]);
+        },
+      },
+      db: () => ({ ok: true }),
+      replay: async () => {
+        replayCalls.count += 1;
+        return jsonOk({ replay: true });
+      },
+    }).mount({ ...baseContract, method: "POST", scopes: ["publish"], idempotency: "required" }, async () =>
+      jsonOk({ ok: true }),
+    );
+
+    const response = await app.fetch(
+      new Request("https://worker.test/test", { method: "POST", headers: { "idempotency-key": "replay" } }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+    expect(replayCalls.count).toBe(0);
   });
 
   it("throws when the registrar emits an undeclared repository error code under enforcement", async () => {

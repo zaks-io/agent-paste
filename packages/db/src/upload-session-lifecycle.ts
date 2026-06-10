@@ -5,16 +5,16 @@ import { objectKeyFor } from "./validation.js";
 
 export type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
 
-export type UploadSessionFileDescriptor = UploadSessionRecord["files"][number] & {
-  put_url?: string;
-};
+export type UploadSessionFileDescriptor = UploadSessionRecord["files"][number];
 
 export type ObjectStoragePort = {
   head(key: string): Promise<{ size: number } | null>;
 };
 
+export type SignedPutUrl = { url: string; expiresAt: string };
+
 export type UploadSigningPort = {
-  signPutUrl(session: UploadSessionRecord, file: UploadSessionFileDescriptor): Promise<string>;
+  signPutUrl(session: UploadSessionRecord, file: UploadSessionFileDescriptor): Promise<SignedPutUrl>;
 };
 
 export function resolveSessionObjectKey(session: UploadSessionRecord, path: string, explicitKey?: string): string {
@@ -37,13 +37,18 @@ export async function buildCreateUploadSessionWireResponse(
     expires_at: string;
   }>;
 }> {
+  // files[].expires_at advertises how long the signed PUT URL stays valid, so it
+  // must come from the token signing path, not the (much longer) session TTL.
   const signedFiles = await Promise.all(
-    session.files.map(async (file: UploadSessionFileDescriptor) => ({
-      path: file.path,
-      put_url: file.put_url ?? (await signing.signPutUrl(session, file)),
-      required_headers: { "content-length": String(file.size_bytes) },
-      expires_at: file.expires_at ?? session.expires_at,
-    })),
+    session.files.map(async (file: UploadSessionFileDescriptor) => {
+      const signed = await signing.signPutUrl(session, file);
+      return {
+        path: file.path,
+        put_url: signed.url,
+        required_headers: { "content-length": String(file.size_bytes) },
+        expires_at: signed.expiresAt,
+      };
+    }),
   );
 
   return {

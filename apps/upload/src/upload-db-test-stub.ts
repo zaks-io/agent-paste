@@ -10,6 +10,8 @@ type RecordUploadedFileInput = {
 
 export type UploadDbStubOptions = {
   status?: string;
+  /** Statuses returned by successive `getUploadSessionState` reads; the last one repeats. */
+  statusSequence?: string[];
   expiresAt?: string;
   missing?: boolean;
   onRecord?: (input: RecordUploadedFileInput) => void;
@@ -21,14 +23,20 @@ export type UploadDbStubOptions = {
  * PUT path touches are implemented.
  */
 export function uploadDbStub(options: UploadDbStubOptions = {}): NonNullable<Env["DB"]> {
-  const status = options.status ?? "pending";
+  const statusSequence = options.statusSequence ?? [options.status ?? "pending"];
   const expiresAt = options.expiresAt ?? new Date(Date.now() + 3_600_000).toISOString();
+  let reads = 0;
   return {
     createUploadSession() {
       throw new Error("createUploadSession not implemented in stub");
     },
     async getUploadSessionState(_input: { workspaceId: string; sessionId: string }) {
-      return options.missing ? null : { status, expiresAt };
+      if (options.missing) {
+        return null;
+      }
+      const status = statusSequence[Math.min(reads, statusSequence.length - 1)];
+      reads += 1;
+      return { status, expiresAt };
     },
     async recordUploadedFile(input: RecordUploadedFileInput) {
       options.onRecord?.(input);

@@ -70,12 +70,13 @@ export async function signUploadUrl(
   env: Env,
   session: UploadSessionRecord,
   file: UploadFileInput & { object_key?: string },
-): Promise<string> {
+): Promise<{ url: string; expiresAt: string }> {
   const signer = resolveUploadTokenSigner(env);
   if (!signer) {
     throw new Error("UPLOAD_SIGNING_SECRET is required");
   }
-  return mintUploadUrl({
+  const expSeconds = Math.floor(Date.now() / 1000) + ttlSeconds(env);
+  const url = await mintUploadUrl({
     baseUrl: env.UPLOAD_BASE_URL ?? new URL(request.url).origin,
     secret: signer.signingSecret,
     payload: {
@@ -84,9 +85,10 @@ export async function signUploadUrl(
       path: file.path,
       key: resolveSessionObjectKey(session, file.path, file.object_key),
       size: file.size_bytes,
-      exp: Math.floor(Date.now() / 1000) + ttlSeconds(env),
+      exp: expSeconds,
     },
   });
+  return { url, expiresAt: new Date(expSeconds * 1000).toISOString() };
 }
 
 function ttlSeconds(env: Env): number {

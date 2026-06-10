@@ -123,6 +123,13 @@ export async function putUploadFile(
       normalizedPath: keyParts.path,
     },
   });
+  // TOCTOU guard: the body read above can stall long enough for finalize to
+  // complete, and a write past that point would mutate already-published bytes
+  // under an unchanged strong ETag. Re-check session state right before writing.
+  const preWriteGuard = await guardWritableSession(context, db, payload);
+  if (preWriteGuard) {
+    return preWriteGuard;
+  }
   await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
     httpMetadata: { contentType: "application/octet-stream" },
     customMetadata: encrypted.customMetadata,

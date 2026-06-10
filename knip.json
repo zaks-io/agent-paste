@@ -7,7 +7,8 @@
     ".claude/skills/**",
     ".agents/skills/**",
     ".codex/skills/**",
-    "apps/apex/public/**"
+    "apps/apex/public/**",
+    "examples/local-harness/site/assets/**"
   ],
   "workspaces": {
     "apps/web": {

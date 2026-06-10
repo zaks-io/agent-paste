@@ -162,22 +162,38 @@ export type PeekIdempotentReplayInput = {
   operation: string;
   idempotencyKey: string;
   workspaceId?: string | null;
+  now?: Date | string;
+  staleAfterMs?: number;
 };
 
-export async function peekIdempotentReplay<T>(input: PeekIdempotentReplayInput): Promise<{ result: T } | null> {
+export type PeekIdempotentReplayResult<T> = { result: T } | { inFlight: true } | null;
+
+export async function peekIdempotentReplay<T>(
+  input: PeekIdempotentReplayInput,
+): Promise<PeekIdempotentReplayResult<T>> {
   const workspaceId = input.workspaceId === undefined ? input.actor.workspaceId : input.workspaceId;
-  const existing = await input.executor.query<{ status: string; result_json: T | null }>(
-    `select status, result_json
+  const existing = await input.executor.query<{ status: string; result_json: T | null; created_at: string }>(
+    `select status, result_json, created_at
      from idempotency_records
      where workspace_id is not distinct from $1
        and actor_type = $2 and actor_id = $3 and operation = $4 and idempotency_key = $5`,
     [workspaceId, input.actor.type, input.actor.id, input.operation, input.idempotencyKey],
   );
   const record = existing.rows[0];
-  if (!record || record.status !== "completed") {
+  if (!record) {
     return null;
   }
-  return { result: record.result_json as T };
+  if (record.status === "completed") {
+    return { result: record.result_json as T };
+  }
+  // Mirror runCommand's stale-claim semantics: a stale in_flight record is
+  // reclaimable by a retry, so reporting it as in-flight would wedge the key.
+  const now = toIsoString(input.now ?? new Date());
+  const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_MS;
+  if (record.status === "in_flight" && !isStale(record.created_at, now, staleAfterMs)) {
+    return { inFlight: true };
+  }
+  return null;
 }
 
 export async function runCommand<T>(input: RunCommandInput<T>): Promise<RunCommandResult<T>> {

@@ -217,17 +217,29 @@ describe("command helpers", () => {
       expect(executor.calls[0]?.sql).toContain("select status, result_json");
     });
 
-    it("peekIdempotentReplay returns null for in-flight or missing records", async () => {
+    it("peekIdempotentReplay reports fresh in-flight records", async () => {
+      const now = "2026-01-01T00:10:00.000Z";
       const inFlight = new MockExecutor(() => ({
-        rows: [{ status: "in_flight", result_json: null }],
+        rows: [{ status: "in_flight", result_json: null, created_at: "2026-01-01T00:09:30.000Z" }],
+      }));
+
+      await expect(
+        peekIdempotentReplay({ executor: inFlight, actor, operation: "x", idempotencyKey: "k", now }),
+      ).resolves.toEqual({ inFlight: true });
+    });
+
+    it("peekIdempotentReplay returns null for stale in-flight or missing records", async () => {
+      const now = "2026-01-01T00:10:00.000Z";
+      const staleInFlight = new MockExecutor(() => ({
+        rows: [{ status: "in_flight", result_json: null, created_at: "2026-01-01T00:00:00.000Z" }],
       }));
       const empty = new MockExecutor(() => ({ rows: [] }));
 
       await expect(
-        peekIdempotentReplay({ executor: inFlight, actor, operation: "x", idempotencyKey: "k" }),
+        peekIdempotentReplay({ executor: staleInFlight, actor, operation: "x", idempotencyKey: "k", now }),
       ).resolves.toBeNull();
       await expect(
-        peekIdempotentReplay({ executor: empty, actor, operation: "x", idempotencyKey: "k" }),
+        peekIdempotentReplay({ executor: empty, actor, operation: "x", idempotencyKey: "k", now }),
       ).resolves.toBeNull();
     });
 
