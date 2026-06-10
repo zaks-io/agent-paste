@@ -61,6 +61,13 @@ beyond what a valid signed token already proves.
 | `.ico`             | `image/x-icon`                          |
 | `.woff`            | `font/woff`                             |
 | `.woff2`           | `font/woff2`                            |
+| `.mp3`             | `audio/mpeg`                            |
+| `.wav`             | `audio/wav`                             |
+| `.mp4`             | `video/mp4`                             |
+| `.webm`            | `video/webm`                            |
+| `.pdf`             | `application/pdf` (served `attachment`) |
+
+All allowlisted extensions are served `Content-Disposition: inline` except `.pdf`, which is served `attachment`: PDFs can carry embedded JavaScript and are a common phishing / XSS vehicle in browser PDF viewers, so they download rather than render in-page. Audio and video stay inline because native media players cannot execute script.
 
 Unknown extensions are served as `application/octet-stream` with `Content-Disposition: attachment`.
 

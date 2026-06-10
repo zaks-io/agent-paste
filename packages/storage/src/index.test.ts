@@ -59,6 +59,16 @@ describe("storage helpers", () => {
     expect(CONTENT_SECURITY_HEADERS["Content-Security-Policy"]).toBe(BASE_CONTENT_SECURITY_POLICY);
   });
 
+  it("forces PDFs to download but keeps audio/video inline", () => {
+    expect(servedContentForPath("paper.pdf")).toMatchObject({
+      contentType: "application/pdf",
+      disposition: "attachment",
+    });
+    for (const path of ["clip.mp3", "clip.wav", "demo.mp4", "demo.webm"]) {
+      expect(servedContentForPath(path).disposition).toBe("inline");
+    }
+  });
+
   it("derives script-disabled CSP from base by transforming only script-src", () => {
     expect(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY).toBe(
       deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY),

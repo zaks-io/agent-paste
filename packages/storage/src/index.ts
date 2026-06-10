@@ -60,6 +60,14 @@ export const MIME_TYPES_BY_EXTENSION = {
 
 export const DEFAULT_MIME_TYPE = "application/octet-stream";
 
+/**
+ * Extensions that are recognized (so they get a real Content-Type) but must never
+ * render inline. PDFs can carry embedded JavaScript and are a common phishing /
+ * XSS vehicle in browser PDF viewers, so they download instead of opening in-page.
+ * Audio/video stay inline: native media players can't execute script.
+ */
+const ATTACHMENT_EXTENSIONS = new Set<MimeExtension>([".pdf"]);
+
 export const BASE_CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh",
@@ -183,6 +191,9 @@ export function servedContentForPath(path: string, options?: { scriptDisabled?: 
   const scriptDisabled = options?.scriptDisabled === true;
   const baseCsp = scriptDisabled ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {
+    return { contentType, disposition: "attachment", csp: baseCsp };
+  }
+  if (extension !== undefined && ATTACHMENT_EXTENSIONS.has(extension as MimeExtension)) {
     return { contentType, disposition: "attachment", csp: baseCsp };
   }
   if (extension === ".svg") {
