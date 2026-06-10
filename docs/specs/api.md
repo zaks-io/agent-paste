@@ -90,8 +90,10 @@ Rules:
   `audio`, `video`. When present it is stored on the Upload Session and copied
   verbatim to the draft Revision at finalize, overriding inference. When absent
   the server infers the Render Mode from the entrypoint extension via the
-  shared map in `packages/contracts/src/renderMode.ts` (the CLI uses the same
-  map), falling back to `html` for unknown extensions.
+  shared map in `packages/contracts/src/renderMode.ts`, falling back to `html`
+  for unknown extensions. The CLI uses the same map locally but does not fall
+  back: an unknown extension fails the publish with an error asking for an
+  explicit `--render-mode`.
 - Paths are normalized POSIX paths.
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
