@@ -2,6 +2,7 @@
 // @ts-check
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
 import { spawnCommand } from "./lib/spawn-command.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
@@ -41,15 +42,15 @@ const prSecrets = createPrSecrets();
 mkdirSync(outDir, { recursive: true });
 
 const files = {
-  apiConfig: new URL("api.json", outDir).pathname,
-  uploadConfig: new URL("upload.json", outDir).pathname,
-  contentConfig: new URL("content.json", outDir).pathname,
-  apexConfig: new URL("apex.json", outDir).pathname,
-  jobsConfig: new URL("jobs.json", outDir).pathname,
-  apiSecrets: new URL("api.secrets.json", outDir).pathname,
-  uploadSecrets: new URL("upload.secrets.json", outDir).pathname,
-  contentSecrets: new URL("content.secrets.json", outDir).pathname,
-  jobsSecrets: new URL("jobs.secrets.json", outDir).pathname,
+  apiConfig: fileURLToPath(new URL("api.json", outDir)),
+  uploadConfig: fileURLToPath(new URL("upload.json", outDir)),
+  contentConfig: fileURLToPath(new URL("content.json", outDir)),
+  apexConfig: fileURLToPath(new URL("apex.json", outDir)),
+  jobsConfig: fileURLToPath(new URL("jobs.json", outDir)),
+  apiSecrets: fileURLToPath(new URL("api.secrets.json", outDir)),
+  uploadSecrets: fileURLToPath(new URL("upload.secrets.json", outDir)),
+  contentSecrets: fileURLToPath(new URL("content.secrets.json", outDir)),
+  jobsSecrets: fileURLToPath(new URL("jobs.secrets.json", outDir)),
 };
 
 writeJson(files.apiConfig, apiConfig());
@@ -163,7 +164,7 @@ async function deployWeb() {
   config.services = [{ binding: "API", service: names.api }];
   writeJson(generatedConfig, config);
 
-  const webSecretsPath = new URL("web.secrets.json", outDir).pathname;
+  const webSecretsPath = fileURLToPath(new URL("web.secrets.json", outDir));
   writeJson(webSecretsPath, {
     WORKOS_API_KEY: workosApiKey,
     WORKOS_COOKIE_PASSWORD: prSecrets.WORKOS_COOKIE_PASSWORD,
@@ -376,7 +377,7 @@ function requiredEnv(name, fallback) {
 }
 
 function workspacePath(path) {
-  return new URL(`../${path}`, import.meta.url).pathname;
+  return fileURLToPath(new URL(`../${path}`, import.meta.url));
 }
 
 function createPrSecrets() {
