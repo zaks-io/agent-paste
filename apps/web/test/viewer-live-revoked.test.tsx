@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
 
 const liveUpdates = vi.hoisted(() => ({
   lastInput: null as {
-    onPointer?: (pointer: { iframe_src: string }) => void;
+    onPointer?: (pointer: { revision_id: string; iframe_src: string; render_mode: string }) => void;
     onRevoked?: () => void;
   } | null,
   close: vi.fn(),
@@ -204,10 +204,28 @@ describe("viewer live-update revocation", () => {
     const { Route } = await import("../src/routes/_authed.artifacts.$artifactId");
 
     const nextIframeSrc = "https://content.test/v/art.rev2/index.html";
+    getArtifactFn.mockResolvedValue({ data: artifactDetailRow(), empty: false, error: null });
+
+    renderWithQuery(<Route.component />);
+
+    await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", contentIframeSrc));
+    await waitFor(() => expect(liveUpdates.lastInput?.onPointer).toBeTypeOf("function"));
+
+    await act(async () => {
+      liveUpdates.lastInput?.onPointer?.({ revision_id: "rev_next", iframe_src: nextIframeSrc, render_mode: "html" });
+    });
+
+    await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc));
+  });
+
+  it("keeps the live iframe when the post-publish metadata refetch times out", async () => {
+    const { Route } = await import("../src/routes/_authed.artifacts.$artifactId");
+
+    const nextIframeSrc = "https://content.test/v/art.rev2/index.html";
     getArtifactFn.mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null }).mockResolvedValue({
-      data: artifactDetailRow({ viewer: { iframe_src: nextIframeSrc, render_mode: "html" } }),
-      empty: false,
-      error: null,
+      data: null,
+      empty: true,
+      error: { status: 0, code: "network_error", message: "The operation was aborted due to timeout" },
     });
 
     renderWithQuery(<Route.component />);
@@ -216,9 +234,11 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(liveUpdates.lastInput?.onPointer).toBeTypeOf("function"));
 
     await act(async () => {
-      liveUpdates.lastInput?.onPointer?.({ iframe_src: nextIframeSrc });
+      liveUpdates.lastInput?.onPointer?.({ revision_id: "rev_next", iframe_src: nextIframeSrc, render_mode: "html" });
     });
 
-    await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc));
+    await waitFor(() => expect(getArtifactFn).toHaveBeenCalledTimes(2));
+    expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc);
+    expect(screen.queryByText("Couldn't load this artifact")).not.toBeInTheDocument();
   });
 });
