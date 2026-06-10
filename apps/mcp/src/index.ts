@@ -26,6 +26,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.use("*", securityHeadersMiddleware());
 app.get("/healthz", (context) => context.json({ ok: true, app: "mcp" }));
 app.get("/.well-known/oauth-protected-resource", (context) => context.json(protectedResourceMetadata(context.env)));
+app.get("/.well-known/oauth-protected-resource/*", (context) => context.json(protectedResourceMetadata(context.env)));
 app.get("/.well-known/oauth-authorization-server", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/openid-configuration", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/oauth-authorization-server/*", (context) => authorizationServerMetadataResponse(context));

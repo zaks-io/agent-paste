@@ -267,14 +267,87 @@ describe("MCP auth and idempotency helpers", () => {
     ).toBe(true);
   });
 
-  it("derives idempotency keys from token sub, json rpc id, and tool name", () => {
+  it("derives idempotency keys from token sub, json rpc id, tool name, and args", () => {
     const key = deriveMcpIdempotencyKey({
       tokenSub: "user_01",
       jsonRpcId: 42,
       toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "hello", render_mode: "text" },
     });
-    expect(key).toBe("mcp:user_01:42:publish_artifact");
+    expect(key).toMatch(/^mcp:user_01:42:publish_artifact:h[0-9a-f]{8}$/);
     expect(IdempotencyKey.safeParse(key).success).toBe(true);
+  });
+
+  it("derives identical keys for deterministic retries regardless of arg key order", () => {
+    const first = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "hello", render_mode: "text" },
+    });
+    const retry = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { render_mode: "text", body: "hello", title: "Demo" },
+    });
+    expect(retry).toBe(first);
+  });
+
+  it("canonicalizes nested object keys when deriving", () => {
+    const first = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { title: "Demo", files: [{ path: "index.html", content: "<p>hi</p>" }] },
+    });
+    const retry = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { files: [{ content: "<p>hi</p>", path: "index.html" }], title: "Demo" },
+    });
+    const different = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { files: [{ content: "<p>bye</p>", path: "index.html" }], title: "Demo" },
+    });
+    expect(retry).toBe(first);
+    expect(different).not.toBe(first);
+  });
+
+  it("derives different keys for different args under the same json rpc id", () => {
+    const yesterday = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "yesterday", render_mode: "text" },
+    });
+    const today = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "today", render_mode: "text" },
+    });
+    expect(today).not.toBe(yesterday);
+  });
+
+  it("treats missing args and empty args identically", () => {
+    const missing = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 2,
+      toolName: "list_artifacts",
+      toolArgs: undefined,
+    });
+    const empty = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 2,
+      toolName: "list_artifacts",
+      toolArgs: {},
+    });
+    expect(missing).toBe(empty);
+    expect(IdempotencyKey.safeParse(missing).success).toBe(true);
   });
 
   it("sanitizes json rpc ids with spaces and slashes into valid idempotency keys", () => {
@@ -282,16 +355,18 @@ describe("MCP auth and idempotency helpers", () => {
       tokenSub: "user_01",
       jsonRpcId: "task 1",
       toolName: "publish_artifact",
+      toolArgs: {},
     });
-    expect(withSpaces).toBe("mcp:user_01:task_1:publish_artifact");
+    expect(withSpaces).toMatch(/^mcp:user_01:task_1:publish_artifact:h[0-9a-f]{8}$/);
     expect(IdempotencyKey.safeParse(withSpaces).success).toBe(true);
 
     const withSlashes = deriveMcpIdempotencyKey({
       tokenSub: "user_01",
       jsonRpcId: "req/phase-2",
       toolName: "add_revision",
+      toolArgs: {},
     });
-    expect(withSlashes).toBe("mcp:user_01:req_phase-2:add_revision");
+    expect(withSlashes).toMatch(/^mcp:user_01:req_phase-2:add_revision:h[0-9a-f]{8}$/);
     expect(IdempotencyKey.safeParse(withSlashes).success).toBe(true);
   });
 
@@ -301,16 +376,40 @@ describe("MCP auth and idempotency helpers", () => {
       tokenSub: "user_01",
       jsonRpcId: longId,
       toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "hello", render_mode: "text" },
     });
     const second = deriveMcpIdempotencyKey({
       tokenSub: "user_01",
       jsonRpcId: longId,
       toolName: "publish_artifact",
+      toolArgs: { title: "Demo", body: "hello", render_mode: "text" },
     });
     expect(first).toBe(second);
     expect(first.length).toBeLessThanOrEqual(200);
     expect(IdempotencyKey.safeParse(first).success).toBe(true);
     expect(mcpIdempotencySegment(longId)).toMatch(/^h[0-9a-f]{8}$/);
+  });
+
+  it("stays within the idempotency key bounds at max-length segments", () => {
+    const key = deriveMcpIdempotencyKey({
+      tokenSub: "s".repeat(64),
+      jsonRpcId: "r".repeat(64),
+      toolName: "update_display_metadata",
+      toolArgs: { artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", title: "x".repeat(5000) },
+    });
+    expect(key.length).toBeLessThanOrEqual(200);
+    expect(IdempotencyKey.safeParse(key).success).toBe(true);
+    expect(IdempotencyKey.safeParse(mcpPublishAccessLinkIdempotencyKey(key)).success).toBe(true);
+  });
+
+  it("parameterizes the WWW-Authenticate error while defaulting to invalid_token", () => {
+    expect(mcpWwwAuthenticateHeader("https://mcp.example.test")).toContain('error="invalid_token"');
+    expect(mcpWwwAuthenticateHeader("https://mcp.example.test", "insufficient_scope")).toContain(
+      'error="insufficient_scope"',
+    );
+    expect(mcpWwwAuthenticateHeader("https://mcp.example.test", "insufficient_scope")).toContain(
+      'resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource"',
+    );
   });
 });
 

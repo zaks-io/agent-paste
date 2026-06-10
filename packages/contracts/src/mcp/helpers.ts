@@ -41,14 +41,31 @@ export function mcpIdempotencySegment(value: string): string {
   return `h${fnv1a32Hex(value)}`;
 }
 
+/** Canonical JSON (recursively sorted object keys) so deterministic retries hash identically. */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalJson(entry)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entry]) => entry !== undefined)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
+}
+
 export function deriveMcpIdempotencyKey(input: {
   tokenSub: string;
   jsonRpcId: string | number;
   toolName: McpToolName;
+  /** Tool arguments; MCP clients reuse JSON-RPC ids across sessions, so the key must carry payload identity (AP bug: stale publish replay). */
+  toolArgs: Record<string, unknown> | undefined;
 }): IdempotencyKey {
   const sub = mcpIdempotencySegment(input.tokenSub);
   const rpc = mcpIdempotencySegment(String(input.jsonRpcId));
-  return IdempotencyKeySchema.parse(`mcp:${sub}:${rpc}:${input.toolName}`);
+  const args = `h${fnv1a32Hex(canonicalJson(input.toolArgs ?? {}))}`;
+  return IdempotencyKeySchema.parse(`mcp:${sub}:${rpc}:${input.toolName}:${args}`);
 }
 
 export function mcpEntrypointForRenderMode(renderMode: McpPublishRenderMode): FilePath {
