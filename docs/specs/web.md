@@ -1,6 +1,6 @@
 # Web Surface Spec
 
-This is the current web surface spec for the dashboard, Access Link viewer,
+This is the current web surface spec for the dashboard, Artifact Viewer opened by Access Links,
 claim flow, billing page, and operator UI. The CLI-first MVP had no dashboard,
 but the hosted service now ships these routes.
 
@@ -8,20 +8,20 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 
 ## Route Groups
 
-| Route                     | Auth             | Purpose                                                                               |
-| ------------------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| `/`                       | optional         | Redirect to `/dashboard` when signed in, `/api/auth/sign-in` when not.                |
-| `/api/auth/sign-in`       | none             | Start WorkOS AuthKit Authorization Code + PKCE login.                                 |
-| `/api/auth/sign-out`      | session          | Clear the AuthKit session through POST-only sign-out.                                 |
-| `/api/auth/callback`      | none             | Complete WorkOS AuthKit Authorization Code + PKCE flow and establish the session.     |
-| `/al/{publicId}`          | none             | Minimal Access Link viewer. Reads fragment and calls `POST /v1/access-links/resolve`. |
-| `/dashboard`              | dashboard member | Workspace overview.                                                                   |
-| `/artifacts`              | dashboard member | Artifact list.                                                                        |
-| `/artifacts/{artifactId}` | dashboard member | Artifact detail, revisions, links, warnings, bundle state.                            |
-| `/keys`                   | dashboard member | API Key list and creation flow.                                                       |
-| `/audit`                  | dashboard member | Audit Event list.                                                                     |
-| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                             |
-| `/admin`                  | operator         | Operator-only dashboard.                                                              |
+| Route                     | Auth             | Purpose                                                                                             |
+| ------------------------- | ---------------- | --------------------------------------------------------------------------------------------------- |
+| `/`                       | optional         | Redirect to `/dashboard` when signed in, `/api/auth/sign-in` when not.                              |
+| `/api/auth/sign-in`       | none             | Start WorkOS AuthKit Authorization Code + PKCE login.                                               |
+| `/api/auth/sign-out`      | session          | Clear the AuthKit session through POST-only sign-out.                                               |
+| `/api/auth/callback`      | none             | Complete WorkOS AuthKit Authorization Code + PKCE flow and establish the session.                   |
+| `/al/{publicId}`          | none             | Artifact Viewer opened by an Access Link. Reads fragment and calls `POST /v1/access-links/resolve`. |
+| `/dashboard`              | dashboard member | Workspace overview.                                                                                 |
+| `/artifacts`              | dashboard member | Artifact list.                                                                                      |
+| `/artifacts/{artifactId}` | dashboard member | Authenticated Artifact detail and management: revisions, links, warnings, bundle state.             |
+| `/keys`                   | dashboard member | API Key list and creation flow.                                                                     |
+| `/audit`                  | dashboard member | Audit Event list.                                                                                   |
+| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                           |
+| `/admin`                  | operator         | Operator-only dashboard.                                                                            |
 
 `/al/*` must not import WorkOS/AuthKit session modules. A lint rule should enforce this.
 
@@ -96,7 +96,7 @@ Sections:
 
 - Header with title, id, status, pinned state, lockdown state.
 - Display Metadata edit form.
-- Published Revision summary and viewer iframe.
+- Published Revision summary and management preview iframe.
 - Revision table.
 - Access Link table with create, mint/copy, revoke.
 - Bundle Availability and download action.
@@ -148,7 +148,7 @@ Fields:
   enforces the effective per-workspace bound.
 - Read-only Usage Policy caps.
 
-## Access Link Viewer
+## Artifact Viewer
 
 The `/al/{publicId}` page:
 
@@ -159,6 +159,7 @@ The `/al/{publicId}` page:
 - Shows generic not-found for all resolve failures, including active Platform
   Lockdown and Access Link Lockdown.
 - Renders the resolved Artifact through the content origin iframe or direct media element depending on Render Mode.
+- Is the recipient-facing live page opened by an **Access Link Signed URL** minted from a **Share Link**. Do not direct recipients to `/artifacts/{artifactId}` for live viewing.
 
 ## Operator UI
 

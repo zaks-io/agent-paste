@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
+import { listHyperdriveConfigs } from "./lib/hyperdrive-list.mjs";
 import { spawnCommand } from "./lib/spawn-command.mjs";
 
 const DEFAULT_HYPERDRIVE_LIMIT = 25;
+
+export { parseHyperdriveList } from "./lib/hyperdrive-list.mjs";
 
 if (isMain(import.meta.url)) {
   const options = {
@@ -72,47 +75,8 @@ export async function checkPrPreviewCapacity(options, dependencies = {}) {
   );
 }
 
-async function listHyperdriveConfigs(run) {
-  const result = await run("pnpm", ["exec", "wrangler", "hyperdrive", "list"], { allowFailure: true, quiet: true });
-  if (result.code !== 0) {
-    throw new Error(result.stderr?.trim() || result.stdout?.trim() || `wrangler hyperdrive list exited ${result.code}`);
-  }
-  return parseHyperdriveList(result.stdout);
-}
-
-export function parseHyperdriveList(output) {
-  const configs = [];
-  for (const line of output.split(/\r?\n/)) {
-    const id = line.match(/[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/i)?.[0];
-    if (!id) {
-      continue;
-    }
-    const name = parseHyperdriveName(line, id);
-    if (name) {
-      configs.push({ id, name });
-    }
-  }
-  return configs;
-}
-
 export function parsePrPreviewNumber(name) {
   return name.match(/^agent-paste-db-pr-([1-9][0-9]*)$/)?.[1] ?? null;
-}
-
-function parseHyperdriveName(line, id) {
-  if (line.includes("│")) {
-    const tableCells = line
-      .split("│")
-      .map((cell) => cell.trim())
-      .filter(Boolean);
-    const idCellIndex = tableCells.findIndex((cell) => cell.includes(id));
-    if (idCellIndex !== -1) {
-      return tableCells[idCellIndex + 1] ?? null;
-    }
-  }
-
-  const afterId = line.slice(line.indexOf(id) + id.length).trim();
-  return afterId.split(/\s+/)[0] || null;
 }
 
 async function classifyPreviewConfigs(configs, github, fetchFn) {

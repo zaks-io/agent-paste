@@ -191,10 +191,11 @@ Highest-signal gaps:
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
 - Stable live publish handoff for shell-only agents: publish results now
-  distinguish `artifact_url` (the app-origin live Artifact viewer) from
+  distinguish `artifact_url` (authenticated Artifact detail navigation) from
   `revision_content_url` (the exact content-origin Revision URL). Remaining
-  follow-up: add first-class `share_url` support as the separately named public
-  access-bearing URL, without replacing the default `artifact_url`.
+  follow-up: add first-class `access_link_url` support as the
+  primary public Access Link Signed URL minted from a Share Link, so agents do
+  not hand users the authenticated Artifact URL or a one-Revision content URL.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust

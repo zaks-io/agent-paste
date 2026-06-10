@@ -41,13 +41,20 @@ export const McpPublishRenderMode = z.enum(["text", "markdown", "html"]);
 export type McpPublishRenderMode = z.infer<typeof McpPublishRenderMode>;
 
 const mcpTextBody = z.string().min(1).max(Mebibytes.ten);
+const mcpPublishShareDefault = z
+  .boolean()
+  .optional()
+  .default(true)
+  .describe(
+    "Defaults to true. Leave true when a user asks for a live page or shareable link: the tool creates or reuses a Share Link and returns its Access Link Signed URL as access_link_url. Set false only for internal flows that should not create a user-facing Access Link.",
+  );
 
 export const McpPublishArtifactInput = z
   .object({
     title: PlainTextTitle,
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
-    share: z.boolean().optional(),
+    share: mcpPublishShareDefault,
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -58,7 +65,7 @@ export const McpAddRevisionInput = z
     artifact_id: ArtifactId,
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
-    share: z.boolean().optional(),
+    share: mcpPublishShareDefault,
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -122,7 +129,7 @@ export const McpUploadStats = z
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
 export const McpPublishArtifactOutput = PublishResult.extend({
-  share_link_url: UrlString.optional(),
+  access_link_url: UrlString.optional(),
   upload_stats: McpUploadStats.optional(),
 }).strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;

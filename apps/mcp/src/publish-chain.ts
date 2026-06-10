@@ -5,6 +5,7 @@ import {
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
   type McpAddRevisionInput,
+  McpListAccessLinksOutput,
   type McpPublishArtifactInput,
   McpPublishArtifactOutput,
   mapMcpProtocolError,
@@ -131,21 +132,22 @@ export async function runTextPublishChain(
     return { ok: false, error: mapInternal() };
   }
 
-  let shareLinkUrl: string | undefined;
+  let accessLinkUrl: string | undefined;
   if (input.share && shareLinkIdempotencyKey) {
-    const shareMinted = await mintAccessLink(deps, {
+    const shareMinted = await mintShareLinkForPublish(deps, {
       artifactId: finalizeBody.data.artifact_id,
       createIdempotencyKey: shareLinkIdempotencyKey,
+      reuseExisting: "artifact_id" in input,
     });
     if (!shareMinted.ok) {
       return shareMinted;
     }
-    shareLinkUrl = shareMinted.url;
+    accessLinkUrl = shareMinted.url;
   }
 
   const output = McpPublishArtifactOutput.safeParse({
     ...publishResult.data,
-    ...(shareLinkUrl ? { share_link_url: shareLinkUrl } : {}),
+    ...(accessLinkUrl ? { access_link_url: accessLinkUrl } : {}),
     upload_stats: uploadStats,
   });
   if (!output.success) {
@@ -163,14 +165,65 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 type MintAccessLinkInput = {
-  artifactId: string;
-  createIdempotencyKey: IdempotencyKey;
+  accessLinkId: string;
 };
 
-async function mintAccessLink(
+async function mintShareLinkForPublish(
   deps: PublishChainDeps,
-  input: MintAccessLinkInput,
+  input: { artifactId: string; createIdempotencyKey: IdempotencyKey; reuseExisting: boolean },
 ): Promise<{ ok: true; url: string } | ForwardToApiFailure> {
+  if (input.reuseExisting) {
+    const existing = await findActiveShareLinkId(deps, input.artifactId);
+    if (!existing.ok) {
+      return existing;
+    }
+    if (existing.accessLinkId) {
+      return mintAccessLink(deps, { accessLinkId: existing.accessLinkId });
+    }
+  }
+
+  const created = await createShareLink(deps, {
+    artifactId: input.artifactId,
+    createIdempotencyKey: input.createIdempotencyKey,
+  });
+  if (!created.ok) {
+    return created;
+  }
+  return mintAccessLink(deps, { accessLinkId: created.accessLinkId });
+}
+
+async function findActiveShareLinkId(
+  deps: PublishChainDeps,
+  artifactId: string,
+): Promise<{ ok: true; accessLinkId?: string } | ForwardToApiFailure> {
+  const listed = await forwardToApiRoute({
+    api: deps.api,
+    routeId: "accessLinks.list",
+    params: { artifact_id: artifactId },
+    bearerToken: deps.bearerToken,
+  });
+  if (!listed.ok) {
+    return listed;
+  }
+  const parsed = McpListAccessLinksOutput.safeParse(listed.body);
+  if (!parsed.success) {
+    return { ok: false, error: mapInternal() };
+  }
+
+  const nowMs = Date.now();
+  const activeShare = parsed.data.items.find(
+    (link) =>
+      link.type === "share" &&
+      link.revoked_at === null &&
+      (link.expires_at === null || Date.parse(link.expires_at) > nowMs),
+  );
+  return { ok: true, ...(activeShare ? { accessLinkId: activeShare.id } : {}) };
+}
+
+async function createShareLink(
+  deps: PublishChainDeps,
+  input: { artifactId: string; createIdempotencyKey: IdempotencyKey },
+): Promise<{ ok: true; accessLinkId: string } | ForwardToApiFailure> {
   const createBody = CreateAccessLinkRequest.parse({ type: "share" as const });
 
   const created = await forwardToApiRoute({
@@ -191,11 +244,17 @@ async function mintAccessLink(
   if (!linkId) {
     return { ok: false, error: mapInternal() };
   }
+  return { ok: true, accessLinkId: linkId };
+}
 
+async function mintAccessLink(
+  deps: PublishChainDeps,
+  input: MintAccessLinkInput,
+): Promise<{ ok: true; url: string } | ForwardToApiFailure> {
   const minted = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.mint",
-    params: { access_link_id: linkId },
+    params: { access_link_id: input.accessLinkId },
     bearerToken: deps.bearerToken,
   });
   if (!minted.ok) {

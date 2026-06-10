@@ -2,10 +2,12 @@
 
 The `content` Worker serves untrusted artifact files from `usercontent.agent-paste.sh`. It reads private R2 objects and a KV denylist. It has no Hyperdrive binding.
 
-Content URLs are delivery URLs for exact Revisions, not Artifact URLs. A URL
+Content URLs are delivery URLs for exact Revisions, not Access Links. A URL
 shaped `/v/{token}/{path}` never advances to a newer Revision after another
-publish. Latest-moving viewers start on the app origin through an Artifact URL;
-public access to that viewer is granted by a separate Share URL.
+publish. Latest-moving public viewers start from an Access Link Signed URL
+minted from a Share Link, which opens the Artifact Viewer.
+Artifact URLs are authenticated workspace management URLs, not recipient handoff
+URLs.
 
 ## URL Shape
 
@@ -87,7 +89,7 @@ Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 
 
 ### Framing the viewer
 
-The dashboard and Access Link viewer render artifact content in a sandboxed iframe
+The dashboard and Artifact Viewer render artifact content in a sandboxed iframe
 (`sandbox="allow-scripts allow-popups"`, never `allow-same-origin`; see [`web.md`](./web.md))
 hosted on the app origin, which is a separate hardened origin from this content subdomain
 (ADR 0014). To let that one trusted page host the sandbox while still refusing every other

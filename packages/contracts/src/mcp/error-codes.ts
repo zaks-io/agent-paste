@@ -16,6 +16,8 @@ export type McpToolErrorCode = z.infer<typeof McpToolErrorCode>;
 export const mcpToolErrorGroups = {
   publishChain: [
     "invalid_request",
+    "forbidden",
+    "not_found",
     "artifact_not_found",
     "draft_revision_conflict",
     "entrypoint_not_in_revision",

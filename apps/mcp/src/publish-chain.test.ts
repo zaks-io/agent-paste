@@ -89,7 +89,10 @@ describe("runTextPublishChain", () => {
     mockUploadChain("index.md", 7);
     mockPublish();
 
-    const result = await runTextPublishChain({ title: "Note", body: "# hello", render_mode: "markdown" }, deps);
+    const result = await runTextPublishChain(
+      { title: "Note", body: "# hello", render_mode: "markdown", share: false },
+      deps,
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -255,101 +258,50 @@ describe("runTextPublishChain", () => {
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     if (first.ok && second.ok) {
-      expect(first.body).toMatchObject({ artifact_url: publishBody.artifact_url, share_link_url: shareUrl });
-      expect(second.body).toMatchObject({ artifact_url: publishBody.artifact_url, share_link_url: shareUrl });
+      expect(first.body).toMatchObject({
+        access_link_url: shareUrl,
+        artifact_url: publishBody.artifact_url,
+      });
+      expect(second.body).toMatchObject({
+        access_link_url: shareUrl,
+        artifact_url: publishBody.artifact_url,
+      });
       expect(first.body).not.toHaveProperty("revision_link_url");
+      expect(first.body).not.toHaveProperty("share_link_url");
       expect(second.body).not.toHaveProperty("revision_link_url");
+      expect(second.body).not.toHaveProperty("share_link_url");
     }
     expect(shareCreateInvocations).toBe(2);
   });
 
-  it("forwards derived share idempotency keys when add_revision with share is retried", async () => {
+  it("reuses an active Share Link when add_revision requests a link", async () => {
     const shareUrl = "https://share.example/al_01";
     const addRevisionDeps = {
       ...deps,
       idempotencyKey: IdempotencyKey.parse("mcp:user:1:add_revision"),
     };
-    const shareKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey);
-    let shareCreateInvocations = 0;
-
-    vi.mocked(forward.forwardToUploadRoute).mockImplementation(async (input) => {
-      if (input.routeId === "uploadSessions.create") {
-        return {
-          ok: true,
-          status: 201,
-          body: {
-            upload_session_id: uploadSessionId,
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            status: "pending",
-            expires_at: expiresAt,
-            files: [
-              {
-                status: "upload_required",
-                path: "content.txt",
-                put_url: "https://signed/put",
-                required_headers: {},
-                expires_at: expiresAt,
-              },
-            ],
-          },
-        };
-      }
-      if (input.routeId === "uploadSessions.finalize") {
-        return {
-          ok: true,
-          status: 200,
-          body: {
-            upload_session_id: uploadSessionId,
-            artifact_id: artifactId,
-            revision_id: revisionId,
-            status: "draft",
-            title: "Revision",
-            entrypoint: "content.txt",
-            file_count: 1,
-            size_bytes: 7,
-          },
-        };
-      }
-      return {
-        ok: false,
-        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
-      };
-    });
-    vi.mocked(forward.putSignedUploadFile).mockResolvedValue({ ok: true, status: 200, body: null });
-    vi.mocked(forward.forwardToApiRoute).mockImplementation(async (input) => {
-      if (input.routeId === "revisions.publish") {
-        return {
-          ok: true,
-          status: 200,
-          body: { ...publishBody, title: "Revision" },
-        };
-      }
-      if (input.routeId === "accessLinks.create") {
-        if (input.idempotencyKey === shareKey) {
-          shareCreateInvocations += 1;
-          expect(JSON.parse(input.body as string)).toEqual({ type: "share" });
-          return {
-            ok: true,
-            status: 201,
-            body: {
+    mockUploadChain("content.txt", 7);
+    vi.mocked(forward.forwardToApiRoute)
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { ...publishBody, title: "Revision" } })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: {
+          artifact_id: artifactId,
+          items: [
+            {
               id: shareLinkId,
               type: "share",
               artifact_id: artifactId,
               revision_id: null,
               created_at: expiresAt,
+              expires_at: null,
+              revoked_at: null,
             },
-          };
-        }
-      }
-      if (input.routeId === "accessLinks.mint") {
-        return { ok: true, status: 200, body: { url: shareUrl } };
-      }
-      return {
-        ok: false,
-        error: { code: "internal_error", message: "internal_error", jsonRpcCode: -32000, httpStatus: 500 },
-      };
-    });
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: shareUrl } });
 
     const input = {
       artifact_id: artifactId,
@@ -357,18 +309,70 @@ describe("runTextPublishChain", () => {
       render_mode: "text" as const,
       share: true,
     };
-    const first = await runTextPublishChain(input, addRevisionDeps);
-    const second = await runTextPublishChain(input, addRevisionDeps);
+    const result = await runTextPublishChain(input, addRevisionDeps);
 
-    expect(first.ok).toBe(true);
-    expect(second.ok).toBe(true);
-    if (first.ok && second.ok) {
-      expect(first.body).toMatchObject({ share_link_url: shareUrl });
-      expect(second.body).toMatchObject({ share_link_url: shareUrl });
-      expect(first.body).not.toHaveProperty("revision_link_url");
-      expect(second.body).not.toHaveProperty("revision_link_url");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.body).toMatchObject({ access_link_url: shareUrl });
+      expect(result.body).not.toHaveProperty("revision_link_url");
+      expect(result.body).not.toHaveProperty("share_link_url");
     }
-    expect(shareCreateInvocations).toBe(2);
+    expect(vi.mocked(forward.forwardToApiRoute).mock.calls.map((call) => call[0].routeId)).toEqual([
+      "revisions.publish",
+      "accessLinks.list",
+      "accessLinks.mint",
+    ]);
+    expect(vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0]).toMatchObject({
+      routeId: "accessLinks.mint",
+      params: { access_link_id: shareLinkId },
+    });
+  });
+
+  it("creates a Share Link during add_revision when no active Share Link exists", async () => {
+    const shareUrl = "https://share.example/al_01";
+    const addRevisionDeps = {
+      ...deps,
+      idempotencyKey: IdempotencyKey.parse("mcp:user:1:add_revision"),
+    };
+    const shareKey = mcpPublishAccessLinkIdempotencyKey(addRevisionDeps.idempotencyKey);
+    mockUploadChain("content.txt", 7);
+    vi.mocked(forward.forwardToApiRoute)
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { ...publishBody, title: "Revision" } })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { artifact_id: artifactId, items: [] } })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          id: shareLinkId,
+          type: "share",
+          artifact_id: artifactId,
+          revision_id: null,
+          created_at: expiresAt,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { url: shareUrl } });
+
+    const result = await runTextPublishChain(
+      {
+        artifact_id: artifactId,
+        body: "updated",
+        render_mode: "text",
+        share: true,
+      },
+      addRevisionDeps,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.body).toMatchObject({ access_link_url: shareUrl });
+      expect(result.body).not.toHaveProperty("share_link_url");
+    }
+    const shareCreateCall = vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0];
+    expect(shareCreateCall).toMatchObject({
+      routeId: "accessLinks.create",
+      idempotencyKey: shareKey,
+    });
+    expect(JSON.parse(shareCreateCall?.body as string)).toEqual({ type: "share" });
   });
 
   it("mints a share link when share is true", async () => {
@@ -393,9 +397,10 @@ describe("runTextPublishChain", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.body).toMatchObject({
-        share_link_url: "https://share.example/al_01",
+        access_link_url: "https://share.example/al_01",
       });
       expect(result.body).not.toHaveProperty("revision_link_url");
+      expect(result.body).not.toHaveProperty("share_link_url");
     }
     const shareCreateCall = vi.mocked(forward.forwardToApiRoute).mock.calls[1]?.[0];
     expect(shareCreateCall).toMatchObject({
@@ -430,7 +435,7 @@ describe("runTextPublishChain", () => {
     mockUploadChain("content.txt", 5);
     mockPublish();
 
-    await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text" }, deps);
+    await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text", share: false }, deps);
 
     const createCall = vi.mocked(forward.forwardToUploadRoute).mock.calls[0]?.[0];
     expect(createCall?.routeId).toBe("uploadSessions.create");
@@ -441,7 +446,7 @@ describe("runTextPublishChain", () => {
     mockUploadChain("index.html", 12);
     mockPublish();
 
-    await runTextPublishChain({ title: "Note", body: "<p>hi</p>", render_mode: "html" }, deps);
+    await runTextPublishChain({ title: "Note", body: "<p>hi</p>", render_mode: "html", share: false }, deps);
     expect(forward.putSignedUploadFile).toHaveBeenCalledWith(
       expect.objectContaining({ contentType: "text/html; charset=utf-8" }),
     );
@@ -479,6 +484,7 @@ describe("runTextPublishChain", () => {
     mockUploadChain("content.txt", 7);
     vi.mocked(forward.forwardToApiRoute)
       .mockResolvedValueOnce({ ok: true, status: 200, body: { ...publishBody, title: "Revision" } })
+      .mockResolvedValueOnce({ ok: true, status: 200, body: { artifact_id: artifactId, items: [] } })
       .mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -503,7 +509,7 @@ describe("runTextPublishChain", () => {
     );
     expect(addRevisionResult.ok).toBe(true);
 
-    const addRevisionShareCreate = vi.mocked(forward.forwardToApiRoute).mock.calls[1]?.[0];
+    const addRevisionShareCreate = vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0];
     expect(addRevisionShareCreate?.idempotencyKey).toBe(shareKey);
   });
 
@@ -512,7 +518,7 @@ describe("runTextPublishChain", () => {
       ok: false,
       error: { code: "rate_limited_actor", message: "rate_limited_actor", jsonRpcCode: -32000, httpStatus: 429 },
     });
-    const result = await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text" }, deps);
+    const result = await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text", share: false }, deps);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("rate_limited_actor");

@@ -177,10 +177,13 @@ Finalize verifies every expected file exists in R2 and returns a draft Revision
 summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
 
-`artifact_url` is the app-origin **Artifact URL** for the live viewer. It opens
-the latest Published Revision and can Live Update. `revision_content_url` is the
+`artifact_url` is the authenticated **Artifact URL** for owner/member
+management. It is not the primary recipient link. `revision_content_url` is the
 direct signed Content Origin URL for the exact `revision_id` returned in this
-response, expires with its signed token, and does not Live Update.
+response, expires with its signed token, and does not Live Update. User-facing
+live handoff uses the **Access Link Signed URL** minted from a **Share Link**
+when the surface can mint one; MCP publish tools default to that behavior and
+return it as `access_link_url`.
 
 ## Content Routes
 
@@ -219,7 +222,9 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
-The `artifact_url` remains the stable live viewer for the Artifact.
+A Share Link remains the stable live viewer grant for the Artifact. Its Access
+Link Signed URL is the user-facing live URL. The `artifact_url` remains the
+authenticated management URL for Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

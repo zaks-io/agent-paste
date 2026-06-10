@@ -31,9 +31,11 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls. |
 | Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose REST, MCP, Agent View, and documented contracts that can be built on by another platform.  |
 
-For the iteration use case, the browser URL must be an Artifact URL. The direct
-`revision_content_url` is exact Revision content; it is useful for one-shot
-inspection but it does not advance when the agent publishes a later Revision.
+For the iteration use case, the browser URL must be the Access Link Signed URL
+minted from a Share Link. The direct `revision_content_url` is exact Revision
+content; it is useful for one-shot inspection but it does not advance when the
+agent publishes a later Revision. The authenticated Artifact URL is Workspace
+management navigation, not the recipient handoff.
 
 ## Primary Audiences
 

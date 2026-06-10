@@ -23,7 +23,7 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 | Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                          |
 
 `revision_content_url` is the direct signed content URL for the published
-Revision. It is not a Share URL or Live Update viewer.
+Revision. It is not an Access Link Signed URL or Live Update viewer.
 
 ## Upload
 
@@ -36,16 +36,17 @@ Revision. It is not a Share URL or Live Update viewer.
 
 ## Reading
 
-| Scenario               | Expected Result                                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| Open `artifact_url`    | Browser opens the app-origin Artifact viewer.                                                          |
-| Open content URL       | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers.                     |
-| Load static asset      | Asset referenced by HTML loads from the same content origin when included in the artifact.             |
-| Fetch `agent_view_url` | Returns Agent View JSON with full per-file signed URLs.                                                |
-| Fetch unknown path     | Returns generic `not_found`.                                                                           |
-| Expired signed token   | Returns generic `not_found`.                                                                           |
-| Deleted artifact token | Returns generic `not_found` after denylist propagation.                                                |
-| Artifact read throttle | Excess unauthenticated reads for one Artifact return HTTP 429 + `rate_limited_artifact` + Retry-After. |
+| Scenario                    | Expected Result                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Open Access Link Signed URL | Browser opens the Artifact Viewer through an Access Link Signed URL minted from a Share Link.          |
+| Open `artifact_url`         | Authenticated Workspace Member can open the Artifact detail view.                                      |
+| Open content URL            | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers.                     |
+| Load static asset           | Asset referenced by HTML loads from the same content origin when included in the artifact.             |
+| Fetch `agent_view_url`      | Returns Agent View JSON with full per-file signed URLs.                                                |
+| Fetch unknown path          | Returns generic `not_found`.                                                                           |
+| Expired signed token        | Returns generic `not_found`.                                                                           |
+| Deleted artifact token      | Returns generic `not_found` after denylist propagation.                                                |
+| Artifact read throttle      | Excess unauthenticated reads for one Artifact return HTTP 429 + `rate_limited_artifact` + Retry-After. |
 
 ## Retention
 

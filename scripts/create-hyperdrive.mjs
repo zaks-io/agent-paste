@@ -1,69 +1,84 @@
 #!/usr/bin/env node
 // Hyperdrive must use the app_role connection string (DATABASE_URL_RUNTIME_* /
 // PR runtime Neon URL). Never pass migration URLs (platform_admin) here.
-import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { maskConnectionUri } from "../packages/db/scripts/credentials.mjs";
+import { findHyperdriveByName } from "./lib/hyperdrive-list.mjs";
+import { spawnCommand } from "./lib/spawn-command.mjs";
 
-loadDotenv();
-const options = parseArgs(process.argv.slice(2));
-const connectionString = process.env[options.connectionStringEnv];
-if (!connectionString) {
-  throw new Error(`Set ${options.connectionStringEnv}.`);
+if (isMain(import.meta.url)) {
+  runCli().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
 }
 
-const existing = await findHyperdriveByName(options.name);
-const id = existing
-  ? await refreshHyperdrive(existing.id, options.name, connectionString)
-  : await createHyperdrive(options.name, connectionString);
-emitOutput(options.githubOutput, id);
-process.stdout.write(`Hyperdrive ${options.name}: ${id}\n`);
-
-async function findHyperdriveByName(name) {
-  const result = await run("pnpm", ["exec", "wrangler", "hyperdrive", "list"], { allowFailure: true });
-  if (result.code !== 0) {
-    return null;
+async function runCli() {
+  loadDotenv();
+  const options = parseArgs(process.argv.slice(2));
+  const connectionString = process.env[options.connectionStringEnv];
+  if (!connectionString) {
+    throw new Error(`Set ${options.connectionStringEnv}.`);
   }
-  return parseHyperdriveList(result.stdout).find((config) => config.name === name) ?? null;
+
+  const id = await createOrRefreshHyperdrive(
+    { name: options.name, connectionString },
+    { run: spawnCommand, log: (message) => process.stdout.write(message) },
+  );
+  emitOutput(options.githubOutput, id);
+  process.stdout.write(`Hyperdrive ${options.name}: ${id}\n`);
 }
 
-async function createHyperdrive(name, connectionString) {
-  const result = await run("pnpm", [
-    "exec",
-    "wrangler",
-    "hyperdrive",
-    "create",
-    name,
-    "--connection-string",
-    connectionString,
-  ]);
+export async function createOrRefreshHyperdrive(options, dependencies = {}) {
+  const run = dependencies.run ?? spawnCommand;
+  const log = dependencies.log ?? (() => {});
+  const existing = await findHyperdriveByName(run, options.name);
+  return existing
+    ? await refreshHyperdrive(run, log, existing.id, options.name, options.connectionString)
+    : await createHyperdrive(run, log, options.name, options.connectionString);
+}
+
+async function createHyperdrive(run, log, name, connectionString) {
+  const args = ["exec", "wrangler", "hyperdrive", "create", name, "--connection-string", connectionString];
+  const result = await run("pnpm", args, { allowFailure: true, quiet: true });
+  if (result.code !== 0) {
+    if (isHyperdriveNameConflict(result)) {
+      const existing = await findHyperdriveByName(run, name);
+      if (existing) {
+        log(`Hyperdrive ${name} already exists (${existing.id}); updating existing config.\n`);
+        return refreshHyperdrive(run, log, existing.id, name, connectionString);
+      }
+    }
+    throw new Error(commandFailureMessage("pnpm", args, result));
+  }
   const match = result.stdout.match(/Created new Hyperdrive PostgreSQL config:\s*([0-9a-f-]+)/i);
   if (!match) {
     throw new Error(`Could not parse Hyperdrive id from wrangler output:\n${result.stdout || result.stderr}`);
   }
-  process.stdout.write(`Created Hyperdrive ${name} (${match[1]}) for ${maskConnectionUri(connectionString)}\n`);
+  log(`Created Hyperdrive ${name} (${match[1]}) for ${maskConnectionUri(connectionString)}\n`);
   return match[1];
 }
 
-async function refreshHyperdrive(id, name, connectionString) {
-  await run("pnpm", ["exec", "wrangler", "hyperdrive", "update", id, "--connection-string", connectionString]);
-  process.stdout.write(`Updated Hyperdrive ${name} (${id}) to ${maskConnectionUri(connectionString)}\n`);
+async function refreshHyperdrive(run, log, id, name, connectionString) {
+  const args = ["exec", "wrangler", "hyperdrive", "update", id, "--connection-string", connectionString];
+  const result = await run("pnpm", args, { allowFailure: true, quiet: true });
+  if (result.code !== 0) {
+    throw new Error(commandFailureMessage("pnpm", args, result));
+  }
+  log(`Updated Hyperdrive ${name} (${id}) to ${maskConnectionUri(connectionString)}\n`);
   return id;
 }
 
-function parseHyperdriveList(output) {
-  const configs = [];
-  for (const line of output.split(/\r?\n/)) {
-    const id = line.match(/[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/i)?.[0];
-    if (!id || !line.includes("agent-paste-db-")) {
-      continue;
-    }
-    const name = line.match(/agent-paste-db-[A-Za-z0-9/_-]+/)?.[0];
-    if (name) {
-      configs.push({ id, name });
-    }
-  }
-  return configs;
+function isHyperdriveNameConflict(result) {
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  return output.includes("[code: 2017]") || output.toLowerCase().includes("given name already exists");
+}
+
+function commandFailureMessage(command, args, result) {
+  return `${command} ${args.slice(0, 3).join(" ")} exited ${result.code}\n${
+    result.stderr?.trim() || result.stdout?.trim()
+  }`.trimEnd();
 }
 
 function emitOutput(name, value) {
@@ -74,29 +89,6 @@ function emitOutput(name, value) {
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
   }
-}
-
-function run(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      const result = { code: code ?? 1, stdout, stderr };
-      if (result.code === 0 || options.allowFailure) {
-        resolve(result);
-      } else {
-        reject(new Error(`${command} ${args.slice(0, 3).join(" ")} exited ${result.code}\n${stderr || stdout}`));
-      }
-    });
-  });
 }
 
 function parseArgs(argv) {
@@ -145,4 +137,8 @@ function unquote(value) {
     return value.slice(1, -1);
   }
   return value;
+}
+
+function isMain(metaUrl) {
+  return process.argv[1] === fileURLToPath(metaUrl);
 }

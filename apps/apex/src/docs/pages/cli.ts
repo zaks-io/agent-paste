@@ -55,7 +55,7 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful publish returns `artifact_id`, `revision_id`, `title`, `artifact_url`, `revision_content_url`, `agent_view_url`, `expires_at`, and `bundle`. `artifact_url` is the app-origin live viewer for the Artifact. `revision_content_url` is a signed Content Origin URL for this exact Revision and does not Live Update. `agent_view_url` returns machine-readable Agent View JSON.",
+          text: "A successful CLI publish returns `artifact_id`, `revision_id`, `title`, `artifact_url`, `revision_content_url`, `agent_view_url`, `expires_at`, and `bundle`. `artifact_url` is the authenticated Artifact detail URL. `revision_content_url` is a signed Content Origin URL for this exact Revision and does not Live Update. `agent_view_url` returns machine-readable Agent View JSON.",
         },
         {
           kind: "code",
@@ -64,9 +64,9 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "note",
-          title: "Artifact URL is the live viewer",
+          title: "access_link_url is the live handoff",
           body: [
-            "When a human should keep one URL open while an agent publishes more Revisions, return `artifact_url`. Use public sharing only when the viewer needs unauthenticated access; that access belongs in a separate Share URL.",
+            "When a human should keep one URL open while an agent publishes more Revisions, return `access_link_url`, the Access Link Signed URL minted from a Share Link. MCP publish tools return it by default as `access_link_url`. Base CLI publish does not yet emit `access_link_url`, so do not treat `artifact_url` or `revision_content_url` as the final public live page.",
           ],
         },
         {

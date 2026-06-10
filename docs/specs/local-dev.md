@@ -187,7 +187,7 @@ The first local vertical slice is complete when:
 2. `agent-paste whoami` succeeds using `AGENT_PASTE_API_KEY`.
 3. CLI can publish a folder with `index.html`.
 4. Publish returns `artifact_id`, `revision_id`, `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`.
-5. `artifact_url` opens the Artifact viewer and `revision_content_url` serves the entrypoint under the content origin.
+5. `artifact_url` opens the authenticated Artifact detail/viewer path in the local harness, while `revision_content_url` serves the entrypoint under the content origin. Public live handoff requires an Access Link Signed URL minted from a Share Link when the surface supports it.
 6. `agent_view_url` returns Agent View JSON with full per-file URLs.
 7. Admin CLI can list and inspect the artifact.
 8. Manual cleanup can dry-run and admin delete invalidates content URLs.

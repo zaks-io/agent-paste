@@ -482,7 +482,7 @@ pre {
 
 **Syntax highlighting palette:** derive from neutrals and the accent. Keywords use `--accent`, strings `--success`, comments `--subtle`, punctuation `--muted`. Avoid the default prism.css colors — they will fight the page.
 
-When a code block contains an **Artifact ID**, **Revision ID**, or **Access Link URL**, ship a Copy affordance in the top-right corner. The button is `ghost` size `sm`, icon-only by default, label fades in on hover. See §5.11 for the copy interaction itself.
+When a code block contains an **Artifact ID**, **Revision ID**, or **Access Link Signed URL**, ship a Copy affordance in the top-right corner. The button is `ghost` size `sm`, icon-only by default, label fades in on hover. See §5.11 for the copy interaction itself.
 
 ### 5.7 Empty state
 

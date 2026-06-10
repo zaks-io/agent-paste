@@ -188,9 +188,9 @@ export const securitySchemes = {
   SignedAccessLinkRequest: {
     type: "http",
     scheme: "bearer",
-    bearerFormat: "Agent Paste signed Access Link URL",
+    bearerFormat: "Agent Paste Access Link Signed URL",
     description:
-      "Signed Access Link URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials.",
+      "Access Link Signed URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials.",
   },
   EphemeralProofOfWork: {
     type: "http",
