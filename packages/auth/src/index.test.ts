@@ -1,9 +1,45 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cachedLookup, cachedNegativeLookup, cacheKeyForSecret } from "./index";
 
 const MEMORY_CACHE_MAX_ENTRIES = 1000;
 
 describe("auth helpers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("writes edge cache entries the Workers Cache API will store", async () => {
+    const stored = new Map<string, Response>();
+    const edgeCache = {
+      match: vi.fn(async () => undefined),
+      put: vi.fn(async (request: Request, response: Response) => {
+        const cacheControl = response.headers.get("cache-control") ?? "";
+        // Mirrors Workers cache.put: private/no-store (or missing max-age) responses are rejected.
+        if (!/\bmax-age=\d+\b/.test(cacheControl) || /\bprivate\b|\bno-store\b/.test(cacheControl)) {
+          throw new TypeError("Cannot cache response");
+        }
+        stored.set(request.url, response.clone());
+      }),
+    };
+    vi.stubGlobal("caches", { default: edgeCache });
+
+    const key = await cacheKeyForSecret(`secret-${crypto.randomUUID()}`);
+    await cachedLookup({
+      namespace: "auth-edge-test",
+      key,
+      ttlSeconds: 60,
+      lookup: async () => ({ actor_id: "key_1" }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(edgeCache.put).toHaveBeenCalledTimes(1);
+    const [, response] = edgeCache.put.mock.calls[0]!;
+    const cacheControl = response.headers.get("cache-control") ?? "";
+    expect(cacheControl).not.toMatch(/\bprivate\b/);
+    expect(cacheControl).toMatch(/\bmax-age=60\b/);
+    expect(stored.size).toBe(1);
+  });
+
   it("caches lookup results by hashed secret key", async () => {
     let calls = 0;
     const key = await cacheKeyForSecret(`secret-${crypto.randomUUID()}`);

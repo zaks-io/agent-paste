@@ -82,6 +82,8 @@ function nodeRequestToFetchRequest(incoming) {
       headers.set(name, value);
     }
   }
+  // Cloudflare sets CF-Connecting-IP at the edge; the ephemeral provision rate-limit gate 503s without it.
+  headers.set("cf-connecting-ip", headers.get("cf-connecting-ip") ?? incoming.socket?.remoteAddress ?? "127.0.0.1");
 
   const init = {
     method: incoming.method,

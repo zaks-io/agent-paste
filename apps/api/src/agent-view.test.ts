@@ -1,7 +1,7 @@
 import { USAGE_POLICY } from "@agent-paste/config";
 import { verifyContentToken } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { entrypointPathFromContentUrl, signAgentViewContentUrls } from "./agent-view.js";
+import { entrypointPathFromContentUrl, signAgentViewContentUrls, signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -115,6 +115,7 @@ describe("signAgentViewContentUrls characterization", () => {
         expires_at: "2030-01-01T00:00:00.000Z",
         files: [
           { path: "nested/index.html", url: "old" },
+          { path: "nested/test-image.png", url: "old-image" },
           { path: 123, url: "kept" },
         ],
         bundle: { status: "ready", url: "old-bundle" },
@@ -127,7 +128,9 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.revision_content_url).toContain("/nested/index.html");
     expect(signed.files[0]?.url).toContain("https://content.test/v/");
     expect(signed.files[0]?.url).toContain("/nested/index.html");
-    expect(signed.files[1]?.url).toBe("kept");
+    expect(signed.files[1]?.url).toContain("https://content.test/v/");
+    expect(signed.files[1]?.url).toContain("/nested/test-image.png");
+    expect(signed.files[2]?.url).toBe("kept");
     expect(signed.bundle.url).toContain("https://content.test/b/");
 
     const viewPayload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
@@ -136,12 +139,15 @@ describe("signAgentViewContentUrls characterization", () => {
       revision_id: "rev_1",
       workspace_id: workspaceId,
       access_link_id: "al_1",
-      paths: ["nested/index.html"],
+      paths: ["nested/index.html", "nested/test-image.png"],
       exp: Math.floor(new Date("2030-01-01T00:00:00.000Z").getTime() / 1000),
     });
 
     const filePayload = await verifyContentToken(contentTokenFromUrl(signed.files[0]?.url ?? ""), "content-secret");
     expect(filePayload?.paths).toEqual(["nested/index.html"]);
+
+    const imagePayload = await verifyContentToken(contentTokenFromUrl(signed.files[1]?.url ?? ""), "content-secret");
+    expect(imagePayload?.paths).toEqual(["nested/test-image.png"]);
 
     const bundlePayload = await verifyContentToken(bundleTokenFromUrl(signed.bundle.url), "content-secret");
     expect(bundlePayload).toMatchObject({
@@ -177,7 +183,7 @@ describe("signAgentViewContentUrls characterization", () => {
       revision_id: "rev_1",
       workspace_id: workspaceId,
       access_link_id: "al_1",
-      paths: ["docs/index.html"],
+      paths: ["docs/index.html", "index.html"],
       script_disabled: false,
     });
   });
@@ -261,6 +267,26 @@ describe("signAgentViewContentUrls characterization", () => {
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
     expect(payload?.script_disabled).toBe(true);
+  });
+
+  it("omits path scoping on publish-result entrypoint URLs so relative assets can load", async () => {
+    const signed = (await signPublishResult(
+      {
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        title: "Artifact",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
+        agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_1",
+        expires_at: "2030-01-01T00:00:00.000Z",
+        bundle: { status: "disabled" },
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { revision_content_url: string };
+
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
+    expect(payload?.paths).toBeUndefined();
   });
 
   it("sets noindex and script_disabled when ephemeral_tier is present on the view payload", async () => {

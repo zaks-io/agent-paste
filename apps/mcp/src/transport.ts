@@ -1,4 +1,9 @@
-import { MCP_RESOURCE_INDICATOR, mapMcpProtocolError, mcpWwwAuthenticateHeader } from "@agent-paste/contracts";
+import {
+  MCP_RESOURCE_INDICATOR,
+  type McpAuthChallengeError,
+  mapMcpProtocolError,
+  mcpWwwAuthenticateHeader,
+} from "@agent-paste/contracts";
 import {
   createUnconfiguredMcpBearerAuth,
   createWorkOsMcpBearerAuth,
@@ -28,14 +33,22 @@ function resourceFromEnv(env: McpTransportEnv): string {
 
 function unauthorizedMcpResponse(message: string, resource: string): Response {
   return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_token", message), {
-    headers: authenticateChallengeHeaders(resource),
+    headers: authenticateChallengeHeaders(resource, "invalid_token"),
   });
 }
 
-function authenticateChallengeHeaders(resource: string): Headers {
+function authenticateChallengeHeaders(resource: string, error: McpAuthChallengeError): Headers {
   return new Headers({
-    "www-authenticate": mcpWwwAuthenticateHeader(resource),
+    "www-authenticate": mcpWwwAuthenticateHeader(resource, error),
   });
+}
+
+/** RFC 6750: auth failures carry a WWW-Authenticate challenge whose error= matches the failure. */
+function challengeHeadersForError(code: string, resource: string): Headers | undefined {
+  if (code === "invalid_token" || code === "insufficient_scope") {
+    return authenticateChallengeHeaders(resource, code);
+  }
+  return undefined;
 }
 
 type McpParsedBody = ReturnType<typeof parseMcpJsonRpcBody>;
@@ -98,9 +111,7 @@ function respondToNonRequest(parsed: McpParsedBody): Response | null {
     return jsonRpcErrorResponse(undefined, mapParseFailure(parsed.message));
   }
   if (parsed.kind === "notification") {
-    if (parsed.notification.method !== "notifications/initialized") {
-      return jsonRpcErrorResponse(undefined, mapMcpProtocolError("method_not_found", "method_not_found"));
-    }
+    // MCP receivers accept and ignore unknown notifications; there is no id to respond to.
     return new Response(null, { status: 202 });
   }
   if (parsed.kind === "response") {
@@ -129,7 +140,7 @@ async function dispatchMcpRequest(
     return new Response(null, { status: 202 });
   }
   if (handled.kind === "error") {
-    const challenge = handled.error.code === "insufficient_scope" ? authenticateChallengeHeaders(resource) : undefined;
+    const challenge = challengeHeadersForError(handled.error.code, resource);
     return jsonRpcErrorResponse(requestId, handled.error, challenge ? { headers: challenge } : undefined);
   }
   return respondWithJsonRpc(handled.response, request.headers.get("accept"), optionalSessionHeader(request));

@@ -217,6 +217,7 @@ function runCli(cliEntry, args, env, cwd) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
+    child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) {
         resolve({ stdout: stdout.trim(), stderr });

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { Mebibytes, type UsagePolicy } from "@agent-paste/contracts";
+import { inferRenderModeFromEntrypoint, Mebibytes, type RenderMode, type UsagePolicy } from "@agent-paste/contracts";
 import { contentTypeForPath } from "@agent-paste/storage";
 
 // Absolute per-file ceiling, matching the contract's hard maximum
@@ -20,30 +20,10 @@ export type LocalFile = {
 export type PublishInference = {
   title: string;
   entrypoint: string;
-  renderMode: "html" | "markdown" | "text" | "image" | "audio" | "video";
+  renderMode: RenderMode;
 };
 
 const entrypointCandidates = ["index.html", "index.md", "README.md"];
-const renderModesByExtension = new Map<string, PublishInference["renderMode"]>([
-  [".html", "html"],
-  [".htm", "html"],
-  [".md", "markdown"],
-  [".markdown", "markdown"],
-  [".txt", "text"],
-  [".text", "text"],
-  [".png", "image"],
-  [".jpg", "image"],
-  [".jpeg", "image"],
-  [".gif", "image"],
-  [".webp", "image"],
-  [".svg", "image"],
-  [".mp3", "audio"],
-  [".wav", "audio"],
-  [".m4a", "audio"],
-  [".mp4", "video"],
-  [".webm", "video"],
-  [".mov", "video"],
-]);
 
 export async function walkLocalPath(inputPath: string): Promise<LocalFile[]> {
   const root = path.resolve(inputPath);
@@ -104,8 +84,11 @@ function inferEntrypoint(files: LocalFile[]) {
   throw new Error("Could not infer entrypoint. Pass --entrypoint <path>.");
 }
 
-function inferRenderMode(entrypoint: string): PublishInference["renderMode"] {
-  const mode = renderModesByExtension.get(path.extname(entrypoint).toLowerCase());
+// Shared map with the server (contracts) so what the CLI predicts is what the
+// server stores. Unlike the server (which falls back to html for unknown
+// extensions), the CLI refuses to guess and asks for an explicit flag.
+function inferRenderMode(entrypoint: string): RenderMode {
+  const mode = inferRenderModeFromEntrypoint(entrypoint);
   if (!mode) {
     throw new Error(`Could not infer render mode for ${entrypoint}. Pass --render-mode <mode>.`);
   }

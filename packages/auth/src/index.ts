@@ -157,7 +157,10 @@ async function writeCachedPayload(
         edgeRequest,
         new Response(encoded, {
           headers: {
-            "cache-control": `private, max-age=${ttlSeconds}`,
+            // `private` would make cache.put reject the entry; the synthetic
+            // internal key space is unreachable externally, so plain max-age
+            // is safe (ADR 0062).
+            "cache-control": `max-age=${ttlSeconds}`,
             "content-type": "application/json; charset=utf-8",
           },
         }),

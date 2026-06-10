@@ -934,6 +934,83 @@ describe("api worker", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
   });
 
+  it("signs web artifact viewer URLs with sibling file access", async () => {
+    const { verifyContentToken } = await import("@agent-paste/tokens/content");
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const env: Env = {
+      AUTH: webAuthForTests(),
+      CONTENT_BASE_URL: "https://content.test",
+      CONTENT_SIGNING_SECRET: "content-secret",
+      DB: webMemberDbForTests(["read"], {
+        async getWebArtifact() {
+          return {
+            id: artifactId,
+            title: "Demo",
+            status: "Published",
+            latest_revision_id: revisionId,
+            pinned: false,
+            lockdown: false,
+            last_published_at: "2026-01-01T00:00:00.000Z",
+            auto_delete_at: null,
+            entrypoint: "index.html",
+            file_count: 2,
+            size_bytes: 42,
+            viewer: {
+              iframe_src: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+              render_mode: "html",
+            },
+          };
+        },
+        async getAgentView(input) {
+          expect(input).toMatchObject({
+            artifactId,
+            contentBaseUrl: "https://content.test",
+            actor: { type: "member" },
+          });
+          return {
+            ...agentViewFixture(artifactId, revisionId),
+            workspace_id: input.actor.workspace_id,
+            revision_content_url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+            files: [
+              {
+                path: "index.html",
+                url: `https://content.test/v/${artifactId}.${revisionId}/index.html`,
+                content_type: "text/html",
+                size_bytes: 12,
+              },
+              {
+                path: "test-image.png",
+                url: `https://content.test/v/${artifactId}.${revisionId}/test-image.png`,
+                content_type: "image/png",
+                size_bytes: 30,
+              },
+            ],
+          };
+        },
+      }),
+    };
+
+    const response = await handleRequest(
+      new Request(`https://api.test/v1/web/artifacts/${artifactId}`, {
+        headers: { authorization: "Bearer workos-ok" },
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { viewer?: { iframe_src?: string } };
+    const iframeSrc = body.viewer?.iframe_src;
+    expect(iframeSrc).toEqual(expect.stringContaining("https://content.test/v/"));
+    const token = new URL(iframeSrc ?? "").pathname.split("/")[2] ?? "";
+    const payload = await verifyContentToken(token, "content-secret");
+    expect(payload).toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      paths: ["index.html", "test-image.png"],
+    });
+  });
+
   it("signs the dashboard viewer token with the artifact expiry", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const expiresAt = "2030-01-01T00:00:00.000Z";

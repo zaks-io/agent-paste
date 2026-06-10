@@ -198,6 +198,8 @@ export type UploadSession = {
   status: "pending" | "finalized" | "expired" | "failed";
   title: string;
   entrypoint: string;
+  // Explicit client-requested Render Mode; null means infer from entrypoint at finalize.
+  render_mode: RenderMode | null;
   artifact_expires_at: string;
   file_count: number;
   size_bytes: number;
