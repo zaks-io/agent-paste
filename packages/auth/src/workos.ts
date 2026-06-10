@@ -193,7 +193,7 @@ export async function fetchWorkOsUser(
     );
     if (!response.ok) {
       options.onReject?.("user_fetch_failed", { status: response.status });
-      if (response.status >= 500 && options.throwOnUnavailable) {
+      if (isRetryableUserFetchStatus(response.status) && options.throwOnUnavailable) {
         throw new WorkOsVerificationUnavailableError();
       }
       return null;
@@ -218,6 +218,12 @@ export async function fetchWorkOsUser(
     }
     return null;
   }
+}
+
+// A 429/408 from WorkOS means "try again", not "this token is invalid";
+// classifying it as not-authenticated would make clients discard good tokens.
+function isRetryableUserFetchStatus(status: number): boolean {
+  return status >= 500 || status === 429 || status === 408;
 }
 
 function isVerificationDependencyError(error: unknown): boolean {

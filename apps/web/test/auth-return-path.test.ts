@@ -13,4 +13,13 @@ describe("auth-return-path", () => {
     expect(parseReturnPathname("https://evil.test")).toBeUndefined();
     expect(parseReturnPathname(null)).toBeUndefined();
   });
+
+  it("rejects paths containing control characters", () => {
+    expect(parseReturnPathname("/settings\r\nSet-Cookie: x=1")).toBeUndefined();
+    expect(parseReturnPathname("/settings\rinjected")).toBeUndefined();
+    expect(parseReturnPathname("/settings\ninjected")).toBeUndefined();
+    expect(parseReturnPathname("/settings\tinjected")).toBeUndefined();
+    expect(parseReturnPathname("/settings\x00")).toBeUndefined();
+    expect(parseReturnPathname("/settings\x7f")).toBeUndefined();
+  });
 });

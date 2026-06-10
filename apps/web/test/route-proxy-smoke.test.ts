@@ -68,6 +68,21 @@ describe("web API proxy routes", () => {
     await expect(response.text()).resolves.toBe("event: ping\n\n");
   });
 
+  it("percent-encodes artifact ids in the upstream URL", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("", { status: 404 }));
+
+    const { Route } = await import("../src/routes/api/live/artifacts/$artifactId");
+    await Route.server.handlers.GET({
+      request: new Request("https://app.test/api/live/artifacts/..%2F..%2Fadmin"),
+      params: { artifactId: "../../admin?x=1#f" },
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://stream.test/v1/live/artifacts/..%2F..%2Fadmin%3Fx%3D1%23f",
+      expect.any(Object),
+    );
+  });
+
   it("returns not_found for unauthenticated artifact live streams", async () => {
     state.auth = { user: null };
     const { Route } = await import("../src/routes/api/live/artifacts/$artifactId");
@@ -106,6 +121,24 @@ describe("web API proxy routes", () => {
       signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(200);
+  });
+
+  it("percent-encodes access-link public ids in the upstream URL", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("", { status: 404 }));
+
+    const { Route } = await import("../src/routes/api/live/access-links/$publicId");
+    await Route.server.handlers.POST({
+      request: new Request("https://app.test/api/live/access-links/..%2Fadmin", {
+        method: "POST",
+        body: "{}",
+      }),
+      params: { publicId: "../admin?x=1#f" },
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://stream.test/v1/live/access-links/..%2Fadmin%3Fx%3D1%23f",
+      expect.any(Object),
+    );
   });
 
   it("resolves access links through the API client", async () => {

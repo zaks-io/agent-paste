@@ -171,6 +171,29 @@ export function turboDeployArgs(apps, target) {
 
 // --- smoke ----------------------------------------------------------------
 
+/**
+ * Apps whose secrets are provisioned for this deploy. Normally the deploy scope
+ * itself, but a preview --smoke run rotates SMOKE_HARNESS_SECRET in memory, so
+ * the consumer Workers of that secret (per secret routing) must be provisioned
+ * even when the deploy is scoped elsewhere — otherwise the rotated value is
+ * never bound (smoke 401s) or only some consumers get it (diverged secrets).
+ * Deploys stay scoped; only secret provisioning widens.
+ * @param {string[]} apps
+ * @param {"preview"|"production"} target
+ * @param {boolean} runSmoke
+ * @returns {string[]}
+ */
+export function appsForSecretProvisioning(apps, target, runSmoke) {
+  if (!runSmoke || target !== "preview") {
+    return apps;
+  }
+  const smokeConsumers = secretConsumingApps().filter((app) =>
+    secretsForApp(app, target).includes("SMOKE_HARNESS_SECRET"),
+  );
+  const widened = new Set([...apps, ...smokeConsumers]);
+  return APPS.filter((app) => widened.has(app));
+}
+
 // Run the hosted smoke against the just-deployed environment. Preview gets a
 // fresh harness secret threaded in memory; production uses its pre-provisioned
 // smoke API key and never receives the harness secret.
@@ -366,16 +389,17 @@ export async function runDeployPlan({
   planner.reportForbiddenProductionSecrets(provisionPlan, failFn);
   planner.reportMissingProviderSecrets(provisionPlan, failFn);
 
-  // Bind secrets to every selected Worker BEFORE deploying any of them: Turbo
-  // deploys the set together (in build-graph order), so all secrets must already
-  // be in place when the first Worker goes live.
-  for (const app of apps) {
-    const worker = workerName(app, target);
-    const toSet = provisionPlan.get(app) ?? [];
-    if (toSet.length > 0) {
-      write(`Provisioning ${worker} secrets: ${toSet.join(", ")}\n`);
-      await planner.bulkSetSecrets(worker, toSet, runFn);
+  // Bind every planned secret BEFORE deploying: Turbo deploys the set together
+  // (in build-graph order), so all secrets must already be in place when the
+  // first Worker goes live. The plan owns the provisioning scope — it can be
+  // wider than the deploy scope (see appsForSecretProvisioning).
+  for (const [app, toSet] of provisionPlan) {
+    if (toSet.length === 0) {
+      continue;
     }
+    const worker = workerName(app, target);
+    write(`Provisioning ${worker} secrets: ${toSet.join(", ")}\n`);
+    await planner.bulkSetSecrets(worker, toSet, runFn);
   }
 
   // Build + deploy is Turbo's job: `turbo run deploy:<target>` dependsOn build, so
@@ -566,7 +590,7 @@ async function main() {
   process.stdout.write(`Ensuring hosted ${target} Cloudflare Queues exist...\n`);
   await ensureJobQueues(hostedJobQueues(target).creationOrder);
 
-  const provisionPlan = await planner.buildProvisionPlan(apps);
+  const provisionPlan = await planner.buildProvisionPlan(appsForSecretProvisioning(apps, target, runSmoke));
   await runDeployPlan({ target, planner, provisionPlan, apps, runFn: run, deployFn: turboDeploy });
 
   process.stdout.write(`${target} deploy complete. No secret values were displayed.\n`);

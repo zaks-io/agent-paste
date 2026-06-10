@@ -23,9 +23,14 @@ export function trimTrailingSlashes(value: string): string {
   return end === value.length ? value : value.slice(0, end);
 }
 
-export function mcpWwwAuthenticateHeader(resource: string = MCP_RESOURCE_INDICATOR): string {
+export type McpAuthChallengeError = "invalid_token" | "insufficient_scope";
+
+export function mcpWwwAuthenticateHeader(
+  resource: string = MCP_RESOURCE_INDICATOR,
+  error: McpAuthChallengeError = "invalid_token",
+): string {
   const resourceMetadata = `${trimTrailingSlashes(resource)}/.well-known/oauth-protected-resource`;
-  return `Bearer realm="mcp.agent-paste.sh", error="invalid_token", resource_metadata="${resourceMetadata}"`;
+  return `Bearer realm="mcp.agent-paste.sh", error="${error}", resource_metadata="${resourceMetadata}"`;
 }
 
 export function mcpTokenHasRequiredScopes(

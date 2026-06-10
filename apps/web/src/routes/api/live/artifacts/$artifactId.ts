@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/live/artifacts/$artifactId")({
         }
         const env = getWebEnv();
         const streamBase = (env.STREAM_BASE_URL ?? "http://127.0.0.1:8791").replace(/\/$/, "");
-        const upstream = await fetch(`${streamBase}/v1/live/artifacts/${params.artifactId}`, {
+        const upstream = await fetch(`${streamBase}/v1/live/artifacts/${encodeURIComponent(params.artifactId)}`, {
           method: "GET",
           headers: {
             accept: "text/event-stream",
