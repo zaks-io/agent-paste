@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
+import { findHyperdriveByName } from "./lib/hyperdrive-list.mjs";
 import { spawnCommand } from "./lib/spawn-command.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 import { isQueueConsumerNotFound, isQueueNotFound, isQueueStillReferenced } from "./wrangler-queue-cli.mjs";
+
+export { parseHyperdriveList } from "./lib/hyperdrive-list.mjs";
 
 if (isMain(import.meta.url)) {
   const prNumber = process.env.PR_NUMBER ?? process.argv[2];
@@ -124,29 +127,6 @@ async function deleteHyperdrive(run, log, prNumber) {
     return;
   }
   throw new Error(result.stderr?.trim() || result.stdout?.trim() || `exit ${result.code}`);
-}
-
-async function findHyperdriveByName(run, name) {
-  const result = await run("pnpm", ["exec", "wrangler", "hyperdrive", "list"], { allowFailure: true, quiet: true });
-  if (result.code !== 0) {
-    throw new Error(result.stderr?.trim() || result.stdout?.trim() || `exit ${result.code}`);
-  }
-  return parseHyperdriveList(result.stdout).find((config) => config.name === name) ?? null;
-}
-
-export function parseHyperdriveList(output) {
-  const configs = [];
-  for (const line of output.split(/\r?\n/)) {
-    const id = line.match(/[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/i)?.[0];
-    if (!id || !line.includes("agent-paste-db-")) {
-      continue;
-    }
-    const name = line.match(/agent-paste-db-[A-Za-z0-9/_-]+/)?.[0];
-    if (name) {
-      configs.push({ id, name });
-    }
-  }
-  return configs;
 }
 
 async function collect(failures, label, action) {
