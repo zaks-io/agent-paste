@@ -39,6 +39,19 @@ function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response
   };
 }
 
+function publishedBody() {
+  return {
+    artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    title: "Note",
+    artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    revision_content_url: "https://content.example/v/token/index.html",
+    agent_view_url: "https://agent-view.example",
+    expires_at: "2026-12-01T00:00:00.000Z",
+    bundle: { status: "pending", retry_after_seconds: 30 },
+  };
+}
+
 /** The Nth real route request (skipping the pre-flight `mcp.whoami` gate call). */
 function routeCall(api: ReturnType<typeof apiMock>, index: number): Request {
   const routeRequests = api.fetch.mock.calls
@@ -171,6 +184,41 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: published });
   });
 
+  it("scopes derived publish idempotency keys to the payload, not just the json rpc id", async () => {
+    vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: publishedBody() });
+    const callWith = async (body: string) => {
+      await callMcpTool("publish_artifact", { title: "Note", body, render_mode: "text" }, auth, {
+        api: apiMock(["write", "read"]),
+        upload: { fetch: vi.fn() },
+        bearerToken: "token-all",
+        jsonRpcId: 1,
+      });
+      const calls = vi.mocked(publishChain.runTextPublishChain).mock.calls;
+      return (calls[calls.length - 1]?.[1] as { idempotencyKey: string }).idempotencyKey;
+    };
+
+    const first = await callWith("session one");
+    const retry = await callWith("session one");
+    const nextSession = await callWith("session two");
+
+    expect(retry).toBe(first);
+    expect(nextSession).not.toBe(first);
+  });
+
+  it("prefers an explicit idempotency_key over the derived key", async () => {
+    vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: publishedBody() });
+    await callMcpTool(
+      "publish_artifact",
+      { title: "Note", body: "hello", render_mode: "text", idempotency_key: "client-key-123" },
+      auth,
+      { api: apiMock(["write", "read"]), upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 1 },
+    );
+    expect(publishChain.runTextPublishChain).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ idempotencyKey: "client-key-123" }),
+    );
+  });
+
   it("requires share scope when publish_artifact requests a share link", async () => {
     const result = await callMcpTool(
       "publish_artifact",
@@ -235,6 +283,7 @@ describe("callMcpTool", () => {
         tokenSub: "user_01",
         jsonRpcId: 7,
         toolName: "create_share_link",
+        toolArgs: { artifact_id: artifactId },
       }),
     );
     const mintRequest = routeCall(api, 1);
@@ -298,6 +347,7 @@ describe("callMcpTool", () => {
         tokenSub: "user_01",
         jsonRpcId: 8,
         toolName: "create_revision_link",
+        toolArgs: { artifact_id: artifactId, revision_id: revisionId },
       }),
     );
     const mintRequest = routeCall(api, 1);

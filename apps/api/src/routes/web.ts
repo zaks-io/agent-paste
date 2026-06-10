@@ -14,7 +14,7 @@ import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
 import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
-import { webBaseUrl } from "../runtime.js";
+import { contentBaseUrl, webBaseUrl } from "../runtime.js";
 import { accessLinkSigningSecret } from "./access-links.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
@@ -114,8 +114,16 @@ export async function webArtifactDetail(
       return respondError("not_found");
     }
     if (detail.viewer) {
+      const view =
+        typeof db.getAgentView === "function"
+          ? await db.getAgentView({
+              actor,
+              artifactId: detail.id,
+              contentBaseUrl: contentBaseUrl(context.env),
+            })
+          : null;
       const signed = (await signAgentViewContentUrls(
-        {
+        view ?? {
           artifact_id: detail.id,
           revision_id: detail.latest_revision_id,
           entrypoint: detail.entrypoint,

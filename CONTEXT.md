@@ -41,8 +41,18 @@ _Avoid_: Permalink, Revision Content URL, content URL, deploy URL
 
 <a id="live-update"></a>
 **Live Update**:
-The behavior by which an already-open **Artifact URL**, **Private Link**, or **Share Link** viewer advances to the latest **Published Revision** without a manual reload. A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**. A viewer that has fallen behind reconciles to the current **Published Revision** rather than replaying the **Revisions** it missed.
+The behavior by which an already-open app-origin live viewer receives a platform-controlled **Publish Update** or **State Update** without a manual reload.
 _Avoid_: Live edit, real-time sync, hot reload, watch mode
+
+<a id="publish-update"></a>
+**Publish Update**:
+A **Live Update** that advances an already-open live viewer to the latest **Published Revision** after **Publish**.
+_Avoid_: Revision update, live revision, hot reload
+
+<a id="state-update"></a>
+**State Update**:
+A **Live Update** that delivers a committed **Artifact State** change to an already-open live viewer.
+_Avoid_: State sync, storage event, realtime database update
 
 <a id="upload-session"></a>
 **Upload Session**:
@@ -99,6 +109,11 @@ _Avoid_: Upgrade code, ownership token
 A human user with authenticated access to a **Workspace**.
 _Avoid_: Teammate, collaborator
 
+<a id="artifact-user"></a>
+**Artifact User**:
+A person or browser-scoped identity interacting with an **Artifact** through a minimal, artifact-scoped identity exposed to that **Artifact**.
+_Avoid_: Viewer, WorkOS user, Workspace Member, participant
+
 <a id="audit-event"></a>
 **Audit Event**:
 A platform-controlled record of a security-relevant or lifecycle change within a **Workspace**.
@@ -116,7 +131,7 @@ _Avoid_: Before-and-after payload, raw diff
 
 <a id="usage-policy"></a>
 **Usage Policy**:
-The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
+The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **State Key Cap**, **State Value Size Cap**, **State Total Size Cap**, **State Write Rate Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
 _Avoid_: Quota settings, billing limits
 
 <a id="plan"></a>
@@ -143,6 +158,26 @@ _Avoid_: Revision quota, artifact size
 **Bundle Size Cap**:
 The cap on the bytes of a generated **Bundle**. Platform-controlled in the MVP and surfaced through **Usage Policy**. Exceeding the cap transitions **Bundle Availability** to failed without affecting the **Revision** or the **Publish**.
 _Avoid_: Bundle quota, zip size
+
+<a id="state-key-cap"></a>
+**State Key Cap**:
+The cap on the number of **Artifact State** keys an **Artifact** can hold.
+_Avoid_: Storage key quota, row limit
+
+<a id="state-value-size-cap"></a>
+**State Value Size Cap**:
+The cap on bytes stored in one **Artifact State** value.
+_Avoid_: Value quota, JSON size limit
+
+<a id="state-total-size-cap"></a>
+**State Total Size Cap**:
+The cap on total **Artifact State** bytes an **Artifact** can hold.
+_Avoid_: Storage quota, database limit
+
+<a id="state-write-rate-cap"></a>
+**State Write Rate Cap**:
+The cap on **Artifact State** writes for an **Artifact**.
+_Avoid_: Update quota, realtime limit
 
 <a id="retention"></a>
 **Retention**:
@@ -274,6 +309,11 @@ _Avoid_: Metadata blob, config file
 Mutable human-facing labels that describe an **Artifact** without changing any **Revision**. In the MVP, **Display Metadata** is a required title and an optional description, both plain text.
 _Avoid_: Manifest metadata, title fields, revision metadata, markdown metadata
 
+<a id="artifact-state"></a>
+**Artifact State**:
+Small, mutable, platform-stored state attached to one **Artifact** and exposed only through the app-origin live viewer.
+_Avoid_: Remote localStorage, app database, permanent storage
+
 <a id="private-link"></a>
 **Private Link**:
 The authenticated URL for reading an **Artifact** within its owning tenant.
@@ -360,7 +400,7 @@ _Avoid_: frontend worker, dashboard worker, app worker
 
 <a id="stream"></a>
 **stream**:
-The Worker that owns the per-**Artifact** **Live Update** channel. It holds a Durable Object that fans out **Published Revision** pointers to connected **Private Link** and **Share Link** viewers over a held streaming connection, and it authorizes each connection by forwarding the viewer's **Access Link** credential or **Workspace Member** session to `api` over a **Service Binding**. Holds no Postgres, no R2, and no KV; carries no secrets and serves no **Untrusted Content**. `api` notifies it on **Publish**.
+The Worker that owns the per-**Artifact** **Live Update** channel. It holds a Durable Object that fans out **Publish Updates** and **State Updates** to connected **Private Link** and **Share Link** viewers over a held streaming connection, and it authorizes each connection by forwarding the viewer's **Access Link** credential or **Workspace Member** session to `api` over a **Service Binding**. Holds no Postgres, no R2, and no KV; carries no secrets and serves no **Untrusted Content**. `api` notifies it after **Publish** and committed **Artifact State** mutations.
 _Avoid_: sse worker, push worker, realtime gateway
 
 <a id="cli"></a>
@@ -454,13 +494,17 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A failed **Bundle Availability** does not transition automatically
 - An **Artifact** belongs to exactly one **Workspace**
 - An **Artifact** can have zero or more **Access Links**
+- An **Artifact** has one live viewer experience whether reached through a **Private Link** or a **Share Link**
+- **Revisions** are the saved history of an **Artifact**, not separate live viewer instances
 - A **Private Link** resolves to the latest **Published Revision** of an **Artifact**
 - A **Private Link** cannot be pinned to an older **Revision**
 - A **Private Link** grants authenticated read access to human views and the **Agent View**
 - A **Private Link** is not an **Access Link**
-- A **Live Update** advances an open **Artifact URL**, **Private Link**, or **Share Link** viewer to the latest **Published Revision** without a manual reload
-- A **Live Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**
-- A **Revision Link** never receives a **Live Update** because it is pinned to one **Revision**
+- A **Live Update** is either a **Publish Update** or a **State Update**
+- A **Publish Update** advances an open **Artifact URL**, **Private Link**, or **Share Link** viewer to the latest **Published Revision** without a manual reload
+- A **Publish Update** occurs only when a new **Revision** is **Published** and never reveals a **Draft Revision**
+- A **State Update** delivers **Artifact State** changes without creating or revealing a **Revision**
+- A **Revision Link** never receives a **Publish Update** because it is pinned to one **Revision**
 - A viewer that has fallen behind reconciles to the current **Published Revision** on reconnect rather than replaying missed **Revisions**
 - **Share Links** and **Revision Links** are **Access Links**
 - An **Access Link** grants unauthenticated read-only access to the **Agent View** and published **Untrusted Content**
@@ -522,6 +566,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Usage Policy** can prevent new **Access Links** across a **Workspace**
 - **Usage Policy** changes do not revoke existing **Access Links** unless a durable enforcement action does so
 - A **Usage Policy** controls **Unpublished Artifact** creation
+- A **Usage Policy** controls **Artifact State** storage and write limits
 - **Usage Policy** applies at the **Workspace** level, not per **Artifact**
 - **Retention** keeps all **Revisions** unless limited by policy
 - **Retention** is the only MVP path for removing individual **Revisions**
@@ -570,6 +615,12 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Deletion** can purge stored bytes asynchronously
 - A **Workspace** has one **Workspace Member** in the MVP
 - A **Workspace Member** has a **Personal Workspace** by default
+- A **Workspace Member** can appear to an **Artifact** as an **Artifact User**
+- An **Artifact User** can be anonymous and is not necessarily a **Workspace Member**
+- An **Artifact User** exposes an artifact-scoped id, a display name, and whether it is authenticated
+- An **Artifact User** does not expose email, raw provider ids, or raw **Workspace Member** ids
+- An anonymous **Artifact User** is browser-scoped and artifact-scoped
+- Clearing browser state can reset an anonymous **Artifact User**
 - **Personal Workspace** is a human onboarding concept, not an agent-facing ownership type
 - A **Workspace Member** has full authority in their **Workspace** in the MVP
 - First sign-in for a new identity auto-provisions the **Personal Workspace**, the **Workspace Member** row, and a default **API Key** with full publishing **Scopes**; the **API Key** secret is shown once and never retrievable again
@@ -654,6 +705,22 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Manifest** does not carry the owning **Workspace** identifier on any surface
 - **Safety Warnings** are exposed beside the **Manifest**, not inside it
 - **Display Metadata** is exposed beside the **Manifest**, not inside it
+- **Artifact State** belongs to exactly one **Artifact**
+- **Artifact State** is exposed through **Private Links** and **Share Links** as one live viewer experience
+- **Artifact State** is not exposed through direct **Revision Content URLs**
+- **Artifact State** is not attached to any **Revision**
+- **Artifact State** persists across **Publish Updates** unless explicitly reset
+- **Revision Links** do not expose **Artifact State**
+- **Artifact State** is mutable without creating a new **Revision**
+- **Artifact State** supports basic create, read, replace, update, and delete operations
+- **Artifact State** keys are opaque user-defined strings
+- **Artifact State** values are JSON-serializable
+- Deleting **Artifact State** is distinct from storing JSON `null`
+- Replacing **Artifact State** overwrites the whole value for a key
+- Updating **Artifact State** computes a new value from the current value and retries ordinary write conflicts without exposing versions to artifact code
+- Every committed **Artifact State** mutation produces a **State Update**
+- A **State Update** lets connected live viewers react to **Artifact State** changes without artifact-specific platform logic
+- **Artifact State** subscriptions are explicit-key subscriptions
 - A **Manifest** resolves to the latest **Published Revision** through **Private Links** and **Share Links**
 - A **Manifest** resolves to one pinned **Revision** through a **Revision Link**
 - **Untrusted Content** is served from a **Content Origin**
@@ -679,8 +746,9 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - An **API Key** authenticates against `api` and `upload`; it is never accepted by `mcp` or by operator-only `/admin/...` routes on `api`
 - `web` reaches `api` over a **Service Binding**; `mcp` reaches `api` over a **Service Binding**
 - `stream` reaches `api` over a **Service Binding** to authorize each **Live Update** viewer connection
-- `api` notifies `stream` on **Publish** so it can fan out the new **Published Revision** to connected viewers
-- `stream` holds no Postgres, R2, or KV binding; the **Published Revision** pointer it relays is platform-controlled data, not **Untrusted Content**
+- `api` notifies `stream` on **Publish** so it can fan out a **Publish Update** to connected viewers
+- `api` notifies `stream` on committed **Artifact State** changes so it can fan out a **State Update** to connected viewers
+- `stream` holds no Postgres, R2, or KV binding; the **Publish Update** and **State Update** payloads it relays are platform-controlled data, not **Untrusted Content**
 - A **Service Binding** call still carries the original bearer; the downstream Worker re-verifies it rather than trusting the upstream Worker
 - `jobs` is the only Worker that consumes Cloudflare Queues; `api` and `upload` are queue producers
 - The `cli` is not a Worker; it runs on a developer or agent machine and authenticates against `api` and `upload` over HTTPS

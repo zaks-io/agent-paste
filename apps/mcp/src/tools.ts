@@ -42,7 +42,7 @@ export type McpToolDeps = {
   api: ApiServiceBinding;
   upload: UploadServiceBinding;
   bearerToken: string;
-  jsonRpcId?: string | number;
+  jsonRpcId: string | number;
 };
 
 export type McpToolResult =
@@ -128,6 +128,7 @@ function requestsShareLink(input: unknown): boolean {
 
 function resolveIdempotencyKey(
   toolName: Parameters<typeof deriveMcpIdempotencyKey>[0]["toolName"],
+  toolArgs: Record<string, unknown>,
   auth: McpAuthContext,
   deps: McpToolDeps,
   explicit?: string,
@@ -135,17 +136,11 @@ function resolveIdempotencyKey(
   if (explicit) {
     return explicit as IdempotencyKey;
   }
-  if (deps.jsonRpcId === undefined) {
-    return deriveMcpIdempotencyKey({
-      tokenSub: auth.tokenSub,
-      jsonRpcId: "0",
-      toolName,
-    });
-  }
   return deriveMcpIdempotencyKey({
     tokenSub: auth.tokenSub,
     jsonRpcId: deps.jsonRpcId,
     toolName,
+    toolArgs,
   });
 }
 
@@ -184,7 +179,7 @@ async function callPublishArtifact(
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const idempotencyKey = resolveIdempotencyKey("publish_artifact", auth, deps, input.idempotency_key);
+  const idempotencyKey = resolveIdempotencyKey("publish_artifact", input, auth, deps, input.idempotency_key);
   const result = await runTextPublishChain(input, {
     api: deps.api,
     upload: deps.upload,
@@ -199,7 +194,7 @@ async function callAddRevision(
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const idempotencyKey = resolveIdempotencyKey("add_revision", auth, deps, input.idempotency_key);
+  const idempotencyKey = resolveIdempotencyKey("add_revision", input, auth, deps, input.idempotency_key);
   const result = await runTextPublishChain(input, {
     api: deps.api,
     upload: deps.upload,
@@ -267,13 +262,14 @@ async function callUpdateDisplayMetadata(
 async function createAndMintAccessLink(
   input: {
     toolName: "create_share_link" | "create_revision_link";
+    toolArgs: Record<string, unknown>;
     artifactId: string;
     createBody: { type: "share" } | { type: "revision"; revision_id: string };
   },
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
-  const idempotencyKey = resolveIdempotencyKey(input.toolName, auth, deps);
+  const idempotencyKey = resolveIdempotencyKey(input.toolName, input.toolArgs, auth, deps);
   const created = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.create",
@@ -309,6 +305,7 @@ async function callCreateShareLink(
   return createAndMintAccessLink(
     {
       toolName: "create_share_link",
+      toolArgs: input,
       artifactId: input.artifact_id,
       createBody: { type: "share" },
     },
@@ -325,6 +322,7 @@ async function callCreateRevisionLink(
   return createAndMintAccessLink(
     {
       toolName: "create_revision_link",
+      toolArgs: input,
       artifactId: input.artifact_id,
       createBody: { type: "revision", revision_id: input.revision_id },
     },

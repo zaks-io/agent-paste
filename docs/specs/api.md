@@ -69,6 +69,7 @@ Secrets are never accepted as query parameters or flags.
 {
   "title": "demo",
   "entrypoint": "index.html",
+  "render_mode": "html",
   "files": [
     {
       "path": "index.html",
@@ -85,6 +86,14 @@ Rules:
   client input.
 - Single-file publishes use the file name as `entrypoint`.
 - Folder publishes require an explicit or inferred `entrypoint`.
+- `render_mode` is optional: one of `html`, `markdown`, `text`, `image`,
+  `audio`, `video`. When present it is stored on the Upload Session and copied
+  verbatim to the draft Revision at finalize, overriding inference. When absent
+  the server infers the Render Mode from the entrypoint extension via the
+  shared map in `packages/contracts/src/renderMode.ts`, falling back to `html`
+  for unknown extensions. The CLI uses the same map locally but does not fall
+  back: an unknown extension fails the publish with an error asking for an
+  explicit `--render-mode`.
 - Paths are normalized POSIX paths.
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.

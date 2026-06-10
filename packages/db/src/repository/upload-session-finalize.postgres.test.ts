@@ -182,6 +182,55 @@ describe("finalizeUploadSession Postgres lifecycle", () => {
     expect(after?.status).toBe("finalized");
   }, 30_000);
 
+  it("stores an explicit render_mode over entrypoint inference on the draft revision", async () => {
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-render-mode",
+      request: {
+        title: "render-mode-override",
+        entrypoint: "index.html",
+        render_mode: "markdown",
+        files: [{ path: "index.html", size_bytes: 12 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-render-mode",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    const revisions = await repo.listRevisions({ actor, artifactId: finalized.artifact_id });
+    expect(revisions?.items).toEqual([
+      expect.objectContaining({ revision_id: finalized.revision_id, render_mode: "markdown" }),
+    ]);
+  }, 30_000);
+
+  it("infers render_mode from the entrypoint extension when the session has no explicit value", async () => {
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-render-infer",
+      request: {
+        title: "render-mode-inferred",
+        entrypoint: "clip.mov",
+        files: [{ path: "clip.mov", size_bytes: 12 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-render-infer",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "clip.mov", objectKey: firstFile(session).object_key, sizeBytes: 12 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    const revisions = await repo.listRevisions({ actor, artifactId: finalized.artifact_id });
+    expect(revisions?.items).toEqual([
+      expect.objectContaining({ revision_id: finalized.revision_id, render_mode: "video" }),
+    ]);
+  }, 30_000);
+
   it("returns null state for a session in another workspace", async () => {
     const session = await repo.createUploadSession({
       actor,

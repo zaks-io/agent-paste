@@ -109,6 +109,67 @@ describe("upload worker", () => {
     expect(body.files[0]?.put_url).toContain("/v1/upload-sessions/upl_1/files/index.html?token=");
   });
 
+  it("forwards an explicit render_mode to the repository and omits it when absent", async () => {
+    const session: UploadSessionRecord = {
+      session_id: "upl_1",
+      workspace_id: "00000000-0000-4000-8000-000000000001",
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      expires_at: "2030-01-01T00:00:00.000Z",
+      files: [{ path: "index.html", size_bytes: 12 }],
+    };
+    const createUploadSession = vi.fn(async (_input: { request: Record<string, unknown> }) => session);
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      ...allowRateLimits(),
+      AUTH: {
+        async verifyApiKey() {
+          return { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] };
+        },
+      },
+      DB: {
+        createUploadSession,
+        async getUploadSession() {
+          return session;
+        },
+        async finalizeUploadSession() {
+          return {};
+        },
+        async peekIdempotentReplay() {
+          return null;
+        },
+      },
+    };
+
+    const post = (body: Record<string, unknown>, idempotencyKey: string) =>
+      handleRequest(
+        new Request("https://upload.test/v1/upload-sessions", {
+          method: "POST",
+          headers: {
+            authorization: "Bearer ok",
+            "idempotency-key": idempotencyKey,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }),
+        env,
+      );
+
+    const explicit = await post({ ...createUploadRequestBody(), render_mode: "markdown" }, "idem-explicit");
+    expect(explicit.status).toBe(200);
+    expect(createUploadSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ request: expect.objectContaining({ render_mode: "markdown" }) }),
+    );
+
+    const absent = await post(createUploadRequestBody(), "idem-absent");
+    expect(absent.status).toBe(200);
+    expect(createUploadSession.mock.lastCall?.[0].request).not.toHaveProperty("render_mode");
+
+    const junk = await post({ ...createUploadRequestBody(), render_mode: "quicktime" }, "idem-junk");
+    expect(junk.status).toBe(400);
+    expect(createUploadSession).toHaveBeenCalledTimes(2);
+  });
+
   it("returns 429 when the workspace rate limit fires", async () => {
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",

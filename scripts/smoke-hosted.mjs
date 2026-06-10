@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { assertApexServes, assertWebServes } from "./lib/smoke-readonly.mjs";
 import {
   deleteSmokeArtifact,
@@ -15,7 +16,7 @@ import {
 
 loadDotenv();
 const root = new URL("..", import.meta.url);
-const cliEntry = new URL("../apps/cli/dist/index.js", import.meta.url).pathname;
+const cliEntry = fileURLToPath(new URL("../apps/cli/dist/index.js", import.meta.url));
 const target = normalizeTarget(process.argv[2] ?? "preview");
 const config = smokeConfig(target);
 const smokePath = process.env.AGENT_PASTE_SMOKE_PATH ?? "examples/local-harness/site";

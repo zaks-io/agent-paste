@@ -37,6 +37,7 @@ export async function createUploadSession(
     entrypoint: body.entrypoint,
     files: body.files,
     ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
+    ...(body.render_mode === undefined ? {} : { render_mode: body.render_mode }),
   };
 
   let session: UploadSessionRecord;
