@@ -3,7 +3,7 @@ import { type DrizzleConnection, drizzleForExecutor } from "../postgres/drizzle.
 import { type RlsScope, rlsExecutor } from "../postgres/rls.js";
 import { repositoryError } from "../repository-error.js";
 import type { SqlExecutor } from "../types.js";
-import type { CommandRunContext, CommandSpec, RunScope, UnitOfWork } from "./ports.js";
+import type { CommandRunContext, CommandSpec, PeekReplayResult, RunScope, UnitOfWork } from "./ports.js";
 import { type PostgresContext, postgresEntities } from "./postgres-entities.js";
 
 function withDrizzle(tx: SqlExecutor): PostgresContext {
@@ -55,7 +55,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
     operation: string;
     idempotencyKey: string;
     scope: RunScope;
-  }): Promise<{ result: T } | null> {
+  }): Promise<PeekReplayResult<T>> {
     return peekIdempotentReplay<T>({
       executor: rlsExecutor(this.executor, input.scope as RlsScope),
       actor: input.actor,

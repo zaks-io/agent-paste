@@ -145,16 +145,16 @@ exposing scanner internals.
 
 ### `upload_session_files`
 
-| Column                | Type                                           | Notes                                        |
-| --------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                              |
-| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                              |
-| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                       |
-| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                               |
-| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.           |
-| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                   |
-| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT.                    |
-| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Expiration for signed upload-worker PUT URL. |
+| Column                | Type                                           | Notes                                                                                                                                                                     |
+| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                                                                                                                                                           |
+| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                                                                                                                                                           |
+| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                                                                                                                                                    |
+| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                                                                                                                                                            |
+| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.                                                                                                                                        |
+| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                                                                                                                                                |
+| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT.                                                                                                                                                 |
+| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Upper bound for PUT writes (session expiry). The actual signed PUT-URL token expiry is minted by the upload worker at response time and returned as `files[].expires_at`. |
 
 Primary key `(upload_session_id, path)`.
 

@@ -122,6 +122,10 @@ try {
     agentView.files.some((file) => file.path === "index.html" && file.url.startsWith(contentBaseUrl)),
     "agent view lists index.html",
   );
+  const nestedFile = agentView.files.find((file) => file.path === "assets/app.js");
+  assert(nestedFile, "agent view lists nested assets/app.js");
+  const nestedView = await fetch(nestedFile.url);
+  assert(nestedView.status === 200, `nested file URL returned ${nestedView.status}`);
   const browserAgentView = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
   assert(browserAgentView.status === 200, `browser agent view returned ${browserAgentView.status}`);
   assert(browserAgentView.headers.get("content-type")?.includes("text/html"), "browser agent view returns HTML");

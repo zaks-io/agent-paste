@@ -8,7 +8,11 @@ import {
 } from "./client.js";
 import { createMemoryWriteAllowanceNamespace } from "./memory-namespace.js";
 
-function memoryStorage(): WriteAllowanceStorage {
+type SnapshotStorage = WriteAllowanceStorage & {
+  snapshot(): { day: string; consumed: number; reservations?: string[] } | undefined;
+};
+
+function memoryStorage(): SnapshotStorage {
   let value: { day: string; consumed: number; reservations?: string[] } | undefined;
   return {
     async get() {
@@ -22,7 +26,18 @@ function memoryStorage(): WriteAllowanceStorage {
     },
     async setAlarm() {},
     async deleteAlarm() {},
+    snapshot() {
+      return value;
+    },
   };
+}
+
+function postRequest(path: string, body: { limit: number; idempotency_key?: string }): Request {
+  return new Request(`https://write-allowance.internal/${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 describe("handleWriteAllowanceRequest", () => {
@@ -87,6 +102,68 @@ describe("handleWriteAllowanceRequest", () => {
       storage,
     );
     await expect(blockedResponse.json()).resolves.toMatchObject({ allowed: false, consumed: 1, remaining: 0 });
+  });
+
+  it("replays and releases idempotency keys without storing the raw key", async () => {
+    const storage = memoryStorage();
+    const idempotencyKey = "idem-fixture-hash-roundtrip";
+
+    const first = await handleWriteAllowanceRequest(
+      postRequest("consume", { limit: 1, idempotency_key: idempotencyKey }),
+      storage,
+    );
+    await expect(first.json()).resolves.toMatchObject({ allowed: true, consumed: 1, remaining: 0 });
+
+    const replay = await handleWriteAllowanceRequest(
+      postRequest("consume", { limit: 1, idempotency_key: idempotencyKey }),
+      storage,
+    );
+    await expect(replay.json()).resolves.toMatchObject({ allowed: true, consumed: 1, remaining: 0 });
+
+    const blocked = await handleWriteAllowanceRequest(
+      postRequest("consume", { limit: 1, idempotency_key: "idem-fixture-hash-other" }),
+      storage,
+    );
+    await expect(blocked.json()).resolves.toMatchObject({ allowed: false, consumed: 1, remaining: 0 });
+
+    expect(storage.snapshot()?.reservations).not.toContain(idempotencyKey);
+
+    const release = await handleWriteAllowanceRequest(
+      postRequest("release", { limit: 1, idempotency_key: idempotencyKey }),
+      storage,
+    );
+    await expect(release.json()).resolves.toMatchObject({ released: true });
+
+    const releaseAgain = await handleWriteAllowanceRequest(
+      postRequest("release", { limit: 1, idempotency_key: idempotencyKey }),
+      storage,
+    );
+    await expect(releaseAgain.json()).resolves.toMatchObject({ released: false });
+
+    const status = await handleWriteAllowanceRequest(postRequest("status", { limit: 1 }), storage);
+    await expect(status.json()).resolves.toMatchObject({ consumed: 0, remaining: 1 });
+  });
+
+  it("keeps stored state bounded for a full Pro day of max-length idempotency keys", async () => {
+    const storage = memoryStorage();
+    // DAILY_NEW_ARTIFACT_ALLOWANCE_PRO; raw 200-char keys at this volume would
+    // serialize to ~400 KB, past the Durable Object 128 KiB per-value limit.
+    const limit = 2000;
+    for (let index = 0; index < limit; index += 1) {
+      const idempotencyKey = `idem-${String(index).padStart(6, "0")}-`.padEnd(200, "x");
+      const response = await handleWriteAllowanceRequest(
+        postRequest("consume", { limit, idempotency_key: idempotencyKey }),
+        storage,
+      );
+      const decision = (await response.json()) as { allowed: boolean };
+      expect(decision.allowed).toBe(true);
+    }
+
+    const stored = storage.snapshot();
+    expect(stored?.consumed).toBe(limit);
+    expect(stored?.reservations).toHaveLength(limit);
+    expect(stored?.reservations?.every((entry) => /^[0-9a-f]{32}$/.test(entry))).toBe(true);
+    expect(JSON.stringify(stored).length).toBeLessThan(128 * 1024);
   });
 });
 

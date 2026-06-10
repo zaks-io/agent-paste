@@ -105,8 +105,14 @@ describe("upload worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { files: Array<{ put_url: string }> };
+    const body = (await response.json()) as { files: Array<{ put_url: string; expires_at: string }> };
     expect(body.files[0]?.put_url).toContain("/v1/upload-sessions/upl_1/files/index.html?token=");
+
+    const fileExpiresAtMs = Date.parse(body.files[0]?.expires_at ?? "");
+    const secondsUntilExpiry = (fileExpiresAtMs - Date.now()) / 1000;
+    expect(secondsUntilExpiry).toBeGreaterThan(800);
+    expect(secondsUntilExpiry).toBeLessThanOrEqual(900);
+    expect(fileExpiresAtMs).toBeLessThan(Date.parse(session.expires_at));
   });
 
   it("forwards an explicit render_mode to the repository and omits it when absent", async () => {
