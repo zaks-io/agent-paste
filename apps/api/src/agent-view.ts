@@ -382,8 +382,11 @@ async function signedContentUrl(
 }
 
 function contentTokenExpiration(expiresAt: string | undefined): number {
+  const nowSeconds = Math.floor(Date.now() / 1000);
   const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : Math.floor(Date.now() / 1000) + usagePolicy.default_ttl_seconds;
+  // Pinned Artifacts are exempt from Auto Deletion, so a servable Artifact can carry a
+  // stored expires_at in the past; fall back to the default TTL instead of minting a dead token.
+  return Number.isFinite(parsed) && parsed > nowSeconds ? parsed : nowSeconds + usagePolicy.default_ttl_seconds;
 }
 
 function encodePath(path: string): string {

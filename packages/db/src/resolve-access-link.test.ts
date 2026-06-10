@@ -128,6 +128,56 @@ describe("resolveAccessLink", () => {
     ).resolves.toBeNull();
   });
 
+  it("resolves pinned artifacts past their stored expiry and rejects unpinned expired ones", async () => {
+    const { repo, actor, artifact } = await repoWithPublishedArtifact();
+    const link = createAccessLinkRow({
+      workspaceId: artifact.workspace_id,
+      artifactId: artifact.id,
+      type: "share",
+      createdByType: "api_key",
+      createdById: actor.id,
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    repo.accessLinks.set(link.id, link);
+    const minted = await mintAccessLinkSignedUrl({
+      link,
+      artifact,
+      appBaseUrl: APP_BASE,
+      signingSecret: "access-link-resolve-secret",
+      signingKid: 1,
+    });
+    const verified = await verifyAccessLinkSignedBlobWithRing({
+      publicId: link.public_id,
+      blob: minted.blob,
+      ring: RING,
+    });
+
+    const stored = repo.artifacts.get(artifact.id);
+    if (!stored) {
+      throw new Error("missing artifact");
+    }
+    stored.expires_at = "2026-01-01T06:00:00.000Z";
+    stored.pinned_at = "2026-01-01T06:00:00.000Z";
+
+    const resolved = await repo.resolveAccessLink({
+      publicId: link.public_id,
+      blobScopes: verified?.scopes ?? 0,
+      contentBaseUrl: CONTENT_BASE,
+      now: "2026-01-01T12:00:00.000Z",
+    });
+    expect(resolved?.agent_view.artifact_id).toBe(artifact.id);
+
+    stored.pinned_at = null;
+    await expect(
+      repo.resolveAccessLink({
+        publicId: link.public_id,
+        blobScopes: verified?.scopes ?? 0,
+        contentBaseUrl: CONTENT_BASE,
+        now: "2026-01-01T12:00:00.000Z",
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("rejects retained revisions, deleted artifacts, and platform lockdown", async () => {
     const { repo, actor, artifact } = await repoWithPublishedArtifact();
     const resolveNow = "2026-01-01T12:00:00.000Z";

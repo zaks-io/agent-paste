@@ -65,6 +65,7 @@ type SeedState = {
   expiredArtifactId: string;
   futureArtifactId: string;
   deletedArtifactId: string;
+  pinnedArtifactId: string;
   otherWorkspaceArtifactId: string;
   expiredSessionId: string;
   futureSessionId: string;
@@ -76,6 +77,7 @@ function artifactRow(input: {
   workspaceId: string;
   status: Artifact["status"];
   expiresAt: string;
+  pinnedAt?: string | null;
   deletedAt?: string | null;
   deleteReason?: string | null;
 }): Artifact {
@@ -89,7 +91,7 @@ function artifactRow(input: {
     file_count: 1,
     size_bytes: 12,
     expires_at: input.expiresAt,
-    pinned_at: null,
+    pinned_at: input.pinnedAt ?? null,
     created_by_type: "api_key",
     created_by_id: apiKeyId,
     access_link_lockdown_at: null,
@@ -136,6 +138,7 @@ async function seedFixture(): Promise<SeedState> {
   const expiredArtifactId = createId("art");
   const futureArtifactId = createId("art");
   const deletedArtifactId = createId("art");
+  const pinnedArtifactId = createId("art");
   const otherWorkspaceArtifactId = createId("art");
   const expiredSessionId = createId("ups");
   const futureSessionId = createId("ups");
@@ -198,6 +201,9 @@ async function seedFixture(): Promise<SeedState> {
         deleteReason: "admin_delete",
       }),
     );
+    await entities.artifacts.insert(
+      artifactRow({ id: pinnedArtifactId, workspaceId, status: "active", expiresAt: past, pinnedAt: now }),
+    );
     await entities.uploadSessions.insert(
       uploadSessionRow({
         id: expiredSessionId,
@@ -240,6 +246,7 @@ async function seedFixture(): Promise<SeedState> {
     expiredArtifactId,
     futureArtifactId,
     deletedArtifactId,
+    pinnedArtifactId,
     otherWorkspaceArtifactId,
     expiredSessionId,
     futureSessionId,
@@ -298,6 +305,22 @@ describe("postgresEntities PGlite coverage", () => {
         });
         expect(stillFuture).toMatchObject({ status: "active", deleted_at: null, delete_reason: null });
         expect(stillDeleted).toMatchObject({ status: "deleted", delete_reason: "admin_delete" });
+      });
+    });
+
+    it("does not list or expire pinned artifacts past their stored expiry", async () => {
+      await fixture.uow.read({ kind: "workspace", workspaceId }, async (entities) => {
+        const rows = await entities.artifacts.listExpiring(now, 10);
+        expect(rows.some((row) => row.id === fixture.pinnedArtifactId)).toBe(false);
+
+        await entities.artifacts.expireBatch(now, [fixture.pinnedArtifactId]);
+        const pinned = await entities.artifacts.findById(fixture.pinnedArtifactId, workspaceId);
+        expect(pinned).toMatchObject({
+          status: "active",
+          pinned_at: now,
+          deleted_at: null,
+          delete_reason: null,
+        });
       });
     });
 

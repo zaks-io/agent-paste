@@ -1742,6 +1742,37 @@ describe("LocalRepository", () => {
     expect(pinned?.revision_id).toBe(first.revision_id);
   });
 
+  it("serves agent views for pinned artifacts past their stored expiry", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "pinned-read", "2026-01-01T00:00:01.000Z");
+    const artifact = repo.artifacts.get(published.artifact_id);
+    if (!artifact) {
+      throw new Error("missing artifact");
+    }
+    artifact.expires_at = "2020-01-01T00:00:00.000Z";
+    artifact.pinned_at = "2020-01-01T00:00:00.000Z";
+
+    const memberView = await repo.getAgentView({
+      actor,
+      artifactId: published.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(memberView?.artifact_id).toBe(published.artifact_id);
+    const publicView = await repo.getPublicAgentView({
+      token: published.artifact_id,
+      contentBaseUrl: "https://content.test",
+    });
+    expect(publicView?.artifact_id).toBe(published.artifact_id);
+
+    artifact.pinned_at = null;
+    await expect(
+      repo.getAgentView({ actor, artifactId: published.artifact_id, contentBaseUrl: "https://content.test" }),
+    ).resolves.toBeNull();
+    await expect(
+      repo.getPublicAgentView({ token: published.artifact_id, contentBaseUrl: "https://content.test" }),
+    ).resolves.toBeNull();
+  });
+
   it("rejects draft revisions in explicit agent view lookups", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const session = await repo.createUploadSession({
@@ -2022,6 +2053,34 @@ describe("LocalRepository", () => {
     });
     expect(repo.artifacts.get(published.artifact_id)?.status).toBe("expired");
     expect(repo.uploadSessions.get(pending.upload_session_id)?.status).toBe("expired");
+  });
+
+  it("keeps pinned artifacts alive through cleanup past their stored expiry", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const pinnedPublish = await publishLocalArtifact(repo, actor, "pinned-survivor", "2026-01-01T00:00:00.000Z");
+    const unpinnedPublish = await publishLocalArtifact(repo, actor, "unpinned-expiring", "2026-01-01T00:00:01.000Z");
+    await repo.forceExpireArtifact({ artifactId: pinnedPublish.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" });
+    await repo.forceExpireArtifact({ artifactId: unpinnedPublish.artifact_id, expiresAt: "2026-01-01T00:00:03.000Z" });
+    const pinnedArtifact = repo.artifacts.get(pinnedPublish.artifact_id);
+    if (!pinnedArtifact) {
+      throw new Error("missing artifact");
+    }
+    pinnedArtifact.pinned_at = "2026-01-02T00:00:00.000Z";
+
+    const cleanup = await repo.runCleanup({
+      actor: adminActor,
+      idempotencyKey: "idem-cleanup-pinned",
+      dryRun: false,
+      batchSize: 10,
+      now: "2026-01-03T00:00:00.000Z",
+    });
+
+    expect(cleanup).toMatchObject({
+      expired_artifacts: 1,
+      expired_artifact_ids: [unpinnedPublish.artifact_id],
+    });
+    expect(repo.artifacts.get(pinnedPublish.artifact_id)?.status).toBe("active");
+    expect(repo.artifacts.get(unpinnedPublish.artifact_id)?.status).toBe("expired");
   });
 
   it("rejects invalid upload finalization states", async () => {

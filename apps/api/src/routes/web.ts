@@ -127,6 +127,9 @@ export async function webArtifactDetail(
           artifact_id: detail.id,
           revision_id: detail.latest_revision_id,
           entrypoint: detail.entrypoint,
+          // auto_delete_at is the artifact's expires_at, or null when pinned
+          // (pinned Artifacts get the default token TTL instead).
+          expires_at: detail.auto_delete_at,
           revision_content_url: detail.viewer.iframe_src,
         },
         context.env,
