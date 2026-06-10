@@ -49,6 +49,27 @@ describe("local publish helpers", () => {
     });
   });
 
+  it.each([
+    ["clip.mov", "video"],
+    ["voice.m4a", "audio"],
+    ["sound.ogg", "audio"],
+    ["plain.text", "text"],
+  ] as const)("infers render mode for single-file %s as %s (shared map with the server)", async (name, mode) => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    await fs.writeFile(path.join(root, name), "bytes");
+
+    const files = await walkLocalPath(root);
+    expect(inferPublishOptions(root, files)).toMatchObject({ entrypoint: name, renderMode: mode });
+  });
+
+  it("refuses to infer a render mode for unknown extensions", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    await fs.writeFile(path.join(root, "data.json"), "{}");
+
+    const files = await walkLocalPath(root);
+    expect(() => inferPublishOptions(root, files)).toThrow(/render mode/);
+  });
+
   it("rejects folders without an inferred entrypoint", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     await fs.writeFile(path.join(root, "a.txt"), "a");

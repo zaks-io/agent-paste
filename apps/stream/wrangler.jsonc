@@ -59,6 +59,14 @@
         "AGENT_PASTE_ENV": "preview",
         "STREAM_BASE_URL": "https://stream.preview.agent-paste.sh"
       },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "ARTIFACT_LIVE",
+            "class_name": "ArtifactLiveUpdates"
+          }
+        ]
+      },
       "services": [
         {
           "binding": "API",
@@ -81,6 +89,14 @@
       "vars": {
         "AGENT_PASTE_ENV": "production",
         "STREAM_BASE_URL": "https://stream.agent-paste.sh"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "ARTIFACT_LIVE",
+            "class_name": "ArtifactLiveUpdates"
+          }
+        ]
       },
       "services": [
         {

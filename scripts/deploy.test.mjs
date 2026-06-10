@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  appsForSecretProvisioning,
   assertDeployScopeAllowed,
   createSecretPlanner,
   formatForbiddenProductionSecretsMessage,
@@ -346,6 +347,74 @@ describe("deploy secret planning", () => {
       expect(Buffer.from(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"), "base64url").length).toBe(32);
       expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).toBe(withSmoke.generatedValues.get("SMOKE_HARNESS_SECRET"));
       expect(withSmoke.valueFor("SMOKE_HARNESS_SECRET")).not.toBe("stale-harness-secret");
+    });
+
+    it("widens a scoped --app --smoke provision scope to every SMOKE_HARNESS_SECRET consumer", () => {
+      expect(appsForSecretProvisioning(["apex"], "preview", true)).toEqual(["api", "jobs", "apex"]);
+      expect(appsForSecretProvisioning(["api"], "preview", true)).toEqual(["api", "jobs"]);
+      expect(appsForSecretProvisioning(FULL_FLEET, "preview", true)).toEqual(FULL_FLEET);
+    });
+
+    it("keeps the provision scope unchanged without --smoke or outside preview", () => {
+      expect(appsForSecretProvisioning(["apex"], "preview", false)).toEqual(["apex"]);
+      expect(appsForSecretProvisioning(FULL_FLEET, "production", true)).toEqual(FULL_FLEET);
+    });
+
+    it("rotates and binds SMOKE_HARNESS_SECRET on api+jobs for --app=apex --smoke while deploying only apex", async () => {
+      const allSecretsPresent = async (worker) => {
+        if (worker === workerName("api", "preview")) {
+          return [
+            "CONTENT_SIGNING_SECRET",
+            "API_KEY_PEPPER_V1",
+            "ACCESS_LINK_SIGNING_KEY_V1",
+            "EPHEMERAL_POW_SECRET",
+            "STREAM_INTERNAL_SECRET",
+            "WORKOS_API_KEY",
+            "SMOKE_HARNESS_SECRET",
+          ];
+        }
+        if (worker === workerName("jobs", "preview")) {
+          return ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY", "SMOKE_HARNESS_SECRET"];
+        }
+        return ["WORKOS_API_KEY"];
+      };
+      const planner = createSecretPlanner({
+        target: "preview",
+        runSmoke: true,
+        env: previewEnv(),
+        listSecretsForWorker: allSecretsPresent,
+        randomBytesFn: deterministicRandomBytes,
+      });
+
+      const provisionPlan = await planner.buildProvisionPlan(appsForSecretProvisioning(["apex"], "preview", true));
+      expect(provisionPlan.get("api")).toContain("SMOKE_HARNESS_SECRET");
+      expect(provisionPlan.get("jobs")).toContain("SMOKE_HARNESS_SECRET");
+
+      const provisionedWorkers = [];
+      const runFn = vi.fn(async (_command, args, stdin) => {
+        provisionedWorkers.push(args[args.indexOf("--name") + 1]);
+        // Every consumer receives the SAME rotated in-memory value.
+        expect(JSON.parse(stdin).SMOKE_HARNESS_SECRET).toBe(planner.valueFor("SMOKE_HARNESS_SECRET"));
+      });
+      const deployFn = vi.fn(async () => {});
+
+      await runDeployPlan({
+        target: "preview",
+        planner,
+        provisionPlan,
+        apps: ["apex"],
+        runFn,
+        deployFn,
+        failFn: () => {
+          throw new Error("should not fail");
+        },
+        write: () => {},
+      });
+
+      expect(provisionedWorkers).toContain(workerName("api", "preview"));
+      expect(provisionedWorkers).toContain(workerName("jobs", "preview"));
+      expect(deployFn).toHaveBeenCalledOnce();
+      expect(deployFn).toHaveBeenCalledWith(["apex"], "preview");
     });
 
     it("does not provision SMOKE_HARNESS_SECRET for production --smoke", async () => {

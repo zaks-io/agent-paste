@@ -1,6 +1,6 @@
-import type { LiveUpdatePointer } from "@agent-paste/contracts";
+import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
 import { Badge, Card, cn, SectionLabel } from "@agent-paste/ui";
-import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { type QueryClient, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -60,40 +60,10 @@ function ArtifactDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.artifactRevisions(artifactId) }),
     ]);
   }, [queryClient, artifactId]);
-  const artifact = result.data;
-  // A `platform_lockdown` (and `takedown`) revoke blocks content at the edge
-  // without touching the artifact row, so the refetch still reports the viewer.
-  // Track revocation locally so any revoke reason hides the viewer immediately.
-  const [revoked, setRevoked] = useState(false);
-  // The API also leaves `viewer` populated on access-link lockdown (it only
-  // flips `lockdown`), so derive visibility from both signals, not the src.
-  const iframeSrc = artifact && !artifact.lockdown && !revoked ? (artifact.viewer?.iframe_src ?? null) : null;
+  const artifact = useLastGoodArtifact(artifactId, result.data);
+  const iframeSrc = useArtifactViewerSrc(artifactId, artifact, queryClient);
 
-  useEffect(() => {
-    if (!artifact) {
-      return;
-    }
-    const invalidate = () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) });
-    };
-    const connection = connectLiveUpdates({
-      url: `/api/live/artifacts/${encodeURIComponent(artifactId)}`,
-      // A publish event refetches the whole artifact, so the iframe and every
-      // other field (size, file count, last published, status) update together.
-      // A fresh revision also clears any prior revoked state.
-      onPointer: (_pointer: LiveUpdatePointer) => {
-        setRevoked(false);
-        invalidate();
-      },
-      onRevoked: () => {
-        setRevoked(true);
-        invalidate();
-      },
-    });
-    return () => connection.close();
-  }, [artifact, artifactId, queryClient]);
-
-  if (result.error) {
+  if (result.error && !artifact) {
     return (
       <ErrorBanner
         title="Couldn't load this artifact"
@@ -199,4 +169,87 @@ function ArtifactDetailPage() {
       </section>
     </>
   );
+}
+
+function useLastGoodArtifact(
+  artifactId: string,
+  current: WebArtifactDetailResponse | null | undefined,
+): WebArtifactDetailResponse | null {
+  const [lastGoodArtifact, setLastGoodArtifact] = useState<{
+    artifactId: string;
+    artifact: WebArtifactDetailResponse;
+  } | null>(null);
+
+  // Live updates should not blank a working viewer when the background metadata
+  // refetch races a transient timeout.
+  useEffect(() => {
+    if (current) {
+      setLastGoodArtifact({ artifactId, artifact: current });
+    }
+  }, [artifactId, current]);
+
+  return current ?? (lastGoodArtifact?.artifactId === artifactId ? lastGoodArtifact.artifact : null);
+}
+
+function useArtifactViewerSrc(
+  artifactId: string,
+  artifact: WebArtifactDetailResponse | null,
+  queryClient: QueryClient,
+): string | null {
+  const [liveState, setLiveState] = useState<{
+    artifactId: string;
+    pointer: LiveUpdatePointer | null;
+    revoked: boolean;
+  }>(() => ({ artifactId, pointer: null, revoked: false }));
+
+  useEffect(() => {
+    setLiveState((current) =>
+      current.artifactId === artifactId ? current : { artifactId, pointer: null, revoked: false },
+    );
+  }, [artifactId]);
+
+  useEffect(() => {
+    setLiveState((current) => {
+      if (
+        current.artifactId !== artifactId ||
+        !current.pointer ||
+        !artifact?.latest_revision_id ||
+        artifact.latest_revision_id === current.pointer.revision_id
+      ) {
+        return current;
+      }
+      return { ...current, pointer: null };
+    });
+  }, [artifactId, artifact?.latest_revision_id]);
+
+  useEffect(() => {
+    if (!artifact) {
+      return;
+    }
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) });
+    };
+    const connection = connectLiveUpdates({
+      url: `/api/live/artifacts/${encodeURIComponent(artifactId)}`,
+      // A publish event refetches the whole artifact, so the iframe and every
+      // other field (size, file count, last published, status) update together.
+      // A fresh revision also clears any prior revoked state.
+      onPointer: (pointer: LiveUpdatePointer) => {
+        setLiveState({ artifactId, pointer, revoked: false });
+        invalidate();
+      },
+      onRevoked: () => {
+        setLiveState({ artifactId, pointer: null, revoked: true });
+        invalidate();
+      },
+    });
+    return () => connection.close();
+  }, [artifact, artifactId, queryClient]);
+
+  const current = liveState.artifactId === artifactId ? liveState : { pointer: null, revoked: false };
+  // The API leaves `viewer` populated on lockdowns; derive visibility from both
+  // the content pointer and the edge-enforced lockdown signals.
+  return artifact && !artifact.lockdown && !current.revoked
+    ? (current.pointer?.iframe_src ?? artifact.viewer?.iframe_src ?? null)
+    : null;
 }

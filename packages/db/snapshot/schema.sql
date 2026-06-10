@@ -189,6 +189,7 @@ CREATE TABLE "upload_sessions" (
 	"status" text NOT NULL,
 	"title" text NOT NULL,
 	"entrypoint" text NOT NULL,
+	"render_mode" text,
 	"artifact_expires_at" timestamp with time zone NOT NULL,
 	"file_count" integer NOT NULL,
 	"size_bytes" bigint NOT NULL,
@@ -197,7 +198,8 @@ CREATE TABLE "upload_sessions" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"finalized_at" timestamp with time zone,
-	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member'))
+	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member')),
+	CONSTRAINT "upload_sessions_render_mode_check" CHECK ("upload_sessions"."render_mode" is null or "upload_sessions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video'))
 );
 
 CREATE TABLE "workspace_billing" (

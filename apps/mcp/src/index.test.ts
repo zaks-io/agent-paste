@@ -26,6 +26,16 @@ describe("mcp worker", () => {
     });
   });
 
+  it("serves protected-resource metadata at the RFC 9728 trailing-slash path", async () => {
+    const response = await request("/.well-known/oauth-protected-resource/");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      resource: "https://mcp.agent-paste.sh/",
+      bearer_methods_supported: ["header"],
+    });
+  });
+
   it("serves configured OAuth protected-resource metadata", async () => {
     const response = await request("/.well-known/oauth-protected-resource", {
       MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",

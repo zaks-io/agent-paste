@@ -234,6 +234,8 @@ describe("cli command dispatch", () => {
         }),
         expect.stringMatching(/^cli_publish_/),
       );
+      // Without --render-mode the field must be omitted so the server infers it.
+      expect(create.mock.calls[0]?.[0]).not.toHaveProperty("render_mode");
       const idempotencyKey = create.mock.calls[0]?.[1];
       expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Buffer), {
         "content-type": "text/html; charset=utf-8",
@@ -248,6 +250,65 @@ describe("cli command dispatch", () => {
       expect(out).toContain(revisionId);
       expect(out).toContain("https://app.test/artifacts/art_1");
       expect(out).toContain("https://content.test/v/token/index.html");
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("transmits render_mode only when --render-mode is passed, and rejects junk values", async () => {
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 14,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        artifact_url: "https://app.test/artifacts/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--render-mode", "markdown"], client);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ render_mode: "markdown" }),
+        expect.stringMatching(/^cli_publish_/),
+      );
+
+      await expect(main(["publish", root, "--render-mode", "quicktime"], client)).rejects.toThrow();
+      expect(create).toHaveBeenCalledTimes(1);
     } finally {
       await removePublishFixture(root);
     }

@@ -2,8 +2,9 @@
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const options = parseArgs(process.argv.slice(2));
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const wantedNode = readFileSync(join(root, ".nvmrc"), "utf8").trim();

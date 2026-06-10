@@ -10,7 +10,7 @@ import {
   type EphemeralProvisionOptions,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { CreateUploadSessionRequest } from "@agent-paste/contracts";
+import { CreateUploadSessionRequest, RenderMode } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
@@ -231,12 +231,15 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
   const overrides: Parameters<typeof inferPublishOptions>[2] = {};
   const title = stringFlag(parsed, "title");
   const entrypoint = stringFlag(parsed, "entrypoint");
-  const renderMode = stringFlag(parsed, "render-mode") as
-    | ReturnType<typeof inferPublishOptions>["renderMode"]
-    | undefined;
+  // An explicit --render-mode is validated against the contract enum and
+  // transmitted so the server stores it verbatim. When the flag is absent the
+  // field is omitted and the server infers from the entrypoint extension
+  // (same shared map as the local inference below).
+  const renderMode = stringFlag(parsed, "render-mode");
+  const explicitRenderMode = renderMode === undefined ? undefined : RenderMode.parse(renderMode);
   if (title) overrides.title = title;
   if (entrypoint) overrides.entrypoint = entrypoint;
-  if (renderMode) overrides.renderMode = renderMode;
+  if (explicitRenderMode) overrides.renderMode = explicitRenderMode;
   const inferred = inferPublishOptions(inputPath, files, overrides);
 
   const idempotencyKey = createIdempotencyKey("cli_publish");
@@ -244,6 +247,7 @@ async function runPublish(parsed: Parsed, client: ApiClient) {
     ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
     title: inferred.title,
     entrypoint: inferred.entrypoint,
+    ...(explicitRenderMode ? { render_mode: explicitRenderMode } : {}),
     files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes })),
   });
   const session = await client.uploadSessions.create(createSessionRequest, idempotencyKey);

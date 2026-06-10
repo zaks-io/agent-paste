@@ -117,6 +117,7 @@ async function resolveRevisionContentUrl(
   artifactId: string,
   revisionId: string,
   entrypoint: string | undefined,
+  files: AgentViewRecord["files"],
   storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
@@ -125,9 +126,23 @@ async function resolveRevisionContentUrl(
     entrypoint ??
     (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
   if (contentPath) {
-    return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth);
+    return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
+      paths: revisionFilePaths(contentPath, files),
+    });
   }
   return undefined;
+}
+
+function revisionFilePaths(entrypoint: string, files: AgentViewRecord["files"]): string[] {
+  const paths = new Set([entrypoint]);
+  if (Array.isArray(files)) {
+    for (const file of files) {
+      if (typeof file.path === "string") {
+        paths.add(file.path);
+      }
+    }
+  }
+  return [...paths];
 }
 
 function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
@@ -169,6 +184,7 @@ export async function signAgentViewContentUrls(
       artifactId,
       revisionId,
       entrypoint,
+      data.files,
       data.revision_content_url,
       expiresAt,
       contentAuth,
@@ -227,6 +243,7 @@ export async function signPublishResult(
     entrypointPath,
     expiresAt,
     contentAuth,
+    { paths: null },
   );
   return {
     ...rest,
@@ -336,11 +353,13 @@ async function signedContentUrl(
   path: string,
   expiresAt?: string,
   auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
+  options?: { paths?: string[] | null },
 ): Promise<string> {
   const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
     return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
   }
+  const paths = options?.paths === null ? {} : { paths: options?.paths ?? [path] };
   return mintContentUrl({
     baseUrl: contentBaseUrl(env),
     secret: signingSecret,
@@ -355,7 +374,7 @@ async function signedContentUrl(
         : auth?.scriptDisabled === false
           ? { script_disabled: false }
           : {}),
-      paths: [path],
+      ...paths,
       exp: contentTokenExpiration(expiresAt),
     },
     path,

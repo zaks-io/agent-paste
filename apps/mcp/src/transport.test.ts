@@ -298,8 +298,41 @@ describe("MCP streamable HTTP transport", () => {
     );
 
     expect(response.status).toBe(403);
+    expect(response.headers.get("www-authenticate")).toBe(mcpWwwAuthenticateHeader(undefined, "insufficient_scope"));
+    expect(response.headers.get("www-authenticate")).toContain('error="insufficient_scope"');
     const payload = (await response.json()) as { error: { data: { code: string } } };
     expect(payload.error.data.code).toBe("insufficient_scope");
+  });
+
+  it("attaches an invalid_token challenge when forwarded auth fails mid-session", async () => {
+    const upload = { fetch: async () => new Response(null, { status: 500 }) };
+    const api = {
+      fetch: async () =>
+        Response.json({ error: { code: "not_authenticated", message: "not_authenticated" } }, { status: 401 }),
+    };
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 11,
+          method: "tools/call",
+          params: { name: "whoami", arguments: {} },
+        }),
+      }),
+      { MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/" },
+      { verifyBearer: testAuth, api, upload },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(
+      mcpWwwAuthenticateHeader("https://mcp.preview.agent-paste.sh/", "invalid_token"),
+    );
+    expect(response.headers.get("www-authenticate")).toContain('error="invalid_token"');
   });
 
   it("rejects DELETE and non-POST methods with 405", async () => {
@@ -360,7 +393,15 @@ describe("MCP streamable HTTP transport", () => {
     expect(response.status).toBe(202);
   });
 
-  it("rejects unknown notifications and requests without ids", async () => {
+  it("accepts standard and unknown notifications with 202 while rejecting requests without ids", async () => {
+    const cancelled = await mcpPost(
+      { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    const rootsListChanged = await mcpPost(
+      { jsonrpc: "2.0", method: "notifications/roots/list_changed" },
+      { authorization: "Bearer mcp-valid-token" },
+    );
     const unknownNotification = await mcpPost(
       { jsonrpc: "2.0", method: "notifications/unknown" },
       { authorization: "Bearer mcp-valid-token" },
@@ -369,7 +410,9 @@ describe("MCP streamable HTTP transport", () => {
       { jsonrpc: "2.0", method: "ping", id: [] },
       { authorization: "Bearer mcp-valid-token" },
     );
-    expect(unknownNotification.status).toBe(404);
+    expect(cancelled.status).toBe(202);
+    expect(rootsListChanged.status).toBe(202);
+    expect(unknownNotification.status).toBe(202);
     expect(invalidRequest.status).toBe(400);
   });
 

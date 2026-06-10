@@ -17,6 +17,7 @@ import type {
   Workspace,
 } from "../types.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
+import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 import type { ClaimEphemeralWorkspaceResult, CreateEphemeralWorkspaceResult } from "./workflows/ephemeral-workflow.js";
 
@@ -257,12 +258,7 @@ export type Repository = {
   createUploadSession(input: {
     actor: ApiActor;
     idempotencyKey: string;
-    request: {
-      artifact_id?: string;
-      title?: string;
-      entrypoint?: string;
-      files: Array<{ path: string; size_bytes: number }>;
-    };
+    request: CreateUploadSessionRequest;
     now: string;
   }): Promise<UploadSessionRecord>;
   recordUploadedFile(input: {
