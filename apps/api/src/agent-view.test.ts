@@ -370,4 +370,24 @@ describe("signAgentViewContentUrls characterization", () => {
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.exp).toBe(Math.floor(Date.now() / 1000) + USAGE_POLICY.default_ttl_seconds);
   });
+
+  it("falls back to the default TTL when expires_at is already in the past (pinned artifacts)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T00:00:00.000Z"));
+
+    const signed = (await signAgentViewContentUrls(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        entrypoint: "index.html",
+        expires_at: "2025-01-01T00:00:00.000Z",
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { revision_content_url: string };
+
+    const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
+    expect(payload?.exp).toBe(Math.floor(Date.now() / 1000) + USAGE_POLICY.default_ttl_seconds);
+  });
 });
