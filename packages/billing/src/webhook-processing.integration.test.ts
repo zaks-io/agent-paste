@@ -207,6 +207,79 @@ describe("processStripeSubscriptionWebhook", () => {
     );
   });
 
+  it("does not downgrade when a superseded subscription's deleted event arrives after re-subscribe", async () => {
+    const oldSubscriptionId = "sub_webhook_superseded";
+    const provider = createFakeBillingProvider();
+    // Old subscription is canceled on Stripe; the new one is active and already adopted locally.
+    provider.setSubscription(
+      snapshot({ stripeSubscriptionId: oldSubscriptionId, status: "canceled", currentPeriodEnd: null }),
+    );
+    provider.setSubscription(snapshot());
+    await applyBillingSnapshot({
+      executor: workspaceExecutor(baseExecutor, workspaceId),
+      actorId: "checkout_activation",
+      workspaceId,
+      snapshot: snapshot(),
+      now: "2026-06-06T00:00:00.000Z",
+    });
+
+    const result = await processStripeSubscriptionWebhook({
+      platformExecutor: platformExecutor(baseExecutor),
+      workspaceExecutor: (id) => workspaceExecutor(baseExecutor, id),
+      provider,
+      event: {
+        id: "evt_late_deleted",
+        type: "customer.subscription.deleted",
+        data: { object: { id: oldSubscriptionId, customer: customerId, metadata: { workspace_id: workspaceId } } },
+      },
+      now: "2026-06-06T01:00:00.000Z",
+    });
+
+    expect(result).toEqual({ received: true, handled: "processed" });
+    await expect(loadLocalBillingRow(workspaceExecutor(baseExecutor, workspaceId), workspaceId)).resolves.toMatchObject(
+      {
+        plan: "pro",
+        subscription_status: "active",
+        stripe_subscription_id: subscriptionId,
+      },
+    );
+  });
+
+  it("does not fail closed when the missing subscription is not the workspace's current one", async () => {
+    const oldSubscriptionId = "sub_webhook_gone";
+    const provider = createFakeBillingProvider();
+    // Stripe no longer returns the old subscription at all; only the new one exists.
+    provider.setSubscription(snapshot());
+    await applyBillingSnapshot({
+      executor: workspaceExecutor(baseExecutor, workspaceId),
+      actorId: "checkout_activation",
+      workspaceId,
+      snapshot: snapshot(),
+      now: "2026-06-07T00:00:00.000Z",
+    });
+
+    const result = await processStripeSubscriptionWebhook({
+      platformExecutor: platformExecutor(baseExecutor),
+      workspaceExecutor: (id) => workspaceExecutor(baseExecutor, id),
+      provider,
+      event: {
+        id: "evt_gone_deleted",
+        type: "customer.subscription.deleted",
+        data: { object: { id: oldSubscriptionId, customer: customerId, metadata: { workspace_id: workspaceId } } },
+      },
+      now: "2026-06-07T01:00:00.000Z",
+    });
+
+    expect(result).toEqual({ received: true, handled: "processed" });
+    await expect(loadLocalBillingRow(workspaceExecutor(baseExecutor, workspaceId), workspaceId)).resolves.toMatchObject(
+      {
+        plan: "pro",
+        subscription_status: "active",
+        stripe_subscription_id: subscriptionId,
+      },
+    );
+  });
+
   it("fails closed to free when the current subscription cannot be fetched", async () => {
     await applyBillingSnapshot({
       executor: workspaceExecutor(baseExecutor, workspaceId),

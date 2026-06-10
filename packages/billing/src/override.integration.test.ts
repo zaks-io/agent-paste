@@ -107,7 +107,9 @@ describe("setWorkspacePlanOverride", () => {
     const row = await loadLocalBillingRow(executor, workspaceId);
     expect(row?.plan_operator_override_at).toBeNull();
 
-    // With the override cleared, a fresh webhook snapshot (distinct idempotency key) applies again.
+    // With the override cleared, the SAME (subscription, status, period end) snapshot the
+    // override previously blocked must execute again — a cached completion here would
+    // leave the workspace stranded on the override-era plan forever.
     const applied = await applyBillingSnapshot({
       executor,
       actorId: "stripe_webhook",
@@ -117,11 +119,80 @@ describe("setWorkspacePlanOverride", () => {
         stripeCustomerId: "cus_o",
         stripeSubscriptionId: "sub_o",
         status: "canceled",
-        currentPeriodEnd: "2026-06-06T00:00:00.000Z",
+        currentPeriodEnd: null,
         priceInterval: null,
       },
       now: "2026-06-06T01:00:00.000Z",
     });
-    expect(applied).toMatchObject({ applied: true, plan: "free" });
+    expect(applied).toMatchObject({ applied: true, replayed: false, plan: "free" });
+
+    const after = await loadLocalBillingRow(executor, workspaceId);
+    expect(after?.plan).toBe("free");
+  });
+
+  it("resumes pro from Stripe after an override round-trip with an unchanged snapshot", async () => {
+    const lifecycleWorkspaceId = "77777777-7777-7777-7777-777777777777";
+    await platformExecutor(baseExecutor).query(
+      `insert into workspaces (id, name, contact_email, plan, created_at, updated_at)
+       values ($1, 'lifecycle', 'l@example.com', 'free', now(), now())`,
+      [lifecycleWorkspaceId],
+    );
+    const executor = workspaceExecutor(baseExecutor, lifecycleWorkspaceId);
+    const activeSnapshot = {
+      workspaceId: lifecycleWorkspaceId,
+      stripeCustomerId: "cus_lifecycle",
+      stripeSubscriptionId: "sub_lifecycle",
+      status: "active" as const,
+      currentPeriodEnd: "2026-07-01T00:00:00.000Z",
+      priceInterval: "month" as const,
+    };
+
+    const activated = await applyBillingSnapshot({
+      executor,
+      actorId: "stripe_webhook",
+      workspaceId: lifecycleWorkspaceId,
+      snapshot: activeSnapshot,
+      now: "2026-06-07T00:00:00.000Z",
+    });
+    expect(activated).toMatchObject({ applied: true, plan: "pro" });
+
+    await setWorkspacePlanOverride({
+      executor,
+      actorId: "operator@example.com",
+      workspaceId: lifecycleWorkspaceId,
+      plan: "free",
+      idempotencyKey: "lifecycle-set",
+      now: "2026-06-07T01:00:00.000Z",
+    });
+    const blocked = await applyBillingSnapshot({
+      executor,
+      actorId: "billing_reconcile",
+      workspaceId: lifecycleWorkspaceId,
+      snapshot: activeSnapshot,
+      now: "2026-06-07T02:00:00.000Z",
+    });
+    expect(blocked).toMatchObject({ skipped_operator_override: true, plan: "free" });
+
+    await setWorkspacePlanOverride({
+      executor,
+      actorId: "operator@example.com",
+      workspaceId: lifecycleWorkspaceId,
+      plan: null,
+      idempotencyKey: "lifecycle-clear",
+      now: "2026-06-07T03:00:00.000Z",
+    });
+
+    // Unchanged (status, period end) on the next reconcile pass must re-apply Stripe state.
+    const resumed = await applyBillingSnapshot({
+      executor,
+      actorId: "billing_reconcile",
+      workspaceId: lifecycleWorkspaceId,
+      snapshot: activeSnapshot,
+      now: "2026-06-07T04:00:00.000Z",
+    });
+    expect(resumed).toMatchObject({ applied: true, replayed: false, plan: "pro", plan_changed: true });
+
+    const row = await loadLocalBillingRow(executor, lifecycleWorkspaceId);
+    expect(row).toMatchObject({ plan: "pro", subscription_status: "active", plan_operator_override_at: null });
   });
 });

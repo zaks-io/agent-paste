@@ -94,6 +94,7 @@ describe("runBillingReconciliation", () => {
     });
     vi.spyOn(sync, "applyBillingSnapshot").mockResolvedValue({
       applied: true,
+      replayed: false,
       skipped_operator_override: false,
       previous_plan: "free",
       plan: "pro",
@@ -144,6 +145,7 @@ describe("runBillingReconciliation", () => {
     });
     const applyBillingSnapshot = vi.spyOn(sync, "applyBillingSnapshot").mockResolvedValue({
       applied: true,
+      replayed: false,
       skipped_operator_override: false,
       previous_plan: "free",
       plan: "pro",
