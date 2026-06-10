@@ -294,6 +294,29 @@ describe("MCP auth and idempotency helpers", () => {
     expect(retry).toBe(first);
   });
 
+  it("canonicalizes nested object keys when deriving", () => {
+    const first = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { title: "Demo", files: [{ path: "index.html", content: "<p>hi</p>" }] },
+    });
+    const retry = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { files: [{ content: "<p>hi</p>", path: "index.html" }], title: "Demo" },
+    });
+    const different = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 1,
+      toolName: "publish_artifact",
+      toolArgs: { files: [{ content: "<p>bye</p>", path: "index.html" }], title: "Demo" },
+    });
+    expect(retry).toBe(first);
+    expect(different).not.toBe(first);
+  });
+
   it("derives different keys for different args under the same json rpc id", () => {
     const yesterday = deriveMcpIdempotencyKey({
       tokenSub: "user_01",

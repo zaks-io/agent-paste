@@ -42,7 +42,7 @@ export type McpToolDeps = {
   api: ApiServiceBinding;
   upload: UploadServiceBinding;
   bearerToken: string;
-  jsonRpcId?: string | number;
+  jsonRpcId: string | number;
 };
 
 export type McpToolResult =
@@ -138,7 +138,7 @@ function resolveIdempotencyKey(
   }
   return deriveMcpIdempotencyKey({
     tokenSub: auth.tokenSub,
-    jsonRpcId: deps.jsonRpcId ?? "0",
+    jsonRpcId: deps.jsonRpcId,
     toolName,
     toolArgs,
   });
