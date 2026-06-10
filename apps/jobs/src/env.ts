@@ -29,7 +29,7 @@ export type QueueBinding = {
 export type QueueMessage = {
   readonly body: unknown;
   ack(): void;
-  retry(): void;
+  retry(options?: { delaySeconds?: number }): void;
 };
 
 export type AiBinding = {

@@ -3,18 +3,13 @@ import { isBillingEnabled, resolveUsagePolicy, type WorkspacePlan } from "@agent
 import type { BundleGenerateMessage } from "@agent-paste/contracts";
 import { bundleKeyFor, type SqlExecutor, storageEnvSegment } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
-import {
-  bytesFromReadableBody,
-  decryptArtifactBytesWithKeyRing,
-  encryptArtifactBytes,
-  isArtifactBytesEncryptionMetadata,
-  parseRevisionFileObjectKey,
-} from "@agent-paste/storage";
+import { encryptArtifactBytes } from "@agent-paste/storage";
 import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
 import { buildRevisionZip } from "../bundle/generate-zip.js";
 import { withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
+import { readRevisionFileBytes } from "./revision-file-bytes.js";
 
 type RevisionRow = {
   status: string;
@@ -25,11 +20,6 @@ type RevisionRow = {
 type RevisionFileRow = {
   path: string;
   r2_key: string;
-};
-
-type R2ObjectWithBody = {
-  body?: ReadableStream | ArrayBuffer | null;
-  customMetadata?: Record<string, string>;
 };
 
 type R2GetObject = NonNullable<NonNullable<Env["ARTIFACTS"]>["get"]>;
@@ -67,9 +57,12 @@ export async function processBundleGenerateMessage(
   }
 
   const artifacts = resolveBundleArtifactsBinding(env);
-  const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
-  if (!artifacts || !encryptionRing) {
+  if (!artifacts) {
     throw new Error("artifacts_bucket_missing");
+  }
+  const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
+  if (!encryptionRing) {
+    throw new Error("artifact_bytes_ring_missing");
   }
 
   const fileBytes = await loadBundleRevisionFileBytes({
@@ -186,33 +179,6 @@ async function storeReadyBundle(input: {
     customMetadata: encryptedBundle.customMetadata,
   });
   await markBundleReady(input.scoped, input.payload.workspace_id, input.payload.revision_id, input.zipBytes.byteLength);
-}
-
-async function readRevisionFileBytes(input: {
-  object: R2ObjectWithBody;
-  objectKey: string;
-  workspaceId: string;
-  encryptionRing: BundleEncryptionRing;
-}): Promise<Uint8Array> {
-  const ciphertext = await bytesFromReadableBody(input.object.body);
-  if (!isArtifactBytesEncryptionMetadata(input.object.customMetadata)) {
-    throw new Error("artifact_bytes_metadata_missing");
-  }
-  const keyParts = parseRevisionFileObjectKey(input.objectKey);
-  if (!keyParts) {
-    throw new Error("artifact_bytes_invalid_object_key");
-  }
-  return decryptArtifactBytesWithKeyRing({
-    ciphertext,
-    ring: input.encryptionRing,
-    metadata: input.object.customMetadata,
-    context: {
-      workspaceId: input.workspaceId,
-      artifactId: keyParts.artifactId,
-      revisionId: keyParts.revisionId,
-      normalizedPath: keyParts.path,
-    },
-  });
 }
 
 async function loadWorkspaceUsagePolicy(executor: SqlExecutor, workspaceId: string, env: Env) {

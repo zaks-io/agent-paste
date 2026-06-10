@@ -41,14 +41,13 @@ describe("jobs worker", () => {
     await expect(response.json()).resolves.toEqual({ ok: true, app: "jobs", enabled: false });
   });
 
-  it("acks queue messages without invoking handlers when jobs are disabled", async () => {
+  it("retries queue messages without acking or invoking handlers when jobs are disabled", async () => {
     const ack = vi.fn();
+    const retry = vi.fn();
     const handleQueueBatchSpy = vi.spyOn(queue, "handleQueueBatch").mockResolvedValue(undefined);
-    await runQueueConsumer(
-      { queue: "byte-purge", messages: [{ body: {}, ack, retry: vi.fn() }] },
-      { JOBS_ENABLED: "false" },
-    );
-    expect(ack).toHaveBeenCalled();
+    await runQueueConsumer({ queue: "byte-purge", messages: [{ body: {}, ack, retry }] }, { JOBS_ENABLED: "false" });
+    expect(ack).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith({ delaySeconds: expect.any(Number) });
     expect(handleQueueBatchSpy).not.toHaveBeenCalled();
     handleQueueBatchSpy.mockRestore();
   });

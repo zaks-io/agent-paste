@@ -121,7 +121,11 @@ describe("jobs smoke harness", () => {
       DENYLIST: { put: vi.fn(async () => {}) },
       SYNC_BYTE_PURGE_DELETED_OBJECTS: 0,
       ARTIFACTS: {
-        list: vi.fn(async () => ({ objects: [{ key: `artifacts/${artifactId}/a.txt` }], truncated: false })),
+        list: vi.fn(async ({ prefix }: { prefix: string }) =>
+          prefix === `artifacts/${artifactId}/`
+            ? { objects: [{ key: `artifacts/${artifactId}/a.txt` }], truncated: false }
+            : { objects: [], truncated: false },
+        ),
         delete: vi.fn(async (keys: string[]) => {
           env.SYNC_BYTE_PURGE_DELETED_OBJECTS = (env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0) + keys.length;
         }),
@@ -213,7 +217,7 @@ describe("jobs smoke harness", () => {
       expect.objectContaining({
         type: "byte.purge.v1",
         artifact_id: artifactId,
-        prefixes: [`artifacts/${artifactId}/`],
+        prefixes: [`artifacts/${artifactId}/`, `env/preview/workspaces/${workspaceId}/artifacts/${artifactId}/`],
       }),
       undefined,
     );

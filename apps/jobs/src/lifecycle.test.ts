@@ -80,7 +80,7 @@ describe("lifecycle side effects", () => {
       expect.objectContaining({
         type: "byte.purge.v1",
         artifact_id: artifactId,
-        prefixes: [`artifacts/${artifactId}/`],
+        prefixes: [`artifacts/${artifactId}/`, `env/dev/workspaces/${workspaceId}/artifacts/${artifactId}/`],
       }),
     );
     expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("bytes_purge_enqueued_at"), [
@@ -241,7 +241,10 @@ describe("retention discovery", () => {
       expect.objectContaining({
         revision_id: oldRevisionId,
         reason: "retention",
-        prefixes: [`artifacts/${artifactId}/revisions/${oldRevisionId}/`],
+        prefixes: [
+          `artifacts/${artifactId}/revisions/${oldRevisionId}/`,
+          `env/dev/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${oldRevisionId}/`,
+        ],
       }),
     );
   });

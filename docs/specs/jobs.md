@@ -26,6 +26,15 @@ Only `bundle-generate-dlq` has a consumer because terminal bundle failure must u
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
+## Kill Switch
+
+`JOBS_ENABLED=false` skips cron sweeps and makes queue consumers retry (never
+ack) messages, so Cloudflare Queues redelivers them when jobs are re-enabled.
+Acking while disabled would lose work permanently: byte-purge enqueue stamps
+`bytes_purge_enqueued_at` at send time, so an acked-and-dropped message is
+invisible to Purge Recovery. A disabled window longer than the retry budget
+exhausts messages into the DLQ; operator triage drains it after re-enable.
+
 ## Message Schemas
 
 ### `bundle-generate`
@@ -94,12 +103,23 @@ Handler behavior:
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "upload_session_id": null,
-  "prefixes": ["env/live/workspaces/..."],
+  "prefixes": [
+    "artifacts/art_.../",
+    "env/live/workspaces/00000000-0000-0000-0000-000000000000/artifacts/art_.../"
+  ],
   "reason": "deletion"
 }
 ```
 
 `reason` is one of `deletion`, `retention`, or `upload_cleanup`.
+
+Every prefix must be scoped to the message's own Artifact, in one of two
+shapes: `artifacts/{artifact_id}/...` (Revision file keys) or
+`env/{env}/workspaces/{workspace_id}/artifacts/{artifact_id}/...` (derived
+bundle keys, ADR 0021). Deletion and Retention producers enqueue both shapes
+so bundle zips are purged with the files; Upload Cleanup purges the session's
+file keys only (no bundle exists yet). The consumer rejects any prefix outside
+the message's artifact scope.
 
 Handler behavior:
 

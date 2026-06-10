@@ -1,4 +1,4 @@
-import { revisionPurgePrefix } from "@agent-paste/db";
+import { envScopedRevisionPrefix, revisionPurgePrefix } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import { enqueueRevisionBytePurge } from "./revision-byte-purge-enqueue.js";
 import { writeRevisionDenylist } from "./revision-denylist.js";
@@ -113,7 +113,10 @@ describe("revision byte purge enqueue", () => {
     ).resolves.toBe(true);
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
-        prefixes: [revisionPurgePrefix(artifactId, revisionId)],
+        prefixes: [
+          revisionPurgePrefix(artifactId, revisionId),
+          envScopedRevisionPrefix({ workspaceId, artifactId, revisionId }),
+        ],
         reason: "retention",
       }),
     );

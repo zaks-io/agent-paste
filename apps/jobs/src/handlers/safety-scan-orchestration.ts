@@ -1,6 +1,7 @@
 import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import type { SafetyScanMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
+import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { logOp } from "../op-log.js";
@@ -45,11 +46,17 @@ export async function processSafetyScanMessage(
   if (!getObject) {
     throw new Error("artifacts_bucket_missing");
   }
+  const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
+  if (!encryptionRing) {
+    throw new Error("artifact_bytes_ring_missing");
+  }
 
   const scannerFiles = await loadScannerFiles(scoped, {
+    workspaceId: payload.workspace_id,
     artifactId: payload.artifact_id,
     revisionId: payload.revision_id,
     getObject,
+    encryptionRing,
   });
   const scanner = resolveSafetyScanner(env, payload.scanner_id);
   const warnings = await scanner.scan(scannerFiles);
