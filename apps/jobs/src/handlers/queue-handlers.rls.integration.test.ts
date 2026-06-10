@@ -98,6 +98,17 @@ describe("queue handlers under FORCE RLS (app_role)", () => {
        values ('warn_rls_unchanged', $1, $2, $3, 'builtin_content', '1', 'credential_collection_form', 'warning', 'file', 'index.html', $4, now())`,
       [workspaceId, artifactId, revisionId, "This revision contains an HTML password form."],
     );
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode(`<form><input type="password"></form>`),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: {
+        workspaceId,
+        artifactId,
+        revisionId,
+        normalizedPath: "index.html",
+      },
+    });
     const ack = vi.fn();
     await handleSafetyScanBatch(
       [
@@ -116,13 +127,12 @@ describe("queue handlers under FORCE RLS (app_role)", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         DB: executor,
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),
-          get: async () => ({
-            body: new TextEncoder().encode(`<form><input type="password"></form>`),
-          }),
+          get: async () => ({ body: encrypted.ciphertext, customMetadata: encrypted.customMetadata }),
         },
       },
     );

@@ -49,14 +49,33 @@ export function storageEnvSegment(agentPasteEnv?: string): string {
   return "dev";
 }
 
+/** Env-scoped key prefix covering all derived objects (bundles) for an Artifact (ADR 0021). */
+export function envScopedArtifactPrefix(input: {
+  workspaceId: string;
+  artifactId: string;
+  storageEnv?: string | undefined;
+}): string {
+  const env = storageEnvSegment(input.storageEnv);
+  return `env/${env}/workspaces/${input.workspaceId}/artifacts/${input.artifactId}/`;
+}
+
+/** Env-scoped key prefix covering all derived objects (bundles) for a Revision (ADR 0021). */
+export function envScopedRevisionPrefix(input: {
+  workspaceId: string;
+  artifactId: string;
+  revisionId: string;
+  storageEnv?: string | undefined;
+}): string {
+  return `${envScopedArtifactPrefix(input)}revisions/${input.revisionId}/`;
+}
+
 export function bundleKeyFor(input: {
   workspaceId: string;
   artifactId: string;
   revisionId: string;
   storageEnv?: string;
 }): string {
-  const env = storageEnvSegment(input.storageEnv);
-  return `env/${env}/workspaces/${input.workspaceId}/artifacts/${input.artifactId}/revisions/${input.revisionId}/bundle.zip`;
+  return `${envScopedRevisionPrefix(input)}bundle.zip`;
 }
 
 export function contentTypeForPath(path: string) {

@@ -11,7 +11,7 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
   for (const message of messages) {
     try {
       const payload = BytePurgeMessage.parse(message.body);
-      assertArtifactScopedPrefixes(payload.artifact_id, payload.prefixes);
+      assertArtifactScopedPrefixes(payload);
       const deleted = await deletePrefixes(env.ARTIFACTS, payload.prefixes);
       logOp("queue.byte_purge.succeeded", {
         artifact_id: payload.artifact_id,
@@ -29,9 +29,28 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
   }
 }
 
-function assertArtifactScopedPrefixes(artifactId: string, prefixes: readonly string[]): void {
-  const artifactPrefix = `artifacts/${artifactId}/`;
-  if (prefixes.length === 0 || !prefixes.every((prefix) => prefix.startsWith(artifactPrefix))) {
+type PurgeScope = Pick<BytePurgeMessage, "workspace_id" | "artifact_id" | "prefixes">;
+
+// Safety property: a message may only purge keys belonging to its own
+// artifact. Revision files use artifact-scoped keys; derived bundles use
+// env-scoped keys (ADR 0021), which must still pin workspace and artifact.
+function assertArtifactScopedPrefixes(payload: PurgeScope): void {
+  if (payload.prefixes.length === 0 || !payload.prefixes.every((prefix) => isArtifactScopedPrefix(payload, prefix))) {
     throw new Error("byte_purge_prefix_outside_artifact_scope");
   }
+}
+
+const ENV_SCOPE_PATTERN = /^env\/[^/]+\/workspaces\/([^/]+)\//;
+
+function isArtifactScopedPrefix(payload: PurgeScope, prefix: string): boolean {
+  const artifactPrefix = `artifacts/${payload.artifact_id}/`;
+  if (prefix.startsWith(artifactPrefix)) {
+    return true;
+  }
+  const envScope = ENV_SCOPE_PATTERN.exec(prefix);
+  return (
+    envScope !== null &&
+    envScope[1] === payload.workspace_id &&
+    prefix.slice(envScope[0].length).startsWith(artifactPrefix)
+  );
 }

@@ -1,3 +1,4 @@
+import { encryptArtifactBytes } from "@agent-paste/storage";
 import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
@@ -9,6 +10,28 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const encoder = new TextEncoder();
 const awsAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
 const privateKeyMarker = "-----BEGIN " + "PRIVATE KEY-----";
+const artifactBytesEncryptionEnv = {
+  ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+};
+
+function r2KeyFor(path: string) {
+  return `artifacts/${artifactId}/revisions/${revisionId}/files/${path}`;
+}
+
+async function encryptedRevisionFile(path: string, plaintext: string) {
+  const encrypted = await encryptArtifactBytes({
+    plaintext: encoder.encode(plaintext),
+    rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+    kid: 1,
+    context: {
+      workspaceId,
+      artifactId,
+      revisionId,
+      normalizedPath: path,
+    },
+  });
+  return { body: encrypted.ciphertext, customMetadata: encrypted.customMetadata };
+}
 
 function safetyScanBody() {
   return {
@@ -44,11 +67,27 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      ...artifactBytesEncryptionEnv,
       DB: createMockSqlExecutor(vi.fn(async () => ({ rows: [{ status: "published", artifact_status: "active" }] }))),
     });
 
     expect(ack).not.toHaveBeenCalled();
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("retries active revisions when the artifact bytes encryption ring is missing", async () => {
+    const ack = vi.fn();
+    const retry = vi.fn();
+    const get = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      DB: createMockSqlExecutor(vi.fn(async () => ({ rows: [{ status: "published", artifact_status: "active" }] }))),
+      ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get },
+    });
+
+    expect(ack).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledOnce();
+    expect(get).not.toHaveBeenCalled();
   });
 
   it("acks retained or deleted revisions without scanning R2", async () => {
@@ -68,6 +107,7 @@ describe("handleSafetyScanBatch", () => {
     const retry = vi.fn();
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
+      ...artifactBytesEncryptionEnv,
       DB: createMockSqlExecutor(
         vi.fn(async (sql: string) => {
           if (sql.includes("from revisions r")) {
@@ -75,7 +115,7 @@ describe("handleSafetyScanBatch", () => {
           }
           if (sql.includes("from artifact_files")) {
             return {
-              rows: [{ path: "missing.txt", r2_key: "objects/missing.txt", served_content_type: "text/plain" }],
+              rows: [{ path: "missing.txt", r2_key: r2KeyFor("missing.txt"), served_content_type: "text/plain" }],
             };
           }
           return { rows: [] };
@@ -87,10 +127,12 @@ describe("handleSafetyScanBatch", () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
-  it("retries when an R2 object body shape is unsupported", async () => {
+  it("retries instead of scanning when a stored object lacks encryption metadata", async () => {
+    const ack = vi.fn();
     const retry = vi.fn();
 
-    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry }], {
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      ...artifactBytesEncryptionEnv,
       DB: createMockSqlExecutor(
         vi.fn(async (sql: string) => {
           if (sql.includes("from revisions r")) {
@@ -98,15 +140,53 @@ describe("handleSafetyScanBatch", () => {
           }
           if (sql.includes("from artifact_files")) {
             return {
-              rows: [{ path: "unknown.txt", r2_key: "objects/unknown.txt", served_content_type: "text/plain" }],
+              rows: [{ path: "plain.txt", r2_key: r2KeyFor("plain.txt"), served_content_type: "text/plain" }],
             };
           }
           return { rows: [] };
         }),
       ),
-      ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get: vi.fn(async () => ({ body: {} as ReadableStream })) },
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(async () => ({ body: encoder.encode(awsAccessKeyId) })),
+      },
     });
 
+    expect(ack).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("retries instead of scanning when ciphertext cannot be decrypted", async () => {
+    const ack = vi.fn();
+    const retry = vi.fn();
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack, retry }], {
+      ...artifactBytesEncryptionEnv,
+      DB: createMockSqlExecutor(
+        vi.fn(async (sql: string) => {
+          if (sql.includes("from revisions r")) {
+            return { rows: [{ status: "published", artifact_status: "active" }] };
+          }
+          if (sql.includes("from artifact_files")) {
+            return {
+              rows: [{ path: "garbage.txt", r2_key: r2KeyFor("garbage.txt"), served_content_type: "text/plain" }],
+            };
+          }
+          return { rows: [] };
+        }),
+      ),
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(async () => ({
+          body: new Uint8Array(64).fill(7),
+          customMetadata: { enc_kid: "1", enc_alg: "aes-256-gcm", enc_aad_v: "v1" },
+        })),
+      },
+    });
+
+    expect(ack).not.toHaveBeenCalled();
     expect(retry).toHaveBeenCalledOnce();
   });
 
@@ -141,7 +221,7 @@ describe("handleSafetyScanBatch", () => {
             rows: [
               {
                 path: "index.html",
-                r2_key: "objects/index.html",
+                r2_key: r2KeyFor("index.html"),
                 served_content_type: "text/html; charset=utf-8",
               },
             ],
@@ -152,6 +232,7 @@ describe("handleSafetyScanBatch", () => {
       tx.query,
     );
     const ack = vi.fn();
+    const storedObject = await encryptedRevisionFile("index.html", `<form><input type="password"></form>`);
 
     await handleSafetyScanBatch(
       [
@@ -164,11 +245,12 @@ describe("handleSafetyScanBatch", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         DB: db,
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),
-          get: async () => ({ body: new TextEncoder().encode(`<form><input type="password"></form>`) }),
+          get: async () => storedObject,
         },
       },
     );
@@ -238,10 +320,10 @@ describe("handleSafetyScanBatch", () => {
         if (sql.includes("from artifact_files")) {
           return {
             rows: [
-              { path: "aws.txt", r2_key: "objects/aws.txt", served_content_type: "text/plain" },
-              { path: "key.txt", r2_key: "objects/key.txt", served_content_type: "text/plain" },
-              { path: "empty.txt", r2_key: "objects/empty.txt", served_content_type: "text/plain" },
-              { path: "stream.txt", r2_key: "objects/stream.txt", served_content_type: "text/plain" },
+              { path: "aws.txt", r2_key: r2KeyFor("aws.txt"), served_content_type: "text/plain" },
+              { path: "key.txt", r2_key: r2KeyFor("key.txt"), served_content_type: "text/plain" },
+              { path: "empty.txt", r2_key: r2KeyFor("empty.txt"), served_content_type: "text/plain" },
+              { path: "stream.txt", r2_key: r2KeyFor("stream.txt"), served_content_type: "text/plain" },
             ],
           };
         }
@@ -249,31 +331,38 @@ describe("handleSafetyScanBatch", () => {
       }),
       tx.query,
     );
+    const awsObject = await encryptedRevisionFile("aws.txt", awsAccessKeyId);
+    const keyObject = await encryptedRevisionFile("key.txt", privateKeyMarker);
+    const emptyObject = await encryptedRevisionFile("empty.txt", "");
+    const streamObject = await encryptedRevisionFile("stream.txt", "no warnings here");
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      ...artifactBytesEncryptionEnv,
       DB: db,
       ARTIFACTS: {
         list: vi.fn(),
         delete: vi.fn(),
         get: vi.fn(async (key: string) => {
           if (key.endsWith("aws.txt")) {
-            return {
-              body: encoder.encode("ignored"),
-              arrayBuffer: async () => encoder.encode(awsAccessKeyId).buffer,
-            };
+            return awsObject;
           }
           if (key.endsWith("key.txt")) {
-            return { body: encoder.encode(privateKeyMarker).buffer };
+            return { body: keyObject.body.buffer, customMetadata: keyObject.customMetadata };
           }
           if (key.endsWith("stream.txt")) {
-            return { body: new Response("no warnings here").body };
+            return {
+              body: new Response(Uint8Array.from(streamObject.body)).body,
+              customMetadata: streamObject.customMetadata,
+            };
           }
-          return { body: new Uint8Array() };
+          return emptyObject;
         }),
       },
     });
 
     expect(warningInserts).toHaveLength(2);
+    const insertedCodes = warningInserts.map((params) => params[6]);
+    expect(insertedCodes).toEqual(expect.arrayContaining(["cloud_secret_identifier", "private_key_material"]));
     expect(auditInserts).toHaveLength(1);
     expect(JSON.parse(String(auditInserts[0]?.[7]))).toEqual(
       expect.objectContaining({
@@ -318,19 +407,21 @@ describe("handleSafetyScanBatch", () => {
           return { rows: [{ status: "published", artifact_status: "active" }] };
         }
         if (sql.includes("from artifact_files")) {
-          return { rows: [{ path: "aws.txt", r2_key: "objects/aws.txt", served_content_type: "text/plain" }] };
+          return { rows: [{ path: "aws.txt", r2_key: r2KeyFor("aws.txt"), served_content_type: "text/plain" }] };
         }
         return { rows: [] };
       }),
       tx.query,
     );
+    const storedObject = await encryptedRevisionFile("aws.txt", awsAccessKeyId);
 
     await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      ...artifactBytesEncryptionEnv,
       DB: db,
       ARTIFACTS: {
         list: vi.fn(),
         delete: vi.fn(),
-        get: vi.fn(async () => ({ body: encoder.encode(awsAccessKeyId) })),
+        get: vi.fn(async () => storedObject),
       },
     });
 
@@ -388,13 +479,14 @@ describe("handleSafetyScanBatch", () => {
         }
         if (sql.includes("from artifact_files")) {
           return {
-            rows: [{ path: "index.html", r2_key: "objects/index.html", served_content_type: "text/html" }],
+            rows: [{ path: "index.html", r2_key: r2KeyFor("index.html"), served_content_type: "text/html" }],
           };
         }
         return { rows: [] };
       }),
       tx.query,
     );
+    const storedObject = await encryptedRevisionFile("index.html", "<html>hello</html>");
 
     await handleSafetyScanBatch(
       [
@@ -409,6 +501,7 @@ describe("handleSafetyScanBatch", () => {
         },
       ],
       {
+        ...artifactBytesEncryptionEnv,
         DB: db,
         API_BASE_URL: "https://api.test",
         AGENT_VIEW_SIGNING_SECRET: agentViewSigningSecret,
@@ -418,7 +511,7 @@ describe("handleSafetyScanBatch", () => {
         ARTIFACTS: {
           list: vi.fn(),
           delete: vi.fn(),
-          get: async () => ({ body: encoder.encode("<html>hello</html>") }),
+          get: async () => storedObject,
         },
         AI: { run: async () => ({ response: { safe: true } }) },
       },

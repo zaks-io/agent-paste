@@ -15,6 +15,8 @@ export type BytePurgeQueueBinding = {
 };
 
 export type ArtifactInvalidationEnv = {
+  /** Resolves the env segment for env-scoped purge prefixes (bundle keys, ADR 0021). */
+  AGENT_PASTE_ENV?: string;
   DENYLIST?: DenylistBinding;
   BYTE_PURGE_QUEUE?: BytePurgeQueueBinding;
 };

@@ -26,8 +26,12 @@ export {
 
 export async function runQueueConsumer(batch: MessageBatch, env: Env): Promise<void> {
   if (!jobsEnabled(env)) {
+    // Kill switch must never ack: byte-purge enqueue already stamped
+    // bytes_purge_enqueued_at, so an acked message is invisible to the
+    // recovery sweep. A long disabled window exhausts retries into the DLQ,
+    // which is the operator triage path (docs/specs/jobs.md).
     for (const message of batch.messages) {
-      message.ack();
+      message.retry({ delaySeconds: 300 });
     }
     return;
   }
