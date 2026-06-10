@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints the share URL and a one-time **Claim Token**, and the link works at once. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints an **Access Link Signed URL** and a one-time **Claim Token**, and the link works at once. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. If `agent-paste whoami` succeeds, publish normally without
@@ -35,7 +35,7 @@ An unattended agent that self-provisions an **Ephemeral Workspace** and publishe
 A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to promote an **Ephemeral Workspace** into a claimed `free` **Workspace** they own as the first `admin`.
 
 **Unauthenticated Recipient**:
-Unchanged from [`mvp.md`](./mvp.md) - a human or agent with a share URL, viewing only until **Auto Deletion**.
+Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an **Access Link Signed URL**, viewing only until **Auto Deletion**.
 
 ## Surfaces
 
@@ -138,11 +138,11 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 ## Acceptance Criteria
 
 - A valid `provision` call returns a working **API Key** and a one-time **Claim Token**.
-- A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop and the share URL resolves.
+- A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop and the Access Link Signed URL resolves.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** promotes the tenant to claimed `free`, attaches the member as `admin`, raises the cap set, and is single-use thereafter.
-- A **Claim Token** that is redeemed, expired, or absent from the public share URL grants no ownership.
+- A **Claim Token** that is redeemed, expired, or absent from the public Access Link Signed URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
 - An ephemeral **Artifact** containing script renders inert: static markup and CSS display, and no `<script>`, inline handler, or `.js` asset executes, because the content-gateway token carries the script-disabled bit and `content` selects the script-disabled **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted tokens omit the bit and script executes.
 - Provision and claim emit **Audit Events**. A malicious Cloudflare URL Scanner

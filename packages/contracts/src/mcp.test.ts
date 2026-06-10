@@ -54,12 +54,41 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
+  it("describes publish sharing as the default Access Link Signed URL handoff", () => {
+    const listed = buildMcpToolList();
+    const publish = listed.tools.find((tool) => tool.name === "publish_artifact");
+    const addRevision = listed.tools.find((tool) => tool.name === "add_revision");
+    expect(publish?.description).toContain("create a Share Link by default");
+    expect(publish?.description).toContain("Access Link Signed URL minted from that Share Link");
+    expect(addRevision?.description).toContain("reuse an active Share Link by default");
+    expect(addRevision?.description).toContain("Access Link Signed URL minted from that Share Link");
+
+    const publishProperties = (publish?.inputSchema.properties ?? {}) as Record<string, { default?: unknown }>;
+    expect(publishProperties.share?.default).toBe(true);
+    expect(McpPublishArtifactInput.parse({ title: "Demo", body: "hello", render_mode: "text" }).share).toBe(true);
+    expect(
+      McpAddRevisionInput.parse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        body: "hello",
+        render_mode: "text",
+      }).share,
+    ).toBe(true);
+  });
+
   it("requires write and read for publish tools", () => {
     expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["write", "read"]);
     expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read"]);
   });
 
-  it("threads publish chains through upload, publish, and optional share-link routes", () => {
+  it("advertises Access Link failures on publish tools", () => {
+    for (const toolName of ["publish_artifact", "add_revision"] as const) {
+      const tool = mcpToolContractByName(toolName);
+      expect(tool.errors).toContain("forbidden");
+      expect(tool.errors).toContain("not_found");
+    }
+  });
+
+  it("threads publish chains through upload, publish, and optional Share Link routes", () => {
     const publish = mcpToolContractByName("publish_artifact");
     expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual([
       "uploadSessions.create",
@@ -69,11 +98,24 @@ describe("MCP tool registry", () => {
       "accessLinks.create",
       "accessLinks.mint",
     ]);
-    const requiredAccessLinkCalls = publish.forwardedCalls.filter((call) => !("optional" in call && call.optional));
-    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.create")).toHaveLength(0);
-    expect(requiredAccessLinkCalls.filter((call) => call.routeId === "accessLinks.mint")).toHaveLength(0);
+    const addRevision = mcpToolContractByName("add_revision");
+    expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual([
+      "uploadSessions.create",
+      "uploadSessions.putFile",
+      "uploadSessions.finalize",
+      "revisions.publish",
+      "accessLinks.list",
+      "accessLinks.create",
+      "accessLinks.mint",
+    ]);
+    const optionalAccessLinkCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls].filter((call) =>
+      call.routeId.startsWith("accessLinks."),
+    );
+    expect(optionalAccessLinkCalls.every((call) => "optional" in call && call.optional)).toBe(true);
     expect(
-      publish.forwardedCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url"),
+      [...publish.forwardedCalls, ...addRevision.forwardedCalls].every(
+        (call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url",
+      ),
     ).toBe(true);
   });
 

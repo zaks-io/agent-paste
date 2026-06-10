@@ -12,7 +12,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Published Artifacts are meant to be shared. Anyone with a valid Artifact URL or Access Link can read the files until the Artifact or link expires, is revoked, or is deleted. Treat everything you publish as readable by others.",
+          text: "Published Artifacts are meant to be shared through Access Links. Anyone with a valid Access Link can read the files until the Artifact or link expires, is revoked, or is deleted. Treat shared links as sensitive.",
         },
         {
           kind: "paragraph",

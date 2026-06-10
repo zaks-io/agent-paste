@@ -87,21 +87,24 @@ a retention flag.
 
 ### URL model
 
-The human-facing URL model has three distinct URL types:
+The URL model has three distinct URL types:
 
 ```text
 Artifact URL          https://app.agent-paste.sh/artifacts/{artifact_id}
-Share URL             https://app.agent-paste.sh/al/{publicId}#{blob}
+Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
 Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-An **Artifact URL** opens the live app-origin viewer for the latest Published
-Revision and is the default human URL agents should return. A **Share URL** is
-the separate public access-bearing link. A **Revision Content URL** is a signed
-Content Origin URL for one exact Revision; it expires and does not Live Update.
+An **Artifact URL** is authenticated Workspace management navigation. An
+**Access Link Signed URL** minted from a **Share Link** follows the latest
+Published Revision and is the primary live page agents should return to users. A
+**Revision Content URL** is a signed Content Origin URL for one exact Revision;
+it expires and does not Live Update.
 
-The CLI prints the Artifact URL first. JSON output carries `artifact_url`,
-`revision_content_url`, and `agent_view_url`.
+The current CLI prints the Artifact URL first and JSON output carries
+`artifact_url`, `revision_content_url`, and `agent_view_url`. First-class CLI
+`access_link_url` output is still a product gap; do not treat the current `artifact_url`
+or `revision_content_url` as the final public live handoff.
 
 ## Ephemeral publish fallback
 
@@ -189,7 +192,7 @@ With `--json`, stdout is exactly the publish result:
 }
 ```
 
-`artifact_url` is the app-origin live viewer for the Artifact.
+`artifact_url` is the authenticated Artifact detail URL for Workspace members.
 `revision_content_url` is served from the isolated content origin
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
 does not Live Update. `agent_view_url` is the Agent View JSON on the API origin.

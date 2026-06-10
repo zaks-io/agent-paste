@@ -3,8 +3,7 @@ import type { McpForwardedCall, McpToolContract } from "./types.js";
 
 const { publishChain: publishChainErrors, read: readErrors, shareLink: shareLinkErrors } = mcpToolErrorGroups;
 
-/** Shared upload → publish chain for `publish_artifact` and `add_revision`, with optional Share Link minting. */
-const publishChainForwardedCalls = [
+const publishChainBaseForwardedCalls = [
   {
     routeId: "uploadSessions.create",
     auth: "mcp_bearer",
@@ -24,6 +23,30 @@ const publishChainForwardedCalls = [
     auth: "mcp_bearer",
     idempotencyKey: "same_as_tool",
   },
+] as const satisfies readonly McpForwardedCall[];
+
+const publishArtifactForwardedCalls = [
+  ...publishChainBaseForwardedCalls,
+  {
+    routeId: "accessLinks.create",
+    auth: "mcp_bearer",
+    idempotencyKey: "derived_share_link",
+    optional: true,
+  },
+  {
+    routeId: "accessLinks.mint",
+    auth: "mcp_bearer",
+    optional: true,
+  },
+] as const satisfies readonly McpForwardedCall[];
+
+const addRevisionForwardedCalls = [
+  ...publishChainBaseForwardedCalls,
+  {
+    routeId: "accessLinks.list",
+    auth: "mcp_bearer",
+    optional: true,
+  },
   {
     routeId: "accessLinks.create",
     auth: "mcp_bearer",
@@ -41,25 +64,25 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only Artifact and return artifact_url as the stable live viewer. Optionally mint a Share Link when share is true.",
+      "Publish a new text-only Artifact and create a Share Link by default. Return access_link_url, the Access Link Signed URL minted from that Share Link, to the user as the primary live page. Use share:false only for internal flows that do not need a user-facing link; do not give artifact_url or revision_content_url as the final live page.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "publish_artifact",
     outputSchema: "publish_artifact",
-    forwardedCalls: publishChainForwardedCalls,
+    forwardedCalls: publishArtifactForwardedCalls,
     errors: publishChainErrors,
   },
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only Revision and return artifact_url as the stable live viewer. Optionally mint a Share Link when share is true.",
+      "Add and publish a text-only Revision and reuse an active Share Link by default, creating one only if none exists. Return access_link_url, the Access Link Signed URL minted from that Share Link, to the user as the primary live page. Use share:false only for internal flows that do not need a user-facing link; do not give artifact_url or revision_content_url as the final live page.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "add_revision",
     outputSchema: "add_revision",
-    forwardedCalls: publishChainForwardedCalls,
+    forwardedCalls: addRevisionForwardedCalls,
     errors: publishChainErrors,
   },
   {
@@ -144,7 +167,8 @@ export const mcpToolContracts = [
   },
   {
     name: "create_share_link",
-    description: "Create and mint a Share Link for the latest published revision.",
+    description:
+      "Create a Share Link and mint its Access Link Signed URL. This is the link to give users when they ask for the live page; it follows the latest Published Revision.",
     auth: "mcp_oauth",
     requiredScopes: ["read", "share"],
     idempotency: "derived",
@@ -165,7 +189,8 @@ export const mcpToolContracts = [
   },
   {
     name: "create_revision_link",
-    description: "Create and mint a Revision Link for a specific revision.",
+    description:
+      "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page.",
     auth: "mcp_oauth",
     requiredScopes: ["read", "share"],
     idempotency: "derived",

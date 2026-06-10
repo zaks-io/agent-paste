@@ -279,7 +279,6 @@ function commandEnv() {
   return { ...process.env, CI: "true" };
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: linear flag-parsing loop; each branch is a flat arg case and splitting it hides the parser. See docs/ops/complexity-todo.md.
 function parseArgs(argv) {
   const parsed = {
     dryRun: false,

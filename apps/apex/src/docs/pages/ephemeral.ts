@@ -64,7 +64,7 @@ export const EPHEMERAL_DOC: DocsPage = {
           items: [
             "The token is returned once to the caller that provisioned the Ephemeral Workspace.",
             "The claim link carries the token in the URL hash, never the query string.",
-            "The token is not embedded in Access Link Signed URLs or public share URLs.",
+            "The token is not embedded in Access Link Signed URLs.",
             "Expired, missing, or already redeemed tokens fail closed.",
           ],
         },

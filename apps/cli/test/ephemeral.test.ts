@@ -43,7 +43,7 @@ function mockStdout() {
 }
 
 describe("cli ephemeral publish", () => {
-  it("provisions, publishes, and prints share URL plus claim deep link in the hash", async () => {
+  it("provisions, publishes, and prints an Access Link Signed URL plus claim deep link in the hash", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");

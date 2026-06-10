@@ -97,10 +97,12 @@ Publish returns:
 }
 ```
 
-`artifact_url` is the stable app-origin Artifact viewer and the default human
-handoff URL. `revision_content_url` is a direct signed content URL for the exact
-Revision. The content token lives in the path. Fragment-based access links are a
-later phase.
+In the original CLI-first MVP, `artifact_url` was the browser handoff URL and
+fragment-based access links were a later phase. In the current hosted service,
+that is no longer the right user-facing guidance: the **Access Link Signed URL**
+minted from a **Share Link** is the primary live handoff, while `artifact_url` is
+authenticated workspace navigation and `revision_content_url` remains a direct
+signed content URL for the exact Revision. The content token lives in the path.
 
 `agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
 
@@ -241,6 +243,6 @@ The MVP is buildable when the API-key publish loop works end to end. Phase 3 mem
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
 - Publish returns `artifact_id`, `revision_id`, `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`.
-- `artifact_url` opens the stable Artifact viewer, and `revision_content_url` opens the exact Revision HTML from the content origin.
+- In the original MVP harness, `artifact_url` opens the Artifact viewer path and `revision_content_url` opens the exact Revision HTML from the content origin. In the current hosted product, the public live handoff is an Access Link Signed URL minted from a Share Link.
 - `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.

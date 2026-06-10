@@ -14,11 +14,11 @@ export const SHARING_DOC: DocsPage = {
           kind: "table",
           columns: ["Link", "Use"],
           rows: [
-            ["Private Link", "Authenticated dashboard viewer for Workspace members."],
-            ["Share Link", "Access Link for the latest Published Revision of an Artifact."],
-            ["Revision Link", "Access Link pinned to one specific Revision."],
-            ["Artifact URL", "App-origin live viewer for the latest Published Revision of an Artifact."],
-            ["Share URL", "Public access-bearing URL for an Artifact viewer."],
+            ["Access Link", "Revocable grant family for unauthenticated read access."],
+            ["Share Link", "Access Link type that follows the latest Published Revision."],
+            ["Revision Link", "Snapshot Access Link pinned to one specific Revision."],
+            ["Artifact URL", "Authenticated Artifact detail URL for Workspace management."],
+            ["Access Link Signed URL", "URL minted from an Access Link. Return the one from a Share Link to humans."],
             [
               "Revision Content URL",
               "Direct signed `usercontent.agent-paste.sh/v/...` content URL for one specific Revision.",
@@ -34,7 +34,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Access Link URLs are shaped like `https://app.agent-paste.sh/al/{publicId}#{blob}`. The signature payload lives in the URL fragment so it is not sent to servers in normal HTTP requests.",
+          text: "Access Link Signed URLs are shaped like `https://app.agent-paste.sh/al/{publicId}#{blob}`. The signature payload lives in the URL fragment so it is not sent to servers in normal HTTP requests.",
         },
         {
           kind: "paragraph",
@@ -42,7 +42,7 @@ export const SHARING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use Artifact URLs for stable human handoff. Use Share URLs when the same viewer needs public access. Use Revision Links or Revision Content URLs only when the reader must see one exact Revision.",
+          text: "Use Access Link Signed URLs minted from Share Links for stable human handoff. They open the Artifact Viewer and follow later publishes. Use Revision Links or Revision Content URLs only when the reader must see one exact Revision. Do not send an Artifact URL as the final live page.",
         },
       ],
     },
@@ -73,7 +73,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A human opens the Access Link in a browser. An agent should prefer Agent View when it needs file trees, metadata, or signed per-file URLs.",
+          text: "A human opens the Access Link Signed URL in a browser. An agent should return `access_link_url` for a live page, and use Agent View when it needs file trees, metadata, or signed per-file URLs.",
         },
       ],
     },

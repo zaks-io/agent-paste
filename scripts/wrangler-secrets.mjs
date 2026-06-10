@@ -25,7 +25,7 @@ export async function listWorkerSecrets(worker, runImpl = run) {
   if (result.code !== 0) {
     const detail = (result.stderr || result.stdout).trim();
     throw new Error(
-      `Failed to list Worker secrets for ${worker} (wrangler exited ${result.code}).` + (detail ? ` ${detail}` : ""),
+      `Failed to list Worker secrets for ${worker} (wrangler exited ${result.code}).${detail ? ` ${detail}` : ""}`,
     );
   }
   try {

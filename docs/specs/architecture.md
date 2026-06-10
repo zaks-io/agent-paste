@@ -127,15 +127,15 @@ Key invariants:
 
 ## Read And Share Flow
 
-Human handoff starts at the app origin. An Artifact URL opens the live viewer
-for an Artifact and resolves to the latest Published Revision. Public sharing
-adds a Share URL with an Access Link credential. Direct signed content URLs are
-delivery URLs for one exact Revision.
+Human handoff starts with the Access Link Signed URL minted from a Share Link.
+It opens the Artifact Viewer for the latest Published Revision.
+Direct signed content URLs are delivery URLs for one exact Revision. The Artifact
+URL is authenticated workspace management navigation, not the recipient handoff.
 
 ```mermaid
 flowchart TD
   link["Access Link Signed URL<br/>/al/{publicId}#{blob}"]
-  viewer["web Access Link viewer<br/>reads fragment in browser"]
+  viewer["Artifact Viewer<br/>reads fragment in browser"]
   resolve["api<br/>POST /v1/access-links/resolve"]
   manifest["resolved Artifact view<br/>manifest plus content URLs"]
   content["content<br/>/v/{token}/{path}"]
@@ -154,7 +154,7 @@ Access Link rules:
 
 - The shareable credential lives in the URL fragment, not in the path or query
   string.
-- A Share URL grants public access to an Artifact viewer.
+- An Access Link Signed URL minted from a Share Link grants public access to the Artifact Viewer.
 - A Share Link resolves to the latest Published Revision and can Live Update
   through that viewer.
 - A Revision Link resolves to exactly one Revision and does not Live Update.
@@ -177,8 +177,8 @@ Content Origin rules:
 
 ## Live Updates
 
-Live Updates let already-open Artifact URL, Private Link, or Share Link viewers
-advance to the latest Published Revision after a publish.
+Live Updates let already-open Artifact Viewers for Share Links or authenticated
+Private Links advance to the latest Published Revision after a publish.
 
 Direct signed content URLs and Revision Links are intentionally pinned to one
 Revision. Updating an Artifact with `--artifact-id` does not change what an

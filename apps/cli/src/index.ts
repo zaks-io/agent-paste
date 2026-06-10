@@ -448,7 +448,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
     result.revision_content_url.includes(claimToken) ||
     result.agent_view_url.includes(claimToken)
   ) {
-    throw new Error("Claim Token must not appear in public share URLs");
+    throw new Error("Claim Token must not appear in public Access Link Signed URLs");
   }
 }
 

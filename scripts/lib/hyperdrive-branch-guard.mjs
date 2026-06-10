@@ -159,7 +159,6 @@ export async function assertMigrationBranchMatchesHyperdrive({
 /**
  * @param {string} text
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: char-by-char JSON-comment-stripping state machine; the branches are the states and splitting them obscures the scanner. See docs/ops/complexity-todo.md.
 function stripJsonComments(text) {
   let out = "";
   let inString = false;
