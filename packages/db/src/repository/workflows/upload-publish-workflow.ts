@@ -51,14 +51,28 @@ export async function createUploadSession(
 export async function recordUploadedFile(
   ctx: RepositoryCoreContext,
   input: {
+    workspaceId?: string;
     sessionId: string;
     path: string;
     objectKey?: string;
     sizeBytes?: number;
+    sha256?: string;
     uploadedAt: string;
   },
 ) {
-  await ctx.uow.read(PLATFORM_SCOPE, (entities) => entities.uploadSessionFiles.recordUpload(input));
+  await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
+    if (input.workspaceId && input.sha256 && input.objectKey && typeof input.sizeBytes === "number") {
+      await entities.contentBlobs.upsert({
+        workspace_id: input.workspaceId,
+        sha256: input.sha256,
+        size_bytes: input.sizeBytes,
+        r2_key: input.objectKey,
+        created_at: input.uploadedAt,
+        updated_at: input.uploadedAt,
+      });
+    }
+    await entities.uploadSessionFiles.recordUpload(input);
+  });
 }
 
 export async function getUploadSession(ctx: RepositoryCoreContext, input: { actor: ApiActor; sessionId: string }) {
@@ -197,6 +211,23 @@ async function validateDraftForPublish(
   return revisionNumber;
 }
 
+async function publishFileObjectKeys(
+  entities: Entities,
+  artifact: Artifact,
+  revision: Revision,
+): Promise<{ entrypoint_object_key?: string; file_object_keys?: Record<string, string> }> {
+  const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
+  const fileObjectKeys: Record<string, string> = {};
+  for (const file of revisionFiles) {
+    fileObjectKeys[file.path] = file.r2_key;
+  }
+  const entrypointObjectKey = fileObjectKeys[revision.entrypoint];
+  return {
+    ...(entrypointObjectKey ? { entrypoint_object_key: entrypointObjectKey } : {}),
+    ...(Object.keys(fileObjectKeys).length > 0 ? { file_object_keys: fileObjectKeys } : {}),
+  };
+}
+
 async function executePublishWrites(
   entities: Entities,
   input: PublishRevisionInput & {
@@ -283,12 +314,16 @@ export async function publishRevision(
       const { workspace, artifact, revision } = await loadActivePublishTargets(entities, ctx, publishInput);
       const publishState = ensureRevisionPublishable(revision);
       if (publishState === "published") {
+        const publishMeta = {
+          ephemeral_tier: isEphemeralWorkspace(workspace),
+          ...(await publishFileObjectKeys(entities, artifact, revision)),
+        };
         return buildPublishResult(
           { ...artifact, revision_id: revision.id, entrypoint: revision.entrypoint },
           revision,
           undefined,
           ctx.options,
-          { ephemeral_tier: isEphemeralWorkspace(workspace) },
+          publishMeta,
         );
       }
       const policy = ctx.usagePolicyFor(workspace);
@@ -309,6 +344,7 @@ export async function publishRevision(
       });
       return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
         ephemeral_tier: isEphemeralWorkspace(workspace),
+        ...(await publishFileObjectKeys(entities, updatedArtifact, publishedRevision)),
       });
     },
   );

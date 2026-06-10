@@ -1,4 +1,4 @@
-import { encryptArtifactBytes } from "@agent-paste/storage";
+import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { describe, expect, it, vi } from "vitest";
 import * as generateZip from "../bundle/generate-zip.js";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
@@ -24,6 +24,20 @@ async function encryptedRevisionFile(input: {
       artifactId: input.artifactId,
       revisionId: input.revisionId,
       normalizedPath: input.path,
+    },
+  });
+  return { body: encrypted.ciphertext, customMetadata: encrypted.customMetadata };
+}
+
+async function encryptedBlobFile(input: { workspaceId: string; sha256: string; plaintext: string }) {
+  const encrypted = await encryptArtifactBytes({
+    plaintext: new TextEncoder().encode(input.plaintext),
+    rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+    kid: 1,
+    context: {
+      kind: "blob",
+      workspaceId: input.workspaceId,
+      sha256: input.sha256,
     },
   });
   return { body: encrypted.ciphertext, customMetadata: encrypted.customMetadata };
@@ -278,6 +292,57 @@ describe("handleBundleGenerateBatch integration", () => {
       }),
     );
     expect(ack).toHaveBeenCalled();
+  });
+
+  it("builds bundles from shared workspace blob files", async () => {
+    const ack = vi.fn();
+    const put = vi.fn(async () => {});
+    const sha256 = "a".repeat(64);
+    const blobKey = workspaceBlobObjectKeyFor({ workspaceId, sha256 });
+    const buildZip = vi.spyOn(generateZip, "buildRevisionZip").mockReturnValue(new Uint8Array([1, 2, 3]));
+    try {
+      await handleBundleGenerateBatch(
+        [
+          {
+            body: {
+              type: "bundle.generate.v1",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              requested_at: "2026-05-20T00:00:00.000Z",
+              reason: "publish",
+            },
+            ack,
+            retry: vi.fn(),
+          },
+        ],
+        {
+          ...artifactBytesEncryptionEnv,
+          AGENT_PASTE_ENV: "dev",
+          DB: makeDb({
+            revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
+            files: [{ path: "index.html", r2_key: blobKey }],
+          }),
+          ARTIFACTS: {
+            list: vi.fn(),
+            delete: vi.fn(),
+            get: vi.fn(async (key: string) => {
+              expect(key).toBe(blobKey);
+              return encryptedBlobFile({ workspaceId, sha256, plaintext: "<html>blob</html>" });
+            }),
+            put,
+          },
+        },
+      );
+
+      expect(buildZip).toHaveBeenCalledWith([
+        { path: "index.html", bytes: new TextEncoder().encode("<html>blob</html>") },
+      ]);
+      expect(put).toHaveBeenCalled();
+      expect(ack).toHaveBeenCalled();
+    } finally {
+      buildZip.mockRestore();
+    }
   });
 
   it("acks when the revision row is missing", async () => {

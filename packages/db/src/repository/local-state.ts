@@ -3,6 +3,7 @@ import type {
   ApiKey,
   Artifact,
   ClaimToken,
+  ContentBlob,
   OperationEvent,
   PlatformLockdown,
   Revision,
@@ -29,6 +30,7 @@ export type LocalState = {
   accessLinks: Map<string, AccessLink>;
   safetyWarnings: Map<string, SafetyWarning>;
   claimTokens: Map<string, ClaimToken>;
+  contentBlobs: Map<string, ContentBlob>;
 };
 
 export function createLocalState(): LocalState {
@@ -46,5 +48,6 @@ export function createLocalState(): LocalState {
     accessLinks: new Map(),
     safetyWarnings: new Map(),
     claimTokens: new Map(),
+    contentBlobs: new Map(),
   };
 }

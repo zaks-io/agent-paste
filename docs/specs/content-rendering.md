@@ -115,6 +115,27 @@ MVP has no platform renderer pages. The primary supported entrypoint is HTML:
 
 Markdown and text files may be included as downloadable files. Dedicated Markdown/text renderers are future work.
 
+## Storage Keys And Encryption
+
+Content tokens may carry an internal `object_key` for a single blob-backed file
+URL or an internal `object_keys` map for a revision URL whose relative assets must
+load from the same signed token. Public Agent View and `PublishResult` payloads
+must not expose those fields; the API strips them after signing the content URL.
+The content Worker accepts signed internal object keys only when the requested
+path is listed in the token and the key is either the legacy revision object for
+`(artifact_id, revision_id, path)` or a workspace blob key whose workspace
+matches `workspace_id`. A single `object_key` token is valid for one listed path;
+multi-path tokens use `object_keys` so each path resolves to its own stored
+object.
+
+Legacy revision files and bundles keep artifact-byte encryption AAD v1:
+`workspace_id`, `artifact_id`, `revision_id`, and path. Workspace shared blobs use
+AAD v2 bound to `workspace_id` and `sha256`, so the same encrypted blob can be
+referenced by multiple Artifacts/Revisions in the workspace without binding
+decryption to one Artifact path. The content Worker has no database binding; it
+serves whatever object key is carried by the signed token after the allowlist
+checks above.
+
 ## Caching
 
 Reloads of an unchanged artifact must not re-download bytes. Because a content

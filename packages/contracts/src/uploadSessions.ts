@@ -13,9 +13,13 @@ import {
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
+export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/u);
+export type Sha256Hex = z.infer<typeof Sha256Hex>;
+
 export const UploadSessionFileInput = z.object({
   path: FilePath,
   size_bytes: z.number().int().nonnegative().max(Mebibytes.twentyFive),
+  sha256: Sha256Hex.optional(),
 });
 export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
@@ -32,12 +36,22 @@ export const CreateUploadSessionRequest = z.object({
 });
 export type CreateUploadSessionRequest = z.infer<typeof CreateUploadSessionRequest>;
 
-export const SignedUploadTarget = z.object({
+export const UploadRequiredTarget = z.object({
+  status: z.literal("upload_required"),
   path: FilePath,
   put_url: UrlString,
   required_headers: z.record(z.string(), z.string()),
   expires_at: IsoDateTime,
 });
+export type UploadRequiredTarget = z.infer<typeof UploadRequiredTarget>;
+
+export const ReusedUploadTarget = z.object({
+  status: z.literal("reused"),
+  path: FilePath,
+});
+export type ReusedUploadTarget = z.infer<typeof ReusedUploadTarget>;
+
+export const SignedUploadTarget = z.discriminatedUnion("status", [UploadRequiredTarget, ReusedUploadTarget]);
 export type SignedUploadTarget = z.infer<typeof SignedUploadTarget>;
 
 export const CreateUploadSessionResponse = z.object({

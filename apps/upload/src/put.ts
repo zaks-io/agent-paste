@@ -5,6 +5,7 @@ import {
   bytesFromReadableBodyCapped,
   encryptArtifactBytes,
   parseRevisionFileObjectKey,
+  parseWorkspaceBlobObjectKey,
   ReadableBodyTooLargeError,
 } from "@agent-paste/storage";
 import type { SignedUploadPayload } from "@agent-paste/tokens/upload-url";
@@ -86,8 +87,16 @@ export async function putUploadFile(
   if (!encryptionRing) {
     return getBoundResponders(context).respondError("storage_unavailable");
   }
-  const keyParts = parseRevisionFileObjectKey(payload.key);
-  if (!keyParts || keyParts.path !== payload.path) {
+  const blobKeyParts = payload.sha256 ? parseWorkspaceBlobObjectKey(payload.key) : null;
+  const revisionKeyParts = payload.sha256 ? null : parseRevisionFileObjectKey(payload.key);
+  if (payload.sha256) {
+    if (!blobKeyParts || blobKeyParts.workspaceId !== payload.wid || blobKeyParts.sha256 !== payload.sha256) {
+      return getBoundResponders(context).respondError(
+        "invalid_request",
+        "upload object key does not match signed path",
+      );
+    }
+  } else if (!revisionKeyParts || revisionKeyParts.path !== payload.path) {
     return getBoundResponders(context).respondError("invalid_request", "upload object key does not match signed path");
   }
 
@@ -112,16 +121,24 @@ export async function putUploadFile(
   if (plaintext.byteLength !== payload.size) {
     return getBoundResponders(context).respondError("invalid_content_length", "upload body does not match signed size");
   }
+  const observedSha256 = await sha256Hex(plaintext);
+  if (payload.sha256 && observedSha256 !== payload.sha256) {
+    return getBoundResponders(context).respondError("invalid_request", "upload body does not match signed sha256");
+  }
+  const encryptionContext =
+    payload.sha256 && blobKeyParts
+      ? { kind: "blob" as const, workspaceId: payload.wid, sha256: payload.sha256 }
+      : {
+          workspaceId: payload.wid,
+          artifactId: revisionKeyParts?.artifactId ?? "",
+          revisionId: revisionKeyParts?.revisionId ?? "",
+          normalizedPath: revisionKeyParts?.path ?? "",
+        };
   const encrypted = await encryptArtifactBytes({
     plaintext,
     rootSecret: encryptionRing.signingSecret(),
     kid: encryptionRing.signingKid,
-    context: {
-      workspaceId: payload.wid,
-      artifactId: keyParts.artifactId,
-      revisionId: keyParts.revisionId,
-      normalizedPath: keyParts.path,
-    },
+    context: encryptionContext,
   });
   // TOCTOU guard: the body read above can stall long enough for finalize to
   // complete, and a write past that point would mutate already-published bytes
@@ -136,12 +153,21 @@ export async function putUploadFile(
   });
 
   await db.recordUploadedFile({
+    workspaceId: payload.wid,
     sessionId: payload.sid,
     path: payload.path,
     objectKey: payload.key,
     sizeBytes: payload.size,
+    ...(payload.sha256 ? { sha256: payload.sha256 } : {}),
     uploadedAt: new Date().toISOString(),
   });
 
   return new Response(null, { status: 204, headers: { [REQUEST_ID_HEADER]: getRequestId(context) } });
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const source = new Uint8Array(bytes.byteLength);
+  source.set(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", source));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

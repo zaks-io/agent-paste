@@ -1,6 +1,7 @@
 import type { SqlQueryResult, SqlValue } from "../types.js";
 import { handleArtifactFilesSelect } from "./artifact-files.js";
 import { handleArtifactInspect, handleArtifactPurgeRecovery } from "./artifacts.js";
+import { handleContentBlobGc } from "./content-blobs.js";
 import {
   handleIdempotencyInsert,
   handleIdempotencySelectForUpdate,
@@ -36,6 +37,7 @@ const statementHandlers: readonly StatementHandler[] = [
   handleRevisionBundleStatusUpdate,
   handleArtifactInspect,
   handleArtifactPurgeRecovery,
+  handleContentBlobGc,
 ];
 
 export function dispatchLocalMvpSqlQuery<Row = Record<string, unknown>>(

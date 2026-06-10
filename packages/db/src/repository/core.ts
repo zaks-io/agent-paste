@@ -198,10 +198,12 @@ export class RepositoryCore implements Repository {
   }
 
   async recordUploadedFile(input: {
+    workspaceId?: string;
     sessionId: string;
     path: string;
     objectKey?: string;
     sizeBytes?: number;
+    sha256?: string;
     uploadedAt: string;
   }) {
     return uploadPublishWorkflow.recordUploadedFile(this.ctx, input);

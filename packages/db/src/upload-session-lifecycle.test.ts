@@ -42,6 +42,7 @@ describe("upload-session-lifecycle worker orchestration", () => {
       expires_at: "2026-06-01T00:00:00.000Z",
       files: [
         {
+          status: "upload_required",
           path: "index.html",
           put_url: "https://upload.example/put/index.html",
           required_headers: { "content-length": "128" },

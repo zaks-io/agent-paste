@@ -88,18 +88,44 @@ Unpinning re-arms the stored `expires_at` as-is.
 
 ### `artifact_files`
 
-| Column                | Type                                      | Notes                                      |
-| --------------------- | ----------------------------------------- | ------------------------------------------ |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                            |
-| `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`  |                                            |
-| `revision_id`         | `TEXT NOT NULL`                           | Denormalized from `artifacts.revision_id`. |
-| `path`                | `TEXT NOT NULL`                           | Normalized POSIX path.                     |
-| `size_bytes`          | `BIGINT NOT NULL`                         |                                            |
-| `served_content_type` | `TEXT NOT NULL`                           | Derived from extension.                    |
-| `r2_key`              | `TEXT NOT NULL`                           | Opaque/id-based key.                       |
-| `uploaded_at`         | `TIMESTAMPTZ NOT NULL`                    |                                            |
+| Column                | Type                                      | Notes                                       |
+| --------------------- | ----------------------------------------- | ------------------------------------------- |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                             |
+| `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`  |                                             |
+| `revision_id`         | `TEXT NOT NULL`                           | Denormalized from `artifacts.revision_id`.  |
+| `path`                | `TEXT NOT NULL`                           | Normalized POSIX path.                      |
+| `size_bytes`          | `BIGINT NOT NULL`                         |                                             |
+| `served_content_type` | `TEXT NOT NULL`                           | Derived from extension.                     |
+| `r2_key`              | `TEXT NOT NULL`                           | Opaque/id-based key.                        |
+| `sha256`              | `TEXT NULL`                               | Lowercase hex digest for blob-backed files. |
+| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`        | `revision` or `blob`.                       |
+| `uploaded_at`         | `TIMESTAMPTZ NOT NULL`                    |                                             |
 
 Primary key `(artifact_id, path)`. Unique normalized paths per artifact.
+For `storage_kind = 'revision'`, `r2_key` points at the legacy
+`artifacts/{artifactId}/revisions/{revisionId}/files/{path}` object. For
+`storage_kind = 'blob'`, `r2_key` points at a workspace shared blob object under
+`workspaces/{workspaceId}/blobs/sha256/{prefix}/{sha256}`.
+
+### `content_blobs`
+
+| Column         | Type                                      | Notes                                                   |
+| -------------- | ----------------------------------------- | ------------------------------------------------------- |
+| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | Deduplication scope.                                    |
+| `sha256`       | `TEXT NOT NULL`                           | Lowercase hex SHA-256.                                  |
+| `size_bytes`   | `BIGINT NOT NULL`                         | Plaintext file size.                                    |
+| `r2_key`       | `TEXT NOT NULL UNIQUE`                    | Shared blob object key.                                 |
+| `created_at`   | `TIMESTAMPTZ NOT NULL`                    | First verified upload time.                             |
+| `updated_at`   | `TIMESTAMPTZ NOT NULL`                    | Last successful upsert for the verified blob reference. |
+
+Primary key `(workspace_id, sha256, size_bytes)`. Identical bytes dedupe only
+inside the owning Workspace. v1 does not backfill historical revision-key
+objects; rows are created only after a hash-aware upload PUT verifies the
+plaintext digest. Jobs-owned blob GC deletes unreferenced `content_blobs` rows
+after active Artifact and live pending upload-session checks. In v1 it does not
+delete the deterministic shared R2 object key, so a concurrent verified upload
+cannot be de-indexed and then have its newly written bytes removed by a delayed
+GC delete.
 
 ### `safety_warnings`
 
@@ -153,10 +179,15 @@ exposing scanner internals.
 | `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                                                                                                                                                            |
 | `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.                                                                                                                                        |
 | `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                                                                                                                                                |
-| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT.                                                                                                                                                 |
+| `sha256`              | `TEXT NULL`                                    | Lowercase hex digest when supplied by client.                                                                                                                             |
+| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`             | `revision` or `blob`.                                                                                                                                                     |
+| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT or existing blob reuse.                                                                                                                          |
 | `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Upper bound for PUT writes (session expiry). The actual signed PUT-URL token expiry is minted by the upload worker at response time and returned as `files[].expires_at`. |
 
 Primary key `(upload_session_id, path)`.
+Hash-aware files use `storage_kind = 'blob'` and share a `r2_key` for identical
+`(workspace_id, sha256, size_bytes)` files. Same-session duplicate hashes mark
+all matching paths uploaded when the one required PUT succeeds.
 
 ### `operation_events`
 
@@ -234,9 +265,13 @@ KV values do not contain token material.
 - `artifacts(workspace_id, expires_at) WHERE status = 'active'`
 - `artifacts(revision_id) UNIQUE`
 - `artifact_files(artifact_id, path) UNIQUE`
+- `artifact_files(workspace_id, sha256, size_bytes)`
 - `safety_warnings(workspace_id, revision_id)`
 - `safety_warnings(workspace_id, revision_id, scanner_id)`
 - `upload_sessions(workspace_id, expires_at) WHERE status = 'pending'`
 - `upload_session_files(upload_session_id, path) UNIQUE`
+- `upload_session_files(workspace_id, sha256, size_bytes)`
+- `content_blobs(workspace_id, sha256, size_bytes) PRIMARY KEY`
+- `content_blobs(r2_key) UNIQUE`
 - `operation_events(workspace_id, occurred_at DESC)`
 - `idempotency_records(created_at)` for garbage collection

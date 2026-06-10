@@ -1,3 +1,4 @@
+import { ARTIFACT_BYTES_BLOB_AAD_VERSION, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { mintUploadToken } from "@agent-paste/tokens/upload-url";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest } from "./index.js";
@@ -6,14 +7,18 @@ import { type UploadDbStubOptions, uploadDbStub } from "./upload-db-test-stub.js
 const OBJECT_KEY = "artifacts/art_1/revisions/rev_1/files/index.html";
 const WORKSPACE_ID = "00000000-0000-4000-8000-000000000001";
 const SIGNED_SIZE = 5;
+const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
-function putEnv(options: { db?: Env["DB"] | null; onPut?: () => void }): Env {
+function putEnv(options: {
+  db?: Env["DB"] | null;
+  onPut?: (input: { key: string; metadata?: Record<string, string> }) => void;
+}): Env {
   const env: Env = {
     UPLOAD_SIGNING_SECRET: "secret",
     ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
     ARTIFACTS: {
-      async put() {
-        options.onPut?.();
+      async put(key, _value, putOptions) {
+        options.onPut?.({ key, metadata: putOptions?.customMetadata });
       },
       async head() {
         return null;
@@ -48,6 +53,35 @@ async function putWithBody(input: {
   );
   return handleRequest(
     new Request(`https://upload.test/v1/upload-sessions/upl_1/files/${path}?token=${encodeURIComponent(token)}`, {
+      method: "PUT",
+      headers: { "content-length": input.contentLength, "content-type": "text/html" },
+      body: input.body,
+    }),
+    input.env,
+  );
+}
+
+async function putBlobWithBody(input: {
+  body: string;
+  contentLength: string;
+  env: Env;
+  sha256?: string;
+}): Promise<Response> {
+  const sha256 = input.sha256 ?? HELLO_SHA256;
+  const token = await mintUploadToken(
+    {
+      sid: "upl_1",
+      wid: WORKSPACE_ID,
+      path: "index.html",
+      key: workspaceBlobObjectKeyFor({ workspaceId: WORKSPACE_ID, sha256 }),
+      size: SIGNED_SIZE,
+      sha256,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    },
+    "secret",
+  );
+  return handleRequest(
+    new Request(`https://upload.test/v1/upload-sessions/upl_1/files/index.html?token=${encodeURIComponent(token)}`, {
       method: "PUT",
       headers: { "content-length": input.contentLength, "content-type": "text/html" },
       body: input.body,
@@ -145,6 +179,54 @@ describe("upload put body-size hardening", () => {
     );
     // The framework error handler turns it into a 500, NOT a masked 400 content-length fault.
     await expectError(response, 500, "internal_error");
+  });
+});
+
+describe("upload put sha256 dedupe enforcement", () => {
+  it("rejects a blob PUT whose plaintext hash does not match the signed digest", async () => {
+    let putCalled = false;
+    let recordCalled = false;
+    const response = await putBlobWithBody({
+      body: "hello",
+      contentLength: String(SIGNED_SIZE),
+      sha256: "b".repeat(64),
+      env: putEnv({
+        db: uploadDbStub({ status: "pending", onRecord: () => (recordCalled = true) }),
+        onPut: () => (putCalled = true),
+      }),
+    });
+
+    await expectError(response, 400, "invalid_request");
+    expect(putCalled).toBe(false);
+    expect(recordCalled).toBe(false);
+  });
+
+  it("stores blob uploads with v2 AAD metadata and records the verified digest", async () => {
+    let putInput: { key: string; metadata?: Record<string, string> } | undefined;
+    let recordInput: Parameters<NonNullable<UploadDbStubOptions["onRecord"]>>[0] | undefined;
+    const response = await putBlobWithBody({
+      body: "hello",
+      contentLength: String(SIGNED_SIZE),
+      env: putEnv({
+        db: uploadDbStub({ status: "pending", onRecord: (input) => (recordInput = input) }),
+        onPut: (input) => (putInput = input),
+      }),
+    });
+
+    expect(response.status).toBe(204);
+    const expectedKey = workspaceBlobObjectKeyFor({ workspaceId: WORKSPACE_ID, sha256: HELLO_SHA256 });
+    expect(putInput).toMatchObject({
+      key: expectedKey,
+      metadata: expect.objectContaining({ enc_aad_v: ARTIFACT_BYTES_BLOB_AAD_VERSION }),
+    });
+    expect(recordInput).toMatchObject({
+      workspaceId: WORKSPACE_ID,
+      sessionId: "upl_1",
+      path: "index.html",
+      objectKey: expectedKey,
+      sizeBytes: SIGNED_SIZE,
+      sha256: HELLO_SHA256,
+    });
   });
 });
 

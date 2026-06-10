@@ -10,8 +10,19 @@ export function localUploadSessionFiles(state: LocalState): Entities["uploadSess
       return [...state.uploadSessionFiles.values()].filter((file) => file.upload_session_id === sessionId);
     },
     async recordUpload(input) {
-      const file = state.uploadSessionFiles.get(`${input.sessionId}:${input.path}`);
-      if (file) {
+      for (const file of state.uploadSessionFiles.values()) {
+        if (file.upload_session_id !== input.sessionId) {
+          continue;
+        }
+        if (input.sha256 ? file.sha256 !== input.sha256 : file.path !== input.path) {
+          continue;
+        }
+        if (input.objectKey && file.r2_key !== input.objectKey) {
+          continue;
+        }
+        if (typeof input.sizeBytes === "number" && file.size_bytes !== input.sizeBytes) {
+          continue;
+        }
         file.uploaded_at = input.uploadedAt;
       }
     },

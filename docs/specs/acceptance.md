@@ -27,12 +27,12 @@ Revision. It is not a Share URL or Live Update viewer.
 
 ## Upload
 
-| Scenario               | Expected Result                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| Create upload session  | Returns reserved `artifact_id`, `revision_id`, and per-file upload-worker PUT URLs. |
-| PUT all files          | Upload Worker writes private R2 objects and never exposes R2 URLs.                  |
-| Finalize missing file  | Finalize fails and no active Artifact is created.                                   |
-| Expired upload session | Cleanup marks the session expired and deletes partial R2 bytes.                     |
+| Scenario               | Expected Result                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Create upload session  | Returns reserved `artifact_id`, `revision_id`, and per-file `upload_required` or `reused` targets.                           |
+| PUT needed files       | Upload Worker writes private R2 objects for `upload_required` files and never exposes R2 URLs.                               |
+| Finalize missing file  | Finalize fails and no active Artifact is created.                                                                            |
+| Expired upload session | Cleanup marks the session expired and deletes partial legacy revision-key R2 bytes; shared blob keys are not session-purged. |
 
 ## Reading
 

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNotNull, lt, or, type SQL, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { artifactFiles, artifacts } from "../schema.js";
-import type { Artifact, StoredFile } from "../types.js";
+import type { Artifact, StoredFile, StoredFileStorageKind } from "../types.js";
 
 export const artifactQueries = {
   async insert(db: DrizzleDb, row: Artifact) {
@@ -233,6 +233,8 @@ export const artifactFileQueries = {
       sizeBytes: file.size_bytes,
       servedContentType: file.content_type,
       r2Key: file.r2_key,
+      sha256: file.sha256 ?? null,
+      storageKind: file.storage_kind ?? "revision",
       uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
     });
   },
@@ -277,6 +279,8 @@ function mapArtifactFile(row: typeof artifactFiles.$inferSelect): StoredFile {
     size_bytes: Number(row.sizeBytes),
     content_type: row.servedContentType,
     r2_key: row.r2Key,
+    sha256: row.sha256,
+    storage_kind: (row.storageKind ?? "revision") as StoredFileStorageKind,
     uploaded_at: row.uploadedAt.toISOString(),
   };
 }

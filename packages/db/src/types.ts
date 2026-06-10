@@ -210,6 +210,17 @@ export type UploadSession = {
   finalized_at: string | null;
 };
 
+export type ContentBlob = {
+  workspace_id: string;
+  sha256: string;
+  size_bytes: number;
+  r2_key: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StoredFileStorageKind = "revision" | "blob";
+
 export type StoredFile = {
   workspace_id: string;
   artifact_id?: string;
@@ -219,6 +230,8 @@ export type StoredFile = {
   size_bytes: number;
   content_type: string;
   r2_key: string;
+  sha256?: string | null;
+  storage_kind?: StoredFileStorageKind;
   uploaded_at: string | null;
   put_url_expires_at?: string;
 };

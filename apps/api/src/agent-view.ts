@@ -20,7 +20,7 @@ type AgentViewRecord = {
   revision_content_url?: unknown;
   ephemeral_tier?: unknown;
   bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
-  files?: Array<{ path?: unknown; url?: unknown } & Record<string, unknown>>;
+  files?: Array<{ path?: unknown; url?: unknown; object_key?: unknown } & Record<string, unknown>>;
 };
 
 type ContentSigningAuth = {
@@ -87,9 +87,12 @@ async function signAgentViewFileEntries(
       if (typeof file.path !== "string") {
         return file;
       }
+      const { object_key: _internalObjectKey, ...publicFile } = file;
       return {
-        ...file,
-        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth),
+        ...publicFile,
+        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
+          ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
+        }),
       };
     }),
   );
@@ -128,9 +131,23 @@ async function resolveRevisionContentUrl(
   if (contentPath) {
     return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
       paths: revisionFilePaths(contentPath, files),
+      ...revisionFileObjectKeys(files),
     });
   }
   return undefined;
+}
+
+function revisionFileObjectKeys(files: AgentViewRecord["files"]): { objectKeys?: Record<string, string> } {
+  if (!Array.isArray(files)) {
+    return {};
+  }
+  const objectKeys: Record<string, string> = {};
+  for (const file of files) {
+    if (typeof file.path === "string" && typeof file.object_key === "string") {
+      objectKeys[file.path] = file.object_key;
+    }
+  }
+  return Object.keys(objectKeys).length > 0 ? { objectKeys } : {};
 }
 
 function revisionFilePaths(entrypoint: string, files: AgentViewRecord["files"]): string[] {
@@ -213,6 +230,8 @@ export async function signPublishResult(
     artifact_url?: unknown;
     revision_content_url?: unknown;
     agent_view_url?: unknown;
+    entrypoint_object_key?: unknown;
+    file_object_keys?: unknown;
     expires_at?: unknown;
   };
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
@@ -222,10 +241,17 @@ export async function signPublishResult(
     artifact_url: _rawArtifactUrl,
     revision_content_url: rawRevisionContentUrl,
     agent_view_url: rawAgentViewUrl,
+    entrypoint_object_key: rawEntrypointObjectKey,
+    file_object_keys: rawFileObjectKeys,
     ...rest
   } = data;
   const entrypointPath =
     typeof rawRevisionContentUrl === "string" ? entrypointPathFromContentUrl(rawRevisionContentUrl) : "index.html";
+  const entrypointObjectKey =
+    typeof rawEntrypointObjectKey === "string" && rawEntrypointObjectKey.length > 0
+      ? rawEntrypointObjectKey
+      : undefined;
+  const fileObjectKeys = normalizedFileObjectKeys(rawFileObjectKeys);
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const secret = agentViewSigningSecret(env);
   const contentAuth = auth?.workspaceId
@@ -243,7 +269,11 @@ export async function signPublishResult(
     entrypointPath,
     expiresAt,
     contentAuth,
-    { paths: null },
+    fileObjectKeys
+      ? { paths: Object.keys(fileObjectKeys), objectKeys: fileObjectKeys }
+      : entrypointObjectKey
+        ? { paths: [entrypointPath], objectKey: entrypointObjectKey }
+        : { paths: null },
   );
   return {
     ...rest,
@@ -263,6 +293,19 @@ export async function signPublishResult(
         ? rawAgentViewUrl
         : `${apiBaseUrl(env)}/v1/public/agent-view/${data.artifact_id}.${data.revision_id}`,
   };
+}
+
+function normalizedFileObjectKeys(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const objectKeys: Record<string, string> = {};
+  for (const [path, objectKey] of Object.entries(value)) {
+    if (path.length > 0 && typeof objectKey === "string" && objectKey.length > 0) {
+      objectKeys[path] = objectKey;
+    }
+  }
+  return Object.keys(objectKeys).length > 0 ? objectKeys : undefined;
 }
 
 export function entrypointPathFromContentUrl(contentUrl: string): string {
@@ -353,7 +396,7 @@ async function signedContentUrl(
   path: string,
   expiresAt?: string,
   auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
-  options?: { paths?: string[] | null },
+  options?: { paths?: string[] | null; objectKey?: string; objectKeys?: Record<string, string> },
 ): Promise<string> {
   const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
@@ -375,6 +418,8 @@ async function signedContentUrl(
           ? { script_disabled: false }
           : {}),
       ...paths,
+      ...(options?.objectKey ? { object_key: options.objectKey } : {}),
+      ...(options?.objectKeys ? { object_keys: options.objectKeys } : {}),
       exp: contentTokenExpiration(expiresAt),
     },
     path,

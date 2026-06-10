@@ -245,6 +245,7 @@ function fakePublishClient() {
     expires_at: "2026-01-01T00:00:00.000Z",
     files: [
       {
+        status: "upload_required",
         path: "index.html",
         put_url: "https://upload.test/index",
         required_headers: {},

@@ -262,10 +262,12 @@ export type Repository = {
     now: string;
   }): Promise<UploadSessionRecord>;
   recordUploadedFile(input: {
+    workspaceId?: string;
     sessionId: string;
     path: string;
     objectKey?: string;
     sizeBytes?: number;
+    sha256?: string;
     uploadedAt: string;
   }): Promise<void>;
   getUploadSession(input: { actor: ApiActor; sessionId: string }): Promise<UploadSessionRecord | null>;

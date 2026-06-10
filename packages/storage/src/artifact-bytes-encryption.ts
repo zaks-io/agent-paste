@@ -5,6 +5,7 @@ export type ArtifactBytesKeyRing = {
 export const ARTIFACT_BYTES_DERIVATION_INFO = "agent-paste/artifact-bytes/v1";
 export const ARTIFACT_BYTES_ENCRYPTION_ALG = "aes-256-gcm";
 export const ARTIFACT_BYTES_AAD_VERSION = "v1";
+export const ARTIFACT_BYTES_BLOB_AAD_VERSION = "v2";
 export const ARTIFACT_BYTES_GCM_IV_BYTES = 12;
 export const ARTIFACT_BYTES_GCM_TAG_BYTES = 16;
 export const ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES = ARTIFACT_BYTES_GCM_IV_BYTES + ARTIFACT_BYTES_GCM_TAG_BYTES;
@@ -15,17 +16,26 @@ export const ARTIFACT_BYTES_METADATA_KEYS = {
   aadVersion: "enc_aad_v",
 } as const;
 
-export type ArtifactBytesAadContext = {
+export type RevisionArtifactBytesAadContext = {
+  kind?: "revision";
   workspaceId: string;
   artifactId: string;
   revisionId: string;
   normalizedPath: string;
 };
 
+export type BlobArtifactBytesAadContext = {
+  kind: "blob";
+  workspaceId: string;
+  sha256: string;
+};
+
+export type ArtifactBytesAadContext = RevisionArtifactBytesAadContext | BlobArtifactBytesAadContext;
+
 export type ArtifactBytesEncryptionMetadata = {
   enc_kid: string;
   enc_alg: typeof ARTIFACT_BYTES_ENCRYPTION_ALG;
-  enc_aad_v: typeof ARTIFACT_BYTES_AAD_VERSION;
+  enc_aad_v: typeof ARTIFACT_BYTES_AAD_VERSION | typeof ARTIFACT_BYTES_BLOB_AAD_VERSION;
 };
 
 export type EncryptedArtifactObject = {
@@ -39,8 +49,15 @@ export type RevisionFileObjectKeyParts = {
   path: string;
 };
 
+export type WorkspaceBlobObjectKeyParts = {
+  workspaceId: string;
+  sha256: string;
+};
+
 const revisionFileKeyPattern = /^artifacts\/([^/]+)\/revisions\/([^/]+)\/files\/(.+)$/u;
+const workspaceBlobKeyPattern = /^workspaces\/([^/]+)\/blobs\/sha256\/([a-f0-9]{2})\/([a-f0-9]{64})$/u;
 const kidPattern = /^[1-9]\d*$/u;
+const sha256HexPattern = /^[a-f0-9]{64}$/u;
 
 export function ciphertextByteLengthForPlaintext(plaintextBytes: number): number {
   return ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES + plaintextBytes;
@@ -59,7 +76,8 @@ export function isArtifactBytesEncryptionMetadata(
   const kid = metadata?.[ARTIFACT_BYTES_METADATA_KEYS.kid];
   return (
     metadata?.[ARTIFACT_BYTES_METADATA_KEYS.alg] === ARTIFACT_BYTES_ENCRYPTION_ALG &&
-    metadata?.[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_AAD_VERSION &&
+    (metadata?.[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_AAD_VERSION ||
+      metadata?.[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_BLOB_AAD_VERSION) &&
     typeof kid === "string" &&
     kid.length > 0
   );
@@ -75,6 +93,25 @@ export function parseRevisionFileObjectKey(key: string): RevisionFileObjectKeyPa
     return null;
   }
   return { artifactId, revisionId, path };
+}
+
+export function workspaceBlobObjectKeyFor(input: { workspaceId: string; sha256: string }): string {
+  if (!sha256HexPattern.test(input.sha256)) {
+    throw new Error("artifact_bytes_invalid_sha256");
+  }
+  return `workspaces/${input.workspaceId}/blobs/sha256/${input.sha256.slice(0, 2)}/${input.sha256}`;
+}
+
+export function parseWorkspaceBlobObjectKey(key: string): WorkspaceBlobObjectKeyParts | null {
+  const match = workspaceBlobKeyPattern.exec(key);
+  if (!match) {
+    return null;
+  }
+  const [, workspaceId, prefix, sha256] = match;
+  if (!workspaceId || !prefix || !sha256 || prefix !== sha256.slice(0, 2)) {
+    return null;
+  }
+  return { workspaceId, sha256 };
 }
 
 function parseArtifactBytesKid(value: string): number {
@@ -96,21 +133,31 @@ function asBufferSource(bytes: Uint8Array): BufferSource {
 }
 
 export function composeArtifactBytesAad(context: ArtifactBytesAadContext): Uint8Array {
-  const payload = [
-    ARTIFACT_BYTES_AAD_VERSION,
-    context.workspaceId,
-    context.artifactId,
-    context.revisionId,
-    context.normalizedPath,
-  ].join("|");
+  const payload =
+    context.kind === "blob"
+      ? [ARTIFACT_BYTES_BLOB_AAD_VERSION, context.workspaceId, context.sha256].join("|")
+      : [
+          ARTIFACT_BYTES_AAD_VERSION,
+          context.workspaceId,
+          context.artifactId,
+          context.revisionId,
+          context.normalizedPath,
+        ].join("|");
   return new TextEncoder().encode(payload);
 }
 
-export function encryptionMetadataForKid(kid: number): ArtifactBytesEncryptionMetadata {
+function aadVersionForContext(context: ArtifactBytesAadContext) {
+  return context.kind === "blob" ? ARTIFACT_BYTES_BLOB_AAD_VERSION : ARTIFACT_BYTES_AAD_VERSION;
+}
+
+export function encryptionMetadataForKid(
+  kid: number,
+  aadVersion: ArtifactBytesEncryptionMetadata["enc_aad_v"] = ARTIFACT_BYTES_AAD_VERSION,
+): ArtifactBytesEncryptionMetadata {
   return {
     [ARTIFACT_BYTES_METADATA_KEYS.kid]: String(kid),
     [ARTIFACT_BYTES_METADATA_KEYS.alg]: ARTIFACT_BYTES_ENCRYPTION_ALG,
-    [ARTIFACT_BYTES_METADATA_KEYS.aadVersion]: ARTIFACT_BYTES_AAD_VERSION,
+    [ARTIFACT_BYTES_METADATA_KEYS.aadVersion]: aadVersion,
   };
 }
 
@@ -160,7 +207,7 @@ export async function encryptArtifactBytes(input: {
   ciphertext.set(encrypted, iv.byteLength);
   return {
     ciphertext,
-    customMetadata: encryptionMetadataForKid(input.kid),
+    customMetadata: encryptionMetadataForKid(input.kid, aadVersionForContext(input.context)),
   };
 }
 
@@ -174,6 +221,9 @@ export async function decryptArtifactBytes(input: {
     throw new Error("artifact_bytes_ciphertext_too_short");
   }
   parseArtifactBytesKid(input.metadata.enc_kid);
+  if (input.metadata.enc_aad_v !== aadVersionForContext(input.context)) {
+    throw new Error("artifact_bytes_aad_version_mismatch");
+  }
   const dek = await deriveWorkspaceDek(input.rootSecret, input.context.workspaceId);
   const iv = input.ciphertext.subarray(0, ARTIFACT_BYTES_GCM_IV_BYTES);
   const encrypted = input.ciphertext.subarray(ARTIFACT_BYTES_GCM_IV_BYTES);
@@ -207,7 +257,7 @@ export async function decryptArtifactBytesWithKeyRing(input: {
 }
 
 export async function bytesFromReadableBody(
-  body: ReadableStream | ArrayBuffer | string | null | undefined,
+  body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined,
 ): Promise<Uint8Array> {
   if (body === null || body === undefined) {
     return new Uint8Array();

@@ -11,13 +11,18 @@ describe("isValidContentTokenPayload", () => {
     expect(isValidContentTokenPayload(base)).toBe(true);
   });
 
-  it("accepts optional workspace_id, access_link_id, key_prefix, paths, noindex, and script_disabled", () => {
+  it("accepts optional workspace_id, access_link_id, key_prefix, paths, object keys, noindex, and script_disabled", () => {
     expect(
       isValidContentTokenPayload({
         ...base,
         workspace_id: "ws_1",
         access_link_id: "al_1",
         key_prefix: "art_1/rev_1",
+        object_key: "workspaces/ws_1/blobs/sha256/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        object_keys: {
+          "index.html":
+            "workspaces/ws_1/blobs/sha256/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
         paths: ["index.html", "style.css"],
         noindex: true,
         script_disabled: true,
@@ -30,6 +35,7 @@ describe("isValidContentTokenPayload", () => {
     { label: "non-string revision_id", value: { ...base, revision_id: 5 } },
     { label: "bad access_link_id prefix", value: { ...base, access_link_id: "nope" } },
     { label: "non-string path entry", value: { ...base, paths: [1] } },
+    { label: "non-string object key map value", value: { ...base, object_keys: { "index.html": 1 } } },
     { label: "non-integer exp", value: { ...base, exp: 1.5 } },
     { label: "null", value: null },
     { label: "array", value: [] },

@@ -3,6 +3,7 @@ import type {
   ApiKey,
   Artifact,
   ClaimToken,
+  ContentBlob,
   OperationEvent,
   PlatformLockdown,
   PublishBundleStatus,
@@ -58,6 +59,11 @@ export type Entities = {
     findById(id: string, workspaceId?: string): Promise<ClaimToken | null>;
     findByPublicId(publicId: string): Promise<ClaimToken | null>;
     markRedeemed(id: string, redeemedAt: string): Promise<boolean>;
+  };
+  contentBlobs: {
+    find(input: { workspaceId: string; sha256: string; sizeBytes: number }): Promise<ContentBlob | null>;
+    upsert(blob: ContentBlob): Promise<void>;
+    deleteUnreferenced(input: { now: string; limit: number }): Promise<ContentBlob[]>;
   };
   members: {
     insert(member: WorkspaceMember): Promise<void>;
@@ -161,6 +167,7 @@ export type Entities = {
       path: string;
       objectKey?: string;
       sizeBytes?: number;
+      sha256?: string;
       uploadedAt: string;
     }): Promise<void>;
   };

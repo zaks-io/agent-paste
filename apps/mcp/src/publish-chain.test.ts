@@ -50,6 +50,7 @@ function mockUploadChain(entrypoint: string, sizeBytes: number) {
         expires_at: expiresAt,
         files: [
           {
+            status: "upload_required",
             path: entrypoint,
             put_url: "https://signed/put",
             required_headers: entrypoint.endsWith(".md") ? { "x-test": "1" } : {},
@@ -97,6 +98,14 @@ describe("runTextPublishChain", () => {
         revision_id: revisionId,
         artifact_url: publishBody.artifact_url,
         agent_view_url: "https://agent-view.example",
+        upload_stats: {
+          total_files: 1,
+          total_bytes: 7,
+          uploaded_files: 1,
+          uploaded_bytes: 7,
+          reused_files: 0,
+          reused_bytes: 0,
+        },
       });
       expect(result.body).not.toHaveProperty("revision_link_url");
       expect(result.body).not.toHaveProperty("share_link_url");
@@ -108,6 +117,52 @@ describe("runTextPublishChain", () => {
     );
     expect(vi.mocked(forward.forwardToApiRoute).mock.calls).toHaveLength(1);
     expect(vi.mocked(forward.forwardToApiRoute).mock.calls[0]?.[0]).toMatchObject({ routeId: "revisions.publish" });
+  });
+
+  it("skips PUT for reused upload targets and reports reused bytes", async () => {
+    vi.mocked(forward.forwardToUploadRoute)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        body: {
+          upload_session_id: uploadSessionId,
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          status: "pending",
+          expires_at: expiresAt,
+          files: [{ status: "reused", path: "content.txt" }],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: {
+          upload_session_id: uploadSessionId,
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          status: "draft",
+          title: "Note",
+          entrypoint: "content.txt",
+          file_count: 1,
+          size_bytes: 5,
+        },
+      });
+    mockPublish();
+
+    const result = await runTextPublishChain({ title: "Note", body: "hello", render_mode: "text" }, deps);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.body.upload_stats).toEqual({
+        total_files: 1,
+        total_bytes: 5,
+        uploaded_files: 0,
+        uploaded_bytes: 0,
+        reused_files: 1,
+        reused_bytes: 5,
+      });
+    }
+    expect(forward.putSignedUploadFile).not.toHaveBeenCalled();
   });
 
   it("forwards derived share idempotency keys when publish with share is retried", async () => {
@@ -131,6 +186,7 @@ describe("runTextPublishChain", () => {
             expires_at: expiresAt,
             files: [
               {
+                status: "upload_required",
                 path: "content.txt",
                 put_url: "https://signed/put",
                 required_headers: {},
@@ -229,6 +285,7 @@ describe("runTextPublishChain", () => {
             expires_at: expiresAt,
             files: [
               {
+                status: "upload_required",
                 path: "content.txt",
                 put_url: "https://signed/put",
                 required_headers: {},

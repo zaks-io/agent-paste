@@ -100,6 +100,40 @@ describe("upload cleanup discovery", () => {
     expect(executor.query).toHaveBeenCalled();
   });
 
+  it("does not enqueue blob-backed upload files for legacy prefix purge", async () => {
+    const send = vi.fn();
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
+          rows: [
+            {
+              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+            },
+          ],
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return {
+          rows: [
+            {
+              r2_key: `workspaces/${workspaceId}/blobs/sha256/aa/${"a".repeat(64)}`,
+              storage_kind: "blob",
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const result = await runUploadCleanupDiscovery(executor, { send, sendBatch: vi.fn() }, "2026-05-20T00:00:00.000Z");
+
+    expect(send).not.toHaveBeenCalled();
+    expect(result.enqueued).toBe(0);
+  });
+
   it("reports cap_hit when more sessions are due than the sweep cap", async () => {
     const sessionRows = Array.from({ length: UPLOAD_CLEANUP_SWEEP_CAP + 1 }, (_, index) => ({
       id: `upl_${String(index).padStart(26, "0")}`,

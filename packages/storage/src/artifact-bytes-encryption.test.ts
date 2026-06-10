@@ -1,6 +1,7 @@
 import { dropRetiredKidAfterPromotion, keyRingFromProfileEnv, VERSIONED_SECRET_PROFILES } from "@agent-paste/rotation";
 import { describe, expect, it } from "vitest";
 import {
+  ARTIFACT_BYTES_BLOB_AAD_VERSION,
   ARTIFACT_BYTES_ENCRYPTION_OVERHEAD_BYTES,
   bytesFromReadableBody,
   bytesFromReadableBodyCapped,
@@ -12,8 +13,10 @@ import {
   encryptionMetadataForKid,
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
+  parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
   ReadableBodyTooLargeError,
+  workspaceBlobObjectKeyFor,
 } from "./artifact-bytes-encryption.js";
 
 function chunkedStream(chunks: Uint8Array[]): { stream: ReadableStream<Uint8Array>; cancelled: () => boolean } {
@@ -43,6 +46,11 @@ const context = {
   artifactId: "art_test",
   revisionId: "rev_test",
   normalizedPath: "index.html",
+};
+const blobContext = {
+  kind: "blob" as const,
+  workspaceId: "00000000-0000-4000-8000-000000000001",
+  sha256: "a".repeat(64),
 };
 
 describe("artifact-bytes encryption", () => {
@@ -84,6 +92,38 @@ describe("artifact-bytes encryption", () => {
         context: { ...context, normalizedPath: "other.html" },
       }),
     ).rejects.toThrow();
+  });
+
+  it("round-trips workspace blobs with v2 AAD bound to digest", async () => {
+    const plaintext = new TextEncoder().encode("shared blob");
+    const encrypted = await encryptArtifactBytes({
+      plaintext,
+      rootSecret: "root-secret-v1",
+      kid: 1,
+      context: blobContext,
+    });
+
+    expect(encrypted.customMetadata).toEqual(encryptionMetadataForKid(1, ARTIFACT_BYTES_BLOB_AAD_VERSION));
+    expect(composeArtifactBytesAad(blobContext)).toEqual(
+      new TextEncoder().encode(`v2|${blobContext.workspaceId}|${blobContext.sha256}`),
+    );
+
+    const decrypted = await decryptArtifactBytes({
+      ciphertext: encrypted.ciphertext,
+      rootSecret: "root-secret-v1",
+      metadata: encrypted.customMetadata,
+      context: blobContext,
+    });
+    expect(new TextDecoder().decode(decrypted)).toBe("shared blob");
+
+    await expect(
+      decryptArtifactBytes({
+        ciphertext: encrypted.ciphertext,
+        rootSecret: "root-secret-v1",
+        metadata: encrypted.customMetadata,
+        context,
+      }),
+    ).rejects.toThrow(/aad_version_mismatch/u);
   });
 
   it("decrypts overlap-era enc_kid=2 ciphertext after drop retires kid 1", async () => {
@@ -260,5 +300,14 @@ describe("artifact-bytes encryption", () => {
     expect(composeArtifactBytesAad(context)).toEqual(
       new TextEncoder().encode("v1|00000000-0000-4000-8000-000000000001|art_test|rev_test|index.html"),
     );
+    const blobKey = workspaceBlobObjectKeyFor(blobContext);
+    expect(blobKey).toBe(
+      "workspaces/00000000-0000-4000-8000-000000000001/blobs/sha256/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(parseWorkspaceBlobObjectKey(blobKey)).toEqual({
+      workspaceId: blobContext.workspaceId,
+      sha256: blobContext.sha256,
+    });
+    expect(parseWorkspaceBlobObjectKey(blobKey.replace("/aa/", "/bb/"))).toBeNull();
   });
 });

@@ -5,12 +5,13 @@ import {
   type Repository,
   repositoryErrorToAppError,
   resolveSessionObjectKey,
+  type UploadSessionFileDescriptor,
   type UploadSessionRecord,
 } from "@agent-paste/db";
 import { resolveUploadTokenSigner } from "@agent-paste/rotation";
 import { mintUploadUrl } from "@agent-paste/tokens/upload-url";
 import { type GuardState, getBoundResponders, type Principal } from "@agent-paste/worker-runtime";
-import type { AppContext, Env, UploadFileInput } from "./env.js";
+import type { AppContext, Env } from "./env.js";
 import { uploadSessionActor } from "./upload-actor.js";
 
 type RouteId = (typeof routeContracts)[number]["id"];
@@ -32,10 +33,15 @@ export async function createUploadSession(
   const body: CreateUploadSessionRequest = guard.body;
   // TTL is omitted so the repository derives it from the workspace tier (ephemeral
   // workspaces are hard-capped at one day). Clients cannot influence artifact lifetime.
+  const files = body.files.map((file) => ({
+    path: file.path,
+    size_bytes: file.size_bytes,
+    ...(file.sha256 ? { sha256: file.sha256 } : {}),
+  }));
   const createRequest = {
-    title: body.title,
     entrypoint: body.entrypoint,
-    files: body.files,
+    files,
+    ...(body.title === undefined ? {} : { title: body.title }),
     ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
     ...(body.render_mode === undefined ? {} : { render_mode: body.render_mode }),
   };
@@ -70,7 +76,7 @@ export async function signUploadUrl(
   request: Request,
   env: Env,
   session: UploadSessionRecord,
-  file: UploadFileInput & { object_key?: string },
+  file: UploadSessionFileDescriptor,
 ): Promise<{ url: string; expiresAt: string }> {
   const signer = resolveUploadTokenSigner(env);
   if (!signer) {
@@ -86,6 +92,7 @@ export async function signUploadUrl(
       path: file.path,
       key: resolveSessionObjectKey(session, file.path, file.object_key),
       size: file.size_bytes,
+      ...(file.sha256 ? { sha256: file.sha256 } : {}),
       exp: expSeconds,
     },
   });

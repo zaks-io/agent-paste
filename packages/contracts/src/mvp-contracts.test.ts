@@ -4,6 +4,7 @@ import {
   buildApiOpenApiDocument,
   buildContentOpenApiDocument,
   CreateUploadSessionRequest,
+  CreateUploadSessionResponse,
   ErrorCode,
   FinalizeUploadSessionResponse,
   mvpUsagePolicy,
@@ -314,6 +315,44 @@ describe("MVP schemas", () => {
         files: [{ path: "index.html", size_bytes: 25 * 1024 * 1024 + 1 }],
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts digest manifests, upload-required targets, reused targets, and legacy no-hash manifests", () => {
+    const sha256 = "a".repeat(64);
+    expect(
+      CreateUploadSessionRequest.parse({
+        title: "hashed",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 12, sha256 }],
+      }).files[0],
+    ).toMatchObject({ sha256 });
+    expect(
+      CreateUploadSessionRequest.parse({
+        title: "legacy",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 12 }],
+      }).files[0],
+    ).not.toHaveProperty("sha256");
+
+    expect(() =>
+      CreateUploadSessionResponse.parse({
+        upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: isoDate,
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.example/put",
+            required_headers: {},
+            expires_at: isoDate,
+          },
+          { status: "reused", path: "style.css" },
+        ],
+      }),
+    ).not.toThrow();
   });
 
   it("uses full per-file URLs in public Agent View instead of content_prefix", () => {

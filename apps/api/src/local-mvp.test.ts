@@ -342,9 +342,12 @@ describe("local MVP vertical slice", () => {
       },
     );
     expect(sessionResponse.status).toBe(200);
-    const session = (await sessionResponse.json()) as { upload_session_id: string; files: Array<{ put_url: string }> };
+    const session = (await sessionResponse.json()) as {
+      upload_session_id: string;
+      files: Array<{ status: string; put_url?: string }>;
+    };
     const uploadTarget = session.files[0];
-    if (!uploadTarget) {
+    if (!uploadTarget || uploadTarget.status !== "upload_required" || !uploadTarget.put_url) {
       throw new Error("missing upload target");
     }
 
@@ -471,12 +474,12 @@ describe("local MVP vertical slice", () => {
     const updateSession = (await updateSessionResponse.json()) as {
       upload_session_id: string;
       artifact_id: string;
-      files: Array<{ put_url: string }>;
+      files: Array<{ status: string; put_url?: string }>;
     };
     expect(updateSession.artifact_id).toBe(finalized.artifact_id);
 
     const updatePutUrl = updateSession.files[0]?.put_url;
-    if (!updatePutUrl) {
+    if (updateSession.files[0]?.status !== "upload_required" || !updatePutUrl) {
       throw new Error("missing update upload target");
     }
     await uploadWorker.fetch(
