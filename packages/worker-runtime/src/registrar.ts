@@ -107,7 +107,14 @@ function honoPath(path: string): string {
   // separators), which Hono can only match with a wildcard; handlers derive the
   // signed path from the raw URL instead of route params.
   const normalized = path.endsWith("/{path}") ? `${path.slice(0, -"{path}".length)}*` : path;
-  return normalized.replaceAll(/\{([^}]+)\}/gu, ":$1");
+  // Params are always whole path segments, so a segment map avoids regex
+  // backtracking on the route template (CodeQL js/polynomial-redos).
+  return normalized
+    .split("/")
+    .map((segment) =>
+      segment.length > 2 && segment.startsWith("{") && segment.endsWith("}") ? `:${segment.slice(1, -1)}` : segment,
+    )
+    .join("/");
 }
 
 export { jsonResponse };
