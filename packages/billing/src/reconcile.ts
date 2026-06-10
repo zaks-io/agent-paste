@@ -62,7 +62,14 @@ export async function runBillingReconciliation(input: {
     addCounters(totals, await reconcileLocalTarget(ctx, target));
   }
   for (const remote of remoteBySubscription.values()) {
-    if (batch.some((row) => row.workspace_id === remote.workspaceId)) {
+    // Match on the subscription, not just the workspace: a local row pointing at a
+    // dead subscription must not shadow the workspace's live one (orphan adoption
+    // below is how the sweep self-heals that state).
+    if (
+      batch.some(
+        (row) => row.workspace_id === remote.workspaceId && row.stripe_subscription_id === remote.stripeSubscriptionId,
+      )
+    ) {
       continue;
     }
     addCounters(totals, await reconcileOrphanRemote(ctx, remote));
@@ -132,8 +139,19 @@ async function reconcileOrphanRemote(
   remote: BillingSubscriptionSnapshot,
 ): Promise<SweepCounters> {
   const local = await loadLocalBillingRow(ctx.executor, remote.workspaceId);
-  if (local?.stripe_subscription_id) {
-    return EMPTY_COUNTERS;
+  const storedSubscriptionId = local?.stripe_subscription_id;
+  if (storedSubscriptionId && storedSubscriptionId !== remote.stripeSubscriptionId) {
+    // The workspace already tracks another subscription. Adopt this one only when it
+    // grants pro and the tracked one no longer does on Stripe (canceled or gone) —
+    // the self-heal for a row left pointing at a superseded subscription.
+    if (planFromSubscriptionStatus(remote.status) !== "pro") {
+      return EMPTY_COUNTERS;
+    }
+    const stored =
+      ctx.remoteBySubscription.get(storedSubscriptionId) ?? (await ctx.provider.getSubscription(storedSubscriptionId));
+    if (stored && planFromSubscriptionStatus(stored.status) === "pro") {
+      return EMPTY_COUNTERS;
+    }
   }
   return applySnapshotCounters(ctx, remote.workspaceId, remote);
 }
@@ -153,7 +171,9 @@ async function applySnapshotCounters(
   if (result.skipped_operator_override) {
     return { ...EMPTY_COUNTERS, skipped_operator_override: 1 };
   }
-  if (result.applied) {
+  // A replayed completion did not execute this sweep; counting it as synced would
+  // mask no-op replays in the sweep metrics.
+  if (result.applied && !result.replayed) {
     return { ...EMPTY_COUNTERS, synced: 1 };
   }
   return EMPTY_COUNTERS;

@@ -70,6 +70,126 @@ describe("billing reconciliation (webhook-independent)", () => {
     expect(row.rows[0]).toEqual({ plan: "free", subscription_status: "canceled" });
   });
 
+  it("adopts the workspace's active subscription when the local row points at a canceled one", async () => {
+    const healWorkspaceId = "33333333-3333-3333-3333-333333333333";
+    const deadSubscriptionId = "sub_dead_superseded";
+    const liveSubscriptionId = "sub_live_resubscribe";
+    await platformExecutor(baseExecutor).query(
+      `insert into workspaces (id, name, contact_email, plan, created_at, updated_at)
+       values ($1, 'heal', 'heal@example.com', 'free', now(), now())`,
+      [healWorkspaceId],
+    );
+    // Bad state a late webhook can leave behind: row pinned to the superseded, canceled sub.
+    await applyBillingSnapshot({
+      executor: workspaceExecutor(baseExecutor, healWorkspaceId),
+      actorId: "stripe_webhook",
+      workspaceId: healWorkspaceId,
+      snapshot: {
+        workspaceId: healWorkspaceId,
+        stripeCustomerId: "cus_heal",
+        stripeSubscriptionId: deadSubscriptionId,
+        status: "canceled",
+        currentPeriodEnd: null,
+        priceInterval: null,
+      },
+      now: "2026-05-29T00:00:00.000Z",
+    });
+
+    const provider = createFakeBillingProvider();
+    provider.setSubscription({
+      workspaceId: healWorkspaceId,
+      stripeCustomerId: "cus_heal",
+      stripeSubscriptionId: deadSubscriptionId,
+      status: "canceled",
+      currentPeriodEnd: null,
+      priceInterval: null,
+    });
+    provider.setSubscription({
+      workspaceId: healWorkspaceId,
+      stripeCustomerId: "cus_heal",
+      stripeSubscriptionId: liveSubscriptionId,
+      status: "active",
+      currentPeriodEnd: "2026-06-29T00:00:00.000Z",
+      priceInterval: "month",
+    });
+
+    const result = await runBillingReconciliation({
+      executor: platformExecutor(baseExecutor),
+      provider,
+      now: "2026-05-29T01:00:00.000Z",
+    });
+    expect(result.synced).toBeGreaterThanOrEqual(1);
+
+    const row = await platformExecutor(baseExecutor).query<{
+      plan: string;
+      stripe_subscription_id: string;
+      subscription_status: string;
+    }>(
+      `select w.plan, b.stripe_subscription_id, b.subscription_status
+       from workspaces w
+       inner join workspace_billing b on b.workspace_id = w.id
+       where w.id = $1`,
+      [healWorkspaceId],
+    );
+    expect(row.rows[0]).toEqual({
+      plan: "pro",
+      stripe_subscription_id: liveSubscriptionId,
+      subscription_status: "active",
+    });
+  });
+
+  it("leaves a workspace tracking a live subscription alone when a dead sibling is listed", async () => {
+    const steadyWorkspaceId = "44444444-4444-4444-4444-444444444444";
+    const liveSubscriptionId = "sub_steady_live";
+    const deadSubscriptionId = "sub_steady_dead";
+    await platformExecutor(baseExecutor).query(
+      `insert into workspaces (id, name, contact_email, plan, created_at, updated_at)
+       values ($1, 'steady', 'steady@example.com', 'free', now(), now())`,
+      [steadyWorkspaceId],
+    );
+    const liveSnapshot = {
+      workspaceId: steadyWorkspaceId,
+      stripeCustomerId: "cus_steady",
+      stripeSubscriptionId: liveSubscriptionId,
+      status: "active" as const,
+      currentPeriodEnd: "2026-06-29T00:00:00.000Z",
+      priceInterval: "month" as const,
+    };
+    await applyBillingSnapshot({
+      executor: workspaceExecutor(baseExecutor, steadyWorkspaceId),
+      actorId: "checkout_activation",
+      workspaceId: steadyWorkspaceId,
+      snapshot: liveSnapshot,
+      now: "2026-05-30T00:00:00.000Z",
+    });
+
+    const provider = createFakeBillingProvider();
+    provider.setSubscription(liveSnapshot);
+    provider.setSubscription({
+      workspaceId: steadyWorkspaceId,
+      stripeCustomerId: "cus_steady",
+      stripeSubscriptionId: deadSubscriptionId,
+      status: "canceled",
+      currentPeriodEnd: null,
+      priceInterval: null,
+    });
+
+    await runBillingReconciliation({
+      executor: platformExecutor(baseExecutor),
+      provider,
+      now: "2026-05-30T01:00:00.000Z",
+    });
+
+    const row = await platformExecutor(baseExecutor).query<{ plan: string; stripe_subscription_id: string }>(
+      `select w.plan, b.stripe_subscription_id
+       from workspaces w
+       inner join workspace_billing b on b.workspace_id = w.id
+       where w.id = $1`,
+      [steadyWorkspaceId],
+    );
+    expect(row.rows[0]).toEqual({ plan: "pro", stripe_subscription_id: liveSubscriptionId });
+  });
+
   it("preserves operator plan overrides during reconciliation", async () => {
     const overrideWorkspaceId = "22222222-2222-2222-2222-222222222222";
     await platformExecutor(baseExecutor).query(

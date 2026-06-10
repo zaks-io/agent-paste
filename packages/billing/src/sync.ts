@@ -15,11 +15,15 @@ export type ApplyBillingSnapshotInput = {
 
 export type ApplyBillingSnapshotResult = {
   applied: boolean;
+  /** True when an identical retry replayed the stored completion instead of executing. */
+  replayed: boolean;
   skipped_operator_override: boolean;
   previous_plan: WorkspacePlan;
   plan: WorkspacePlan;
   plan_changed: boolean;
 };
+
+type BillingSyncCommandResult = Omit<ApplyBillingSnapshotResult, "replayed">;
 
 export async function applyBillingSnapshot(input: ApplyBillingSnapshotInput): Promise<ApplyBillingSnapshotResult> {
   const actor: CommandActor = {
@@ -32,9 +36,10 @@ export async function applyBillingSnapshot(input: ApplyBillingSnapshotInput): Pr
     subscriptionId: input.snapshot.stripeSubscriptionId,
     status: input.snapshot.status,
     currentPeriodEnd: input.snapshot.currentPeriodEnd,
+    appliedAt: input.now,
   });
 
-  const command = await runCommand({
+  const command = await runCommand<BillingSyncCommandResult>({
     executor: input.executor,
     actor,
     operation: "billing.sync_subscription",
@@ -142,7 +147,7 @@ export async function applyBillingSnapshot(input: ApplyBillingSnapshotInput): Pr
     },
   });
 
-  return command.result;
+  return { ...command.result, replayed: command.isReplay };
 }
 
 export type LocalBillingRow = {
@@ -156,8 +161,24 @@ export type LocalBillingRow = {
   price_interval: "month" | "year" | null;
 };
 
+type RawLocalBillingRow = Omit<LocalBillingRow, "current_period_end"> & {
+  current_period_end: string | Date | null;
+};
+
+/**
+ * Drivers disagree on timestamptz output (postgres-js yields pg text, PGlite a
+ * Date object); normalize to the ISO-8601 shape Stripe snapshots use so drift
+ * detection compares instants, not driver formatting.
+ */
+function normalizeLocalBillingRow(row: RawLocalBillingRow): LocalBillingRow {
+  return {
+    ...row,
+    current_period_end: row.current_period_end === null ? null : new Date(row.current_period_end).toISOString(),
+  };
+}
+
 export async function loadLocalBillingRow(executor: SqlExecutor, workspaceId: string): Promise<LocalBillingRow | null> {
-  const result = await executor.query<LocalBillingRow>(
+  const result = await executor.query<RawLocalBillingRow>(
     `select
        w.id as workspace_id,
        w.plan,
@@ -172,14 +193,15 @@ export async function loadLocalBillingRow(executor: SqlExecutor, workspaceId: st
      where w.id = $1`,
     [workspaceId],
   );
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  return row ? normalizeLocalBillingRow(row) : null;
 }
 
 export async function loadLocalBillingRowBySubscription(
   executor: SqlExecutor,
   subscriptionId: string,
 ): Promise<LocalBillingRow | null> {
-  const result = await executor.query<LocalBillingRow>(
+  const result = await executor.query<RawLocalBillingRow>(
     `select
        w.id as workspace_id,
        w.plan,
@@ -194,5 +216,6 @@ export async function loadLocalBillingRowBySubscription(
      where b.stripe_subscription_id = $1`,
     [subscriptionId],
   );
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  return row ? normalizeLocalBillingRow(row) : null;
 }

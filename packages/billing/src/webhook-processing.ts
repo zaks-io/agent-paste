@@ -1,6 +1,7 @@
 import type { SqlExecutor } from "@agent-paste/commands";
+import { planFromSubscriptionStatus } from "./plan.js";
 import type { BillingProvider, BillingSubscriptionSnapshot } from "./provider.js";
-import { applyBillingSnapshot, loadLocalBillingRowBySubscription } from "./sync.js";
+import { applyBillingSnapshot, loadLocalBillingRow, loadLocalBillingRowBySubscription } from "./sync.js";
 import {
   type StripeEvent,
   type StripeSubscriptionEventReference,
@@ -53,10 +54,11 @@ export async function processStripeSubscriptionWebhook(
   }
 
   try {
-    const currentSnapshot =
+    const eventSnapshot =
       (await input.provider.getSubscription(reference.subscriptionId)) ??
       (await failClosedSnapshotForMissingCurrentSubscription(input.platformExecutor, reference));
-    if (currentSnapshot) {
+    if (eventSnapshot) {
+      const currentSnapshot = await resolveAuthoritativeSnapshot(input, eventSnapshot);
       await applyBillingSnapshot({
         executor: input.workspaceExecutor(currentSnapshot.workspaceId),
         actorId: "stripe_webhook",
@@ -89,6 +91,38 @@ export async function processStripeSubscriptionWebhook(
     });
     throw error;
   }
+}
+
+/**
+ * Cancel-at-period-end followed by re-subscribe creates a second Stripe subscription,
+ * and events for the superseded one (notably its late `customer.subscription.deleted`)
+ * keep arriving after the new one is active. While the workspace's stored subscription
+ * still grants pro on Stripe, an event for a *different* subscription must not overwrite
+ * it; apply a fresh snapshot of the stored subscription instead so the row converges on
+ * current Stripe truth. The stored subscription must belong to the same workspace
+ * (cross-tenant guard) before it can supersede the event.
+ */
+async function resolveAuthoritativeSnapshot(
+  input: ProcessStripeSubscriptionWebhookInput,
+  eventSnapshot: BillingSubscriptionSnapshot,
+): Promise<BillingSubscriptionSnapshot> {
+  const local = await loadLocalBillingRow(
+    input.workspaceExecutor(eventSnapshot.workspaceId),
+    eventSnapshot.workspaceId,
+  );
+  const storedSubscriptionId = local?.stripe_subscription_id;
+  if (!storedSubscriptionId || storedSubscriptionId === eventSnapshot.stripeSubscriptionId) {
+    return eventSnapshot;
+  }
+  const stored = await input.provider.getSubscription(storedSubscriptionId);
+  if (
+    stored &&
+    stored.workspaceId === eventSnapshot.workspaceId &&
+    planFromSubscriptionStatus(stored.status) === "pro"
+  ) {
+    return stored;
+  }
+  return eventSnapshot;
 }
 
 async function failClosedSnapshotForMissingCurrentSubscription(
