@@ -1,6 +1,8 @@
 # MCP Worker with OAuth-Only Access via WorkOS AuthKit
 
-Status: Accepted, with the scope-granting mechanism superseded by [ADR 0079](./0079-mcp-scopes-derived-from-member-role-not-workos-token.md). Provider decided as **WorkOS** by AP-26, consistent with [ADR 0068](./0068-workos-authkit-for-web-app-auth.md). Amended 2026-06-11: MCP publish tools no longer create or reuse Share Links by default; `share` defaults to `false`. This replaces the Auth0 framing this ADR originally carried; the filename is historical.
+Status: Accepted, with the scope-granting mechanism superseded by [ADR 0079](./0079-mcp-scopes-derived-from-member-role-not-workos-token.md). Provider decided as **WorkOS** by AP-26, consistent with [ADR 0068](./0068-workos-authkit-for-web-app-auth.md).
+
+Amended 2026-06-11: MCP publish tools no longer create or reuse Share Links by default; `share` defaults to `false`. This replaces the Auth0 framing this ADR originally carried; the filename is historical.
 
 > **Superseded in part by [ADR 0079](./0079-mcp-scopes-derived-from-member-role-not-workos-token.md).** This ADR assumes the consent screen requests `{write, read, share}` as OAuth scopes and that WorkOS mints them into the token's `scope` claim. WorkOS AuthKit does not issue custom OAuth scopes — `scopes_supported` is fixed to `{email, offline_access, openid, profile}`, and Permissions/Roles are a separate system that never become requestable `scope` values. A caller's granted MCP scopes are therefore derived from their **Workspace Member** role inside `api`, not read from the token. Everything else here — the transport, OAuth-via-AuthKit, CIMD/DCR registration, resource-indicator `aud` binding, the twelve-tool surface, and the `write`/`read`/`share` vocabulary with per-tool requirements — still stands. Where the text below says scopes come from the consent screen or the token `scope` claim, read ADR 0079 instead.
 
