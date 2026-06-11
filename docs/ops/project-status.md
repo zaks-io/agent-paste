@@ -2,9 +2,9 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-09 (public repository flip: repo is public with CodeQL,
-secret scanning, Dependabot alerts, OpenSSF Scorecard + badge, and SHA-pinned
-Actions live; AP-254 public-repo security posture closed).
+Last updated: 2026-06-11 (launch-state triage: latest production deploy workflow
+succeeded for remote `main` `e3be243c`; AP-254 and AP-299 are closed; AP-139 is
+the remaining human-owned production E2E evidence item).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -16,10 +16,10 @@ and points to the smaller ledgers that own detail.
 None. No unmerged local handoff branch.
 
 AP-236 (rate-limit fail-closed + production deploy source hardening) shipped in
-PR #356 (merge `7113f77`, on `main`) and is Done. Pick up the next item from
-[phase-backlog.md](./status/phase-backlog.md), or the early-alpha public
-security posture toggles under
-[AP-254](https://linear.app/zaks-io/issue/AP-254).
+PR #356 (merge `7113f77`, on `main`) and is Done. AP-254 is Done: the repo is
+public, the apex source link resolves, GitHub security features are live, and
+externally verifiable public badges are published. Pick up the next item from
+[phase-backlog.md](./status/phase-backlog.md).
 
 Standing security-posture decisions (still in force, not handoff-specific):
 file-bytes malware scanning is an accepted near-term risk, proof-of-work is not
@@ -42,42 +42,50 @@ Done for this section: every open item below is checked, or explicitly marked
        E2E/smoke sequence has run against the current production deploy and the
        evidence is recorded in AP-139 plus
        [hosted-ops.md](./status/hosted-ops.md).
-2. [x] **AP-254: Apex source link**. Done 2026-06-07 (`83cde8c`): the
+2. [ ] **AP-302: Production backup/DR posture**. Done when automated backups,
+       an isolated restore path, a non-production restore drill, and the
+       disaster-recovery runbook are in place for production user data.
+3. [ ] **AP-271: Web-chat MCP launch-claim accuracy**. Done when real ChatGPT,
+       Claude, and Gemini connector behavior is verified and public copy is
+       corrected so it does not promise capabilities that were not demoed.
+4. [x] **AP-254: Apex source link**. Done 2026-06-07 (`83cde8c`): the
        `source-repository` component wires the public GitHub link into the apex
        footer/About/How it works, and `apps/apex/src/index.test.ts` asserts the
        `https://github.com/zaks-io/agent-paste` URL in all three. The repo is
        now public (2026-06-08), so the source link resolves.
-3. [x] **AP-254: GitHub public security posture**. Done 2026-06-08 with the
+5. [x] **AP-254: GitHub public security posture**. Done 2026-06-08 with the
        public flip: repo is public, CodeQL (default setup), secret scanning +
        push protection, Dependabot alerts, OpenSSF Scorecard (`3d64126`) + README
        badge (`2de2280`), and SHA-pinned Actions (`33474e4`) are all live.
        Dependabot version updates stay off by design (scheduled review agent).
        Detail in [security-todo.md](./security-todo.md).
-4. [ ] **AP-254: OpenSSF Best Practices badge**. Now that the repo is public,
-       apply for the **Passing** tier. The two Passing gaps (`release_notes`,
-       `test_policy`) are closed; the criterion-by-criterion self-assessment,
-       form-answer cribs, and Silver/Gold scope are in
-       [openssf-best-practices.md](./openssf-best-practices.md). Done when the
-       project is registered, Passing is green, and the README badge is added.
-5. [ ] **AP-160: Snyk Code triage**. Done when the Snyk Code entitlement is
-       enabled, initial HIGH findings are triaged, narrow ignores are committed
-       for confirmed false positives, and the gating/advisory decision is
-       recorded.
-6. [ ] **AP-235: Hosted-content provenance badge**. Done when hosted content
-       visibly distinguishes Agent Paste hosted pages and the behavior is covered
-       by docs/tests.
-7. [ ] **Conditional: Production Stripe smoke**. Required before enabling paid
+6. [ ] **Manual/non-blocking: OpenSSF Best Practices badge**. The Passing
+       self-assessment and form-answer cribs are in
+       [openssf-best-practices.md](./openssf-best-practices.md). AP-254 closed
+       without making this a launch gate; do it manually if the extra public
+       badge is worth the self-certification overhead.
+7. [ ] **Security backlog: Snyk Code triage**. AP-160 is archived in Linear, but
+       the Snyk Code entitlement/HIGH-finding triage remains documented in
+       [security-todo.md](./security-todo.md) before promoting SAST from advisory
+       to gating.
+8. [ ] **Parked human UX/security decision: hosted-content provenance badge**.
+       AP-235 is archived in Linear. Revive it before a wider public push if a
+       visible Agent Paste-controlled hosted-content indicator becomes a launch
+       requirement.
+9. [ ] **Conditional: Production Stripe smoke**. Required before enabling paid
        billing publicly. Done when Checkout, webhook activation,
        Portal/invoice access, and plan sync are smoke-tested in production;
        otherwise mark "not currently required" here.
-8. [x] **Production deploy of current main**. Done on 2026-06-07: `6ad04f5`
-       deployed by manual run `27101054536` with migration, Worker deploy, and
-       read-only production smoke green.
-9. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
-       OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
-10. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agentpaste`
+10. [x] **Production deploy workflow green**. Initial launch deploy completed on
+        2026-06-07: `6ad04f5` deployed by manual run `27101054536` with
+        migration, Worker deploy, and read-only production smoke green. Latest
+        checked deploy run `27370738483` succeeded for remote `main` `e3be243c`
+        on 2026-06-11.
+11. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
+        OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
+12. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agentpaste`
         routes to email and then into Linear.
-11. [x] **Hosted Stripe test-mode preview check**. Done on 2026-06-07; production
+13. [x] **Hosted Stripe test-mode preview check**. Done on 2026-06-07; production
         Stripe remains conditional above.
 
 ## Snapshot
@@ -89,6 +97,9 @@ shape; current work is post-launch/Phase 6 hardening.
 Current `main` (`6ad04f5`) deployed to production successfully on 2026-06-07 via
 manual `Deploy Production` run `27101054536`; migration, Worker deploy, and the
 read-only production smoke passed.
+Remote `main` has since advanced; `Deploy Production` run `27370738483`
+succeeded for `e3be243c` on 2026-06-11 with the workflow's production smoke
+green.
 
 What stands today:
 
@@ -174,8 +185,8 @@ Feature-specific ledgers:
 
 Phases 1–5 are complete (see Snapshot). Current active work is
 post-launch/Phase 6 early-alpha hardening: production E2E verification
-(AP-139), public-repo security posture (AP-254), Snyk Code triage (AP-160),
-hosted-content provenance (AP-235), and security/ops polish.
+(AP-139), production data backup/DR posture (AP-302), launch-claim accuracy
+around hosted MCP connector support (AP-271), and security/ops polish.
 [phase-backlog.md](./status/phase-backlog.md) owns the ordered remaining work.
 
 ## Not Yet Implemented From The Docs
@@ -190,12 +201,11 @@ Highest-signal gaps:
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
-- Stable live publish handoff for shell-only agents: publish results now
-  distinguish `artifact_url` (authenticated Artifact detail navigation) from
-  `revision_content_url` (the exact content-origin Revision URL). Remaining
-  follow-up: add first-class `access_link_url` support as the
-  primary public Access Link Signed URL minted from a Share Link, so agents do
-  not hand users the authenticated Artifact URL or a one-Revision content URL.
+- Stable live publish handoff for hosted agents shipped in AP-299/PR #475:
+  MCP publish results now mint/reuse a Share Link by default and return
+  `access_link_url` as the primary live human handoff. Base CLI/REST still
+  distinguish `artifact_url` (authenticated management navigation) from
+  `revision_content_url` (one-Revision content URL).
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust
@@ -223,8 +233,9 @@ build-provenance + SBOM on CLI binaries, `npm publish --provenance`, clean npm
 metadata). The two doc gaps it surfaced are closed: legal pages now publish the
 `Zaks.io, LLC` registered mailing address with a Privacy Contact section, and
 the safety docs lead with a "What not to publish" (no secrets/customer data)
-warning. AP-254 holds the remaining public-repo/source-link and GitHub security
-feature toggles.
+warning. AP-254 is closed. Remaining public credibility work is optional/manual
+self-certification (OpenSSF Best Practices) or advisory security-hardening, not
+a repo-flip launch blocker.
 On 2026-06-07 Isaac confirmed npm trusted publishing is already configured and
 selected a support email alias that routes into Linear as the minimum public
 incident intake channel.
