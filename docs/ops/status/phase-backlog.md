@@ -1,7 +1,7 @@
 # Phase Backlog
 
-Last updated: 2026-06-07 (early-alpha production refresh after AP-109/AP-174/AP-181
-landed and production `SMOKE_HARNESS_SECRET` cleanup was completed by Isaac).
+Last updated: 2026-06-11 (launch-state triage after AP-254/AP-299 closed and
+production deploy workflow succeeded for remote `main` `e3be243c`).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -15,10 +15,12 @@ TanStack Query cache with an SSE-driven live UI in AP-164. The Stripe billing
 path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
 shipped behind the deploy-time billing flag. Active product work is now
 post-launch/Phase 6 early-alpha hardening: production E2E verification (AP-139),
-public-repo security posture (AP-254), hosted-content provenance (AP-235), Snyk
-Code triage (AP-160), and security/ops polish. Hosted Stripe test-mode was
+production backup/DR posture (AP-302), launch-claim accuracy for hosted MCP
+connector support (AP-271), and security/ops polish. Hosted Stripe test-mode was
 verified in preview by Isaac; production Stripe still needs a final smoke only
-if billing is enabled for paid public launch. (The file-bytes malware scanner,
+if billing is enabled for paid public launch. AP-254 is Done. AP-160 and AP-235
+are archived/parked in Linear; revive them only if Snyk SAST gating or a
+hosted-content provenance badge becomes a current launch requirement. (The file-bytes malware scanner,
 AP-149, was cancelled as too expensive; containment already bounds the risk.
 Built-in warnings, Llama Guard, and URL Scanner remain advisory signals.)
 
@@ -33,9 +35,10 @@ Active local handoff: none. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
 and AP-242 are Done on `main`. Production deploys after `5411f0f` were blocked
 by a stale forbidden `SMOKE_HARNESS_SECRET` on `agent-paste-api-production`;
 Isaac deleted that Worker secret on 2026-06-07, and manual `Deploy Production`
-run `27101054536` succeeded on current `main` (`6ad04f5`). Next early-alpha
-hardening step: record AP-139 production E2E evidence. Hosted-content provenance badge is
-separate AP-235.
+run `27101054536` succeeded on then-current `main` (`6ad04f5`). Subsequent
+production workflow deploys have also succeeded, including run `27370738483` for
+remote `main` `e3be243c` on 2026-06-11. Next early-alpha hardening step: record
+AP-139 production E2E evidence.
 
 ## Phase 3 Close-Out
 

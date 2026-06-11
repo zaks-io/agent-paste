@@ -6,9 +6,9 @@ Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web 
 
 Publish-handoff fix shipped: publish results now distinguish authenticated
 Artifact URL (`artifact_url`) from exact content-origin Revision content
-(`revision_content_url`). The remaining CLI/REST product change is first-class
-`access_link_url` output as the primary live handoff, so agents do not send
-users to the authenticated Artifact URL or one-Revision content URL.
+(`revision_content_url`). AP-299/PR #475 added first-class MCP
+`access_link_url` output as the primary live handoff, so hosted agents do not
+send users to the authenticated Artifact URL or one-Revision content URL.
 
 ## Dependencies
 
@@ -56,9 +56,10 @@ users to the authenticated Artifact URL or one-Revision content URL.
 
 - [x] Add an ADR 0069 row to the ADR Coverage table in [`status/coverage.md`](./status/coverage.md) (Deferred) and reference this file from the Phase 4 backlog.
 - [x] Add the `stream` Worker to [`status/implementation.md`](./status/implementation.md).
-- [ ] Add first-class `access_link_url` support for public
-      Artifact Viewers in CLI/REST publish results. Done when user-facing
-      publish output returns the Access Link Signed URL minted from a Share Link
-      as the primary live URL, while `artifact_url` remains authenticated
-      management navigation and `revision_content_url` remains the exact
-      snapshot content URL.
+- [x] Add first-class MCP `access_link_url` support for public
+      Artifact Viewers. AP-299/PR #475 makes MCP publish/add-revision create or
+      reuse a Share Link by default and return its Access Link Signed URL as the
+      primary live URL, while `artifact_url` remains authenticated management
+      navigation and `revision_content_url` remains the exact snapshot content
+      URL. Base CLI/REST publish output can still be revisited separately if
+      those surfaces need the same default.
