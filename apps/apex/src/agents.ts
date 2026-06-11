@@ -3,9 +3,10 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 export const AGENTS_MD = `# agent-paste for agents
 
 agent-paste gives AI agents a durable, addressable place to publish work
-products. User-facing publish flows should return \`access_link_url\`: the
-Access Link Signed URL minted from a Share Link. Do not send users to the
-authenticated Artifact URL or the Revision Content URL as the final live page.
+products. Publish returns the authenticated Artifact URL as \`View\` by default.
+Create a Share Link and return \`access_link_url\` only when the user explicitly
+asks for a public/shareable link. Do not send users to the Revision Content URL
+as the final live page.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
@@ -27,8 +28,7 @@ agent-paste has three objects an agent needs to know:
   Link is the durable grant; an Access Link Signed URL is the URL string minted
   from that grant.
 - **Artifact URL** - The authenticated Artifact detail URL for workspace
-  management. Do not give it to users as the live page when a Share Link can be
-  minted.
+  management and the default post-publish \`View\` URL.
 - **Revision Content URL** - A signed \`usercontent.agent-paste.sh/v/...\` URL
   for the exact Revision returned by publish. It expires and does not Live
   Update.
@@ -37,7 +37,8 @@ agent-paste has three objects an agent needs to know:
   Viewer at \`${APP_BASE_URL}/al/{public_id}#...\`, follows the latest Published
   Revision, and can be revoked without deleting the Artifact.
 - **Access Link Signed URL** - The URL string minted from an Access Link. The
-  one minted from a Share Link is the primary live page URL to return to users.
+  one minted from a Share Link is the public/shareable live page URL to return
+  only when the user explicitly asks for sharing.
 
 ## CLI quickstart
 
@@ -50,45 +51,51 @@ npx @zaks-io/agent-paste whoami
 If \`whoami\` succeeds, publish normally. If it fails and the user can interact,
 run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a browser
 OAuth flow and provisions its own scoped key, so there is no API key to copy or
-paste. Publish returns an Artifact ID, an authenticated Artifact URL, a Revision
-Content URL, and an Agent View URL. MCP publish tools also create or reuse a
-Share Link by default and return its Access Link Signed URL as \`access_link_url\`.
+paste. Publish returns the authenticated Artifact URL as \`View\` by default.
+Public sharing is explicit: pass CLI \`--share\`, REST \`{ "share": true }\`, or
+MCP \`share:true\`/create a Share Link only when the user asks for a
+public/shareable URL. JSON/REST output also carries diagnostic Artifact IDs,
+Revision IDs, and snapshot URLs for automation.
 
 \`\`\`
 npx @zaks-io/agent-paste login
 npx @zaks-io/agent-paste whoami
 npx @zaks-io/agent-paste publish ./report
-# => art_01HZ8K2X9NPQR3VW7TYBE5MCDF
+# => View https://app.agent-paste.sh/artifacts/art_...
 \`\`\`
 
-Human-readable CLI output prints the authenticated Artifact URL first. That is
-not the public live URL:
+Human-readable CLI output prints the authenticated app URL as \`View\`. It does
+not print Artifact IDs, Revision IDs, or direct content URLs:
 
 \`\`\`
 ✓ Published "report"
-  art_... · rev_...
 
-  Artifact  ${APP_BASE_URL}/artifacts/art_...
-  Revision  https://usercontent.agent-paste.sh/v/...
-  Agent     ${API_BASE_URL}/v1/public/agent-view/...
+  View      ${APP_BASE_URL}/artifacts/art_...
   Expires   2026-06-20
+  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
+
+  → open ${APP_BASE_URL}/artifacts/art_...
 \`\`\`
 
 JSON output has these URL fields:
 
-- \`artifact_url\` - authenticated workspace Artifact detail URL. Do not return
-  this as the final live page when an Access Link is available.
+- \`artifact_url\` - authenticated workspace Artifact detail URL and default
+  \`View\` URL.
+- \`access_link_url\` - Access Link Signed URL from an explicitly created Share
+  Link or Revision Link.
 - \`revision_content_url\` - exact signed Content Origin URL for this Revision.
-  It expires and does not Live Update.
+  It expires, does not Live Update, and direct HTML opened there is inert raw byte
+  delivery rather than the product viewer.
 - \`agent_view_url\` - machine-readable Agent View JSON for tools.
 
 Publish creates a new Artifact by default. To append and publish a new Revision
 on an existing Artifact, pass \`--artifact-id art_...\`.
 
-If the user asks for a stable link, live-updating link, or a link they can keep
-open while you iterate, return \`access_link_url\`: the Access Link Signed URL
-minted from a Share Link. In MCP this means leave \`share\` at its default
-\`true\` and return \`access_link_url\`. Do not return \`artifact_url\` or the
+If the user asks for a public/shareable link, create a Share Link and return
+\`access_link_url\`: the Access Link Signed URL minted from that Share Link. In
+CLI this means passing \`--share\`; in REST this means sending
+\`{ "share": true }\`; in MCP this means setting \`share:true\` or using
+\`create_share_link\`. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Ephemeral publish fallback
@@ -112,10 +119,10 @@ reparent the Artifact into their Workspace and keep it. The token rides the URL
 Signed URL.
 
 Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
-HTML/CSS render, but JavaScript does not run until a human claims the Artifact
-and new content URLs are minted from the claimed Workspace. For an interactive
-page, browser app, or visualization that needs JavaScript, use authenticated
-publish rather than \`--ephemeral\`.
+HTML/CSS render, but JavaScript does not run. After claim, newly minted viewer
+URLs can run interactive HTML inside the controlled Artifact Viewer. For an
+interactive page, browser app, or visualization that needs JavaScript, use
+authenticated publish rather than \`--ephemeral\`.
 
 ## REST entry points
 
@@ -174,14 +181,12 @@ Read (\`read\`):
 
 Write (\`write\`):
 
-- \`publish_artifact\` - publish a new text-only Artifact and create a Share
-  Link by default. Return \`access_link_url\` to the user (also needs \`read\`
-  and, by default, \`share\`; set \`share:false\` only for internal flows).
-- \`add_revision\` - add and publish a new Revision to an Artifact and return
-  the Access Link Signed URL from an active Share Link by default, creating one
-  only if none exists. Return \`access_link_url\` to the user (also needs
-  \`read\` and, by default, \`share\`; set \`share:false\` only for internal
-  flows).
+- \`publish_artifact\` - publish a new text-only Artifact without creating a
+  public link by default. Set \`share:true\` only when the user explicitly asks
+  for a public/shareable Access Link.
+- \`add_revision\` - add and publish a new Revision to an Artifact without
+  creating or reusing a Share Link by default. Set \`share:true\` only when the
+  user explicitly asks for a public/shareable Access Link.
 - \`delete_artifact\` - delete an Artifact.
 - \`update_display_metadata\` - update an Artifact's display title.
 

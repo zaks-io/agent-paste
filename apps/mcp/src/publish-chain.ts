@@ -146,8 +146,9 @@ export async function runTextPublishChain(
   }
 
   const output = McpPublishArtifactOutput.safeParse({
-    ...publishResult.data,
+    title: publishResult.data.title,
     ...(accessLinkUrl ? { access_link_url: accessLinkUrl } : {}),
+    expires_at: publishResult.data.expires_at,
     upload_stats: uploadStats,
   });
   if (!output.success) {

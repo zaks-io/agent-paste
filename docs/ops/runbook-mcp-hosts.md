@@ -198,13 +198,15 @@ Text-only artifact operations per ADR 0061:
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
 
-`publish_artifact` and `add_revision` default `share` to `true`.
-`publish_artifact` creates a Share Link; `add_revision` reuses an active Share
-Link when one exists and only creates one when needed. They return the signed
-Access Link Signed URL minted from that Share Link as `access_link_url`.
-Return that URL to users as the live page. Set `share: false`
-only for internal flows that should not mint an Access Link. Use
-`create_revision_link` only for a pinned URL to one exact Revision.
+`publish_artifact` and `add_revision` default `share` to `false` and do not
+create or reuse Share Links by default. Set `share: true` only when the user
+explicitly asks for a public/shareable Access Link. Then `publish_artifact`
+creates a Share Link; `add_revision` reuses an active Share Link when one exists
+and only creates one when needed. They return the signed Access Link Signed URL
+minted from that Share Link as `access_link_url`. The publish result deliberately
+omits Artifact IDs, Revision IDs, `artifact_url`, `revision_content_url`, and
+`agent_view_url`; use explicit read/list/link tools when those fields are
+needed. Use `create_revision_link` only for a pinned URL to one exact Revision.
 
 ### Publish retries and share-link idempotency
 

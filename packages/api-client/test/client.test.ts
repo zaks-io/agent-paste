@@ -212,6 +212,25 @@ describe("ApiClient", () => {
     expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
   });
 
+  it("sends an explicit publish share request body only when requested", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        return Response.json({ ...publishResult(), access_link_url: "https://app.example.test/al/PUBLIC#secret" });
+      },
+    });
+
+    await client.revisions.publish(artifactId, revisionId, "idem_publish_share", { share: true });
+
+    expect(calls[0]?.url).toBe(`https://api.example.test/v1/artifacts/${artifactId}/revisions/${revisionId}/publish`);
+    expect(calls[0]?.method).toBe("POST");
+    expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish_share");
+    expect(calls[0]?.headers.get("content-type")).toBe("application/json");
+    await expect(calls[0]?.json()).resolves.toEqual({ share: true });
+  });
+
   it("revokes the current API key with API-key auth", async () => {
     const calls: Request[] = [];
     const client = authedClient({

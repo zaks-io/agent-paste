@@ -57,31 +57,31 @@ Host-specific OAuth and redirect notes live in
 
 MCP exposes twelve tools:
 
-| Tool                      | Purpose                                                                                                     |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                             |
-| `publish_artifact`        | Publish a new text-only Artifact and return a signed URL from a Share Link by default.                      |
-| `add_revision`            | Add and publish a text-only Revision and return a signed URL from an existing or new Share Link by default. |
-| `list_artifacts`          | List Artifacts in the Workspace.                                                                            |
-| `read_artifact`           | Read the latest Agent View for an Artifact.                                                                 |
-| `list_revisions`          | List Revisions for an Artifact.                                                                             |
-| `delete_artifact`         | Delete an Artifact.                                                                                         |
-| `update_display_metadata` | Update an Artifact display title.                                                                           |
-| `create_share_link`       | Create a Share Link and mint its Access Link Signed URL.                                                    |
-| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                             |
-| `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                        |
-| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                                       |
+| Tool                      | Purpose                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                 |
+| `publish_artifact`        | Publish a new text-only Artifact without creating a public link by default.     |
+| `add_revision`            | Add and publish a text-only Revision without creating a public link by default. |
+| `list_artifacts`          | List Artifacts in the Workspace.                                                |
+| `read_artifact`           | Read the latest Agent View for an Artifact.                                     |
+| `list_revisions`          | List Revisions for an Artifact.                                                 |
+| `delete_artifact`         | Delete an Artifact.                                                             |
+| `update_display_metadata` | Update an Artifact display title.                                               |
+| `create_share_link`       | Create a Share Link and mint its Access Link Signed URL.                        |
+| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                 |
+| `list_access_links`       | List Share Links and Revision Links for an Artifact.                            |
+| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                           |
 
-Publishing tools default `share` to `true`. `publish_artifact` creates a Share
-Link, while `add_revision` reuses an active Share Link when one exists and only
-creates one when needed. For user-facing handoff, return `access_link_url` as
-the live page; it is the signed
-Access Link Signed URL minted from the Share Link.
-Do not send `artifact_url` or `revision_content_url` as the final live page:
-`artifact_url` is for authenticated workspace management, and
-`revision_content_url` is a one-Revision content URL. Set `share: false` only for
-internal flows that intentionally should not mint an Access Link. Use
-`create_revision_link` only when the reader must see one exact Revision.
+Publishing tools default `share` to `false`. They do not create or reuse Share
+Links unless the user explicitly asks for a public/shareable Access Link. When
+`share: true`, `publish_artifact` creates a Share Link and `add_revision` reuses
+an active Share Link when one exists, creating one only when needed. Return
+`access_link_url` only for that explicit share flow.
+MCP publish output intentionally omits Artifact IDs, Revision IDs,
+`artifact_url`, `revision_content_url`, and `agent_view_url`; use
+`list_artifacts`, `read_artifact`, `list_revisions`, or explicit link tools when
+those fields are needed. Use `create_revision_link` only when the reader must see
+one exact Revision.
 
 ## Capabilities
 

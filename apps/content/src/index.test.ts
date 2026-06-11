@@ -61,6 +61,8 @@ async function fetchServedFile(
   path: string,
   body = "ok",
   tokenOptions: { script_disabled?: boolean; noindex?: boolean } = { script_disabled: false },
+  requestHeaders: HeadersInit = {},
+  envOverrides: Partial<Env> = {},
 ): Promise<Response> {
   const token = await signContentToken(
     {
@@ -80,6 +82,7 @@ async function fetchServedFile(
     plaintext: body,
   });
   const env = baseContentEnv({
+    ...envOverrides,
     ARTIFACTS: {
       async get(key) {
         expect(key).toBe(`artifacts/art_1/revisions/rev_1/files/${path}`);
@@ -87,8 +90,14 @@ async function fetchServedFile(
       },
     },
   });
-  return await handleRequest(new Request(`https://content.test/v/${token}/${path}`), env);
+  return await handleRequest(new Request(`https://content.test/v/${token}/${path}`, { headers: requestHeaders }), env);
 }
+
+const viewerFrameHeaders = {
+  "sec-fetch-dest": "iframe",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "same-site",
+};
 
 describe("content worker", () => {
   it("mounts every content route contract", () => {
@@ -192,7 +201,10 @@ describe("content worker", () => {
       },
     });
 
-    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, { headers: viewerFrameHeaders }),
+      env,
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
@@ -1146,10 +1158,19 @@ describe("content conditional requests", () => {
 });
 
 describe("CSP header per content type", () => {
-  it("pins the HTML CSP", async () => {
+  it("pins direct HTML to the script-disabled CSP", async () => {
     const response = await fetchServedFile("index.html");
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
-      `"default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
+      `"default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
+    );
+  });
+
+  it("pins viewer-framed HTML to the interactive CSP", async () => {
+    const response = await fetchServedFile("index.html", "ok", { script_disabled: false }, viewerFrameHeaders, {
+      AGENT_PASTE_ENV: "production",
+    });
+    expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
+      `"default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors https://app.agent-paste.sh"`,
     );
   });
 

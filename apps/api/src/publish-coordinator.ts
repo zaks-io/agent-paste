@@ -1,11 +1,14 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
+import { publishShareLinkIdempotencyKey } from "@agent-paste/contracts";
 import type { ApiActor, Repository } from "@agent-paste/db";
+import { type AccessLinkSigner, resolveAccessLinkSigner } from "@agent-paste/rotation";
 import { writeArtifactEvent } from "@agent-paste/worker-runtime";
 import { entrypointPathFromContentUrl, signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import { RepositoryRouteError } from "./responses.js";
+import { webBaseUrl } from "./runtime.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
 type PublishResult = Awaited<ReturnType<Repository["publishRevision"]>>;
@@ -15,6 +18,7 @@ export type PublishCoordinatorInput = {
   idempotencyKey: string;
   artifactId: string;
   revisionId: string;
+  share?: boolean;
 };
 
 export type PublishCoordinator = {
@@ -31,11 +35,23 @@ export function createPublishCoordinator(deps: PublishCoordinatorDeps): PublishC
     async publishRevision(input) {
       const isReplay = await assertPublishNotInFlight(deps.db, input);
       const now = new Date().toISOString();
+      const shareSigner = resolvePublishShareLinkSigner(deps.env, input.share);
       const consumedAllowance = await reservePublishAllowance(deps, input, isReplay);
       const result = await commitPublish(deps, input, now, consumedAllowance);
-      return runPostPublishFanout(deps.env, input, result, now, isReplay);
+      return runPostPublishFanout(deps, input, result, now, isReplay, shareSigner);
     },
   };
+}
+
+function resolvePublishShareLinkSigner(env: Env, share: boolean | undefined): AccessLinkSigner | undefined {
+  if (!share) {
+    return undefined;
+  }
+  const signer = resolveAccessLinkSigner(env);
+  if (!signer) {
+    throw new RepositoryRouteError("storage_unavailable", "Access Link signing is not configured");
+  }
+  return signer;
 }
 
 async function assertPublishNotInFlight(db: Repository, input: PublishCoordinatorInput): Promise<boolean> {
@@ -121,18 +137,52 @@ async function commitPublish(
 }
 
 async function runPostPublishFanout(
-  env: Env,
+  deps: PublishCoordinatorDeps,
   input: PublishCoordinatorInput,
   result: PublishResult,
   now: string,
   isReplay: boolean,
+  shareSigner: AccessLinkSigner | undefined,
 ): Promise<unknown> {
   const ephemeralTier = isEphemeralPublish(result);
-  recordFreshPublishEvent(env, input, ephemeralTier, isReplay);
-  await enqueuePublishJobs(env, input, result, now, ephemeralTier);
-  const signed = await signPublishResult(result, env, { workspaceId: input.actor.workspace_id, ephemeralTier });
-  await notifyPublishedRevision(env, result, signed);
-  return signed;
+  recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
+  await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
+  const signed = await signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
+  const accessLinkUrl = await maybeMintPublishShareLink(deps, input, shareSigner);
+  const output = withOptionalAccessLinkUrl(signed, accessLinkUrl);
+  await notifyPublishedRevision(deps.env, result, output);
+  return output;
+}
+
+function withOptionalAccessLinkUrl(signed: unknown, accessLinkUrl: string | undefined): unknown {
+  if (!accessLinkUrl) {
+    return signed;
+  }
+  return signed && typeof signed === "object" ? { ...signed, access_link_url: accessLinkUrl } : signed;
+}
+
+async function maybeMintPublishShareLink(
+  deps: PublishCoordinatorDeps,
+  input: PublishCoordinatorInput,
+  signer: AccessLinkSigner | undefined,
+): Promise<string | undefined> {
+  if (!signer) {
+    return undefined;
+  }
+  const created = await deps.db.createMemberAccessLink({
+    actor: input.actor,
+    idempotencyKey: publishShareLinkIdempotencyKey(input.idempotencyKey),
+    artifactId: input.artifactId,
+    type: "share",
+  });
+  const minted = await deps.db.mintMemberAccessLink({
+    actor: input.actor,
+    accessLinkId: created.id,
+    appBaseUrl: webBaseUrl(deps.env),
+    signingSecret: signer.signingSecret,
+    signingKid: signer.signingKid,
+  });
+  return minted.url;
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {

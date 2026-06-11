@@ -21,7 +21,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
             ["Artifact URL", "The authenticated Artifact detail URL for Workspace management."],
             [
               "Revision Content URL",
-              "A signed Content Origin URL for one exact Revision. It expires and does not Live Update.",
+              "A signed Content Origin byte URL for one exact Revision. It expires, does not Live Update, and direct HTML there is inert.",
             ],
             ["Access Link", "A revocable grant family for unauthenticated read access."],
             ["Share Link", "Access Link type that follows the latest Published Revision."],
@@ -37,7 +37,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish returns stable Artifact and Revision IDs. User-facing publish surfaces should also return an Access Link Signed URL minted from a Share Link for the live Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision.",
+          text: "Publish creates stable Artifact and Revision IDs. The default post-publish `View` is the authenticated Artifact URL. Public/shareable handoff requires an explicit Share Link, whose `access_link_url` opens the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
         },
         {
           kind: "code",

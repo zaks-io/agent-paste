@@ -11,6 +11,7 @@ import {
   type IdempotencyKey,
   type PowChallenge,
   PublishResult,
+  type PublishRevisionRequest,
   type RevisionId,
   RevisionListResponse,
   RevokeApiKeyResponse,
@@ -108,13 +109,19 @@ export class ApiClient {
   };
 
   revisions = {
-    publish: (artifactId: ArtifactId | string, revisionId: RevisionId | string, idempotencyKey: string) =>
+    publish: (
+      artifactId: ArtifactId | string,
+      revisionId: RevisionId | string,
+      idempotencyKey: string,
+      body?: PublishRevisionRequest,
+    ) =>
       this.request(
         PublishResult,
         this.apiBaseUrl,
         `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions/${encodeURIComponent(revisionId)}/publish`,
         {
           method: "POST",
+          ...(body ? { body } : {}),
           idempotencyKey,
         },
       ),

@@ -311,6 +311,7 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.paths).toBeUndefined();
+    expect(payload?.script_disabled).toBe(false);
   });
 
   it("scopes publish-result entrypoint URLs when signing an explicit object key", async () => {

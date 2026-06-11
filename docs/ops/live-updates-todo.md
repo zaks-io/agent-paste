@@ -7,8 +7,12 @@ Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web 
 Publish-handoff fix shipped: publish results now distinguish authenticated
 Artifact URL (`artifact_url`) from exact content-origin Revision content
 (`revision_content_url`). AP-299/PR #475 added first-class MCP
-`access_link_url` output as the primary live handoff, so hosted agents do not
-send users to the authenticated Artifact URL or one-Revision content URL.
+`access_link_url` support, and the 2026-06-11 tightening made public sharing
+explicit: MCP publish/add-revision no longer create or reuse Share Links by
+default. MCP publish output deliberately omits Artifact IDs, Revision IDs,
+`artifact_url`, `revision_content_url`, and `agent_view_url`; explicit
+read/list/link tools remain available for management, sharing, and
+pinned-Revision flows.
 
 ## Dependencies
 
@@ -56,10 +60,9 @@ send users to the authenticated Artifact URL or one-Revision content URL.
 
 - [x] Add an ADR 0069 row to the ADR Coverage table in [`status/coverage.md`](./status/coverage.md) (Deferred) and reference this file from the Phase 4 backlog.
 - [x] Add the `stream` Worker to [`status/implementation.md`](./status/implementation.md).
-- [x] Add first-class MCP `access_link_url` support for public
-      Artifact Viewers. AP-299/PR #475 makes MCP publish/add-revision create or
-      reuse a Share Link by default and return its Access Link Signed URL as the
-      primary live URL, while `artifact_url` remains authenticated management
-      navigation and `revision_content_url` remains the exact snapshot content
-      URL. Base CLI/REST publish output can still be revisited separately if
-      those surfaces need the same default.
+- [x] Add first-class MCP `access_link_url` support for public Artifact Viewers.
+      AP-299/PR #475 added the field; the 2026-06-11 tightening made MCP
+      publish/add-revision default to no Share Link, returning `access_link_url`
+      only when `share: true` is explicitly requested. `artifact_url` remains
+      authenticated app navigation and `revision_content_url` remains the exact
+      snapshot content URL.

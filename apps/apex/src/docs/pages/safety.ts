@@ -12,7 +12,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Published Artifacts are meant to be shared through Access Link Signed URLs. Anyone with a valid Access Link Signed URL can read the files until the Artifact or link expires, is revoked, or is deleted. Treat shared links as sensitive.",
+          text: "Published Artifacts are private to the Workspace by default. When you explicitly create an Access Link Signed URL, anyone with that URL can read the files until the Artifact or link expires, is revoked, or is deleted. Treat shared links as sensitive.",
         },
         {
           kind: "paragraph",
@@ -38,7 +38,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Published files are served from `usercontent.agent-paste.sh`, not the dashboard or API origin. R2 stays private. Clients receive signed content URLs, never direct storage URLs.",
+          text: "Published files are served from `usercontent.agent-paste.sh`, not the dashboard or API origin. R2 stays private. Clients receive signed content URLs, never direct storage URLs. The content origin is byte delivery; direct top-level HTML there is inert and unbranded.",
         },
       ],
     },
@@ -52,7 +52,7 @@ export const SAFETY_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Untrusted content responses carry CSP, HSTS, X-Content-Type-Options, frame protections, Referrer-Policy, and permissions restrictions. SVG receives a stricter CSP.",
+          text: "Untrusted content responses carry CSP, HSTS, X-Content-Type-Options, frame protections, Referrer-Policy, and permissions restrictions. Interactive HTML execution is allowed only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML gets `script-src 'none'`. SVG receives a stricter CSP.",
         },
       ],
     },
@@ -62,7 +62,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Unclaimed ephemeral HTML may contain scripts, but scripts do not execute. Static markup and CSS still render. After a human claims the Artifact into a regular Workspace, newly minted content URLs use the claimed Workspace execution policy.",
+          text: "Unclaimed ephemeral HTML may contain scripts, but scripts do not execute. Static markup and CSS still render. After a human claims the Artifact into a regular Workspace, newly minted viewer URLs may use the claimed Workspace execution policy, but interactive HTML still runs only inside the controlled Artifact Viewer iframe.",
         },
       ],
     },

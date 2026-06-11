@@ -1,6 +1,6 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Env } from "./env.js";
 import { createPublishCoordinator } from "./publish-coordinator.js";
 
@@ -58,6 +58,17 @@ function coordinatorFixture(overrides: Partial<Record<keyof Repository, unknown>
   return { coordinator: createPublishCoordinator({ db, env }), writeAllowance };
 }
 
+function publishedResult() {
+  return {
+    artifact_id: "art_1",
+    revision_id: "rev_1",
+    title: "Demo",
+    entrypoint: "index.html",
+    revision_content_url: "https://usercontent.test/v/raw/index.html",
+    expires_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
 describe("publish coordinator write-allowance reservation", () => {
   it("does not release the reservation when the publish loses an in-flight race", async () => {
     const { coordinator, writeAllowance } = coordinatorFixture({
@@ -98,5 +109,83 @@ describe("publish coordinator write-allowance reservation", () => {
     await expect(coordinator.publishRevision(publishInput)).rejects.toBeInstanceOf(IdempotencyInFlightError);
     expect(writeAllowance.calls).toEqual([]);
     expect(publishCalls).toEqual([]);
+  });
+
+  it("does not create a Share Link by default", async () => {
+    const createMemberAccessLink = vi.fn();
+    const { coordinator } = coordinatorFixture({
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      async publishRevision() {
+        return publishedResult();
+      },
+      createMemberAccessLink,
+    });
+
+    const result = await coordinator.publishRevision(publishInput);
+
+    expect(createMemberAccessLink).not.toHaveBeenCalled();
+    expect(result).not.toHaveProperty("access_link_url");
+  });
+
+  it("rejects explicit Share Link publish before committing when signing is not configured", async () => {
+    const publishRevision = vi.fn();
+    const createMemberAccessLink = vi.fn();
+    const { coordinator, writeAllowance } = coordinatorFixture({
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      publishRevision,
+      createMemberAccessLink,
+    });
+
+    await expect(coordinator.publishRevision({ ...publishInput, share: true })).rejects.toMatchObject({
+      code: "storage_unavailable",
+    });
+    expect(writeAllowance.calls).toEqual([]);
+    expect(publishRevision).not.toHaveBeenCalled();
+    expect(createMemberAccessLink).not.toHaveBeenCalled();
+  });
+
+  it("creates and mints a Share Link when publish explicitly asks to share", async () => {
+    const createMemberAccessLink = vi.fn(async () => ({ id: "al_1" }));
+    const mintMemberAccessLink = vi.fn(async () => ({ url: "https://app.test/al/PUBLICLINK123456#secret" }));
+    const env = {
+      WRITE_ALLOWANCE: fakeWriteAllowance(),
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      WEB_BASE_URL: "https://app.test",
+    } as unknown as Env;
+    const db = {
+      async peekWorkspaceCommandReplay() {
+        return null;
+      },
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      async publishRevision() {
+        return publishedResult();
+      },
+      createMemberAccessLink,
+      mintMemberAccessLink,
+    } as unknown as Repository;
+    const coordinator = createPublishCoordinator({ db, env });
+
+    const result = await coordinator.publishRevision({ ...publishInput, share: true });
+
+    expect(createMemberAccessLink).toHaveBeenCalledWith({
+      actor,
+      idempotencyKey: "idem_publish:share-link",
+      artifactId: "art_1",
+      type: "share",
+    });
+    expect(mintMemberAccessLink).toHaveBeenCalledWith({
+      actor,
+      accessLinkId: "al_1",
+      appBaseUrl: "https://app.test",
+      signingSecret: "access-link-secret",
+      signingKid: 1,
+    });
+    expect(result).toMatchObject({ access_link_url: "https://app.test/al/PUBLICLINK123456#secret" });
   });
 });

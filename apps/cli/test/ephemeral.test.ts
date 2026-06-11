@@ -43,7 +43,7 @@ function mockStdout() {
 }
 
 describe("cli ephemeral publish", () => {
-  it("provisions, publishes, and prints an Access Link Signed URL plus claim deep link in the hash", async () => {
+  it("provisions, publishes, and prints a private View plus claim deep link in the hash", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
@@ -66,7 +66,8 @@ describe("cli ephemeral publish", () => {
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
       expect(human).toContain("https://app.test/artifacts/art_1");
-      expect(human).toContain("https://content.test/v/token/index.html");
+      expect(human).not.toContain("https://app.test/al/PUBLICLINK123456#secret");
+      expect(human).not.toContain("https://content.test/v/token/index.html");
       expect(human).toContain(claimUrl);
       expect(human).not.toContain(`?${claimToken}`);
       expect(human).not.toContain(`https://app.test/view/${claimToken}`);

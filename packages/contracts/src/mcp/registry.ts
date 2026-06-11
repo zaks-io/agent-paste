@@ -64,7 +64,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only Artifact and create a Share Link by default. Return access_link_url, the Access Link Signed URL minted from that Share Link, to the user as the primary live page. Use share:false only for internal flows that do not need a user-facing link; do not give artifact_url or revision_content_url as the final live page.",
+      "Publish a new text-only Artifact. Do not create a Share Link by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then return access_link_url.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
@@ -76,7 +76,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only Revision and reuse an active Share Link by default, creating one only if none exists. Return access_link_url, the Access Link Signed URL minted from that Share Link, to the user as the primary live page. Use share:false only for internal flows that do not need a user-facing link; do not give artifact_url or revision_content_url as the final live page.",
+      "Add and publish a text-only Revision. Do not create or reuse Share Links by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then reuse an active Share Link when possible or create one and return access_link_url.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",

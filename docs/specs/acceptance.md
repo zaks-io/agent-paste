@@ -12,15 +12,15 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Public CLI
 
-| Scenario                            | Expected Result                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Missing `AGENT_PASTE_API_KEY`       | `agent-paste whoami` and `publish` fail with a clear local error before network calls.                                     |
-| Valid API key                       | `agent-paste whoami` returns workspace and API key identity without secret material.                                       |
-| Publish single HTML file            | Creates one Artifact and one Revision, returns `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`. |
-| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                     |
-| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                             |
-| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                      |
-| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                          |
+| Scenario                            | Expected Result                                                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing `AGENT_PASTE_API_KEY`       | `agent-paste whoami` and `publish` fail with a clear local error before network calls.                                                       |
+| Valid API key                       | `agent-paste whoami` returns workspace and API key identity without secret material.                                                         |
+| Publish single HTML file            | Creates one Artifact and one Revision, prints the authenticated Artifact URL as `View`; JSON/REST includes diagnostic IDs and snapshot URLs. |
+| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                                       |
+| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                                               |
+| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                                        |
+| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                                            |
 
 `revision_content_url` is the direct signed content URL for the published
 Revision. It is not an Access Link Signed URL or Live Update viewer.
@@ -38,9 +38,9 @@ Revision. It is not an Access Link Signed URL or Live Update viewer.
 
 | Scenario                    | Expected Result                                                                                        |
 | --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Open Access Link Signed URL | Browser opens the Artifact Viewer through an Access Link Signed URL minted from a Share Link.          |
+| Open Access Link Signed URL | Browser opens the Artifact Viewer through an explicitly minted Access Link Signed URL.                 |
 | Open `artifact_url`         | Authenticated Workspace Member can open the Artifact detail view.                                      |
-| Open content URL            | Browser receives HTML from `usercontent.agent-paste.sh` with MVP security headers.                     |
+| Open content URL            | Browser receives raw HTML bytes from `usercontent.agent-paste.sh` with direct-page scripts disabled.   |
 | Load static asset           | Asset referenced by HTML loads from the same content origin when included in the artifact.             |
 | Fetch `agent_view_url`      | Returns Agent View JSON with full per-file signed URLs.                                                |
 | Fetch unknown path          | Returns generic `not_found`.                                                                           |

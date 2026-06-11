@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints an **Access Link Signed URL** and a one-time **Claim Token**, and the link works at once. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints the post-publish `View` plus a one-time **Claim Token**, and does not create a public Share Link by default. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. If `agent-paste whoami` succeeds, publish normally without
@@ -35,7 +35,7 @@ An unattended agent that self-provisions an **Ephemeral Workspace** and publishe
 A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to promote an **Ephemeral Workspace** into a claimed `free` **Workspace** they own as the first `admin`.
 
 **Unauthenticated Recipient**:
-Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an **Access Link Signed URL**, viewing only until **Auto Deletion**.
+Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an explicitly minted **Access Link Signed URL**, viewing only until **Auto Deletion**.
 
 ## Surfaces
 
@@ -115,17 +115,17 @@ Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case
 
 ## Script Execution by Tier
 
-Executable JavaScript requires a claimed tenant, so the platform only runs agent code behind an auditable identity ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). The line is enforced at serve time by the **Execution Policy**, not by inspecting HTML.
+Executable JavaScript requires a claimed tenant and the controlled **Artifact Viewer** path, so the platform only runs agent code behind an auditable identity ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). The line is enforced at serve time by the **Execution Policy** and viewer-frame checks, not by inspecting HTML.
 
-| Content                                        | Ephemeral (unclaimed)                 | Claimed (`free`+) |
-| ---------------------------------------------- | ------------------------------------- | ----------------- |
-| markdown, text, JSON, images                   | renders                               | renders           |
-| static HTML + CSS (no script)                  | renders                               | renders           |
-| HTML with `<script>` / inline handlers / `.js` | renders inert (script never executes) | executes          |
+| Content                                        | Ephemeral (unclaimed)                 | Claimed (`free`+)                                   |
+| ---------------------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| markdown, text, JSON, images                   | renders                               | renders                                             |
+| static HTML + CSS (no script)                  | renders                               | renders                                             |
+| HTML with `<script>` / inline handlers / `.js` | renders inert (script never executes) | executes only inside the controlled Artifact Viewer |
 
 - **Two Execution Policies.** Ephemeral content is served under a script-disabled policy (`script-src 'none'`, no inline, no event handlers), overriding the base CDN-allowlisted policy ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md)) the same way the SVG case overrides it today ([ADR 0042](../adr/0042-strict-extension-based-served-content-type.md)). Embedded script is allowed to be _present_ but never _runs_; it fails closed against unknown smuggling vectors.
-- **`content` stays DB-free.** The tier signal rides in the verified content-gateway token payload as a script-disabled bit set by `api` at mint time. `content` selects the CSP from the token with no lookup ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); an absent or unverifiable bit defaults to script-disabled.
-- **Claiming upgrades the policy.** Promotion to a claimed **Workspace** mints subsequent content-gateway tokens without the script-disabled bit, so script executes.
+- **`content` stays DB-free.** The tier signal rides in the verified content-gateway token payload as a script-disabled bit set by `api` at mint time. `content` selects the CSP from the token with no lookup ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); an absent or unverifiable bit defaults to script-disabled. Direct top-level `usercontent` HTML navigations are also forced script-disabled at request time.
+- **Claiming enables viewer execution.** Promotion to a claimed **Workspace** mints subsequent viewer content-gateway tokens without the script-disabled bit, and the `content` Worker only serves the interactive policy for trusted Artifact Viewer iframe navigations. Direct `usercontent` HTML remains inert raw byte delivery.
 
 ## Data-Model Deltas
 
@@ -138,13 +138,13 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 ## Acceptance Criteria
 
 - A valid `provision` call returns a working **API Key** and a one-time **Claim Token**.
-- A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop and the Access Link Signed URL resolves.
+- A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop without implicit `share` scope.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** promotes the tenant to claimed `free`, attaches the member as `admin`, raises the cap set, and is single-use thereafter.
 - A **Claim Token** that is redeemed, expired, or absent from the public Access Link Signed URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
-- An ephemeral **Artifact** containing script renders inert: static markup and CSS display, and no `<script>`, inline handler, or `.js` asset executes, because the content-gateway token carries the script-disabled bit and `content` selects the script-disabled **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted tokens omit the bit and script executes.
+- An ephemeral **Artifact** containing script renders inert: static markup and CSS display, and no `<script>`, inline handler, or `.js` asset executes, because the content-gateway token carries the script-disabled bit and `content` selects the script-disabled **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted viewer tokens may omit the bit, but script executes only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML remains inert.
 - Provision and claim emit **Audit Events**. A malicious Cloudflare URL Scanner
   verdict on ephemeral content can drive artifact-scoped **Platform Lockdown**;
   operator review can also drive **Platform Lockdown**.

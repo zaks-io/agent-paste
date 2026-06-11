@@ -294,7 +294,10 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   progress.done();
 
   const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
-  const published = await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
+  const share = booleanFlag(parsed, "share", false);
+  const published = share
+    ? await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey, { share: true })
+    : await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
   return {
     ...published,
     upload_stats: {
@@ -428,6 +431,7 @@ type PublishResultShape = {
   revision_id: string;
   title: string;
   artifact_url: string;
+  access_link_url?: string | undefined;
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
@@ -453,24 +457,18 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
   return `  ${paint(mode, "dim", "Upload")}    ${uploaded}, ${stats.reused_files} reused · ${formatBytes(stats.uploaded_bytes)} sent, ${formatBytes(stats.reused_bytes)} cached`;
 }
 
-// Human-readable publish result. Title-led so a person sees what shipped first;
-// the ids sit on a dim second line for reference. Artifact is the stable live
-// app viewer; Revision is the exact content-origin URL retained for snapshots.
-// Colour, clickable URLs, and the next-step hint only render in rich mode;
-// plain mode emits the same layout with ANSI stripped (safe to pipe).
+// Human-readable publish result. Keep the default handoff focused on the live
+// viewer URL; JSON is the explicit machine/debug surface for IDs and snapshots.
 function formatPublishResult(mode: OutputMode, result: PublishResultShape) {
   const label = (text: string) => paint(mode, "dim", text);
+  const viewerUrl = result.access_link_url ?? result.artifact_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
-    label(`  ${result.artifact_id} · ${result.revision_id}`),
     "",
-    `  ${label("Artifact")}  ${hyperlink(mode, result.artifact_url)}`,
-    `  ${label("Revision")}  ${hyperlink(mode, result.revision_content_url)}`,
-    `  ${label("Agent")}     ${hyperlink(mode, result.agent_view_url)}`,
+    `  ${label("View")}      ${hyperlink(mode, viewerUrl)}`,
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
-    "",
-    paint(mode, "cyan", `  → open ${result.artifact_url}`),
+    ...(viewerUrl ? ["", paint(mode, "cyan", `  → open ${viewerUrl}`)] : []),
   ].join("\n");
 }
 
@@ -499,6 +497,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   }
   if (
     result.artifact_url.includes(claimToken) ||
+    result.access_link_url?.includes(claimToken) ||
     result.revision_content_url.includes(claimToken) ||
     result.agent_view_url.includes(claimToken)
   ) {
@@ -513,12 +512,13 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--share] [--ephemeral] [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
 Output:
   --json        Machine-readable JSON on stdout (stable, carries schema_version).
+  --share       Explicitly create a public/shareable Share Link for publish.
   --quiet       Suppress the human summary; errors and exit code still apply.
   --color       Force colour/rich output; --no-color forces plain.
                 Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.

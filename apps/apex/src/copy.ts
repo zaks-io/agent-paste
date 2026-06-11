@@ -95,7 +95,7 @@ export type Feature = {
 export const FEATURES: Feature[] = [
   {
     title: "A URL for humans. A manifest for agents.",
-    body: "Every Publish returns a browser URL a person opens and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. The next agent reads the work instead of scraping it. One stable Artifact ID, the same across CLI, REST, MCP, and the dashboard.",
+    body: "Every Publish returns an authenticated app View and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it. One stable Artifact, the same across CLI, REST, MCP, and the dashboard.",
   },
   {
     title: "Cross-vendor handoff",

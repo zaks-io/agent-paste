@@ -16,7 +16,7 @@ export const EPHEMERAL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Ephemeral is not the Free Plan. It is an unclaimed restricted tier: low write caps, 24 hour Auto Deletion, `noindex`, and script-disabled content serving until the Artifact is claimed. Use it for non-interactive text, markdown, images, and static HTML/CSS.",
+          text: "Ephemeral is not the Free Plan. It is an unclaimed restricted tier: low write caps, 24 hour Auto Deletion, `noindex`, and script-disabled content serving while unclaimed. Use it for non-interactive text, markdown, images, and static HTML/CSS.",
         },
       ],
     },
@@ -46,12 +46,15 @@ export const EPHEMERAL_DOC: DocsPage = {
             ["Daily new Artifacts", "20"],
             ["Auto Deletion", "24 hours"],
             ["Indexing", "`noindex`"],
-            ["Scripts", "Present but inert until claimed"],
+            [
+              "Scripts",
+              "Present but inert while unclaimed; after claim, interactivity runs through the Artifact Viewer",
+            ],
           ],
         },
         {
           kind: "paragraph",
-          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit. Unclaimed ephemeral content is also served with scripts disabled: text, markdown, images, and static HTML/CSS render, but JavaScript does not execute until the Artifact is claimed and new content URLs are minted from a claimed Workspace. For interactive HTML, browser apps, or visualizations that need JavaScript, use authenticated publish instead.",
+          text: "Reads are not tied to the publisher allowance. They are gated only by the platform Artifact read rate limit. Unclaimed ephemeral content is also served with scripts disabled: text, markdown, images, and static HTML/CSS render, but JavaScript does not execute. After claim, newly minted viewer URLs can run interactive HTML inside the controlled Artifact Viewer. For interactive HTML, browser apps, or visualizations that need JavaScript, use authenticated publish instead.",
         },
       ],
     },

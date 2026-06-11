@@ -2055,6 +2055,137 @@
           "deleted_at"
         ]
       },
+      "PublishResult": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "artifact_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "access_link_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "revision_content_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "agent_view_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending"
+                    ]
+                  },
+                  "retry_after_seconds": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "status",
+                  "retry_after_seconds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "generated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "status",
+                  "url",
+                  "generated_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "failed"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "disabled"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "artifact_id",
+          "revision_id",
+          "title",
+          "artifact_url",
+          "revision_content_url",
+          "agent_view_url",
+          "expires_at",
+          "bundle"
+        ]
+      },
       "WorkspaceMemberSummary": {
         "type": "object",
         "properties": {
@@ -3220,6 +3351,16 @@
           "items",
           "page_info"
         ]
+      },
+      "PublishRevisionRequest": {
+        "type": "object",
+        "properties": {
+          "share": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false
       },
       "WebAuditRow": {
         "type": "object",
@@ -24897,6 +25038,16 @@
             "in": "header"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRevisionRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success (200)",

@@ -95,16 +95,18 @@ Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
 Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-An **Artifact URL** is authenticated Workspace management navigation. An
-**Access Link Signed URL** minted from a **Share Link** follows the latest
-Published Revision and is the primary live page agents should return to users. A
-**Revision Content URL** is a signed Content Origin URL for one exact Revision;
-it expires and does not Live Update.
+An **Artifact URL** is authenticated Workspace app navigation and is the default
+`View` URL after publish. An **Access Link Signed URL** minted from a
+**Share Link** is a public/shareable URL that follows the latest Published
+Revision. A **Revision Content URL** is a signed Content Origin URL for one exact
+Revision; it expires, does not Live Update, and direct `usercontent` HTML is
+inert.
 
-The current CLI prints the Artifact URL first and JSON output carries
-`artifact_url`, `revision_content_url`, and `agent_view_url`. First-class CLI
-`access_link_url` output is still a product gap; do not treat the current `artifact_url`
-or `revision_content_url` as the final public live handoff.
+The current CLI prints a `View` URL in human-readable output. It is the
+authenticated Artifact URL unless an explicit share flow supplied
+`access_link_url`. Pass `--share` only when you intentionally want publish to
+create a public/shareable Share Link and print that signed link as `View`. JSON
+output still carries diagnostic IDs and URLs for automation.
 
 ## Ephemeral publish fallback
 
@@ -131,11 +133,12 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 
 The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
-Ephemeral content uses the script-disabled execution policy until claimed.
+Ephemeral content uses the script-disabled execution policy while unclaimed.
 Text, markdown, images, and static HTML/CSS render, but JavaScript, inline event
-handlers, and `.js` assets do not execute. For an interactive page, browser app,
-or visualization that needs JavaScript, publish from a signed-in Workspace
-instead of passing `--ephemeral`.
+handlers, and `.js` assets do not execute. After claim, newly minted viewer URLs
+can run interactive HTML inside the controlled Artifact Viewer. For an
+interactive page, browser app, or visualization that needs JavaScript, publish
+from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Commands
 
@@ -156,6 +159,7 @@ instead of passing `--ephemeral`.
 | `--title <text>`       | Set the title. Default: path basename.                                                                                             |
 | `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                |
 | `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                          |
+| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                 |
 | `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key and prints a one-time claim link. |
 | `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                       |
 | `--quiet`              | Suppress human-readable stdout output.                                                                                             |
@@ -166,12 +170,12 @@ Default human-readable output:
 
 ```text
 ✓ Published "report"
-  art_01H... · rev_01H...
 
-  Artifact  https://app.agent-paste.sh/artifacts/art_01H...
-  Revision  https://usercontent.agent-paste.sh/v/...
-  Agent     https://api.agent-paste.sh/v1/public/agent-view/...
+  View      https://app.agent-paste.sh/artifacts/art_01H...
   Expires   2026-06-20
+  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
+
+  → open https://app.agent-paste.sh/artifacts/art_01H...
 ```
 
 With `--json`, stdout is exactly the publish result:
@@ -192,12 +196,15 @@ With `--json`, stdout is exactly the publish result:
 }
 ```
 
-`artifact_url` is the authenticated Artifact detail URL for Workspace members.
+`artifact_url` is the authenticated Artifact detail URL for Workspace members and
+the default `View` URL. `access_link_url`, when present, is the Access Link
+Signed URL from an explicitly created Share Link or Revision Link; CLI publish
+creates one only when called with `--share`.
 `revision_content_url` is served from the isolated content origin
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
-does not Live Update. `agent_view_url` is the Agent View JSON on the API origin.
-`bundle` reports whether the revision archive is pending, ready, failed, or
-disabled.
+does not Live Update; direct HTML opened there is raw/inert byte delivery, not
+the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
+`bundle` reports whether the revision archive is pending, ready, failed, or disabled.
 
 With `--ephemeral`, the human-readable output appends the claim link:
 

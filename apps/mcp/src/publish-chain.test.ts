@@ -80,6 +80,14 @@ function mockPublish() {
   vi.mocked(forward.forwardToApiRoute).mockResolvedValueOnce({ ok: true, status: 200, body: publishBody });
 }
 
+function expectNoPublishDiagnosticFields(body: unknown) {
+  expect(body).not.toHaveProperty("artifact_id");
+  expect(body).not.toHaveProperty("revision_id");
+  expect(body).not.toHaveProperty("artifact_url");
+  expect(body).not.toHaveProperty("revision_content_url");
+  expect(body).not.toHaveProperty("agent_view_url");
+}
+
 describe("runTextPublishChain", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -97,10 +105,8 @@ describe("runTextPublishChain", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.body).toMatchObject({
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        artifact_url: publishBody.artifact_url,
-        agent_view_url: "https://agent-view.example",
+        title: "Note",
+        expires_at: expiresAt,
         upload_stats: {
           total_files: 1,
           total_bytes: 7,
@@ -110,6 +116,7 @@ describe("runTextPublishChain", () => {
           reused_bytes: 0,
         },
       });
+      expectNoPublishDiagnosticFields(result.body);
       expect(result.body).not.toHaveProperty("revision_link_url");
       expect(result.body).not.toHaveProperty("share_link_url");
     }
@@ -260,12 +267,16 @@ describe("runTextPublishChain", () => {
     if (first.ok && second.ok) {
       expect(first.body).toMatchObject({
         access_link_url: shareUrl,
-        artifact_url: publishBody.artifact_url,
+        title: "Note",
+        expires_at: expiresAt,
       });
       expect(second.body).toMatchObject({
         access_link_url: shareUrl,
-        artifact_url: publishBody.artifact_url,
+        title: "Note",
+        expires_at: expiresAt,
       });
+      expectNoPublishDiagnosticFields(first.body);
+      expectNoPublishDiagnosticFields(second.body);
       expect(first.body).not.toHaveProperty("revision_link_url");
       expect(first.body).not.toHaveProperty("share_link_url");
       expect(second.body).not.toHaveProperty("revision_link_url");
@@ -314,6 +325,7 @@ describe("runTextPublishChain", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.body).toMatchObject({ access_link_url: shareUrl });
+      expectNoPublishDiagnosticFields(result.body);
       expect(result.body).not.toHaveProperty("revision_link_url");
       expect(result.body).not.toHaveProperty("share_link_url");
     }
@@ -365,6 +377,7 @@ describe("runTextPublishChain", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.body).toMatchObject({ access_link_url: shareUrl });
+      expectNoPublishDiagnosticFields(result.body);
       expect(result.body).not.toHaveProperty("share_link_url");
     }
     const shareCreateCall = vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0];
@@ -399,6 +412,7 @@ describe("runTextPublishChain", () => {
       expect(result.body).toMatchObject({
         access_link_url: "https://share.example/al_01",
       });
+      expectNoPublishDiagnosticFields(result.body);
       expect(result.body).not.toHaveProperty("revision_link_url");
       expect(result.body).not.toHaveProperty("share_link_url");
     }
@@ -479,6 +493,9 @@ describe("runTextPublishChain", () => {
       maxDeps,
     );
     expect(publishResult.ok).toBe(true);
+    if (publishResult.ok) {
+      expectNoPublishDiagnosticFields(publishResult.body);
+    }
 
     vi.resetAllMocks();
     mockUploadChain("content.txt", 7);
@@ -508,6 +525,9 @@ describe("runTextPublishChain", () => {
       maxDeps,
     );
     expect(addRevisionResult.ok).toBe(true);
+    if (addRevisionResult.ok) {
+      expectNoPublishDiagnosticFields(addRevisionResult.body);
+    }
 
     const addRevisionShareCreate = vi.mocked(forward.forwardToApiRoute).mock.calls[2]?.[0];
     expect(addRevisionShareCreate?.idempotencyKey).toBe(shareKey);

@@ -64,7 +64,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. MCP publish tools create or reuse a Share Link by default and return its Access Link Signed URL as `access_link_url`; base CLI/REST publish returns `artifact_id`, authenticated `artifact_url`, `revision_content_url`, and `agent_view_url`. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. CLI publish prints the authenticated Artifact URL as `View`; MCP publish omits management IDs and public links by default. JSON/REST output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",
@@ -72,7 +72,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "For a stable link that follows later publishes, use `access_link_url`, the Access Link Signed URL minted from a Share Link. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision and does not Live Update. The authenticated Artifact URL is for Workspace management, not the final live page to hand to a recipient.",
+          text: 'For a public/shareable link that follows later publishes, publish with CLI `--share`, REST `{ "share": true }`, or MCP `share:true`/`create_share_link`, then use `access_link_url`. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.',
         },
       ],
     },

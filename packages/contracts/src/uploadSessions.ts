@@ -69,6 +69,7 @@ export const PublishResult = z.object({
   revision_id: RevisionId,
   title: PlainTextTitle,
   artifact_url: UrlString,
+  access_link_url: UrlString.optional(),
   revision_content_url: UrlString,
   agent_view_url: UrlString,
   expires_at: IsoDateTime,

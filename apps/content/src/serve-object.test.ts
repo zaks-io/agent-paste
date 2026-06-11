@@ -45,6 +45,16 @@ function objectServingApp(payload: ContentTokenPayload, path = "index.html") {
   return app;
 }
 
+function viewerFrameRequest(): Request {
+  return new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
+    headers: {
+      "sec-fetch-dest": "iframe",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-site",
+    },
+  });
+}
+
 describe("serve-object path allowlist", () => {
   it("allows empty path only when key_prefix matches the derived bundle key", () => {
     expect(
@@ -176,23 +186,77 @@ describe("serve-object response headers", () => {
     expect(CONTENT_CACHE_CONTROL).toBe("private, no-cache");
   });
 
-  it("opens framing to the app origin for inline content and drops XFO", () => {
-    const headers = responseHeadersForPath("index.html", 3, basePayload({ script_disabled: false }), ETAG, [
-      "https://app.agent-paste.sh",
-    ]);
+  it("opens framing to the app origin for viewer iframe requests and drops XFO", () => {
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ script_disabled: false }),
+      ETAG,
+      ["https://app.agent-paste.sh"],
+      viewerFrameRequest(),
+    );
     expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
     expect(headers.get("content-security-policy")).not.toContain("frame-ancestors 'none'");
+    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
     expect(headers.get("x-frame-options")).toBeNull();
   });
 
   it("supports multiple framing origins", () => {
-    const headers = responseHeadersForPath("index.html", 3, basePayload({ script_disabled: false }), ETAG, [
-      "https://app.agent-paste.sh",
-      "https://app.preview.agent-paste.sh",
-    ]);
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ script_disabled: false }),
+      ETAG,
+      ["https://app.agent-paste.sh", "https://app.preview.agent-paste.sh"],
+      viewerFrameRequest(),
+    );
     expect(headers.get("content-security-policy")).toContain(
       "frame-ancestors https://app.agent-paste.sh https://app.preview.agent-paste.sh",
     );
+  });
+
+  it("downgrades script-enabled tokens on direct usercontent navigations", () => {
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ script_disabled: false }),
+      ETAG,
+      ["https://app.agent-paste.sh"],
+      new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
+        headers: {
+          "sec-fetch-dest": "document",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "none",
+        },
+      }),
+    );
+    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
+    expect(headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("does not downgrade non-HTML byte responses", () => {
+    const headers = responseHeadersForPath("app.js", 3, basePayload({ script_disabled: false }), ETAG, [
+      "https://app.agent-paste.sh",
+    ]);
+    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("keeps viewer-framed script-disabled content inert", () => {
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ script_disabled: true }),
+      ETAG,
+      ["https://app.agent-paste.sh"],
+      viewerFrameRequest(),
+    );
+    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(headers.get("x-frame-options")).toBeNull();
   });
 
   it("keeps attachments frame-denied even when framing origins are provided", () => {
