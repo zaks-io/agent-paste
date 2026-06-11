@@ -84,26 +84,31 @@ export function createSyncSafetyScanQueue(jobsEnv) {
   };
 }
 
-export function createJobsEnv({ repo, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
+export function createJobsEnv({ repo, db, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
+  if (!repo && !db) {
+    throw new Error("createJobsEnv requires repo or db.");
+  }
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
     ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
-    LOCAL_MVP_REPOSITORY: repo,
-    DB: createLocalMvpSqlExecutor({
-      workspaces: repo.workspaces,
-      workspaceMembers: repo.workspaceMembers,
-      apiKeys: repo.apiKeys,
-      artifacts: repo.artifacts,
-      revisions: repo.revisions,
-      artifactFiles: repo.artifactFiles,
-      uploadSessions: repo.uploadSessions,
-      uploadSessionFiles: repo.uploadSessionFiles,
-      operationEvents: repo.operationEvents,
-      platformLockdowns: repo.platformLockdowns,
-      accessLinks: repo.accessLinks,
-      safetyWarnings: repo.safetyWarnings,
-    }),
+    ...(repo ? { LOCAL_MVP_REPOSITORY: repo } : {}),
+    DB:
+      db ??
+      createLocalMvpSqlExecutor({
+        workspaces: repo.workspaces,
+        workspaceMembers: repo.workspaceMembers,
+        apiKeys: repo.apiKeys,
+        artifacts: repo.artifacts,
+        revisions: repo.revisions,
+        artifactFiles: repo.artifactFiles,
+        uploadSessions: repo.uploadSessions,
+        uploadSessionFiles: repo.uploadSessionFiles,
+        operationEvents: repo.operationEvents,
+        platformLockdowns: repo.platformLockdowns,
+        accessLinks: repo.accessLinks,
+        safetyWarnings: repo.safetyWarnings,
+      }),
     DENYLIST: denylist,
     SYNC_BYTE_PURGE_DELETED_OBJECTS: 0,
   };

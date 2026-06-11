@@ -108,9 +108,13 @@ Launch-readiness secret notes:
   `PR_PREVIEW_SECRET_SEED`, the preview smoke harness secret, and
   `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are present or proven by successful
   workflows.
+- Default PR CI uses a job-local Postgres service container through
+  `pnpm smoke:ci:postgres`; it migrates once, runs the local CLI smoke through
+  `app_role`, and does not create Neon branches or Hyperdrive configs.
 - PR preview deploys target the single GitHub Environment named `Preview` for
-  secrets and variables. Runtime resources are still PR-scoped Cloudflare
-  Workers, Neon branches, Hyperdrive configs, and queues.
+  secrets and variables when the PR carries the `full-pr-preview` label. Runtime
+  resources are still PR-scoped Cloudflare Workers, Neon branches, Hyperdrive
+  configs, and queues.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
 - `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
   already reserved by `@zaks-io/agent-paste@0.0.0`.
@@ -140,11 +144,12 @@ Launch-readiness secret notes:
 pnpm smoke:preview:ephemeral`
 6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` (optionally with
    `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` for authenticated tool checks).
-7. Same-repo PRs exercise the PR preview deploy workflow automatically. The PR
-   workflow gates on `/healthz` readiness, hosted ephemeral publish smoke
-   (`scripts/smoke-hosted-ephemeral.mjs pr`), and local dashboard Lighthouse.
-   The standard hosted MVP smoke (`pnpm smoke:pr`) remains manual when diagnosing
-   a preview.
+7. Same-repo PRs exercise job-local Postgres smoke in CI automatically. Add the
+   `full-pr-preview` label only when a PR needs deployed Cloudflare Worker
+   evidence; that workflow gates on `/healthz` readiness, hosted ephemeral
+   publish smoke (`scripts/smoke-hosted-ephemeral.mjs pr`), and local dashboard
+   Lighthouse. The standard hosted MVP smoke (`pnpm smoke:pr`) remains manual
+   when diagnosing a preview.
 8. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production &&
 pnpm smoke:production:ephemeral && pnpm smoke:mcp:production`. The production

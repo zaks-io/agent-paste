@@ -37,8 +37,12 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Build: `pnpm build`
 - Generated artifacts: OpenAPI (`pnpm openapi:write`), DB introspection
   (`db:check`); regenerate, never hand-edit
-- Smoke: `pnpm smoke:local`, `pnpm smoke:mcp`, `pnpm smoke:web`
-- Preview checks: PR-preview deploy + hosted smoke via `.github/workflows/pr-preview.yml`
+- Smoke: `pnpm smoke:local`, `pnpm smoke:ci:postgres`, `pnpm smoke:mcp`,
+  `pnpm smoke:web`
+- PR checks: `Validate` is the required merge gate; `Postgres smoke` is a
+  non-required burn-in check until GitHub rulesets promote it
+- Preview checks: PR-preview deploy + hosted smoke are opt-in via the
+  `full-pr-preview` label and `.github/workflows/pr-preview.yml`
 - Manual preview deploy: `pnpm deploy:preview` (whole fleet) or
   `pnpm deploy:preview --app=<worker>` (one Worker; `stream|api|upload|content|jobs|mcp|apex|web`).
   Single entry `scripts/deploy.mjs`: migrates only when a DB-backed app
@@ -97,7 +101,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 
 - Authoritative issue state: Linear (AP team)
 - Authoritative PR state: GitHub
-- Authoritative check state: GitHub Actions (`CI` workflow) + preview smoke
+- Authoritative check state: GitHub Actions (`CI` workflow); preview smoke is
+  opt-in evidence unless the PR is labeled `full-pr-preview`
 - Authoritative deploy state: Cloudflare Workers via deploy workflows
 - Queue mutation authority: Agent Orchestrate only
 - Implement authority: Agent Implement (`ziw-implement`)
@@ -141,8 +146,10 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - PR title: Linear issue title when available, `<70` chars, Conventional-Commit
   style
 - PR body: Summary / Changes / Risk (LOW|MEDIUM|HIGH) / Test plan + Linear link
-- Required checks: `pnpm verify` + `pnpm test:coverage` (CI `Validate` job);
-  preview smoke for hosted-affecting changes
+- Required checks: `pnpm verify` + `pnpm test:coverage` (CI `Validate` job)
+- Non-required confidence checks: CI `Postgres smoke` while it burns in; hosted
+  preview smoke when a PR is labeled `full-pr-preview` or needs deployed Worker
+  evidence
 - Code review: `ziw-code-review` before PR; `ziw-review` for
   PR review
 - CodeRabbit: auto-review ENABLED (verified live in `.coderabbit.yaml` 2026-06-09:
@@ -163,15 +170,20 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 ## Environments
 
 - Local: self-contained in-memory MVP harness (`scripts/local-mvp-server.mjs`),
-  mocked R2/KV, PGlite for tests; no Docker/Postgres needed
+  mocked R2/KV, PGlite for tests; no Docker/Postgres needed for the quick path
 - Local commands: `pnpm dev:all`, `pnpm cli:dev …`, `pnpm smoke:local`
+- Local Postgres path: `pnpm smoke:ci:postgres` runs migrations against a
+  job-local Postgres container and exercises the local smoke through `app_role`
+  and RLS
 - Local services: API :8787, Upload :8788, Content :8789; admin token
   `local-admin-token`
 - Development: may use cloud backing services while the app runs locally
 - Development backing services: Cloudflare R2/KV, Neon Postgres (see
   `agent-paste-neon-postgres` skill)
-- Preview: PR-scoped Cloudflare Workers deploy + hosted smoke
-- Preview purpose: validate hosted behavior per PR; auto-cleaned on close
+- Preview: opt-in PR-scoped Cloudflare Workers deploy + hosted smoke via the
+  `full-pr-preview` label
+- Preview purpose: validate hosted behavior only when deployed Worker evidence is
+  needed; auto-cleaned on close
 - Production: explicit approval required
 - Production forbidden without approval: `pnpm deploy:production`,
   `wrangler secret put`, any manual mutation of production Workers/data

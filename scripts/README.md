@@ -127,6 +127,20 @@ DATABASE_URL_MIGRATIONS_PRODUCTION=postgres://... pnpm migrate:production
 
 The script exports the selected migration URL as `DATABASE_URL`, sets `DATABASE_RUNTIME_ROLE=app_role` for migrations that harden the runtime role, and runs the committed SQL migrations from `packages/db`. Hyperdrive configs must use `DATABASE_URL_RUNTIME_*` (`app_role`). See [`docs/ops/runbook-neon-database-roles.md`](../docs/ops/runbook-neon-database-roles.md).
 
+### `smoke-ci-postgres.mjs`
+
+CI-local Postgres smoke:
+
+```sh
+DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste pnpm smoke:ci:postgres
+```
+
+The wrapper applies committed migrations once with the owner URL, sets an
+`app_role` password through `DATABASE_RUNTIME_ROLE_PASSWORD`, then runs
+`smoke-local-mvp.mjs` with `AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres`. This
+exercises the local CLI publish/delete/expiry/ephemeral path against real
+Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
+
 ### Deploy build + ordering
 
 `scripts/deploy.mjs` (above) migrates, provisions secrets, ensures shared Cloudflare
@@ -236,7 +250,7 @@ default PR cycle; run `pnpm smoke:pr` manually when diagnosing a preview.
 
 ## PR Preview Helpers
 
-`check-pr-preview-capacity.mjs`, `cleanup-stale-pr-previews.mjs`, `create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, `delete-neon-pr-branch.mjs`, `delete-github-pr-preview-environment.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. `cleanup-stale-pr-previews.mjs` discovers PR-scoped Workers, Queues, and Hyperdrive configs, checks the owning GitHub PR state, and deletes Workers, Queues, Hyperdrive configs, and Neon branches for closed or missing PRs before new preview creation and from the scheduled cleanup workflow. `check-pr-preview-capacity.mjs` then runs before Neon branch creation and fails early when the account is already at the PR-preview Hyperdrive limit, so a quota problem does not leave a new orphaned Neon branch behind. After PR migrations run, `resolve-neon-role-url.mjs` prefers a Neon API `app_role` direct URL when Neon returns one with a password; for SQL-provisioned roles it falls back to building the URL from the workflow-provided `DATABASE_RUNTIME_ROLE_PASSWORD` and the owner/bootstrap host. `create-hyperdrive.mjs` receives that runtime URL only (for example `PR_DATABASE_URL`) and creates or updates the PR-scoped Hyperdrive config so reruns stay aligned with the current `app_role` password. Each same-repo PR gets:
+`check-pr-preview-capacity.mjs`, `cleanup-stale-pr-previews.mjs`, `create-hyperdrive.mjs`, `deploy-pr-preview.mjs`, `cleanup-pr-preview.mjs`, `delete-neon-pr-branch.mjs`, `delete-github-pr-preview-environment.mjs`, and `resolve-neon-role-url.mjs` back the dynamic PR preview workflows. The workflow is opt-in: add the `full-pr-preview` label when a PR needs deployed Worker evidence. Default PR CI uses `smoke-ci-postgres.mjs` instead and does not create Neon or Hyperdrive resources. `cleanup-stale-pr-previews.mjs` discovers PR-scoped Workers, Queues, and Hyperdrive configs, checks the owning GitHub PR state, and deletes Workers, Queues, Hyperdrive configs, and Neon branches for closed or missing PRs before new preview creation and from the scheduled cleanup workflow. `check-pr-preview-capacity.mjs` then runs before Neon branch creation and fails early when the account is already at the PR-preview Hyperdrive limit, so a quota problem does not leave a new orphaned Neon branch behind. After PR migrations run, `resolve-neon-role-url.mjs` prefers a Neon API `app_role` direct URL when Neon returns one with a password; for SQL-provisioned roles it falls back to building the URL from the workflow-provided `DATABASE_RUNTIME_ROLE_PASSWORD` and the owner/bootstrap host. `create-hyperdrive.mjs` receives that runtime URL only (for example `PR_DATABASE_URL`) and creates or updates the PR-scoped Hyperdrive config so reruns stay aligned with the current `app_role` password. A labeled same-repo PR gets:
 
 - a Neon branch named `preview/pr-<number>`
 - PR-scoped Workers named `agent-paste-{api,upload,content,jobs,apex,web}-pr-<number>`

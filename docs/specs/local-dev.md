@@ -134,20 +134,35 @@ The `.wrangler/state` directory is per-developer and gitignored. Resetting local
 
 ## Local Services
 
-`docker-compose.yml` provides Postgres for the planned persistent local path:
+`docker-compose.yml` provides Postgres for the persistent local/CI path:
 
 ```sh
 docker compose up -d postgres
 docker compose ps
 ```
 
-Use this URL when a package grows a persistent database adapter:
+Use this owner URL when running migrations against the local container:
 
 ```sh
 DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste
 ```
 
-The current checked-in DB package is an in-memory repository used by `pnpm dev:all` and `pnpm smoke:local`. There are no migration or seed scripts yet.
+Apply migrations with an `app_role` runtime password, then run the local harness
+against the runtime role:
+
+```sh
+DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste \
+DATABASE_RUNTIME_ROLE_PASSWORD=agent-paste-local-app-role \
+pnpm --filter @agent-paste/db migrate
+
+AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres \
+AGENT_PASTE_LOCAL_DATABASE_URL=postgres://app_role:agent-paste-local-app-role@127.0.0.1:5432/agent_paste \
+pnpm dev:all
+```
+
+CI uses the same shape via `pnpm smoke:ci:postgres`: one job-local Postgres
+container, migrations as the owner URL, then the CLI publish smoke through the
+local harness using `app_role` and RLS.
 
 ## Environment Files
 

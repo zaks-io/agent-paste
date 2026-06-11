@@ -7,7 +7,7 @@ import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
 import uploadWorker from "../apps/upload/dist/index.js";
-import { createLocalServices } from "../packages/db/dist/index.js";
+import { createLocalServices, createPostgresServices } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
@@ -191,6 +191,22 @@ function intEnv(name, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function databaseBackendFromEnv() {
+  const backend = process.env.AGENT_PASTE_LOCAL_DATABASE_BACKEND ?? "memory";
+  if (backend === "memory" || backend === "postgres") {
+    return backend;
+  }
+  throw new Error(`Unsupported AGENT_PASTE_LOCAL_DATABASE_BACKEND: ${backend}`);
+}
+
+function postgresBindingFromEnv() {
+  const connectionString = process.env.AGENT_PASTE_LOCAL_DATABASE_URL ?? process.env.DATABASE_URL_RUNTIME_CI;
+  if (!connectionString) {
+    throw new Error("Set AGENT_PASTE_LOCAL_DATABASE_URL when AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres.");
+  }
+  return { connectionString };
+}
+
 function createApiDatabase(repo) {
   return {
     getWhoami: repo.getWhoami.bind(repo),
@@ -246,11 +262,20 @@ function createApiDatabase(repo) {
   };
 }
 
-const services = createLocalServices({
-  apiKeyPepper,
-  apiBaseUrl,
-  contentBaseUrl,
-});
+const databaseBackend = databaseBackendFromEnv();
+const postgresBinding = databaseBackend === "postgres" ? postgresBindingFromEnv() : null;
+const services = postgresBinding
+  ? createPostgresServices({
+      binding: postgresBinding,
+      apiKeyPepper,
+      apiBaseUrl,
+      contentBaseUrl,
+    })
+  : createLocalServices({
+      apiKeyPepper,
+      apiBaseUrl,
+      contentBaseUrl,
+    });
 const artifacts = new MemoryR2Bucket();
 const denylist = new MemoryKVNamespace();
 const cliRelease = new MemoryKVNamespace();
@@ -259,13 +284,14 @@ const ephemeralProvisionConfig = new MemoryKVNamespace();
 // built CLI sees a newer version and the update-check nag is exercisable in dev.
 await cliRelease.put("cli-release", JSON.stringify({ latest: "0.1.0", min_supported: "0.0.0" }));
 const jobsEnv = createJobsEnv({
-  repo: services.repo,
+  repo: postgresBinding ? undefined : services.repo,
+  db: postgresBinding ?? undefined,
   artifacts,
   denylist,
   smokeHarnessSecret,
   artifactBytesEncryptionKey,
 });
-const apiDb = createApiDatabase(services.apiDb);
+const apiDb = postgresBinding ?? createApiDatabase(services.apiDb);
 
 const auth = services.auth;
 const apiEnv = {
@@ -274,7 +300,7 @@ const apiEnv = {
   BUNDLE_GENERATE_QUEUE: jobsEnv.BUNDLE_GENERATE_QUEUE,
   SAFETY_SCAN_QUEUE: jobsEnv.SAFETY_SCAN_QUEUE,
   BYTE_PURGE_QUEUE: jobsEnv.BYTE_PURGE_QUEUE,
-  LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions },
+  ...(postgresBinding ? {} : { LOCAL_MVP_REPOSITORY: { revisions: services.repo.revisions } }),
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   CLI_RELEASE: cliRelease,
@@ -290,6 +316,7 @@ const apiEnv = {
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
+  API_KEY_PEPPER_V1: apiKeyPepper,
   ACCESS_LINK_SIGNING_KEY_V1: accessLinkSigningKey,
   CLEANUP_BATCH_SIZE: "100",
   AGENT_PASTE_ENV: "dev",
@@ -324,11 +351,12 @@ Object.defineProperty(apiEnv, "SYNC_BYTE_PURGE_DELETED_OBJECTS", {
 });
 const uploadEnv = {
   AUTH: auth,
-  DB: services.uploadDb,
+  DB: postgresBinding ?? services.uploadDb,
   ARTIFACTS: artifacts,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
+  API_KEY_PEPPER_V1: apiKeyPepper,
   UPLOAD_SIGNING_SECRET: uploadSecret,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
   UPLOAD_BASE_URL: uploadBaseUrl,
@@ -361,7 +389,9 @@ const streamEnv = {
   STREAM_INTERNAL_SECRET: streamInternalSecret,
   AGENT_PASTE_ENV: "dev",
 };
-await seedProofArtifacts(services.repo, artifacts);
+if (!postgresBinding) {
+  await seedProofArtifacts(services.repo, artifacts);
+}
 
 const serverDefs = [
   { name: "api", worker: apiWorker, env: apiEnv },
@@ -388,6 +418,7 @@ process.stdout.write(`agent-paste local MVP running
   Content: ${contentBaseUrl}
   Jobs:    ${jobsBaseUrl}
   Stream:  ${streamBaseUrl}
+  DB:      ${databaseBackend}
 
   export AGENT_PASTE_API_URL=${apiBaseUrl}
   export AGENT_PASTE_UPLOAD_URL=${uploadBaseUrl}
