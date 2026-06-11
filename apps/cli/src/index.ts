@@ -14,6 +14,7 @@ import { type Credential, deleteCredential, isCredentialExpired, loadCredential 
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
+  sha256HexForFile,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "./local.js";
@@ -256,13 +257,21 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   if (explicitRenderMode) overrides.renderMode = explicitRenderMode;
   const inferred = inferPublishOptions(inputPath, files, overrides);
 
+  const sha256ByPath = new Map(
+    await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
+  );
+
   const idempotencyKey = createIdempotencyKey("cli_publish");
   const createSessionRequest = CreateUploadSessionRequest.parse({
     ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
     title: inferred.title,
     entrypoint: inferred.entrypoint,
     ...(explicitRenderMode ? { render_mode: explicitRenderMode } : {}),
-    files: files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes, sha256: file.sha256 })),
+    files: files.map((file) => ({
+      path: file.path,
+      size_bytes: file.sizeBytes,
+      sha256: sha256ByPath.get(file.path),
+    })),
   });
   const session = await client.uploadSessions.create(createSessionRequest, idempotencyKey);
 
