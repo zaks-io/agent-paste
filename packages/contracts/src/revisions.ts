@@ -27,3 +27,10 @@ export const RevisionListResponse = z.object({
   page_info: PageInfo,
 });
 export type RevisionListResponse = z.infer<typeof RevisionListResponse>;
+
+export const PublishRevisionRequest = z
+  .object({
+    share: z.boolean().optional().default(false),
+  })
+  .strict();
+export type PublishRevisionRequest = z.infer<typeof PublishRevisionRequest>;

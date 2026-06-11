@@ -18,10 +18,10 @@ export const SHARING_DOC: DocsPage = {
             ["Share Link", "Access Link type that follows the latest Published Revision."],
             ["Revision Link", "Snapshot Access Link pinned to one specific Revision."],
             ["Artifact URL", "Authenticated Artifact detail URL for Workspace management."],
-            ["Access Link Signed URL", "URL minted from an Access Link. Return the one from a Share Link to humans."],
+            ["Access Link Signed URL", "URL minted from an Access Link. Return one only after explicit sharing."],
             [
               "Revision Content URL",
-              "Direct signed `usercontent.agent-paste.sh/v/...` content URL for one specific Revision.",
+              "Direct signed `usercontent.agent-paste.sh/v/...` byte URL for one specific Revision; direct HTML there is inert.",
             ],
             ["Agent View URL", "JSON manifest for agents, either authenticated or public through a signed token."],
           ],
@@ -42,7 +42,7 @@ export const SHARING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use Access Link Signed URLs minted from Share Links for stable human handoff. They open the Artifact Viewer and follow later publishes. Use Revision Links or Revision Content URLs only when the reader must see one exact Revision. Do not send an Artifact URL as the final live page.",
+          text: "Use Access Link Signed URLs minted from Share Links only for explicit public/shareable handoff. They open the controlled Artifact Viewer and follow later publishes. Use Revision Links or Revision Content URLs only when the reader must see one exact Revision as raw bytes. Do not send a direct `usercontent` URL as the final live page.",
         },
       ],
     },
@@ -56,7 +56,7 @@ export const SHARING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "MCP can create Share Links and Revision Links, list links, and revoke links for authenticated members. The CLI focuses on publish and does not manage Access Links directly.",
+          text: "MCP can create Share Links and Revision Links, list links, and revoke links for authenticated members. CLI publish can create a Share Link only when called with `--share`; ongoing link listing and revocation stay in the dashboard, MCP, or REST API.",
         },
         {
           kind: "note",
@@ -73,7 +73,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A human opens the Access Link Signed URL in a browser. An agent should return `access_link_url` for a live page, and use Agent View when it needs file trees, metadata, or signed per-file URLs.",
+          text: 'A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, use CLI `--share`, REST `{ "share": true }`, or MCP `share:true`/`create_share_link`, then return `access_link_url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.',
         },
       ],
     },

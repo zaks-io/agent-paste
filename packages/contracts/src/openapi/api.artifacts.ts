@@ -1,6 +1,6 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { schemaRef, standardJsonResponses } from "./responses.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
+import { schemaRef, standardJsonResponses } from "./responses.js";
 
 /**
  * Artifact, revision, and agent-view API OpenAPI paths, split out of `api.ts` to keep
@@ -63,6 +63,7 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
         revision_id: pathStringParam("revision_id", "Draft revision id."),
       }),
       headers: [idempotencyKeyHeader, requestIdHeader],
+      body: { required: false, content: { "application/json": { schema: schemaRef("PublishRevisionRequest") } } },
     },
     responses: standardJsonResponses(schemaRef("PublishResult")),
   });

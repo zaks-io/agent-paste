@@ -106,7 +106,7 @@ sequenceDiagram
   A->>P: runCommand writes metadata, idempotency, audit
   A->>Q: enqueue warning, bundle, and lifecycle work
   A-->>U: PublishResult
-  U-->>C: Artifact ID, Revision ID, Artifact URL, Revision Content URL, Agent View URL
+  U-->>C: authenticated Artifact URL, optional Access Link Signed URL when explicitly minted, plus publish diagnostics
 ```
 
 Key invariants:
@@ -127,10 +127,10 @@ Key invariants:
 
 ## Read And Share Flow
 
-Human handoff starts with the Access Link Signed URL minted from a Share Link.
-It opens the Artifact Viewer for the latest Published Revision.
-Direct signed content URLs are delivery URLs for one exact Revision. The Artifact
-URL is authenticated workspace management navigation, not the recipient handoff.
+Default human handoff starts with the authenticated Artifact URL. Public or
+shareable handoff requires an explicit Share Link; its Access Link Signed URL
+opens the Artifact Viewer for the latest Published Revision. Direct signed
+content URLs are delivery URLs for one exact Revision.
 
 ```mermaid
 flowchart TD
@@ -251,7 +251,7 @@ down.
 | `runCommand`                           | Commits state changes with audit and idempotency records.                                                    |
 | Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes. |
 | Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.            |
-| Ephemeral script-disabled policy       | Prevents no-login content from running script until claimed.                                                 |
+| Ephemeral script-disabled policy       | Prevents no-login content from running script; after claim, interactivity runs through the Artifact Viewer.  |
 | Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                   |
 | Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                       |
 | Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                |

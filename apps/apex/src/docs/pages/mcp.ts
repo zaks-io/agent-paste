@@ -17,7 +17,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "MCP is not a weaker side channel. It is the hosted-agent surface for publishing text Artifacts, returning Access Link Signed URLs from Share Links, reading Agent Views, adding Revisions, and managing snapshot links without shell access.",
+          text: "MCP is not a weaker side channel. It is the hosted-agent surface for publishing text Artifacts, reading Agent Views, adding Revisions, and explicitly managing Share Links and snapshot links without shell access.",
         },
       ],
     },
@@ -75,13 +75,10 @@ export const MCP_DOC: DocsPage = {
           columns: ["Tool", "Purpose"],
           rows: [
             ["`whoami`", "Return authenticated member, Workspace, and derived scopes."],
-            [
-              "`publish_artifact`",
-              "Publish a new text-only Artifact and return a signed URL from a Share Link by default.",
-            ],
+            ["`publish_artifact`", "Publish a new text-only Artifact without creating a public link by default."],
             [
               "`add_revision`",
-              "Add and publish a new text-only Revision and return a signed URL from an existing or new Share Link by default.",
+              "Add and publish a new text-only Revision without creating or reusing a Share Link by default.",
             ],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
@@ -106,7 +103,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact` and `add_revision` default `share` to `true`. `publish_artifact` creates a Share Link; `add_revision` reuses an active Share Link when one exists and creates one only when needed. Return `access_link_url` to the user as the live page; it is the Access Link Signed URL minted from that Share Link. Set `share: false` only for internal flows that should not mint an Access Link. The tools also accept optional idempotency keys. When omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: "`publish_artifact` and `add_revision` default `share` to `false` and do not create or reuse Share Links by default. Set `share: true` only when the user explicitly asks for a public/shareable Access Link; then `publish_artifact` creates a Share Link and `add_revision` reuses an active Share Link when possible, creating one only when needed, and returns `access_link_url`. MCP publish output intentionally omits Artifact IDs, Revision IDs, `artifact_url`, `revision_content_url`, and `agent_view_url`; use explicit read/list/link tools when those fields are needed. The tools also accept optional idempotency keys. When omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
         },
         {
           kind: "paragraph",

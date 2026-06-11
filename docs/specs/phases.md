@@ -27,7 +27,7 @@ Goal: prove the artifact handoff loop.
 - Storage: private R2.
 - Metadata: Postgres through Cloudflare Hyperdrive using Drizzle.
 - Publish: single HTML file or folder with `index.html`.
-- Output: `artifact_id`, `revision_id`, `artifact_url`, direct signed `revision_content_url`, public signed `agent_view_url`, `expires_at`.
+- Output: human-facing publish prints the authenticated Artifact URL as `View`; JSON/REST publish output includes `artifact_id`, `revision_id`, `artifact_url`, optional `access_link_url`, direct signed `revision_content_url`, public signed `agent_view_url`, and `expires_at`. `access_link_url` appears during publish only when the caller explicitly requests sharing (`--share`, REST `{ "share": true }`, or MCP `share:true`).
 - Agent View: simple JSON with full per-file URLs.
 - Retention: default `30d`, max `90d`, scheduled cleanup.
 - Operator: WorkOS `/v1/web/admin/*` lockdown routes; non-production smokes use the harness secret.
@@ -35,7 +35,7 @@ Goal: prove the artifact handoff loop.
 
 Exit criteria:
 
-- A real hosted publish can be shared with a human and inspected by another agent.
+- A real hosted publish can be shared with a human through an explicit Share Link and inspected by another agent.
 - Expired artifacts and abandoned uploads are cleaned up.
 - The system can be operated without a dashboard.
 

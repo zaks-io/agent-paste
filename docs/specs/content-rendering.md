@@ -1,6 +1,6 @@
 # Content Rendering Spec
 
-The `content` Worker serves untrusted artifact files from `usercontent.agent-paste.sh`. It reads private R2 objects and a KV denylist. It has no Hyperdrive binding.
+The `content` Worker serves untrusted artifact files from `usercontent.agent-paste.sh`. It reads private R2 objects and a KV denylist. It has no Hyperdrive binding. The content origin is a byte delivery origin, not the product viewer: direct top-level `usercontent` navigations are always inert and unbranded.
 
 Content URLs are delivery URLs for exact Revisions, not Access Links. A URL
 shaped `/v/{token}/{path}` never advances to a newer Revision after another
@@ -73,12 +73,37 @@ All allowlisted extensions are served `Content-Disposition: inline` except `.pdf
 
 Unknown extensions are served as `application/octet-stream` with `Content-Disposition: attachment`.
 
-## Base Security Headers
+## Execution Policy
 
-Every untrusted-content response carries:
+Content tokens carry `script_disabled`, but the response still fails closed at
+request time. A response may use the interactive script policy only when all of
+these are true:
+
+- The token explicitly has `script_disabled: false`.
+- The current environment has a trusted app viewer origin.
+- Browser fetch metadata says this is an iframe navigation
+  (`Sec-Fetch-Dest: iframe` or `frame`, with `Sec-Fetch-Mode: navigate` when
+  present).
+- `Sec-Fetch-Site`, when present, is `same-site` or `same-origin`.
+
+Every other HTML document request, including a copied top-level
+`usercontent.agent-paste.sh/v/.../index.html` URL, receives the script-disabled
+CSP:
 
 ```text
-Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+```
+
+This means `usercontent` can still serve raw HTML/CSS/JS/image bytes for one
+Revision, but a browser only executes an HTML Artifact as an interactive page
+inside the controlled Artifact Viewer iframe on the app origin.
+
+## Base Security Headers
+
+Every untrusted-content response carries a CSP selected by the execution policy
+above, plus these baseline headers:
+
+```text
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
 X-Frame-Options: DENY
 Referrer-Policy: no-referrer
@@ -100,9 +125,10 @@ The dashboard and Artifact Viewer render artifact content in a sandboxed iframe
 (`sandbox="allow-scripts allow-popups"`, never `allow-same-origin`; see [`web.md`](./web.md))
 hosted on the app origin, which is a separate hardened origin from this content subdomain
 (ADR 0014). To let that one trusted page host the sandbox while still refusing every other
-framer, **inline** content responses scope `frame-ancestors` to the app origin for the
-current environment and **omit** `X-Frame-Options` (its origin-blind `DENY` cannot
-allowlist a single origin, and `frame-ancestors` supersedes it in modern browsers):
+framer, **inline** content responses requested as viewer iframe navigations scope
+`frame-ancestors` to the app origin for the current environment and **omit**
+`X-Frame-Options` (its origin-blind `DENY` cannot allowlist a single origin, and
+`frame-ancestors` supersedes it in modern browsers):
 
 | `AGENT_PASTE_ENV` | `frame-ancestors`                    |
 | ----------------- | ------------------------------------ |
@@ -110,8 +136,10 @@ allowlist a single origin, and `frame-ancestors` supersedes it in modern browser
 | `preview`         | `https://app.preview.agent-paste.sh` |
 | `dev` / unset     | `'none'` (XFO `DENY` retained)       |
 
-This relaxation applies only to inline-served content. Bundle downloads, attachments,
-error envelopes, and non-content routes keep `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+This relaxation applies only to inline-served content requested as a trusted
+viewer iframe navigation. Direct `usercontent` navigations, bundle downloads,
+attachments, error envelopes, and non-content routes keep `frame-ancestors
+'none'` and `X-Frame-Options: DENY`.
 
 ## Render Modes
 

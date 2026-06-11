@@ -39,7 +39,7 @@ import {
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
 import { PlainTextTitle, UrlString } from "../primitives.js";
-import { RenderMode, RevisionListResponse, RevisionSummary } from "../revisions.js";
+import { PublishRevisionRequest, RenderMode, RevisionListResponse, RevisionSummary } from "../revisions.js";
 import {
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
@@ -113,6 +113,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("ArtifactDetail", ArtifactDetail);
   registry.register("ArtifactListResponse", ArtifactListResponse);
   registry.register("DeleteArtifactResponse", DeleteArtifactResponse);
+  registry.register("PublishResult", PublishResult);
   registry.register("WorkspaceMemberSummary", WorkspaceMemberSummary);
   registry.register("WebAuthCallbackResponse", WebAuthCallbackResponse);
   registry.register("WebWorkspaceResponse", WebWorkspaceResponse);
@@ -128,6 +129,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("WebRevokeAccessLinkResponse", WebRevokeAccessLinkResponse);
   registry.register("RevisionSummary", RevisionSummary);
   registry.register("RevisionListResponse", RevisionListResponse);
+  registry.register("PublishRevisionRequest", PublishRevisionRequest);
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
   registry.register("WebOperatorEventRow", WebOperatorEventRow);

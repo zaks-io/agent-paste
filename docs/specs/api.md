@@ -178,12 +178,17 @@ summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
 
 `artifact_url` is the authenticated **Artifact URL** for owner/member
-management. It is not the primary recipient link. `revision_content_url` is the
+management and the default post-publish `View`. `revision_content_url` is the
 direct signed Content Origin URL for the exact `revision_id` returned in this
-response, expires with its signed token, and does not Live Update. User-facing
-live handoff uses the **Access Link Signed URL** minted from a **Share Link**
-when the surface can mint one; MCP publish tools default to that behavior and
-return it as `access_link_url`.
+response, expires with its signed token, and does not Live Update. Direct
+`usercontent` HTML is inert raw byte delivery unless it is loaded through the
+controlled Artifact Viewer iframe. `access_link_url` appears only when a
+**Share Link** or **Revision Link** is explicitly created. REST publish accepts
+an optional body; omit it for private default publish, or send
+`{ "share": true }` to create a Share Link and include `access_link_url` in the
+publish result. MCP publish tools return a narrower output with title, expiry,
+and upload stats; they include `access_link_url` only when called with
+`share: true`.
 
 ## Content Routes
 
@@ -217,14 +222,15 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
 5. `upload` verifies files and returns the finalized draft Revision.
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
-7. CLI prints `PublishResult`.
+7. CLI human output prints `View` with the authenticated Artifact URL; JSON/REST output returns `PublishResult`.
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
-A Share Link remains the stable live viewer grant for the Artifact. Its Access
-Link Signed URL is the user-facing live URL. The `artifact_url` remains the
-authenticated management URL for Workspace members.
+A Share Link remains the explicit public/shareable live viewer grant for the
+Artifact. Its Access Link Signed URL is the user-facing public URL when a caller
+asks to share. The `artifact_url` remains the authenticated app URL for
+Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

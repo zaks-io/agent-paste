@@ -12,14 +12,14 @@ When your coding agent builds an HTML report or page, agent-paste turns it into 
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# -> artifact id + Artifact URL + Agent View URL
+# -> authenticated app viewer URL
 ```
 
 It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI),
 and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Publish a
-file or folder and get back an **Artifact**: an **Artifact URL** for the live
-viewer, an **Agent View** manifest for tools, and lifecycle controls so
-generated work does not live forever by accident.
+file or folder and get back an **Artifact** plus an authenticated app viewer URL,
+an **Agent View** manifest for tools, and lifecycle controls so generated work
+does not live forever by accident. Public sharing is explicit.
 
 The hosted service is operated by Zaks.io, LLC. The source is Apache-2.0.
 
@@ -45,12 +45,12 @@ Expected output:
 
 ```text
 ✓ Published "report"
-  art_01H... · rev_01H...
 
-  Artifact  https://app.agent-paste.sh/artifacts/art_01H...
-  Revision  https://usercontent.agent-paste.sh/v/...
-  Agent     https://api.agent-paste.sh/v1/public/agent-view/...
+  View      https://app.agent-paste.sh/artifacts/art_01H...
   Expires   2026-06-20
+  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
+
+  → open https://app.agent-paste.sh/artifacts/art_01H...
 
 Open the claim link in a browser while signed in.
   Claim    https://app.agent-paste.sh/claim#ap_ct_...
@@ -63,24 +63,32 @@ npx @zaks-io/agent-paste login
 npx @zaks-io/agent-paste publish ./report
 ```
 
+Add `--share` only when you intentionally want a public/shareable Share Link:
+
+```sh
+npx @zaks-io/agent-paste publish ./report --share
+```
+
 Need interactivity or JavaScript? Use authenticated publish, not `--ephemeral`.
-Unclaimed ephemeral HTML is served under a script-disabled policy until a human
-claims it. Text, markdown, images, and static pages are fine; browser apps and
-interactive visualizations are not. Ephemeral is not the Free Plan; it is an
-unclaimed restricted tier.
+Unclaimed ephemeral HTML is served under a script-disabled policy. Text,
+markdown, images, and static pages are fine; browser apps and interactive
+visualizations should use authenticated publish so they run inside the
+controlled Artifact Viewer. Ephemeral is not the Free Plan; it is an unclaimed
+restricted tier.
 
 The human-facing URL model is:
 
 ```text
 Artifact URL          https://app.agent-paste.sh/artifacts/{artifact_id}
-Share URL             https://app.agent-paste.sh/al/{publicId}#{blob}
+Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
 Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-The Artifact URL is the stable live viewer and should be the default URL agents
-return. The Share URL is the separate public access-bearing link. The Revision
-Content URL is an exact signed file URL for one Revision and should not be
-presented as the Artifact URL.
+The Artifact URL is authenticated Workspace app navigation and is the default
+`View` URL after publish. An Access Link Signed URL is a public/shareable URL
+minted only when a Share Link or Revision Link is explicitly created. The
+Revision Content URL is exact signed byte delivery for one Revision; direct
+`usercontent` HTML is inert and should not be presented as the live page.
 
 The npm package is [`@zaks-io/agent-paste`](./apps/cli/README.md). The installed
 command is `agent-paste`. Standalone macOS, Linux, and Windows installers are
@@ -123,10 +131,10 @@ agent creates something -> publish -> human opens URL -> agent reads Agent View 
 ## What It Does
 
 - Publishes a file or folder as an **Artifact**.
-- Returns an Artifact URL and a machine-readable Agent View URL.
+- Returns an authenticated app viewer URL and exposes machine-readable Agent View for tools.
 - Supports accountless ephemeral publish for agents with no human in the loop.
 - Lets signed-in users claim ephemeral work into a Workspace.
-- Supports Share URLs for public access to Artifact viewers.
+- Supports explicit Access Link Signed URLs for public access to Artifact Viewers.
 - Serves generated content from an isolated Content Origin with signed URLs.
 - Uses Workspace policy for Auto Deletion and retention.
 - Provides CLI, REST, MCP, dashboard, and agent-readable docs surfaces.

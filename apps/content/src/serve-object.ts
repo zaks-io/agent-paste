@@ -108,7 +108,7 @@ export async function serveSignedObject(
     return notModifiedResponse(
       context,
       payload,
-      responseHeadersForPath(path, 0, payload, etag, frameAncestorsForEnv(env)),
+      responseHeadersForPath(path, 0, payload, etag, frameAncestorsForEnv(env), request),
     );
   }
 
@@ -134,7 +134,7 @@ export async function serveSignedObject(
   const bytes = served.bytes && injectsNoindex ? injectNoindexMetaBytes(served.bytes) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestorsForEnv(env));
+  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestorsForEnv(env), request);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When noindex injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -375,8 +375,10 @@ export function responseHeadersForPath(
   payload: ContentTokenPayload,
   etag: string,
   frameAncestors: readonly string[] = [],
+  request?: Request,
 ): Headers {
-  const scriptDisabled = payload.script_disabled !== false;
+  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
+  const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
   const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", CONTENT_CACHE_CONTROL);
@@ -386,7 +388,7 @@ export function responseHeadersForPath(
   // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
   // app origin frame it via CSP and drop the origin-blind XFO that would re-block
   // it. Attachments are downloads and stay frame-denied.
-  if (served.disposition === "inline" && frameAncestors.length > 0) {
+  if (served.disposition === "inline" && trustedViewerFrame) {
     headers.set("content-security-policy", withFrameAncestors(served.csp, frameAncestors));
     headers.delete("x-frame-options");
   } else {
@@ -399,6 +401,22 @@ export function responseHeadersForPath(
     headers.set("x-robots-tag", NOINDEX_HEADER);
   }
   return headers;
+}
+
+export function isTrustedViewerFrameRequest(request: Request | undefined, frameAncestors: readonly string[]): boolean {
+  if (!request || frameAncestors.length === 0) {
+    return false;
+  }
+  const destination = request.headers.get("sec-fetch-dest")?.toLowerCase();
+  if (destination !== "iframe" && destination !== "frame") {
+    return false;
+  }
+  const mode = request.headers.get("sec-fetch-mode")?.toLowerCase();
+  if (mode && mode !== "navigate") {
+    return false;
+  }
+  const site = request.headers.get("sec-fetch-site")?.toLowerCase();
+  return !site || site === "same-site" || site === "same-origin";
 }
 
 // Every served file and bundle revalidates on every load (`no-cache`): paired

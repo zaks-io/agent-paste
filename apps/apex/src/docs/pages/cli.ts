@@ -41,7 +41,7 @@ export const CLI_DOC: DocsPage = {
             ],
             [
               "`--ephemeral`",
-              "Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key, disables scripts until claimed, and prints a one-time claim link.",
+              "Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key, disables scripts while unclaimed, and prints a one-time claim link.",
             ],
             ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
             ["`--quiet`", "Suppress human-readable stdout."],
@@ -55,25 +55,25 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful CLI publish returns `artifact_id`, `revision_id`, `title`, `artifact_url`, `revision_content_url`, `agent_view_url`, `expires_at`, and `bundle`. `artifact_url` is the authenticated Artifact detail URL. `revision_content_url` is a signed Content Origin URL for this exact Revision and does not Live Update. `agent_view_url` returns machine-readable Agent View JSON.",
+          text: "A successful CLI publish prints `View`, the authenticated Artifact URL for the Workspace app. It does not print raw Artifact IDs, Revision IDs, `revision_content_url`, or `agent_view_url` in the default human-readable output.",
         },
         {
           kind: "code",
-          language: "json",
-          code: '{\n  "artifact_id": "art_01H...",\n  "revision_id": "rev_01H...",\n  "title": "My Publication Title",\n  "artifact_url": "https://app.agent-paste.sh/artifacts/art_01H...",\n  "revision_content_url": "https://usercontent.agent-paste.sh/v/...",\n  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",\n  "expires_at": "2026-06-20T00:00:00.000Z",\n  "bundle": {\n    "status": "pending",\n    "retry_after_seconds": 5\n  }\n}',
+          language: "text",
+          code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/artifacts/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  → open https://app.agent-paste.sh/artifacts/art_01H...',
         },
         {
           kind: "note",
-          title: "access_link_url is the live handoff",
+          title: "Public links are explicit",
           body: [
-            "When a human should keep one URL open while an agent publishes more Revisions, return `access_link_url`, the Access Link Signed URL minted from a Share Link. MCP publish tools return it by default as `access_link_url`. Base CLI publish does not yet emit `access_link_url`, so do not treat `artifact_url` or `revision_content_url` as the final public live page.",
+            "When a human needs a public/shareable URL that follows later publishes, publish with `--share` or explicitly create a Share Link and return `access_link_url`. `artifact_url` is the authenticated Workspace app view, and `revision_content_url` is raw signed byte delivery for one Revision.",
           ],
         },
         {
           kind: "note",
           title: "Check auth before ephemeral",
           body: [
-            "Agents should run `agent-paste whoami` before using `--ephemeral`. If `whoami` succeeds, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled until the Artifact is claimed.",
+            "Agents should run `agent-paste whoami` before using `--ephemeral`. If `whoami` succeeds, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
           ],
         },
       ],

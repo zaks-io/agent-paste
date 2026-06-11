@@ -7,12 +7,12 @@ import {
   ArtifactId,
   Cursor,
   IdempotencyKey,
+  IsoDateTime,
   PlainTextTitle,
   RevisionId,
   UrlString,
 } from "../primitives.js";
 import { RevisionListResponse } from "../revisions.js";
-import { PublishResult } from "../uploadSessions.js";
 import { WorkspaceMemberId } from "../web.js";
 import { WorkspaceSummary } from "../workspace.js";
 import { z } from "../zod.js";
@@ -44,9 +44,9 @@ const mcpTextBody = z.string().min(1).max(Mebibytes.ten);
 const mcpPublishShareDefault = z
   .boolean()
   .optional()
-  .default(true)
+  .default(false)
   .describe(
-    "Defaults to true. Leave true when a user asks for a live page or shareable link: the tool creates or reuses a Share Link and returns its Access Link Signed URL as access_link_url. Set false only for internal flows that should not create a user-facing Access Link.",
+    "Defaults to false. Set true only when the user explicitly asks for a public/shareable Access Link: the tool creates or reuses a Share Link and returns its Access Link Signed URL as access_link_url.",
   );
 
 export const McpPublishArtifactInput = z
@@ -128,10 +128,19 @@ export const McpUploadStats = z
   .strict();
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
-export const McpPublishArtifactOutput = PublishResult.extend({
-  access_link_url: UrlString.optional(),
-  upload_stats: McpUploadStats.optional(),
-}).strict();
+// MCP publish output is intentionally narrower than the REST PublishResult. The
+// tool result is usually fed back into an assistant response, so it exposes only
+// the user-facing live URL plus minimal publish metadata. Artifact IDs, Revision
+// IDs, direct content URLs, and Agent View URLs remain available through
+// explicit list/read/link tools.
+export const McpPublishArtifactOutput = z
+  .object({
+    title: PlainTextTitle,
+    access_link_url: UrlString.optional(),
+    expires_at: IsoDateTime,
+    upload_stats: McpUploadStats.optional(),
+  })
+  .strict();
 export type McpPublishArtifactOutput = z.infer<typeof McpPublishArtifactOutput>;
 
 export const McpListArtifactsOutput = ArtifactListResponse;

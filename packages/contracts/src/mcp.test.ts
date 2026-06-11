@@ -54,25 +54,25 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
-  it("describes publish sharing as the default Access Link Signed URL handoff", () => {
+  it("describes publish sharing as explicit opt-in", () => {
     const listed = buildMcpToolList();
     const publish = listed.tools.find((tool) => tool.name === "publish_artifact");
     const addRevision = listed.tools.find((tool) => tool.name === "add_revision");
-    expect(publish?.description).toContain("create a Share Link by default");
-    expect(publish?.description).toContain("Access Link Signed URL minted from that Share Link");
-    expect(addRevision?.description).toContain("reuse an active Share Link by default");
-    expect(addRevision?.description).toContain("Access Link Signed URL minted from that Share Link");
+    expect(publish?.description).toContain("Do not create a Share Link by default");
+    expect(publish?.description).toContain("Set share:true only when the user explicitly asks");
+    expect(addRevision?.description).toContain("Do not create or reuse Share Links by default");
+    expect(addRevision?.description).toContain("Set share:true only when the user explicitly asks");
 
     const publishProperties = (publish?.inputSchema.properties ?? {}) as Record<string, { default?: unknown }>;
-    expect(publishProperties.share?.default).toBe(true);
-    expect(McpPublishArtifactInput.parse({ title: "Demo", body: "hello", render_mode: "text" }).share).toBe(true);
+    expect(publishProperties.share?.default).toBe(false);
+    expect(McpPublishArtifactInput.parse({ title: "Demo", body: "hello", render_mode: "text" }).share).toBe(false);
     expect(
       McpAddRevisionInput.parse({
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         body: "hello",
         render_mode: "text",
       }).share,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("requires write and read for publish tools", () => {

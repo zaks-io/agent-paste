@@ -498,6 +498,10 @@
             "type": "string",
             "format": "uri"
           },
+          "access_link_url": {
+            "type": "string",
+            "format": "uri"
+          },
           "revision_content_url": {
             "type": "string",
             "format": "uri"

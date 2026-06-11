@@ -39,17 +39,28 @@ function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response
   };
 }
 
-function publishedBody() {
+function publishedBody(input: { title?: string; accessLink?: string | null } = {}) {
   return {
-    artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-    revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-    title: "Note",
-    artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-    revision_content_url: "https://content.example/v/token/index.html",
-    agent_view_url: "https://agent-view.example",
+    title: input.title ?? "Note",
+    ...(input.accessLink === null ? {} : { access_link_url: input.accessLink ?? "https://share.example/al_01" }),
     expires_at: "2026-12-01T00:00:00.000Z",
-    bundle: { status: "pending", retry_after_seconds: 30 },
+    upload_stats: {
+      total_files: 1,
+      total_bytes: 5,
+      uploaded_files: 1,
+      uploaded_bytes: 5,
+      reused_files: 0,
+      reused_bytes: 0,
+    },
   };
+}
+
+function expectNoPublishDiagnosticFields(body: unknown) {
+  expect(body).not.toHaveProperty("artifact_id");
+  expect(body).not.toHaveProperty("revision_id");
+  expect(body).not.toHaveProperty("artifact_url");
+  expect(body).not.toHaveProperty("revision_content_url");
+  expect(body).not.toHaveProperty("agent_view_url");
 }
 
 /** The Nth real route request (skipping the pre-flight `mcp.whoami` gate call). */
@@ -163,27 +174,21 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: agentView });
   });
 
-  it("delegates publish_artifact to the text publish chain with Share Link creation on by default", async () => {
-    const published = {
-      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      title: "Note",
-      artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_content_url: "https://content.example/v/token/index.html",
-      agent_view_url: "https://agent-view.example",
-      expires_at: "2026-12-01T00:00:00.000Z",
-      bundle: { status: "pending", retry_after_seconds: 30 },
-    };
+  it("delegates publish_artifact to the text publish chain without Share Link creation by default", async () => {
+    const published = publishedBody({ accessLink: null });
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
-      api: apiMock(["write", "read", "share"]),
+      api: apiMock(["write", "read"]),
       upload: { fetch: vi.fn() },
-      bearerToken: "token-all",
+      bearerToken: "token-write-read",
       jsonRpcId: 42,
     });
     expect(result).toEqual({ ok: true, result: published });
+    if (result.ok) {
+      expectNoPublishDiagnosticFields(result.result);
+    }
     expect(publishChain.runTextPublishChain).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Note", share: true }),
+      expect.objectContaining({ title: "Note", share: false }),
       expect.any(Object),
     );
   });
@@ -223,13 +228,18 @@ describe("callMcpTool", () => {
     );
   });
 
-  it("requires share scope when publish_artifact uses the default Share Link", async () => {
-    const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
-      api: apiMock(["write", "read"]),
-      upload: { fetch: vi.fn() },
-      bearerToken: "token-write-read",
-      jsonRpcId: 42,
-    });
+  it("requires share scope when publish_artifact explicitly requests a Share Link", async () => {
+    const result = await callMcpTool(
+      "publish_artifact",
+      { title: "Note", body: "hello", render_mode: "text", share: true },
+      auth,
+      {
+        api: apiMock(["write", "read"]),
+        upload: { fetch: vi.fn() },
+        bearerToken: "token-write-read",
+        jsonRpcId: 42,
+      },
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("insufficient_scope");
@@ -238,16 +248,7 @@ describe("callMcpTool", () => {
   });
 
   it("allows publish_artifact to opt out of Access Link creation explicitly", async () => {
-    const published = {
-      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      title: "Note",
-      artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_content_url: "https://content.example/v/token/index.html",
-      agent_view_url: "https://agent-view.example",
-      expires_at: "2026-12-01T00:00:00.000Z",
-      bundle: { status: "pending", retry_after_seconds: 30 },
-    };
+    const published = publishedBody({ accessLink: null });
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool(
       "publish_artifact",
@@ -261,6 +262,10 @@ describe("callMcpTool", () => {
       },
     );
     expect(result).toEqual({ ok: true, result: published });
+    if (result.ok) {
+      expect(result.result).not.toHaveProperty("access_link_url");
+      expectNoPublishDiagnosticFields(result.result);
+    }
     expect(publishChain.runTextPublishChain).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Note", share: false }),
       expect.any(Object),
@@ -321,17 +326,8 @@ describe("callMcpTool", () => {
     await expect(mintRequest.text()).resolves.toBe("");
   });
 
-  it("delegates add_revision to the text publish chain with Access Link sharing on by default", async () => {
-    const published = {
-      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      title: "Revision",
-      artifact_url: "https://app.example/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_content_url: "https://content.example/v/token/index.html",
-      agent_view_url: "https://agent-view.example",
-      expires_at: "2026-12-01T00:00:00.000Z",
-      bundle: { status: "pending", retry_after_seconds: 30 },
-    };
+  it("delegates add_revision to the text publish chain without Access Link sharing by default", async () => {
+    const published = publishedBody({ title: "Revision", accessLink: null });
     vi.mocked(publishChain.runTextPublishChain).mockResolvedValue({ ok: true, status: 200, body: published });
     const result = await callMcpTool(
       "add_revision",
@@ -341,11 +337,14 @@ describe("callMcpTool", () => {
         render_mode: "text",
       },
       auth,
-      { api: apiMock(["write", "read", "share"]), upload: { fetch: vi.fn() }, bearerToken: "token-all", jsonRpcId: 43 },
+      { api: apiMock(["write", "read"]), upload: { fetch: vi.fn() }, bearerToken: "token-write-read", jsonRpcId: 43 },
     );
     expect(result).toEqual({ ok: true, result: published });
+    if (result.ok) {
+      expectNoPublishDiagnosticFields(result.result);
+    }
     expect(publishChain.runTextPublishChain).toHaveBeenCalledWith(
-      expect.objectContaining({ artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", share: true }),
+      expect.objectContaining({ artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", share: false }),
       expect.any(Object),
     );
   });

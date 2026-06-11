@@ -36,7 +36,7 @@ _Avoid_: Live version, current snapshot
 
 <a id="artifact-url"></a>
 **Artifact URL**:
-The authenticated app URL for a **Workspace Member** to open an **Artifact** detail view. Publish surfaces return it as `artifact_url` for owner/member workflows, but it is not the primary recipient handoff. Agents should give users the signed URL minted from a **Share Link** when one can be minted.
+The authenticated app URL for a **Workspace Member** to open an **Artifact** detail view. Publish surfaces return it as `artifact_url`, and it is the default post-publish `View` URL. Agents should mint a **Share Link** and return its signed URL only when the user explicitly asks for a public/shareable link.
 _Avoid_: Access Link, public link, Revision Content URL, live handoff URL
 
 <a id="artifact-viewer"></a>
@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **API Key**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy**, so script executes only after the tenant is claimed.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **API Key**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy** while unclaimed; after claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>

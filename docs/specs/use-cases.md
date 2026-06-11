@@ -19,23 +19,24 @@ committing temporary files, creating a gist, or deploying to a preview host.
 
 ## Primary Use Cases
 
-| Use case                    | User moment                                                                                                  | Product job                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Publish one generated asset | An agent produced a report, dashboard, prototype, log, or small static site worth inspecting.                | Turn a file or folder into an Artifact with a browser URL and Agent View URL.                     |
-| Open remote output anywhere | A remote agent finished while the operator is away from their desk.                                          | Return a URL that opens on any device without requiring a repo, local server, or deploy project.  |
-| Publish without CLI access  | A hosted agent can connect to remote MCP but cannot install packages, run shell commands, or use a keychain. | Expose OAuth-only MCP tools that publish text Artifacts, read Agent Views, and manage links.      |
-| Watch an agent iterate      | An agent is refining the same work product across multiple publishes.                                        | Let an open viewer advance to the latest Published Revision when Live Updates are available.      |
-| Hand off between tools      | Work made in one agent tool needs to move to a human or another agent in another tool.                       | Provide a human browser view and a machine-readable Agent View so the next tool does not scrape.  |
-| Share a one-off artifact    | Generated work needs to be dropped into a channel, issue, PR, or customer thread for review.                 | Host the handoff without turning it into permanent hosting or a social surface.                   |
-| Run unattended              | An agent has no stored credential and no human available for browser login at publish time.                  | Allow `--ephemeral` publish, return a working link immediately, and let a human claim it later.   |
-| Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls. |
-| Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose REST, MCP, Agent View, and documented contracts that can be built on by another platform.  |
+| Use case                    | User moment                                                                                                  | Product job                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Publish one generated asset | An agent produced a report, dashboard, prototype, log, or small static site worth inspecting.                | Turn a file or folder into an Artifact with an authenticated app View, explicit sharing, and Agent View. |
+| Open remote output anywhere | A remote agent finished while the operator is away from their desk.                                          | Return a URL that opens on any device without requiring a repo, local server, or deploy project.         |
+| Publish without CLI access  | A hosted agent can connect to remote MCP but cannot install packages, run shell commands, or use a keychain. | Expose OAuth-only MCP tools that publish text Artifacts, read Agent Views, and manage links.             |
+| Watch an agent iterate      | An agent is refining the same work product across multiple publishes.                                        | Let an open viewer advance to the latest Published Revision when Live Updates are available.             |
+| Hand off between tools      | Work made in one agent tool needs to move to a human or another agent in another tool.                       | Provide a human browser view and a machine-readable Agent View so the next tool does not scrape.         |
+| Share a one-off artifact    | Generated work needs to be dropped into a channel, issue, PR, or customer thread for review.                 | Host the handoff without turning it into permanent hosting or a social surface.                          |
+| Run unattended              | An agent has no stored credential and no human available for browser login at publish time.                  | Allow `--ephemeral` publish, return the claim handoff, and let a human claim it later.                   |
+| Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls.        |
+| Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose REST, MCP, Agent View, and documented contracts that can be built on by another platform.         |
 
-For the iteration use case, the browser URL must be the Access Link Signed URL
-minted from a Share Link. The direct `revision_content_url` is exact Revision
-content; it is useful for one-shot inspection but it does not advance when the
-agent publishes a later Revision. The authenticated Artifact URL is Workspace
-management navigation, not the recipient handoff.
+For the iteration use case, public/shareable browser URLs must come from an
+explicit Share Link, requested with CLI `--share`, REST `{ "share": true }`, MCP
+`share:true`, or link-management routes. The direct `revision_content_url` is
+exact Revision content; it is useful for one-shot inspection but it does not
+advance when the agent publishes a later Revision. The authenticated Artifact URL
+is the default Workspace app view.
 
 ## Primary Audiences
 

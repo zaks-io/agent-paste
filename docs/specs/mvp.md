@@ -97,12 +97,13 @@ Publish returns:
 }
 ```
 
-In the original CLI-first MVP, `artifact_url` was the browser handoff URL and
-fragment-based access links were a later phase. In the current hosted service,
-that is no longer the right user-facing guidance: the **Access Link Signed URL**
-minted from a **Share Link** is the primary live handoff, while `artifact_url` is
-authenticated workspace navigation and `revision_content_url` remains a direct
-signed content URL for the exact Revision. The content token lives in the path.
+`artifact_url` is the authenticated workspace app URL and default post-publish
+`View`. `access_link_url` appears only when a Share Link or Revision Link is
+explicitly created; publish creates one only when called with CLI `--share`,
+REST `{ "share": true }`, or MCP `share:true`. `revision_content_url` remains a
+direct signed content URL for the exact Revision. Direct `usercontent` HTML is
+inert raw byte delivery unless it is loaded through the controlled Artifact
+Viewer iframe. The content token lives in the path.
 
 `agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
 
@@ -242,7 +243,7 @@ The MVP is buildable when the API-key publish loop works end to end. Phase 3 mem
 - `agent-paste whoami` works with `AGENT_PASTE_API_KEY`.
 - `agent-paste publish ./site` uploads a folder with `index.html`.
 - `agent-paste publish ./demo.html` uploads a single HTML file.
-- Publish returns `artifact_id`, `revision_id`, `artifact_url`, `revision_content_url`, `agent_view_url`, and `expires_at`.
-- In the original MVP harness, `artifact_url` opens the Artifact viewer path and `revision_content_url` opens the exact Revision HTML from the content origin. In the current hosted product, the public live handoff is an Access Link Signed URL minted from a Share Link.
-- `agent_view_url` returns JSON with full per-file URLs.
+- Human-facing publish output returns the authenticated Artifact URL as `View`.
+- JSON/REST publish output also carries `artifact_id`, `revision_id`, `artifact_url`, optional `access_link_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation.
+- `artifact_url` is authenticated Workspace app navigation, `access_link_url` appears only after explicit link creation (`--share`, REST `{ "share": true }`, MCP `share:true`, or link-management routes), `revision_content_url` is raw byte delivery for one Revision, and `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.

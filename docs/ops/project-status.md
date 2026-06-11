@@ -201,11 +201,12 @@ Highest-signal gaps:
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
-- Stable live publish handoff for hosted agents shipped in AP-299/PR #475:
-  MCP publish results now mint/reuse a Share Link by default and return
-  `access_link_url` as the primary live human handoff. Base CLI/REST still
-  distinguish `artifact_url` (authenticated management navigation) from
-  `revision_content_url` (one-Revision content URL).
+- Hosted agent publish handoff shipped in AP-299/PR #475 and was tightened on
+  2026-06-11: publish results distinguish `artifact_url` (authenticated app
+  viewer/navigation) from `revision_content_url` (one-Revision content URL).
+  MCP publish/add-revision no longer create or reuse Share Links by default;
+  callers must set `share: true` or use link-management tools when the user
+  explicitly asks for a public/shareable `access_link_url`.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust
