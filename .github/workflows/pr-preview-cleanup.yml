@@ -12,6 +12,7 @@ on:
   pull_request:
     types:
       - closed
+      - unlabeled
   workflow_dispatch:
     inputs:
       pr_number:
@@ -38,7 +39,18 @@ jobs:
     name: Cleanup PR Preview
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
-    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') }}
+    if: >-
+      ${{
+        (
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (
+            github.event.action == 'closed' ||
+            (github.event.action == 'unlabeled' && github.event.label.name == 'full-pr-preview')
+          )
+        ) ||
+        (github.event_name == 'workflow_dispatch' && inputs.pr_number != '')
+      }}
     environment: Preview
 
     steps:

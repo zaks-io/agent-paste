@@ -85,8 +85,8 @@ export function createSyncSafetyScanQueue(jobsEnv) {
 }
 
 export function createJobsEnv({ repo, db, artifacts, denylist, smokeHarnessSecret, artifactBytesEncryptionKey }) {
-  if (!repo && !db) {
-    throw new Error("createJobsEnv requires repo or db.");
+  if ((!repo && !db) || (repo && db)) {
+    throw new Error("createJobsEnv requires exactly one of repo or db.");
   }
   const jobsEnv = {
     AGENT_PASTE_ENV: "dev",

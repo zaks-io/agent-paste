@@ -145,7 +145,7 @@ pnpm smoke:preview:ephemeral`
 6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` (optionally with
    `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` for authenticated tool checks).
 7. Same-repo PRs exercise job-local Postgres smoke in CI automatically. Add the
-   `full-pr-preview` label only when a PR needs deployed Cloudflare Worker
+   `full-pr-preview` label only when a PR requires deployed Cloudflare Worker
    evidence; that workflow gates on `/healthz` readiness, hosted ephemeral
    publish smoke (`scripts/smoke-hosted-ephemeral.mjs pr`), and local dashboard
    Lighthouse. The standard hosted MVP smoke (`pnpm smoke:pr`) remains manual

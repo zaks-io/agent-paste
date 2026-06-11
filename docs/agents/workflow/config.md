@@ -148,8 +148,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - PR body: Summary / Changes / Risk (LOW|MEDIUM|HIGH) / Test plan + Linear link
 - Required checks: `pnpm verify` + `pnpm test:coverage` (CI `Validate` job)
 - Non-required confidence checks: CI `Postgres smoke` while it burns in; hosted
-  preview smoke when a PR is labeled `full-pr-preview` or needs deployed Worker
-  evidence
+  preview smoke when a PR is labeled `full-pr-preview` or requires deployed
+  Worker evidence
 - Code review: `ziw-code-review` before PR; `ziw-review` for
   PR review
 - CodeRabbit: auto-review ENABLED (verified live in `.coderabbit.yaml` 2026-06-09:

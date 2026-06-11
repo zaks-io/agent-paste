@@ -237,7 +237,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
         env:
           POSTGRES_DB: agent_paste
           POSTGRES_USER: agent_paste
@@ -258,6 +258,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
