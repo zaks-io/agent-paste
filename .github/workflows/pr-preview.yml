@@ -6,6 +6,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - labeled
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -33,7 +34,7 @@ jobs:
     name: Deploy PR Preview
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 25
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'full-pr-preview') }}
     environment:
       name: Preview
       url: ${{ steps.deploy.outputs.apex_url }}

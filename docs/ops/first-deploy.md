@@ -87,7 +87,9 @@ Each smoke publishes `examples/local-harness/site`, verifies Agent View and cont
 
 ## Dynamic PR Previews
 
-Same-repo PRs use `.github/workflows/pr-preview.yml`. The workflow targets the
+Same-repo PRs run job-local Postgres smoke in CI without creating hosted
+resources. Add the `full-pr-preview` label when a PR requires deployed Worker
+evidence. The opt-in `.github/workflows/pr-preview.yml` workflow targets the
 single GitHub Environment named `Preview` for secrets and variables, while the
 runtime resources remain PR-scoped for isolation. It creates a Neon branch named
 `preview/pr-<number>` from `main`, runs migrations against that branch URL,
@@ -97,9 +99,10 @@ creates a PR-scoped Hyperdrive config, deploys
 Lighthouse accessibility gate, and comments the URLs on the PR. It does not run
 the full hosted smoke on every PR; `pnpm smoke:pr` remains available for manual
 diagnosis when needed. `.github/workflows/pr-preview-cleanup.yml` deletes the
-Workers, Queues, Hyperdrive config, and Neon branch when the PR closes. It also
-runs a scheduled stale-resource reconciliation pass so missed close events do
-not leave PR-scoped resources behind.
+Workers, Queues, Hyperdrive config, and Neon branch when the PR closes or the
+`full-pr-preview` label is removed. It also runs a scheduled stale-resource
+reconciliation pass so missed close events do not leave PR-scoped resources
+behind.
 
 Required GitHub Actions values:
 

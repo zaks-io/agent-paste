@@ -158,6 +158,7 @@ deploy production from a laptop.
 | Command                           | Purpose                                                                                                               |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `pnpm smoke:local`                | Build and run the local publish/content/delete smoke path.                                                            |
+| `pnpm smoke:ci:postgres`          | Build, migrate a job-local Postgres database, and run the local CLI smoke through the Postgres/RLS-backed harness.    |
 | `pnpm smoke:web`                  | Build and run local web API auth/dashboard smoke assertions.                                                          |
 | `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                |
 | `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (optional token for authenticated checks).                                     |
