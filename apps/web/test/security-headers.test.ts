@@ -13,12 +13,14 @@ const productionEnv = {
 };
 
 describe("Access Link security headers", () => {
-  it("sets a viewer CSP that allows only app scripts, app fetches, and the content origin frame", () => {
-    const headers = accessLinkViewerHeaders(productionEnv);
+  const nonce = "dGVzdC1ub25jZS0xMjM0";
+
+  it("sets a viewer CSP that allows nonce-stamped app scripts, app fetches, and the content origin frame", () => {
+    const headers = accessLinkViewerHeaders(productionEnv, nonce);
     const csp = headers.get("content-security-policy") ?? "";
 
     expect(csp).toContain("default-src 'none'");
-    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain(`script-src 'nonce-${nonce}' 'strict-dynamic'`);
     expect(csp).toContain("style-src 'self'");
     expect(csp).toContain("connect-src 'self'");
     expect(csp).toContain("frame-src https://usercontent.agent-paste.sh");
@@ -42,17 +44,19 @@ describe("Access Link security headers", () => {
   });
 
   it("matches only Access Link viewer and proxy paths", () => {
-    expect(accessLinkSecurityHeadersForPath("/al/pub_1", productionEnv)?.get("content-security-policy")).toContain(
-      "frame-src https://usercontent.agent-paste.sh",
-    );
-    expect(accessLinkSecurityHeadersForPath("/api/access-links/resolve")?.get("content-security-policy")).toContain(
-      "default-src 'none'",
-    );
-    expect(accessLinkSecurityHeadersForPath("/api/live/access-links/pub_1")?.get("content-security-policy")).toContain(
-      "default-src 'none'",
-    );
-    expect(accessLinkSecurityHeadersForPath("/dashboard")).toBeNull();
-    expect(accessLinkSecurityHeadersForPath("/api/live/artifacts/art_1")).toBeNull();
+    expect(
+      accessLinkSecurityHeadersForPath("/al/pub_1", productionEnv, nonce)?.get("content-security-policy"),
+    ).toContain("frame-src https://usercontent.agent-paste.sh");
+    expect(
+      accessLinkSecurityHeadersForPath("/api/access-links/resolve", undefined, nonce)?.get("content-security-policy"),
+    ).toContain("default-src 'none'");
+    expect(
+      accessLinkSecurityHeadersForPath("/api/live/access-links/pub_1", undefined, nonce)?.get(
+        "content-security-policy",
+      ),
+    ).toContain("default-src 'none'");
+    expect(accessLinkSecurityHeadersForPath("/dashboard", undefined, nonce)).toBeNull();
+    expect(accessLinkSecurityHeadersForPath("/api/live/artifacts/art_1", undefined, nonce)).toBeNull();
   });
 
   it("applies Access Link headers without dropping existing response headers", async () => {
@@ -63,6 +67,7 @@ describe("Access Link security headers", () => {
         headers: { "content-type": "text/html; charset=utf-8", "x-existing": "yes" },
       }),
       productionEnv,
+      nonce,
     );
 
     expect(response.status).toBe(201);
@@ -79,6 +84,7 @@ describe("Access Link security headers", () => {
         headers: { "cache-control": "no-cache, no-transform", "content-type": "text/event-stream" },
       }),
       productionEnv,
+      nonce,
     );
 
     expect(response.headers.get("cache-control")).toBe("no-store, no-cache, no-transform");
@@ -127,15 +133,12 @@ describe("Dashboard security headers", () => {
       productionEnv,
       nonce,
     );
-    const response = applyAccessLinkSecurityHeaders(request, baselined, productionEnv);
+    const response = applyAccessLinkSecurityHeaders(request, baselined, productionEnv, nonce);
 
     // Access-link routes keep their stricter CSP and referrer policy.
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).toContain("frame-src https://usercontent.agent-paste.sh");
-    expect(csp).toContain("script-src 'self'");
-    // The dashboard nonce CSP does not leak onto access-link responses.
-    expect(csp).not.toContain(`nonce-${nonce}`);
-    expect(csp).not.toContain("strict-dynamic");
+    expect(csp).toContain(`script-src 'nonce-${nonce}' 'strict-dynamic'`);
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     // Baseline still present where access-link does not override.
     expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");

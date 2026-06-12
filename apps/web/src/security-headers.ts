@@ -37,7 +37,6 @@ const ACCESS_LINK_VIEWER_CSP = [
   "form-action 'none'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "script-src 'self'",
   "style-src 'self'",
   "font-src 'self'",
   "img-src 'self' data:",
@@ -58,9 +57,9 @@ const COMMON_SECURITY_HEADERS = {
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 } as const;
 
-export function accessLinkViewerHeaders(env?: AccessLinkSecurityEnv): Headers {
+export function accessLinkViewerHeaders(env: AccessLinkSecurityEnv | undefined, nonce: string): Headers {
   return securityHeaders({
-    "content-security-policy": viewerCsp(env),
+    "content-security-policy": viewerCsp(nonce, env),
     "cache-control": "no-store",
   });
 }
@@ -85,9 +84,13 @@ export function liveStreamProxyHeaders(upstream: Headers, base: Headers): Header
   return base;
 }
 
-export function accessLinkSecurityHeadersForPath(pathname: string, env?: AccessLinkSecurityEnv): Headers | null {
+export function accessLinkSecurityHeadersForPath(
+  pathname: string,
+  env: AccessLinkSecurityEnv | undefined,
+  nonce: string,
+): Headers | null {
   if (isAccessLinkViewerPath(pathname)) {
-    return accessLinkViewerHeaders(env);
+    return accessLinkViewerHeaders(env, nonce);
   }
   if (isAccessLinkProxyPath(pathname)) {
     return accessLinkProxyHeaders();
@@ -98,9 +101,10 @@ export function accessLinkSecurityHeadersForPath(pathname: string, env?: AccessL
 export function applyAccessLinkSecurityHeaders(
   request: Request,
   response: Response,
-  env?: AccessLinkSecurityEnv,
+  env: AccessLinkSecurityEnv | undefined,
+  nonce: string,
 ): Response {
-  const headers = accessLinkSecurityHeadersForPath(new URL(request.url).pathname, env);
+  const headers = accessLinkSecurityHeadersForPath(new URL(request.url).pathname, env, nonce);
   return headers ? withResponseHeaders(response, headers) : response;
 }
 
@@ -140,8 +144,12 @@ function securityHeaders(extra: Record<string, string>): Headers {
   });
 }
 
-function viewerCsp(env?: AccessLinkSecurityEnv): string {
-  return [...ACCESS_LINK_VIEWER_CSP, `frame-src ${contentFrameSrc(env)}`].join("; ");
+function viewerCsp(nonce: string, env?: AccessLinkSecurityEnv): string {
+  return [
+    ...ACCESS_LINK_VIEWER_CSP,
+    `script-src 'nonce-${nonce}' 'strict-dynamic'`,
+    `frame-src ${contentFrameSrc(env)}`,
+  ].join("; ");
 }
 
 function contentFrameSrc(env?: AccessLinkSecurityEnv): string {
