@@ -77,7 +77,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
     return output(
       { authenticated: false },
       parsed.global,
-      "Not signed in. Run `agent-paste login` or set AGENT_PASTE_API_KEY.",
+      "Not signed in. Run `agent-paste login` or use `agent-paste publish --ephemeral` for an accountless handoff.",
     );
   }
 
@@ -112,9 +112,9 @@ async function hasResolvableAuth(): Promise<boolean> {
   return Boolean(stored && !isCredentialExpired(stored));
 }
 
-// AGENT_PASTE_API_KEY wins for CI/headless use; otherwise the key stored by
-// `agent-paste login` is used. When both are present we note which one wins so
-// surprising precedence is visible (ADR 0060).
+// The legacy environment credential wins for CI/headless compatibility;
+// otherwise the credential stored by `agent-paste login` is used. When both are
+// present we note which one wins so surprising precedence is visible.
 async function resolveClient(): Promise<ApiClient> {
   const envKey = process.env.AGENT_PASTE_API_KEY;
   const stored = await loadCredential();
@@ -124,7 +124,7 @@ async function resolveClient(): Promise<ApiClient> {
     process.stderr.write(`agent-paste: removed expired stored login credential ${stored.public_id}.\n`);
   }
   if (envKey && usableStored) {
-    process.stderr.write("agent-paste: using AGENT_PASTE_API_KEY (overrides the stored login credential).\n");
+    process.stderr.write("agent-paste: using the environment credential (overrides the stored login credential).\n");
   }
   if (envKey) {
     return new ApiClient();
@@ -158,7 +158,7 @@ export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
     return output(
       { status: "logged_out", public_id: stored.public_id, remote_revoked: false, reason: "expired" },
       global,
-      `Removed expired stored API key ${stored.public_id}.`,
+      `Removed expired stored credential ${stored.public_id}.`,
     );
   }
 
@@ -172,15 +172,15 @@ export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
   } catch (error) {
     remoteRevoked = false;
     const message = error instanceof Error ? error.message : String(error);
-    warn(`agent-paste: remote revoke failed for stored API key ${stored.public_id}: ${message}\n`);
+    warn(`agent-paste: remote revoke failed for stored credential ${stored.public_id}: ${message}\n`);
   }
   await remove();
   return output(
     { status: "logged_out", public_id: stored.public_id, remote_revoked: remoteRevoked },
     global,
     remoteRevoked
-      ? `Revoked and removed stored API key ${stored.public_id}.`
-      : `Removed stored API key ${stored.public_id}. Remote revoke failed; the key may remain active.`,
+      ? `Revoked and removed stored credential ${stored.public_id}.`
+      : `Removed stored credential ${stored.public_id}. Remote revoke failed; it may remain active.`,
   );
 }
 
@@ -219,7 +219,7 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
 
 async function noteEphemeralCredentialPrecedence() {
   if (process.env.AGENT_PASTE_API_KEY) {
-    process.stderr.write("agent-paste: --ephemeral ignores AGENT_PASTE_API_KEY.\n");
+    process.stderr.write("agent-paste: --ephemeral ignores the environment credential.\n");
   }
   const stored = await loadCredential();
   if (stored && !isCredentialExpired(stored)) {

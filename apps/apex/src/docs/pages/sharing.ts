@@ -4,7 +4,7 @@ export const SHARING_DOC: DocsPage = {
   slug: "sharing",
   title: "Sharing and Access Links",
   shortTitle: "Sharing",
-  summary: "Share human-readable viewers and machine-readable manifests without exposing API Keys.",
+  summary: "Share human-readable viewers and machine-readable manifests without exposing credentials.",
   sections: [
     {
       id: "link-types",
@@ -56,7 +56,7 @@ export const SHARING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "MCP can create Share Links and Revision Links, list links, and revoke links for authenticated members. CLI publish can create a Share Link only when called with `--share`; ongoing link listing and revocation stay in the dashboard, MCP, or REST API.",
+          text: "MCP can create Share Links and Revision Links, list links, and revoke links for authenticated members. CLI publish can create a Share Link only when called with `--share`; ongoing link listing and revocation stay in the dashboard or MCP.",
         },
         {
           kind: "note",
@@ -73,7 +73,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: 'A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, use CLI `--share`, REST `{ "share": true }`, or MCP `share:true`/`create_share_link`, then return `access_link_url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.',
+          text: "A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, use CLI `--share` or MCP `share:true`/`create_share_link`, then return `access_link_url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.",
         },
       ],
     },

@@ -5,25 +5,25 @@ lives in `packages/contracts`.
 
 ## Hosts
 
-| Surface   | Host                                 | Owns                                                                                          |
-| --------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`         | API-key auth, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
-| `upload`  | `https://upload.agent-paste.sh`      | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.           |
-| `content` | `https://usercontent.agent-paste.sh` | Signed file and Bundle reads from private R2.                                                 |
-| `web`     | `https://app.agent-paste.sh`         | Dashboard, Access Link viewer, WorkOS auth, claim, and billing UI.                            |
-| `mcp`     | `https://mcp.agent-paste.sh`         | OAuth-only Streamable HTTP MCP.                                                               |
-| `apex`    | `https://agent-paste.sh`             | Marketing, legal, install scripts, agent text surfaces, and public docs.                      |
+| Surface   | Host                                 | Owns                                                                                                                 |
+| --------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`         | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
+| `upload`  | `https://upload.agent-paste.sh`      | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
+| `content` | `https://usercontent.agent-paste.sh` | Signed file and Bundle reads from private R2.                                                                        |
+| `web`     | `https://app.agent-paste.sh`         | Dashboard, Access Link viewer, WorkOS auth, claim, and billing UI.                                                   |
+| `mcp`     | `https://mcp.agent-paste.sh`         | OAuth-only Streamable HTTP MCP.                                                                                      |
+| `apex`    | `https://agent-paste.sh`             | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
 ## Headers
 
-| Header                      | Direction        | Required                          | Notes                                                                                                    |
-| --------------------------- | ---------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `Authorization: Bearer ...` | request          | Authenticated routes              | API key for API-key routes; WorkOS bearer for `/v1/web/*`, operator routes, and MCP OAuth member routes. |
-| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                             |
-| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                                       |
-| `Retry-After`               | response         | 429                               | Seconds.                                                                                                 |
+| Header                      | Direction        | Required                          | Notes                                                                                          |
+| --------------------------- | ---------------- | --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `Authorization: Bearer ...` | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer. |
+| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                   |
+| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                             |
+| `Retry-After`               | response         | 429                               | Seconds.                                                                                       |
 
 Secrets are never accepted as query parameters or flags.
 
@@ -31,13 +31,17 @@ Secrets are never accepted as query parameters or flags.
 
 | Label                     | Meaning                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `api_key`                 | `Authorization: Bearer ap_pk_...` from `AGENT_PASTE_API_KEY`.                                              |
+| `cli_credential`          | Stored local CLI credential created by `agent-paste login` or by the ephemeral provision flow.             |
 | `mcp_oauth`               | WorkOS AuthKit/Connect access token minted for the MCP resource indicator, resolved to a Workspace Member. |
-| `api_key_or_mcp_oauth`    | Either `api_key` or `mcp_oauth`; route scope checks apply to the resolved actor.                           |
+| `cli_or_mcp`              | Either CLI credential auth or `mcp_oauth`; route scope checks apply to the resolved actor.                 |
 | `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes.                                   |
 | `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only.                                      |
 | `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                                                           |
 | `signed_content_token`    | Public token in `/v/{token}/{path}`.                                                                       |
+
+The route registry still uses older internal guard identifiers for some CLI
+credential routes. Agent-facing guidance should use the CLI or MCP surfaces, not
+direct hosted route calls.
 
 ## Request Guard Order
 
@@ -58,13 +62,13 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 | Method | Path                                                          | Auth                      | Idempotency | Request | Response               |
 | ------ | ------------------------------------------------------------- | ------------------------- | ----------- | ------- | ---------------------- |
-| `GET`  | `/v1/whoami`                                                  | `api_key`                 | none        | -       | `WhoamiResponse`       |
+| `GET`  | `/v1/whoami`                                                  | `cli_credential`          | none        | -       | `WhoamiResponse`       |
 | `GET`  | `/v1/mcp/whoami`                                              | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
-| `GET`  | `/v1/artifacts/{artifact_id}/revisions`                       | `api_key_or_mcp_oauth`    | none        | -       | `RevisionListResponse` |
-| `POST` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish` | `api_key_or_mcp_oauth`    | required    | -       | `PublishResult`        |
+| `GET`  | `/v1/artifacts/{artifact_id}/revisions`                       | `cli_or_mcp`              | none        | -       | `RevisionListResponse` |
+| `POST` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish` | `cli_or_mcp`              | required    | -       | `PublishResult`        |
 | `GET`  | `/v1/public/agent-view/{token}`                               | `signed_agent_view_token` | none        | -       | `PublicAgentView`      |
 
-`whoami` returns the workspace id/name, API key id/name, and effective caps. It does not return API-key secret material.
+`whoami` returns the workspace id/name, actor, credential id/name, and effective caps. It does not return credential secret material.
 
 `mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record.
 
@@ -72,11 +76,11 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 ## Upload Routes
 
-| Method | Path                                            | Auth                   | Idempotency | Request                      | Response                        |
-| ------ | ----------------------------------------------- | ---------------------- | ----------- | ---------------------------- | ------------------------------- |
-| `POST` | `/v1/upload-sessions`                           | `api_key_or_mcp_oauth` | required    | `CreateUploadSessionRequest` | `CreateUploadSessionResponse`   |
-| `PUT`  | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url`    | none        | file bytes                   | empty                           |
-| `POST` | `/v1/upload-sessions/{session_id}/finalize`     | `api_key_or_mcp_oauth` | required    | -                            | `FinalizeUploadSessionResponse` |
+| Method | Path                                            | Auth                | Idempotency | Request                      | Response                        |
+| ------ | ----------------------------------------------- | ------------------- | ----------- | ---------------------------- | ------------------------------- |
+| `POST` | `/v1/upload-sessions`                           | `cli_or_mcp`        | required    | `CreateUploadSessionRequest` | `CreateUploadSessionResponse`   |
+| `PUT`  | `/v1/upload-sessions/{session_id}/files/{path}` | `signed_upload_url` | none        | file bytes                   | empty                           |
+| `POST` | `/v1/upload-sessions/{session_id}/finalize`     | `cli_or_mcp`        | required    | -                            | `FinalizeUploadSessionResponse` |
 
 ### `CreateUploadSessionRequest`
 
@@ -183,10 +187,9 @@ direct signed Content Origin URL for the exact `revision_id` returned in this
 response, expires with its signed token, and does not Live Update. Direct
 `usercontent` HTML is inert raw byte delivery unless it is loaded through the
 controlled Artifact Viewer iframe. `access_link_url` appears only when a
-**Share Link** or **Revision Link** is explicitly created. REST publish accepts
-an optional body; omit it for private default publish, or send
-`{ "share": true }` to create a Share Link and include `access_link_url` in the
-publish result. MCP publish tools return a narrower output with title, expiry,
+**Share Link** or **Revision Link** is explicitly created. CLI `--share` creates
+a Share Link and includes `access_link_url` in the publish result. MCP publish
+tools return a narrower output with title, expiry,
 and upload stats; they include `access_link_url` only when called with
 `share: true`.
 
@@ -222,7 +225,7 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
 5. `upload` verifies files and returns the finalized draft Revision.
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
-7. CLI human output prints `View` with the authenticated Artifact URL; JSON/REST output returns `PublishResult`.
+7. CLI human output prints `View` with the authenticated Artifact URL; CLI JSON output returns `PublishResult`.
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.

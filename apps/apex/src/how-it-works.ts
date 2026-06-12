@@ -13,8 +13,8 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
   {
     title: "Your Workspace stays separate",
     body: [
-      "Artifacts, keys, audit records, and settings belong to a Workspace. A publish from one Workspace is not mixed with another Workspace's data.",
-      "Human sign-in, API Keys, and share links are all checked against that boundary. A key can publish for its Workspace, but it is not a broad pass into the rest of the system.",
+      "Artifacts, audit records, and settings belong to a Workspace. A publish from one Workspace is not mixed with another Workspace's data.",
+      "Human sign-in, CLI credentials, MCP OAuth, and share links are all checked against that boundary. A credential can publish for its Workspace, but it is not a broad pass into the rest of the system.",
     ],
   },
   {
@@ -35,13 +35,13 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
     title: "Sharing can be revoked",
     body: [
       "Access Links are revocable. If a link is sent to the wrong place or should no longer work, access can be cut off without deleting the underlying Artifact.",
-      "API Keys are also scoped and replaceable. Secrets are shown once when created and stored in non-recoverable verifier form.",
+      "Stored credentials are scoped and replaceable. Secrets are shown once when created and stored in non-recoverable verifier form.",
     ],
   },
   {
     title: "Unclaimed work expires quickly",
     body: [
-      "An agent should check auth first, then publish normally when a Workspace login or API Key is available. If no auth is available, it can publish a non-interactive unclaimed handoff with short-lived credentials, low write caps, 24 hour cleanup, noindex, and a script-disabled content policy.",
+      "An agent should check auth first, then publish normally when a Workspace login is available. If no auth is available, it can publish a non-interactive unclaimed handoff with short-lived credentials, low write caps, 24 hour cleanup, noindex, and a script-disabled content policy.",
       "Text, markdown, images, and static pages work in that tier. Interactive HTML/JS does not; a human must claim the Artifact or the agent must publish from an authenticated Workspace.",
     ],
   },

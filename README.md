@@ -83,7 +83,8 @@ the work into your Workspace. Two rules keep this path safe:
   `0` even when signed out, so the exit code tells you nothing. Check the JSON:
   `{"authenticated": false}` means no usable credential; a signed-in response
   carries the resolved Workspace, actor, and scopes instead. If signed in,
-  publish normally.
+  publish normally; if a human is present, run `login` first and skip
+  `--ephemeral`.
 - **No JavaScript.** Unclaimed ephemeral HTML is served under a script-disabled
   policy. Static pages are fine; browser apps and interactive visualizations
   need authenticated publish, which runs them inside the controlled Artifact
@@ -101,11 +102,10 @@ Use MCP when an agent can connect to a remote MCP server but cannot run the CLI:
 https://mcp.agent-paste.sh
 ```
 
-MCP is OAuth-only. It does not accept API Keys or dashboard cookies. Connect the
-remote server in the host, complete OAuth, then start with the `whoami` tool.
+MCP is OAuth-only. Connect the remote server in the host, complete OAuth, then
+start with the `whoami` tool.
 Agents can publish text Artifacts, read Agent Views, add Revisions, and manage
-Share Links and Revision Links. Folder and binary publishes stay in the CLI or
-REST API.
+Share Links and Revision Links. Folder and binary publishes stay in the CLI.
 
 Read [`docs/mcp.md`](./docs/mcp.md) for the practical MCP guide, or
 [`docs/ops/runbook-mcp-hosts.md`](./docs/ops/runbook-mcp-hosts.md) for host

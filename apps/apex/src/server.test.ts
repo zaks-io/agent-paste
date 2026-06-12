@@ -54,7 +54,9 @@ describe("text and data assets", () => {
     expect(body).toContain("Mental model");
     expect(body).toContain("npx @zaks-io/agent-paste login");
     expect(body).toContain("npx @zaks-io/agent-paste whoami");
-    expect(body).toContain("AGENT_PASTE_API_KEY");
+    expect(body).not.toContain("AGENT_PASTE_API_KEY");
+    expect(body).not.toContain("API key");
+    expect(body).not.toContain("REST API");
     expect(body).toMatch(/Ephemeral is not\s+the Free Plan/);
     expect(body).toContain("non-interactive work");
     expect(body).toContain("https://agent-paste.sh/docs");

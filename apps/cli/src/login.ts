@@ -44,7 +44,7 @@ export async function login(deps: LoginDeps = {}): Promise<Credential> {
 
     const credential = await mintCredential(config, token, fetchImpl);
     await store.save(credential);
-    log(`Signed in as ${credential.member_email}. Stored API key ${credential.public_id}.`);
+    log(`Signed in as ${credential.member_email}. Stored local credential ${credential.public_id}.`);
     return credential;
   } finally {
     await server.close();
@@ -92,9 +92,8 @@ async function exchangeCode(
   return parsed;
 }
 
-// The WorkOS access token is used only to mint the durable API key, then
-// discarded. The minted key is hardcoded server-side to publish+read scope, so
-// the CLI is structurally less powerful than the dashboard (ADR 0060).
+// The WorkOS access token is used only to create the durable CLI credential,
+// then discarded. The stored credential is capped server-side to publish+read.
 async function mintCredential(config: LoginConfig, token: TokenResponse, fetchImpl: typeof fetch): Promise<Credential> {
   const client = new ApiClient({
     auth: { type: "bearer", getAccessToken: () => token.access_token },

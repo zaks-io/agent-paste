@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
+import { APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 const LLMS_TXT_BASE = `# agent-paste
 
@@ -14,30 +14,31 @@ the final live page.
 
 ## What you can do here
 
-- Sign in once with \`npx @zaks-io/agent-paste login\` (browser OAuth, no API key to
-  copy), then publish: \`npx @zaks-io/agent-paste publish ./path\` prints \`View\`,
-  the authenticated app URL for the Artifact. Retries are idempotent.
+- Sign in once with \`npx @zaks-io/agent-paste login\` (browser OAuth, no
+  credential to copy), then publish: \`npx @zaks-io/agent-paste publish ./path\`
+  prints \`View\`, the authenticated app URL for the Artifact. Retries are
+  idempotent.
 - Before using the accountless path, run \`npx @zaks-io/agent-paste whoami --json\`.
   It exits \`0\` either way; check the JSON, not the exit code. If it shows you are
   signed in, publish normally. If it shows \`"authenticated": false\`, ask the user
   to run \`npx @zaks-io/agent-paste login\` when interactive auth is possible.
 - Ephemeral fallback: \`npx @zaks-io/agent-paste publish ./path --ephemeral\`
-  ignores stored login and \`AGENT_PASTE_API_KEY\`. Use it only when no auth is
-  available or the user explicitly asks for accountless publish. Ephemeral is not
-  the Free Plan: it is an unclaimed restricted tier. The Artifact lives 24h and
-  prints a one-time claim link (\`${APP_BASE_URL}/claim#<token>\`); a signed-in
-  human opens it to keep the Artifact. Use it for non-interactive text,
-  markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is
-  script-disabled, so use authenticated publish for interactive pages, browser
-  apps, or visualizations that need JavaScript.
-- Read an artifact from agent-facing surfaces: \`${API_BASE_URL}/v1/artifacts/{id}/agent-view\`,
-  \`${MCP_BASE_URL}\` (MCP tool \`read_artifact\`), or the dashboard for humans.
+  ignores stored login and environment-provided credentials. Use it only when no
+  auth is available or the user explicitly asks for accountless publish.
+  Ephemeral is not the Free Plan: it is
+  an unclaimed restricted tier. The Artifact lives 24h and prints a one-time
+  claim link (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to
+  keep the Artifact. Use it for non-interactive text, markdown, images, and
+  static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use
+  authenticated publish for interactive pages, browser apps, or visualizations
+  that need JavaScript.
+- Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
+  (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Share an artifact only when explicitly asked with a revocable Share Link. For a
-  public/shareable page, use CLI \`--share\`, REST \`{ "share": true }\`, or MCP
-  \`share:true\`/the link tools, then return its minted Access Link Signed URL. A
-  human opens it at \`${APP_BASE_URL}/al/{public_id}#...\`; an agent resolves the
-  same link through \`${API_BASE_URL}/v1/access-links/resolve\`. Revoke it without
-  deleting the underlying Artifact.
+  public/shareable page, use CLI \`--share\` or MCP \`share:true\`/the link tools,
+  then return its minted Access Link Signed URL. A human opens it at
+  \`${APP_BASE_URL}/al/{public_id}#...\`. Revoke it without deleting the
+  underlying Artifact.
 - CLI publish is private by default. Use
   \`npx @zaks-io/agent-paste publish ./path --share\` only when the user
   explicitly asks for a public/shareable link.
@@ -49,14 +50,12 @@ the final live page.
 ## Entry points
 
 - CLI: \`npx @zaks-io/agent-paste publish <path>\` - primary publish path
-- REST API: ${API_BASE_URL}
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
 
 Auth: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores
-its own API key. The REST API takes \`Authorization: Bearer <api-key>\` (a
-dashboard key or \`AGENT_PASTE_API_KEY\`). The MCP server is OAuth-only: it
-takes a WorkOS-issued bearer token, not an API key.
+its own local credential. The MCP server is OAuth-only and takes a WorkOS-issued
+bearer token.
 
 ## Mental model
 

@@ -16,7 +16,6 @@ There is no single application Worker that can read and write everything.
 ```mermaid
 flowchart LR
   cli["CLI<br/>apps/cli"]
-  rest["REST clients"]
   browser["Browser<br/>dashboard and Access Link viewer"]
   agents["MCP clients"]
 
@@ -38,7 +37,6 @@ flowchart LR
   durable["Durable Objects<br/>per-Artifact live fan-out"]
 
   cli --> upload
-  rest --> upload
   agents --> mcp
   browser --> web
   browser --> apex
@@ -217,9 +215,9 @@ sequenceDiagram
   participant W as Signed-in Workspace Member
 
   C->>A: provision Ephemeral Workspace
-  A->>P: create RLS-scoped Workspace, short API Key, Claim Token hash
-  A-->>C: one-time API Key secret and Claim Token
-  C->>U: publish with short API Key
+  A->>P: create RLS-scoped Workspace, short credential, Claim Token hash
+  A-->>C: one-time credential secret and Claim Token
+  C->>U: publish with short credential
   W->>A: redeem Claim Token from signed-in dashboard
   A->>P: reparent Artifacts into member workspace, mark token redeemed, audit
 ```
@@ -227,7 +225,7 @@ sequenceDiagram
 Controls:
 
 - Ephemeral Workspaces are ordinary RLS-scoped tenants with `claimed_at IS NULL`.
-- The API Key is short-lived and low-cap.
+- The provisioned credential is short-lived and low-cap.
 - The Claim Token is returned once and stored hashed.
 - Ephemeral content uses a script-disabled Execution Policy and `noindex`.
 - Ephemeral Artifacts have the shortest Auto Deletion policy.
@@ -246,7 +244,7 @@ down.
 | Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                   |
 | Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                     |
 | Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                      |
-| Hashed API Keys and Claim Tokens       | Stores verifier material, not bearer secrets.                                                                |
+| Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                |
 | Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                |
 | `runCommand`                           | Commits state changes with audit and idempotency records.                                                    |
 | Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes. |

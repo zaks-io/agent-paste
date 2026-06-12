@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **API Key**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy** while unclaimed; after claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy** while unclaimed; after claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>
@@ -206,8 +206,8 @@ _Avoid_: Throttle, quota, API rate limit
 
 <a id="actor-rate-limit"></a>
 **Actor Rate Limit**:
-The cap on authenticated request rate per individual actor — one **API Key** or one **Workspace Member** — against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
-_Avoid_: API rate limit, key throttle
+The cap on authenticated request rate per individual actor — one **Agent Credential** or one **Workspace Member** — against `api` and `upload`. Platform-controlled in the MVP and surfaced through **Usage Policy**.
+_Avoid_: API rate limit, credential throttle
 
 <a id="workspace-burst-cap"></a>
 **Workspace Burst Cap**:
@@ -224,39 +224,39 @@ _Avoid_: Retention, revision cleanup
 The action that makes an entire **Artifact** inaccessible before its stored bytes are physically purged.
 _Avoid_: Purge, archive, restore
 
-<a id="api-key"></a>
-**API Key**:
+<a id="api-key"></a><a id="agent-credential"></a>
+**Agent Credential**:
 A credential that lets an agent create and manage **Artifacts** on behalf of a **Workspace**.
 _Avoid_: User token, agent token
 
-<a id="api-key-revocation"></a>
-**API Key Revocation**:
-The action that stops future use of an **API Key** without removing what it already created.
-_Avoid_: Delete key, revoke agent content
+<a id="api-key-revocation"></a><a id="agent-credential-revocation"></a>
+**Agent Credential Revocation**:
+The action that stops future use of an **Agent Credential** without removing what it already created.
+_Avoid_: Delete credential, revoke agent content
 
-<a id="api-key-bearer-format"></a>
-**API Key Bearer Format**:
-The string shape used for **API Key** secrets: `ap_pk_{env}_{publicId}_{secret}`. `pk` is the credential-class marker, `env` matches the deployment environment, `publicId` is the indexed lookup segment stored plaintext, and `secret` is the high-entropy random segment hashed with a Worker-secret pepper for storage. **Access Link** tokens used to share this shape (with `type='al'`) but were moved to the **Access Link Signed URL** model and no longer follow this format.
-_Avoid_: Token format, key shape, API key prefix, bearer credential format
+<a id="api-key-bearer-format"></a><a id="agent-credential-bearer-format"></a>
+**Agent Credential Bearer Format**:
+The string shape used for **Agent Credential** secrets: `ap_pk_{env}_{publicId}_{secret}`. `pk` is the credential-class marker, `env` matches the deployment environment, `publicId` is the indexed lookup segment stored plaintext, and `secret` is the high-entropy random segment hashed with a Worker-secret pepper for storage. **Access Link** tokens used to share this shape (with `type='al'`) but were moved to the **Access Link Signed URL** model and no longer follow this format.
+_Avoid_: Token format, credential shape, credential prefix, bearer credential format
 
 <a id="access-link-signed-url"></a>
 **Access Link Signed URL**:
-The shareable URL form of an **Access Link**, shaped `https://app.agent-paste.sh/al/{publicId}#{blob}` where `blob` is a base64url-encoded binary payload containing the signing-key generation, expiration, allowed scopes, and HMAC signature. The payload is carried in the URL fragment so it never reaches any server-side log, and the signature is the credential — the `access_links` row holds no secret material. An authorized **Workspace Member** or **API Key** with read and share **Scopes** mints a fresh URL on demand; re-minting produces a new URL with a new expiration.
-_Avoid_: link token, access link secret, API key
+The shareable URL form of an **Access Link**, shaped `https://app.agent-paste.sh/al/{publicId}#{blob}` where `blob` is a base64url-encoded binary payload containing the signing-key generation, expiration, allowed scopes, and HMAC signature. The payload is carried in the URL fragment so it never reaches any server-side log, and the signature is the credential — the `access_links` row holds no secret material. An authorized **Workspace Member** or **Agent Credential** with read and share **Scopes** mints a fresh URL on demand; re-minting produces a new URL with a new expiration.
+_Avoid_: link token, access link secret, credential
 
 <a id="creator"></a>
 **Creator**:
-The **API Key** or workspace member that first created an **Artifact** management record.
+The **Agent Credential** or workspace member that first created an **Artifact** management record.
 _Avoid_: Owner, author
 
 <a id="scope"></a>
 **Scope**:
-A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** (including **Member-Only Scopes** such as `admin`) only when authenticated for direct workspace control (the dashboard). The CLI does not carry **Scopes** in a token: `agent-paste login` mints an **API Key**, and minted keys are capped at `publish` and `read` (never `admin`), so the CLI surface is structurally below the dashboard ceiling. An **API Key** holds a named subset.
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** (including **Member-Only Scopes** such as `admin`) only when authenticated for direct workspace control (the dashboard). The CLI does not carry **Scopes** in a token: `agent-paste login` creates an **Agent Credential**, and those credentials are capped at `publish` and `read` (never `admin`), so the CLI surface is structurally below the dashboard ceiling. An **Agent Credential** holds a named subset.
 _Avoid_: Role, capability
 
 <a id="member-only-scope"></a>
 **Member-Only Scope**:
-A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **API Key** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. Member-only **Scopes** authorize **API Key** lifecycle management, **Audit Event** reads, and **Workspace** administration.
+A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **Agent Credential** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. Member-only **Scopes** authorize **Agent Credential** lifecycle management, **Audit Event** reads, and **Workspace** administration.
 _Avoid_: Admin scope, restricted scope
 
 <a id="operator"></a>
@@ -336,7 +336,7 @@ _Avoid_: Disable sharing, private mode, emergency revoke
 
 <a id="platform-lockdown"></a>
 **Platform Lockdown**:
-A platform-initiated state that blocks all link resolution for either a single **Artifact** or an entire **Workspace**, applied by the operator to respond to abuse reports, takedown requests, or external safety flags. A **Workspace**-scoped **Platform Lockdown** also suspends every **API Key** in the **Workspace**.
+A platform-initiated state that blocks all link resolution for either a single **Artifact** or an entire **Workspace**, applied by the operator to respond to abuse reports, takedown requests, or external safety flags. A **Workspace**-scoped **Platform Lockdown** also suspends every **Agent Credential** in the **Workspace**.
 _Avoid_: Suspension, ban, freeze, admin lock
 
 <a id="share-link"></a>
@@ -405,7 +405,7 @@ _Avoid_: sse worker, push worker, realtime gateway
 
 <a id="cli"></a>
 **cli**:
-The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow (against a dedicated Public OAuth Connect app) that mints and stores a scoped 90-day **API Key** in the OS keyring when available, then discards the WorkOS token (ADR 0060); `AGENT_PASTE_API_KEY` remains the path for CI and headless agents and takes precedence over the stored key.
+The local `agent-paste` command-line tool. Not a Worker; runs on the developer or agent machine and talks to `api` and `upload` over HTTPS. `agent-paste login` runs a WorkOS loopback PKCE flow and stores a scoped local credential in the OS keyring when available, then discards the WorkOS token. Agents should check `agent-paste whoami`, run `agent-paste login` when interactive auth is possible, and publish with `agent-paste publish <path>`; hosted agents that cannot run the CLI should use MCP.
 _Avoid_: client, sdk, ap tool
 
 <a id="mcp"></a>
@@ -473,9 +473,9 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - Only one finalized **Draft Revision** can wait for **Publish** on an **Artifact**
 - Finalizing an **Upload Session** fails when another **Draft Revision** is already waiting for **Publish**
 - **Draft Revisions** are visible to **Workspace Members** in management surfaces
-- **Draft Revisions** are visible to **API Keys** with write **Scope**
+- **Draft Revisions** are visible to **Agent Credentials** with write **Scope**
 - A read **Scope** does not grant access to **Draft Revisions**
-- **API Keys** with write **Scope** can discard **Draft Revisions**
+- **Agent Credentials** with write **Scope** can discard **Draft Revisions**
 - Discarding a **Draft Revision** does not affect the **Published Revision**
 - **Private Links** and **Access Links** never resolve to **Draft Revisions**
 - **Private Links** and **Access Links** do not resolve for an **Unpublished Artifact**
@@ -519,20 +519,20 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Access Link Lockdown** prevents retrieving full **Access Link** URLs without hiding **Access Link** metadata from authorized management surfaces
 - **Access Link Lockdown** does not prevent revoking individual **Access Links**
 - **Access Link Lockdown** does not prevent changing **Access Link** **Expiration**
-- A **Platform Lockdown** is operator-initiated and cannot be set or lifted by a **Workspace Member** or an **API Key**
+- A **Platform Lockdown** is operator-initiated and cannot be set or lifted by a **Workspace Member** or an **Agent Credential**
 - A **Platform Lockdown** has scope `Artifact` or `Workspace`
 - A **Platform Lockdown** at `Artifact` scope blocks the **Private Link** and every **Access Link** for one **Artifact**
 - A **Platform Lockdown** at `Workspace` scope blocks the **Private Link** and **Access Link** resolution for every **Artifact** in the **Workspace**
-- A **Platform Lockdown** at `Workspace` scope suspends every **API Key** in the **Workspace**
+- A **Platform Lockdown** at `Workspace` scope suspends every **Agent Credential** in the **Workspace**
 - A **Platform Lockdown** is reversible by the operator
 - A **Platform Lockdown** does not delete bytes or **Revisions**
 - A **Platform Lockdown** does not auto-expire in the MVP
 - A **Platform Lockdown** creates an **Audit Event** visible to **Workspace Members**
 - A **Platform Lockdown** is not exposed through the public API, SDK, or CLI
-- A **Platform Lockdown** is distinct from **Access Link Lockdown**: it is operator-initiated, also blocks the **Private Link**, and at `Workspace` scope suspends **API Keys**
+- A **Platform Lockdown** is distinct from **Access Link Lockdown**: it is operator-initiated, also blocks the **Private Link**, and at `Workspace` scope suspends **Agent Credentials**
 - An **Operator** is a **Workspace Member** whose authenticated email is on the platform operator allowlist
 - An **Operator** acts with platform-wide authority only on operator-only routes; on every other route the identity is a normal **Workspace Member**
-- An **Operator** identity cannot be assumed by an **API Key**: operator-only routes reject **API Key** authentication
+- An **Operator** identity cannot be assumed by an **Agent Credential**: operator-only routes reject **Agent Credential** authentication
 - An **Operator** identity is reachable only through the web admin surface; the CLI exposes no operator-only commands
 - An **Operator** action on operator-only routes is the `actor.type = 'platform'` actor in the **Audit Event**
 - A **Platform Lockdown** can only be set or lifted by an **Operator**
@@ -586,7 +586,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Workspace Member** can pin an **Artifact** to create a **Pinned Artifact**
 - A **Pinned Artifact** is exempt from **Auto Deletion**
 - **Pinning** and unpinning create **Audit Events**
-- **Pinning** is a dashboard-only action; **API Keys** cannot pin regardless of **Scope**
+- **Pinning** is a dashboard-only action; **Agent Credentials** cannot pin regardless of **Scope**
 - A **Workspace** has a platform-controlled cap on **Pinned Artifacts**
 - **Pinning** is rejected when the **Workspace** is at its **Pinned Artifact** cap
 - **Pinning** does not affect **Retention**
@@ -595,7 +595,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - An **Artifact Rate Limit** does not count **Private Link** or **Agent View** reads
 - An **Artifact Rate Limit** returns HTTP 429 with `Retry-After` when exceeded
 - An **Artifact Rate Limit** is platform-controlled, not exposed through **Usage Policy** in the MVP
-- An **Actor Rate Limit** applies per **API Key** or per **Workspace Member**, counted across `api` and `upload` requests
+- An **Actor Rate Limit** applies per **Agent Credential** or per **Workspace Member**, counted across `api` and `upload` requests
 - An **Actor Rate Limit** returns HTTP 429 with `Retry-After` when exceeded
 - A **Workspace Burst Cap** applies per **Workspace**, counted across all of its actors against `api` and `upload`
 - A **Workspace Burst Cap** returns HTTP 429 with `Retry-After` when exceeded
@@ -625,50 +625,50 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - Clearing browser state can reset an anonymous **Artifact User**
 - **Personal Workspace** is a human onboarding concept, not an agent-facing ownership type
 - A **Workspace Member** has full authority in their **Workspace** in the MVP
-- First sign-in for a new identity auto-provisions the **Personal Workspace**, the **Workspace Member** row, and a default **API Key** with full publishing **Scopes**; the **API Key** secret is shown once and never retrievable again
+- First sign-in for a new identity auto-provisions the **Personal Workspace**, the **Workspace Member** row, and a default **Agent Credential** with full publishing **Scopes**; the **Agent Credential** secret is shown once and never retrievable again
 - A **Workspace** has zero or more **Audit Events**
 - An **Audit Event** has exactly one **Change Summary**
 - **Audit Retention** is separate from **Usage Policy**
 - **Audit Events** are visible only to **Workspace Members** in the MVP
-- **Unpublished Artifact** creation, **Publish**, **Deletion**, **Draft Revision** discard, **Retention** removals, **Display Metadata** changes, **Safety Warnings**, durable **Usage Policy** enforcement, **API Key** changes, **API Key Revocation**, **Access Link** changes, and **Access Link Lockdown** changes create **Audit Events**
+- **Unpublished Artifact** creation, **Publish**, **Deletion**, **Draft Revision** discard, **Retention** removals, **Display Metadata** changes, **Safety Warnings**, durable **Usage Policy** enforcement, **Agent Credential** changes, **Agent Credential Revocation**, **Access Link** changes, and **Access Link Lockdown** changes create **Audit Events**
 - Routine **Upload Cleanup** does not create **Audit Events**
 - **Upload Cleanup** creates **Audit Events** when it removes stale **Unpublished Artifact** management state
-- A **Workspace** can have zero or more **API Keys**
-- An **API Key** belongs to exactly one **Workspace**
-- An **API Key** has one or more **Scopes**
+- A **Workspace** can have zero or more **Agent Credentials**
+- An **Agent Credential** belongs to exactly one **Workspace**
+- An **Agent Credential** has one or more **Scopes**
 - A **Workspace Member** holds every **Scope** implicitly when authenticated for direct workspace control (the dashboard)
-- The CLI does not receive the implicit grant: `agent-paste login` mints an **API Key** capped at `publish` and `read`, so the CLI acts with that key's **Scope** subset, never **Member-Only Scopes** (ADR 0060)
+- The CLI does not receive the implicit grant: `agent-paste login` creates an **Agent Credential** capped at `publish` and `read`, so the CLI acts with that credential's **Scope** subset, never **Member-Only Scopes** (ADR 0060)
 - A future delegated agent surface (MCP) that carries scopes in its own token likewise gets an explicit subset, never **Member-Only Scopes**
-- A **Workspace Member** holds **Member-Only Scopes** that no **API Key** can hold and that no delegated agent surface can carry
-- **API Key** lifecycle management requires a **Member-Only Scope**
+- A **Workspace Member** holds **Member-Only Scopes** that no **Agent Credential** can hold and that no delegated agent surface can carry
+- **Agent Credential** lifecycle management requires a **Member-Only Scope**
 - **Audit Event** reads require a **Member-Only Scope**
 - **Workspace** administration requires a **Member-Only Scope**
-- An **API Key** is named by a **Workspace Member**
-- A dashboard-created or default **API Key** has no **Expiration** unless one is set
-- A CLI-minted **API Key** created by `agent-paste login` expires after 90 days
-- An **API Key** **Expiration** stops future use of the **API Key**
-- An **API Key** **Expiration** does not revoke **Artifacts** or **Access Links** created with it
-- **API Key Revocation** stops future use of the **API Key**
-- **API Key Revocation** does not revoke **Artifacts** or **Access Links** created with it
-- An **API Key** requires a read **Scope** to read private **Artifacts**
-- An **API Key** requires a share **Scope** to manage **Access Links**
-- An **API Key** requires read and share **Scopes** to create **Access Links**
-- An **API Key** requires read and share **Scopes** to mint **Access Link Signed URLs**
-- An **API Key** requires a share **Scope** to change **Access Link Lockdown**
+- An **Agent Credential** is named by a **Workspace Member**
+- A dashboard-created or default **Agent Credential** has no **Expiration** unless one is set
+- A CLI-minted **Agent Credential** created by `agent-paste login` expires after 90 days
+- An **Agent Credential** **Expiration** stops future use of the **Agent Credential**
+- An **Agent Credential** **Expiration** does not revoke **Artifacts** or **Access Links** created with it
+- **Agent Credential Revocation** stops future use of the **Agent Credential**
+- **Agent Credential Revocation** does not revoke **Artifacts** or **Access Links** created with it
+- An **Agent Credential** requires a read **Scope** to read private **Artifacts**
+- An **Agent Credential** requires a share **Scope** to manage **Access Links**
+- An **Agent Credential** requires read and share **Scopes** to create **Access Links**
+- An **Agent Credential** requires read and share **Scopes** to mint **Access Link Signed URLs**
+- An **Agent Credential** requires a share **Scope** to change **Access Link Lockdown**
 - A share **Scope** does not imply a read **Scope**
 - A write **Scope** does not imply a share **Scope**
 - **Publish** requires write and read **Scopes**; requested **Access Link** creation additionally requires share **Scope**
 - **Upload Sessions** require a write **Scope**, not a share **Scope**
-- A write-only **API Key** can prepare a **Draft Revision** for another actor to **Publish**
+- A write-only **Agent Credential** can prepare a **Draft Revision** for another actor to **Publish**
 - A **Creator** is recorded for an **Artifact** but does not own it
 - A **Creator** is recorded before first **Publish** when an **Unpublished Artifact** is created
-- A **Creator** remains recorded after **API Key Revocation** or **API Key** **Expiration**
+- A **Creator** remains recorded after **Agent Credential Revocation** or **Agent Credential** **Expiration**
 - A **Creator** does not change when another actor updates an **Artifact**
-- An **API Key** secret follows the **API Key Bearer Format**
-- The **API Key Bearer Format** `publicId` segment is stored plaintext and indexed for credential lookup
-- An **API Key** secret is stored as HMAC-SHA-256 of the `secret` segment with a Worker-secret pepper; the plaintext `secret` is never persisted
-- The **API Key Bearer Format** `env` segment matches the deployment environment; an **API Key** minted in one environment is not valid in another
-- Logs and audit summaries redact the `secret` segment of any **API Key Bearer Format** value and may retain `ap_pk_{env}_{publicId}…` for correlation
+- An **Agent Credential** secret follows the **Agent Credential Bearer Format**
+- The **Agent Credential Bearer Format** `publicId` segment is stored plaintext and indexed for credential lookup
+- An **Agent Credential** secret is stored as HMAC-SHA-256 of the `secret` segment with a Worker-secret pepper; the plaintext `secret` is never persisted
+- The **Agent Credential Bearer Format** `env` segment matches the deployment environment; an **Agent Credential** minted in one environment is not valid in another
+- Logs and audit summaries redact the `secret` segment of any **Agent Credential Bearer Format** value and may retain `ap_pk_{env}_{publicId}…` for correlation
 - An **Access Link** is materialized as an **Access Link Signed URL** at mint time
 - An **Access Link Signed URL** carries the signed payload in the URL fragment, never in the path or query
 - An **Access Link Signed URL** payload is binary-packed `(version, kid, exp, scopes, sig)` then base64url-encoded
@@ -681,8 +681,8 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - Re-minting an **Access Link Signed URL** does not change the underlying **Access Link** row, its expiration, or its **Audit Event** history
 - An **Access Link** row holds no bearer secret, no ciphertext, and no wrapping key; the signature is the credential
 - An **Access Link Signed URL** minted in one environment is not valid in another because the signing key is environment-scoped
-- Any **API Key** with the right **Scope** in the owning **Workspace** can update an **Artifact**
-- Any **API Key** with the right **Scope** in the owning **Workspace** can update **Display Metadata**
+- Any **Agent Credential** with the right **Scope** in the owning **Workspace** can update an **Artifact**
+- Any **Agent Credential** with the right **Scope** in the owning **Workspace** can update **Display Metadata**
 - Updating a known **Artifact** does not require a read **Scope**
 - Updating **Display Metadata** for a known **Artifact** does not require a read **Scope**
 - **Publish** requires write and read **Scopes**; share **Scope** is required only when the actor requests a **Share Link**
@@ -745,7 +745,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - `content` holds no Postgres binding; the **Workspace**, **Artifact**, and **Revision** identities it serves are derivable from the verified content-gateway token
 - `content` reads the denylist; `api` and `jobs` write to it
 - A **Workspace Member** controls a **Workspace** directly through `web` (dashboard) and through delegated agent surfaces `cli` and `mcp`
-- An **API Key** authenticates against `api` and `upload`; it is never accepted by `mcp` or by operator-only `/admin/...` routes on `api`
+- An **Agent Credential** authenticates against `api` and `upload`; it is never accepted by `mcp` or by operator-only `/admin/...` routes on `api`
 - `web` reaches `api` over a **Service Binding**; `mcp` reaches `api` over a **Service Binding**
 - `stream` reaches `api` over a **Service Binding** to authorize each **Live Update** viewer connection
 - `api` notifies `stream` on **Publish** so it can fan out a **Publish Update** to connected viewers
@@ -774,15 +774,15 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "If a **Revision Link** leaks, do we have to delete the **Revision**?"
 > **Domain expert:** "No — revoke the **Revision Link** without deleting the **Revision**."
 > **Dev:** "Who owns an **Artifact** created by an agent?"
-> **Domain expert:** "The **Workspace** that owns the **API Key** used by the agent."
+> **Domain expert:** "The **Workspace** that owns the **Agent Credential** used by the agent."
 > **Dev:** "Is **Creator** recorded only after first **Publish**?"
 > **Domain expert:** "No — **Creator** is recorded when the **Artifact** management record is created."
-> **Dev:** "If the creating **API Key** expires or is revoked, does the **Creator** disappear?"
+> **Dev:** "If the creating **Agent Credential** expires or is revoked, does the **Creator** disappear?"
 > **Domain expert:** "No — **Creator** is historical attribution, not current authority."
 > **Dev:** "Does **Creator** change when another agent publishes a new **Revision**?"
 > **Domain expert:** "No — later actors are recorded through **Audit Events**."
-> **Dev:** "Can trusted **API Keys** upload trusted HTML?"
-> **Domain expert:** "No — **Untrusted Content** remains untrusted even when uploaded with a valid **API Key**."
+> **Dev:** "Can trusted **Agent Credentials** upload trusted HTML?"
+> **Domain expert:** "No — **Untrusted Content** remains untrusted even when uploaded with a valid **Agent Credential**."
 > **Dev:** "Can **Untrusted Content** include JavaScript?"
 > **Domain expert:** "Yes — JavaScript is allowed but remains **Untrusted Content**."
 > **Dev:** "When an **Artifact** is updated, should existing links change?"
@@ -797,16 +797,16 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Domain expert:** "Yes — it creates durable workspace management state."
 > **Dev:** "Can **Workspace Members** see a **Draft Revision**?"
 > **Domain expert:** "Yes — management surfaces can show drafts, but viewing links remain published-only."
-> **Dev:** "Can a read-only **API Key** see **Draft Revisions**?"
+> **Dev:** "Can a read-only **Agent Credential** see **Draft Revisions**?"
 > **Domain expert:** "No — draft access is a management capability tied to write **Scope**."
 > **Dev:** "Can an agent discard a **Draft Revision**?"
-> **Domain expert:** "Yes — an **API Key** with write **Scope** can discard it without affecting the **Published Revision**."
+> **Domain expert:** "Yes — an **Agent Credential** with write **Scope** can discard it without affecting the **Published Revision**."
 > **Dev:** "Does discarding a **Draft Revision** create an **Audit Event**?"
 > **Domain expert:** "Yes — finalized draft state is durable management state."
 > **Dev:** "Can only the original **Creator** update an **Artifact**?"
-> **Domain expert:** "No — update permission comes from the **API Key Scope** within the owning **Workspace**."
+> **Domain expert:** "No — update permission comes from the **Agent Credential Scope** within the owning **Workspace**."
 > **Dev:** "Can an agent update **Display Metadata**?"
-> **Domain expert:** "Yes — an **API Key** with the right **Scope** can update it."
+> **Domain expert:** "Yes — an **Agent Credential** with the right **Scope** can update it."
 > **Dev:** "How does another agent inspect an **Artifact** before opening files?"
 > **Domain expert:** "It uses the **Agent View**, which includes the **Manifest**, file listing, and content links."
 > **Dev:** "Is the **Manifest** just another uploaded file?"
@@ -835,7 +835,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Domain expert:** "Yes — expiration can change, but lockdown still prevents access."
 > **Dev:** "Can an agent publish a new **Revision** while **Access Link Lockdown** is active?"
 > **Domain expert:** "Yes — plain **Publish** can create a new **Revision**. Lockdown blocks creating new **Access Links**, including requested **Share Links** or explicit **Revision Links**."
-> **Dev:** "Can another agent use a **Share Link** without an **API Key**?"
+> **Dev:** "Can another agent use a **Share Link** without an **Agent Credential**?"
 > **Domain expert:** "Yes — a **Share Link** grants read-only access to the **Agent View** and published files."
 > **Dev:** "Can another agent use a **Revision Link** to inspect an exact **Revision**?"
 > **Domain expert:** "Yes — a **Revision Link** grants read-only access to the **Agent View** for that **Revision**."
@@ -924,35 +924,35 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can private access be granted for one **Artifact** but not another?"
 > **Domain expert:** "No — private access is based on **Workspace Member** access, not per-**Artifact** permissions."
 > **Dev:** "How does an agent receive access?"
-> **Domain expert:** "A **Workspace Member** creates a named, scoped **API Key** and gives the secret to the agent."
+> **Domain expert:** "A **Workspace Member** creates a named, scoped **Agent Credential** and gives the secret to the agent."
 > **Dev:** "Does an agent need to know whether a **Workspace** is personal?"
 > **Domain expert:** "No — agents only need the owning **Workspace**."
-> **Dev:** "Does expiring an **API Key** remove what it created?"
-> **Domain expert:** "No — **Expiration** stops future key use, but created **Artifacts** and **Access Links** remain."
-> **Dev:** "Does **API Key Revocation** remove what the key created?"
-> **Domain expert:** "No — it stops future key use, but created **Artifacts** and **Access Links** remain."
+> **Dev:** "Does expiring an **Agent Credential** remove what it created?"
+> **Domain expert:** "No — **Expiration** stops future credential use, but created **Artifacts** and **Access Links** remain."
+> **Dev:** "Does **Agent Credential Revocation** remove what the credential created?"
+> **Domain expert:** "No — it stops future credential use, but created **Artifacts** and **Access Links** remain."
 > **Dev:** "Do **Scopes** limit **Workspace Members**?"
-> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **API Key** cannot hold. Through the CLI the same person acts with a minted **API Key** capped at `publish` and `read`; a future MCP surface would carry an explicit token **Scope** subset. Neither path ever includes **Member-Only Scopes**."
-> **Dev:** "Does **API Key Revocation** create an **Audit Event**?"
+> **Domain expert:** "No — through the dashboard a **Workspace Member** holds every **Scope** implicitly, including **Member-Only Scopes** that an **Agent Credential** cannot hold. Through the CLI the same person acts with an **Agent Credential** capped at `publish` and `read`; MCP carries an explicit token **Scope** subset. Neither path ever includes **Member-Only Scopes**."
+> **Dev:** "Does **Agent Credential Revocation** create an **Audit Event**?"
 > **Domain expert:** "Yes — credential lifecycle changes are security-relevant."
-> **Dev:** "Can a publishing **API Key** read private **Artifacts**?"
+> **Dev:** "Can a publishing **Agent Credential** read private **Artifacts**?"
 > **Domain expert:** "Only if it has a read **Scope**."
-> **Dev:** "Can any write-capable **API Key** manage **Access Links**?"
+> **Dev:** "Can any write-capable **Agent Credential** manage **Access Links**?"
 > **Domain expert:** "No — managing **Access Links** requires a share **Scope**."
-> **Dev:** "Can a share-only **API Key** create **Access Links**?"
+> **Dev:** "Can a share-only **Agent Credential** create **Access Links**?"
 > **Domain expert:** "No — minting **Access Link Signed URLs** requires both read and share **Scopes**."
-> **Dev:** "Can a share-only **API Key** mint **Access Link Signed URLs**?"
+> **Dev:** "Can a share-only **Agent Credential** mint **Access Link Signed URLs**?"
 > **Domain expert:** "No — minting **Access Link Signed URLs** requires both read and share **Scopes**."
 > **Dev:** "Does share **Scope** include read **Scope**?"
 > **Domain expert:** "No — **Scopes** are independent."
 > **Dev:** "Does write **Scope** include share **Scope**?"
 > **Domain expert:** "No — **Publish** requires write and read. Share is a separate power required only for creating or minting **Access Links**."
-> **Dev:** "Can an **API Key** publish with write **Scope** but no read or share **Scope**?"
+> **Dev:** "Can an **Agent Credential** publish with write **Scope** but no read or share **Scope**?"
 > **Domain expert:** "No — **Publish** requires write and read **Scopes**. It requires share **Scope** only when a **Share Link** is requested."
 > **Dev:** "Does creating an **Upload Session** require a share **Scope**?"
 > **Domain expert:** "No — **Upload Sessions** create drafts, so write **Scope** is enough."
 > **Dev:** "Can one agent upload a draft and another publish it?"
-> **Domain expert:** "Yes — a write-only **API Key** can prepare a **Draft Revision** for another actor to **Publish**."
+> **Domain expert:** "Yes — a write-only **Agent Credential** can prepare a **Draft Revision** for another actor to **Publish**."
 > **Dev:** "Can an **Upload Session** expire?"
 > **Domain expert:** "Yes — after **Expiration**, it can no longer be used."
 > **Dev:** "Does **Retention** clean up expired **Upload Sessions**?"
@@ -963,9 +963,9 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Domain expert:** "No — routine byte cleanup is operational unless product-visible state changes."
 > **Dev:** "What if **Upload Cleanup** removes a stale **Unpublished Artifact**?"
 > **Domain expert:** "That creates an **Audit Event** because management state changed."
-> **Dev:** "Can an **API Key** update a known **Artifact** without reading it first?"
+> **Dev:** "Can an **Agent Credential** update a known **Artifact** without reading it first?"
 > **Domain expert:** "Yes — update authority comes from the write **Scope**, not the read **Scope**."
-> **Dev:** "Can an **API Key** publish without read **Scope**?"
+> **Dev:** "Can an **Agent Credential** publish without read **Scope**?"
 > **Domain expert:** "No — **Publish** returns a **Revision Content URL** and **Agent View** URL, so read **Scope** is required."
 > **Dev:** "Does updating **Display Metadata** require a read **Scope**?"
 > **Domain expert:** "No — write **Scope** is enough for a known **Artifact**."
@@ -1003,8 +1003,8 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Domain expert:** "Security-relevant and lifecycle changes create **Audit Events** in the **Workspace**."
 > **Dev:** "Does **Usage Policy** control how long **Audit Events** are kept?"
 > **Domain expert:** "No — **Audit Retention** is platform-controlled separately."
-> **Dev:** "Can an **API Key** with read **Scope** read **Audit Events**?"
-> **Domain expert:** "No — **Audit Event** reads require a **Member-Only Scope**, which only a dashboard-authenticated **Workspace Member** carries. An **API Key** cannot hold it; CLI and MCP tokens cannot carry it."
+> **Dev:** "Can an **Agent Credential** with read **Scope** read **Audit Events**?"
+> **Domain expert:** "No — **Audit Event** reads require a **Member-Only Scope**, which only a dashboard-authenticated **Workspace Member** carries. An **Agent Credential** cannot hold it; CLI and MCP tokens cannot carry it."
 > **Dev:** "Do **Access Link** changes create **Audit Events**?"
 > **Domain expert:** "Yes — they are unauthenticated access grants, so lifecycle changes are security-relevant."
 > **Dev:** "Do **Audit Events** store raw uploaded content or secrets?"

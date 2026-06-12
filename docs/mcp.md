@@ -28,8 +28,8 @@ tree, binary files, images, audio, video, or a complete static folder.
 ## Connect
 
 Add `https://mcp.agent-paste.sh` as a remote MCP server in the host, then
-complete the OAuth flow when prompted. MCP does not accept API Keys, dashboard
-cookies, or copied session tokens.
+complete the OAuth flow when prompted. MCP uses OAuth only; dashboard cookies,
+copied session tokens, and local CLI credentials do not authenticate MCP calls.
 
 OAuth discovery is hosted at `/.well-known/oauth-protected-resource`. The root
 MCP resource identifier is `https://mcp.agent-paste.sh/`; clients should discover
@@ -102,10 +102,10 @@ MCP host connection.
 ## Limits
 
 - MCP publish is text-only today.
-- Folder upload, binary upload, Bundle download, dashboard settings, billing,
-  and lockdown controls stay in CLI, REST, or dashboard surfaces.
+- Folder upload, binary upload, and Bundle download stay in the CLI. Dashboard
+  settings, billing, and lockdown controls stay in the dashboard.
 - MCP is not an anonymous publish path. Agents with no account and no OAuth host
-  should first check CLI auth with `agent-paste whoami`; if no login or key is
+  should first check CLI auth with `agent-paste whoami`; if no login is
   available, they can use `agent-paste publish --ephemeral` through the CLI for
   restricted accountless non-interactive handoffs such as text, images,
   markdown, or static HTML/CSS. Interactive HTML/JS needs authenticated publish.

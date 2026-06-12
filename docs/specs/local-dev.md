@@ -1,6 +1,6 @@
 # Local Development
 
-This spec defines the local setup for the CLI-first MVP. The repo currently has a runnable local harness that composes the API, Upload, and Content Workers in one Node process with shared in-memory DB/R2/KV stand-ins. Persistent Postgres and Wrangler multi-worker wiring remain local targets for the hosted implementation path.
+This spec defines the local setup for the CLI-first product. The repo currently has a runnable local harness that composes the API, Upload, and Content Workers in one Node process with shared in-memory DB/R2/KV stand-ins. Persistent Postgres and Wrangler multi-worker wiring remain local targets for the hosted implementation path.
 
 ## Prerequisites
 
@@ -9,7 +9,8 @@ This spec defines the local setup for the CLI-first MVP. The repo currently has 
 - Docker for local Postgres when working on the persistent path.
 - `wrangler` for Worker dev once per-app Wrangler config is added.
 
-WorkOS is not required for the MVP public CLI. OAuth is a later phase.
+The quick local path uses a mock WorkOS flow through `pnpm cli:dev login`; no
+real WorkOS project is required for the in-memory harness.
 
 ## Initial Setup
 
@@ -70,7 +71,14 @@ The complete local CLI smoke test is:
 pnpm smoke:local
 ```
 
-It starts the local harness, creates a Workspace and API Key through the smoke harness, runs `agent-paste whoami`, publishes `examples/local-harness/site`, verifies the returned `artifact_url`, fetches the JSON/REST `revision_content_url` and `agent_view_url`, deletes the Artifact and verifies purge, then publishes `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`, checks ephemeral policy boundaries (noindex, script-disabled CSP, write allowance, Claim Token isolation), and redeems the Claim Token through the local WorkOS stub into a member workspace.
+It starts the local harness, signs the CLI in through the mock WorkOS flow, runs
+`agent-paste whoami`, publishes `examples/local-harness/site`, verifies the
+returned `artifact_url`, fetches the JSON `revision_content_url` and
+`agent_view_url`, deletes the Artifact and verifies purge, then publishes
+`examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`,
+checks ephemeral policy boundaries (noindex, script-disabled CSP, write
+allowance, Claim Token isolation), and redeems the Claim Token through the local
+WorkOS stub into a member workspace.
 
 The faster in-process Worker vertical slice is:
 
@@ -78,7 +86,10 @@ The faster in-process Worker vertical slice is:
 pnpm --filter @agent-paste/api test -- src/local-mvp.test.ts
 ```
 
-That test launches the API, Upload, and Content handlers directly with in-memory DB/R2/KV stand-ins. It covers workspace/key creation, upload-session creation, file PUT, finalize, Agent View JSON, and content serving without requiring Cloudflare resources or Postgres.
+That test launches the API, Upload, and Content handlers directly with
+in-memory DB/R2/KV stand-ins. It covers workspace credential creation,
+upload-session creation, file PUT, finalize, Agent View JSON, and content
+serving without requiring Cloudflare resources or Postgres.
 
 Use the broader suite before handing off changes:
 
@@ -107,13 +118,7 @@ Then, in another shell:
 export AGENT_PASTE_API_URL=http://127.0.0.1:8787
 export AGENT_PASTE_SMOKE_HARNESS_SECRET=local-smoke-harness-secret
 
-# Provision a workspace + API key through the non-production smoke harness:
-curl -fsS -X POST http://127.0.0.1:8787/__test__/provision-smoke \
-  -H "Authorization: Bearer ${AGENT_PASTE_SMOKE_HARNESS_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"local@example.com","workspace_name":"Local","key_name":"local"}'
-
-export AGENT_PASTE_API_KEY=<api_key_secret from response>
+pnpm cli:dev login
 pnpm cli:dev whoami --json
 pnpm cli:dev publish "$(pwd)/examples/local-harness/site" --json
 ```
@@ -173,10 +178,9 @@ Commit examples, not secrets:
 - `apps/upload/.dev.vars.example`
 - `apps/content/.dev.vars.example`
 
-Shared CLI values:
+Shared local values:
 
 - `AGENT_PASTE_API_URL`
-- `AGENT_PASTE_API_KEY`
 
 Worker values currently read by runtime code:
 
@@ -190,7 +194,10 @@ Worker bindings currently expected from runtime wiring:
 - Upload: `AUTH`, `DB`, `ARTIFACTS`
 - Content: `ARTIFACTS`, `DENYLIST`
 
-The examples also include planned local names for `DATABASE_URL`, `API_KEY_PEPPER`, R2 bucket, and KV denylist so future binding work has a stable convention.
+The examples also include planned local names for `DATABASE_URL`, R2 bucket, and
+KV denylist so future binding work has a stable convention. The local env helper
+generates `AGENT_PASTE_API_KEY_PEPPER`; the local dev server maps it to
+`API_KEY_PEPPER_V1` for Worker runtime compatibility.
 
 Future WorkOS, web session, MCP, queue, and Access Link settings should not be required for the MVP local smoke test.
 
@@ -198,11 +205,11 @@ Future WorkOS, web session, MCP, queue, and Access Link settings should not be r
 
 The first local vertical slice is complete when:
 
-1. A Workspace and API Key can be created locally.
-2. `agent-paste whoami` succeeds using `AGENT_PASTE_API_KEY`.
+1. A Workspace and local CLI credential can be created locally.
+2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
-4. Publish prints the authenticated Artifact URL as `View`; public/shareable links are explicit (`--share`, REST `{ "share": true }`, MCP `share:true`, or link-management routes).
-5. JSON/REST publish output includes `artifact_id`, `revision_id`, `artifact_url`, optional `access_link_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation.
+4. Publish prints the authenticated Artifact URL as `View`; public/shareable links are explicit (`--share`, MCP `share:true`, or link-management routes).
+5. CLI JSON output includes `artifact_id`, `revision_id`, `artifact_url`, optional `access_link_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation.
 6. `artifact_url` opens the authenticated Artifact detail/viewer path in the local harness, while `revision_content_url` serves raw Revision bytes under the content origin with direct HTML scripts disabled.
 7. `agent_view_url` returns Agent View JSON with full per-file URLs.
 8. Admin CLI can list and inspect the artifact.

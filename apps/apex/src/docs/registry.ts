@@ -6,7 +6,6 @@ import { EPHEMERAL_DOC } from "./pages/ephemeral";
 import { GETTING_STARTED_DOC } from "./pages/getting-started";
 import { LIMITS_DOC } from "./pages/limits";
 import { MCP_DOC } from "./pages/mcp";
-import { REST_API_DOC } from "./pages/rest-api";
 import { SAFETY_DOC } from "./pages/safety";
 import { SHARING_DOC } from "./pages/sharing";
 import type { DocsPage } from "./types";
@@ -19,7 +18,6 @@ export const DOCS_PAGES = [
   EPHEMERAL_DOC,
   DASHBOARD_DOC,
   BILLING_DOC,
-  REST_API_DOC,
   MCP_DOC,
   LIMITS_DOC,
   SAFETY_DOC,
