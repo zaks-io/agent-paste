@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Env, QueueMessage } from "../env.js";
+import * as opLog from "../op-log.js";
 import { handleBytePurgeBatch } from "./byte-purge.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -11,6 +12,7 @@ describe("handleBytePurgeBatch", () => {
   it("deletes only prefixes scoped to the target artifact", async () => {
     const deleted: string[][] = [];
     const env: Env = {
+      AGENT_PASTE_ENV: "production",
       ARTIFACTS: {
         async list(options) {
           expect(options.prefix).toBe(`artifacts/${artifactId}/`);
@@ -36,6 +38,7 @@ describe("handleBytePurgeBatch", () => {
     const deleted: string[][] = [];
     const bundleKey = `${envScopedPrefix}bundle.zip`;
     const env: Env = {
+      AGENT_PASTE_ENV: "production",
       ARTIFACTS: {
         async list({ prefix }) {
           if (prefix === `artifacts/${artifactId}/`) {
@@ -65,8 +68,64 @@ describe("handleBytePurgeBatch", () => {
     expect(message.retry).not.toHaveBeenCalled();
   });
 
+  it("accepts env-scoped prefixes whose env segment matches the worker env", async () => {
+    const previewPrefix = `env/preview/workspaces/${workspaceId}/artifacts/${artifactId}/`;
+    const deleted: string[][] = [];
+    const env: Env = {
+      AGENT_PASTE_ENV: "preview",
+      ARTIFACTS: {
+        async list({ prefix }) {
+          expect(prefix).toBe(previewPrefix);
+          return { objects: [{ key: `${previewPrefix}bundle.zip` }], truncated: false };
+        },
+        async delete(keys) {
+          deleted.push(keys);
+        },
+      },
+    };
+    const message = queueMessage({ prefixes: [previewPrefix] });
+
+    await handleBytePurgeBatch([message], env);
+
+    expect(deleted).toEqual([[`${previewPrefix}bundle.zip`]]);
+    expect(message.ack).toHaveBeenCalled();
+    expect(message.retry).not.toHaveBeenCalled();
+  });
+
+  it("retries and logs when an env-scoped prefix targets a foreign env segment", async () => {
+    const logSpy = vi.spyOn(opLog, "logOpError");
+    const foreignEnvPrefix = `env/preview/workspaces/${workspaceId}/artifacts/${artifactId}/`;
+    const env: Env = {
+      AGENT_PASTE_ENV: "production",
+      ARTIFACTS: {
+        list: vi.fn(async () => ({ objects: [], truncated: false })),
+        delete: vi.fn(),
+      },
+    };
+    const message = queueMessage({ prefixes: [foreignEnvPrefix] });
+
+    await handleBytePurgeBatch([message], env);
+
+    expect(env.ARTIFACTS?.list).not.toHaveBeenCalled();
+    expect(env.ARTIFACTS?.delete).not.toHaveBeenCalled();
+    expect(message.ack).not.toHaveBeenCalled();
+    expect(message.retry).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith("queue.byte_purge.prefix_env_mismatch", {
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      prefix: foreignEnvPrefix,
+      prefix_env: "preview",
+      expected_env: "live",
+    });
+    expect(logSpy).toHaveBeenCalledWith("queue.byte_purge.failed", {
+      error: "byte_purge_prefix_env_mismatch",
+    });
+    logSpy.mockRestore();
+  });
+
   it("retries without listing when any prefix escapes the artifact scope", async () => {
     const env: Env = {
+      AGENT_PASTE_ENV: "production",
       ARTIFACTS: {
         list: vi.fn(async () => ({ objects: [], truncated: false })),
         delete: vi.fn(),
@@ -103,6 +162,7 @@ describe("handleBytePurgeBatch", () => {
     },
   ])("retries without listing for $name", async ({ prefixes }) => {
     const env: Env = {
+      AGENT_PASTE_ENV: "production",
       ARTIFACTS: {
         list: vi.fn(async () => ({ objects: [], truncated: false })),
         delete: vi.fn(),
