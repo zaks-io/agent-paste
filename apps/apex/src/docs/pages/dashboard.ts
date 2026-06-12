@@ -34,6 +34,7 @@ export const DASHBOARD_DOC: DocsPage = {
               "Artifact detail, viewer, Revisions, Access Links, Bundle state, warnings, and delete action.",
             ],
             ["`/access-links`", "Workspace-wide Access Link list and management."],
+            ["`/keys`", "Dashboard member credential list, create, and revoke controls."],
             ["`/audit`", "Workspace Audit Event list."],
             ["`/settings`", "Workspace name and default retention settings."],
             ["`/billing`", "Plan, remaining writes, Checkout, Portal, and invoices."],

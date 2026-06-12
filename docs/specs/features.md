@@ -15,7 +15,7 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 | `agent-paste logout`         | Revokes the stored credential when possible and removes it locally.                                                        | Humans, agents    |
 | `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                                                       | Humans, agents    |
 | `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`; returns owner/member URLs plus exact Revision content. | Agents, CI        |
-| `--ephemeral`                | Publishes with no login, then prints a hash-only Claim Token link.                                                         | Unattended agents |
+| `--ephemeral`                | Publishes with no login, then prints the one-time Claim Token link.                                                        | Unattended agents |
 | Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets.                                      | Humans, agents    |
 | `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset.                                      | Humans, agents    |
 

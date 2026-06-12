@@ -224,17 +224,17 @@ _Avoid_: Retention, revision cleanup
 The action that makes an entire **Artifact** inaccessible before its stored bytes are physically purged.
 _Avoid_: Purge, archive, restore
 
-<a id="api-key"></a>
+<a id="api-key"></a><a id="agent-credential"></a>
 **Agent Credential**:
 A credential that lets an agent create and manage **Artifacts** on behalf of a **Workspace**.
 _Avoid_: User token, agent token
 
-<a id="api-key-revocation"></a>
+<a id="api-key-revocation"></a><a id="agent-credential-revocation"></a>
 **Agent Credential Revocation**:
 The action that stops future use of an **Agent Credential** without removing what it already created.
 _Avoid_: Delete credential, revoke agent content
 
-<a id="api-key-bearer-format"></a>
+<a id="api-key-bearer-format"></a><a id="agent-credential-bearer-format"></a>
 **Agent Credential Bearer Format**:
 The string shape used for **Agent Credential** secrets: `ap_pk_{env}_{publicId}_{secret}`. `pk` is the credential-class marker, `env` matches the deployment environment, `publicId` is the indexed lookup segment stored plaintext, and `secret` is the high-entropy random segment hashed with a Worker-secret pepper for storage. **Access Link** tokens used to share this shape (with `type='al'`) but were moved to the **Access Link Signed URL** model and no longer follow this format.
 _Avoid_: Token format, credential shape, credential prefix, bearer credential format

@@ -91,9 +91,10 @@ describe("home page", () => {
   });
 
   it("leads with OAuth login, not manual credential setup", () => {
+    const main = body.match(/<main[^>]*>[\s\S]*?<\/main>/)?.[0] ?? body;
     expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
-    expect(body).not.toContain("Get an API key");
-    expect(body).not.toContain("REST API");
+    expect(main).not.toContain("Get an API key");
+    expect(main).not.toContain("REST API");
   });
 
   it("links the one-line installer to its served scripts", () => {

@@ -29,8 +29,11 @@ Default CLI sequence:
 
 ```sh
 agent-paste whoami
+# If whoami reports no active login and interactive auth is possible:
 agent-paste login
 agent-paste publish <path>
+# If login is not available:
+agent-paste publish <path> --ephemeral
 ```
 
 Run `agent-paste login` only when `whoami` shows no active login and

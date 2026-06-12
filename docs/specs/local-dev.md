@@ -194,9 +194,10 @@ Worker bindings currently expected from runtime wiring:
 - Upload: `AUTH`, `DB`, `ARTIFACTS`
 - Content: `ARTIFACTS`, `DENYLIST`
 
-The examples also include planned local names for `DATABASE_URL`,
-`API_KEY_PEPPER`, R2 bucket, and KV denylist so future binding work has a stable
-convention.
+The examples also include planned local names for `DATABASE_URL`, R2 bucket, and
+KV denylist so future binding work has a stable convention. The local env helper
+generates `AGENT_PASTE_API_KEY_PEPPER`; the local dev server maps it to
+`API_KEY_PEPPER_V1` for Worker runtime compatibility.
 
 Future WorkOS, web session, MCP, queue, and Access Link settings should not be required for the MVP local smoke test.
 

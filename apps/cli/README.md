@@ -157,16 +157,16 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                   | Purpose                                                                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                         |
-| `--title <text>`       | Set the title. Default: path basename.                                                                                                |
-| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                   |
-| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                             |
-| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                    |
+| Flag                   | Purpose                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                                              |
+| `--title <text>`       | Set the title. Default: path basename.                                                                                                                     |
+| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
+| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
+| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                                         |
 | `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
-| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                          |
-| `--quiet`              | Suppress human-readable stdout output.                                                                                                |
+| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                                               |
+| `--quiet`              | Suppress human-readable stdout output.                                                                                                                     |
 
 ## Output
 

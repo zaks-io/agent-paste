@@ -47,7 +47,11 @@ Adds two unauthenticated-entry routes through the route registrar ([ADR 0072](..
 - `POST /v1/ephemeral/provision` - creates an **Ephemeral Workspace**, a short-lived scoped credential, and a **Claim Token**.
 - `POST /v1/ephemeral/claim` - requires `workos_access_token`; promotes the tenant.
 
-The ephemeral **Publish** itself reuses the existing authenticated **Upload Session** and **Publish** routes with the provisioned credential. No new write surface.
+`POST /v1/ephemeral/provision` and `POST /v1/ephemeral/claim` are the mutating
+entry routes for provisioning and claiming. The artifact upload and publish
+flow itself reuses the existing authenticated **Upload Session** and **Publish**
+routes with the provisioned credential; no separate upload or publish endpoints
+are introduced.
 
 **Upload Worker** (`content` and `upload`):
 Unchanged. `content` stays DB-free ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); ephemeral status is carried on rows the authenticated paths already load.
