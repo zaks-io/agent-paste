@@ -105,8 +105,26 @@ function retryAfterSeconds(value: number): string {
   return String(Math.max(1, Math.ceil(value)));
 }
 
+// Verification trusts the difficulty signed into the challenge, so this knob only
+// affects issuance. Hosted envs leave it unset (default 20); the local harness and
+// CI smokes lower it so a 2-vCPU runner is not grinding ~1M hashes per provision.
+function resolvePowDifficultyBits(env: AppContext["env"]): number | undefined {
+  const raw = env.EPHEMERAL_POW_DIFFICULTY_BITS;
+  if (raw === undefined || raw === "") {
+    return undefined;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 32) {
+    throw new Error(`EPHEMERAL_POW_DIFFICULTY_BITS must be an integer between 1 and 32, got ${JSON.stringify(raw)}`);
+  }
+  return value;
+}
+
 async function powRequiredResponse(context: AppContext, powSecret: string): Promise<Response> {
-  const challenge = await issuePowChallenge({ secret: powSecret });
+  const difficulty = resolvePowDifficultyBits(context.env);
+  const challenge = await issuePowChallenge(
+    difficulty === undefined ? { secret: powSecret } : { secret: powSecret, difficulty },
+  );
   const requestId = getRequestId(context);
   const body = {
     ...buildErrorBody({

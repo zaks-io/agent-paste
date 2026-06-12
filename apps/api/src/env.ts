@@ -64,6 +64,7 @@ export type Env = {
   EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT?: RateLimitBinding;
   EPHEMERAL_PROVISION_GATE?: EphemeralProvisionGateNamespace;
   EPHEMERAL_POW_SECRET?: string;
+  EPHEMERAL_POW_DIFFICULTY_BITS?: string;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
   SAFETY_SCAN_QUEUE?: { send(message: unknown): Promise<unknown> };
   BYTE_PURGE_QUEUE?: { send(message: unknown): Promise<unknown> };
