@@ -1,6 +1,86 @@
 import { EPHEMERAL_AUTO_DELETION_DAYS, SECONDS_PER_DAY } from "@agent-paste/config";
+import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
+import { reparentBlobMigratorFromEnv } from "../../postgres/reparent-blob-migrator.js";
+
+const ROOT_SECRET = "test-artifact-bytes-root-secret-32chars";
+const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+const STALE_SHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const EXPIRED_SHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+function memoryArtifactsBucket() {
+  const objects = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>();
+  return {
+    objects,
+    async head(key: string) {
+      return objects.has(key) ? { customMetadata: objects.get(key)?.customMetadata } : null;
+    },
+    async get(key: string) {
+      const object = objects.get(key);
+      return object ? { body: object.bytes, customMetadata: object.customMetadata } : null;
+    },
+    async put(key: string, value: Uint8Array, options?: { customMetadata?: Record<string, string> }) {
+      objects.set(key, { bytes: value, customMetadata: options?.customMetadata });
+    },
+  };
+}
+
+async function publishBlobArtifact(input: {
+  repo: LocalRepository;
+  actor: {
+    type: "api_key";
+    id: string;
+    workspace_id: string;
+    scopes: readonly ("write" | "read")[];
+  };
+  artifacts: ReturnType<typeof memoryArtifactsBucket>;
+  sha256: string;
+  body: string;
+  idempotencyPrefix: string;
+  now: string;
+  path?: string;
+}) {
+  const path = input.path ?? "index.html";
+  const bodyBytes = new TextEncoder().encode(input.body);
+  const session = await input.repo.createUploadSession({
+    actor: input.actor,
+    idempotencyKey: `${input.idempotencyPrefix}-upload`,
+    request: {
+      entrypoint: path,
+      files: [{ path, size_bytes: bodyBytes.byteLength, sha256: input.sha256 }],
+    },
+    now: input.now,
+  });
+  const uploadedFile = session.files[0];
+  if (!uploadedFile) {
+    throw new Error("expected_upload_file");
+  }
+  const encrypted = await encryptArtifactBytes({
+    plaintext: bodyBytes,
+    rootSecret: ROOT_SECRET,
+    kid: 1,
+    context: { kind: "blob", workspaceId: input.actor.workspace_id, sha256: input.sha256 },
+  });
+  await input.artifacts.put(uploadedFile.object_key, encrypted.ciphertext, {
+    customMetadata: encrypted.customMetadata,
+  });
+  await input.repo.finalizeUploadSession({
+    actor: input.actor,
+    idempotencyKey: `${input.idempotencyPrefix}-finalize`,
+    sessionId: session.upload_session_id,
+    observedFiles: [{ path, objectKey: uploadedFile.object_key, sizeBytes: bodyBytes.byteLength }],
+    now: input.now,
+  });
+  await input.repo.publishRevision({
+    actor: input.actor,
+    artifactId: session.artifact_id,
+    revisionId: session.revision_id,
+    idempotencyKey: `${input.idempotencyPrefix}-publish`,
+    now: input.now,
+  });
+  return session;
+}
 
 describe("claimEphemeralWorkspace", () => {
   it("reparents ephemeral artifacts into the member workspace and marks the token redeemed", async () => {
@@ -111,6 +191,222 @@ describe("claimEphemeralWorkspace", () => {
     ).rejects.toThrow("not_found");
   });
 
+  it("remaps blob object keys and copies bytes into the destination workspace prefix", async () => {
+    const artifacts = memoryArtifactsBucket();
+    const reparentBlobMigrator = reparentBlobMigratorFromEnv({
+      ARTIFACTS: artifacts,
+      ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
+    });
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-claim-blobs",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "claim-blob-upload",
+      request: {
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 5, sha256: HELLO_SHA256 }],
+      },
+      now: "2099-06-01T00:00:00.000Z",
+    });
+    const uploadedFile = session.files[0];
+    if (!uploadedFile) {
+      throw new Error("expected_upload_file");
+    }
+    const sourceKey = uploadedFile.object_key;
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("hello"),
+      rootSecret: ROOT_SECRET,
+      kid: 1,
+      context: { kind: "blob", workspaceId: provisioned.workspace.id, sha256: HELLO_SHA256 },
+    });
+    await artifacts.put(sourceKey, encrypted.ciphertext, { customMetadata: encrypted.customMetadata });
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "claim-blob-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: sourceKey, sizeBytes: 5 }],
+      now: "2099-06-01T00:00:01.000Z",
+    });
+    await repo.publishRevision({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      idempotencyKey: "claim-blob-publish",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_blob",
+      email: "user_claim_blob@example.test",
+      idempotencyKey: "claim-blob-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+    await repo.claimEphemeralWorkspace({
+      actor: {
+        type: "member",
+        id: member.workspace_member.id,
+        workspace_id: member.workspace.id,
+        email: member.workspace_member.email,
+        scopes: member.scopes,
+      },
+      claimTokenSecret: provisioned.claim_token_secret,
+      idempotencyKey: "claim-blob-once",
+      now: new Date("2099-06-01T14:00:00.000Z"),
+    });
+
+    const localRepo = repo as LocalRepository;
+    const claimedFile = [...localRepo.artifactFiles.values()].find((file) => file.path === "index.html");
+    const destKey = workspaceBlobObjectKeyFor({ workspaceId: member.workspace.id, sha256: HELLO_SHA256 });
+    expect(claimedFile?.r2_key).toBe(destKey);
+    expect(artifacts.objects.has(destKey)).toBe(true);
+    expect(localRepo.contentBlobs.get(`${member.workspace.id}:${HELLO_SHA256}:5`)?.r2_key).toBe(destKey);
+  });
+
+  it("claims successfully when an abandoned upload session left a never-uploaded blob row", async () => {
+    const artifacts = memoryArtifactsBucket();
+    const reparentBlobMigrator = reparentBlobMigratorFromEnv({
+      ARTIFACTS: artifacts,
+      ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
+    });
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-claim-abandoned-session",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    await repo.createUploadSession({
+      actor,
+      idempotencyKey: "abandoned-session",
+      request: {
+        entrypoint: "stale.html",
+        files: [{ path: "stale.html", size_bytes: 4, sha256: STALE_SHA256 }],
+      },
+      now: "2099-06-01T00:00:00.000Z",
+    });
+    const published = await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: HELLO_SHA256,
+      body: "live",
+      idempotencyPrefix: "claim-abandoned-active",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_abandoned",
+      email: "user_claim_abandoned@example.test",
+      idempotencyKey: "claim-abandoned-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+
+    await expect(
+      repo.claimEphemeralWorkspace({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimTokenSecret: provisioned.claim_token_secret,
+        idempotencyKey: "claim-abandoned",
+        now: new Date("2099-06-01T14:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({
+      artifact_ids: [published.artifact_id],
+    });
+  });
+
+  it("claims successfully after an expired artifact's blobs were garbage-collected", async () => {
+    const artifacts = memoryArtifactsBucket();
+    const reparentBlobMigrator = reparentBlobMigratorFromEnv({
+      ARTIFACTS: artifacts,
+      ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
+    });
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-claim-gc-blob",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    const expired = await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: EXPIRED_SHA256,
+      body: "dead",
+      idempotencyPrefix: "claim-gc-expired",
+      now: "2099-06-01T01:00:00.000Z",
+      path: "expired.html",
+    });
+    await repo.forceExpireArtifact({
+      artifactId: expired.artifact_id,
+      expiresAt: "2099-06-01T02:00:00.000Z",
+    });
+    const localRepo = repo as LocalRepository;
+    const expiredArtifact = localRepo.artifacts.get(expired.artifact_id);
+    if (expiredArtifact) {
+      expiredArtifact.status = "expired";
+      expiredArtifact.deleted_at = "2099-06-01T03:00:00.000Z";
+      expiredArtifact.delete_reason = "expired";
+    }
+    const expiredKey = workspaceBlobObjectKeyFor({
+      workspaceId: provisioned.workspace.id,
+      sha256: EXPIRED_SHA256,
+    });
+    artifacts.objects.delete(expiredKey);
+    const active = await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: HELLO_SHA256,
+      body: "live",
+      idempotencyPrefix: "claim-gc-active",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_gc",
+      email: "user_claim_gc@example.test",
+      idempotencyKey: "claim-gc-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+
+    const claimed = await repo.claimEphemeralWorkspace({
+      actor: {
+        type: "member",
+        id: member.workspace_member.id,
+        workspace_id: member.workspace.id,
+        email: member.workspace_member.email,
+        scopes: member.scopes,
+      },
+      claimTokenSecret: provisioned.claim_token_secret,
+      idempotencyKey: "claim-gc",
+      now: new Date("2099-06-01T14:00:00.000Z"),
+    });
+
+    expect(claimed.artifact_ids).toEqual(expect.arrayContaining([expired.artifact_id, active.artifact_id]));
+    const destKey = workspaceBlobObjectKeyFor({ workspaceId: member.workspace.id, sha256: HELLO_SHA256 });
+    expect(artifacts.objects.has(destKey)).toBe(true);
+  });
+
   it("replays a successful claim command by idempotency key", async () => {
     const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
@@ -167,6 +463,165 @@ describe("claimEphemeralWorkspace", () => {
         idempotencyKey: "claim-invalid",
       }),
     ).rejects.toThrow("not_found");
+  });
+
+  it("fails closed when blobs need migration but no reparent migrator is configured", async () => {
+    const artifacts = memoryArtifactsBucket();
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-missing-migrator",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: HELLO_SHA256,
+      body: "hello",
+      idempotencyPrefix: "missing-migrator",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_missing_migrator",
+      email: "user_claim_missing_migrator@example.test",
+      idempotencyKey: "claim-missing-migrator-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+
+    await expect(
+      repo.claimEphemeralWorkspace({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimTokenSecret: provisioned.claim_token_secret,
+        idempotencyKey: "claim-missing-migrator",
+        now: new Date("2099-06-01T14:00:00.000Z"),
+      }),
+    ).rejects.toThrow("storage_unavailable");
+  });
+
+  it("does not migrate blobs when the claim token is expired", async () => {
+    const migrateCalls = { count: 0 };
+    const reparentBlobMigrator = {
+      async migrate() {
+        migrateCalls.count += 1;
+      },
+    };
+    const artifacts = memoryArtifactsBucket();
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const now = new Date("2099-06-01T00:00:00.000Z");
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-expired-no-migrate",
+      now,
+      claimTokenExpiresInSeconds: 60,
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: HELLO_SHA256,
+      body: "hello",
+      idempotencyPrefix: "expired-no-migrate",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_expired_no_migrate",
+      email: "user_claim_expired_no_migrate@example.test",
+      idempotencyKey: "claim-expired-no-migrate-member",
+      now: now.toISOString(),
+    });
+
+    await expect(
+      repo.claimEphemeralWorkspace({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimTokenSecret: provisioned.claim_token_secret,
+        idempotencyKey: "claim-expired-no-migrate",
+        now: new Date(now.getTime() + 2 * 60 * 1000),
+      }),
+    ).rejects.toThrow("not_found");
+    expect(migrateCalls.count).toBe(0);
+  });
+
+  it("does not migrate blobs when the claim token was already redeemed", async () => {
+    const migrateCalls = { count: 0 };
+    const reparentBlobMigrator = {
+      async migrate() {
+        migrateCalls.count += 1;
+      },
+    };
+    const artifacts = memoryArtifactsBucket();
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-redeemed-no-migrate",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    await publishBlobArtifact({
+      repo: repo as LocalRepository,
+      actor,
+      artifacts,
+      sha256: HELLO_SHA256,
+      body: "hello",
+      idempotencyPrefix: "redeemed-no-migrate",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_redeemed_no_migrate",
+      email: "user_claim_redeemed_no_migrate@example.test",
+      idempotencyKey: "claim-redeemed-no-migrate-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+    const memberActor = {
+      type: "member" as const,
+      id: member.workspace_member.id,
+      workspace_id: member.workspace.id,
+      email: member.workspace_member.email,
+      scopes: member.scopes,
+    };
+    await repo.claimEphemeralWorkspace({
+      actor: memberActor,
+      claimTokenSecret: provisioned.claim_token_secret,
+      idempotencyKey: "claim-redeemed-first",
+      now: new Date("2099-06-01T14:00:00.000Z"),
+    });
+    migrateCalls.count = 0;
+
+    await expect(
+      repo.claimEphemeralWorkspace({
+        actor: memberActor,
+        claimTokenSecret: provisioned.claim_token_secret,
+        idempotencyKey: "claim-redeemed-second",
+        now: new Date("2099-06-01T15:00:00.000Z"),
+      }),
+    ).rejects.toThrow("not_found");
+    expect(migrateCalls.count).toBe(0);
   });
 
   it("rejects expired claim tokens as not_found", async () => {

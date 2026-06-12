@@ -59,6 +59,7 @@ export {
   createPostgresExecutor,
   createPostgresHttpExecutor,
 } from "./postgres/executor.js";
+export { reparentBlobMigratorFromEnv } from "./postgres/reparent-blob-migrator.js";
 export { PostgresRepository } from "./postgres/repository.js";
 export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
@@ -103,6 +104,7 @@ export type {
   HyperdriveBinding,
   OperationEvent,
   PlatformActor,
+  ReparentBlobMigrator,
   RepositoryOptions,
   SafetyWarning,
   SafetyWarningScope,

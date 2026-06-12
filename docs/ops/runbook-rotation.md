@@ -8,14 +8,14 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 
 Operator scripts implement the ADR 0045 staging → flip → drain → drop sequence. They never read secret values back from Cloudflare; capture generated or dashboard material in a password manager before closing the terminal.
 
-| Profile                  | Script entrypoint                                                              | Workers touched             |
-| ------------------------ | ------------------------------------------------------------------------------ | --------------------------- |
-| Content signing          | `node scripts/rotate-versioned-secret.mjs content-signing <env> --step <step>` | `api`, `upload`, `content`  |
-| Upload signing           | `node scripts/rotate-versioned-secret.mjs upload-signing <env> --step <step>`  | `upload`                    |
-| API Key pepper           | `node scripts/rotate-versioned-secret.mjs api-key-pepper <env> --step <step>`  | `api`, `upload`             |
-| Artifact-byte encryption | `node scripts/rotate-versioned-secret.mjs artifact-bytes-encryption <env> ...` | `upload`, `content`, `jobs` |
-| WorkOS API key           | `node scripts/rotate-workos-secrets.mjs workos-api-key <env> --value <secret>` | `api`, then `web`           |
-| WorkOS cookie password   | `node scripts/rotate-workos-secrets.mjs workos-cookie-password <env> ...`      | `web`                       |
+| Profile                  | Script entrypoint                                                              | Workers touched                    |
+| ------------------------ | ------------------------------------------------------------------------------ | ---------------------------------- |
+| Content signing          | `node scripts/rotate-versioned-secret.mjs content-signing <env> --step <step>` | `api`, `upload`, `content`         |
+| Upload signing           | `node scripts/rotate-versioned-secret.mjs upload-signing <env> --step <step>`  | `upload`                           |
+| API Key pepper           | `node scripts/rotate-versioned-secret.mjs api-key-pepper <env> --step <step>`  | `api`, `upload`                    |
+| Artifact-byte encryption | `node scripts/rotate-versioned-secret.mjs artifact-bytes-encryption <env> ...` | `api`, `upload`, `content`, `jobs` |
+| WorkOS API key           | `node scripts/rotate-workos-secrets.mjs workos-api-key <env> --value <secret>` | `api`, then `web`                  |
+| WorkOS cookie password   | `node scripts/rotate-workos-secrets.mjs workos-cookie-password <env> ...`      | `web`                              |
 
 Convenience aliases (append `--step stage|flip|drain|drop` and `--dry-run` as needed):
 
@@ -39,16 +39,16 @@ Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The
 
 ## Current Inventory
 
-| Secret                          | Bound on              | Rotation impact                                                                                                  |
-| ------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `CONTENT_SIGNING_SECRET`        | api, upload, content  | Invalidates currently minted content and Agent View URLs.                                                        |
-| `UPLOAD_SIGNING_SECRET`         | upload                | Invalidates in-flight signed upload PUT URLs.                                                                    |
-| `ACCESS_LINK_SIGNING_KEY_V1`    | api                   | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
-| `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
-| `API_KEY_PEPPER_V1`             | api, upload           | Invalidates existing API Keys in the current MVP implementation.                                                 |
-| `WORKOS_API_KEY`                | api, web              | Swaps the WorkOS server-side API credential.                                                                     |
-| `WORKOS_CLIENT_ID`              | api, web              | Project/client swap only; also update Wrangler vars where present.                                               |
-| `WORKOS_COOKIE_PASSWORD`        | web                   | Invalidates existing AuthKit sealed web sessions.                                                                |
+| Secret                          | Bound on                   | Rotation impact                                                                                                  |
+| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET`        | api, upload, content       | Invalidates currently minted content and Agent View URLs.                                                        |
+| `UPLOAD_SIGNING_SECRET`         | upload                     | Invalidates in-flight signed upload PUT URLs.                                                                    |
+| `ACCESS_LINK_SIGNING_KEY_V1`    | api                        | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
+| `ARTIFACT_BYTES_ENCRYPTION_KEY` | api, upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
+| `API_KEY_PEPPER_V1`             | api, upload                | Invalidates existing API Keys in the current MVP implementation.                                                 |
+| `WORKOS_API_KEY`                | api, web                   | Swaps the WorkOS server-side API credential.                                                                     |
+| `WORKOS_CLIENT_ID`              | api, web                   | Project/client swap only; also update Wrangler vars where present.                                               |
+| `WORKOS_COOKIE_PASSWORD`        | web                        | Invalidates existing AuthKit sealed web sessions.                                                                |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.
@@ -65,7 +65,7 @@ Access Link signed URLs are active. Do not treat `ACCESS_LINK_SIGNING_KEY_V1`,
 
 ## First-time bind (existing environments)
 
-Initial binding of `ARTIFACT_BYTES_ENCRYPTION_KEY` is handled by `scripts/deploy.mjs` (ADR 0078): on the next deploy it generates the key if missing and binds the same value on `upload`, `content`, and `jobs`, without re-running bootstrap.
+Initial binding of `ARTIFACT_BYTES_ENCRYPTION_KEY` is handled by `scripts/deploy.mjs` (ADR 0078): on the next deploy it generates the key if missing and binds the same value on `api`, `upload`, `content`, and `jobs`, without re-running bootstrap.
 
 ```sh
 node scripts/deploy.mjs preview

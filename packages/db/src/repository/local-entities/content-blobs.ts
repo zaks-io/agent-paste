@@ -30,7 +30,79 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
       }
       return deleted;
     },
+    async listForReparent(workspaceId, now) {
+      const blobs = new Map<string, { sha256: string; size_bytes: number; r2_key: string }>();
+      for (const file of state.artifactFiles.values()) {
+        if (isLiveArtifactBlobForReparent(state, file, workspaceId)) {
+          collectReparentBlob(blobs, file);
+        }
+      }
+      for (const file of state.uploadSessionFiles.values()) {
+        if (isLiveSessionBlobForReparent(state, file, workspaceId, now)) {
+          collectReparentBlob(blobs, file);
+        }
+      }
+      return [...blobs.values()];
+    },
   };
+}
+
+function collectReparentBlob(
+  blobs: Map<string, { sha256: string; size_bytes: number; r2_key: string }>,
+  file: {
+    sha256?: string | null;
+    size_bytes: number;
+    r2_key: string;
+  },
+) {
+  if (!file.sha256) {
+    return;
+  }
+  blobs.set(`${file.sha256}:${file.size_bytes}`, {
+    sha256: file.sha256,
+    size_bytes: file.size_bytes,
+    r2_key: file.r2_key,
+  });
+}
+
+export function isLiveArtifactBlobForReparent(
+  state: LocalState,
+  file: {
+    workspace_id: string;
+    artifact_id?: string;
+    revision_id?: string;
+    sha256?: string | null;
+    storage_kind?: string;
+  },
+  workspaceId: string,
+) {
+  if (file.workspace_id !== workspaceId || file.storage_kind !== "blob" || !file.sha256) {
+    return false;
+  }
+  const revision = file.revision_id ? state.revisions.get(file.revision_id) : null;
+  const artifact = file.artifact_id ? state.artifacts.get(file.artifact_id) : null;
+  return Boolean(
+    revision && artifact?.status === "active" && (revision.status === "draft" || revision.status === "published"),
+  );
+}
+
+export function isLiveSessionBlobForReparent(
+  state: LocalState,
+  file: {
+    workspace_id: string;
+    upload_session_id?: string;
+    sha256?: string | null;
+    storage_kind?: string;
+    uploaded_at?: string | null;
+  },
+  workspaceId: string,
+  now: string,
+) {
+  if (file.workspace_id !== workspaceId || file.storage_kind !== "blob" || !file.sha256 || !file.uploaded_at) {
+    return false;
+  }
+  const session = file.upload_session_id ? state.uploadSessions.get(file.upload_session_id) : null;
+  return Boolean(session?.status === "pending" && new Date(session.expires_at).getTime() > new Date(now).getTime());
 }
 
 function isBlobReferenced(

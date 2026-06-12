@@ -123,6 +123,8 @@ describe("reparentTenantContent", () => {
         size_bytes bigint not null,
         served_content_type text not null,
         r2_key text not null,
+        sha256 text,
+        storage_kind text not null default 'revision',
         uploaded_at timestamptz,
         put_url_expires_at timestamptz not null,
         primary key (upload_session_id, path)
@@ -135,8 +137,19 @@ describe("reparentTenantContent", () => {
         size_bytes bigint not null,
         served_content_type text not null,
         r2_key text not null,
+        sha256 text,
+        storage_kind text not null default 'revision',
         uploaded_at timestamptz,
         primary key (artifact_id, revision_id, path)
+      );
+      create table content_blobs (
+        workspace_id uuid not null references workspaces(id),
+        sha256 text not null,
+        size_bytes bigint not null,
+        r2_key text not null,
+        created_at timestamptz not null,
+        updated_at timestamptz not null,
+        primary key (workspace_id, sha256, size_bytes)
       );
     `);
     const now = "2026-01-01T00:00:00.000Z";
@@ -236,6 +249,46 @@ describe("reparentTenantContent", () => {
     expect(accessLink.rows[0]?.workspace_id).toBe(destinationWorkspaceId);
     expect(warning.rows[0]?.workspace_id).toBe(destinationWorkspaceId);
     expect(uploadFile.rows[0]?.workspace_id).toBe(destinationWorkspaceId);
+  });
+
+  it("upserts content_blobs for live upload-session blobs without artifact_files rows", async () => {
+    const sessionBlobWorkspaceId = "55555555-5555-5555-5555-555555555555";
+    const sha256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    const sourceKey = `workspaces/${sessionBlobWorkspaceId}/blobs/${sha256}`;
+    const destKey = `workspaces/${destinationWorkspaceId}/blobs/${sha256}`;
+    const now = "2026-01-01T00:00:00.000Z";
+    const reparentAt = "2026-01-03T00:00:00.000Z";
+    await client.exec(`
+      insert into workspaces (id, name, claimed_at, auto_deletion_days, created_at, updated_at)
+      values ('${sessionBlobWorkspaceId}', 'Ephemeral session blob', null, 1, '${now}', '${now}');
+      insert into artifacts (id, workspace_id, revision_id, status, title, entrypoint, file_count, size_bytes, expires_at, created_by_type, created_by_id, created_at, updated_at)
+      values ('art_session_blob', '${sessionBlobWorkspaceId}', 'rev_session_blob', 'active', 'Session blob', 'index.html', 1, 5, '2026-01-02T00:00:00.000Z', 'api_key', 'key_ephemeral', '${now}', '${now}');
+      insert into revisions (id, workspace_id, artifact_id, revision_number, status, entrypoint, render_mode, file_count, size_bytes, bundle_status, created_by_type, created_by_id, created_at, published_at)
+      values ('rev_session_blob', '${sessionBlobWorkspaceId}', 'art_session_blob', 1, 'draft', 'index.html', 'html', 1, 5, 'disabled', 'api_key', 'key_ephemeral', '${now}', null);
+      insert into upload_sessions (id, workspace_id, artifact_id, revision_id, status, entrypoint, expires_at, created_by_type, created_by_id, created_at)
+      values ('us_session_blob', '${sessionBlobWorkspaceId}', 'art_session_blob', 'rev_session_blob', 'pending', 'index.html', '2026-01-10T00:00:00.000Z', 'api_key', 'key_ephemeral', '${now}');
+      insert into upload_session_files (workspace_id, upload_session_id, path, size_bytes, served_content_type, r2_key, sha256, storage_kind, uploaded_at, put_url_expires_at)
+      values ('${sessionBlobWorkspaceId}', 'us_session_blob', 'index.html', 5, 'text/html', '${sourceKey}', '${sha256}', 'blob', '${now}', '2026-01-10T00:00:00.000Z');
+    `);
+
+    await reparentTenantContent(createExecutor(), {
+      fromWorkspaceId: sessionBlobWorkspaceId,
+      toWorkspaceId: destinationWorkspaceId,
+      updatedAt: reparentAt,
+      minArtifactExpiresAt: "2026-02-01T00:00:00.000Z",
+    });
+
+    const uploadFile = await client.query<{ r2_key: string }>(
+      "select r2_key from upload_session_files where upload_session_id = 'us_session_blob'",
+    );
+    expect(uploadFile.rows[0]?.r2_key).toBe(destKey);
+
+    const contentBlob = await client.query<{ r2_key: string }>(
+      `select r2_key from content_blobs
+       where workspace_id = $1 and sha256 = $2 and size_bytes = 5`,
+      [destinationWorkspaceId, sha256],
+    );
+    expect(contentBlob.rows[0]?.r2_key).toBe(destKey);
   });
 
   it("returns an empty artifact list when the source workspace has no artifacts", async () => {

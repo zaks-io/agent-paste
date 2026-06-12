@@ -1,6 +1,8 @@
+import { remapWorkspaceBlobR2Key } from "../../queries/reparent-blobs.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
 import { bumpArtifactExpiresAt } from "./artifacts-helpers.js";
+import { isLiveArtifactBlobForReparent, isLiveSessionBlobForReparent } from "./content-blobs.js";
 
 function reparentArtifacts(
   state: LocalState,
@@ -34,6 +36,56 @@ function reparentWorkspaceId<T extends { workspace_id: string }>(
   }
 }
 
+function reparentBlobFiles<T extends { workspace_id: string; storage_kind?: string; r2_key: string }>(
+  entries: Iterable<T>,
+  fromWorkspaceId: string,
+  toWorkspaceId: string,
+) {
+  for (const entry of entries) {
+    if (entry.workspace_id !== fromWorkspaceId) {
+      continue;
+    }
+    entry.workspace_id = toWorkspaceId;
+    if (entry.storage_kind === "blob") {
+      entry.r2_key = remapWorkspaceBlobR2Key(entry.r2_key, fromWorkspaceId, toWorkspaceId);
+    }
+  }
+}
+
+function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, updatedAt: string) {
+  const seen = new Set<string>();
+  const upsert = (file: { sha256?: string | null; size_bytes: number; r2_key: string }) => {
+    if (!file.sha256) {
+      return;
+    }
+    const dedupeKey = `${file.sha256}:${file.size_bytes}`;
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+    const key = `${workspaceId}:${file.sha256}:${file.size_bytes}`;
+    state.contentBlobs.set(key, {
+      workspace_id: workspaceId,
+      sha256: file.sha256,
+      size_bytes: file.size_bytes,
+      r2_key: file.r2_key,
+      created_at: updatedAt,
+      updated_at: updatedAt,
+    });
+  };
+
+  for (const file of state.artifactFiles.values()) {
+    if (isLiveArtifactBlobForReparent(state, file, workspaceId)) {
+      upsert(file);
+    }
+  }
+  for (const file of state.uploadSessionFiles.values()) {
+    if (isLiveSessionBlobForReparent(state, file, workspaceId, updatedAt)) {
+      upsert(file);
+    }
+  }
+}
+
 export function localArtifactReparentMethods(state: LocalState): Pick<Entities["artifacts"], "reparentWorkspace"> {
   return {
     async reparentWorkspace(fromWorkspaceId, toWorkspaceId, minExpiresAt, updatedAt) {
@@ -42,8 +94,9 @@ export function localArtifactReparentMethods(state: LocalState): Pick<Entities["
       reparentWorkspaceId(state.accessLinks.values(), fromWorkspaceId, toWorkspaceId);
       reparentWorkspaceId(state.safetyWarnings.values(), fromWorkspaceId, toWorkspaceId);
       reparentWorkspaceId(state.uploadSessions.values(), fromWorkspaceId, toWorkspaceId);
-      reparentWorkspaceId(state.uploadSessionFiles.values(), fromWorkspaceId, toWorkspaceId);
-      reparentWorkspaceId(state.artifactFiles.values(), fromWorkspaceId, toWorkspaceId);
+      reparentBlobFiles(state.uploadSessionFiles.values(), fromWorkspaceId, toWorkspaceId);
+      reparentBlobFiles(state.artifactFiles.values(), fromWorkspaceId, toWorkspaceId);
+      upsertReparentedContentBlobs(state, toWorkspaceId, updatedAt);
       return artifactIds;
     },
   };

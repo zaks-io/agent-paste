@@ -19,6 +19,7 @@ const workerSecrets = [
     names: [
       "CONTENT_SIGNING_SECRET",
       "API_KEY_PEPPER_V1",
+      "ARTIFACT_BYTES_ENCRYPTION_KEY",
       ...smokeHarnessSecretNames,
       "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",
@@ -189,7 +190,7 @@ function plannedSecrets() {
   return {
     CONTENT_SIGNING_SECRET: "<generated>",
     UPLOAD_SIGNING_SECRET: "<generated>",
-    ARTIFACT_BYTES_ENCRYPTION_KEY: "<generated; shared by upload, content, and jobs>",
+    ARTIFACT_BYTES_ENCRYPTION_KEY: "<generated; shared by api, upload, content, and jobs>",
     API_KEY_PEPPER_V1: "<generated>",
     ...(target === "preview" ? { SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>" } : {}),
     EPHEMERAL_POW_SECRET: "<generated; api Worker proof-of-work for ephemeral provision>",

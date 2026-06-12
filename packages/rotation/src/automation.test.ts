@@ -103,7 +103,7 @@ describe("rotation automation plans", () => {
     const snapshot = inferSnapshotFromListedSecrets(profile, listed, "v1");
     expect(snapshot.primaryBound).toBe(true);
     expect(snapshot.secondaryBound).toBe(true);
-    expect(profileBindingsForTarget(profile, "preview")).toHaveLength(3);
+    expect(profileBindingsForTarget(profile, "preview")).toHaveLength(4);
   });
 });
 

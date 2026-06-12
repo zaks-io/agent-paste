@@ -276,6 +276,11 @@ export type OperationEvent = {
 };
 
 import type { PepperRing } from "@agent-paste/rotation";
+import type { WorkspaceBlobRef } from "./queries/reparent-blobs.js";
+
+export type ReparentBlobMigrator = {
+  migrate(input: { fromWorkspaceId: string; toWorkspaceId: string; blobs: readonly WorkspaceBlobRef[] }): Promise<void>;
+};
 
 export type RepositoryOptions = {
   apiKeyPepper: string;
@@ -287,4 +292,6 @@ export type RepositoryOptions = {
   webBaseUrl?: string;
   /** When false (default), `workspaces.plan` is ignored and caps default to `pro`. */
   billingEnabled?: boolean;
+  /** Copies workspace blob bytes into the destination tenant before claim reparent commits. */
+  reparentBlobMigrator?: ReparentBlobMigrator;
 };

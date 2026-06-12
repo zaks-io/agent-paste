@@ -12,6 +12,7 @@ import {
 
 const contentSigning = VERSIONED_SECRET_PROFILES["content-signing"];
 const apiKeyPepper = VERSIONED_SECRET_PROFILES["api-key-pepper"];
+const artifactBytesEncryption = VERSIONED_SECRET_PROFILES["artifact-bytes-encryption"];
 
 describe("parseProfileId", () => {
   it("returns the profile for a known id", () => {
@@ -76,6 +77,17 @@ describe("bindingsForTarget", () => {
       "agent-paste-jobs-preview",
     ]);
     expect(bindings[0].names).toEqual(["CONTENT_SIGNING_SECRET", "CONTENT_SIGNING_SECRET_V2"]);
+  });
+
+  it("includes api in artifact-bytes-encryption bindings", () => {
+    const bindings = bindingsForTarget(artifactBytesEncryption, "production");
+    expect(bindings.map((b) => b.worker)).toEqual([
+      "agent-paste-api-production",
+      "agent-paste-upload-production",
+      "agent-paste-content-production",
+      "agent-paste-jobs-production",
+    ]);
+    expect(bindings[0].names).toEqual(["ARTIFACT_BYTES_ENCRYPTION_KEY", "ARTIFACT_BYTES_ENCRYPTION_KEY_V2"]);
   });
 });
 

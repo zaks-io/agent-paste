@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { contentBlobs } from "../schema.js";
 import type { ContentBlob } from "../types.js";
+import type { WorkspaceBlobRef } from "./reparent-blobs.js";
 
 export const contentBlobQueries = {
   async find(
@@ -37,6 +38,39 @@ export const contentBlobQueries = {
         target: [contentBlobs.workspaceId, contentBlobs.sha256, contentBlobs.sizeBytes],
         set: { r2Key: blob.r2_key, updatedAt: new Date(blob.updated_at) },
       });
+  },
+
+  async listForReparent(db: DrizzleDb, workspaceId: string, now: string): Promise<WorkspaceBlobRef[]> {
+    const rows = await db.execute<WorkspaceBlobRef>(sql`
+      select distinct sha256, size_bytes, r2_key
+      from (
+        select af.sha256, af.size_bytes, af.r2_key
+        from artifact_files af
+        inner join revisions r
+          on r.workspace_id = af.workspace_id
+         and r.artifact_id = af.artifact_id
+         and r.id = af.revision_id
+        inner join artifacts a
+          on a.workspace_id = af.workspace_id
+         and a.id = af.artifact_id
+        where af.workspace_id = ${workspaceId}
+          and af.storage_kind = 'blob'
+          and af.sha256 is not null
+          and a.status = 'active'
+          and r.status in ('draft', 'published')
+        union
+        select usf.sha256, usf.size_bytes, usf.r2_key
+        from upload_session_files usf
+        inner join upload_sessions us on us.id = usf.upload_session_id
+        where usf.workspace_id = ${workspaceId}
+          and usf.storage_kind = 'blob'
+          and usf.sha256 is not null
+          and usf.uploaded_at is not null
+          and us.status = 'pending'
+          and us.expires_at > ${now}
+      ) blobs
+    `);
+    return rows;
   },
 
   async deleteUnreferenced(db: DrizzleDb, input: { now: string; limit: number }): Promise<ContentBlob[]> {
@@ -78,7 +112,7 @@ export const contentBlobQueries = {
             and usf.size_bytes = cb_inner.size_bytes
             and usf.storage_kind = 'blob'
             and us.status = 'pending'
-            and us.expires_at > ${new Date(input.now)}
+            and us.expires_at > ${input.now}
         )
         order by cb_inner.updated_at asc
         limit ${input.limit}

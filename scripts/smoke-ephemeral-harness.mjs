@@ -386,6 +386,21 @@ export async function assertClaimRedemption({ apiBaseUrl, memberAuth, memberWork
     body: JSON.stringify({ claim_token: published.claim_token }),
   });
   assertBoundary(repeat.status === 404, "claim", "redeemed claim token fails closed as not_found");
+
+  const claimedArtifact = await fetchJson(`${apiBaseUrl}/v1/web/artifacts/${published.artifact_id}`, {
+    headers: memberAuth,
+    boundary: "claim",
+  });
+  const viewerUrl = claimedArtifact.viewer?.iframe_src;
+  assertBoundary(
+    typeof viewerUrl === "string" && viewerUrl.length > 0,
+    "claim",
+    "claimed artifact exposes viewer content URL",
+  );
+  const viewerResponse = await fetch(viewerUrl);
+  assertBoundary(viewerResponse.status === 200, "claim", `claimed viewer content returned ${viewerResponse.status}`);
+  const viewerHtml = await viewerResponse.text();
+  assertBoundary(viewerHtml.includes("Ephemeral Local Smoke"), "claim", "claimed viewer serves artifact HTML");
 }
 
 export function classifyCliFailure(error) {
