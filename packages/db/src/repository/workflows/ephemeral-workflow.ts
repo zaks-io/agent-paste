@@ -162,6 +162,21 @@ export async function claimEphemeralWorkspace(
   const now = nowIso(input.now);
   const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
   const destinationWorkspaceId = input.actor.workspace_id;
+  const sourceWorkspaceId = claimToken.workspace_id;
+
+  const blobs = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
+    entities.contentBlobs.listForReparent(sourceWorkspaceId, now),
+  );
+  if (blobs.length > 0) {
+    if (!ctx.options.reparentBlobMigrator) {
+      repositoryError("storage_unavailable");
+    }
+    await ctx.options.reparentBlobMigrator.migrate({
+      fromWorkspaceId: sourceWorkspaceId,
+      toWorkspaceId: destinationWorkspaceId,
+      blobs,
+    });
+  }
 
   return ctx.uow.command(
     {
@@ -181,18 +196,6 @@ export async function claimEphemeralWorkspace(
       assertClaimTokenRedeemable(resolvedToken, sourceWorkspace, now);
       if (sourceWorkspace.id === destinationWorkspace.id) {
         repositoryError("not_found");
-      }
-
-      const blobs = await entities.contentBlobs.listForReparent(sourceWorkspace.id);
-      if (blobs.length > 0) {
-        if (!ctx.options.reparentBlobMigrator) {
-          repositoryError("storage_unavailable");
-        }
-        await ctx.options.reparentBlobMigrator.migrate({
-          fromWorkspaceId: sourceWorkspace.id,
-          toWorkspaceId: destinationWorkspace.id,
-          blobs,
-        });
       }
 
       const minArtifactExpiresAt = artifactExpiresAtFromWorkspace(destinationWorkspace, now);

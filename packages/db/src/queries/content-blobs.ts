@@ -40,21 +40,34 @@ export const contentBlobQueries = {
       });
   },
 
-  async listForReparent(db: DrizzleDb, workspaceId: string): Promise<WorkspaceBlobRef[]> {
+  async listForReparent(db: DrizzleDb, workspaceId: string, now: string): Promise<WorkspaceBlobRef[]> {
     const rows = await db.execute<WorkspaceBlobRef>(sql`
       select distinct sha256, size_bytes, r2_key
       from (
-        select sha256, size_bytes, r2_key
-        from artifact_files
-        where workspace_id = ${workspaceId}
-          and storage_kind = 'blob'
-          and sha256 is not null
+        select af.sha256, af.size_bytes, af.r2_key
+        from artifact_files af
+        inner join revisions r
+          on r.workspace_id = af.workspace_id
+         and r.artifact_id = af.artifact_id
+         and r.id = af.revision_id
+        inner join artifacts a
+          on a.workspace_id = af.workspace_id
+         and a.id = af.artifact_id
+        where af.workspace_id = ${workspaceId}
+          and af.storage_kind = 'blob'
+          and af.sha256 is not null
+          and a.status = 'active'
+          and r.status in ('draft', 'published')
         union
-        select sha256, size_bytes, r2_key
-        from upload_session_files
-        where workspace_id = ${workspaceId}
-          and storage_kind = 'blob'
-          and sha256 is not null
+        select usf.sha256, usf.size_bytes, usf.r2_key
+        from upload_session_files usf
+        inner join upload_sessions us on us.id = usf.upload_session_id
+        where usf.workspace_id = ${workspaceId}
+          and usf.storage_kind = 'blob'
+          and usf.sha256 is not null
+          and usf.uploaded_at is not null
+          and us.status = 'pending'
+          and us.expires_at > ${new Date(now)}
       ) blobs
     `);
     return rows;

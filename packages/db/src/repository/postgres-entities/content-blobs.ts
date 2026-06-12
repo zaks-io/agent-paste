@@ -8,6 +8,6 @@ export function postgresContentBlobs(ctx: PostgresContext): Entities["contentBlo
     find: (input) => contentBlobQueries.find(drizzle, input),
     upsert: (blob) => contentBlobQueries.upsert(drizzle, blob),
     deleteUnreferenced: (input) => contentBlobQueries.deleteUnreferenced(drizzle, input),
-    listForReparent: (workspaceId) => contentBlobQueries.listForReparent(drizzle, workspaceId),
+    listForReparent: (workspaceId, now) => contentBlobQueries.listForReparent(drizzle, workspaceId, now),
   };
 }
