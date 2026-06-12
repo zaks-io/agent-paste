@@ -2,6 +2,7 @@ import type { LiveUpdatePointer } from "@agent-paste/contracts";
 import { cn } from "@agent-paste/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AccessLinkBrandBar } from "../components/access-links/AccessLinkBrandBar";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
 
@@ -148,12 +149,8 @@ function AccessLinkViewer() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between border-b border-rule px-6 h-[52px]">
-        <h1 className="text-base font-semibold">{state.title ?? "Shared artifact"}</h1>
-        <span className="text-mono-sm uppercase tracking-wide text-muted">{state.render_mode}</span>
-      </header>
-      <div className="flex-1 grid">
+    <main className="h-screen w-screen overflow-hidden bg-background">
+      <div className="grid h-full">
         {state.iframe_src ? (
           <iframe
             title="Artifact content"
@@ -166,6 +163,7 @@ function AccessLinkViewer() {
           <p className="m-auto text-base text-muted">No preview available.</p>
         )}
       </div>
+      <AccessLinkBrandBar publicId={publicId} renderMode={state.render_mode} title={state.title} />
     </main>
   );
 }

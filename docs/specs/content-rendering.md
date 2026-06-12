@@ -130,11 +130,12 @@ framer, **inline** content responses requested as viewer iframe navigations scop
 `X-Frame-Options` (its origin-blind `DENY` cannot allowlist a single origin, and
 `frame-ancestors` supersedes it in modern browsers):
 
-| `AGENT_PASTE_ENV` | `frame-ancestors`                    |
-| ----------------- | ------------------------------------ |
-| `production`      | `https://app.agent-paste.sh`         |
-| `preview`         | `https://app.preview.agent-paste.sh` |
-| `dev` / unset     | `'none'` (XFO `DENY` retained)       |
+| `AGENT_PASTE_ENV` | `frame-ancestors`                       |
+| ----------------- | --------------------------------------- |
+| `production`      | `https://app.agent-paste.sh`            |
+| `preview`         | `https://app.preview.agent-paste.sh`    |
+| `dev`             | local web origins on `5173` and `18991` |
+| unset             | `'none'` (XFO `DENY` retained)          |
 
 This relaxation applies only to inline-served content requested as a trusted
 viewer iframe navigation. Direct `usercontent` navigations, bundle downloads,
