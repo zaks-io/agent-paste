@@ -35,8 +35,10 @@ describe("secret-routing", () => {
   it("excludes rotation-overlap and optional secrets from required set", () => {
     const required = requiredSecretsForApp("api", "production");
     expect(required).not.toContain("API_KEY_PEPPER_V2");
+    expect(required).not.toContain("ARTIFACT_BYTES_ENCRYPTION_KEY_V2");
     expect(required).not.toContain("CF_ACCESS_AUD");
     expect(required).toContain("API_KEY_PEPPER_V1");
+    expect(secretsForApp("api", "production")).toContain("ARTIFACT_BYTES_ENCRYPTION_KEY_V2");
   });
 
   it("requires WORKOS_API_KEY on every worker that verifies an MCP bearer", () => {

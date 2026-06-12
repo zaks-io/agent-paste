@@ -53,7 +53,10 @@ export async function reparentTenantContent(
       await tx.query(
         `update upload_session_files
          set workspace_id = $1,
-             r2_key = replace(r2_key, $3, $4)
+             r2_key = case
+               when r2_key like $3 || '%' then $4 || substring(r2_key from length($3) + 1)
+               else r2_key
+             end
          where workspace_id = $2
            and storage_kind = 'blob'`,
         [
@@ -73,7 +76,10 @@ export async function reparentTenantContent(
       await tx.query(
         `update artifact_files
          set workspace_id = $1,
-             r2_key = replace(r2_key, $3, $4)
+             r2_key = case
+               when r2_key like $3 || '%' then $4 || substring(r2_key from length($3) + 1)
+               else r2_key
+             end
          where workspace_id = $2
            and storage_kind = 'blob'`,
         [

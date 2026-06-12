@@ -30,6 +30,7 @@ export const SECRET_ROUTING = {
   api: {
     CONTENT_SIGNING_SECRET: { required: true },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
+    ARTIFACT_BYTES_ENCRYPTION_KEY_V2: { required: false }, // rotation overlap window (ADR 0045)
     API_KEY_PEPPER_V1: { required: true },
     API_KEY_PEPPER_V2: { required: false }, // rotation overlap window (ADR 0045)
     ACCESS_LINK_SIGNING_KEY_V1: { required: true }, // signs Share/Revision Link URLs (ADR 0047); mint 503s without it

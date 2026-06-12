@@ -40,6 +40,7 @@ export const VERSIONED_SECRET_PROFILES = {
     secondarySecretName: "ARTIFACT_BYTES_ENCRYPTION_KEY_V2",
     kidVarName: "ARTIFACT_BYTES_ENCRYPTION_KID",
     bindings: [
+      { app: "api", worker: "agent-paste-api" },
       { app: "upload", worker: "agent-paste-upload" },
       { app: "content", worker: "agent-paste-content" },
       { app: "jobs", worker: "agent-paste-jobs" },
