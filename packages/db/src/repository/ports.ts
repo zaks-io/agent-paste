@@ -64,6 +64,7 @@ export type Entities = {
     find(input: { workspaceId: string; sha256: string; sizeBytes: number }): Promise<ContentBlob | null>;
     upsert(blob: ContentBlob): Promise<void>;
     deleteUnreferenced(input: { now: string; limit: number }): Promise<ContentBlob[]>;
+    listForReparent(workspaceId: string): Promise<Array<{ sha256: string; size_bytes: number; r2_key: string }>>;
   };
   members: {
     insert(member: WorkspaceMember): Promise<void>;

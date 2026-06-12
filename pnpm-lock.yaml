@@ -275,6 +275,9 @@ importers:
         specifier: ^4.12.21
         version: 4.12.21
     devDependencies:
+      '@agent-paste/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

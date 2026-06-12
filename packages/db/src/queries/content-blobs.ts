@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { contentBlobs } from "../schema.js";
 import type { ContentBlob } from "../types.js";
+import type { WorkspaceBlobRef } from "./reparent-blobs.js";
 
 export const contentBlobQueries = {
   async find(
@@ -37,6 +38,26 @@ export const contentBlobQueries = {
         target: [contentBlobs.workspaceId, contentBlobs.sha256, contentBlobs.sizeBytes],
         set: { r2Key: blob.r2_key, updatedAt: new Date(blob.updated_at) },
       });
+  },
+
+  async listForReparent(db: DrizzleDb, workspaceId: string): Promise<WorkspaceBlobRef[]> {
+    const rows = await db.execute<WorkspaceBlobRef>(sql`
+      select distinct sha256, size_bytes, r2_key
+      from (
+        select sha256, size_bytes, r2_key
+        from artifact_files
+        where workspace_id = ${workspaceId}
+          and storage_kind = 'blob'
+          and sha256 is not null
+        union
+        select sha256, size_bytes, r2_key
+        from upload_session_files
+        where workspace_id = ${workspaceId}
+          and storage_kind = 'blob'
+          and sha256 is not null
+      ) blobs
+    `);
+    return rows;
   },
 
   async deleteUnreferenced(db: DrizzleDb, input: { now: string; limit: number }): Promise<ContentBlob[]> {

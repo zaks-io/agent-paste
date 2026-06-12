@@ -30,6 +30,12 @@ export {
   type WorkspaceBlobObjectKeyParts,
   workspaceBlobObjectKeyFor,
 } from "./artifact-bytes-encryption.js";
+export {
+  destWorkspaceBlobKey,
+  migrateWorkspaceBlobForReparent,
+  migrateWorkspaceBlobsForReparent,
+  type WorkspaceBlobRef,
+} from "./reparent-workspace-blobs.js";
 
 export const MIME_TYPES_BY_EXTENSION = {
   ".css": "text/css; charset=utf-8",

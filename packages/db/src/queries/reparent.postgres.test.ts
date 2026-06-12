@@ -123,6 +123,8 @@ describe("reparentTenantContent", () => {
         size_bytes bigint not null,
         served_content_type text not null,
         r2_key text not null,
+        sha256 text,
+        storage_kind text not null default 'revision',
         uploaded_at timestamptz,
         put_url_expires_at timestamptz not null,
         primary key (upload_session_id, path)
@@ -135,8 +137,19 @@ describe("reparentTenantContent", () => {
         size_bytes bigint not null,
         served_content_type text not null,
         r2_key text not null,
+        sha256 text,
+        storage_kind text not null default 'revision',
         uploaded_at timestamptz,
         primary key (artifact_id, revision_id, path)
+      );
+      create table content_blobs (
+        workspace_id uuid not null references workspaces(id),
+        sha256 text not null,
+        size_bytes bigint not null,
+        r2_key text not null,
+        created_at timestamptz not null,
+        updated_at timestamptz not null,
+        primary key (workspace_id, sha256, size_bytes)
       );
     `);
     const now = "2026-01-01T00:00:00.000Z";

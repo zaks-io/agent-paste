@@ -405,6 +405,41 @@ describe("serve-object object keys", () => {
     expect(response.status).toBe(404);
     expect(get).not.toHaveBeenCalled();
   });
+
+  it("serves destination workspace blob keys minted after claim reparent", async () => {
+    const claimedWorkspaceId = "33333333-3333-3333-3333-333333333333";
+    const blobKey = workspaceBlobObjectKeyFor({ workspaceId: claimedWorkspaceId, sha256: HELLO_SHA256 });
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("hello"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: { kind: "blob", workspaceId: claimedWorkspaceId, sha256: HELLO_SHA256 },
+    });
+    const get = vi.fn(async (key: string) => {
+      expect(key).toBe(blobKey);
+      return {
+        body: new Blob([encrypted.ciphertext]).stream(),
+        size: encrypted.ciphertext.byteLength,
+        customMetadata: encrypted.customMetadata,
+      };
+    });
+    const response = await objectServingApp(
+      basePayload({
+        workspace_id: claimedWorkspaceId,
+        paths: ["index.html"],
+        object_keys: { "index.html": blobKey },
+        script_disabled: false,
+      }),
+    ).fetch(new Request("https://content.test/file"), {
+      CONTENT_SIGNING_SECRET: "secret",
+      ...artifactBytesEncryptionEnv,
+      DENYLIST: { get: async () => null },
+      ARTIFACTS: { get },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("hello");
+  });
 });
 
 describe("serve-object conditional responses", () => {

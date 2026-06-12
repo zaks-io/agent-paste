@@ -7,7 +7,7 @@ import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
 import uploadWorker from "../apps/upload/dist/index.js";
-import { createLocalServices, createPostgresServices } from "../packages/db/dist/index.js";
+import { createLocalServices, createPostgresServices, reparentBlobMigratorFromEnv } from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
@@ -264,19 +264,25 @@ function createApiDatabase(repo) {
 
 const databaseBackend = databaseBackendFromEnv();
 const postgresBinding = databaseBackend === "postgres" ? postgresBindingFromEnv() : null;
+const artifacts = new MemoryR2Bucket();
+const reparentBlobMigrator = reparentBlobMigratorFromEnv({
+  ARTIFACTS: artifacts,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
+});
 const services = postgresBinding
   ? createPostgresServices({
       binding: postgresBinding,
       apiKeyPepper,
       apiBaseUrl,
       contentBaseUrl,
+      reparentBlobMigrator,
     })
   : createLocalServices({
       apiKeyPepper,
       apiBaseUrl,
       contentBaseUrl,
+      reparentBlobMigrator,
     });
-const artifacts = new MemoryR2Bucket();
 const denylist = new MemoryKVNamespace();
 const cliRelease = new MemoryKVNamespace();
 const ephemeralProvisionConfig = new MemoryKVNamespace();

@@ -183,6 +183,15 @@ export async function claimEphemeralWorkspace(
         repositoryError("not_found");
       }
 
+      const blobs = await entities.contentBlobs.listForReparent(sourceWorkspace.id);
+      if (blobs.length > 0 && ctx.options.reparentBlobMigrator) {
+        await ctx.options.reparentBlobMigrator.migrate({
+          fromWorkspaceId: sourceWorkspace.id,
+          toWorkspaceId: destinationWorkspace.id,
+          blobs,
+        });
+      }
+
       const minArtifactExpiresAt = artifactExpiresAtFromWorkspace(destinationWorkspace, now);
       const artifactIds = await entities.artifacts.reparentWorkspace(
         sourceWorkspace.id,

@@ -1,6 +1,28 @@
 import { EPHEMERAL_AUTO_DELETION_DAYS, SECONDS_PER_DAY } from "@agent-paste/config";
+import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
+import { reparentBlobMigratorFromEnv } from "../../postgres/reparent-blob-migrator.js";
+
+const ROOT_SECRET = "test-artifact-bytes-root-secret-32chars";
+const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+function memoryArtifactsBucket() {
+  const objects = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>();
+  return {
+    objects,
+    async head(key: string) {
+      return objects.has(key) ? { customMetadata: objects.get(key)?.customMetadata } : null;
+    },
+    async get(key: string) {
+      const object = objects.get(key);
+      return object ? { body: object.bytes, customMetadata: object.customMetadata } : null;
+    },
+    async put(key: string, value: Uint8Array, options?: { customMetadata?: Record<string, string> }) {
+      objects.set(key, { bytes: value, customMetadata: options?.customMetadata });
+    },
+  };
+}
 
 describe("claimEphemeralWorkspace", () => {
   it("reparents ephemeral artifacts into the member workspace and marks the token redeemed", async () => {
@@ -109,6 +131,85 @@ describe("claimEphemeralWorkspace", () => {
         now: new Date("2099-06-01T15:00:00.000Z"),
       }),
     ).rejects.toThrow("not_found");
+  });
+
+  it("remaps blob object keys and copies bytes into the destination workspace prefix", async () => {
+    const artifacts = memoryArtifactsBucket();
+    const reparentBlobMigrator = reparentBlobMigratorFromEnv({
+      ARTIFACTS: artifacts,
+      ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
+    });
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-claim-blobs",
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const actor = {
+      type: "api_key" as const,
+      id: provisioned.api_key.id,
+      workspace_id: provisioned.workspace.id,
+      scopes: ["write", "read"] as const,
+    };
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "claim-blob-upload",
+      request: {
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 5, sha256: HELLO_SHA256 }],
+      },
+      now: "2099-06-01T00:00:00.000Z",
+    });
+    const uploadedFile = session.files[0];
+    if (!uploadedFile) {
+      throw new Error("expected_upload_file");
+    }
+    const sourceKey = uploadedFile.object_key;
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("hello"),
+      rootSecret: ROOT_SECRET,
+      kid: 1,
+      context: { kind: "blob", workspaceId: provisioned.workspace.id, sha256: HELLO_SHA256 },
+    });
+    await artifacts.put(sourceKey, encrypted.ciphertext, { customMetadata: encrypted.customMetadata });
+    await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "claim-blob-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: sourceKey, sizeBytes: 5 }],
+      now: "2099-06-01T00:00:01.000Z",
+    });
+    await repo.publishRevision({
+      actor,
+      artifactId: session.artifact_id,
+      revisionId: session.revision_id,
+      idempotencyKey: "claim-blob-publish",
+      now: "2099-06-01T12:00:00.000Z",
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_blob",
+      email: "user_claim_blob@example.test",
+      idempotencyKey: "claim-blob-member",
+      now: "2099-06-01T13:00:00.000Z",
+    });
+    await repo.claimEphemeralWorkspace({
+      actor: {
+        type: "member",
+        id: member.workspace_member.id,
+        workspace_id: member.workspace.id,
+        email: member.workspace_member.email,
+        scopes: member.scopes,
+      },
+      claimTokenSecret: provisioned.claim_token_secret,
+      idempotencyKey: "claim-blob-once",
+      now: new Date("2099-06-01T14:00:00.000Z"),
+    });
+
+    const localRepo = repo as LocalRepository;
+    const claimedFile = [...localRepo.artifactFiles.values()].find((file) => file.path === "index.html");
+    const destKey = workspaceBlobObjectKeyFor({ workspaceId: member.workspace.id, sha256: HELLO_SHA256 });
+    expect(claimedFile?.r2_key).toBe(destKey);
+    expect(artifacts.objects.has(destKey)).toBe(true);
+    expect(localRepo.contentBlobs.get(`${member.workspace.id}:${HELLO_SHA256}:5`)?.r2_key).toBe(destKey);
   });
 
   it("replays a successful claim command by idempotency key", async () => {

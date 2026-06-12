@@ -30,7 +30,38 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
       }
       return deleted;
     },
+    async listForReparent(workspaceId) {
+      const blobs = new Map<string, { sha256: string; size_bytes: number; r2_key: string }>();
+      for (const file of state.artifactFiles.values()) {
+        collectReparentBlob(blobs, file, workspaceId);
+      }
+      for (const file of state.uploadSessionFiles.values()) {
+        collectReparentBlob(blobs, file, workspaceId);
+      }
+      return [...blobs.values()];
+    },
   };
+}
+
+function collectReparentBlob(
+  blobs: Map<string, { sha256: string; size_bytes: number; r2_key: string }>,
+  file: {
+    workspace_id: string;
+    sha256?: string | null;
+    size_bytes: number;
+    r2_key: string;
+    storage_kind?: string;
+  },
+  workspaceId: string,
+) {
+  if (file.workspace_id !== workspaceId || file.storage_kind !== "blob" || !file.sha256) {
+    return;
+  }
+  blobs.set(`${file.sha256}:${file.size_bytes}`, {
+    sha256: file.sha256,
+    size_bytes: file.size_bytes,
+    r2_key: file.r2_key,
+  });
 }
 
 function isBlobReferenced(
