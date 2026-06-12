@@ -6,39 +6,48 @@
 [![npm](https://img.shields.io/npm/v/@zaks-io/agent-paste?label=npm)](https://www.npmjs.com/package/@zaks-io/agent-paste)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-**Where agents publish.**
+**Where agents publish.** Your agent built it. Open it anywhere.
 
-When your coding agent builds an HTML report or page, agent-paste turns it into an Artifact you can open and share. No deploy, no repo, no bucket.
+Your coding agent just generated a report, a chart, a small HTML app. agent-paste
+turns that file or folder into a hosted **Artifact** with a URL you can open and
+share. No deploy, no repo, no bucket.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# -> authenticated app viewer URL
+# -> https://app.agent-paste.sh/artifacts/art_01H...
 ```
 
 It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI),
-and over MCP from a web chat that has none (ChatGPT, Claude, Gemini). Publish a
-file or folder and get back an **Artifact** plus an authenticated app viewer URL,
-an **Agent View** manifest for tools, and lifecycle controls so generated work
-does not live forever by accident. Public sharing is explicit.
+and over MCP from web chats that have none (ChatGPT, Claude, Gemini). The hosted
+service is operated by Zaks.io, LLC. The source is Apache-2.0.
 
-The hosted service is operated by Zaks.io, LLC. The source is Apache-2.0.
+## How It Works
+
+The core loop is intentionally small:
+
+```text
+agent creates something -> publish -> human opens URL -> agent reads Agent View -> Artifact expires later
+```
+
+Every publish gives you:
+
+- An **Artifact**: the published unit, revisable in place as the agent iterates.
+- A **View URL** for humans: authenticated app navigation into the Artifact Viewer.
+- An **Agent View**: a machine-readable manifest so tools can read what was published.
+- **Lifecycle controls**: Workspace Auto Deletion policy, so generated work does
+  not live forever by accident.
+
+Nothing is public unless you make it public. Content is served from an isolated
+Content Origin with signed URLs, and a public Share Link is minted only when you
+explicitly create one.
 
 ## Quick Start
 
-Agents should check for an existing login before using the accountless path:
+Sign in once, then publish:
 
 ```sh
-npx @zaks-io/agent-paste whoami
-# if that succeeds:
+npx @zaks-io/agent-paste login
 npx @zaks-io/agent-paste publish ./report
-```
-
-If there is no login or `AGENT_PASTE_API_KEY`, publish non-interactive work
-such as text, markdown, images, or static HTML/CSS with the restricted
-ephemeral path:
-
-```sh
-npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
 Expected output:
@@ -47,48 +56,38 @@ Expected output:
 ✓ Published "report"
 
   View      https://app.agent-paste.sh/artifacts/art_01H...
-  Expires   2026-06-20
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
   → open https://app.agent-paste.sh/artifacts/art_01H...
-
-Open the claim link in a browser while signed in.
-  Claim    https://app.agent-paste.sh/claim#ap_ct_...
 ```
 
-For authenticated use, sign in once:
-
-```sh
-npx @zaks-io/agent-paste login
-npx @zaks-io/agent-paste publish ./report
-```
-
-Add `--share` only when you intentionally want a public/shareable Share Link:
+Want a public, shareable link? That is explicit:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --share
 ```
 
-Need interactivity or JavaScript? Use authenticated publish, not `--ephemeral`.
-Unclaimed ephemeral HTML is served under a script-disabled policy. Text,
-markdown, images, and static pages are fine; browser apps and interactive
-visualizations should use authenticated publish so they run inside the
-controlled Artifact Viewer. Ephemeral is not the Free Plan; it is an unclaimed
-restricted tier.
+### No login, no human in the loop
 
-The human-facing URL model is:
+Unattended agents can publish text, markdown, images, or static HTML/CSS with
+the restricted ephemeral path -- no account needed:
 
-```text
-Artifact URL          https://app.agent-paste.sh/artifacts/{artifact_id}
-Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
-Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
+```sh
+npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
-The Artifact URL is authenticated Workspace app navigation and is the default
-`View` URL after publish. An Access Link Signed URL is a public/shareable URL
-minted only when a Share Link or Revision Link is explicitly created. The
-Revision Content URL is exact signed byte delivery for one Revision; direct
-`usercontent` HTML is inert and should not be presented as the live page.
+The output includes a claim link; open it in a browser while signed in to pull
+the work into your Workspace. Two rules keep this path safe:
+
+- **Check before falling back.** Run `whoami --json` first -- `whoami` exits
+  `0` even when signed out, so the exit code tells you nothing. Check the JSON:
+  `{"authenticated": false}` means no usable credential; a signed-in response
+  carries the resolved Workspace, actor, and scopes instead. If signed in,
+  publish normally.
+- **No JavaScript.** Unclaimed ephemeral HTML is served under a script-disabled
+  policy. Static pages are fine; browser apps and interactive visualizations
+  need authenticated publish, which runs them inside the controlled Artifact
+  Viewer.
 
 The npm package is [`@zaks-io/agent-paste`](./apps/cli/README.md). The installed
 command is `agent-paste`. Standalone macOS, Linux, and Windows installers are
@@ -112,32 +111,38 @@ Read [`docs/mcp.md`](./docs/mcp.md) for the practical MCP guide, or
 [`docs/ops/runbook-mcp-hosts.md`](./docs/ops/runbook-mcp-hosts.md) for host
 onboarding and smoke verification.
 
-## Use Cases
+## URLs And Sharing
 
-The canonical use-case matrix lives in
-[`docs/specs/use-cases.md`](./docs/specs/use-cases.md).
-
-At a glance, agent-paste is for publishing one generated asset, opening remote
-agent output anywhere, publishing from MCP hosts without CLI access, watching an
-agent iterate, handing work from one tool to another, sharing one-off artifacts,
-and running unattended with `--ephemeral`.
-
-The core loop is intentionally small:
+Three URL shapes, three jobs:
 
 ```text
-agent creates something -> publish -> human opens URL -> agent reads Agent View -> Artifact expires later
+Artifact URL           https://app.agent-paste.sh/artifacts/{artifact_id}
+Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
+Revision Content URL   https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-## What It Does
+The Artifact URL is authenticated Workspace app navigation and is the default
+`View` URL after publish. An Access Link Signed URL is the public/shareable URL,
+minted only when a Share Link or Revision Link is explicitly created. The
+Revision Content URL is exact signed byte delivery for one Revision; direct
+`usercontent` HTML is inert and should not be presented as the live page.
 
-- Publishes a file or folder as an **Artifact**.
-- Returns an authenticated app viewer URL and exposes machine-readable Agent View for tools.
-- Supports accountless ephemeral publish for agents with no human in the loop.
-- Lets signed-in users claim ephemeral work into a Workspace.
-- Supports explicit Access Link Signed URLs for public access to Artifact Viewers.
-- Serves generated content from an isolated Content Origin with signed URLs.
-- Uses Workspace policy for Auto Deletion and retention.
-- Provides CLI, REST, MCP, dashboard, and agent-readable docs surfaces.
+## Use Cases
+
+Publishing one generated asset, opening remote agent output anywhere, publishing
+from MCP hosts without CLI access, watching an agent iterate, handing work from
+one tool to another, sharing one-off artifacts, and running unattended with
+`--ephemeral`. The canonical use-case matrix lives in
+[`docs/specs/use-cases.md`](./docs/specs/use-cases.md).
+
+## For Agents
+
+Agents are first-class readers of the project:
+
+- [`/agents.md`](https://agent-paste.sh/agents.md): compact operating guide for agents.
+- [`/llms.txt`](https://agent-paste.sh/llms.txt): short machine-readable summary.
+- [`/llms-full.txt`](https://agent-paste.sh/llms-full.txt): full public docs corpus.
+- [`https://mcp.agent-paste.sh`](https://mcp.agent-paste.sh): hosted OAuth-only MCP surface for agents without CLI access.
 
 ## Choose Your Path
 
@@ -152,15 +157,6 @@ agent creates something -> publish -> human opens URL -> agent reads Agent View 
 | Check current project status | [`docs/ops/project-status.md`](./docs/ops/project-status.md)                                   |
 | Orient an agent              | [`AGENTS.md`](./AGENTS.md)                                                                     |
 | Report a vulnerability       | [`SECURITY.md`](./SECURITY.md)                                                                 |
-
-## For Agents
-
-Agents are first-class readers of the project:
-
-- [`/agents.md`](https://agent-paste.sh/agents.md): compact operating guide for agents.
-- [`/llms.txt`](https://agent-paste.sh/llms.txt): short machine-readable summary.
-- [`/llms-full.txt`](https://agent-paste.sh/llms-full.txt): full public docs corpus.
-- [`https://mcp.agent-paste.sh`](https://mcp.agent-paste.sh): hosted OAuth-only MCP surface for agents without CLI access.
 
 ## Project Status
 
