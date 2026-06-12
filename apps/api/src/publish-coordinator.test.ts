@@ -70,7 +70,8 @@ function publishedResult(overrides: Record<string, unknown> = {}) {
     title: "Demo",
     entrypoint: "index.html",
     render_mode: "markdown",
-    revision_content_url: "https://usercontent.test/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9.rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/index.html",
+    revision_content_url:
+      "https://usercontent.test/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9.rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/index.html",
     expires_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
