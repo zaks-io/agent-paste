@@ -31,8 +31,13 @@ they did before (an emerald-teal landing page in front of a violet app).
 
 The brand mark and font woff2 are served as static files, so each app keeps a physical
 copy in its own `public/` dir (the worker's `assets.directory`, Vite's `public/`). This
-package holds the canonical filenames (`BRAND_MARK`, `FONTS.*.file`), not the bytes.
-The brand-mark PNG and favicons are never edited.
+package holds the canonical filenames (`BRAND_MARK`, `BRAND_MARK_DARK`,
+`BRAND_MARK_LIGHT`, `FONTS.*.file`), not the bytes. The dark and light brand mark
+PNGs are transparent-background renders from their matching SVG sources.
+`brand-mark.png` is the dark default used by the app today.
+
+When the brand-mark PNGs, SVGs, or favicons change, update both app copies
+together and keep the mark visually identical across surfaces.
 
 ## Discipline
 

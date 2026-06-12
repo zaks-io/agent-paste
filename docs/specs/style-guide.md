@@ -599,7 +599,7 @@ The canonical wordmark is **`agent-paste.sh`**, set in the display face (Cabinet
 - the **hyphen** between them in `--accent` (the one place the wordmark carries voltage).
 - the `.sh` TLD in `--subtle`, weight 600.
 
-Optionally preceded by the brand mark (`brand-mark.png`) at the same height with a `--radius-sm` (3px) corner and **no ring, no shadow**. The mark is identical on both surfaces — apex (`apps/apex/src/components/chrome.tsx` + the `.wordmark*` rules in `styles.ts`) and web (`apps/web/src/components/chrome/Wordmark.tsx`). Keep them byte-for-byte in intent so they cannot drift; the web component's header comment points back here.
+Optionally preceded by the brand mark (`brand-mark.png`) at the same height with a `--radius-sm` (3px) corner and **no ring, no shadow**. `brand-mark.png` is the dark default; named variants (`brand-mark-dark.png`, `brand-mark-light.png`) are transparent-background renders from the matching SVG sources. The mark is identical on both surfaces — apex (`apps/apex/src/components/chrome.tsx` + the `.wordmark*` rules in `styles.ts`) and web (`apps/web/src/components/chrome/Wordmark.tsx`). Keep them byte-for-byte in intent so they cannot drift; the web component's header comment points back here.
 
 **The slash is not part of the mark.** A `/` only ever appears as a breadcrumb separator in chrome — between the wordmark and the current **Workspace** name in the dashboard topbar. It is path syntax, not branding. Do not render `agent/paste`.
 
