@@ -18,7 +18,7 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 | `/dashboard`              | dashboard member | Workspace overview.                                                                                 |
 | `/artifacts`              | dashboard member | Artifact list.                                                                                      |
 | `/artifacts/{artifactId}` | dashboard member | Authenticated Artifact detail and management: revisions, links, warnings, bundle state.             |
-| `/keys`                   | dashboard member | API Key list and creation flow.                                                                     |
+| `/keys`                   | dashboard member | Credential list, reveal-once creation flow, and revocation.                                         |
 | `/audit`                  | dashboard member | Audit Event list.                                                                                   |
 | `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                           |
 | `/admin`                  | operator         | Operator-only dashboard.                                                                            |
@@ -44,7 +44,7 @@ The browser-facing login flow follows WorkOS AuthKit Authorization Code Flow wit
 - Calls `POST /v1/auth/web/callback` on `api` over the `web -> api` Service Binding with the WorkOS access token as `Authorization`.
 - Stores the AuthKit-owned sealed session in `__agp_session`.
 
-No token, authorization code, PKCE verifier, state, or one-time API Key secret may be logged.
+No token, authorization code, PKCE verifier, state, or one-time credential secret may be logged.
 
 On every authed request, `api` verifies the forwarded WorkOS access token and resolves the caller's identity. The dashboard client's WorkOS JWT Template emits a `zaks-io:email` claim, so `api` reads the email straight from the verified token (the `sub` is the authoritative user id) and does **not** call the WorkOS user API. CLI and MCP tokens have no such template and fall back to `GET /user_management/users/{id}`. Member `scopes` (in-workspace authorization) always come from the database, never the token; operator status comes from the WorkOS `role` claim. See [ADR 0082](../adr/0082-identity-in-token-authorization-in-db.md). The residual ~1–2.7s sometimes seen on low-traffic authed routes is cold isolate + cold Hyperdrive connection warmup (it disappears under continuous traffic), not the auth path.
 
@@ -54,14 +54,14 @@ Lockdown set, and Access Link Lockdown lift - require the current API-side
 representation of the share capability: the member `admin` scope resolved from
 the database, not WorkOS token text.
 
-After first provisioning, `POST /v1/auth/web/callback` receives the default API Key plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
+After first provisioning, `POST /v1/auth/web/callback` receives the default credential plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 
 The first-run card includes:
 
-- Key name.
-- API Key secret in a mono field with copy button.
+- Credential name.
+- Credential secret in a mono field with copy button.
 - Dismiss button.
-- Warning that lost keys must be replaced, not recovered.
+- Warning that lost credentials must be replaced, not recovered.
 
 ## Dashboard Pages
 
@@ -71,7 +71,7 @@ The first-run card includes:
 - Usage policy summary.
 - Recent Artifacts.
 - Recent Audit Events.
-- Default API Key callout only when first-run state exists.
+- Default credential callout only when first-run state exists.
 
 ### `/artifacts`
 
@@ -88,7 +88,7 @@ Columns:
 - Auto Delete At.
 - Actions menu.
 
-Empty state offers CLI publish command and API Key link.
+Empty state offers CLI publish command and a credential-management link.
 
 ### `/artifacts/{artifactId}`
 
@@ -120,7 +120,7 @@ List columns:
 Create form:
 
 - Name.
-- Scope selection is not exposed in the MVP. Dashboard-created keys use the API-key scope vocabulary and are minted with `publish` and `read`, matching first-run and CLI-minted keys.
+- Scope selection is not exposed in the MVP. Dashboard-created credentials use the CLI credential scope vocabulary and are created with `publish` and `read`, matching first-run and CLI-created credentials.
 - The MCP OAuth consent vocabulary (`write`, `read`, `share`) is not shown on `/keys`; it applies only to MCP-issued tokens.
 - Optional expiration.
 - One-time secret result card.
@@ -179,4 +179,4 @@ MVP operator actions:
 - Browse cross-workspace audit and operation events with filters (`focus`, workspace, actor type, action, target type, request id).
 - Follow the abuse triage guide on `/admin` (suggested reason codes, security-event filters, and lockdown prefill from event rows).
 
-API Keys are rejected on operator routes before scope checks.
+CLI and dashboard credentials are rejected on operator routes before scope checks.

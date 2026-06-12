@@ -1,11 +1,15 @@
 # Agent Config
 
-Last updated: 2026-06-09
+Last updated: 2026-06-12
 
-Last verification (2026-06-09, refresh): deploy command table + CodeRabbit mode
+Last verification (2026-06-12, docs refresh): project status and agent-facing
+publish guidance re-checked against `docs/ops/project-status.md`, `AGENTS.md`,
+the public CLI/MCP docs, and repo config. Agents should use the CLI when they can
+run commands and MCP when hosted tools cannot run the CLI; do not recommend any
+other publish surface for agent workflows. Deploy command table + CodeRabbit mode
 (incl. `@coderabbitai ignore` opt-out policy for trivial PRs) re-verified against
-live repo. Evidence: `package.json` scripts (`deploy:preview`/
-`deploy:production` now `node scripts/deploy.mjs <target>`, migrate decoupled),
+live repo on 2026-06-09. Evidence: `package.json` scripts (`deploy:preview`/
+`deploy:production` use `node scripts/deploy.mjs <target>`, migrate decoupled),
 `turbo.json` (`deploy:preview`/`deploy:production` tasks present), `.coderabbit.yaml`
 (`auto_review.enabled: true`), Linear read-only `list_issues team="Agent Paste"`
 (team `64852379-2e05-41f5-af59-275b68be78ae`, project `agent-paste Roadmap`
@@ -172,11 +176,14 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Local: self-contained in-memory MVP harness (`scripts/local-mvp-server.mjs`),
   mocked R2/KV, PGlite for tests; no Docker/Postgres needed for the quick path
 - Local commands: `pnpm dev:all`, `pnpm cli:dev …`, `pnpm smoke:local`
+- Agent publish surfaces: CLI first (`agent-paste whoami`, `agent-paste login`,
+  `agent-paste publish <path>`); MCP when a hosted agent cannot run the CLI.
+  Do not recommend any other publish surface for agent workflows.
 - Local Postgres path: `pnpm smoke:ci:postgres` runs migrations against a
   job-local Postgres container and exercises the local smoke through `app_role`
   and RLS
-- Local services: API :8787, Upload :8788, Content :8789; admin token
-  `local-admin-token`
+- Local services: API :8787, Upload :8788, Content :8789, Jobs/Stream as printed
+  by `pnpm dev:all`; the legacy local admin-token flow is retired.
 - Development: may use cloud backing services while the app runs locally
 - Development backing services: Cloudflare R2/KV, Neon Postgres (see
   `agent-paste-neon-postgres` skill)
@@ -193,9 +200,6 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 
 ## Unknowns
 
-- [ ] `docs/agents/triage-labels.md` documents only the 5 readiness labels but
-      Linear also has `risk-*` and the `Type` group; the repo doc is stale.
-      Backfill it (out of scope for this config).
 - [ ] `Triage` / `Backlog` Linear states are not documented in
       `docs/agents/workflow.md`; confirm whether they exist in the AP team or
       whether `Todo` is the sole pre-active state.

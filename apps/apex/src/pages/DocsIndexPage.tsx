@@ -3,7 +3,7 @@ import { PageHeader } from "../components/marketing";
 import { DOCS_PAGES, docsHtmlPath } from "../docs/registry";
 
 const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, REST, MCP, limits, and safety.";
+  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, MCP, limits, and safety.";
 
 export function DocsIndexPage() {
   return (

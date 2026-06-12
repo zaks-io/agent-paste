@@ -211,13 +211,13 @@ Test both themes. Use the Chrome DevTools contrast checker on every text/backgro
 
 ### 3.4 Status hues at a glance
 
-| State       | Token           | When                                                                      |
-| ----------- | --------------- | ------------------------------------------------------------------------- |
-| Default     | `--foreground`  | Everything not below                                                      |
-| Success     | `--success`     | **Publish** succeeded, **Bundle** ready, **API Key** created              |
-| Warning     | `--warning`     | **Safety Warning** present, **Auto Deletion** approaching, quota near cap |
-| Destructive | `--destructive` | **Deletion**, **API Key Revocation**, **Access Link Lockdown** active     |
-| Info        | `--info`        | **Draft Revision** waiting, **Upload Session** in progress                |
+| State       | Token           | When                                                                           |
+| ----------- | --------------- | ------------------------------------------------------------------------------ |
+| Default     | `--foreground`  | Everything not below                                                           |
+| Success     | `--success`     | **Publish** succeeded, **Bundle** ready, **Agent Credential** created          |
+| Warning     | `--warning`     | **Safety Warning** present, **Auto Deletion** approaching, quota near cap      |
+| Destructive | `--destructive` | **Deletion**, **Agent Credential Revocation**, **Access Link Lockdown** active |
+| Info        | `--info`        | **Draft Revision** waiting, **Upload Session** in progress                     |
 
 ---
 
@@ -344,11 +344,11 @@ color: hsl(var(--foreground));
 
 **Labels** are always above the input — never floating, never placeholder-as-label. Helper text sits beneath, separated by `--space-1`.
 
-**Monospaced inputs** (Artifact ID, API Key prefix, idempotency key) set `font-family: var(--font-mono)` and `font-size: 13px`.
+**Monospaced inputs** (Artifact ID, credential prefix, idempotency key) set `font-family: var(--font-mono)` and `font-size: 13px`.
 
 ### 5.3 Table
 
-Tables are how a workspace member reads their **Artifacts**, **Audit Events**, and **API Keys**. They are a first-class component, not a styled `<div>`.
+Tables are how a workspace member reads their **Artifacts**, **Audit Events**, and **Agent Credentials**. They are a first-class component, not a styled `<div>`.
 
 ```css
 table {
@@ -492,7 +492,7 @@ Empty states are typography moments. A short heading, one body sentence, and one
 [--text-h2]    No Artifacts yet.
 [--text-body]  Publish your first one from the CLI:
 [code]         npx @zaks-io/agent-paste publish ./report
-[primary btn]  Create an API Key
+[primary btn]  Create Credential
 ```
 
 Center the block vertically with `place-items: center` and a `max-width: 48ch`.
@@ -505,7 +505,7 @@ Top-right, fixed, `--surface` background with `--shadow-overlay`. Width 360px. A
 
 Centered overlay at ≥ 768px, full-height bottom sheet on mobile. Backdrop is `hsl(0 0% 0% / 0.55)` (a touch lighter in light mode). Modal uses `--radius-md`, `--shadow-overlay`, and a top header with title (`--text-h3`) and close affordance. The modal is the one card-like surface that earns a shadow, because it genuinely floats.
 
-Trap focus inside the modal. Restore focus to the trigger on close. Close on `Escape` and backdrop click only when the modal is non-destructive — destructive confirms (e.g. **Deletion**, **API Key Revocation**) require an explicit cancel.
+Trap focus inside the modal. Restore focus to the trigger on close. Close on `Escape` and backdrop click only when the modal is non-destructive — destructive confirms (e.g. **Deletion**, **Agent Credential Revocation**) require an explicit cancel.
 
 ### 5.10 Skeleton
 
@@ -559,7 +559,7 @@ This is the one element that gets disproportionate design attention. The product
 
 **Long IDs** (e.g. `art_01HZ8K2X9NPQR3VW7TYBE5MCDF`) display the first 6 + last 4 characters by default with `…` between, and reveal the full string on hover via a `title` and on focus via an inline expansion. Copy always copies the full value.
 
-This pattern applies to: **Artifact** IDs, **Revision** IDs, **API Key** prefixes, **Access Link** tokens, idempotency keys, and any other opaque identifier.
+This pattern applies to: **Artifact** IDs, **Revision** IDs, credential prefixes, **Access Link** tokens, idempotency keys, and any other opaque identifier.
 
 ---
 
@@ -577,7 +577,7 @@ Domain mapping (lock these so future agents don't drift):
 | **Revision**             | `git-commit-horizontal` |
 | **Workspace**            | `building-2`            |
 | **Workspace Member**     | `user-round`            |
-| **API Key**              | `key-round`             |
+| **Agent Credential**     | `key-round`             |
 | **Access Link**          | `link`                  |
 | **Share Link**           | `share-2`               |
 | **Private Link**         | `lock`                  |
@@ -674,7 +674,7 @@ Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It share
 
 ### 8.2 Dashboard (`apps/web`, `/app/*`)
 
-Two-pane: a sidebar + main pane. Sidebar groups: **Overview**, **Artifacts**, **Access Links**, **API Keys**, **Audit Log**, **Workspace**, **Billing**.
+Two-pane: a sidebar + main pane. Sidebar groups: **Overview**, **Artifacts**, **Access Links**, **Credentials**, **Audit Log**, **Workspace**, **Billing**.
 
 Each main view opens with a `PageHeader`: page title (`--text-h1`) on the left, primary action on the right, one-line `--text-sm --muted` description below the title. Tables fill the remaining viewport; empty states follow §5.7. Detail views use a two-column layout: main content beside a metadata rail of key/value rows in `--text-sm`.
 

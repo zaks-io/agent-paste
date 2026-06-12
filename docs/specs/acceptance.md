@@ -4,23 +4,23 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Workspace Bootstrap
 
-| Scenario       | Expected Result                                                                                                        |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| CLI login      | `agent-paste login` provisions or resolves a member workspace and mints an API key through `/v1/web/keys`.             |
-| Smoke harness  | Non-production `POST /__test__/provision-smoke` returns workspace id and one-time API key secret for automated smokes. |
-| Revoke API key | `DELETE /v1/web/keys/{api_key_id}` (or harness delete) causes future public CLI calls with that key to fail.           |
+| Scenario              | Expected Result                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| CLI login             | `agent-paste login` provisions or resolves a member workspace and stores a scoped local credential for the CLI.          |
+| Smoke harness         | Non-production `POST /__test__/provision-smoke` returns workspace id and one-time smoke credential for automated smokes. |
+| Revoke CLI credential | Logout or dashboard revocation causes future CLI calls with that credential to fail.                                     |
 
 ## Public CLI
 
-| Scenario                            | Expected Result                                                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing `AGENT_PASTE_API_KEY`       | `agent-paste whoami` and `publish` fail with a clear local error before network calls.                                                       |
-| Valid API key                       | `agent-paste whoami` returns workspace and API key identity without secret material.                                                         |
-| Publish single HTML file            | Creates one Artifact and one Revision, prints the authenticated Artifact URL as `View`; JSON/REST includes diagnostic IDs and snapshot URLs. |
-| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                                       |
-| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                                               |
-| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                                        |
-| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                                            |
+| Scenario                            | Expected Result                                                                                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| No active CLI login                 | `agent-paste whoami` reports no active login locally; `publish` asks for `agent-paste login` or `--ephemeral` before network publish work.     |
+| Valid CLI login                     | `agent-paste whoami` returns workspace, actor, and granted scopes without secret material.                                                     |
+| Publish single HTML file            | Creates one Artifact and one Revision, prints the authenticated Artifact URL as `View`; JSON output includes diagnostic IDs and snapshot URLs. |
+| Publish folder with `index.html`    | Entrypoint is inferred and subresources load from signed content URLs.                                                                         |
+| Publish folder without `index.html` | CLI or upload validation fails; no active Artifact is created.                                                                                 |
+| Publish over file cap               | Fails before finalize and records no active Artifact.                                                                                          |
+| Retry same idempotency key          | Returns the same durable identifiers without duplicate artifacts.                                                                              |
 
 `revision_content_url` is the direct signed content URL for the published
 Revision. It is not an Access Link Signed URL or Live Update viewer.
@@ -60,19 +60,19 @@ Revision. It is not an Access Link Signed URL or Live Update viewer.
 
 ## Operator Operations
 
-| Scenario          | Expected Result                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------------ |
-| Operator lockdown | WorkOS `admin` (or Access service token) can set/lift lockdowns; API keys cannot call operator routes. |
-| Member artifacts  | `/v1/web/artifacts` lists tenant-scoped artifacts without signed tokens in responses.                  |
+| Scenario          | Expected Result                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| Operator lockdown | WorkOS `admin` (or Access service token) can set/lift lockdowns; CLI credentials cannot call operator routes. |
+| Member artifacts  | `/v1/web/artifacts` lists tenant-scoped artifacts without signed tokens in responses.                         |
 
 ## Security Boundaries
 
-| Scenario                  | Expected Result                                                           |
-| ------------------------- | ------------------------------------------------------------------------- |
-| Content Worker DB binding | Generated Worker binding types prove `content` has no Hyperdrive binding. |
-| Signed URL logging        | Tests fail if request logging records full signed content URLs or tokens. |
-| API key logging           | Tests fail if API-key secret material is logged.                          |
-| API key on operator route | Rejected before operator auth runs.                                       |
+| Scenario                         | Expected Result                                                           |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| Content Worker DB binding        | Generated Worker binding types prove `content` has no Hyperdrive binding. |
+| Signed URL logging               | Tests fail if request logging records full signed content URLs or tokens. |
+| Credential logging               | Tests fail if credential secret material is logged.                       |
+| CLI credential on operator route | Rejected before operator auth runs.                                       |
 
 ## Explicit Non-Goals
 

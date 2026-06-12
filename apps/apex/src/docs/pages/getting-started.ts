@@ -36,16 +36,12 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "For interactive use, run `agent-paste login`. It opens a browser OAuth flow, mints a scoped API Key, and stores it in your OS keyring when available.",
+          text: "For interactive use, run `agent-paste login`. It opens a browser OAuth flow and stores a scoped local credential in your OS keyring when available.",
         },
         {
           kind: "code",
           language: "sh",
           code: "agent-paste login\nagent-paste whoami",
-        },
-        {
-          kind: "paragraph",
-          text: "For CI or a headless agent, set `AGENT_PASTE_API_KEY`. The CLI never accepts secrets as flags. If both a stored login and `AGENT_PASTE_API_KEY` exist, the environment key wins.",
         },
         {
           kind: "paragraph",
@@ -64,7 +60,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. CLI publish prints the authenticated Artifact URL as `View`; MCP publish omits management IDs and public links by default. JSON/REST output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. CLI publish prints the authenticated Artifact URL as `View`; MCP publish omits management IDs and public links by default. CLI JSON output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",
@@ -72,7 +68,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: 'For a public/shareable link that follows later publishes, publish with CLI `--share`, REST `{ "share": true }`, or MCP `share:true`/`create_share_link`, then use `access_link_url`. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.',
+          text: "For a public/shareable link that follows later publishes, publish with CLI `--share` or MCP `share:true`/`create_share_link`, then use `access_link_url`. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.",
         },
       ],
     },
@@ -87,7 +83,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace and key, publishes once, and prints a one-time Claim Token as `/claim#<token>`. It ignores stored login and `AGENT_PASTE_API_KEY`, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and prints a one-time Claim Token as `/claim#<token>`. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
         },
       ],
     },

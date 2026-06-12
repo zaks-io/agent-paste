@@ -20,9 +20,9 @@ Ephemeral Publish. Run `agent-paste whoami --json`; it exits `0` whether or not
 a credential is present, so the check is the JSON body, not the exit code. If it
 reports a signed-in identity, publish normally without `--ephemeral`. If it
 reports `"authenticated": false` and interactive auth is possible, run
-`agent-paste login` first. Use `--ephemeral` only when no login or
-`AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for
-accountless publish. Ephemeral is not the `free` **Plan**; it is the unclaimed
+`agent-paste login` first. Use `--ephemeral` only when no login is available, or
+when the user explicitly asks for accountless publish. Ephemeral is not the
+`free` **Plan**; it is the unclaimed
 restricted tier. Use it for non-interactive text, markdown, images, and static
 HTML/CSS. In particular, interactive HTML/JavaScript work that needs script
 execution requires authenticated publish, because unclaimed ephemeral content is
@@ -31,7 +31,7 @@ served under the script-disabled **Execution Policy**.
 ## Actors
 
 **Ephemeral Publisher**:
-An unattended agent that self-provisions an **Ephemeral Workspace** and publishes against it. Holds an ordinary **API Key** with `write` and `read` **Scopes** only, scoped to an unclaimed tenant. Never holds `share` implicitly or `admin`.
+An unattended agent that self-provisions an **Ephemeral Workspace** and publishes against it. The CLI holds a short-lived scoped credential for the unclaimed tenant. It grants `write` and `read` only, never `share` implicitly or `admin`.
 
 **Claimer**:
 A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to promote an **Ephemeral Workspace** into a claimed `free` **Workspace** they own as the first `admin`.
@@ -44,10 +44,10 @@ Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an explicitly minted
 **API Worker** (`api`):
 Adds two unauthenticated-entry routes through the route registrar ([ADR 0072](../adr/0072-contract-driven-route-registrar-and-guard.md)):
 
-- `POST /v1/ephemeral/provision` - mints **Ephemeral Workspace** + **API Key** + **Claim Token**.
+- `POST /v1/ephemeral/provision` - creates an **Ephemeral Workspace**, a short-lived scoped credential, and a **Claim Token**.
 - `POST /v1/ephemeral/claim` - requires `workos_access_token`; promotes the tenant.
 
-The ephemeral **Publish** itself reuses the existing authenticated **Upload Session** and **Publish** routes with the minted **API Key**. No new write surface.
+The ephemeral **Publish** itself reuses the existing authenticated **Upload Session** and **Publish** routes with the provisioned credential. No new write surface.
 
 **Upload Worker** (`content` and `upload`):
 Unchanged. `content` stays DB-free ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); ephemeral status is carried on rows the authenticated paths already load.
@@ -65,12 +65,6 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 ## Provision Flow
 
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
-   The challenge is hashcash issued at 20 leading-zero bits by default, tunable per
-   environment via the `EPHEMERAL_POW_DIFFICULTY_BITS` var (integer 1–32; malformed
-   values fail loudly at issuance). Verification trusts the difficulty signed into the
-   challenge, so the var affects only newly issued challenges. Hosted environments
-   leave it unset; the local MVP harness defaults it to 8 so local dev and CI smokes
-   solve in milliseconds instead of grinding ~1M hashes per provision.
    A single-shard Durable Object gate is the authoritative hard global ceiling
    for provisioning. Its `limit_per_minute` defaults to 17 and is operator-tunable
    at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100,
@@ -85,10 +79,10 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
    tenant state.
 2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
-   - mints an **API Key** (`ap_pk_{env}_{publicId}_{secret}`, [ADR 0043](../adr/0043-bearer-credential-format-and-storage.md)) with `write` + `read` **Scopes**, short **Expiration**;
+   - creates a short-lived scoped credential with `write` + `read` **Scopes**;
    - generates a one-time **Claim Token** (signed, single-use, stored hashed);
    - emits an **Audit Event**.
-3. Response returns the **API Key** secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
+3. Response returns the credential secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
 
 ## Claim Flow
 
@@ -103,8 +97,8 @@ The gate is the **daily new-Artifact write allowance**. A new **Artifact** count
 
 | Tier                  | Identity                                                                                                     | Daily new Artifacts | Auto Deletion       | Indexing  | Raisable |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------- | ------------------- | --------- | -------- |
-| Ephemeral (unclaimed) | **API Key** on **Ephemeral Workspace**                                                                       | 20                  | 24h                 | `noindex` | No       |
-| Claimed `free`        | **Workspace Member** + **API Key**s                                                                          | 100                 | 3d default / 7d max | default   | No       |
+| Ephemeral (unclaimed) | scoped credential on **Ephemeral Workspace**                                                                 | 20                  | 24h                 | `noindex` | No       |
+| Claimed `free`        | **Workspace Member** + scoped credentials                                                                    | 100                 | 3d default / 7d max | default   | No       |
 | `pro`                 | claimed + Stripe ([ADR 0073](../adr/0073-open-core-billing-plan-tiered-usage-policy-disabled-by-default.md)) | 2000 (fair-use)     | up to 90d           | default   | Yes      |
 
 Reads are gated only by the existing **Artifact Rate Limit** abuse ceiling ([ADR 0048](../adr/0048-transient-artifacts-by-default.md)), unchanged.
@@ -115,7 +109,7 @@ Ordered by priority; each is invisible to honest agents or felt only at volume.
 
 1. **Isolated Content Origin + Execution Policy** - already in place ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
 2. **Shortest ephemeral Auto Deletion** - caps content dwell time; primary lever against phishing/malware/SEO value.
-3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, **API Key**, or **Claim Token** is created.
+3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, credential, or **Claim Token** is created.
 4. **`noindex`/`nofollow`** on ephemeral content.
 5. **Advisory warning and URL Scanner signals** - built-in warning rules, dormant-script warnings, Llama Guard, and Cloudflare URL Scanner can support reader warnings or abuse response. Containment does not depend on them.
 
@@ -145,8 +139,8 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 
 ## Acceptance Criteria
 
-- A valid `provision` call returns a working **API Key** and a one-time **Claim Token**.
-- A freshly provisioned **API Key** can run the standard **Upload Session** → **Publish** loop without implicit `share` scope.
+- A valid `provision` call returns a working scoped credential and a one-time **Claim Token**.
+- A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop without implicit `share` scope.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** promotes the tenant to claimed `free`, attaches the member as `admin`, raises the cap set, and is single-use thereafter.

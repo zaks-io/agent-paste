@@ -14,8 +14,8 @@ export const CLI_DOC: DocsPage = {
           kind: "table",
           columns: ["Command", "Purpose"],
           rows: [
-            ["`agent-paste login`", "Mint a browser-OAuth API Key with `publish` and `read` scopes."],
-            ["`agent-paste logout`", "Revoke the stored API Key when possible, then remove local credentials."],
+            ["`agent-paste login`", "Sign in through browser OAuth and store a scoped local credential."],
+            ["`agent-paste logout`", "Revoke the stored credential when possible, then remove it locally."],
             ["`agent-paste whoami`", "Show the resolved Workspace, actor, and granted scopes."],
             ["`agent-paste publish <path>`", "Upload files, publish a Revision, and print the result."],
             ["`agent-paste version`", "Print the CLI version baked into the package or binary."],
@@ -41,7 +41,7 @@ export const CLI_DOC: DocsPage = {
             ],
             [
               "`--ephemeral`",
-              "Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key, disables scripts while unclaimed, and prints a one-time claim link.",
+              "Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login, disables scripts while unclaimed, and prints a one-time claim link.",
             ],
             ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
             ["`--quiet`", "Suppress human-readable stdout."],

@@ -17,11 +17,29 @@ If you need to get oriented or find the owner of a workflow quickly, use
 
 Live production / early alpha. The hosted service and public repository are live,
 but the product surface is still intentionally small and may change quickly. Do
-not modify production without explicit approval. Public users, issued API Keys,
-published Artifacts, and npm installs may exist; preserve supported behavior or
-make breaking changes explicit in specs, docs, and migration/operational notes.
-Do not add legacy or deprecated code paths unless they are required to preserve a
-current public contract.
+not modify production without explicit approval. Public users, published
+Artifacts, MCP connections, and npm installs may exist; preserve supported
+behavior or make breaking changes explicit in specs, docs, and
+migration/operational notes. Do not add legacy or deprecated code paths unless
+they are required to preserve a current public contract.
+
+## Agent publish surfaces
+
+Tell agents to use the CLI when they can run commands, and MCP when they are in
+a hosted tool that can connect to remote MCP but cannot run the CLI. Do not
+recommend any other publish surface for agent workflows.
+
+Agent CLI flow:
+
+```sh
+agent-paste whoami
+agent-paste login   # only when whoami shows no active login and interactive auth is possible
+agent-paste publish <path>
+```
+
+Use `agent-paste publish <path> --ephemeral` only when no login is available and
+interactive auth is not possible, or when the user explicitly asks for
+accountless publish.
 
 ## Agent skills
 
@@ -94,7 +112,7 @@ local: it deploys the full fleet through CI on merge to `main`.
 ### Local dev server notes
 
 - `pnpm dev:all` runs the in-memory MVP harness (`scripts/local-mvp-server.mjs`) with mocked R2/KV. No Docker or Postgres is needed for the quick dev path.
-- The harness self-seeds a `local-proof-workspace` and proof artifacts on startup and prints the API/Upload/Content/Jobs/Stream base URLs plus the `AGENT_PASTE_*_URL` exports to copy. The legacy `ADMIN_TOKEN` / `admin workspace create` / `admin key create` flow was removed in AP-12/AP-13 and no longer exists.
+- The harness self-seeds a `local-proof-workspace` and proof artifacts on startup and prints the API/Upload/Content/Jobs/Stream base URLs plus the `AGENT_PASTE_*_URL` exports to copy. Follow the printed CLI guidance; the old admin bootstrap flow no longer exists.
 - Follow the harness's own printed guidance to publish: `pnpm cli:dev login`, `pnpm cli:dev whoami`, `pnpm cli:dev publish examples/local-harness/site`.
 - The CLI resolves paths relative to `apps/cli/`, so use absolute paths when calling `pnpm cli:dev publish`.
 - `pnpm dev:apex` serves the apex marketing site locally on `http://127.0.0.1:5174` with Vite hot reload. It defaults to the preview shape (`AGENT_PASTE_ENV=preview`, `BILLING_ENABLED=true`) without touching hosted preview.

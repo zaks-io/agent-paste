@@ -135,9 +135,9 @@ export class ApiClient {
 
   web = {
     keys: {
-      // Mints a scoped API key from a WorkOS member/CLI access token. The login
-      // flow constructs an ApiClient with bearer auth for this single call, then
-      // discards the access token (ADR 0060).
+      // Creates a scoped CLI credential from a WorkOS member/CLI access token.
+      // The login flow uses bearer auth for this single call, then discards the
+      // access token.
       create: (body: CreateApiKeyRequest, idempotencyKey: string) =>
         this.request(CreateApiKeyResponse, this.apiBaseUrl, "/v1/web/keys", {
           method: "POST",
@@ -286,7 +286,7 @@ export class ApiClient {
     if (!this.auth) {
       throw new AgentPasteError({
         code: "not_authenticated",
-        message: "Set AGENT_PASTE_API_KEY or pass an auth provider.",
+        message: "Run agent-paste login or use --ephemeral for an accountless handoff.",
         status: 401,
       });
     }

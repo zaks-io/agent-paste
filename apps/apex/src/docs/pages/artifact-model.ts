@@ -14,7 +14,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
           kind: "table",
           columns: ["Object", "Meaning"],
           rows: [
-            ["Workspace", "The tenant that owns Artifacts, members, API Keys, Plan, and Audit Events."],
+            ["Workspace", "The tenant that owns Artifacts, members, Plan, and Audit Events."],
             ["Artifact", "A durable, addressable folder-like package containing one or more files."],
             ["Revision", "An immutable saved state of an Artifact after publish. New publishes append Revisions."],
             ["Published Revision", "The Revision currently visible through stable Artifact links."],

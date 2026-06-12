@@ -18,6 +18,26 @@ Start with:
 Use `docs/agents/issue-tracker.md` for Linear operations and
 `docs/agents/remote-cursor-agent.md` for Cursor Background Agent handoff.
 
+## Agent Publish Surfaces
+
+When a workflow needs to publish or inspect an Artifact, use the CLI if the
+runtime can execute commands. Use MCP when the runtime is a hosted agent that
+cannot run the CLI but can connect to remote MCP with OAuth. Do not recommend
+any other publish surface for agent workflows.
+
+Default CLI sequence:
+
+```sh
+agent-paste whoami
+agent-paste login
+agent-paste publish <path>
+```
+
+Run `agent-paste login` only when `whoami` shows no active login and
+interactive auth is possible. Use `agent-paste publish <path> --ephemeral` only
+when no login is available and interactive auth is not possible, or when the
+user explicitly asks for accountless publish.
+
 ## Workflow
 
 Work moves through six stages plus one sidecar review loop.

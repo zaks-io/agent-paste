@@ -4,7 +4,7 @@ export const DASHBOARD_DOC: DocsPage = {
   slug: "dashboard",
   title: "Dashboard",
   shortTitle: "Dashboard",
-  summary: "The dashboard is the human control plane for Workspaces, Artifacts, links, keys, billing, and settings.",
+  summary: "The dashboard is the human control plane for Workspaces, Artifacts, links, billing, and settings.",
   sections: [
     {
       id: "sign-in",
@@ -12,7 +12,7 @@ export const DASHBOARD_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. Both use WorkOS-backed browser auth. The CLI login mints a scoped API Key for local use.",
+          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. Both use WorkOS-backed browser auth.",
         },
       ],
     },
@@ -34,21 +34,10 @@ export const DASHBOARD_DOC: DocsPage = {
               "Artifact detail, viewer, Revisions, Access Links, Bundle state, warnings, and delete action.",
             ],
             ["`/access-links`", "Workspace-wide Access Link list and management."],
-            ["`/keys`", "Create, reveal once, list, and revoke API Keys."],
             ["`/audit`", "Workspace Audit Event list."],
             ["`/settings`", "Workspace name and default retention settings."],
             ["`/billing`", "Plan, remaining writes, Checkout, Portal, and invoices."],
           ],
-        },
-      ],
-    },
-    {
-      id: "keys",
-      title: "API Keys",
-      blocks: [
-        {
-          kind: "paragraph",
-          text: "Dashboard-created keys are shown once and cannot be recovered later. Store them where your agent or CI can read `AGENT_PASTE_API_KEY`. Keys are capped at `publish` and `read`, never member-only admin scopes.",
         },
       ],
     },

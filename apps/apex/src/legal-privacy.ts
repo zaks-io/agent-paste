@@ -21,7 +21,7 @@ export const PRIVACY: LegalDocument = {
           items: [
             "account and Workspace data, such as your email address, authentication provider identifiers, Workspace membership, settings, and Plan",
             "Artifact data, such as uploaded files, file paths, display metadata, Revision records, Bundle state, Access Link state, and claim or expiration state",
-            "credential metadata, such as API Key name, public identifier, scopes, creation time, expiration, revocation state, and last-used timestamps, but not recoverable API Key secrets",
+            "credential metadata, such as credential name, public identifier, scopes, creation time, expiration, revocation state, and last-used timestamps, but not recoverable credential secrets",
             "usage and security data, such as request metadata, IP address, user agent, route, status code, rate-limit state, audit events, abuse signals, and operational diagnostics",
             "billing data when paid features are enabled, generally handled by a payment provider rather than stored directly by agent-paste",
           ],
@@ -70,10 +70,10 @@ export const PRIVACY: LegalDocument = {
             "Workspace data is isolated by tenant controls, application authorization, and database-level access rules.",
             "Artifact bytes are stored in private object storage and encrypted at the application layer before durable storage. The public content path does not expose direct object-store URLs.",
             "Untrusted Content is served from an isolated content origin with restrictive browser security headers and sandboxing appropriate to the content and trust tier.",
-            "API Key secrets are shown only when created, stored in non-recoverable verifier form, and must be replaced if lost.",
+            "Credential secrets are shown only when created, stored in non-recoverable verifier form, and must be replaced if lost.",
             "Access Links use signed, revocable URLs. Sensitive link material is designed to avoid normal server-side logs where practical.",
             "Operational logs and audit summaries are designed to exclude request bodies, credential secrets, full signed URLs, and other high-risk values.",
-            "Human access uses a dedicated authentication provider. Abuse-response controls are separated from normal API Key access.",
+            "Human access uses a dedicated authentication provider. Abuse-response controls are separated from normal credential access.",
             "Security-sensitive secrets are handled through managed secret storage and rotation procedures, not committed to the repository.",
             "Automated and manual controls may rate-limit, revoke, disable, or delete content when needed for security, abuse response, or policy enforcement.",
           ],
@@ -128,7 +128,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "You can manage API Keys, Access Links, Workspace settings, and Artifact lifecycle settings in the dashboard where those features are available. You can also delete content or revoke links when you no longer want them accessible.",
+          text: "You can manage credentials, Access Links, Workspace settings, and Artifact lifecycle settings in the dashboard where those features are available. You can also delete content or revoke links when you no longer want them accessible.",
         },
         {
           kind: "paragraph",

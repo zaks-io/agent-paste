@@ -21,7 +21,7 @@ export const SAFETY_DOC: DocsPage = {
         {
           kind: "list",
           items: [
-            "API keys, tokens, passwords, private keys, `.env` files, or any other credential.",
+            "Tokens, passwords, private keys, `.env` files, or any other credential.",
             "Personal or customer data you are not authorized to share or required to protect.",
             "Anything you would not be comfortable handing to whoever holds the link.",
           ],
@@ -83,10 +83,10 @@ export const SAFETY_DOC: DocsPage = {
         {
           kind: "list",
           items: [
-            "API Key secrets are shown once and stored hashed server-side.",
+            "Stored credentials are non-recoverable after creation.",
             "Claim Tokens ride the URL hash and are stored hashed.",
             "Signed Access Link credentials live in URL fragments.",
-            "Tokens, signed URLs, and API Key secret material must not be logged.",
+            "Tokens, signed URLs, and credential secret material must not be logged.",
           ],
         },
       ],

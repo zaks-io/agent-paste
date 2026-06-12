@@ -63,8 +63,9 @@ Operational notes from the Background Agents docs:
   without foreground approval, so production or preview credentials should only
   be present when the Linear issue explicitly requires them.
 - Do not assume the `coderabbit` CLI is available inside Cursor's remote agent
-  environment. CodeRabbit is on-demand only and should be reserved for the
-  high-risk cases described in the repo-local `ziw-code-review` skill.
+  environment. This repo's hosted CodeRabbit auto-review is enabled; do not
+  manually trigger CodeRabbit or run a local fallback unless the orchestrator
+  has resolved current hosted-review state and explicitly asks for that action.
 - Cursor Composer 2.5 is the preferred implementation workhorse for ready,
   well-scoped AP issues that can be verified locally or in CI. The queue-moving
   loop remains responsible for review, CI watching, and escalation.
@@ -90,11 +91,11 @@ after clone. If a runtime cannot follow symlinks, read the matching
 `.claude/skills/*` path directly.
 
 Use `ziw-implement` for the implementation flow. Before opening a
-PR, run `ziw-code-review` as a read-only review pass. Use
-CodeRabbit only when the local review or `ziw-code-review` skill
-recommends escalation or the change is high risk: auth, authorization, secrets,
+PR, run `ziw-code-review` as a read-only review pass. Let hosted CodeRabbit
+auto-review handle PR review when it is enabled. Escalate to the orchestrator,
+not a local CodeRabbit CLI, for high-risk work: auth, authorization, secrets,
 migrations, destructive data changes, background jobs, concurrency, generated
-artifacts, public API/CLI contracts, or broad refactors.
+artifacts, public CLI/MCP contracts, schema contracts, or broad refactors.
 
 ## Normal Commands
 
@@ -183,10 +184,11 @@ push fixes to the same PR, rerun the relevant checks, and move the issue back to
 Create GitHub pull requests **ready for review** (`draft: false`). Do not open
 draft PRs unless the Linear issue explicitly asks for a draft.
 
-This repo does not rely on automatic CodeRabbit review for every PR. Run the
-repo-local `ziw-code-review` skill first. If it recommends
-CodeRabbit, request CodeRabbit explicitly with a PR comment after the PR exists
-and address only high-priority actionable findings.
+This repo has hosted CodeRabbit auto-review enabled. Run the repo-local
+`ziw-code-review` skill first, then let the PR's hosted review state settle.
+Do not request CodeRabbit explicitly unless the orchestrator has verified that
+no current hosted review covers the PR head and asks for a manual request.
+Address only high-priority actionable findings.
 
 There is no separate Cursor or repo UI setting for this today; follow this
 handoff doc and any Linear issue that overrides it.
@@ -204,7 +206,7 @@ The final PR or handoff comment must include:
 - Files changed.
 - Tests and checks run, with exact command names.
 - Review result: local review verdict and CodeRabbit
-  `skipped`/`CLI`/`PR review` decision.
+  `skipped`/`auto pending`/`auto current`/`manual requested` decision.
 - Any checks not run and why.
 - Known gaps, follow-up tickets, or blocked hosted verification.
 - Docs/status ledgers updated when the change affects project status.

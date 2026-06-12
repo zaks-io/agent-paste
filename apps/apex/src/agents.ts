@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
+import { APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 
@@ -53,13 +53,13 @@ code. Check the JSON: \`{"authenticated": false}\` means no usable credential,
 while a signed-in response carries the resolved Workspace, actor, and scopes.
 
 If \`whoami\` reports you are signed in, publish normally. If not and the user can
-interact, run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a browser
-OAuth flow and provisions its own scoped key, so there is no API key to copy or
-paste. Publish returns the authenticated Artifact URL as \`View\` by default.
-Public sharing is explicit: pass CLI \`--share\`, REST \`{ "share": true }\`, or
-MCP \`share:true\`/create a Share Link only when the user asks for a
-public/shareable URL. JSON/REST output also carries diagnostic Artifact IDs,
-Revision IDs, and snapshot URLs for automation.
+interact, run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a
+browser OAuth flow and stores its own scoped local credential, so there is
+nothing to copy or paste. Publish returns the authenticated Artifact URL as
+\`View\` by default. Public sharing is explicit: pass CLI \`--share\` or use MCP
+\`share:true\`/create a Share Link only when the user asks for a public/shareable
+URL. JSON output also carries diagnostic Artifact IDs, Revision IDs, and
+snapshot URLs for automation.
 
 \`\`\`
 npx @zaks-io/agent-paste login
@@ -97,17 +97,16 @@ on an existing Artifact, pass \`--artifact-id art_...\`.
 
 If the user asks for a public/shareable link, create a Share Link and return
 \`access_link_url\`: the Access Link Signed URL minted from that Share Link. In
-CLI this means passing \`--share\`; in REST this means sending
-\`{ "share": true }\`; in MCP this means setting \`share:true\` or using
-\`create_share_link\`. Do not return the
+CLI this means passing \`--share\`; in MCP this means setting \`share:true\` or
+using \`create_share_link\`. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Ephemeral publish fallback
 
 Use \`--ephemeral\` only when \`whoami\` reports \`"authenticated": false\` and no
-login or \`AGENT_PASTE_API_KEY\` is available, or when the user explicitly asks for
-accountless publish. It ignores stored login credentials and environment API
-keys, so do not use it after a successful auth check. It is suitable for
+login is available, or when the user explicitly asks for accountless publish. It
+ignores stored login credentials and environment-provided credentials, so do not
+use it after a successful auth check. It is suitable for
 non-interactive work such as text, markdown, images, and static HTML/CSS.
 
 \`\`\`
@@ -128,38 +127,20 @@ URLs can run interactive HTML inside the controlled Artifact Viewer. For an
 interactive page, browser app, or visualization that needs JavaScript, use
 authenticated publish rather than \`--ephemeral\`.
 
-## REST entry points
-
-Base: \`${API_BASE_URL}\`
-
-- \`GET /v1/whoami\` - verify the calling API key, return actor + workspace.
-- \`GET /v1/artifacts/{id}/agent-view\` - agent-optimized JSON view of an
-  artifact: file tree, \`revision_content_url\`, signed file URLs.
-- \`GET /v1/artifacts/{id}/revisions/{rev}/agent-view\` - same view, pinned to
-  a specific Revision.
-- \`GET /v1/public/agent-view/{token}\` - public counterpart, no auth, scoped
-  by a signed Agent View token.
-- \`GET /v1/usage-policy\` - current quotas and Auto Deletion bounds.
-
 ## Authentication
 
-The CLI and REST API authenticate with an **API key**; the MCP server
-authenticates with **OAuth** (WorkOS). They are separate credentials.
+Agents should use either the CLI or MCP.
 
 - **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
-  stores a scoped API key for you. Nothing to copy or paste.
+  stores a scoped local credential for you. Nothing to copy or paste.
 - **Ephemeral:** \`npx @zaks-io/agent-paste publish --ephemeral\` is the
   restricted fallback when \`whoami\` reports \`"authenticated": false\` and no
-  login or key is available. The
-  CLI self-provisions a short-lived, low-cap key and returns a one-time Claim
+  login is available. The CLI self-provisions a short-lived, low-cap workspace
+  and returns a one-time Claim
   Token; a signed-in human redeems it later to keep the Artifact.
-- **REST:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI or
-  headless use on the dashboard API Keys page
-  ([${APP_BASE_URL}/keys](${APP_BASE_URL}/keys)), or set \`AGENT_PASTE_API_KEY\`
-  in the environment. API keys carry \`publish\` and \`read\` scopes.
 - **MCP:** OAuth bearer only. The MCP server verifies a WorkOS-issued access
-  token; an API key is not accepted here. Product capabilities are derived from
-  the authenticated Workspace Member in \`api\`, not from OAuth token scopes.
+  token. Product capabilities are derived from the authenticated Workspace
+  Member in \`api\`, not from OAuth token scopes.
 
 ## MCP server
 
@@ -168,7 +149,7 @@ Base: \`${MCP_BASE_URL}\`
 Use MCP when the agent's host can connect to a remote MCP server but cannot run
 the CLI, install npm packages, or use a local keychain. MCP tools publish, read,
 revise, delete, and share Artifacts through the same Agent View model as the
-REST API.
+CLI.
 
 Connect \`${MCP_BASE_URL}\` in the host, complete OAuth, then call \`whoami\`
 first. The WorkOS user must already belong to a Workspace; dashboard sign-in or
@@ -206,10 +187,10 @@ Links (\`share\`):
   (also needs \`read\`).
 - \`revoke_access_link\` - revoke a Share Link or Revision Link.
 
-Limits: MCP publish is text-only today. Use the CLI or REST API for folder
-uploads, binary files, standalone Bundle downloads, workspace settings, billing,
-and lockdown controls. Artifact lifetime follows Workspace Auto Deletion policy;
-MCP callers do not choose TTL.
+Limits: MCP publish is text-only today. Use the CLI for folder uploads, binary
+files, and standalone Bundle downloads. Use the dashboard for workspace
+settings, billing, and lockdown controls. Artifact lifetime follows Workspace
+Auto Deletion policy; MCP callers do not choose TTL.
 
 ## Where to find more
 
@@ -217,6 +198,5 @@ MCP callers do not choose TTL.
 - Markdown docs: [https://agent-paste.sh/docs.md](https://agent-paste.sh/docs.md)
 - Full machine-readable docs: [https://agent-paste.sh/llms-full.txt](https://agent-paste.sh/llms-full.txt)
 - Dashboard (humans): [${APP_BASE_URL}](${APP_BASE_URL})
-- REST API: [${API_BASE_URL}](${API_BASE_URL})
 - MCP server: [${MCP_BASE_URL}](${MCP_BASE_URL})
 `;

@@ -33,9 +33,9 @@ npx @zaks-io/agent-paste whoami
 npx @zaks-io/agent-paste publish ./report
 ```
 
-If there is no login or `AGENT_PASTE_API_KEY`, publish non-interactive work
-such as text, markdown, images, or static HTML/CSS with the restricted
-ephemeral path:
+If there is no login and interactive auth is not possible, publish
+non-interactive work such as text, markdown, images, or static HTML/CSS with the
+restricted ephemeral path:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
@@ -102,11 +102,10 @@ Use MCP when an agent can connect to a remote MCP server but cannot run the CLI:
 https://mcp.agent-paste.sh
 ```
 
-MCP is OAuth-only. It does not accept API Keys or dashboard cookies. Connect the
-remote server in the host, complete OAuth, then start with the `whoami` tool.
+MCP is OAuth-only. Connect the remote server in the host, complete OAuth, then
+start with the `whoami` tool.
 Agents can publish text Artifacts, read Agent Views, add Revisions, and manage
-Share Links and Revision Links. Folder and binary publishes stay in the CLI or
-REST API.
+Share Links and Revision Links. Folder and binary publishes stay in the CLI.
 
 Read [`docs/mcp.md`](./docs/mcp.md) for the practical MCP guide, or
 [`docs/ops/runbook-mcp-hosts.md`](./docs/ops/runbook-mcp-hosts.md) for host
@@ -137,7 +136,7 @@ agent creates something -> publish -> human opens URL -> agent reads Agent View 
 - Supports explicit Access Link Signed URLs for public access to Artifact Viewers.
 - Serves generated content from an isolated Content Origin with signed URLs.
 - Uses Workspace policy for Auto Deletion and retention.
-- Provides CLI, REST, MCP, dashboard, and agent-readable docs surfaces.
+- Provides CLI, MCP, dashboard, and agent-readable docs surfaces.
 
 ## Choose Your Path
 

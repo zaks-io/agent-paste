@@ -25,35 +25,49 @@ Read these first when you are new to the repo or resuming after a long gap:
 When implementing a Linear issue, also read the issue, every linked doc, and
 the README for any app or package you will edit.
 
+## Agent Publish Surface
+
+When an agent needs to publish or inspect an Artifact, prefer these surfaces:
+
+- CLI: use `agent-paste whoami`, `agent-paste login`, and
+  `agent-paste publish <path>` when the runtime can execute commands.
+- MCP: use `https://mcp.agent-paste.sh` when a hosted agent cannot run the CLI
+  but can connect to remote MCP with OAuth.
+- Ephemeral CLI: use `agent-paste publish <path> --ephemeral` only when no
+  login is available and interactive auth is not possible, or the user
+  explicitly asks for accountless publish.
+
+Do not recommend any other publish surface for agent workflows.
+
 ## Contact Map
 
 Use this map to find the first files to inspect. The READMEs in each directory
 carry the local contract summary and commands.
 
-| Area                | Start Here                                                                                           | Owns                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Product language    | [`CONTEXT.md`](../../CONTEXT.md)                                                                     | Canonical terms, avoided synonyms, app/worker vocabulary, and relationship rules.      |
-| Current status      | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Project snapshot, active phase, deferred work, and status ledger links.                |
-| Product specs       | [`docs/specs/README.md`](../specs/README.md)                                                         | User-facing contracts, acceptance criteria, data model, API, web, jobs, and local dev. |
-| System architecture | [`docs/specs/architecture.md`](../specs/architecture.md)                                             | Current system map, trust boundaries, primary flows, and owner lookup table.           |
-| Decision history    | [`docs/adr/README.md`](../adr/README.md)                                                             | Rationale, conflict resolutions, and implementation constraints.                       |
-| Public contracts    | [`packages/contracts`](../../packages/contracts)                                                     | Zod schemas, route registries, OpenAPI goldens, and shared wire types.                 |
-| Runtime guardrails  | [`packages/worker-runtime`](../../packages/worker-runtime)                                           | Route registrar, request guard, principals, errors, rate limiting, and Sentry helpers. |
-| Auth helpers        | [`packages/auth`](../../packages/auth)                                                               | Request IDs, auth response helpers, and shared auth lookup/cache helpers.              |
-| Durable state       | [`packages/db`](../../packages/db)                                                                   | Drizzle schema, migrations, RLS, repository core, Postgres adapter, and local adapter. |
-| Command sequencing  | [`packages/commands`](../../packages/commands)                                                       | `runCommand`, idempotency claim/replay, audit sequencing, and queue target helpers.    |
-| Token crypto        | [`packages/tokens`](../../packages/tokens), [`packages/rotation`](../../packages/rotation)           | Signed token codecs, key/pepper rings, token kinds, and rotation playbooks.            |
-| API control plane   | [`apps/api`](../../apps/api)                                                                         | Authenticated mutations, web API, Agent View, Access Link resolution, and operators.   |
-| Upload path         | [`apps/upload`](../../apps/upload)                                                                   | Upload Sessions, signed PUT URLs, R2 writes, and finalize.                             |
-| Content serving     | [`apps/content`](../../apps/content)                                                                 | Signed content reads, denylist checks, MIME/CSP/cache headers, and R2 streaming.       |
-| Dashboard           | [`apps/web`](../../apps/web)                                                                         | TanStack Start routes, WorkOS session handling, dashboard UI, and server mutations.    |
-| Lifecycle jobs      | [`apps/jobs`](../../apps/jobs)                                                                       | Queue consumers, cron discovery, bundle generation, byte purge, retention, and scans.  |
-| Live Updates        | [`apps/stream`](../../apps/stream)                                                                   | Artifact Durable Object, SSE fan-out, and viewer authorization through `api`.          |
-| CLI                 | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, credentials, publish flow, self-upgrade, and API client calls.                  |
-| Marketing surface   | [`apps/apex`](../../apps/apex)                                                                       | Public homepage, `/llms.txt`, `/agents.md`, and app redirects.                         |
-| MCP                 | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Streamable HTTP transport, OAuth auth, tool registry, and forwarded API calls.         |
-| Storage helpers     | [`packages/storage`](../../packages/storage), [`packages/config`](../../packages/config)             | Served content type mapping, security headers, paths, limits, and expiration helpers.  |
-| Repo policy         | [`packages/repo-lint`](../../packages/repo-lint), [`scripts/README.md`](../../scripts/README.md)     | Monorepo guardrails, deployment scripts, smoke scripts, and maintenance commands.      |
+| Area                | Start Here                                                                                           | Owns                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Product language    | [`CONTEXT.md`](../../CONTEXT.md)                                                                     | Canonical terms, avoided synonyms, app/worker vocabulary, and relationship rules.       |
+| Current status      | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Project snapshot, active phase, deferred work, and status ledger links.                 |
+| Product specs       | [`docs/specs/README.md`](../specs/README.md)                                                         | User-facing contracts, acceptance criteria, data model, API, web, jobs, and local dev.  |
+| System architecture | [`docs/specs/architecture.md`](../specs/architecture.md)                                             | Current system map, trust boundaries, primary flows, and owner lookup table.            |
+| Decision history    | [`docs/adr/README.md`](../adr/README.md)                                                             | Rationale, conflict resolutions, and implementation constraints.                        |
+| Public contracts    | [`packages/contracts`](../../packages/contracts)                                                     | Zod schemas, route registries, OpenAPI goldens, and shared wire types.                  |
+| Runtime guardrails  | [`packages/worker-runtime`](../../packages/worker-runtime)                                           | Route registrar, request guard, principals, errors, rate limiting, and Sentry helpers.  |
+| Auth helpers        | [`packages/auth`](../../packages/auth)                                                               | Request IDs, auth response helpers, and shared auth lookup/cache helpers.               |
+| Durable state       | [`packages/db`](../../packages/db)                                                                   | Drizzle schema, migrations, RLS, repository core, Postgres adapter, and local adapter.  |
+| Command sequencing  | [`packages/commands`](../../packages/commands)                                                       | `runCommand`, idempotency claim/replay, audit sequencing, and queue target helpers.     |
+| Token crypto        | [`packages/tokens`](../../packages/tokens), [`packages/rotation`](../../packages/rotation)           | Signed token codecs, key/pepper rings, token kinds, and rotation playbooks.             |
+| API control plane   | [`apps/api`](../../apps/api)                                                                         | Authenticated mutations, web API, Agent View, Access Link resolution, and operators.    |
+| Upload path         | [`apps/upload`](../../apps/upload)                                                                   | Upload Sessions, signed PUT URLs, R2 writes, and finalize.                              |
+| Content serving     | [`apps/content`](../../apps/content)                                                                 | Signed content reads, denylist checks, MIME/CSP/cache headers, and R2 streaming.        |
+| Dashboard           | [`apps/web`](../../apps/web)                                                                         | TanStack Start routes, WorkOS session handling, dashboard UI, and server mutations.     |
+| Lifecycle jobs      | [`apps/jobs`](../../apps/jobs)                                                                       | Queue consumers, cron discovery, bundle generation, byte purge, retention, and scans.   |
+| Live Updates        | [`apps/stream`](../../apps/stream)                                                                   | Artifact Durable Object, SSE fan-out, and viewer authorization through `api`.           |
+| CLI                 | [`apps/cli`](../../apps/cli), [`packages/api-client`](../../packages/api-client)                     | Login, local credential storage, publish flow, self-upgrade, and internal client calls. |
+| Marketing surface   | [`apps/apex`](../../apps/apex)                                                                       | Public homepage, `/llms.txt`, `/agents.md`, and app redirects.                          |
+| MCP                 | [`apps/mcp`](../../apps/mcp), [`packages/contracts/src/mcp.ts`](../../packages/contracts/src/mcp.ts) | Streamable HTTP transport, OAuth auth, tool registry, and forwarded API calls.          |
+| Storage helpers     | [`packages/storage`](../../packages/storage), [`packages/config`](../../packages/config)             | Served content type mapping, security headers, paths, limits, and expiration helpers.   |
+| Repo policy         | [`packages/repo-lint`](../../packages/repo-lint), [`scripts/README.md`](../../scripts/README.md)     | Monorepo guardrails, deployment scripts, smoke scripts, and maintenance commands.       |
 
 ## Common Lookups
 
@@ -64,7 +78,7 @@ carry the local contract summary and commands.
 | API auth, scopes, or rate limits | [`packages/contracts/src/routes.ts`](../../packages/contracts/src/routes.ts), [`packages/worker-runtime`](../../packages/worker-runtime), owning Worker tests.                                                                                                                                                                                              |
 | Database schema or RLS           | [`packages/db/src/schema.ts`](../../packages/db/src/schema.ts), [`packages/db/migrations`](../../packages/db/migrations), [`packages/db/src/postgres`](../../packages/db/src/postgres).                                                                                                                                                                     |
 | Repository behavior              | [`packages/db/src/repository/core.ts`](../../packages/db/src/repository/core.ts), repository adapters, and focused tests in [`packages/db/src`](../../packages/db/src).                                                                                                                                                                                     |
-| CLI publish/login behavior       | [`apps/cli/src`](../../apps/cli/src), [`packages/api-client/src/index.ts`](../../packages/api-client/src/index.ts), API and upload contracts.                                                                                                                                                                                                               |
+| CLI publish/login behavior       | [`apps/cli/src`](../../apps/cli/src), [`packages/api-client/src/index.ts`](../../packages/api-client/src/index.ts), upload contracts, and the relevant CLI/MCP docs.                                                                                                                                                                                        |
 | Dashboard behavior               | [`apps/web/src/routes`](../../apps/web/src/routes), [`apps/web/src/server`](../../apps/web/src/server), [`apps/web/test`](../../apps/web/test).                                                                                                                                                                                                             |
 | Access Links                     | [`packages/contracts/src/accessLinks.ts`](../../packages/contracts/src/accessLinks.ts), [`packages/tokens/src/access-link.ts`](../../packages/tokens/src/access-link.ts), [`packages/db/src/access-links.ts`](../../packages/db/src/access-links.ts), `apps/api`, and [`apps/web/src/routes/al.$publicId.tsx`](../../apps/web/src/routes/al.$publicId.tsx). |
 | Live Updates                     | [`apps/stream`](../../apps/stream), [`apps/api/src/live-updates.ts`](../../apps/api/src/live-updates.ts), [`packages/contracts/src/liveUpdates.ts`](../../packages/contracts/src/liveUpdates.ts), [ADR 0069](../adr/0069-live-updates-via-stream-worker-and-per-artifact-durable-object.md).                                                                |

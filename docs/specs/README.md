@@ -6,14 +6,16 @@ Links, multi-Revision Artifacts, jobs, Bundles, Live Updates, MCP, billing, and
 ephemeral publish. [`docs/ops/project-status.md`](../ops/project-status.md)
 records implementation status; these specs own the behavioral contract.
 
-- [`mvp.md`](./mvp.md): the original CLI-first MVP story, actors, surfaces,
-  journeys, limits, and non-goals.
+- [`mvp.md`](./mvp.md): historical baseline for the original CLI-first MVP
+  story, actors, surfaces, journeys, limits, and non-goals. Do not use it as
+  current agent publish guidance; use [`api.md`](./api.md),
+  [`local-dev.md`](./local-dev.md), and [`../mcp.md`](../mcp.md).
 - [`use-cases.md`](./use-cases.md): canonical product use cases, audiences, and
   explicit non-use-cases.
 - [`../mcp.md`](../mcp.md): practical MCP guide for agents that cannot run the
   CLI but can connect to remote MCP.
 - [`phases.md`](./phases.md): roadmap from buildable plan through MCP and platform hardening.
-- [`admin.md`](./admin.md): internal admin REST APIs and repo-local admin CLI contract.
+- [`admin.md`](./admin.md): internal admin route and repo-local admin CLI contract.
 - [`product-judgment.md`](./product-judgment.md): why to build, why not to build, and the product posture behind the narrower MVP.
 - [`features.md`](./features.md): quick shipped feature inventory and explicit
   out-of-scope list.

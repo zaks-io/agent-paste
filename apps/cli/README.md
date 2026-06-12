@@ -45,22 +45,19 @@ npm install -g @zaks-io/agent-paste
 
 ## Authenticate
 
-For interactive use, sign in through your browser. `login` runs a loopback PKCE flow, mints a scoped **API Key**, and stores it in the OS keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If no keyring is available, it falls back to `~/.config/agent-paste/credentials.json` at mode `0600` and prints a warning.
+For interactive use, sign in through your browser. `login` runs a loopback PKCE
+flow and stores the resulting scoped local credential in the OS keyring (macOS
+Keychain, Windows Credential Manager, or Linux Secret Service). If no keyring is
+available, it falls back to `~/.config/agent-paste/credentials.json` at mode
+`0600` and prints a warning.
 
 ```sh
 agent-paste login
 agent-paste logout
 ```
 
-The minted key is capped at `publish` and `read`, expires after 90 days, and never grants admin.
-
-For CI and headless agents, set `AGENT_PASTE_API_KEY` instead:
-
-```sh
-export AGENT_PASTE_API_KEY=ap_pk_...
-```
-
-`AGENT_PASTE_API_KEY` takes precedence over a stored login credential; when both are present the CLI prints a one-line note to stderr naming which it used. The CLI never accepts secrets as flags. API Keys encode their **Workspace**.
+The stored credential is capped at `publish` and `read`, expires after 90 days,
+and never grants admin. The CLI never accepts secrets as flags.
 
 ## Publish
 
@@ -110,31 +107,33 @@ output still carries diagnostic IDs and URLs for automation.
 
 ## Ephemeral publish fallback
 
-Before using `--ephemeral`, agents should check for an existing login or
-environment key:
+Before using `--ephemeral`, agents should check for an existing login:
 
 ```sh
 npx @zaks-io/agent-paste whoami --json
 ```
 
-`whoami` exits `0` whether or not you are signed in — being anonymous is a valid
+`whoami` exits `0` whether or not you are signed in - being anonymous is a valid
 answer, not a failure. Do not branch on the exit code; check the JSON:
 `{"authenticated": false}` means no usable credential, while a signed-in
 response carries the resolved Workspace, actor, and scopes.
 
 If `whoami` reports you are signed in, publish normally without `--ephemeral`.
-If not and interactive auth is possible, run `agent-paste login` first. Use `--ephemeral`
-only when no human auth or `AGENT_PASTE_API_KEY` is available, or when the user
-explicitly asks for accountless publish. The CLI self-provisions a short-lived
-**Workspace** and key, publishes, and prints a one-time **Claim Token** as a
-claim link. Use this path for non-interactive work such as text, markdown,
-images, and static HTML/CSS.
+If not and interactive auth is possible, run `agent-paste login` first. Use
+`--ephemeral` only when no login is available, or when the user explicitly asks
+for accountless publish. The CLI self-provisions a short-lived **Workspace**,
+publishes, and prints a one-time **Claim Token** as a claim link. Use this path
+for non-interactive work such as text, markdown, images, and static HTML/CSS.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
-`--ephemeral` ignores `AGENT_PASTE_API_KEY` and any stored login credential (it prints a one-line note to stderr when it does). It is not the Free Plan; it is an unclaimed restricted tier. The Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then auto-deletes. To keep it, a signed-in human opens the claim link to reparent the Artifact into their Personal Workspace.
+`--ephemeral` ignores any stored login credential or environment-provided
+credential. It is not the Free Plan; it is an unclaimed restricted tier. The
+Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then
+auto-deletes. To keep it, a signed-in human opens the claim link to reparent the
+Artifact into their Personal Workspace.
 
 The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
@@ -149,8 +148,8 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 | Command                       | Purpose                                                                          |
 | ----------------------------- | -------------------------------------------------------------------------------- |
-| `agent-paste login`           | Mint a publish/read API key via browser loopback login.                          |
-| `agent-paste logout`          | Revoke the stored API key when possible, then remove the local credential.       |
+| `agent-paste login`           | Sign in through browser loopback auth and store a scoped local credential.       |
+| `agent-paste logout`          | Revoke the stored credential when possible, then remove it locally.              |
 | `agent-paste whoami`          | Show the resolved **Workspace**, actor, and granted scopes.                      |
 | `agent-paste publish <path>`  | Walk a local file or directory, upload bytes, finalize, and print the result.    |
 | `agent-paste version`         | Print the CLI version baked in at build time.                                    |
@@ -158,17 +157,16 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                     | Purpose                                                                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                      |
-| `--title <text>`         | Set the title. Default: path basename.                                                                                             |
-| `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                |
-| `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                          |
-| `--share`                | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                 |
-| `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key and prints a one-time claim link. |
-| `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                       |
-| `--quiet`                | Suppress human-readable stdout output.                                                                                             |
-| `--color` / `--no-color` | Force colored or plain output. Default: auto-detect from TTY, `NO_COLOR`, and `CI`.                                                |
+| Flag                   | Purpose                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                         |
+| `--title <text>`       | Set the title. Default: path basename.                                                                                                |
+| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                   |
+| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                             |
+| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                    |
+| `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
+| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                          |
+| `--quiet`              | Suppress human-readable stdout output.                                                                                                |
 
 ## Output
 
@@ -188,7 +186,6 @@ With `--json`, stdout is exactly the publish result:
 
 ```json
 {
-  "schema_version": "1",
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "title": "report",
@@ -199,14 +196,6 @@ With `--json`, stdout is exactly the publish result:
   "bundle": {
     "status": "pending",
     "retry_after_seconds": 5
-  },
-  "upload_stats": {
-    "total_files": 3,
-    "total_bytes": 43008,
-    "uploaded_files": 3,
-    "uploaded_bytes": 43008,
-    "reused_files": 0,
-    "reused_bytes": 0
   }
 }
 ```
@@ -256,7 +245,7 @@ Exit `0` for success, `1` for any failure. Errors are plain text on stderr,
 including when `--json` is set:
 
 ```text
-agent-paste: not_authenticated: Set AGENT_PASTE_API_KEY or pass an auth provider.
+agent-paste: not_authenticated: Run agent-paste login or use --ephemeral for an accountless handoff.
 ```
 
 The middle field is the stable error code. The message is human-readable.
@@ -265,7 +254,6 @@ The middle field is the stable error code. The message is human-readable.
 
 | Variable                      | Purpose                                                                                                             |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `AGENT_PASTE_API_KEY`         | API key for CI and headless use. Takes precedence over stored login.                                                |
 | `AGENT_PASTE_API_URL`         | Override the API base URL. Defaults to `https://api.agent-paste.sh`.                                                |
 | `AGENT_PASTE_WEB_URL`         | Override the web app base URL used to build the `--ephemeral` claim link. Defaults to `https://app.agent-paste.sh`. |
 | `AGENT_PASTE_NO_UPDATE_CHECK` | Set to any value to disable the background update check entirely.                                                   |
@@ -280,4 +268,6 @@ After a real command (not `help`/`version`), the CLI checks at most once per 24h
 
 ## When not to use the CLI
 
-The CLI runs either as a standalone binary (the installer above, no Node) or via Node/`npx`. For server-to-server callers and environments where neither fits (Python or Go agents, sandboxes without a shell or filesystem), call the REST API directly at `https://api.agent-paste.sh/v1`.
+The CLI runs either as a standalone binary (the installer above, no Node) or via
+Node/`npx`. For hosted agents that cannot run either form of the CLI, connect to
+the OAuth MCP server at `https://mcp.agent-paste.sh`.

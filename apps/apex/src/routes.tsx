@@ -23,7 +23,7 @@ export type ApexRoute = {
 };
 
 const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, REST, MCP, limits, and safety.";
+  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, MCP, limits, and safety.";
 
 const DOCS_INDEX_META: PageMeta = {
   title: "agent-paste docs",
