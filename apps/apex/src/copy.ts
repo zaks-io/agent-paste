@@ -10,7 +10,6 @@ export const APP_BASE_URL = `https://app.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 // The app has no /login route; sign-in is initiated at /api/auth/sign-in
 // (root "/" also redirects there for unauthenticated visitors).
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;
-export const API_BASE_URL = `https://api.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 export const MCP_BASE_URL = `https://mcp.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 export const SOURCE_REPOSITORY = {
   label: "View on GitHub",
@@ -92,7 +91,7 @@ export type Feature = {
 export const FEATURES: Feature[] = [
   {
     title: "A URL for humans. A manifest for agents.",
-    body: "A person gets a browser link. An agent gets structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it.",
+    body: "Every Publish returns an authenticated app View and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it. One stable Artifact, the same across CLI, MCP, and the dashboard.",
   },
   {
     title: "Cross-vendor handoff",
@@ -127,7 +126,6 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "Docs", href: "/docs" },
       { label: "Dashboard", href: APP_BASE_URL },
-      { label: "REST API", href: API_BASE_URL },
       { label: "MCP server", href: MCP_BASE_URL },
     ],
   },

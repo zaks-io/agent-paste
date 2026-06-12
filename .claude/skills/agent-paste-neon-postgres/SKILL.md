@@ -3,8 +3,7 @@ name: agent-paste-neon-postgres
 description: >-
   Guides and best practices for working with Neon Serverless Postgres.
   Covers setup, connection methods, branching, autoscaling, scale-to-zero,
-  read replicas, connection pooling, Neon Auth, and the Neon CLI, MCP server,
-  REST API, TypeScript SDK, and Python SDK.
+  read replicas, connection pooling, Neon Auth, and the Neon CLI or MCP server.
   Use when users ask about "Neon setup", "connect to Neon", "Neon project",
   "DATABASE_URL", "serverless Postgres", "Neon CLI", "neonctl", "Neon MCP",
   "Neon Auth", "@neondatabase/serverless", "@neondatabase/neon-js",
@@ -74,7 +73,7 @@ npx -y neonctl@latest init --agent <agent-name>
 
 Supported `--agent` values: `cursor`, `copilot`, `claude`, `claude-desktop`, `codex`, `opencode`, `cline`, `gemini-cli`, `goose`, `zed`.
 
-This installs the Neon extension (for Cursor/VS Code) or MCP server (for other agents), creates an API key, and, in a default upstream setup, adds the source `neon-postgres` agent skill to the project. In this repo, keep the checked-in skill name prefixed as `agent-paste-neon-postgres`.
+This installs the Neon extension (for Cursor/VS Code) or MCP server (for other agents), provisions the integration credentials it needs, and, in a default upstream setup, adds the source `neon-postgres` agent skill to the project. In this repo, keep the checked-in skill name prefixed as `agent-paste-neon-postgres`.
 
 If `init` is not suitable, the individual steps can be run non-interactively:
 
@@ -133,7 +132,7 @@ Link: https://neon.com/docs/serverless/serverless-driver.md
 
 ### Neon JS SDK
 
-Use this for combined Neon Auth + Data API workflows with PostgREST-style querying and typed client setup.
+Use this for combined Neon Auth + typed client setup.
 
 Link: https://neon.com/docs/reference/javascript-sdk.md
 
@@ -154,25 +153,21 @@ Use this for terminal-first workflows, scripts, and CI/CD automation with `neonc
 
 Link: https://neon.com/docs/reference/neon-cli.md
 
-## Neon Admin API
+## Programmatic Neon Management
 
-The Neon Admin API can be used to manage Neon resources programmatically. It is used behind the scenes by the Neon CLI and MCP server, but can also be used directly for more complex automation workflows or when embedding Neon in other applications.
-
-### Neon REST API
-
-Use this for direct HTTP automation, endpoint-level control, API key auth, rate-limit handling, and operation polling.
-
-Link: https://neon.com/docs/reference/api-reference.md
+Use Neon CLI or MCP for agent-driven resource management. Direct service-client
+integration is not the default path in this repo; use it only when the user
+explicitly asks to embed Neon management in application code.
 
 ### Neon TypeScript SDK
 
-Use this when implementing typed programmatic control of Neon resources in TypeScript via `@neondatabase/api-client`.
+Use this only when implementing typed Neon management in TypeScript via `@neondatabase/api-client`.
 
 Link: https://neon.com/docs/reference/typescript-sdk.md
 
 ### Neon Python SDK
 
-Use this when implementing programmatic Neon management in Python with the `neon-api` package.
+Use this only when implementing Neon management in Python with the `neon-api` package.
 
 Link: https://neon.com/docs/reference/python-sdk.md
 

@@ -5,7 +5,10 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root: the glossary of domain language (Artifact, Revision, Workspace, etc).
-- **`docs/adr/`** at the repo root: architectural decisions. Read ADRs that touch the area you're about to work in.
+- **`docs/specs/README.md`** at the repo root: the current behavior source of
+  truth and spec reading order.
+- **`docs/adr/`** at the repo root: architectural decisions. Read ADRs that
+  touch the area you're about to work in after checking the current spec.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
 
@@ -28,8 +31,13 @@ When your output names a domain concept (in an issue title, a refactor proposal,
 
 If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
 
-## Flag ADR conflicts
+## Flag doc conflicts
 
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
+Specs describe how the system behaves now. ADRs explain why decisions were made.
+If a spec and an ADR disagree, the spec wins for implementation work and the
+conflict should be fixed in the docs.
+
+If your output contradicts an existing spec or ADR, surface it explicitly rather
+than silently overriding:
 
 > _Contradicts ADR-0007 (database migrations and preview environments), but worth reopening because…_

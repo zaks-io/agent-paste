@@ -508,7 +508,7 @@ describe("cli command dispatch", () => {
     expect(revokeCurrent).toHaveBeenCalledOnce();
     expect(remove).toHaveBeenCalledOnce();
     expect(stdoutValues(stdout)).toEqual(
-      expect.arrayContaining([expect.stringContaining("Revoked and removed stored API key")]),
+      expect.arrayContaining([expect.stringContaining("Revoked and removed stored credential")]),
     );
   });
 

@@ -29,11 +29,11 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Share a one-off artifact    | Generated work needs to be dropped into a channel, issue, PR, or customer thread for review.                 | Host the handoff without turning it into permanent hosting or a social surface.                          |
 | Run unattended              | An agent has no stored credential and no human available for browser login at publish time.                  | Allow `--ephemeral` publish, return the claim handoff, and let a human claim it later.                   |
 | Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls.        |
-| Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose REST, MCP, Agent View, and documented contracts that can be built on by another platform.         |
+| Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose CLI, MCP, Agent View, and documented contracts that can be built on by another platform.          |
 
 For the iteration use case, public/shareable browser URLs must come from an
-explicit Share Link, requested with CLI `--share`, REST `{ "share": true }`, MCP
-`share:true`, or link-management routes. The direct `revision_content_url` is
+explicit Share Link, requested with CLI `--share`, MCP `share:true`, or
+link-management routes. The direct `revision_content_url` is
 exact Revision content; it is useful for one-shot inspection but it does not
 advance when the agent publishes a later Revision. The authenticated Artifact URL
 is the default Workspace app view.
@@ -43,7 +43,7 @@ is the default Workspace app view.
 | Audience                      | Why they care                                                                                                                 |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Agents                        | They need a stable place to put work, including from hosts with no CLI access, and a stable way to read another agent's work. |
-| Agent builders and developers | They need one publish call, scoped keys, no storage bucket, and no deploy infra to babysit.                                   |
+| Agent builders and developers | They need one publish command or MCP tool, scoped credentials, no storage bucket, and no deploy infra to babysit.             |
 | Teams                         | They need auditability, revocation, retention, Live Updates, and controls around agent output.                                |
 | Embedders and platforms       | They need a vendor-neutral artifact layer and Agent View protocol they can build on.                                          |
 

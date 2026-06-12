@@ -25,7 +25,7 @@ function idToken(email: string): string {
 }
 
 describe("login flow", () => {
-  it("runs loopback PKCE, mints a key, and stores the credential", async () => {
+  it("runs loopback PKCE and stores the scoped credential", async () => {
     const store = memoryStore();
     const tokenCalls: Array<Record<string, string>> = [];
 

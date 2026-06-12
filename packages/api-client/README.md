@@ -1,11 +1,12 @@
 # api-client
 
-Internal TypeScript client consumed by `apps/cli` and web/CLI login key-mint flows.
+Internal TypeScript client consumed by `apps/cli` and web/CLI login credential flows.
 
 Responsibilities:
 
-- Auth resolution from `AGENT_PASTE_API_KEY`, admin token env, or an injected bearer provider.
-- REST calls against `api` and `upload`.
+- Auth resolution from an injected CLI credential, legacy environment credential,
+  or injected bearer provider.
+- Internal HTTP calls against `api` and `upload`.
 - Publish and download composition.
 - Retry and idempotency behavior.
 - Cursor auto-pagination.

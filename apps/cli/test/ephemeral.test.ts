@@ -94,7 +94,7 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("warns when env API key and stored login credentials are present", async () => {
+  it("warns when environment and stored login credentials are present", async () => {
     mockStdout();
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_API_KEY", "ap_pk_preview_ignored_secret");
@@ -113,7 +113,7 @@ describe("cli ephemeral publish", () => {
         createPublishClient: () => fakePublishClient(),
       });
       expect(parseArgs(["publish", root, "--ephemeral"]).flags.get("ephemeral")).toBe(true);
-      expect(stderr).toHaveBeenCalledWith("agent-paste: --ephemeral ignores AGENT_PASTE_API_KEY.\n");
+      expect(stderr).toHaveBeenCalledWith("agent-paste: --ephemeral ignores the environment credential.\n");
       expect(stderr).toHaveBeenCalledWith("agent-paste: --ephemeral ignores the stored login credential.\n");
     } finally {
       await fs.rm(root, { recursive: true, force: true });

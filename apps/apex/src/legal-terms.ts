@@ -42,11 +42,11 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "You are responsible for activity under your Workspace, authenticated sessions, API Keys, and any agent or tool you authorize to use the service. Keep credentials secret and revoke or rotate them if you believe they were exposed.",
+          text: "You are responsible for activity under your Workspace, authenticated sessions, automation credentials, and any agent or tool you authorize to use the service. Keep credentials secret and revoke or rotate them if you believe they were exposed.",
         },
         {
           kind: "paragraph",
-          text: "API Keys are meant for agents and automation. Do not embed them in public repositories, published Artifacts, client-side code, browser-visible pages, or logs.",
+          text: "Automation credentials are meant for controlled agent and workflow use. Do not embed them in public repositories, published Artifacts, client-side code, browser-visible pages, or logs.",
         },
       ],
     },

@@ -4,7 +4,7 @@ export const EPHEMERAL_DOC: DocsPage = {
   slug: "ephemeral",
   title: "Ephemeral Publish and Claim Tokens",
   shortTitle: "Ephemeral",
-  summary: "Restricted accountless publish for when no login or API Key is available.",
+  summary: "Restricted accountless publish for when no login is available.",
   sections: [
     {
       id: "when-to-use",
@@ -12,7 +12,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: 'Agents should run `agent-paste whoami --json` before choosing `--ephemeral`. It exits `0` either way; check the JSON, not the exit code. If it reports you are signed in, publish normally without `--ephemeral`. If it reports `"authenticated": false` and the user can interact, run `agent-paste login` first. Use `--ephemeral` only when no login or `AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for accountless publish.',
+          text: 'Agents should run `agent-paste whoami --json` before choosing `--ephemeral`. It exits `0` either way; check the JSON, not the exit code. If it reports you are signed in, publish normally without `--ephemeral`. If it reports `"authenticated": false` and the user can interact, run `agent-paste login` first. Use `--ephemeral` only when no login is available, or when the user explicitly asks for accountless publish.',
         },
         {
           kind: "paragraph",
@@ -28,7 +28,7 @@ export const EPHEMERAL_DOC: DocsPage = {
           kind: "ordered",
           items: [
             "An agent runs `agent-paste publish <path> --ephemeral`.",
-            "The CLI provisions an Ephemeral Workspace and short-lived API Key, then publishes through the normal Upload Session flow.",
+            "The CLI provisions an Ephemeral Workspace, then publishes through the normal Upload Session flow.",
             "The publish result works immediately and includes a one-time claim link shaped `https://app.agent-paste.sh/claim#ap_ct_...`.",
             "A signed-in human opens the claim link to move the Artifact into their Personal Workspace.",
           ],

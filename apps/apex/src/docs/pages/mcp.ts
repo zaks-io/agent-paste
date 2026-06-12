@@ -31,7 +31,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "MCP does not accept API Keys or dashboard cookies. It verifies a WorkOS-issued OAuth bearer token and forwards authenticated calls to `api` and `upload` over service bindings.",
+          text: "MCP verifies a WorkOS-issued OAuth bearer token and forwards authenticated calls to `api` and `upload` over service bindings. Dashboard cookies and local CLI credentials do not authenticate MCP calls.",
         },
         {
           kind: "paragraph",
@@ -99,7 +99,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The MCP publish tools are text-only. Binary uploads, multi-file folder uploads, standalone Bundle downloads, workspace settings, billing, and lockdown controls stay in CLI, REST, or dashboard surfaces.",
+          text: "The MCP publish tools are text-only. Binary uploads, multi-file folder uploads, and standalone Bundle downloads stay in the CLI. Workspace settings, billing, and lockdown controls stay in the dashboard.",
         },
         {
           kind: "paragraph",

@@ -90,9 +90,11 @@ describe("home page", () => {
     expect(body).toContain('href="/a/art_8KQ2WSDIEGO7XR"');
   });
 
-  it("leads with OAuth login, not manual API keys", () => {
+  it("leads with OAuth login, not manual credential setup", () => {
+    const main = body.match(/<main[^>]*>[\s\S]*?<\/main>/)?.[0] ?? body;
     expect(body).toContain('data-clipboard="npx @zaks-io/agent-paste login"');
-    expect(body).not.toContain("Get an API key");
+    expect(main).not.toContain("Get an API key");
+    expect(main).not.toContain("REST API");
   });
 
   it("links the one-line installer to its served scripts", () => {
@@ -176,7 +178,7 @@ describe("how-it-works page", () => {
   });
 
   it("keeps platform/infra jargon and em dashes out of the page body", () => {
-    // Scope to <main>: the footer legitimately links "REST API" and "MCP server".
+    // Scope to <main>: the footer legitimately links "MCP server".
     const main = body.match(/<main[^>]*>[\s\S]*?<\/main>/)?.[0] ?? "";
     expect(main).not.toContain("Operator");
     expect(main).not.toContain("operator");
