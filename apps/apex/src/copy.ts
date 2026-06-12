@@ -23,41 +23,40 @@ export const WORDMARK = {
   tld: ".sh",
 };
 
-export const TITLE = "agent-paste.sh: your agent built it, open it anywhere";
+export const TITLE = "agent-paste.sh: tell your agent where to publish";
 export const META_DESCRIPTION =
-  "Your coding agent built an HTML report or page. agent-paste turns it into a link you can open and share, in one command. No deploy, no repo, no API keys. It works from Claude Code, Codex, or any shell, and over MCP from a web chat that has none. One Artifact ID resolves the same across the CLI, REST API, MCP, and dashboard.";
+  "Tell your agent what to make and where to post it: agent-paste.sh. It reads the docs, uses CLI or MCP, and returns a revocable Access Link. No deploy, repo, or manual upload.";
 
 // The headline itself is canonical JSX in HomePage.tsx (it carries the one
 // accent span, which a plain string can't), so it is intentionally not stored
 // here. This object holds only the eyebrow, the lead, and the primary CTA.
 export const HERO = {
   eyebrow: "Where agents publish",
-  lead: "Claude Code or Codex builds an interactive page. One command turns it into a link you open on your phone, send to anyone, or hand to the next agent. Sign in once in the browser, free, and the agent does the rest.",
+  lead: "Tell your agent what to make and where to post it: agent-paste.sh. It reads the docs, uses CLI or MCP, and gives you an Access Link you can open on your phone or hand to the next agent.",
   primary: { label: "Open the dashboard", href: SIGN_IN_URL },
 };
 
-// One source for every CLI command string on the page, so the demo, the command
-// boxes, and the install block can't drift. The demo TRANSCRIPT keeps its own
-// `publish ./san-diego` line (that exact string is a tested contract); every
-// other publish example uses the generic `./report`.
+// One source for every CLI command string on the page, so the command boxes and
+// install block can't drift. The demo TRANSCRIPT intentionally shows the agent
+// workflow instead of a command for the human to run.
 export const CLI = "npx @zaks-io/agent-paste";
 export const LOGIN_CMD = `${CLI} login`;
 export const PUBLISH_CMD = `${CLI} publish ./report`;
 export const INSTALL_SH_CMD = "curl -fsSL https://agent-paste.sh/install.sh | sh";
 export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 
-// The home demo: a flat, hairline transcript shell showing one real publish
+// The home demo: a flat, hairline transcript shell showing an agent publish
 // session (style-guide §8.1 sanctions the transcript; the terminal *look* is
 // still banned). Nothing in it animates.
 
-// The static demo artifact the transcript resolves to. It is a self-hosted
-// static page under public/ (NOT a live artifact), served at an id-shaped path
-// so the URL reads like a real minted Artifact. The slug must not collide with a
-// PRODUCT_PREFIXES redirect (redirects.ts) or the TEXT_ASSET_PATHS whitelist
-// (server.ts): `/a/` is free.
-export const EXAMPLE_ARTIFACT_PATH = "/a/art_8KQ2WSDIEGO7XR";
-export const EXAMPLE_ARTIFACT_URL = `agent-paste.sh${EXAMPLE_ARTIFACT_PATH}`;
-export const EXAMPLE_PROMPT = "plan me a weekend in San Diego";
+// The transcript prints an Access Link, while the clickable demo opens a static
+// page under public/ so production data is not required. The static path must
+// not collide with a PRODUCT_PREFIXES redirect (redirects.ts) or the
+// TEXT_ASSET_PATHS whitelist (server.ts): `/a/` is free.
+export const EXAMPLE_STATIC_PAGE_PATH = "/a/art_8KQ2WSDIEGO7XR";
+export const EXAMPLE_ACCESS_LINK_URL =
+  "app.agent-paste.sh/al/8KQ2WSDG07XR4T9M#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0";
+export const EXAMPLE_PROMPT = "Plan a weekend in San Diego and post the link to agent-paste.sh.";
 
 export type TranscriptLine =
   | { kind: "prompt"; text: string }
@@ -66,19 +65,17 @@ export type TranscriptLine =
   | { kind: "output"; text: string }
   | { kind: "result"; url: string; href: string };
 
-// A read-only pseudo-session: the agent builds a folder, then one full publish
-// command turns it into a shareable link. The success + result lines are a
-// truthful slice of what the CLI's formatPublishResult actually prints (see
-// apps/cli/src/index.ts), so the demo never fabricates output. Nothing here is
-// copyable on purpose; it shows what happens, and the runnable command lives in
-// the CommandBox below the shell.
+// A read-only pseudo-session: the user gives the agent the job and
+// agent-paste.sh, then the agent discovers the docs, publishes, and returns the
+// Access Link. Nothing here is copyable on purpose; setup commands stay below.
 export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
+  { kind: "output", text: "reading agent-paste.sh/agents.md..." },
   { kind: "output", text: "building itinerary, maps, photos..." },
   { kind: "output", text: "wrote ./san-diego" },
-  { kind: "prompt", text: 'npx @zaks-io/agent-paste publish ./san-diego \\\n    --title "A weekend in San Diego"' },
-  { kind: "success", text: 'Published "A weekend in San Diego"' },
-  { kind: "result", url: EXAMPLE_ARTIFACT_URL, href: EXAMPLE_ARTIFACT_PATH },
+  { kind: "output", text: "published and created a Share Link" },
+  { kind: "success", text: 'Posted "A weekend in San Diego" to agent-paste.sh' },
+  { kind: "result", url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
   { kind: "comment", text: "# open it on your phone, share it, or hand it to the next agent." },
 ];
 
@@ -95,7 +92,7 @@ export type Feature = {
 export const FEATURES: Feature[] = [
   {
     title: "A URL for humans. A manifest for agents.",
-    body: "Every Publish returns an authenticated app View and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it. One stable Artifact, the same across CLI, REST, MCP, and the dashboard.",
+    body: "A person gets a browser link. An agent gets structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it.",
   },
   {
     title: "Cross-vendor handoff",

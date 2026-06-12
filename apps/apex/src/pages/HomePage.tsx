@@ -106,8 +106,8 @@ function DetailPane() {
   return (
     <section className="pt-10 pb-2 min-w-0 min-[900px]:[padding:var(--pane-pad-y)_0_64px_var(--pane-gutter)]">
       <DemoBlock />
-      <CommandBlock />
       <ReasonsBlock />
+      <CommandBlock />
       <McpBlock />
       <ClosingBlock />
     </section>
@@ -131,26 +131,26 @@ function DemoBlock() {
   return (
     <div className={`reveal d3 ${BLOCK}`} id="demo">
       <h2 className={TITLE}>
-        Build it in your agent. <span className="text-accent">Publish</span> in one line.
+        Tell the agent. Get the <span className="text-accent">link</span>.
       </h2>
       <p className="text-base leading-relaxed text-muted mb-8 max-w-[46ch]">
-        Your agent renders a folder, in whatever tool you already use. One command publishes it and hands back a link a
-        person can open and another agent can read.
+        Give the agent the job and agent-paste.sh. It reads the docs, uses CLI or MCP, and returns an Access Link a
+        person can open or another agent can resolve.
       </p>
       <TranscriptDemo />
     </div>
   );
 }
 
-// The how-to beat: the two commands in the order you run them. Login first
-// (browser OAuth, no key to paste), then publish. Even spacing between boxes.
+// The shell setup beat: the two commands in the order a shell-capable agent can
+// run them. Login first (browser OAuth, no key to paste), then publish.
 function CommandBlock() {
   return (
     <div className={`reveal d4 ${BLOCK}`} id="how">
-      <div className={MARKER}>The command</div>
+      <div className={MARKER}>Shell-capable agents</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
-        Sign in once over browser OAuth, then publish to hand off what your agent made. The same Artifact ID resolves to
-        a page a person opens and a manifest another agent reads.
+        If the agent has a shell, it can run the publish command itself. Sign in once over browser OAuth; after that,
+        the agent handles the publish and returns the link.
       </p>
       <div className="flex flex-col gap-3">
         <CommandBox cmd={LOGIN_CMD} />
@@ -194,18 +194,18 @@ function ProofItem({ feature, index }: { feature: Feature; index: number }) {
   );
 }
 
-// The no-shell door. CLI leads the page; this is the fallback for web chats that
-// have no terminal (ChatGPT, Claude, Gemini): connect the MCP server once and the
-// agent publishes and reads from there. Framed by what it lets you do, not the
-// acronym (brand guide: MCP is the mechanism, never the headline).
+// The no-shell door for web chats (ChatGPT, Claude, Gemini): connect the MCP
+// server once and the agent publishes and reads from there. Framed by what it
+// lets you do, not the acronym (brand guide: MCP is the mechanism, never the
+// headline).
 function McpBlock() {
   const endpoint = MCP_BASE_URL.replace(/^https?:\/\//, "");
   return (
     <div className={`reveal d6 ${BLOCK}`} id="mcp">
       <div className={MARKER}>No shell? Connect from any chat</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
-        In a web chat with no terminal, like ChatGPT, Claude, or Gemini, add the server once. The agent publishes and
-        reads Artifacts from there, the same ones the CLI produces.
+        In a web chat with no terminal, like ChatGPT, Claude, or Gemini, add the server once. The agent can publish,
+        read, and create Share Links from there.
       </p>
       <div className="flex items-center justify-between gap-4 border border-rule-strong rounded-sm bg-surface px-4 py-4 font-mono text-base [font-feature-settings:'zero']">
         <code className="font-mono whitespace-nowrap overflow-x-auto flex-1 min-w-0">

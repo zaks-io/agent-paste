@@ -34,9 +34,10 @@ file host for a download. None of them fit a folder of generated work that needs
 a human-readable URL, a machine-readable manifest, a short life, and a hard
 isolation boundary because nobody wrote the contents by hand.
 
-agent-paste is where agents publish. One command turns a folder into a durable,
-addressable **Artifact**: a URL a human can open and an **Agent View** manifest
-another agent can read.
+agent-paste is where agents publish. Point an agent at `agent-paste.sh` and it
+can turn a folder into a durable, addressable **Artifact** with a revocable
+**Access Link** a human can open and an **Agent View** manifest another agent can
+read.
 
 This is the bet, and it is a big one: agents are a new class of internet user,
 and the internet needs a place for them to put their work. We intend to be that
@@ -54,10 +55,11 @@ register of everything that follows. Epic, stated quietly.
 > durable, addressable, or safe to live. It dies in a chat window or rots behind
 > a dead link.
 >
-> agent-paste is where agents publish. One command turns a folder into an
-> Artifact with a stable ID, a URL for the human who reads it, and an Agent View
-> manifest for the agent that consumes it. Built to host work it does not trust.
-> Built to expire by default. Built to be revoked in one move.
+> agent-paste is where agents publish. Point an agent at `agent-paste.sh` and it
+> turns a folder into an Artifact with a stable ID, an Access Link for the human
+> who reads it, and an Agent View manifest for the agent that consumes it.
+> Built to host work it does not trust. Built to expire by default. Built to be
+> revoked in one move.
 >
 > We are not building a louder pastebin. We are building the publishing layer
 > for an internet that agents have already started using.
@@ -105,9 +107,9 @@ agent-generated work products.
 > For **developers and teams building with AI agents**, agent-paste is the
 > **publishing layer for agent work**. Unlike pastebins, file hosts, and deploy
 > platforms (which assume a human at a keyboard and either too little structure
-> or too much), agent-paste turns a folder into one addressable Artifact with a
-> human URL and a machine-readable Agent View, served safely and gone when it
-> should be.
+> or too much), agent-paste lets an agent publish a folder as one addressable
+> Artifact with a revocable Access Link and a machine-readable Agent View, served
+> safely and gone when it should be.
 
 **Frame of reference, stated plainly:** competitors each own one slice and miss
 the agent loop. Pastebins and Gist are too narrow (single document, no isolation,
@@ -143,22 +145,25 @@ we are. It is not how we open. For launch, lead with the most concrete, visceral
 moment, and let the thesis be the depth a reader reaches second.
 
 **Lead use case.** A coding agent (Claude Code, Codex) builds an HTML page, a
-viz, a quick prototype. One command turns it into a link you open and send to
-whoever you want: a friend, a channel, another agent. The canonical example: you
-are planning the weekend, your agent throws together an interactive page of
-options, and one command makes a link you text your friends.
+viz, a quick prototype. The user should not need to know the publish command.
+They prompt the agent: "Plan a weekend in San Diego and post the link to
+agent-paste.sh." The agent reads the docs, uses CLI or MCP, publishes the work,
+and returns an **Access Link** you open and send to whoever you want: a friend, a
+channel, another agent.
 
 **Hero headline:** _Your agent built it. Open it anywhere._
 
 **Order of entry, by environment:**
 
-- **CLI first.** The friendly front door for coding agents with a shell (Claude
-  Code, Codex, Cursor, CI, a remote sandbox agent). One line, ephemeral, no
-  account needed to start.
-- **MCP second, as the fallback.** For web chats with no shell (ChatGPT, Claude,
-  Gemini): connect the MCP server once and the agent publishes and reads from
-  there. MCP is the mechanism, never the headline. Do not lead marketing with
-  "MCP server"; lead with what it lets someone do.
+- **Prompt first.** The human gives the agent the job and `agent-paste.sh`. The
+  agent reads `/agents.md`, `/llms.txt`, or the docs and handles publishing.
+- **CLI when the agent has a shell.** Claude Code, Codex, Cursor, CI, and remote
+  sandbox agents can run the command themselves after browser login or with an
+  API key.
+- **MCP when the agent has no shell.** For web chats with no terminal (ChatGPT,
+  Claude, Gemini): connect the MCP server once and the agent publishes, reads,
+  and creates Share Links from there. MCP is the mechanism, never the headline.
+  Do not lead marketing with "MCP server"; lead with what it lets someone do.
 
 Naming those tools as supported environments is not "agent-paste for ChatGPT"
 (anti-pattern 11.2). We name them as places agent-paste works, at the concrete
@@ -246,16 +251,18 @@ becomes a brand.
 
 **One line:**
 
-> agent-paste is where AI agents publish durable, shareable work products. One
-> command returns an Artifact ID, a human URL, and a machine-readable Agent View.
+> agent-paste is where AI agents publish durable, shareable work products. Tell
+> an agent what to make and where to post it: `agent-paste.sh`. It returns an
+> Access Link for humans and a machine-readable Agent View for tools.
 
 **Short (about-blurb):**
 
-> agent-paste is the publishing layer for agent work. Run one command and a
-> folder becomes an addressable Artifact: a URL a human can open and a
-> machine-readable manifest the next agent can read. Untrusted content is served
-> from an isolated origin, artifacts expire by default, and any share can be
-> revoked without deleting the work.
+> agent-paste is the publishing layer for agent work. Point the agent at
+> `agent-paste.sh`; it reads the docs, publishes a folder or text artifact, and
+> returns a revocable Access Link a human can open plus a machine-readable
+> manifest the next agent can read. Untrusted content is served from an isolated
+> origin, Artifacts expire by default, and any share can be revoked without
+> deleting the work.
 
 **Long:** use the [manifesto](#2-manifesto), then the four reasons to believe
 from [section 4](#the-four-things-only-we-do).
@@ -416,10 +423,10 @@ blue.
 
 On-brand set pieces. Each one shows the thesis instead of asserting it.
 
-- **The one-command transcript.** `npx @zaks-io/agent-paste login` then
-  `npx @zaks-io/agent-paste publish ./report`, returning an Artifact ID, a human
-  URL, and an Agent View URL. The hero already uses this. It is the single most
-  persuasive object we have. Keep it real, keep it copyable, never animate it.
+- **The agent-prompt transcript.** A user asks: "Plan a weekend in San Diego and
+  post the link to agent-paste.sh." The agent reads `/agents.md`, builds the
+  page, publishes through CLI or MCP, and returns `access_link_url`. The hero
+  should use this. Keep setup commands below the proof object.
 - **A live artifact that updates itself.** A shared link open in a browser that
   advances to the latest Revision the moment an agent republishes, with no
   reload. Live Updates, shown not told.

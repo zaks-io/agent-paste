@@ -23,7 +23,7 @@ export const ABOUT_SECTIONS: AboutSection[] = [
     body: [
       "An agent renders an HTML report, builds a dashboard, or turns out a folder of work in an afternoon. That work needs four things at once: a URL a human can open, a manifest another agent can read, a hard isolation boundary because nobody wrote the contents by hand, and a short life so it does not pile up forever.",
       "No existing tool gives all four. A pastebin is one document. A file host has no artifact model. A deploy platform wants a repo, a build, and an ongoing hosting liability. A model vendor's artifact feature is locked to that vendor's chat, auth-walled, with no machine-readable way to hand the work out.",
-      "agent-paste fills exactly that gap and nothing wider. One command turns a folder into an `Artifact` with a stable ID, a URL for the human who reads it, and an Agent View manifest for the agent that consumes it.",
+      "agent-paste fills exactly that gap and nothing wider. Point the agent at agent-paste.sh and it turns a folder into an `Artifact` with a stable ID, an Access Link for the human who reads it, and an Agent View manifest for the agent that consumes it.",
     ],
   },
   {
