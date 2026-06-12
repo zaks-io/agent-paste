@@ -114,11 +114,16 @@ Before using `--ephemeral`, agents should check for an existing login or
 environment key:
 
 ```sh
-npx @zaks-io/agent-paste whoami
+npx @zaks-io/agent-paste whoami --json
 ```
 
-If `whoami` succeeds, publish normally without `--ephemeral`. If it fails and
-interactive auth is possible, run `agent-paste login` first. Use `--ephemeral`
+`whoami` exits `0` whether or not you are signed in — being anonymous is a valid
+answer, not a failure. Do not branch on the exit code; check the JSON:
+`{"authenticated": false}` means no usable credential, while a signed-in
+response carries the resolved Workspace, actor, and scopes.
+
+If `whoami` reports you are signed in, publish normally without `--ephemeral`.
+If not and interactive auth is possible, run `agent-paste login` first. Use `--ephemeral`
 only when no human auth or `AGENT_PASTE_API_KEY` is available, or when the user
 explicitly asks for accountless publish. The CLI self-provisions a short-lived
 **Workspace** and key, publishes, and prints a one-time **Claim Token** as a
@@ -153,16 +158,17 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                   | Purpose                                                                                                                            |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                      |
-| `--title <text>`       | Set the title. Default: path basename.                                                                                             |
-| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                |
-| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                          |
-| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                 |
-| `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key and prints a one-time claim link. |
-| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                       |
-| `--quiet`              | Suppress human-readable stdout output.                                                                                             |
+| Flag                     | Purpose                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                      |
+| `--title <text>`         | Set the title. Default: path basename.                                                                                             |
+| `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                |
+| `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                          |
+| `--share`                | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                 |
+| `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores login/key and prints a one-time claim link. |
+| `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                       |
+| `--quiet`                | Suppress human-readable stdout output.                                                                                             |
+| `--color` / `--no-color` | Force colored or plain output. Default: auto-detect from TTY, `NO_COLOR`, and `CI`.                                                |
 
 ## Output
 
@@ -182,6 +188,7 @@ With `--json`, stdout is exactly the publish result:
 
 ```json
 {
+  "schema_version": "1",
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "title": "report",
@@ -192,6 +199,14 @@ With `--json`, stdout is exactly the publish result:
   "bundle": {
     "status": "pending",
     "retry_after_seconds": 5
+  },
+  "upload_stats": {
+    "total_files": 3,
+    "total_bytes": 43008,
+    "uploaded_files": 3,
+    "uploaded_bytes": 43008,
+    "reused_files": 0,
+    "reused_bytes": 0
   }
 }
 ```
