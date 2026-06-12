@@ -104,7 +104,7 @@ describe("ephemeral provision route", () => {
   });
 
   it("fails loudly on a malformed EPHEMERAL_POW_DIFFICULTY_BITS", async () => {
-    for (const raw of ["banana", "0", "33", "8.5"]) {
+    for (const raw of ["banana", "0", "33", "8.5", "1e1", "0x10", "-8"]) {
       await expect(
         ephemeralProvisionRoute(
           contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret, EPHEMERAL_POW_DIFFICULTY_BITS: raw } }),

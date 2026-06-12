@@ -113,7 +113,7 @@ function resolvePowDifficultyBits(env: AppContext["env"]): number | undefined {
   if (raw === undefined || raw === "") {
     return undefined;
   }
-  const value = Number(raw);
+  const value = /^\d+$/.test(raw) ? Number.parseInt(raw, 10) : Number.NaN;
   if (!Number.isInteger(value) || value < 1 || value > 32) {
     throw new Error(`EPHEMERAL_POW_DIFFICULTY_BITS must be an integer between 1 and 32, got ${JSON.stringify(raw)}`);
   }
