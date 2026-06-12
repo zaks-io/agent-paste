@@ -1,6 +1,24 @@
 # @zaks-io/agent-paste
 
-Command-line interface for publishing shareable **Artifacts** to [Agent Paste](https://agent-paste.sh). Point it at a file or folder and it uploads the bytes, finalizes a Revision, and prints the publish result. Built for agents and CI, usable by hand.
+The command-line interface for [Agent Paste](https://agent-paste.sh) -- where
+agents publish. Point it at a file or folder your agent just built and get back
+a hosted **Artifact** with a URL you can open and share. No deploy, no repo, no
+bucket. Built for agents and CI, usable by hand.
+
+```sh
+npx @zaks-io/agent-paste login    # once, in a browser
+npx @zaks-io/agent-paste publish ./report
+```
+
+```text
+✓ Published "report"
+
+  View      https://app.agent-paste.sh/artifacts/art_01H...
+  Expires   2026-06-20
+  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
+
+  → open https://app.agent-paste.sh/artifacts/art_01H...
+```
 
 The npm package is `@zaks-io/agent-paste`; the installed binary is `agent-paste`.
 If your agent host cannot run a CLI but can connect to remote MCP, use the
@@ -8,6 +26,20 @@ hosted MCP server instead: [`https://mcp.agent-paste.sh`](https://mcp.agent-past
 See [`docs/mcp.md`](../../docs/mcp.md).
 
 ## Install
+
+### npm (Node.js 24+)
+
+No install required:
+
+```sh
+npx @zaks-io/agent-paste publish <path>
+```
+
+For repeated use:
+
+```sh
+npm install -g @zaks-io/agent-paste
+```
 
 ### Standalone binary (no Node required)
 
@@ -28,20 +60,6 @@ This downloads the prebuilt binary for your OS/arch, verifies it against the rel
 Overrides (env vars): `AGENT_PASTE_VERSION` pins a release tag (e.g. `cli-v0.1.0`; default `latest`), `AGENT_PASTE_INSTALL_DIR` changes the install directory.
 
 The macOS binary is codesigned and notarized. Prefer manual verification? Download the asset and `SHA256SUMS` from the [releases page](https://github.com/zaks-io/agent-paste/releases) and run `shasum -a 256 -c SHA256SUMS`, then `chmod +x` the binary yourself.
-
-### npm (Node.js 24+)
-
-No install required:
-
-```sh
-npx @zaks-io/agent-paste publish <path>
-```
-
-For repeated use:
-
-```sh
-npm install -g @zaks-io/agent-paste
-```
 
 ## Authenticate
 
@@ -130,7 +148,7 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
 `--ephemeral` ignores any stored login credential or environment-provided
-credential. It is not the Free Plan; it is an unclaimed restricted tier. The
+credential. It is a restricted tier for unclaimed work, not the Free Plan. The
 Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then
 auto-deletes. To keep it, a signed-in human opens the claim link to reparent the
 Artifact into their Personal Workspace.
@@ -170,19 +188,8 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Output
 
-Default human-readable output:
-
-```text
-✓ Published "report"
-
-  View      https://app.agent-paste.sh/artifacts/art_01H...
-  Expires   2026-06-20
-  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
-
-  → open https://app.agent-paste.sh/artifacts/art_01H...
-```
-
-With `--json`, stdout is exactly the publish result:
+Default human-readable output is shown in the quick start above. With `--json`,
+stdout is exactly the publish result:
 
 ```json
 {
@@ -235,20 +242,34 @@ The CLI excludes these from any folder upload and prints the excluded set to std
 
 The exclusion list is not configurable. If you need one of these in the upload, build a folder without it.
 
-## Idempotency and retries
+## Idempotency
 
-The CLI generates an **idempotency key** per `publish` invocation and reuses it across automatic retries, so transient network failures cannot produce duplicate Artifacts or Revisions. Transient failures (network errors, 5xx, 429 with `Retry-After`) are retried up to 3 times with 1s/2s/4s backoff. Non-transient failures (4xx) exit immediately. An expired upload session exits cleanly; re-run `publish` to start over.
+The CLI generates an **idempotency key** per `publish` invocation and sends it on every mutating call (session create, finalize, publish), so a duplicated or replayed request within one invocation cannot double-apply on the server. The CLI does not retry failed requests itself; a failure exits nonzero (see exit codes below) and callers decide whether to re-run. An expired upload session exits cleanly; re-run `publish` to start over.
 
-## Errors
+## Errors and exit codes
 
-Exit `0` for success, `1` for any failure. Errors are plain text on stderr,
-including when `--json` is set:
+Exit codes are stable so scripts can branch without parsing messages:
+
+| Code | Name             | Cause                                                                |
+| ---- | ---------------- | -------------------------------------------------------------------- |
+| 0    | success          | command completed                                                    |
+| 1    | generic          | any other failure, or a 4xx outside the buckets below                |
+| 2    | auth             | HTTP 401/403 (e.g. `not_authenticated`)                              |
+| 3    | quota            | HTTP 429 — rate limits and write-allowance; back off before retrying |
+| 4    | validation       | HTTP 400/422                                                         |
+| 5    | not found        | HTTP 404                                                             |
+| 6    | network / server | HTTP 5xx                                                             |
+
+Errors go to **stderr**. Human-readable mode prints `✗ <code> — <message>`,
+where `<code>` is the stable error code:
 
 ```text
-agent-paste: not_authenticated: Run agent-paste login or use --ephemeral for an accountless handoff.
+✗ not_authenticated — Run agent-paste login or use --ephemeral for an accountless handoff.
 ```
 
-The middle field is the stable error code. The message is human-readable.
+With `--json`, stderr carries a JSON
+error envelope instead: `{"error": {"code", "message", "docs?"}}`. The full
+output contract lives in [`docs/specs/cli.md`](../../docs/specs/cli.md).
 
 ## Configuration
 
