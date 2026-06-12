@@ -94,8 +94,8 @@ First-class revision rows for multi-revision Artifacts ([0009](../../packages/db
 | Column                    | Type                                      | Notes                                                                                          |
 | ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `id`                      | `TEXT PRIMARY KEY`                        | `rev_...`.                                                                                     |
-| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                |
-| `artifact_id`             | `TEXT NOT NULL REFERENCES artifacts(id)`  | Parent Artifact.                                                                               |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT` | Tenant scope.                                                                                  |
+| `artifact_id`             | `TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE`   | Parent Artifact; deleting the Artifact deletes its revisions.                                |
 | `revision_number`         | `INTEGER NULL`                            | Assigned on publish; unique per Artifact when not null. Null while `status = 'draft'`.         |
 | `status`                  | `TEXT NOT NULL`                           | `draft`, `published`, or `retained`.                                                           |
 | `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                          |
@@ -119,7 +119,7 @@ At most one `draft` row per Artifact (`revisions_one_draft_per_artifact`). Compo
 | --------------------- | ----------------------------------------- | ------------------------------------------- |
 | `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                             |
 | `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`  |                                             |
-| `revision_id`         | `TEXT NOT NULL REFERENCES revisions(id)`  | Revision that owns this file tree.          |
+| `revision_id`         | `TEXT NOT NULL REFERENCES revisions(id) ON DELETE CASCADE` | Revision that owns this file tree; deleting the revision deletes its file rows. |
 | `path`                | `TEXT NOT NULL`                           | Normalized POSIX path.                      |
 | `size_bytes`          | `BIGINT NOT NULL`                         |                                             |
 | `served_content_type` | `TEXT NOT NULL`                           | Derived from extension.                     |
