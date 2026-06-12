@@ -12,7 +12,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Agents should run `agent-paste whoami` before choosing `--ephemeral`. If `whoami` succeeds, publish normally without `--ephemeral`. If it fails and the user can interact, run `agent-paste login` first. Use `--ephemeral` only when no login or `AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for accountless publish.",
+          text: 'Agents should run `agent-paste whoami --json` before choosing `--ephemeral`. It exits `0` either way; check the JSON, not the exit code. If it reports you are signed in, publish normally without `--ephemeral`. If it reports `"authenticated": false` and the user can interact, run `agent-paste login` first. Use `--ephemeral` only when no login or `AGENT_PASTE_API_KEY` is available, or when the user explicitly asks for accountless publish.',
         },
         {
           kind: "paragraph",

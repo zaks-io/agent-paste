@@ -45,11 +45,15 @@ agent-paste has three objects an agent needs to know:
 Before choosing a publish mode, check whether the user already has auth:
 
 \`\`\`
-npx @zaks-io/agent-paste whoami
+npx @zaks-io/agent-paste whoami --json
 \`\`\`
 
-If \`whoami\` succeeds, publish normally. If it fails and the user can interact,
-run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a browser
+\`whoami\` exits \`0\` whether or not you are signed in; do not branch on the exit
+code. Check the JSON: \`{"authenticated": false}\` means no usable credential,
+while a signed-in response carries the resolved Workspace, actor, and scopes.
+
+If \`whoami\` reports you are signed in, publish normally. If not and the user can
+interact, run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a browser
 OAuth flow and provisions its own scoped key, so there is no API key to copy or
 paste. Publish returns the authenticated Artifact URL as \`View\` by default.
 Public sharing is explicit: pass CLI \`--share\`, REST \`{ "share": true }\`, or
@@ -100,8 +104,8 @@ CLI this means passing \`--share\`; in REST this means sending
 
 ## Ephemeral publish fallback
 
-Use \`--ephemeral\` only when \`whoami\` fails and no login or
-\`AGENT_PASTE_API_KEY\` is available, or when the user explicitly asks for
+Use \`--ephemeral\` only when \`whoami\` reports \`"authenticated": false\` and no
+login or \`AGENT_PASTE_API_KEY\` is available, or when the user explicitly asks for
 accountless publish. It ignores stored login credentials and environment API
 keys, so do not use it after a successful auth check. It is suitable for
 non-interactive work such as text, markdown, images, and static HTML/CSS.
@@ -145,7 +149,8 @@ authenticates with **OAuth** (WorkOS). They are separate credentials.
 - **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
   stores a scoped API key for you. Nothing to copy or paste.
 - **Ephemeral:** \`npx @zaks-io/agent-paste publish --ephemeral\` is the
-  restricted fallback when \`whoami\` fails and no login or key is available. The
+  restricted fallback when \`whoami\` reports \`"authenticated": false\` and no
+  login or key is available. The
   CLI self-provisions a short-lived, low-cap key and returns a one-time Claim
   Token; a signed-in human redeems it later to keep the Artifact.
 - **REST:** send \`Authorization: Bearer <api-key>\`. Mint a key for CI or
