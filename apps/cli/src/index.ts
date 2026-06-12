@@ -257,8 +257,10 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   if (explicitRenderMode) overrides.renderMode = explicitRenderMode;
   const inferred = inferPublishOptions(inputPath, files, overrides);
 
-  const sha256ByPath = new Map(
-    await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
+  const digestByPath = new Map(
+    await Promise.all(
+      files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const),
+    ),
   );
 
   const idempotencyKey = createIdempotencyKey("cli_publish");
@@ -267,11 +269,17 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
     title: inferred.title,
     entrypoint: inferred.entrypoint,
     ...(explicitRenderMode ? { render_mode: explicitRenderMode } : {}),
-    files: files.map((file) => ({
-      path: file.path,
-      size_bytes: file.sizeBytes,
-      sha256: sha256ByPath.get(file.path),
-    })),
+    files: files.map((file) => {
+      const digest = digestByPath.get(file.path);
+      if (!digest) {
+        throw new Error(`Missing digest for ${file.path}`);
+      }
+      return {
+        path: file.path,
+        size_bytes: digest.sizeBytes,
+        sha256: digest.sha256,
+      };
+    }),
   });
   const session = await client.uploadSessions.create(createSessionRequest, idempotencyKey);
 

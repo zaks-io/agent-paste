@@ -38,10 +38,11 @@ describe("local publish helpers", () => {
     await fs.writeFile(filePath, body);
 
     const readFile = vi.spyOn(fs, "readFile");
-    const sha256 = await sha256HexForFile(filePath);
+    const digest = await sha256HexForFile(filePath);
 
     expect(readFile).not.toHaveBeenCalled();
-    expect(sha256).toBe(createHash("sha256").update(body).digest("hex"));
+    expect(digest.sha256).toBe(createHash("sha256").update(body).digest("hex"));
+    expect(digest.sizeBytes).toBe(new TextEncoder().encode(body).byteLength);
   });
 
   it("fails fast on a file larger than the absolute per-file ceiling, before reading it", async () => {
