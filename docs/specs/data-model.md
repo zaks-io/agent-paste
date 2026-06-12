@@ -10,7 +10,7 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 - Public IDs use the formats in [`contracts.md`](./contracts.md).
 - Secrets are never stored plaintext.
 - Signed content tokens and full signed URLs are never stored in normal metadata or operation-event details.
-- The MVP has one revision per artifact, but keeps `revision_id` so multi-revision artifacts can be added later without renaming the concept.
+- Artifacts can have multiple revisions. `artifacts.revision_id` is the published-revision pointer only (`NULL` until first publish). Upload sessions and `artifact_files` rows reference a specific revision id.
 
 ## Tables
 
@@ -64,15 +64,16 @@ Stored credentials grant the publish/read capability needed by the public CLI. G
 | ----------------- | ----------------------------------------- | --------------------------------------------- |
 | `id`              | `TEXT PRIMARY KEY`                        | `art_...`.                                    |
 | `workspace_id`    | `UUID NOT NULL REFERENCES workspaces(id)` |                                               |
-| `revision_id`     | `TEXT NOT NULL UNIQUE`                    | `rev_...`; one revision per artifact in MVP.  |
-| `status`          | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.            |
+| `revision_id`            | `TEXT NULL`                               | `rev_...`; published-revision pointer only. `NULL` until the first publish; not globally unique. |
+| `status`                 | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.                                                               |
 | `title`           | `TEXT NOT NULL`                           | Plain text.                                   |
 | `entrypoint`      | `TEXT NOT NULL`                           | Normalized file path.                         |
 | `file_count`      | `INTEGER NOT NULL`                        |                                               |
 | `size_bytes`      | `BIGINT NOT NULL`                         | Total uploaded bytes.                         |
 | `expires_at`      | `TIMESTAMPTZ NOT NULL`                    | Required.                                     |
-| `pinned_at`       | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion. |
-| `created_by_type` | `TEXT NOT NULL`                           | `api_key` or `member`.                        |
+| `pinned_at`              | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                    |
+| `access_link_lockdown_at`| `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift. |
+| `created_by_type`        | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                           |
 | `created_by_id`   | `TEXT NOT NULL`                           | Creator id for the stored type.               |
 | `deleted_at`      | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.              |
 | `delete_reason`   | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.  |
@@ -86,13 +87,39 @@ treat it as expired even when `expires_at` is in the past. Content tokens for
 such an Artifact fall back to the default TTL instead of the stale expiry.
 Unpinning re-arms the stored `expires_at` as-is.
 
+### `revisions`
+
+First-class revision rows for multi-revision Artifacts ([0009](../../packages/db/migrations/0009_revisions.sql)). Upload finalize creates a `draft`; publish assigns `revision_number`, sets `published_at`, and updates `artifacts.revision_id`.
+
+| Column                    | Type                                      | Notes                                                                                          |
+| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `id`                      | `TEXT PRIMARY KEY`                        | `rev_...`.                                                                                     |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                |
+| `artifact_id`             | `TEXT NOT NULL REFERENCES artifacts(id)`  | Parent Artifact.                                                                               |
+| `revision_number`         | `INTEGER NULL`                            | Assigned on publish; unique per Artifact when not null. Null while `status = 'draft'`.         |
+| `status`                  | `TEXT NOT NULL`                           | `draft`, `published`, or `retained`.                                                           |
+| `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                          |
+| `render_mode`             | `TEXT NOT NULL DEFAULT 'html'`            | `html`, `markdown`, `text`, `image`, `audio`, or `video`.                                      |
+| `file_count`              | `INTEGER NOT NULL`                        |                                                                                                |
+| `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes for this revision.                                                        |
+| `bundle_status`           | `TEXT NOT NULL DEFAULT 'disabled'`        | `pending`, `ready`, `failed`, or `disabled`.                                                   |
+| `bundle_status_updated_at`| `TIMESTAMPTZ NULL`                        |                                                                                                |
+| `bundle_size_bytes`       | `BIGINT NULL`                             | Encrypted bundle size when `bundle_status = 'ready'`.                                            |
+| `bytes_purge_enqueued_at` | `TIMESTAMPTZ NULL`                        | Set when byte purge is queued for a `retained` revision.                                       |
+| `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                         |
+| `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                |
+| `created_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                |
+| `published_at`            | `TIMESTAMPTZ NULL`                        | Set when `status` becomes `published`.                                                           |
+
+At most one `draft` row per Artifact (`revisions_one_draft_per_artifact`). Composite unique `(workspace_id, artifact_id, id)` supports tenant-safe foreign keys from `access_links` and `safety_warnings`.
+
 ### `artifact_files`
 
 | Column                | Type                                      | Notes                                       |
 | --------------------- | ----------------------------------------- | ------------------------------------------- |
 | `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                             |
 | `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`  |                                             |
-| `revision_id`         | `TEXT NOT NULL`                           | Denormalized from `artifacts.revision_id`.  |
+| `revision_id`         | `TEXT NOT NULL REFERENCES revisions(id)`  | Revision that owns this file tree.          |
 | `path`                | `TEXT NOT NULL`                           | Normalized POSIX path.                      |
 | `size_bytes`          | `BIGINT NOT NULL`                         |                                             |
 | `served_content_type` | `TEXT NOT NULL`                           | Derived from extension.                     |
@@ -101,7 +128,7 @@ Unpinning re-arms the stored `expires_at` as-is.
 | `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`        | `revision` or `blob`.                       |
 | `uploaded_at`         | `TIMESTAMPTZ NOT NULL`                    |                                             |
 
-Primary key `(artifact_id, path)`. Unique normalized paths per artifact.
+Primary key `(artifact_id, revision_id, path)`. Unique normalized paths per revision; multiple revisions can coexist on one Artifact.
 For `storage_kind = 'revision'`, `r2_key` points at the legacy
 `artifacts/{artifactId}/revisions/{revisionId}/files/{path}` object. For
 `storage_kind = 'blob'`, `r2_key` points at a workspace shared blob object under
@@ -182,9 +209,12 @@ exposing scanner internals.
 | `sha256`              | `TEXT NULL`                                    | Lowercase hex digest when supplied by client.                                                                                                                             |
 | `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`             | `revision` or `blob`.                                                                                                                                                     |
 | `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT or existing blob reuse.                                                                                                                          |
-| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Upper bound for PUT writes (session expiry). The actual signed PUT-URL token expiry is minted by the upload worker at response time and returned as `files[].expires_at`. |
+| `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Session-level upper bound for PUT writes. Set to `upload_sessions.expires_at` at session creation. |
 
 Primary key `(upload_session_id, path)`.
+
+`put_url_expires_at` is not the expiry clients should use for signed PUT URLs. When the API returns upload targets, each `files[].expires_at` is the signed PUT-token expiry minted by the upload worker at response time (typically ~15 minutes), which is much shorter than the upload-session TTL (~24 hours). A PUT after the token expiry returns `not_authenticated` even while the session row is still `pending` and `put_url_expires_at` is still in the future.
+
 Hash-aware files use `storage_kind = 'blob'` and share a `r2_key` for identical
 `(workspace_id, sha256, size_bytes)` files. Same-session duplicate hashes mark
 all matching paths uploaded when the one required PUT succeeds.
@@ -263,8 +293,12 @@ KV values do not contain token material.
 - `api_keys(workspace_id) WHERE revoked_at IS NULL`
 - `artifacts(workspace_id, created_at DESC)`
 - `artifacts(workspace_id, expires_at) WHERE status = 'active'`
-- `artifacts(revision_id) UNIQUE`
-- `artifact_files(artifact_id, path) UNIQUE`
+- `artifacts(workspace_id, id) UNIQUE`
+- `revisions(workspace_id, artifact_id, id) UNIQUE`
+- `revisions(artifact_id, revision_number) UNIQUE WHERE revision_number IS NOT NULL`
+- `revisions(artifact_id) UNIQUE WHERE status = 'draft'`
+- `revisions(artifact_id, created_at DESC)`
+- `artifact_files(artifact_id, revision_id, path) PRIMARY KEY`
 - `artifact_files(workspace_id, sha256, size_bytes)`
 - `safety_warnings(workspace_id, revision_id)`
 - `safety_warnings(workspace_id, revision_id, scanner_id)`
