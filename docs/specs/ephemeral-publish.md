@@ -34,7 +34,7 @@ served under the script-disabled **Execution Policy**.
 An unattended agent that self-provisions an **Ephemeral Workspace** and publishes against it. The CLI holds a short-lived scoped credential for the unclaimed tenant. It grants `write` and `read` only, never `share` implicitly or `admin`.
 
 **Claimer**:
-A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to promote an **Ephemeral Workspace** into a claimed `free` **Workspace** they own as the first `admin`.
+A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to reparent the ephemeral tenant's **Artifacts** into their existing Personal **Workspace** at the claimed `free` tier (see Claim Flow). The source **Ephemeral Workspace** is marked consumed; claim never creates a standalone **Workspace**.
 
 **Unauthenticated Recipient**:
 Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an explicitly minted **Access Link Signed URL**, viewing only until **Auto Deletion**.
@@ -45,7 +45,7 @@ Unchanged from [`mvp.md`](./mvp.md) - a human or agent with an explicitly minted
 Adds two unauthenticated-entry routes through the route registrar ([ADR 0072](../adr/0072-contract-driven-route-registrar-and-guard.md)):
 
 - `POST /v1/ephemeral/provision` - creates an **Ephemeral Workspace**, a short-lived scoped credential, and a **Claim Token**.
-- `POST /v1/ephemeral/claim` - requires `workos_access_token`; promotes the tenant.
+- `POST /v1/ephemeral/claim` - requires `workos_access_token`; reparents the tenant's **Artifacts** into the claiming member's Personal **Workspace**.
 
 `POST /v1/ephemeral/provision` and `POST /v1/ephemeral/claim` are the mutating
 entry routes for provisioning and claiming. The artifact upload and publish
@@ -147,7 +147,7 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 - A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop without implicit `share` scope.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
-- A valid **Claim Token** redeemed by an authenticated **Workspace Member** promotes the tenant to claimed `free`, attaches the member as `admin`, raises the cap set, and is single-use thereafter.
+- A valid **Claim Token** redeemed by an authenticated **Workspace Member** reparents the surviving **Artifacts** into the member's Personal **Workspace** at the `free` cap set, marks the source **Ephemeral Workspace** consumed, and is single-use thereafter.
 - A **Claim Token** that is redeemed, expired, or absent from the public Access Link Signed URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
 - An ephemeral **Artifact** containing script renders inert: static markup and CSS display, and no `<script>`, inline handler, or `.js` asset executes, because the content-gateway token carries the script-disabled bit and `content` selects the script-disabled **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted viewer tokens may omit the bit, but script executes only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML remains inert.
