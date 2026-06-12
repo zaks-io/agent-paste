@@ -63,6 +63,12 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 ## Provision Flow
 
 1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
+   The challenge is hashcash issued at 20 leading-zero bits by default, tunable per
+   environment via the `EPHEMERAL_POW_DIFFICULTY_BITS` var (integer 1–32; malformed
+   values fail loudly at issuance). Verification trusts the difficulty signed into the
+   challenge, so the var affects only newly issued challenges. Hosted environments
+   leave it unset; the local MVP harness defaults it to 8 so local dev and CI smokes
+   solve in milliseconds instead of grinding ~1M hashes per provision.
    A single-shard Durable Object gate is the authoritative hard global ceiling
    for provisioning. Its `limit_per_minute` defaults to 17 and is operator-tunable
    at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100,
