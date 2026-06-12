@@ -327,6 +327,7 @@ const apiEnv = {
   CONTENT_BASE_URL: contentBaseUrl,
   CONTENT_SIGNING_SECRET: contentSecret,
   API_KEY_PEPPER_V1: apiKeyPepper,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
   ACCESS_LINK_SIGNING_KEY_V1: accessLinkSigningKey,
   CLEANUP_BATCH_SIZE: "100",
   AGENT_PASTE_ENV: "dev",
