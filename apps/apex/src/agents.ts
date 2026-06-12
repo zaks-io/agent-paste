@@ -116,10 +116,11 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 Ephemeral is not the Free Plan. It is an unclaimed restricted tier with low
 write caps, \`noindex\`, a 24 hour lifetime, and script-disabled content serving.
 Publish prints a one-time **Claim Token** as a claim link
-(\`${APP_BASE_URL}/claim#<token>\`). A signed-in human opens that link to
-reparent the Artifact into their Workspace and keep it. The token rides the URL
-**hash** only: it never appears in the query string or in any public Access Link
-Signed URL.
+(\`${APP_BASE_URL}/claim#<token>\`). **Relay the claim link to the user** — not
+\`artifact_url\`. A signed-in human opens that link to view, keep, and reparent
+the Artifact into their Workspace. The token rides the URL **hash** only: it never
+appears in the query string or in any public Access Link Signed URL. The
+authenticated Artifact URL works only after claim.
 
 Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
 HTML/CSS render, but JavaScript does not run. After claim, newly minted viewer

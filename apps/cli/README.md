@@ -217,12 +217,21 @@ does not Live Update; direct HTML opened there is raw/inert byte delivery, not
 the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
 `bundle` reports whether the revision archive is pending, ready, failed, or disabled.
 
-With `--ephemeral`, the human-readable output appends the claim link:
+With `--ephemeral`, human-readable output leads with the claim link — the URL to
+open, keep, and unlock the Artifact. The authenticated Artifact URL appears as
+`View (works after claiming)`:
 
 ```text
-Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).
+Open this to view, keep, and unlock your artifact:
   Claim    https://app.agent-paste.sh/claim#ap_ct_...
+  Expires  2026-06-13
+
+  View     https://app.agent-paste.sh/artifacts/art_01H... (works after claiming)
+
+  → open https://app.agent-paste.sh/claim#ap_ct_...
 ```
+
+Agents should relay the claim link to the user, not the Artifact URL.
 
 With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
 

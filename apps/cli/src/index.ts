@@ -494,11 +494,25 @@ export function ephemeralClaimUrl(claimToken: string) {
 
 function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string) {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
+  const label = (text: string) => paint(mode, "dim", text);
+  const viewerUrl = result.access_link_url ?? result.artifact_url;
   return [
-    formatPublishResult(mode, result),
+    `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
-    "Open the claim link in a browser while signed in. The token lives in the URL hash only (never the query string).",
-    `  ${paint(mode, "dim", "Claim")}    ${hyperlink(mode, claimUrl)}`,
+    paint(mode, "dim", "Open this to view, keep, and unlock your artifact:"),
+    `  ${label("Claim")}    ${hyperlink(mode, claimUrl)}`,
+    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
+    ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
+    "",
+    paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
+    ...(viewerUrl
+      ? [
+          "",
+          `  ${label("View")}      ${hyperlink(mode, viewerUrl)} ${paint(mode, "dim", "(works after claiming)")}`,
+        ]
+      : []),
+    "",
+    paint(mode, "cyan", `  → open ${claimUrl}`),
   ].join("\n");
 }
 
