@@ -159,6 +159,11 @@ The `/al/{publicId}` page:
 - Shows generic not-found for all resolve failures, including active Platform
   Lockdown and Access Link Lockdown.
 - Renders the resolved Artifact through the content origin iframe or direct media element depending on Render Mode.
+- Uses a bottom-left floating `agent-paste.sh` wordmark control instead of a
+  full-width header. The control and metadata panel have solid theme-background
+  fills, use the vermilion brand accent only in the wordmark hyphen, open
+  Artifact metadata (title, Render Mode, and public Access Link id), and offer a
+  non-persistent hide action; a reload shows the control again.
 - Is the recipient-facing live page opened by an **Access Link Signed URL** minted from a **Share Link**. Do not direct recipients to `/artifacts/{artifactId}` for live viewing.
 
 ## Operator UI

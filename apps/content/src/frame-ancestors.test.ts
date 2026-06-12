@@ -15,8 +15,16 @@ describe("frameAncestorsForEnv", () => {
     expect(frameAncestorsForEnv(env("preview"))).toEqual(["https://app.preview.agent-paste.sh"]);
   });
 
-  it("allows no framers for dev or an unset env", () => {
-    expect(frameAncestorsForEnv(env("dev"))).toEqual([]);
+  it("allows local web app origins in dev", () => {
+    expect(frameAncestorsForEnv(env("dev"))).toEqual([
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:18991",
+      "http://127.0.0.1:18991",
+    ]);
+  });
+
+  it("allows no framers for an unset env", () => {
     expect(frameAncestorsForEnv(env())).toEqual([]);
   });
 });

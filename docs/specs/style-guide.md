@@ -687,13 +687,27 @@ Each main view opens with a `PageHeader`: page title (`--text-h1`) on the left, 
 
 Real primitives: `apps/web/src/components/ui/HeroStat.tsx`, `StatBand.tsx`, `Card.tsx`, `PageHeader.tsx`, `Table.tsx`. Build new data overviews from these, not from new boxed-card layouts. This pattern is dashboard-only; do not port the big-figure overview onto the marketing surface.
 
-### 8.3 Public **Artifact** view (`agent-paste.sh/r/{token}` and `app.agent-paste.sh/artifacts/{id}`)
+### 8.3 Public **Artifact** and Access Link views
+
+Authenticated Artifact detail (`app.agent-paste.sh/artifacts/{id}`):
 
 - Centered single column at `--container-default` width.
 - Top: **Display Metadata** title in `--text-h1`, **Artifact ID** as a §5.11 identifier in `--text-mono-sm`, **Workspace** attribution in `--text-sm`.
 - Right rail (or below title on mobile): **Render Mode** badge, **Bundle** download link, **Safety Warning** banner if any.
 - Main content area is an iframe to the content origin (ADR 0014, 0029). The frame chrome is part of the trusted page; the inner content is **Untrusted Content** and must not leak styling outward.
 - Bottom: "View **Agent View**" link in mono, opens the JSON in a new tab.
+
+Access Link Artifact Viewer (`app.agent-paste.sh/al/{publicId}#{blob}`):
+
+- Full-viewport content frame with no top header.
+- Bottom-left floating action bar with the canonical `agent-paste.sh` wordmark.
+  Do not use the PNG brand mark here. The action bar and metadata panel use the
+  solid theme background, not a translucent tint; only the wordmark hyphen uses
+  the vermilion brand accent.
+- Clicking the action bar opens a small metadata panel with title, Render Mode,
+  and public Access Link id.
+- Metadata panel includes a **Hide toggle** action. The hide is client-local and
+  non-persistent; every new page load shows the action bar again.
 
 ### 8.4 Renderer pages (in `usercontent.agent-paste.sh`)
 

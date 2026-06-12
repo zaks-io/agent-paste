@@ -377,6 +377,7 @@ const contentEnv = {
   ARTIFACT_RATE_LIMIT: alwaysAllowRateLimit,
   CONTENT_SIGNING_SECRET: contentSecret,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
+  AGENT_PASTE_ENV: "dev",
 };
 const streamEnv = {
   API: {
