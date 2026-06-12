@@ -43,7 +43,7 @@ function mockStdout() {
 }
 
 describe("cli ephemeral publish", () => {
-  it("provisions, publishes, and prints a private View plus claim deep link in the hash", async () => {
+  it("provisions, publishes, and leads human output with the claim link before the View URL", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
@@ -65,10 +65,14 @@ describe("cli ephemeral publish", () => {
       const human = String(stdout.mock.calls.at(-1)?.[0]);
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
-      expect(human).toContain("https://app.test/artifacts/art_1");
+      const artifactUrl = "https://app.test/artifacts/art_1";
+      expect(human).toContain(artifactUrl);
       expect(human).not.toContain("https://app.test/al/PUBLICLINK123456#secret");
       expect(human).not.toContain("https://content.test/v/token/index.html");
       expect(human).toContain(claimUrl);
+      expect(human.indexOf(claimUrl)).toBeLessThan(human.indexOf(artifactUrl));
+      expect(human).toContain(`→ open ${claimUrl}`);
+      expect(human).not.toContain(`→ open ${artifactUrl}`);
       expect(human).not.toContain(`?${claimToken}`);
       expect(human).not.toContain(`https://app.test/view/${claimToken}`);
     } finally {

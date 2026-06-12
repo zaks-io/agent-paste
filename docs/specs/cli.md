@@ -76,3 +76,21 @@ The published CLI has **zero runtime dependencies** — it is bundled with esbui
 and all tooling lives in `devDependencies`. Rich output is therefore hand-rolled
 ANSI in `apps/cli/src/render.ts` rather than a `chalk`/`ora`-style library, to
 keep the install small and the supply chain clean.
+
+## Ephemeral publish human output
+
+`publish --ephemeral` uses the same JSON fields as authenticated publish plus
+`claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
+The JSON contract is unchanged; only human-readable layout differs.
+
+In `rich`/`plain` mode, the claim link is the primary handoff:
+
+- **Claim** — the link to open, keep, and unlock the Artifact (`claim_url`).
+  The `→ open` hint targets this URL.
+- **View** — the authenticated Artifact URL (`artifact_url`), labeled as working
+  only after claim. Until a human redeems the **Claim Token**, this route 404s for
+  cold recipients because the Artifact lives in an unclaimed **Ephemeral
+  Workspace**.
+
+Agents relaying ephemeral publish results to humans should pass `claim_url`, not
+`artifact_url`.

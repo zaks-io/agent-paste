@@ -27,11 +27,12 @@ the final live page.
   auth is available or the user explicitly asks for accountless publish.
   Ephemeral is not the Free Plan: it is
   an unclaimed restricted tier. The Artifact lives 24h and prints a one-time
-  claim link (\`${APP_BASE_URL}/claim#<token>\`); a signed-in human opens it to
-  keep the Artifact. Use it for non-interactive text, markdown, images, and
-  static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use
-  authenticated publish for interactive pages, browser apps, or visualizations
-  that need JavaScript.
+  claim link (\`${APP_BASE_URL}/claim#<token>\`). **Give the user the claim link,
+  not the Artifact URL** — a signed-in human opens it to view, keep, and unlock
+  the Artifact. Use it for non-interactive text, markdown, images, and static
+  HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated
+  publish for interactive pages, browser apps, or visualizations that need
+  JavaScript.
 - Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
   (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Share an artifact only when explicitly asked with a revocable Share Link. For a

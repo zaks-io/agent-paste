@@ -71,6 +71,13 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "note",
+          title: "Ephemeral output leads with the claim link",
+          body: [
+            "With `--ephemeral`, human-readable output leads with `claim_url` — the link to open, keep, and unlock the Artifact. The authenticated Artifact URL appears as `View (works after claiming)`. Agents should relay the claim link to the user, not `artifact_url`.",
+          ],
+        },
+        {
+          kind: "note",
           title: "Check auth before ephemeral",
           body: [
             "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",

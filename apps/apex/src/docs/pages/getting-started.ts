@@ -83,7 +83,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and prints a one-time Claim Token as `/claim#<token>`. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and leads human output with a one-time Claim Token as `/claim#<token>`. Relay that claim link to the user, not the Artifact URL. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
         },
       ],
     },

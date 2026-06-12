@@ -76,8 +76,9 @@ the restricted ephemeral path -- no account needed:
 npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
-The output includes a claim link; open it in a browser while signed in to pull
-the work into your Workspace. Two rules keep this path safe:
+The output leads with a claim link — relay that to the user, not the Artifact
+URL. Open it in a browser while signed in to view, keep, and pull the work
+into your Workspace. Two rules keep this path safe:
 
 - **Check before falling back.** Run `whoami --json` first -- `whoami` exits
   `0` even when signed out, so the exit code tells you nothing. Check the JSON:

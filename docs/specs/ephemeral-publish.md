@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, prints the post-publish `View` plus a one-time **Claim Token**, and does not create a public Share Link by default. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and redeem the **Claim Token** to promote the tenant; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, leads human output with the one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only), and does not create a public Share Link by default. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. Run `agent-paste whoami --json`; it exits `0` whether or not
