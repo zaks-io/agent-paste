@@ -85,7 +85,7 @@ The script writes Worker secrets with `wrangler secret put`. CLI-first secrets a
 
 - `CONTENT_SIGNING_SECRET` (api, upload, content, and jobs; same value on all four — jobs needs it for agent-view URL minting in the safety-scan handler)
 - `UPLOAD_SIGNING_SECRET`
-- `ARTIFACT_BYTES_ENCRYPTION_KEY` (upload, content, and jobs; same value on all three)
+- `ARTIFACT_BYTES_ENCRYPTION_KEY` (api, upload, content, and jobs; same value on all four — api needs it for claim-time blob reparent)
 - `API_KEY_PEPPER_V1`
 - `SMOKE_HARNESS_SECRET` (api preview/PR only; not production)
 - `STREAM_INTERNAL_SECRET` (api and stream; stream-to-api live-update authorize)

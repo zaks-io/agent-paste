@@ -39,16 +39,16 @@ Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The
 
 ## Current Inventory
 
-| Secret                          | Bound on              | Rotation impact                                                                                                  |
-| ------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `CONTENT_SIGNING_SECRET`        | api, upload, content  | Invalidates currently minted content and Agent View URLs.                                                        |
-| `UPLOAD_SIGNING_SECRET`         | upload                | Invalidates in-flight signed upload PUT URLs.                                                                    |
-| `ACCESS_LINK_SIGNING_KEY_V1`    | api                   | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
-| `ARTIFACT_BYTES_ENCRYPTION_KEY` | upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
-| `API_KEY_PEPPER_V1`             | api, upload           | Invalidates existing API Keys in the current MVP implementation.                                                 |
-| `WORKOS_API_KEY`                | api, web              | Swaps the WorkOS server-side API credential.                                                                     |
-| `WORKOS_CLIENT_ID`              | api, web              | Project/client swap only; also update Wrangler vars where present.                                               |
-| `WORKOS_COOKIE_PASSWORD`        | web                   | Invalidates existing AuthKit sealed web sessions.                                                                |
+| Secret                          | Bound on                   | Rotation impact                                                                                                  |
+| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CONTENT_SIGNING_SECRET`        | api, upload, content       | Invalidates currently minted content and Agent View URLs.                                                        |
+| `UPLOAD_SIGNING_SECRET`         | upload                     | Invalidates in-flight signed upload PUT URLs.                                                                    |
+| `ACCESS_LINK_SIGNING_KEY_V1`    | api                        | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
+| `ARTIFACT_BYTES_ENCRYPTION_KEY` | api, upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
+| `API_KEY_PEPPER_V1`             | api, upload                | Invalidates existing API Keys in the current MVP implementation.                                                 |
+| `WORKOS_API_KEY`                | api, web                   | Swaps the WorkOS server-side API credential.                                                                     |
+| `WORKOS_CLIENT_ID`              | api, web                   | Project/client swap only; also update Wrangler vars where present.                                               |
+| `WORKOS_COOKIE_PASSWORD`        | web                        | Invalidates existing AuthKit sealed web sessions.                                                                |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.

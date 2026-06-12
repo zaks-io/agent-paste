@@ -184,7 +184,10 @@ export async function claimEphemeralWorkspace(
       }
 
       const blobs = await entities.contentBlobs.listForReparent(sourceWorkspace.id);
-      if (blobs.length > 0 && ctx.options.reparentBlobMigrator) {
+      if (blobs.length > 0) {
+        if (!ctx.options.reparentBlobMigrator) {
+          repositoryError("storage_unavailable");
+        }
         await ctx.options.reparentBlobMigrator.migrate({
           fromWorkspaceId: sourceWorkspace.id,
           toWorkspaceId: destinationWorkspace.id,

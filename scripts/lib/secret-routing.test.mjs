@@ -50,6 +50,7 @@ describe("secret-routing", () => {
     expect(requiredSecretsForApp("api", "preview")).toEqual([
       "ACCESS_LINK_SIGNING_KEY_V1",
       "API_KEY_PEPPER_V1",
+      "ARTIFACT_BYTES_ENCRYPTION_KEY",
       "CONTENT_SIGNING_SECRET",
       "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",

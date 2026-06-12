@@ -1,5 +1,5 @@
 import type { SqlExecutor } from "../types.js";
-import { listWorkspaceBlobsForReparent, upsertReparentedContentBlobs } from "./reparent-blobs.js";
+import { upsertReparentedContentBlobs } from "./reparent-blobs.js";
 
 export type { WorkspaceBlobRef } from "./reparent-blobs.js";
 export { listWorkspaceBlobsForReparent } from "./reparent-blobs.js";
