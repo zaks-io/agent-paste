@@ -125,7 +125,7 @@ Launch-readiness secret notes:
 
 ## Launch Readiness Decisions
 
-- Public incident intake minimum bar is `support@agentpaste`, which routes to
+- Public incident intake minimum bar is `support@agent-paste.sh`, which routes to
   email and then into Linear. A separate hosted status page remains optional
   until the account/tooling stack is ready.
 - Hosted Stripe test-mode verification passed in preview. Production Stripe is

@@ -83,7 +83,7 @@ Done for this section: every open item below is checked, or explicitly marked
         on 2026-06-11.
 11. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
         OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
-12. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agentpaste`
+12. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agent-paste.sh`
         routes to email and then into Linear.
 13. [x] **Hosted Stripe test-mode preview check**. Done on 2026-06-07; production
         Stripe remains conditional above.
