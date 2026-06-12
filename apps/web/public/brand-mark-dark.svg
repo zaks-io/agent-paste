@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="agent-paste">
+  <style>
+    .fg { fill: #fefefe; }
+    .accent { fill: #ff3c14; }
+  </style>
+  <rect class="accent" x="236" y="237" width="123" height="38"/>
+  <circle class="accent" cx="376" cy="256" r="32"/>
+  <path class="fg" d="M147 190L175 162L267 256L175 350L147 322L213 256Z"/>
+  <path class="fg" d="M61 137C61 95.026 95.026 61 137 61H177V99H137C116.013 99 99 116.013 99 137V177H61V137Z"/>
+  <path class="fg" d="M335 61H375C416.974 61 451 95.026 451 137V177H413V137C413 116.013 395.987 99 375 99H335V61Z"/>
+  <path class="fg" d="M61 335H99V375C99 395.987 116.013 413 137 413H177V451H137C95.026 451 61 416.974 61 375V335Z"/>
+  <path class="fg" d="M413 335H451V375C451 416.974 416.974 451 375 451H335V413H375C395.987 413 413 395.987 413 375V335Z"/>
+</svg>

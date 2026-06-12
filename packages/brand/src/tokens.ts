@@ -183,5 +183,7 @@ export const FONTS = {
   },
 } as const;
 
-/** Canonical brand-mark filename. Each app serves a copy from its own public dir. */
+/** Canonical brand-mark filenames. Each app serves copies from its own public dir. */
 export const BRAND_MARK = "brand-mark.png";
+export const BRAND_MARK_DARK = "brand-mark-dark.png";
+export const BRAND_MARK_LIGHT = "brand-mark-light.png";

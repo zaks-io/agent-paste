@@ -2,11 +2,11 @@
   <style>
     .bg { fill: hsl(36 14% 98%); }
     .fg { fill: hsl(24 10% 7%); }
-    .accent { fill: hsl(162 60% 24%); }
+    .accent { fill: hsl(10 100% 54%); }
     @media (prefers-color-scheme: dark) {
       .bg { fill: hsl(24 12% 4%); }
       .fg { fill: hsl(36 14% 98%); }
-      .accent { fill: hsl(158 50% 52%); }
+      .accent { fill: hsl(10 100% 54%); }
     }
   </style>
   <rect class="bg" width="32" height="32" rx="6"/>
