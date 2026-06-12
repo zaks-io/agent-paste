@@ -72,6 +72,22 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.workspace_id).toBeUndefined();
   });
 
+  it("strips render_mode from the public response", async () => {
+    const signed = (await signAgentViewContentUrls(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        entrypoint: "index.html",
+        render_mode: "markdown",
+      },
+      signingEnv,
+      { workspaceId },
+    )) as { render_mode?: string };
+
+    expect(signed.render_mode).toBeUndefined();
+  });
+
   it("returns unsigned public fields when no content signing secret is configured", async () => {
     const view = {
       workspace_id: workspaceId,
@@ -299,6 +315,7 @@ describe("signAgentViewContentUrls characterization", () => {
         artifact_id: "art_1",
         revision_id: "rev_1",
         title: "Artifact",
+        render_mode: "markdown",
         artifact_url: "https://app.test/artifacts/art_1",
         revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
         agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_1",
@@ -307,8 +324,9 @@ describe("signAgentViewContentUrls characterization", () => {
       },
       signingEnv,
       { workspaceId },
-    )) as { revision_content_url: string };
+    )) as { revision_content_url: string; render_mode?: string };
 
+    expect(signed.render_mode).toBeUndefined();
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.paths).toBeUndefined();
     expect(payload?.script_disabled).toBe(false);

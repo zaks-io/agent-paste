@@ -1,7 +1,8 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env.js";
+import * as liveUpdates from "./live-updates.js";
 import { createPublishCoordinator } from "./publish-coordinator.js";
 
 const actor = { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] } as ApiActor;
@@ -12,6 +13,10 @@ const publishInput = {
   artifactId: "art_1",
   revisionId: "rev_1",
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function fakeWriteAllowance() {
   const calls: string[] = [];
@@ -58,14 +63,17 @@ function coordinatorFixture(overrides: Partial<Record<keyof Repository, unknown>
   return { coordinator: createPublishCoordinator({ db, env }), writeAllowance };
 }
 
-function publishedResult() {
+function publishedResult(overrides: Record<string, unknown> = {}) {
   return {
-    artifact_id: "art_1",
-    revision_id: "rev_1",
+    artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
     title: "Demo",
     entrypoint: "index.html",
-    revision_content_url: "https://usercontent.test/v/raw/index.html",
+    render_mode: "markdown",
+    revision_content_url:
+      "https://usercontent.test/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9.rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/index.html",
     expires_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -187,5 +195,32 @@ describe("publish coordinator write-allowance reservation", () => {
       signingKid: 1,
     });
     expect(result).toMatchObject({ access_link_url: "https://app.test/al/PUBLICLINK123456#secret" });
+  });
+
+  it("notifies live updates with persisted render_mode after add_revision publish", async () => {
+    const notifyLiveUpdatePublish = vi.spyOn(liveUpdates, "notifyLiveUpdatePublish").mockResolvedValue();
+    const { coordinator } = coordinatorFixture({
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      async publishRevision() {
+        return publishedResult();
+      },
+    });
+
+    await coordinator.publishRevision(publishInput);
+
+    expect(notifyLiveUpdatePublish).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        revision: expect.objectContaining({
+          revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+          entrypoint: "index.html",
+          render_mode: "markdown",
+          title: "Demo",
+        }),
+      }),
+    );
   });
 });

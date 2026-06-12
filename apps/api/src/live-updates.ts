@@ -7,8 +7,9 @@ import {
   LiveUpdatePointer,
   LiveUpdatePublishNotify,
   LiveUpdateRevisionNotice,
+  type RenderMode,
 } from "@agent-paste/contracts";
-import { type ApiActor, inferRenderMode, type Repository } from "@agent-paste/db";
+import { type ApiActor, resolveRenderMode, type Repository } from "@agent-paste/db";
 import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import { isAuthorizedStreamInternalRequest } from "@agent-paste/worker-runtime";
 import type { Env } from "./env.js";
@@ -173,7 +174,7 @@ async function authorizeDashboard(
   const pointer = LiveUpdatePointer.safeParse({
     revision_id: view.revision_id,
     iframe_src: revisionContentUrl,
-    render_mode: inferRenderMode(view.entrypoint),
+    render_mode: resolveRenderMode(view.render_mode, view.entrypoint),
     title: view.title,
   });
   if (!pointer.success) {
@@ -191,6 +192,7 @@ export async function buildRevisionNoticeFromPublishResult(
   signedPublish: unknown,
   entrypoint: string,
   title: string,
+  persistedRenderMode?: RenderMode,
 ): Promise<LiveUpdateRevisionNotice | null> {
   if (!signedPublish || typeof signedPublish !== "object") {
     return null;
@@ -202,7 +204,7 @@ export async function buildRevisionNoticeFromPublishResult(
   const parsed = LiveUpdateRevisionNotice.safeParse({
     revision_id: data.revision_id,
     entrypoint,
-    render_mode: inferRenderMode(entrypoint),
+    render_mode: resolveRenderMode(persistedRenderMode, entrypoint),
     title,
   });
   return parsed.success ? parsed.data : null;

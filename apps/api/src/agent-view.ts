@@ -16,6 +16,7 @@ type AgentViewRecord = {
   artifact_id?: unknown;
   revision_id?: unknown;
   entrypoint?: unknown;
+  render_mode?: unknown;
   expires_at?: unknown;
   revision_content_url?: unknown;
   ephemeral_tier?: unknown;
@@ -32,8 +33,13 @@ type ContentSigningAuth = {
 
 function stripInternalAgentViewFields(
   data: AgentViewRecord,
-): Omit<AgentViewRecord, "workspace_id" | "revision_content_url"> {
-  const { workspace_id: _internalWorkspaceId, revision_content_url: _rawRevisionContentUrl, ...publicFields } = data;
+): Omit<AgentViewRecord, "workspace_id" | "revision_content_url" | "render_mode"> {
+  const {
+    workspace_id: _internalWorkspaceId,
+    revision_content_url: _rawRevisionContentUrl,
+    render_mode: _internalRenderMode,
+    ...publicFields
+  } = data;
   return publicFields;
 }
 
@@ -243,6 +249,7 @@ export async function signPublishResult(
     agent_view_url: rawAgentViewUrl,
     entrypoint_object_key: rawEntrypointObjectKey,
     file_object_keys: rawFileObjectKeys,
+    render_mode: _internalRenderMode,
     ...rest
   } = data;
   const entrypointPath =

@@ -442,6 +442,55 @@ describe("handleLiveUpdateAuthorize", () => {
     expect(tokenPayload?.access_link_id).toBeUndefined();
   });
 
+  it("uses persisted render_mode instead of re-inferring from entrypoint for dashboard authorize", async () => {
+    wireLiveUpdateDeps({
+      signAgentView: async (view) => ({
+        ...(view as object),
+        revision_content_url: "https://content.test/v/art.rev/index.html",
+      }),
+      authenticateWeb: async (authorization) =>
+        authorization === "Bearer member"
+          ? { member: { workspace_id: "00000000-0000-4000-8000-000000000001" } as never }
+          : null,
+    });
+    const env = {
+      CONTENT_BASE_URL: "https://content.test",
+      STREAM_INTERNAL_SECRET: streamSecret,
+    } as Env;
+    const db = {
+      async getAgentView() {
+        return {
+          artifact_id: artifactId,
+          revision_id: pointer.revision_id,
+          title: "Dashboard",
+          entrypoint: "index.html",
+          render_mode: "markdown",
+        };
+      },
+    } as unknown as Repository;
+
+    const response = await handleLiveUpdateAuthorize(
+      streamAuthorizeRequest({
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer member",
+        },
+        body: JSON.stringify({ kind: "dashboard", artifact_id: artifactId }),
+      }),
+      env,
+      db,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      audience: "dashboard",
+      pointer: {
+        revision_id: pointer.revision_id,
+        render_mode: "markdown",
+      },
+    });
+  });
+
   it("scopes share-link live-update content tokens with workspace_id and access_link_id", async () => {
     wireLiveUpdateDeps({
       signAgentView: signingSignAgentView,
@@ -563,6 +612,35 @@ describe("buildRevisionNoticeFromPublishResult", () => {
       title: pointer.title,
     });
     expect(built).not.toHaveProperty("iframe_src");
+  });
+
+  it("preserves explicit render_mode over entrypoint inference for add_revision live updates", async () => {
+    const built = await buildRevisionNoticeFromPublishResult(
+      { revision_id: pointer.revision_id },
+      "index.html",
+      pointer.title,
+      "markdown",
+    );
+    expect(built).toMatchObject({
+      revision_id: pointer.revision_id,
+      entrypoint: "index.html",
+      render_mode: "markdown",
+      title: pointer.title,
+    });
+  });
+
+  it("infers render_mode from entrypoint when persisted value is absent", async () => {
+    const built = await buildRevisionNoticeFromPublishResult(
+      { revision_id: pointer.revision_id },
+      "clip.mov",
+      pointer.title,
+    );
+    expect(built).toMatchObject({
+      revision_id: pointer.revision_id,
+      entrypoint: "clip.mov",
+      render_mode: "video",
+      title: pointer.title,
+    });
   });
 });
 
