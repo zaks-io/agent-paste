@@ -231,6 +231,23 @@ Controls:
 - Ephemeral Artifacts have the shortest Auto Deletion policy.
 - Claim promotes the content into a normal Workspace and emits Audit Events.
 
+## Auth Lookup Cache
+
+Hot-path auth lookups on `api`, `upload`, and `content` use the two-layer cache
+from [ADR 0062](../adr/0062-two-layer-cache-for-hot-path-auth-lookups.md). The
+shared helper in `packages/auth` is the only sanctioned cache shape.
+
+| Layer  | Store                                    | Key shape                                                                     | Notes                                                                                                                  |
+| ------ | ---------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| L1     | Module-scope `Map` per isolate           | `{namespace}:{key}`                                                           | Zero I/O; bounded to 1000 entries (LRU by insertion order).                                                            |
+| L2     | `caches.default` per colo                | Synthetic `Request` to `https://agent-paste.internal/cache/{namespace}/{key}` | Namespace and key are URI-encoded. Stored `Response` uses `Cache-Control: max-age={ttl}`. The origin is internal-only. |
+| Source | Postgres via Hyperdrive or KV per lookup | Lookup-specific                                                               | Populates L1 and L2 on miss. Cache write failures are swallowed.                                                       |
+
+Counter increments (Actor Rate Limit, Workspace Burst Cap, idempotency record
+creation), positive denylist hits, and successful API Key HMAC verifies never
+use this cache. Development builds may expose `X-AgentPaste-Auth-Cache:
+l1-hit | l2-hit | source` for manual verification.
+
 ## Security And Abuse Controls
 
 This system does not claim uploaded content is safe. The security model is that
