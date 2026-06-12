@@ -255,7 +255,11 @@ async function notifyPublishedRevision(env: Env, result: PublishResult, signed: 
     typeof (signed as { revision_content_url?: string }).revision_content_url === "string"
       ? entrypointPathFromContentUrl((signed as { revision_content_url: string }).revision_content_url)
       : "index.html";
-  const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, publish.title);
+  const persistedRenderMode =
+    result && typeof result === "object" && "render_mode" in result && typeof result.render_mode === "string"
+      ? result.render_mode
+      : undefined;
+  const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, publish.title, persistedRenderMode);
   if (!revision) {
     return;
   }

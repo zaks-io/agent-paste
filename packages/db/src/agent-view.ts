@@ -39,6 +39,7 @@ export function buildAgentView(
   files: StoredFile[],
   contentBaseUrl: string,
   revision: {
+    render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
     bundle_size_bytes: number | null;
@@ -56,6 +57,7 @@ export function buildAgentView(
     created_at: artifact.created_at,
     expires_at: artifact.expires_at,
     entrypoint: artifact.entrypoint,
+    render_mode: revision.render_mode,
     revision_content_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
     files: files.map((file) => ({
       path: file.path,
@@ -107,6 +109,7 @@ export function buildPublishResult(
   artifact: Artifact,
   revision: {
     id: string;
+    render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
     bundle_size_bytes: number | null;
@@ -122,6 +125,7 @@ export function buildPublishResult(
   const result = {
     artifact_id: artifact.id,
     revision_id: revision.id,
+    render_mode: revision.render_mode,
     title: artifact.title,
     artifact_url: `${webBaseUrl}/artifacts/${encodeURIComponent(artifact.id)}`,
     revision_content_url: revisionContentUrl,
@@ -142,4 +146,8 @@ function inferRenderMode(entrypoint: string): RenderMode {
   return inferRenderModeFromEntrypoint(entrypoint) ?? "html";
 }
 
-export { inferRenderMode };
+function resolveRenderMode(persisted: RenderMode | undefined | null, entrypoint: string): RenderMode {
+  return persisted ?? inferRenderMode(entrypoint);
+}
+
+export { inferRenderMode, resolveRenderMode };
