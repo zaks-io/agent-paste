@@ -174,10 +174,7 @@ async function authorizeDashboard(
   const pointer = LiveUpdatePointer.safeParse({
     revision_id: view.revision_id,
     iframe_src: revisionContentUrl,
-    render_mode: resolveRenderMode(
-      "render_mode" in view && typeof view.render_mode === "string" ? view.render_mode : undefined,
-      view.entrypoint,
-    ),
+    render_mode: resolveRenderMode(view.render_mode, view.entrypoint),
     title: view.title,
   });
   if (!pointer.success) {
