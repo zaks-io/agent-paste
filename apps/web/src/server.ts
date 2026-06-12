@@ -14,7 +14,7 @@ const worker = {
     const nonce = generateCspNonce();
     const response = await runWithCspNonce(nonce, () => handler.fetch(request));
     const baselined = applyDashboardSecurityHeaders(response, env, nonce);
-    return applyAccessLinkSecurityHeaders(request, baselined, env);
+    return applyAccessLinkSecurityHeaders(request, baselined, env, nonce);
   },
 };
 
