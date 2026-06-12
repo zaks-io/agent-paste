@@ -29,7 +29,7 @@ import {
   paint,
   resolveMode,
 } from "./render.js";
-import { runUpdateCheck } from "./update-check.js";
+import { detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -74,11 +74,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   }
 
   if (!client && command === "whoami" && !(await hasResolvableAuth())) {
-    return output(
-      { authenticated: false },
-      parsed.global,
-      "Not signed in. Run `agent-paste login` or use `agent-paste publish --ephemeral` for an accountless handoff.",
-    );
+    return output({ authenticated: false }, parsed.global, signedOutHint(detectChannel()));
   }
 
   const apiClient = client ?? (await resolveClient());

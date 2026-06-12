@@ -1,4 +1,4 @@
-import { AgentPasteError } from "@agent-paste/api-client";
+import { AgentPasteError, CLIENT_AUTH_HANDOFF_HINT } from "@agent-paste/api-client";
 import { describe, expect, it } from "vitest";
 import {
   createProgress,
@@ -131,5 +131,26 @@ describe("formatError", () => {
     expect(human).toContain("write_allowance_exceeded");
     expect(human).toContain("limit hit");
     expect(human).toContain("https://docs.test/quota");
+  });
+
+  it("rewrites the client auth handoff hint for the install channel", () => {
+    const error = new AgentPasteError({
+      code: "not_authenticated",
+      message: CLIENT_AUTH_HANDOFF_HINT,
+      status: 401,
+    });
+    const previousUserAgent = process.env.npm_config_user_agent;
+    process.env.npm_config_user_agent = "npm/10 npx/10";
+    try {
+      const human = formatError("plain", error);
+      expect(human).toContain("npx @zaks-io/agent-paste login");
+      expect(human).not.toContain("Run agent-paste login");
+
+      const json = JSON.parse(formatError("json", error).trim());
+      expect(json.error.message).toContain("npx @zaks-io/agent-paste login");
+    } finally {
+      if (previousUserAgent === undefined) delete process.env.npm_config_user_agent;
+      else process.env.npm_config_user_agent = previousUserAgent;
+    }
   });
 });
