@@ -67,7 +67,7 @@ export const contentBlobQueries = {
           and usf.sha256 is not null
           and usf.uploaded_at is not null
           and us.status = 'pending'
-          and us.expires_at > ${new Date(now)}
+          and us.expires_at > ${now}
       ) blobs
     `);
     return rows;
@@ -112,7 +112,7 @@ export const contentBlobQueries = {
             and usf.size_bytes = cb_inner.size_bytes
             and usf.storage_kind = 'blob'
             and us.status = 'pending'
-            and us.expires_at > ${new Date(input.now)}
+            and us.expires_at > ${input.now}
         )
         order by cb_inner.updated_at asc
         limit ${input.limit}
