@@ -82,9 +82,11 @@ describe("home page", () => {
     expect(body).toContain("/fonts/SplineSansMono-Variable.woff2");
   });
 
-  it("renders the demo transcript linked to the static example artifact", () => {
-    // The transcript's result row LINKS to the id-shaped static artifact path.
-    // Contract (the served href), not copy — see feedback_never_unit_test_copy.
+  it("renders the demo transcript as an Access Link with a static example fallback", () => {
+    // The visible result is the public/shareable Access Link contract. The href
+    // still opens the id-shaped static page because this demo cannot depend on
+    // production data.
+    expect(body).toContain('https://</span><span class="text-accent">app.agent-paste.sh/al/');
     expect(body).toContain('href="/a/art_8KQ2WSDIEGO7XR"');
   });
 

@@ -1,7 +1,7 @@
-import { EXAMPLE_ARTIFACT_PATH, TRANSCRIPT, type TranscriptLine } from "../copy";
+import { EXAMPLE_STATIC_PAGE_PATH, TRANSCRIPT, type TranscriptLine } from "../copy";
 
 // The home demo: a flat, hairline-bordered transcript shell (style-guide §8.1)
-// showing one real publish session. Terminal *behavior* (mono, prompt carets,
+// showing one agent publish session. Terminal *behavior* (mono, prompt carets,
 // copyable lines) without the terminal *look* — no window dots, no neon, no
 // glow. Nothing animates.
 
@@ -43,7 +43,7 @@ function Line({ line }: { line: TranscriptLine }) {
         <a
           className="t-line t-result block break-all text-muted no-underline rounded-xs px-1 -mx-1 transition-[background] duration-[140ms] ease-out hover:bg-accent-tint"
           href={line.href}
-          aria-label={`Open the example artifact: ${line.url}`}
+          aria-label={`Open the static example shown by this Access Link: ${line.url}`}
         >
           <span className="t-gesture" aria-hidden="true">
             {GESTURE_WIRE}
@@ -70,7 +70,7 @@ export function TranscriptDemo() {
       <div className="t-foot border-t border-rule px-4 py-3">
         <a
           className="group inline-flex items-center gap-2 font-mono text-mono-sm text-muted no-underline transition-colors duration-200 ease-out hover:text-foreground"
-          href={EXAMPLE_ARTIFACT_PATH}
+          href={EXAMPLE_STATIC_PAGE_PATH}
         >
           open the example
           <span
