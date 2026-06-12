@@ -3,7 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { configDir } from "../src/credentials.js";
-import { compareSemver, commandInvocation, detectChannel, runUpdateCheck, signedOutHint, upgradeCommand } from "../src/update-check.js";
+import {
+  compareSemver,
+  commandInvocation,
+  detectChannel,
+  runUpdateCheck,
+  signedOutHint,
+  upgradeCommand,
+} from "../src/update-check.js";
 
 function jsonResponse(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;

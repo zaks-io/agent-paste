@@ -45,8 +45,7 @@ type RequestOptions = {
 };
 
 // Stable sentinel for the CLI to replace with a channel-correct login hint.
-export const CLIENT_AUTH_HANDOFF_HINT =
-  "Run agent-paste login or use --ephemeral for an accountless handoff." as const;
+export const CLIENT_AUTH_HANDOFF_HINT = "Run agent-paste login or use --ephemeral for an accountless handoff." as const;
 
 export class AgentPasteError extends Error {
   readonly code: string;
