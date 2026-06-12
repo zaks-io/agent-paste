@@ -1,4 +1,5 @@
-import { AgentPasteError } from "@agent-paste/api-client";
+import { AgentPasteError, CLIENT_AUTH_HANDOFF_HINT } from "@agent-paste/api-client";
+import { authHandoffHint, detectChannel } from "./update-check.js";
 
 // Rich = colour + spinner for a person at a TTY. Plain = same layout, ANSI
 // stripped, no carriage-return repaints (safe to pipe/redirect). Json = the
@@ -151,14 +152,23 @@ export function exitCodeFor(error: unknown): number {
   return EXIT_GENERIC;
 }
 
+function resolveErrorMessage(error: unknown): string {
+  const asError = error instanceof Error ? error : new Error(String(error));
+  if (error instanceof AgentPasteError && error.message === CLIENT_AUTH_HANDOFF_HINT) {
+    return authHandoffHint(detectChannel());
+  }
+  return asError.message;
+}
+
 export function formatError(mode: OutputMode, error: unknown): string {
   const asError = error instanceof Error ? error : new Error(String(error));
   const code = error instanceof AgentPasteError ? error.code : "cli_error";
   const docs = error instanceof AgentPasteError ? error.docs : undefined;
+  const message = resolveErrorMessage(error);
   if (mode === "json") {
-    return `${JSON.stringify({ error: { code, message: asError.message, ...(docs ? { docs } : {}) } })}\n`;
+    return `${JSON.stringify({ error: { code, message, ...(docs ? { docs } : {}) } })}\n`;
   }
-  const lines = [`${paint(mode, "red", "✗")} ${paint(mode, "bold", code)} — ${asError.message}`];
+  const lines = [`${paint(mode, "red", "✗")} ${paint(mode, "bold", code)} — ${message}`];
   if (docs) {
     lines.push(`  ${hyperlink(mode, docs)}`);
   }

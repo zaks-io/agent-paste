@@ -3,7 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { configDir } from "../src/credentials.js";
-import { compareSemver, detectChannel, runUpdateCheck, upgradeCommand } from "../src/update-check.js";
+import {
+  compareSemver,
+  commandInvocation,
+  detectChannel,
+  runUpdateCheck,
+  signedOutHint,
+  upgradeCommand,
+} from "../src/update-check.js";
 
 function jsonResponse(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
@@ -50,6 +57,26 @@ describe("upgradeCommand", () => {
     expect(upgradeCommand("npm-global")).toBe("npm i -g @zaks-io/agent-paste@latest");
     expect(upgradeCommand("unknown")).toBe("npm i -g @zaks-io/agent-paste@latest");
     expect(upgradeCommand("npx")).toBeNull();
+  });
+});
+
+describe("commandInvocation", () => {
+  it("uses npx for the npx channel and agent-paste otherwise", () => {
+    expect(commandInvocation("npx", "login")).toBe("npx @zaks-io/agent-paste login");
+    expect(commandInvocation("npx", "publish --ephemeral")).toBe("npx @zaks-io/agent-paste publish --ephemeral");
+    expect(commandInvocation("binary", "login")).toBe("agent-paste login");
+    expect(commandInvocation("npm-global", "login")).toBe("agent-paste login");
+    expect(commandInvocation("unknown", "login")).toBe("agent-paste login");
+  });
+});
+
+describe("signedOutHint", () => {
+  it("embeds channel-correct login and ephemeral commands", () => {
+    expect(signedOutHint("npx")).toContain("npx @zaks-io/agent-paste login");
+    expect(signedOutHint("npx")).toContain("npx @zaks-io/agent-paste publish --ephemeral");
+    expect(signedOutHint("binary")).toContain("`agent-paste login`");
+    expect(signedOutHint("binary")).toContain("`agent-paste publish --ephemeral`");
+    expect(signedOutHint("npx")).not.toContain("`agent-paste ");
   });
 });
 

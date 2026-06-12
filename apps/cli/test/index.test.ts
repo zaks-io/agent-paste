@@ -184,6 +184,28 @@ describe("cli command dispatch", () => {
     expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining('"authenticated": false')]));
   });
 
+  it("prints a channel-correct signed-out hint for whoami", async () => {
+    const stdout = mockStdout();
+    const previousKey = process.env.AGENT_PASTE_API_KEY;
+    const previousUserAgent = process.env.npm_config_user_agent;
+    delete process.env.AGENT_PASTE_API_KEY;
+    process.env.npm_config_user_agent = "npm/10 npx/10";
+    vi.spyOn(credentials, "loadCredential").mockResolvedValue(null);
+    try {
+      await main(["whoami"]);
+    } finally {
+      if (previousKey === undefined) delete process.env.AGENT_PASTE_API_KEY;
+      else process.env.AGENT_PASTE_API_KEY = previousKey;
+      if (previousUserAgent === undefined) delete process.env.npm_config_user_agent;
+      else process.env.npm_config_user_agent = previousUserAgent;
+    }
+
+    const text = stdoutValues(stdout).join("");
+    expect(text).toContain("npx @zaks-io/agent-paste login");
+    expect(text).toContain("npx @zaks-io/agent-paste publish --ephemeral");
+    expect(text).not.toContain("`agent-paste ");
+  });
+
   it("publishes a local folder through create, PUT, and finalize", async () => {
     const stdout = mockStdout();
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
