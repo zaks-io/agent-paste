@@ -117,10 +117,12 @@ Handler behavior:
 Every prefix must be scoped to the message's own Artifact, in one of two
 shapes: `artifacts/{artifact_id}/...` (Revision file keys) or
 `env/{env}/workspaces/{workspace_id}/artifacts/{artifact_id}/...` (derived
-bundle keys, ADR 0021). Deletion and Retention producers enqueue both shapes
-so bundle zips are purged with the files; Upload Cleanup purges the session's
-file keys only (no bundle exists yet). The consumer rejects any prefix outside
-the message's artifact scope.
+bundle keys, ADR 0021). For env-scoped prefixes, `{env}` must match the
+consumer Worker's `AGENT_PASTE_ENV` via `storageEnvSegment`. Deletion and
+Retention producers enqueue both shapes so bundle zips are purged with the
+files; Upload Cleanup purges the session's file keys only (no bundle exists
+yet). The consumer rejects any prefix outside the message's artifact scope or
+with a foreign env segment.
 
 Handler behavior:
 

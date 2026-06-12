@@ -2,6 +2,7 @@ import { BytePurgeMessage } from "@agent-paste/contracts";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { deletePrefixes } from "../r2-purge.js";
+import { assertArtifactScopedPrefixes, BytePurgePrefixEnvMismatchError } from "./validation.js";
 
 export async function handleBytePurgeBatch(messages: readonly QueueMessage[], env: Env): Promise<void> {
   if (!env.ARTIFACTS) {
@@ -11,7 +12,20 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
   for (const message of messages) {
     try {
       const payload = BytePurgeMessage.parse(message.body);
-      assertArtifactScopedPrefixes(payload);
+      try {
+        assertArtifactScopedPrefixes(payload, env.AGENT_PASTE_ENV);
+      } catch (error) {
+        if (error instanceof BytePurgePrefixEnvMismatchError) {
+          logOpError("queue.byte_purge.prefix_env_mismatch", {
+            artifact_id: payload.artifact_id,
+            revision_id: payload.revision_id,
+            prefix: error.prefix,
+            prefix_env: error.prefixEnv,
+            expected_env: error.expectedEnv,
+          });
+        }
+        throw error;
+      }
       const deleted = await deletePrefixes(env.ARTIFACTS, payload.prefixes);
       logOp("queue.byte_purge.succeeded", {
         artifact_id: payload.artifact_id,
@@ -27,30 +41,4 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
       message.retry();
     }
   }
-}
-
-type PurgeScope = Pick<BytePurgeMessage, "workspace_id" | "artifact_id" | "prefixes">;
-
-// Safety property: a message may only purge keys belonging to its own
-// artifact. Revision files use artifact-scoped keys; derived bundles use
-// env-scoped keys (ADR 0021), which must still pin workspace and artifact.
-function assertArtifactScopedPrefixes(payload: PurgeScope): void {
-  if (payload.prefixes.length === 0 || !payload.prefixes.every((prefix) => isArtifactScopedPrefix(payload, prefix))) {
-    throw new Error("byte_purge_prefix_outside_artifact_scope");
-  }
-}
-
-const ENV_SCOPE_PATTERN = /^env\/[^/]+\/workspaces\/([^/]+)\//;
-
-function isArtifactScopedPrefix(payload: PurgeScope, prefix: string): boolean {
-  const artifactPrefix = `artifacts/${payload.artifact_id}/`;
-  if (prefix.startsWith(artifactPrefix)) {
-    return true;
-  }
-  const envScope = ENV_SCOPE_PATTERN.exec(prefix);
-  return (
-    envScope !== null &&
-    envScope[1] === payload.workspace_id &&
-    prefix.slice(envScope[0].length).startsWith(artifactPrefix)
-  );
 }
