@@ -1,9 +1,6 @@
 import type { SqlExecutor } from "../types.js";
 import { upsertReparentedContentBlobs } from "./reparent-blobs.js";
 
-export type { WorkspaceBlobRef } from "./reparent-blobs.js";
-export { listWorkspaceBlobsForReparent } from "./reparent-blobs.js";
-
 export type ReparentTenantContentResult = {
   artifact_ids: string[];
 };

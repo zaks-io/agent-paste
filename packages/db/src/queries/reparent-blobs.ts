@@ -14,30 +14,6 @@ export function remapWorkspaceBlobR2Key(r2Key: string, fromWorkspaceId: string, 
   return r2Key.replace(workspaceBlobR2KeyPrefix(fromWorkspaceId), workspaceBlobR2KeyPrefix(toWorkspaceId));
 }
 
-export async function listWorkspaceBlobsForReparent(
-  sql: SqlExecutor,
-  workspaceId: string,
-): Promise<WorkspaceBlobRef[]> {
-  const result = await sql.query<WorkspaceBlobRef>(
-    `select distinct sha256, size_bytes, r2_key
-     from (
-       select sha256, size_bytes, r2_key
-       from artifact_files
-       where workspace_id = $1
-         and storage_kind = 'blob'
-         and sha256 is not null
-       union
-       select sha256, size_bytes, r2_key
-       from upload_session_files
-       where workspace_id = $1
-         and storage_kind = 'blob'
-         and sha256 is not null
-     ) blobs`,
-    [workspaceId],
-  );
-  return result.rows;
-}
-
 export async function upsertReparentedContentBlobs(
   sql: SqlExecutor,
   input: { workspaceId: string; updatedAt: string },
