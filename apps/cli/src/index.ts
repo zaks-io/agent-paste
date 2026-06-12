@@ -258,9 +258,7 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const inferred = inferPublishOptions(inputPath, files, overrides);
 
   const digestByPath = new Map(
-    await Promise.all(
-      files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const),
-    ),
+    await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
   );
 
   const idempotencyKey = createIdempotencyKey("cli_publish");
