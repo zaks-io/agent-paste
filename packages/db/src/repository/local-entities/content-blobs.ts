@@ -65,7 +65,7 @@ function collectReparentBlob(
   });
 }
 
-function isLiveArtifactBlobForReparent(
+export function isLiveArtifactBlobForReparent(
   state: LocalState,
   file: {
     workspace_id: string;
@@ -86,7 +86,7 @@ function isLiveArtifactBlobForReparent(
   );
 }
 
-function isLiveSessionBlobForReparent(
+export function isLiveSessionBlobForReparent(
   state: LocalState,
   file: {
     workspace_id: string;

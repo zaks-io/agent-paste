@@ -1,3 +1,4 @@
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { EPHEMERAL_AUTO_DELETION_DAYS } from "@agent-paste/config";
 import { PepperRing } from "@agent-paste/rotation";
 import { generateClaimToken, parseClaimToken, verifyClaimTokenSecret } from "../../claim-tokens.js";
@@ -160,9 +161,31 @@ export async function claimEphemeralWorkspace(
     repositoryError("forbidden");
   }
   const now = nowIso(input.now);
+  const commandActor = memberCommandActor(input.actor);
+  const replay = await ctx.uow.peekReplay<ClaimEphemeralWorkspaceResult>({
+    actor: commandActor,
+    operation: "ephemeral.workspace.claim",
+    idempotencyKey: input.idempotencyKey,
+    scope: PLATFORM_SCOPE,
+  });
+  if (replay && "inFlight" in replay) {
+    throw new IdempotencyInFlightError();
+  }
+  if (replay && "result" in replay) {
+    return replay.result;
+  }
+
   const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
   const destinationWorkspaceId = input.actor.workspace_id;
   const sourceWorkspaceId = claimToken.workspace_id;
+
+  await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
+    const sourceWorkspace = await ctx.mustWorkspace(entities, sourceWorkspaceId);
+    assertClaimTokenRedeemable(claimToken, sourceWorkspace, now);
+    if (sourceWorkspaceId === destinationWorkspaceId) {
+      repositoryError("not_found");
+    }
+  });
 
   const blobs = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
     entities.contentBlobs.listForReparent(sourceWorkspaceId, now),
@@ -180,7 +203,7 @@ export async function claimEphemeralWorkspace(
 
   return ctx.uow.command(
     {
-      actor: memberCommandActor(input.actor),
+      actor: commandActor,
       operation: "ephemeral.workspace.claim",
       idempotencyKey: input.idempotencyKey,
       scope: PLATFORM_SCOPE,

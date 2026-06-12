@@ -2,6 +2,7 @@ import { remapWorkspaceBlobR2Key } from "../../queries/reparent-blobs.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
 import { bumpArtifactExpiresAt } from "./artifacts-helpers.js";
+import { isLiveArtifactBlobForReparent, isLiveSessionBlobForReparent } from "./content-blobs.js";
 
 function reparentArtifacts(
   state: LocalState,
@@ -53,13 +54,13 @@ function reparentBlobFiles<T extends { workspace_id: string; storage_kind?: stri
 
 function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, updatedAt: string) {
   const seen = new Set<string>();
-  for (const file of state.artifactFiles.values()) {
-    if (file.workspace_id !== workspaceId || file.storage_kind !== "blob" || !file.sha256) {
-      continue;
+  const upsert = (file: { sha256?: string | null; size_bytes: number; r2_key: string }) => {
+    if (!file.sha256) {
+      return;
     }
     const dedupeKey = `${file.sha256}:${file.size_bytes}`;
     if (seen.has(dedupeKey)) {
-      continue;
+      return;
     }
     seen.add(dedupeKey);
     const key = `${workspaceId}:${file.sha256}:${file.size_bytes}`;
@@ -71,6 +72,17 @@ function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, up
       created_at: updatedAt,
       updated_at: updatedAt,
     });
+  };
+
+  for (const file of state.artifactFiles.values()) {
+    if (isLiveArtifactBlobForReparent(state, file, workspaceId)) {
+      upsert(file);
+    }
+  }
+  for (const file of state.uploadSessionFiles.values()) {
+    if (isLiveSessionBlobForReparent(state, file, workspaceId, updatedAt)) {
+      upsert(file);
+    }
   }
 }
 

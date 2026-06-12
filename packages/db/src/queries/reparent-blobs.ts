@@ -11,7 +11,11 @@ export function workspaceBlobR2KeyPrefix(workspaceId: string): string {
 }
 
 export function remapWorkspaceBlobR2Key(r2Key: string, fromWorkspaceId: string, toWorkspaceId: string): string {
-  return r2Key.replace(workspaceBlobR2KeyPrefix(fromWorkspaceId), workspaceBlobR2KeyPrefix(toWorkspaceId));
+  const sourcePrefix = workspaceBlobR2KeyPrefix(fromWorkspaceId);
+  if (!r2Key.startsWith(sourcePrefix)) {
+    throw new Error(`reparent_blob_r2_key_prefix_mismatch:${r2Key}`);
+  }
+  return `${workspaceBlobR2KeyPrefix(toWorkspaceId)}${r2Key.slice(sourcePrefix.length)}`;
 }
 
 export async function upsertReparentedContentBlobs(
