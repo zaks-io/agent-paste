@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["AGENT_PASTE_ENV", "BILLING_ENABLED", "CF_WEB_ANALYTICS_TOKEN"],
+      "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**", ".output/**"]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
+      "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**", ".output/**"]
+    },
+    "deploy:preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ENV"]
+    },
+    "deploy:production": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ENV"]
+    }
+  }
+}
