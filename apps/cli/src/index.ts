@@ -506,10 +506,7 @@ function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultSha
     "",
     paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
     ...(viewerUrl
-      ? [
-          "",
-          `  ${label("View")}      ${hyperlink(mode, viewerUrl)} ${paint(mode, "dim", "(works after claiming)")}`,
-        ]
+      ? ["", `  ${label("View")}      ${hyperlink(mode, viewerUrl)} ${paint(mode, "dim", "(works after claiming)")}`]
       : []),
     "",
     paint(mode, "cyan", `  → open ${claimUrl}`),
