@@ -147,12 +147,12 @@ Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
 Queues exist (DLQs first), then runs `turbo run deploy:<target>`. Turbo owns the
 build and deploy order via the task graph (`deploy:<target>` dependsOn `build`,
 `build` dependsOn `^build`), so every workspace dependency is built before its
-Worker deploys. Per-env build switches reach the build through the env handed to
-Turbo: `AGENT_PASTE_ENV`/`CLOUDFLARE_ENV` (set to the target) plus apex's
-`BILLING_ENABLED`/`CF_WEB_ANALYTICS_TOKEN` (resolved from `apps/apex/wrangler.jsonc`),
-all declared on the `build`/`deploy:*` task `env` in `turbo.json`. `apps/web` is
-built with `CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the
-target-specific deploy config that `wrangler deploy` then reads.
+Worker deploys. Per-env build switches reach only the package builds that need
+them: `apps/apex` declares `AGENT_PASTE_ENV`, `BILLING_ENABLED`, and
+`CF_WEB_ANALYTICS_TOKEN`; `apps/web` declares `CLOUDFLARE_ENV` and
+`SENTRY_AUTH_TOKEN`. `apps/web` is built and deployed with
+`CLOUDFLARE_ENV=<target>` so the Cloudflare/Vite plugin emits the target-specific
+deploy config that `wrangler deploy` then reads.
 
 Queue provisioning runs before the deploy because the API and jobs Workers bind
 `bundle-generate-*` producers/consumers. Cloudflare service bindings (e.g.

@@ -66,7 +66,7 @@ Admin routes require the signed-in WorkOS session to carry the `admin` role slug
 - `pnpm --filter @agent-paste/web lint` - Biome lint (includes the Access Link import guard).
 - `pnpm --filter @agent-paste/web test` - Vitest component, loader, formatting, and mutation tests.
 - `pnpm --filter @agent-paste/web typegen` - regenerate Cloudflare binding types.
-- `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` - `wrangler deploy --env ...`.
+- `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` - `wrangler deploy` with `CLOUDFLARE_ENV=<target>`.
 
 ## Lint rules
 
