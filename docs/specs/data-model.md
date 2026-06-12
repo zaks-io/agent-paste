@@ -60,25 +60,25 @@ Stored credentials grant the publish/read capability needed by the public CLI. G
 
 ### `artifacts`
 
-| Column            | Type                                      | Notes                                         |
-| ----------------- | ----------------------------------------- | --------------------------------------------- |
-| `id`              | `TEXT PRIMARY KEY`                        | `art_...`.                                    |
-| `workspace_id`    | `UUID NOT NULL REFERENCES workspaces(id)` |                                               |
-| `revision_id`            | `TEXT NULL`                               | `rev_...`; published-revision pointer only. `NULL` until the first publish; not globally unique. |
-| `status`                 | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.                                                               |
-| `title`           | `TEXT NOT NULL`                           | Plain text.                                   |
-| `entrypoint`      | `TEXT NOT NULL`                           | Normalized file path.                         |
-| `file_count`      | `INTEGER NOT NULL`                        |                                               |
-| `size_bytes`      | `BIGINT NOT NULL`                         | Total uploaded bytes.                         |
-| `expires_at`      | `TIMESTAMPTZ NOT NULL`                    | Required.                                     |
-| `pinned_at`              | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                    |
-| `access_link_lockdown_at`| `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift. |
-| `created_by_type`        | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                           |
-| `created_by_id`   | `TEXT NOT NULL`                           | Creator id for the stored type.               |
-| `deleted_at`      | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.              |
-| `delete_reason`   | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.  |
-| `created_at`      | `TIMESTAMPTZ NOT NULL`                    |                                               |
-| `updated_at`      | `TIMESTAMPTZ NOT NULL`                    |                                               |
+| Column                    | Type                                      | Notes                                                                                                                                                                                         |
+| ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `TEXT PRIMARY KEY`                        | `art_...`.                                                                                                                                                                                    |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                                                                                                               |
+| `revision_id`             | `TEXT NULL`                               | `rev_...`; published-revision pointer only. `NULL` until the first publish; not globally unique.                                                                                              |
+| `status`                  | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.                                                                                                                                                            |
+| `title`                   | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                                   |
+| `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                                         |
+| `file_count`              | `INTEGER NOT NULL`                        |                                                                                                                                                                                               |
+| `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes.                                                                                                                                                                         |
+| `expires_at`              | `TIMESTAMPTZ NOT NULL`                    | Required.                                                                                                                                                                                     |
+| `pinned_at`               | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                                                                                                                 |
+| `access_link_lockdown_at` | `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift. |
+| `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                                                                                                                        |
+| `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                                                                                                               |
+| `deleted_at`              | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.                                                                                                                                                              |
+| `delete_reason`           | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.                                                                                                                                                  |
+| `created_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                               |
+| `updated_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                               |
 
 No artifact can be created without `expires_at`. While `pinned_at` is set, the
 stored `expires_at` is retained but not enforced: the Auto Deletion sweep skips
@@ -91,42 +91,42 @@ Unpinning re-arms the stored `expires_at` as-is.
 
 First-class revision rows for multi-revision Artifacts ([0009](../../packages/db/migrations/0009_revisions.sql)). Upload finalize creates a `draft`; publish assigns `revision_number`, sets `published_at`, and updates `artifacts.revision_id`.
 
-| Column                    | Type                                      | Notes                                                                                          |
-| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `id`                      | `TEXT PRIMARY KEY`                        | `rev_...`.                                                                                     |
-| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT` | Tenant scope.                                                                                  |
-| `artifact_id`             | `TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE`   | Parent Artifact; deleting the Artifact deletes its revisions.                                |
-| `revision_number`         | `INTEGER NULL`                            | Assigned on publish; unique per Artifact when not null. Null while `status = 'draft'`.         |
-| `status`                  | `TEXT NOT NULL`                           | `draft`, `published`, or `retained`.                                                           |
-| `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                          |
-| `render_mode`             | `TEXT NOT NULL DEFAULT 'html'`            | `html`, `markdown`, `text`, `image`, `audio`, or `video`.                                      |
-| `file_count`              | `INTEGER NOT NULL`                        |                                                                                                |
-| `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes for this revision.                                                        |
-| `bundle_status`           | `TEXT NOT NULL DEFAULT 'disabled'`        | `pending`, `ready`, `failed`, or `disabled`.                                                   |
-| `bundle_status_updated_at`| `TIMESTAMPTZ NULL`                        |                                                                                                |
-| `bundle_size_bytes`       | `BIGINT NULL`                             | Encrypted bundle size when `bundle_status = 'ready'`.                                            |
-| `bytes_purge_enqueued_at` | `TIMESTAMPTZ NULL`                        | Set when byte purge is queued for a `retained` revision.                                       |
-| `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                         |
-| `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                |
-| `created_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                |
-| `published_at`            | `TIMESTAMPTZ NULL`                        | Set when `status` becomes `published`.                                                           |
+| Column                     | Type                                                         | Notes                                                                                  |
+| -------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `id`                       | `TEXT PRIMARY KEY`                                           | `rev_...`.                                                                             |
+| `workspace_id`             | `UUID NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT` | Tenant scope.                                                                          |
+| `artifact_id`              | `TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE`   | Parent Artifact; deleting the Artifact deletes its revisions.                          |
+| `revision_number`          | `INTEGER NULL`                                               | Assigned on publish; unique per Artifact when not null. Null while `status = 'draft'`. |
+| `status`                   | `TEXT NOT NULL`                                              | `draft`, `published`, or `retained`.                                                   |
+| `entrypoint`               | `TEXT NOT NULL`                                              | Normalized file path.                                                                  |
+| `render_mode`              | `TEXT NOT NULL DEFAULT 'html'`                               | `html`, `markdown`, `text`, `image`, `audio`, or `video`.                              |
+| `file_count`               | `INTEGER NOT NULL`                                           |                                                                                        |
+| `size_bytes`               | `BIGINT NOT NULL`                                            | Total uploaded bytes for this revision.                                                |
+| `bundle_status`            | `TEXT NOT NULL DEFAULT 'disabled'`                           | `pending`, `ready`, `failed`, or `disabled`.                                           |
+| `bundle_status_updated_at` | `TIMESTAMPTZ NULL`                                           |                                                                                        |
+| `bundle_size_bytes`        | `BIGINT NULL`                                                | Encrypted bundle size when `bundle_status = 'ready'`.                                  |
+| `bytes_purge_enqueued_at`  | `TIMESTAMPTZ NULL`                                           | Set when byte purge is queued for a `retained` revision.                               |
+| `created_by_type`          | `TEXT NOT NULL`                                              | `api_key` or `member`.                                                                 |
+| `created_by_id`            | `TEXT NOT NULL`                                              | Creator id for the stored type.                                                        |
+| `created_at`               | `TIMESTAMPTZ NOT NULL`                                       |                                                                                        |
+| `published_at`             | `TIMESTAMPTZ NULL`                                           | Set when `status` becomes `published`.                                                 |
 
 At most one `draft` row per Artifact (`revisions_one_draft_per_artifact`). Composite unique `(workspace_id, artifact_id, id)` supports tenant-safe foreign keys from `access_links` and `safety_warnings`.
 
 ### `artifact_files`
 
-| Column                | Type                                      | Notes                                       |
-| --------------------- | ----------------------------------------- | ------------------------------------------- |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                             |
-| `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`  |                                             |
+| Column                | Type                                                       | Notes                                                                           |
+| --------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`                  |                                                                                 |
+| `artifact_id`         | `TEXT NOT NULL REFERENCES artifacts(id)`                   |                                                                                 |
 | `revision_id`         | `TEXT NOT NULL REFERENCES revisions(id) ON DELETE CASCADE` | Revision that owns this file tree; deleting the revision deletes its file rows. |
-| `path`                | `TEXT NOT NULL`                           | Normalized POSIX path.                      |
-| `size_bytes`          | `BIGINT NOT NULL`                         |                                             |
-| `served_content_type` | `TEXT NOT NULL`                           | Derived from extension.                     |
-| `r2_key`              | `TEXT NOT NULL`                           | Opaque/id-based key.                        |
-| `sha256`              | `TEXT NULL`                               | Lowercase hex digest for blob-backed files. |
-| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`        | `revision` or `blob`.                       |
-| `uploaded_at`         | `TIMESTAMPTZ NOT NULL`                    |                                             |
+| `path`                | `TEXT NOT NULL`                                            | Normalized POSIX path.                                                          |
+| `size_bytes`          | `BIGINT NOT NULL`                                          |                                                                                 |
+| `served_content_type` | `TEXT NOT NULL`                                            | Derived from extension.                                                         |
+| `r2_key`              | `TEXT NOT NULL`                                            | Opaque/id-based key.                                                            |
+| `sha256`              | `TEXT NULL`                                                | Lowercase hex digest for blob-backed files.                                     |
+| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`                         | `revision` or `blob`.                                                           |
+| `uploaded_at`         | `TIMESTAMPTZ NOT NULL`                                     |                                                                                 |
 
 Primary key `(artifact_id, revision_id, path)`. Unique normalized paths per revision; multiple revisions can coexist on one Artifact.
 For `storage_kind = 'revision'`, `r2_key` points at the legacy
@@ -198,17 +198,17 @@ exposing scanner internals.
 
 ### `upload_session_files`
 
-| Column                | Type                                           | Notes                                                                                                                                                                     |
-| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                                                                                                                                                           |
-| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                                                                                                                                                           |
-| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                                                                                                                                                    |
-| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                                                                                                                                                            |
-| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.                                                                                                                                        |
-| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                                                                                                                                                |
-| `sha256`              | `TEXT NULL`                                    | Lowercase hex digest when supplied by client.                                                                                                                             |
-| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`             | `revision` or `blob`.                                                                                                                                                     |
-| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT or existing blob reuse.                                                                                                                          |
+| Column                | Type                                           | Notes                                                                                              |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)`      |                                                                                                    |
+| `upload_session_id`   | `TEXT NOT NULL REFERENCES upload_sessions(id)` |                                                                                                    |
+| `path`                | `TEXT NOT NULL`                                | Normalized POSIX path.                                                                             |
+| `size_bytes`          | `BIGINT NOT NULL`                              | Expected size.                                                                                     |
+| `served_content_type` | `TEXT NOT NULL`                                | Derived before issuing upload URL.                                                                 |
+| `r2_key`              | `TEXT NOT NULL`                                | Final artifact object key.                                                                         |
+| `sha256`              | `TEXT NULL`                                    | Lowercase hex digest when supplied by client.                                                      |
+| `storage_kind`        | `TEXT NOT NULL DEFAULT 'revision'`             | `revision` or `blob`.                                                                              |
+| `uploaded_at`         | `TIMESTAMPTZ NULL`                             | Set after successful PUT or existing blob reuse.                                                   |
 | `put_url_expires_at`  | `TIMESTAMPTZ NOT NULL`                         | Session-level upper bound for PUT writes. Set to `upload_sessions.expires_at` at session creation. |
 
 Primary key `(upload_session_id, path)`.
