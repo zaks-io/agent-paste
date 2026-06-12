@@ -3,17 +3,52 @@ description: Install the scanner CLIs used by pnpm security:attest.
 runs:
   using: composite
   steps:
-    - name: Install binary scanner CLIs
+    - name: Resolve tool versions and cache key
+      id: tools
       shell: bash
       env:
         GITLEAKS_VERSION: 8.30.1
         TRIVY_VERSION: 0.69.3
         SYFT_VERSION: 1.42.4
         GRYPE_VERSION: 0.111.0
+        CHECKOV_VERSION: 3.2.510
+        SEMGREP_VERSION: 1.157.0
+      run: |
+        set -euo pipefail
+        # Python major.minor is part of the key: the cached venv hardcodes the
+        # interpreter's site-packages path and breaks if the runner image bumps it.
+        python_version="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
+        {
+          echo "gitleaks=$GITLEAKS_VERSION"
+          echo "trivy=$TRIVY_VERSION"
+          echo "syft=$SYFT_VERSION"
+          echo "grype=$GRYPE_VERSION"
+          echo "checkov=$CHECKOV_VERSION"
+          echo "semgrep=$SEMGREP_VERSION"
+          echo "key=${RUNNER_OS}-security-tools-gitleaks${GITLEAKS_VERSION}-trivy${TRIVY_VERSION}-syft${SYFT_VERSION}-grype${GRYPE_VERSION}-checkov${CHECKOV_VERSION}-semgrep${SEMGREP_VERSION}-py${python_version}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore scanner CLI cache
+      id: tool-cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ~/.security-tools
+        key: ${{ steps.tools.outputs.key }}
+
+    - name: Install binary scanner CLIs
+      if: ${{ steps.tool-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        GITLEAKS_VERSION: ${{ steps.tools.outputs.gitleaks }}
+        TRIVY_VERSION: ${{ steps.tools.outputs.trivy }}
+        SYFT_VERSION: ${{ steps.tools.outputs.syft }}
+        GRYPE_VERSION: ${{ steps.tools.outputs.grype }}
       run: |
         set -euo pipefail
         tmp_dir="$(mktemp -d)"
         trap 'rm -rf "$tmp_dir"' EXIT
+        bin_dir="$HOME/.security-tools/bin"
+        mkdir -p "$bin_dir"
 
         install_release_tar() {
           local binary="$1"
@@ -47,7 +82,7 @@ runs:
             echo "::error::Missing ${binary} binary in ${asset}"
             exit 1
           fi
-          install -m 0755 "$binary_path" "/usr/local/bin/$binary"
+          install -m 0755 "$binary_path" "$bin_dir/$binary"
         }
 
         install_release_tar \
@@ -76,11 +111,37 @@ runs:
           "grype_${GRYPE_VERSION}_checksums.txt"
 
     - name: Install Python scanner CLIs
+      if: ${{ steps.tool-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        CHECKOV_VERSION: ${{ steps.tools.outputs.checkov }}
+        SEMGREP_VERSION: ${{ steps.tools.outputs.semgrep }}
+      run: |
+        set -euo pipefail
+        venv_dir="$HOME/.security-tools/venv"
+        python3 -m venv "$venv_dir"
+        "$venv_dir/bin/pip" install --quiet "checkov==${CHECKOV_VERSION}" "semgrep==${SEMGREP_VERSION}"
+
+    - name: Add scanner CLIs to PATH
       shell: bash
       run: |
         set -euo pipefail
-        python3 -m pip install --user "checkov==3.2.510" "semgrep==1.157.0"
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.security-tools/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.security-tools/venv/bin" >> "$GITHUB_PATH"
+
+    # Trivy and grype refresh their vulnerability databases at scan time. With a
+    # recent DB restored they only fetch deltas instead of the full database
+    # (grype's alone is hundreds of MB). The run_id key never hits exactly, so
+    # every run restores the newest prior DB and saves its updated copy.
+    - name: Restore scanner database cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: |
+          ~/.cache/trivy
+          ~/.cache/grype
+        key: ${{ runner.os }}-scanner-dbs-${{ github.run_id }}
+        restore-keys: |
+          ${{ runner.os }}-scanner-dbs-
 
     - name: Show scanner versions
       shell: bash
