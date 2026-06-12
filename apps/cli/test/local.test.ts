@@ -1,17 +1,19 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Mebibytes } from "@agent-paste/contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
+  sha256HexForFile,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "../src/local.js";
 
 describe("local publish helpers", () => {
-  it("walks local folders, excludes unsafe defaults, and hashes files", async () => {
+  it("walks local folders, excludes unsafe defaults, and records size from stat only", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     await fs.mkdir(path.join(root, "node_modules"));
     await fs.mkdir(path.join(root, "nested"));
@@ -20,10 +22,27 @@ describe("local publish helpers", () => {
     await fs.writeFile(path.join(root, "node_modules", "left-pad.js"), "");
     await fs.writeFile(path.join(root, "nested", "note.txt"), "note");
 
+    const readFile = vi.spyOn(fs, "readFile");
     const files = await walkLocalPath(root);
 
+    expect(readFile).not.toHaveBeenCalled();
     expect(files.map((file) => file.path)).toEqual(["index.html", "nested/note.txt"]);
-    expect(files[0]?.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(files[0]?.sizeBytes).toBe(new TextEncoder().encode("<h1>Hello</h1>").byteLength);
+    expect(files[0]).not.toHaveProperty("sha256");
+  });
+
+  it("streams file bytes when computing sha256 for upload", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const filePath = path.join(root, "index.html");
+    const body = "<h1>Hello</h1>";
+    await fs.writeFile(filePath, body);
+
+    const readFile = vi.spyOn(fs, "readFile");
+    const digest = await sha256HexForFile(filePath);
+
+    expect(readFile).not.toHaveBeenCalled();
+    expect(digest.sha256).toBe(createHash("sha256").update(body).digest("hex"));
+    expect(digest.sizeBytes).toBe(new TextEncoder().encode(body).byteLength);
   });
 
   it("fails fast on a file larger than the absolute per-file ceiling, before reading it", async () => {
@@ -88,8 +107,8 @@ describe("local publish helpers", () => {
 
   it("validates usage-policy caps before upload", () => {
     const files = [
-      { path: "a.txt", absolutePath: "/tmp/a.txt", sizeBytes: 10, sha256: "a".repeat(64) },
-      { path: "b.txt", absolutePath: "/tmp/b.txt", sizeBytes: 11, sha256: "b".repeat(64) },
+      { path: "a.txt", absolutePath: "/tmp/a.txt", sizeBytes: 10 },
+      { path: "b.txt", absolutePath: "/tmp/b.txt", sizeBytes: 11 },
     ];
     expect(() =>
       validateFilesAgainstUsagePolicy(files, {
@@ -113,7 +132,7 @@ describe("local publish helpers", () => {
 
     expect(() =>
       validateFilesAgainstUsagePolicy(
-        [{ path: "large.bin", absolutePath: "/tmp/large.bin", sizeBytes: 11 * 1024 * 1024, sha256: "c".repeat(64) }],
+        [{ path: "large.bin", absolutePath: "/tmp/large.bin", sizeBytes: 11 * 1024 * 1024 }],
         {
           file_size_cap_bytes: 10 * 1024 * 1024,
           artifact_size_cap_bytes: 25 * 1024 * 1024,

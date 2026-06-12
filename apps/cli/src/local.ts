@@ -14,7 +14,6 @@ export type LocalFile = {
   absolutePath: string;
   path: string;
   sizeBytes: number;
-  sha256: string;
 };
 
 export type PublishInference = {
@@ -115,13 +114,38 @@ async function toLocalFile(absolutePath: string, relativePath: string): Promise<
   if (size > MAX_FILE_BYTES) {
     throw new Error(`File ${relativePath} is ${size} bytes, which exceeds the ${MAX_FILE_BYTES}-byte per-file limit`);
   }
-  const bytes = await fs.readFile(absolutePath);
   return {
     absolutePath,
     path: relativePath,
-    sizeBytes: bytes.byteLength,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sizeBytes: size,
   };
+}
+
+export type LocalFileDigest = {
+  sha256: string;
+  sizeBytes: number;
+};
+
+export async function sha256HexForFile(absolutePath: string): Promise<LocalFileDigest> {
+  const hash = createHash("sha256");
+  const handle = await fs.open(absolutePath, "r");
+  let sizeBytes = 0;
+  try {
+    const chunk = new Uint8Array(64 * 1024);
+    let position = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+      if (bytesRead === 0) {
+        break;
+      }
+      hash.update(chunk.subarray(0, bytesRead));
+      position += bytesRead;
+      sizeBytes += bytesRead;
+    }
+  } finally {
+    await handle.close();
+  }
+  return { sha256: hash.digest("hex"), sizeBytes };
 }
 
 function isExcluded(name: string) {

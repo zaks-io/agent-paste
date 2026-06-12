@@ -28,7 +28,18 @@ declare module "node:crypto" {
 declare module "node:fs" {
   export function realpathSync(path: string): string;
 
+  export type FileHandle = {
+    read(
+      buffer: Uint8Array,
+      offset: number,
+      length: number,
+      position: number,
+    ): Promise<{ bytesRead: number; buffer: Uint8Array }>;
+    close(): Promise<void>;
+  };
+
   export const promises: {
+    open(path: string, flags: string): Promise<FileHandle>;
     stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number; size: number }>;
     lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
     truncate(path: string, len: number): Promise<void>;
