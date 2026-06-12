@@ -175,16 +175,17 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                   | Purpose                                                                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`   | Publish a new revision of an existing Artifact instead of creating a new one.                                                                              |
-| `--title <text>`       | Set the title. Default: path basename.                                                                                                                     |
-| `--entrypoint <path>`  | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
-| `--render-mode <mode>` | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
-| `--share`              | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                                         |
-| `--ephemeral`          | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
-| `--json`               | Emit the result as JSON on stdout. Stdout becomes pure JSON.                                                                                               |
-| `--quiet`              | Suppress human-readable stdout output.                                                                                                                     |
+| Flag                     | Purpose                                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                                              |
+| `--title <text>`         | Set the title. Default: path basename.                                                                                                                     |
+| `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
+| `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
+| `--share`                | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                                         |
+| `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
+| `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                         |
+| `--quiet`                | Suppress human-readable stdout output.                                                                                                                     |
+| `--color` / `--no-color` | Force rich or plain output. Default: rich on a TTY, plain when piped or when `NO_COLOR` or `CI` is set.                                                    |
 
 ## Output
 
@@ -193,6 +194,7 @@ stdout is exactly the publish result:
 
 ```json
 {
+  "schema_version": "1",
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "title": "report",
