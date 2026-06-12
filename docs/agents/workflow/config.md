@@ -43,8 +43,9 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   (`db:check`); regenerate, never hand-edit
 - Smoke: `pnpm smoke:local`, `pnpm smoke:ci:postgres`, `pnpm smoke:mcp`,
   `pnpm smoke:web`
-- PR checks: `Validate` is the required merge gate; `Postgres smoke` is a
-  non-required burn-in check until GitHub rulesets promote it
+- PR checks: `Validate` is the required merge gate (`pnpm verify`,
+  `pnpm smoke:local`, OpenAPI checkov, `pnpm test:coverage`); `Postgres smoke`
+  is a non-required burn-in check until GitHub rulesets promote it
 - Preview checks: PR-preview deploy + hosted smoke are opt-in via the
   `full-pr-preview` label and `.github/workflows/pr-preview.yml`
 - Manual preview deploy: `pnpm deploy:preview` (whole fleet) or
@@ -150,7 +151,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - PR title: Linear issue title when available, `<70` chars, Conventional-Commit
   style
 - PR body: Summary / Changes / Risk (LOW|MEDIUM|HIGH) / Test plan + Linear link
-- Required checks: `pnpm verify` + `pnpm test:coverage` (CI `Validate` job)
+- Required checks: `pnpm verify` + `pnpm smoke:local` + `pnpm test:coverage`
+  (CI `Validate` job)
 - Non-required confidence checks: CI `Postgres smoke` while it burns in; hosted
   preview smoke when a PR is labeled `full-pr-preview` or requires deployed
   Worker evidence

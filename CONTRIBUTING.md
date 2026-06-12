@@ -74,8 +74,10 @@ pnpm verify
 aspirational: CI's `Validate` job runs `pnpm test:coverage` against global coverage thresholds, so a feature without
 tests fails the gate. New `apps/web` component and lib code in particular needs branch tests.
 
-**Important:** `pnpm verify` does **not** run coverage. CI's `Validate` job runs `pnpm test:coverage` separately,
-enforcing those global coverage thresholds, and the pre-push hook runs it too — even when `pnpm verify` is green.
+**Important:** `pnpm verify` does **not** run coverage or the local harness smoke.
+CI's `Validate` job runs `pnpm smoke:local` and `pnpm test:coverage` separately,
+enforcing cross-Worker integration coverage and global coverage thresholds; the
+pre-push hook runs coverage too — even when `pnpm verify` is green.
 
 Formatting and lint are codified, not hand-applied:
 

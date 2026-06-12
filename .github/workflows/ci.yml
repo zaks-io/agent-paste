@@ -108,7 +108,7 @@ jobs:
     # is a fast green no-op; on push to main it runs in full.
     needs: changes
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       RUN_CODE: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
 
@@ -192,6 +192,12 @@ jobs:
       - name: Validate
         if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm verify
+
+      # Cross-Worker local harness smoke (in-memory MVP; no Docker/Postgres). Catches
+      # regressions in publish/read/delete and ephemeral claim that unit tests miss.
+      - name: Local smoke
+        if: ${{ env.RUN_CODE == 'true' }}
+        run: pnpm smoke:local
 
       # The OpenAPI specs are validated by the release security attestation
       # (`pnpm security:attest`), which otherwise only runs at deploy/release
