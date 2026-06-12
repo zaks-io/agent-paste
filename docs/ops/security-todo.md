@@ -11,6 +11,17 @@ stays fast and does not run the full bundle.
 
 ## Private phase (do now / when convenient)
 
+- [ ] **Remove the esbuild GHSA ignores and bump esbuild to >=0.28.1** once it
+      clears `minimumReleaseAge` (published 2026-06-11, eligible ~2026-06-15).
+      `GHSA-gv7w-rqvm-qjhr` (Deno-module-only RCE) and `GHSA-g7r4-m6w7-qqqr`
+      (Windows-only dev-server file read) are ignored in three places that must
+      be cleaned together: `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`),
+      `.trivyignore`, and `.grype.yaml`. The bump needs a root pnpm override
+      (`esbuild: ^0.28.1`) because wrangler (pins 0.27.3), vite (`^0.27.0`), and
+      drizzle-kit (`^0.25.4`) all resolve below the patched version — run full
+      `pnpm verify` plus a preview deploy to prove wrangler/vite tolerate the
+      forced minor.
+
 - [x] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — proven on
       PR #217: Snyk Open Source tested 24 projects (clean) and Snyk Code ran.
 - [x] Promote the local scanner bundle to a blocking attestation path:

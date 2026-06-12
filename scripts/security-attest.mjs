@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { evaluatePnpmAuditPolicy } from "./lib/pnpm-audit-policy.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -79,11 +80,21 @@ function runStep(name, command, commandArgs, options = {}) {
     process.stderr.write(result.stderr);
   }
 
-  const status = result.status ?? 1;
+  const rawStatus = result.status ?? 1;
+  let status = rawStatus;
+  if (options.evaluateStatus) {
+    try {
+      status = options.evaluateStatus(result);
+    } catch (error) {
+      console.error(`[security] ${name} policy evaluation failed: ${error instanceof Error ? error.message : error}`);
+      status = 1;
+    }
+  }
   steps.push({
     name,
     command: [command, ...commandArgs],
     status,
+    ...(status !== rawStatus ? { raw_status: rawStatus } : {}),
     signal: result.signal ?? null,
     stdout: stdoutPath ? rel(stdoutPath) : null,
     stderr: stderrPath ? rel(stderrPath) : null,
@@ -196,8 +207,16 @@ runStep("gitleaks", "gitleaks", [
 ]);
 ensureJsonFile("gitleaks.json", []);
 
+// pnpm's exit code ignores auditConfig.ignoreGhsas (it derives from
+// metadata.vulnerabilities, which still counts ignored advisories), so gate on
+// the post-ignore advisories list instead.
 runStep("pnpm-audit", "pnpm", ["audit", "--audit-level", "moderate", "--json"], {
   stdoutFile: "pnpm-audit.json",
+  evaluateStatus: (result) => {
+    const policy = evaluatePnpmAuditPolicy(result.stdout);
+    writeFileSync(join(outDir, "pnpm-audit-policy.json"), `${JSON.stringify(policy, null, 2)}\n`);
+    return policy.status;
+  },
 });
 
 runStep(
