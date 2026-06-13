@@ -14,6 +14,7 @@ import {
   putSignedUploadFile,
   type UploadServiceBinding,
 } from "./forward.js";
+import { zodIssueMetadata } from "./zod-issue-metadata.js";
 
 /** Carries a pre-mapped MCP protocol error out of the shared publish module untouched. */
 export class ForwardError extends Error {
@@ -92,7 +93,11 @@ function unwrap<T>(
   if (!parsed.success) {
     // 200 from upstream but the body failed our contract: deploy skew / schema
     // drift. Log loudly — a silent internal_error here is undebuggable in prod.
-    console.error("mcp: publish forward response schema validation failed", { routeId, error: parsed.error });
+    // Log only issue metadata, never the raw error: the body can carry PII.
+    console.error("mcp: publish forward response schema validation failed", {
+      routeId,
+      issues: zodIssueMetadata(parsed.error),
+    });
     throw new ForwardError(mapMcpProtocolError("internal_error", "internal_error"));
   }
   return parsed.data;

@@ -549,7 +549,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
 - The base REST/CLI **Publish Result** currently includes the **Artifact** id, **Revision** id, authenticated **Artifact URL**, direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
-- MCP publish tools create or reuse a **Share Link** by default and return its signed URL as `access_link_url`
+- MCP and CLI publish are private by default and return one `viewer_url`; a **Share Link** is created or reused only when the caller sets the `share` bit
 - MCP publish tools do not create a **Revision Link** unless the agent explicitly calls **Create Revision Link**
 - MCP publish fails if a requested **Share Link** cannot be created
 - **Access Link Lockdown** blocks creating or resolving **Access Links**; plain **Publish** without requested link creation is not an **Access Link** operation
@@ -557,10 +557,10 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Share Links** always resolve to the latest **Published Revision**
 - Additional **Revision Links** can be created for an already published **Revision**
 - Additional **Revision Links** can target any retained published **Revision**
-- **Publish** creates a **Share Link** when a surface that supports sharing requests or defaults to user-facing sharing
+- **Publish** creates a **Share Link** only when the caller sets the `share` bit; without it the publish stays private and no **Share Link** is created
 - **Publish** fails if a requested **Share Link** cannot be created
-- A **Share Link** can be created during supported MCP publish flows or after **Publish**; later MCP **add_revision** flows reuse an active Share Link when one exists
-- The current CLI **Publish Result** prints the authenticated **Artifact URL** and exact **Revision Content URL**; first-class `access_link_url` output remains a follow-up and is required before CLI output can be the default live public handoff
+- A shared **Artifact** keeps one stable **Share Link**: **Publish** reuses an active **Share Link** before creating one, so the `viewer_url` handed out stays the same across revisions and live-updates to the latest **Published Revision** (both MCP **add_revision** and CLI re-publish)
+- The CLI and MCP **Publish Result** both surface one `viewer_url`; the CLI still carries the full authenticated **Artifact URL** and exact **Revision Content URL** in its JSON for automation
 - A **Publish Result** includes separate human-view links and agent-view links
 - A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
@@ -893,11 +893,11 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Do **Unpublished Artifacts** count against creation limits?"
 > **Domain expert:** "Yes — **Usage Policy** controls their creation too."
 > **Dev:** "What is the simplest way for an agent to share a folder?"
-> **Domain expert:** "It should call **Publish** through a surface that creates or reuses a **Share Link** by default, then give the user the minted **Access Link Signed URL** (`access_link_url`). The authenticated **Artifact URL** is for workspace management, not the primary live handoff."
+> **Domain expert:** "Call **Publish** with the `share` bit set. That creates or reuses the **Artifact**'s **Share Link** and the returned `viewer_url` is its **Access Link Signed URL** — the primary live handoff. The authenticated **Artifact URL** is for workspace management."
 > **Dev:** "What does an agent get back after **Publish**?"
-> **Domain expert:** "A **Publish Result** with IDs, the authenticated **Artifact URL**, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings**. Surfaces that support sharing should also return `access_link_url`, the signed URL minted from a **Share Link**."
+> **Domain expert:** "One `viewer_url` plus a `shared` bit. The CLI also carries the full **Publish Result** in its JSON — IDs, the authenticated **Artifact URL**, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings** — for automation."
 > **Dev:** "Does **Publish** make an **Artifact** shareable by default?"
-> **Domain expert:** "Yes for user-facing publish surfaces that support sharing, such as MCP publish tools. Internal or CLI publish surfaces may still require explicit `access_link_url` output."
+> **Domain expert:** "No — **Publish** is private by default on every surface. Sharing is the one `share` bit; without it nothing is reachable by URL, and `viewer_url` is the authenticated **Private Link**."
 > **Dev:** "What if a requested **Share Link** cannot be created during **Publish**?"
 > **Domain expert:** "**Publish** fails before the **Revision** becomes visible."
 > **Dev:** "Can a **Share Link** be pinned to the current **Published Revision**?"
