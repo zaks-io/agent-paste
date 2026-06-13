@@ -79,7 +79,11 @@ function registerBundleAvailabilitySchemas(registry: OpenAPIRegistry): void {
   registry.register("BundleAvailability", BundleAvailability);
 }
 
-export function registerApiSchemas(registry: OpenAPIRegistry): void {
+type RegisterApiSchemasOptions = {
+  includeOperatorSchemas?: boolean | undefined;
+};
+
+export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterApiSchemasOptions = {}): void {
   registerSharedSchemas(registry);
   registerBundleAvailabilitySchemas(registry);
   registry.register("WhoamiResponse", WhoamiResponse);
@@ -132,20 +136,22 @@ export function registerApiSchemas(registry: OpenAPIRegistry): void {
   registry.register("PublishRevisionRequest", PublishRevisionRequest);
   registry.register("WebAuditRow", WebAuditRow);
   registry.register("WebAuditListResponse", WebAuditListResponse);
-  registry.register("WebOperatorEventRow", WebOperatorEventRow);
-  registry.register("WebOperatorEventListResponse", WebOperatorEventListResponse);
   registry.register("WebSettingsResponse", WebSettingsResponse);
   registry.register("UpdateWebSettingsRequest", UpdateWebSettingsRequest);
-  registry.register("SetLockdownRequest", SetLockdownRequest);
-  registry.register("LockdownDetail", LockdownDetail);
-  registry.register("LockdownListResponse", LockdownListResponse);
   registry.register("CreateCheckoutSessionRequest", CreateCheckoutSessionRequest);
   registry.register("CheckoutSessionResponse", CheckoutSessionResponse);
   registry.register("PortalSessionResponse", PortalSessionResponse);
   registry.register("BillingStatusResponse", BillingStatusResponse);
   registry.register("BillingInvoiceListResponse", BillingInvoiceListResponse);
   registry.register("WebhookReceivedResponse", WebhookReceivedResponse);
-  registry.register("SetWorkspacePlanRequest", SetWorkspacePlanRequest);
+  if (options.includeOperatorSchemas) {
+    registry.register("WebOperatorEventRow", WebOperatorEventRow);
+    registry.register("WebOperatorEventListResponse", WebOperatorEventListResponse);
+    registry.register("SetLockdownRequest", SetLockdownRequest);
+    registry.register("LockdownDetail", LockdownDetail);
+    registry.register("LockdownListResponse", LockdownListResponse);
+    registry.register("SetWorkspacePlanRequest", SetWorkspacePlanRequest);
+  }
 }
 
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {

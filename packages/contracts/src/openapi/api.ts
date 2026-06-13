@@ -13,13 +13,18 @@ import { applyWebCursorParameterBounds } from "./web-cursor-bounds.js";
 export type ApiOpenApiOptions = {
   serverUrl?: string | undefined;
   docsBaseUrl?: string | undefined;
+  includeOperatorPaths?: boolean | undefined;
 };
 
 export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record<string, unknown> {
   const registry = new OpenAPIRegistry();
-  registerApiSchemas(registry);
+  const includeOperatorPaths = options.includeOperatorPaths ?? false;
+  registerApiSchemas(registry, { includeOperatorSchemas: includeOperatorPaths });
 
   for (const [name, scheme] of Object.entries(securitySchemes)) {
+    if (!includeOperatorPaths && name === "CfAccessServiceToken") {
+      continue;
+    }
     registry.registerComponent("securitySchemes", name, scheme);
   }
 
@@ -29,8 +34,10 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   registerPublicPaths(registry, helpers);
   registerEphemeralPaths(registry, helpers);
   registerWebPaths(registry, helpers);
-  registerWebAdminPaths(registry, helpers);
-  registerBillingPaths(registry, helpers);
+  if (includeOperatorPaths) {
+    registerWebAdminPaths(registry, helpers);
+  }
+  registerBillingPaths(registry, helpers, { includeOperatorPaths });
   registerArtifactPaths(registry, helpers);
 
   const generator = new OpenApiGeneratorV31(registry.definitions);
@@ -50,7 +57,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       { SignedAccessLinkRequest: [] },
       { EphemeralProofOfWork: [] },
       { StripeSignature: [] },
-      { CfAccessServiceToken: [] },
+      ...(includeOperatorPaths ? [{ CfAccessServiceToken: [] }] : []),
     ],
     ...(options.docsBaseUrl ? { externalDocs: { url: options.docsBaseUrl } } : {}),
   });

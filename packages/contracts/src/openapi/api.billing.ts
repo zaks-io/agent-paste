@@ -3,11 +3,19 @@ import { z } from "../zod.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
 import { errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 
+type RegisterBillingPathsOptions = {
+  includeOperatorPaths?: boolean | undefined;
+};
+
 /**
  * Stripe billing OpenAPI paths (ADR 0073/0074), split out of `api.ts` to keep each file
  * under the `noExcessiveLinesPerFile` limit.
  */
-export function registerBillingPaths(registry: OpenAPIRegistry, helpers: ApiPathHelpers): void {
+export function registerBillingPaths(
+  registry: OpenAPIRegistry,
+  helpers: ApiPathHelpers,
+  options: RegisterBillingPathsOptions = {},
+): void {
   const { params, pathStringParam, idempotencyKeyHeader, requestIdHeader } = helpers;
   const stripeSignatureHeader = z
     .string()
@@ -99,17 +107,19 @@ export function registerBillingPaths(registry: OpenAPIRegistry, helpers: ApiPath
     },
   });
 
-  registry.registerPath({
-    method: "post",
-    path: "/v1/web/admin/workspaces/{workspace_id}/plan",
-    operationId: "billing.admin.setPlan",
-    summary: "Set or clear an operator plan override for a Workspace (operator only).",
-    security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
-    request: {
-      params: params({ workspace_id: pathStringParam("workspace_id", "Workspace id.") }),
-      headers: [idempotencyKeyHeader, requestIdHeader],
-      body: { required: true, content: { "application/json": { schema: schemaRef("SetWorkspacePlanRequest") } } },
-    },
-    responses: standardJsonResponses(schemaRef("BillingStatusResponse")),
-  });
+  if (options.includeOperatorPaths) {
+    registry.registerPath({
+      method: "post",
+      path: "/v1/web/admin/workspaces/{workspace_id}/plan",
+      operationId: "billing.admin.setPlan",
+      summary: "Set or clear an operator plan override for a Workspace (operator only).",
+      security: [{ WorkOsBearer: [], CfAccessServiceToken: [] }],
+      request: {
+        params: params({ workspace_id: pathStringParam("workspace_id", "Workspace id.") }),
+        headers: [idempotencyKeyHeader, requestIdHeader],
+        body: { required: true, content: { "application/json": { schema: schemaRef("SetWorkspacePlanRequest") } } },
+      },
+      responses: standardJsonResponses(schemaRef("BillingStatusResponse")),
+    });
+  }
 }

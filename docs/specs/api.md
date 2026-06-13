@@ -16,6 +16,17 @@ lives in `packages/contracts`.
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
+## Public OpenAPI
+
+`GET https://api.agent-paste.sh/openapi.json` is the public API document. It
+describes the user, agent, dashboard, billing, ephemeral, and public signed-token
+routes that clients can integrate with directly.
+
+Operator routes under `/v1/web/admin/*` are intentionally omitted from the
+public OpenAPI document, along with their Cloudflare Access service-token scheme
+and operator-only schemas. They remain runtime route contracts and are documented
+only in [admin operations](./admin.md) and ops runbooks.
+
 ## Headers
 
 | Header                      | Direction        | Required                          | Notes                                                                                          |
@@ -213,7 +224,7 @@ The content Worker never reads Postgres and never exposes R2 URLs.
 
 ## Operator Routes
 
-Human operators and rotation agents use WorkOS operator auth or Cloudflare Access service tokens on `/v1/web/admin/lockdowns` (see [admin operations](./admin.md) and [ADR 0046](../adr/0046-operator-identity-and-web-admin-surface.md)). The legacy repo-local `ADMIN_TOKEN` `/admin/*` contract was removed in AP-13.
+Human operators and rotation agents use WorkOS operator auth or Cloudflare Access service tokens on `/v1/web/admin/*` (see [admin operations](./admin.md) and [ADR 0046](../adr/0046-operator-identity-and-web-admin-surface.md)). The legacy repo-local `ADMIN_TOKEN` `/admin/*` contract was removed in AP-13.
 
 ## Publish Flow
 
