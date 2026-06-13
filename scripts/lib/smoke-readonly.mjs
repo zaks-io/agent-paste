@@ -143,8 +143,10 @@ export async function assertMcpServes(c) {
 export async function assertWebServes(c) {
   const health = await fetch(`${c.webBaseUrl}/healthz`, { redirect: "manual" });
   assert(health.status === 200, `web /healthz returned ${health.status}`);
-  assert(health.headers.get("content-type")?.includes("text/html"), "web /healthz is HTML");
+  assert(health.headers.get("content-type")?.includes("application/json"), "web /healthz is JSON");
   assert(!health.headers.get("set-cookie"), "web /healthz does not set cookies");
+  const payload = await health.json();
+  assert(payload?.ok === true && payload?.app === "web", "web /healthz returns web health payload");
 
   const signIn = await fetch(`${c.webBaseUrl}/api/auth/sign-in`, { redirect: "manual" });
   assert(signIn.status === 307, `web /api/auth/sign-in returned ${signIn.status} (expected 307)`);

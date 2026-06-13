@@ -5,17 +5,27 @@ import { applyAccessLinkSecurityHeaders, applyDashboardSecurityHeaders } from ".
 import { runWithCspNonce } from "./server/csp-nonce";
 import type { WebEnv } from "./server/env";
 
+const WEB_HEALTH_PAYLOAD = { ok: true, app: "web" } as const;
+
+export async function handleRequest(request: Request, env: WebEnv): Promise<Response> {
+  const nonce = generateCspNonce();
+  const response = isHealthRequest(request)
+    ? Response.json(WEB_HEALTH_PAYLOAD)
+    : await runWithCspNonce(nonce, () => handler.fetch(request));
+  const baselined = applyDashboardSecurityHeaders(response, env, nonce);
+  return applyAccessLinkSecurityHeaders(request, baselined, env, nonce);
+}
+
 const worker = {
   async fetch(request: Request, env: WebEnv, _ctx: ExecutionContext): Promise<Response> {
-    // Mint a per-request CSP nonce and render inside its AsyncLocalStorage scope.
-    // getRouter() reads it to set router.options.ssr.nonce, which TanStack stamps
-    // onto every injected inline script + the <meta property="csp-nonce">. The CSP
-    // header below trusts that same nonce, so script-src needs no 'unsafe-inline'.
-    const nonce = generateCspNonce();
-    const response = await runWithCspNonce(nonce, () => handler.fetch(request));
-    const baselined = applyDashboardSecurityHeaders(response, env, nonce);
-    return applyAccessLinkSecurityHeaders(request, baselined, env, nonce);
+    // handleRequest owns the health fast path plus the per-request CSP nonce used
+    // by TanStack SSR for every rendered app route.
+    return handleRequest(request, env);
   },
 };
+
+function isHealthRequest(request: Request): boolean {
+  return new URL(request.url).pathname === "/healthz";
+}
 
 export default Sentry.withSentry((env: WebEnv) => sentryOptions(env), worker);
