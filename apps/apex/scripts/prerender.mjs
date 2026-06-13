@@ -11,6 +11,7 @@ import { build } from "vite";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const clientOut = resolve(root, "dist/client");
 const serverOut = resolve(root, "dist/server");
+const jsMinify = "esbuild";
 
 // Per-env build switches (BILLING_ENABLED, CF_WEB_ANALYTICS_TOKEN) come from
 // process.env, which entry-server.tsx reads to bake the right output per env. The
@@ -27,6 +28,7 @@ await build({
     outDir: "dist/client",
     emptyOutDir: true,
     manifest: true,
+    minify: jsMinify,
     rollupOptions: {
       input: {
         styles: resolve(root, "src/styles/apex.css"),
@@ -42,6 +44,7 @@ await build({
   build: {
     outDir: "dist/server",
     emptyOutDir: true,
+    minify: jsMinify,
     ssr: resolve(root, "src/entry-server.tsx"),
   },
 });

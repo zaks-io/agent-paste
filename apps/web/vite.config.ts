@@ -8,6 +8,7 @@ import { defineConfig } from "vite";
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 
 export default defineConfig({
+  build: { minify: "esbuild" },
   // Bind dev to all interfaces so both http://localhost:5173 and
   // http://127.0.0.1:5173 resolve. Vite's default "localhost" binds IPv6-only
   // (::1) on some machines, which silently breaks whichever host you didn't use.
@@ -22,7 +23,10 @@ export default defineConfig({
   // hang. Must be set for BOTH the client graph and the ssr environment.
   optimizeDeps: { include: ["lucide-react"] },
   environments: {
-    ssr: { optimizeDeps: { include: ["lucide-react"] } },
+    ssr: {
+      build: { minify: "esbuild" },
+      optimizeDeps: { include: ["lucide-react"] },
+    },
   },
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" } }),
