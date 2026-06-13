@@ -5,6 +5,10 @@ function htmlResponse(body = "agent-paste home", headers = {}) {
   return new Response(body, { status: 200, headers: { "content-type": "text/html", ...headers } });
 }
 
+function jsonResponse(body = {}) {
+  return Response.json(body);
+}
+
 describe("smoke-readonly readonlyConfig", () => {
   const SAVED = { ...process.env };
   afterEach(() => {
@@ -82,7 +86,7 @@ describe("smoke-readonly assertions", () => {
   it("assertWebServes requires a 307 sign-in redirect to WorkOS", async () => {
     fetchMock.mockImplementation((url) => {
       const u = String(url);
-      if (u.endsWith("/healthz")) return Promise.resolve(htmlResponse("ok"));
+      if (u.endsWith("/healthz")) return Promise.resolve(jsonResponse({ ok: true, app: "web" }));
       if (u.endsWith("/api/auth/sign-in")) {
         return Promise.resolve(
           new Response(null, {
@@ -99,9 +103,15 @@ describe("smoke-readonly assertions", () => {
   it("assertWebServes throws when sign-in does not redirect to WorkOS", async () => {
     fetchMock.mockImplementation((url) => {
       const u = String(url);
-      if (u.endsWith("/healthz")) return Promise.resolve(htmlResponse("ok"));
+      if (u.endsWith("/healthz")) return Promise.resolve(jsonResponse({ ok: true, app: "web" }));
       return Promise.resolve(new Response(null, { status: 307, headers: { location: "https://evil.test" } }));
     });
     await expect(assertWebServes({ webBaseUrl: "https://web" })).rejects.toThrow(/sign-in location/);
+  });
+
+  it("assertWebServes throws when healthz is not JSON", async () => {
+    fetchMock.mockResolvedValue(htmlResponse("ok"));
+
+    await expect(assertWebServes({ webBaseUrl: "https://web" })).rejects.toThrow(/web \/healthz is JSON/);
   });
 });
