@@ -278,8 +278,10 @@ Primary key `(workspace_id, actor_type, actor_id, operation, idempotency_key)`.
 
 ## R2 Object Key Layout
 
-Canonical helpers live in `packages/db/src/validation.ts`. Keys are ID-based;
-human titles and labels never appear in prefixes. Normalized file paths are
+Canonical helpers: revision-file and bundle keys in
+`packages/db/src/validation.ts`; workspace blob keys in
+`packages/storage/src/artifact-bytes-encryption.ts` (`workspaceBlobObjectKeyFor`).
+Keys are ID-based; human titles and labels never appear in prefixes. Normalized file paths are
 untrusted input and follow the validation rules from
 [ADR 0021](../adr/0021-id-based-r2-object-key-layout.md).
 
