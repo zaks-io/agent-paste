@@ -322,7 +322,6 @@
           }
         },
         "required": [
-          "title",
           "entrypoint",
           "files"
         ]
@@ -928,7 +927,6 @@
                   }
                 },
                 "required": [
-                  "title",
                   "entrypoint",
                   "files"
                 ]

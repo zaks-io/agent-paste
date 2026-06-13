@@ -29,7 +29,7 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 // from the entrypoint extension at publish time.
 export const CreateUploadSessionRequest = z.object({
   artifact_id: ArtifactId.optional(),
-  title: PlainTextTitle,
+  title: PlainTextTitle.optional(),
   entrypoint: FilePath,
   render_mode: RenderMode.optional(),
   files: z.array(UploadSessionFileInput).min(1).max(100),

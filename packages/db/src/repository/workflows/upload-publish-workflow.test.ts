@@ -42,7 +42,7 @@ async function finalizedDraft(
     idempotencyKey: `${input.prefix}-upload`,
     request: {
       ...(input.artifactId ? { artifact_id: input.artifactId } : {}),
-      title: input.title ?? "demo",
+      ...(input.title !== undefined ? { title: input.title } : input.artifactId ? {} : { title: "demo" }),
       entrypoint: input.entrypoint ?? "index.html",
       files: [{ path: "index.html", size_bytes: 12 }],
     },
@@ -107,6 +107,43 @@ describe("publishRevision characterization", () => {
       target_id: finalized.artifact_id,
       workspace_id: actor.workspace_id,
       details: { revision_id: finalized.revision_id, revision_number: 1, file_count: 1 },
+    });
+  });
+
+  it("preserves the artifact title when publishing a revision without a session title", async () => {
+    const { repo, actor } = await localRepoWithActor();
+    const first = await finalizedDraft(repo, actor, {
+      prefix: "title-preserve",
+      title: "Original Title",
+      now: "2026-06-01T00:00:00.000Z",
+    });
+    await repo.publishRevision({
+      actor,
+      idempotencyKey: "title-preserve-first",
+      artifactId: first.finalized.artifact_id,
+      revisionId: first.finalized.revision_id,
+      now: "2026-06-01T00:00:02.000Z",
+    });
+
+    const revisionDraft = await finalizedDraft(repo, actor, {
+      prefix: "title-preserve-rev",
+      artifactId: first.finalized.artifact_id,
+      now: "2026-06-01T00:00:03.000Z",
+    });
+    const publishedAt = "2026-06-01T00:00:05.000Z";
+    const result = await repo.publishRevision({
+      actor,
+      idempotencyKey: "title-preserve-second",
+      artifactId: first.finalized.artifact_id,
+      revisionId: revisionDraft.finalized.revision_id,
+      now: publishedAt,
+    });
+
+    expect(result.title).toBe("Original Title");
+    expect(repo.artifacts.get(first.finalized.artifact_id)).toMatchObject({
+      title: "Original Title",
+      revision_id: revisionDraft.finalized.revision_id,
+      updated_at: publishedAt,
     });
   });
 

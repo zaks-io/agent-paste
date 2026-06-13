@@ -28,7 +28,8 @@ export type PublishFile = {
 
 export type PublishInput = {
   files: PublishFile[];
-  title: PlainTextTitle;
+  /** Omitted on revision publish => server preserves the existing artifact title. */
+  title?: PlainTextTitle;
   entrypoint: string;
   /** Omitted => server infers from the entrypoint extension. */
   renderMode?: RenderMode;
@@ -144,7 +145,7 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
 function buildCreateSessionRequest(input: PublishInput): CreateUploadSessionRequest {
   return {
     ...(input.artifactId ? { artifact_id: input.artifactId } : {}),
-    title: input.title,
+    ...(input.title !== undefined ? { title: input.title } : {}),
     entrypoint: input.entrypoint,
     ...(input.renderMode ? { render_mode: input.renderMode } : {}),
     files: input.files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes, sha256: file.sha256 })),
