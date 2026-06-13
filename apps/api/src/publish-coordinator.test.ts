@@ -224,16 +224,9 @@ describe("publish coordinator write-allowance reservation", () => {
       async listMemberAccessLinks() {
         return {
           artifact_id: "art_1",
+          // Ordered so the predicate must reject a revoked and an expired link
+          // before reaching the active one — exercises both skip branches.
           items: [
-            {
-              id: "al_active",
-              type: "share",
-              artifact_id: "art_1",
-              revision_id: null,
-              created_at: "x",
-              expires_at: null,
-              revoked_at: null,
-            },
             {
               id: "al_revoked",
               type: "share",
@@ -242,6 +235,24 @@ describe("publish coordinator write-allowance reservation", () => {
               created_at: "x",
               expires_at: null,
               revoked_at: "2020-01-01T00:00:00.000Z",
+            },
+            {
+              id: "al_expired",
+              type: "share",
+              artifact_id: "art_1",
+              revision_id: null,
+              created_at: "x",
+              expires_at: "2020-01-01T00:00:00.000Z",
+              revoked_at: null,
+            },
+            {
+              id: "al_active",
+              type: "share",
+              artifact_id: "art_1",
+              revision_id: null,
+              created_at: "x",
+              expires_at: null,
+              revoked_at: null,
             },
           ],
         };

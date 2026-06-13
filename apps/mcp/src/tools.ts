@@ -351,6 +351,24 @@ async function callRevokeAccessLink(input: McpRevokeAccessLinkInput, deps: McpTo
   return parseForwardResult(forwarded, McpRevokeAccessLinkOutput, "accessLinks.revoke");
 }
 
+/**
+ * Reduce a Zod error to safe-to-log metadata: which fields failed and why, never
+ * the failing values themselves (an upstream body can carry artifact content/PII).
+ */
+function zodIssueMetadata(error: unknown): Array<{ code: unknown; path: string }> | undefined {
+  if (typeof error !== "object" || error === null || !("issues" in error)) {
+    return undefined;
+  }
+  const { issues } = error as { issues?: Array<{ code?: unknown; path?: unknown }> };
+  if (!Array.isArray(issues)) {
+    return undefined;
+  }
+  return issues.map((issue) => ({
+    code: issue?.code,
+    path: Array.isArray(issue?.path) ? issue.path.join(".") : "",
+  }));
+}
+
 function parseForwardResult<T>(
   forwarded: ForwardToApiResult,
   schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false; error?: unknown } },
@@ -363,8 +381,12 @@ function parseForwardResult<T>(
   if (!parsed.success) {
     // The upstream API returned 200 but the body failed our contract. This is a
     // deploy-skew / schema-drift bug, not a client error. Log loudly: a silent
-    // internal_error here is undebuggable in production.
-    console.error("mcp: response schema validation failed", { label, error: parsed.error });
+    // internal_error here is undebuggable in production. Log only issue codes and
+    // paths, never the raw error — the failing value can carry artifact content/PII.
+    console.error("mcp: response schema validation failed", {
+      label,
+      issues: zodIssueMetadata(parsed.error),
+    });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
   return { ok: true, result: parsed.data };
