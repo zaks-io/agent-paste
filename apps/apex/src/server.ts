@@ -30,6 +30,7 @@ const TEXT_ASSET_PATHS = new Set([
   "/install.ps1",
   "/robots.txt",
   "/sitemap.xml",
+  "/.well-known/security.txt",
 ]);
 
 export function isTextAssetPath(pathname: string): boolean {

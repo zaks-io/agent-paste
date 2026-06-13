@@ -134,6 +134,17 @@ describe("text and data assets", () => {
     expect(body).toContain("Sitemap: https://agent-paste.sh/sitemap.xml");
   });
 
+  it("serves /.well-known/security.txt with public contact metadata", async () => {
+    const response = await get("/.well-known/security.txt");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    const body = await response.text();
+    expect(body).toContain("Contact: mailto:support@agent-paste.sh");
+    expect(body).toContain("Preferred-Languages: en");
+    expect(body).toContain("Canonical: https://agent-paste.sh/.well-known/security.txt");
+    expect(body).toContain("Expires: 2027-06-12T00:00:00Z");
+  });
+
   it("serves /sitemap.xml with the public URL set", async () => {
     const response = await get("/sitemap.xml");
     expect(response.status).toBe(200);
@@ -304,6 +315,7 @@ it("never sets cookies on any apex response", async () => {
     "/install.sh",
     "/install.ps1",
     "/robots.txt",
+    "/.well-known/security.txt",
     "/sitemap.xml",
     "/dashboard",
     "/healthz",

@@ -44,7 +44,7 @@ fix (#438). See `git log` for the full list.
 
 - Captured operator decisions that npm trusted publishing is configured, hosted
   Stripe test-mode verification passed in preview, and public incident intake
-  will use `support@agentpaste`, routed through email into Linear. A separate
+  will use `support@agent-paste.sh`, routed through email into Linear. A separate
   hosted status page remains optional until the account/tooling stack is ready.
 - Removed the stale production `SMOKE_HARNESS_SECRET` blocker from
   `agent-paste-api-production` (operator action by Isaac). Production deploys

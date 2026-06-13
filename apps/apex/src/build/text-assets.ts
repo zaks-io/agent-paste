@@ -26,12 +26,23 @@ export function textAssets(opts: { origin: string; billingEnabled: boolean }): T
     { path: "/install.sh", contentType: TEXT_SHELL, body: INSTALL_SH },
     { path: "/install.ps1", contentType: TEXT_PLAIN, body: INSTALL_PS1 },
     { path: "/robots.txt", contentType: TEXT_PLAIN, body: robotsTxt(opts.origin) },
+    { path: "/.well-known/security.txt", contentType: TEXT_PLAIN, body: securityTxt() },
     { path: "/sitemap.xml", contentType: TEXT_XML, body: sitemapXml(opts.origin, opts.billingEnabled) },
   ];
 }
 
 function robotsTxt(origin: string): string {
   return `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`;
+}
+
+function securityTxt(): string {
+  return [
+    "Contact: mailto:support@agent-paste.sh",
+    "Preferred-Languages: en",
+    "Canonical: https://agent-paste.sh/.well-known/security.txt",
+    "Expires: 2027-06-12T00:00:00Z",
+    "",
+  ].join("\n");
 }
 
 function sitemapXml(origin: string, billingEnabled: boolean): string {

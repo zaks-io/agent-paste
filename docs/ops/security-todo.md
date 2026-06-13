@@ -95,7 +95,7 @@ filed off an external credibility review.
       now public (2026-06-08), so the source link resolves.
 - [x] Stand up a status page or public incident/update channel. Decision
       recorded 2026-06-07: the minimum public incident intake channel is the
-      `support@agentpaste` mailbox, which routes through email into Linear. A
+      `support@agent-paste.sh` mailbox, which routes through email into Linear. A
       separate hosted status page remains optional until the account/tooling
       stack is ready.
 - [x] Enable **OpenSSF Scorecard** with published results. Done 2026-06-08
