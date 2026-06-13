@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./test-helpers/encrypted-artifact-fixture": {
+      "types": "./src/test-helpers/encrypted-artifact-fixture.ts",
+      "import": "./src/test-helpers/encrypted-artifact-fixture.ts"
     }
   },
   "devDependencies": {

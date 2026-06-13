@@ -1,3 +1,5 @@
+import { decryptArtifactBytesWithKeyRing } from "@agent-paste/storage";
+import { testArtifactBytesKeyRing } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { mintUploadToken } from "@agent-paste/tokens/upload-url";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest } from "./index.js";
@@ -71,5 +73,72 @@ describe("upload put file encryption", () => {
       enc_kid: "1",
     });
     expect(putCalls[0]?.value.byteLength).toBe(5 + 28);
+  });
+
+  it("stores ciphertext that decrypts back to the uploaded plaintext", async () => {
+    const objectKey = "artifacts/art_1/revisions/rev_1/files/index.html";
+    const workspaceId = "00000000-0000-4000-8000-000000000001";
+    const putCalls: Array<{
+      key: string;
+      value: Uint8Array;
+      options?: { customMetadata?: Record<string, string> };
+    }> = [];
+    const env: Env = {
+      UPLOAD_SIGNING_SECRET: "secret",
+      ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
+      ARTIFACTS: {
+        async put(key, value, options) {
+          putCalls.push({
+            key,
+            value: value instanceof Uint8Array ? value : new Uint8Array(await new Response(value).arrayBuffer()),
+            options,
+          });
+        },
+        async head() {
+          return null;
+        },
+      },
+      DB: uploadDbStub({ status: "pending" }),
+    };
+    const token = await mintUploadToken(
+      {
+        sid: "upl_1",
+        wid: workspaceId,
+        path: "index.html",
+        key: objectKey,
+        size: 5,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      },
+      "secret",
+    );
+    const response = await handleRequest(
+      new Request(`https://upload.test/v1/upload-sessions/upl_1/files/index.html?token=${encodeURIComponent(token)}`, {
+        method: "PUT",
+        headers: { "content-length": "5", "content-type": "text/html" },
+        body: "hello",
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(204);
+    const stored = putCalls[0];
+    expect(stored?.options?.customMetadata).toMatchObject({ enc_alg: "aes-256-gcm", enc_kid: "1" });
+    const plaintext = await decryptArtifactBytesWithKeyRing({
+      ciphertext: stored?.value ?? new Uint8Array(),
+      ring: testArtifactBytesKeyRing(),
+      metadata: {
+        enc_kid: stored?.options?.customMetadata?.enc_kid ?? "1",
+        enc_alg: "aes-256-gcm",
+        enc_aad_v: "v1",
+      },
+      context: {
+        workspaceId,
+        artifactId: "art_1",
+        revisionId: "rev_1",
+        normalizedPath: "index.html",
+      },
+    });
+    expect(new TextDecoder().decode(plaintext)).toBe("hello");
+    expect(stored?.value).not.toEqual(new TextEncoder().encode("hello"));
   });
 });
