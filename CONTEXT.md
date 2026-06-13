@@ -39,6 +39,11 @@ _Avoid_: Live version, current snapshot
 The authenticated app URL for a **Workspace Member** to open an **Artifact** detail view. Publish surfaces return it as `artifact_url`, and it is the default post-publish `View` URL. Agents should mint a **Share Link** and return its signed URL only when the user explicitly asks for a public/shareable link.
 _Avoid_: Access Link, public link, Revision Content URL, live handoff URL
 
+<a id="viewer-url"></a>
+**Viewer URL**:
+The single "open this **Artifact** in a browser" link an agent hands back to the user, returned by the CLI publish and the MCP publish tools as `viewer_url`. It resolves to the **Private Link** (**Artifact URL**) when the publish is private, and to the **Share Link**'s **Access Link Signed URL** when shared. It is an output-surface convenience over the two underlying grants, not a third grant: private vs shared is still the **Private Link** / **Access Link** distinction, governed by the one `share` bit.
+_Avoid_: a new link type, public-by-default link, separate viewer grant
+
 <a id="artifact-viewer"></a>
 **Artifact Viewer**:
 The recipient-facing browser surface opened by an **Access Link Signed URL**. It displays the **Published Revision** authorized by the **Access Link** without dashboard management chrome.

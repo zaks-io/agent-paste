@@ -200,9 +200,11 @@ response, expires with its signed token, and does not Live Update. Direct
 controlled Artifact Viewer iframe. `access_link_url` appears only when a
 **Share Link** or **Revision Link** is explicitly created. CLI `--share` creates
 a Share Link and includes `access_link_url` in the publish result. MCP publish
-tools return a narrower output with title, expiry,
-and upload stats; they include `access_link_url` only when called with
-`share: true`.
+tools (`publish_artifact`, `add_revision`) return a single `viewer_url` plus a
+`shared` boolean, title, expiry, and upload stats. `viewer_url` is the
+authenticated **Artifact URL** when private (`shared: false`) and the public
+**Access Link Signed URL** when `share: true` (`shared: true`); the CLI and MCP
+run the same publish path so the link semantics match.
 
 ## Content Routes
 

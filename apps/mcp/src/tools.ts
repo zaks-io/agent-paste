@@ -1,3 +1,4 @@
+import { type PublishFile, type PublishInput, type PublishOutcome, runPublish } from "@agent-paste/api-client/publish";
 import {
   AccessLinkSignedUrl,
   AgentView,
@@ -17,6 +18,7 @@ import {
   McpListRevisionsOutput,
   type McpPublishArtifactInput,
   McpPublishArtifactOutput,
+  type McpPublishRenderMode,
   type McpReadArtifactInput,
   type McpRevokeAccessLinkInput,
   McpRevokeAccessLinkOutput,
@@ -25,6 +27,7 @@ import {
   type McpUpdateDisplayMetadataInput,
   McpWhoamiResponse,
   mapMcpProtocolError,
+  mcpEntrypointForRenderMode,
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolInputSchemas,
@@ -36,7 +39,7 @@ import {
   forwardToApiRoute,
   type UploadServiceBinding,
 } from "./forward.js";
-import { runTextPublishChain } from "./publish-chain.js";
+import { ForwardError, serviceBindingTransport } from "./publish-transport.js";
 
 export type McpToolDeps = {
   api: ApiServiceBinding;
@@ -180,13 +183,7 @@ async function callPublishArtifact(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey("publish_artifact", input, auth, deps, input.idempotency_key);
-  const result = await runTextPublishChain(input, {
-    api: deps.api,
-    upload: deps.upload,
-    bearerToken: deps.bearerToken,
-    idempotencyKey,
-  });
-  return parseForwardResult(result, McpPublishArtifactOutput);
+  return publishViaSharedModule(deps, await textPublishInput(input, idempotencyKey));
 }
 
 async function callAddRevision(
@@ -195,13 +192,91 @@ async function callAddRevision(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey("add_revision", input, auth, deps, input.idempotency_key);
-  const result = await runTextPublishChain(input, {
-    api: deps.api,
-    upload: deps.upload,
-    bearerToken: deps.bearerToken,
-    idempotencyKey,
+  const base = await textPublishInput(input, idempotencyKey);
+  return publishViaSharedModule(deps, { ...base, artifactId: input.artifact_id });
+}
+
+/** Run the shared publish module and shape the result into the MCP output, preserving mapped errors. */
+async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): Promise<McpToolResult> {
+  let outcome: PublishOutcome;
+  try {
+    outcome = await runPublish(serviceBindingTransport(deps), input);
+  } catch (error) {
+    if (error instanceof ForwardError) {
+      return { ok: false, error: error.mapped };
+    }
+    // Any other throw (e.g. the shared module's "unknown file" guard) is an
+    // internal fault: map it to a JSON-RPC internal_error so the client gets a
+    // correlated envelope, never an uncaught HTTP 500.
+    console.error("mcp: publish failed", { error });
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  const parsed = McpPublishArtifactOutput.safeParse({
+    title: outcome.title,
+    viewer_url: outcome.viewerUrl,
+    shared: outcome.shared,
+    expires_at: outcome.expiresAt,
+    upload_stats: {
+      total_files: outcome.uploadStats.totalFiles,
+      total_bytes: outcome.uploadStats.totalBytes,
+      uploaded_files: outcome.uploadStats.uploadedFiles,
+      uploaded_bytes: outcome.uploadStats.uploadedBytes,
+      reused_files: outcome.uploadStats.reusedFiles,
+      reused_bytes: outcome.uploadStats.reusedBytes,
+    },
   });
-  return parseForwardResult(result, McpPublishArtifactOutput);
+  if (!parsed.success) {
+    console.error("mcp: publish output schema validation failed", { error: parsed.error });
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  return { ok: true, result: parsed.data };
+}
+
+/** Build the single-file PublishInput from an MCP text-publish request. */
+async function textPublishInput(
+  input: { title?: string; body: string; render_mode: McpPublishRenderMode; share?: boolean },
+  idempotencyKey: IdempotencyKey,
+): Promise<PublishInput> {
+  const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
+  const bytes = new TextEncoder().encode(input.body);
+  const sha256 = await sha256Hex(bytes);
+  const file: PublishFile = {
+    path: entrypoint,
+    sizeBytes: bytes.byteLength,
+    sha256: sha256 as PublishFile["sha256"],
+    contentType: contentTypeForEntrypoint(entrypoint),
+    read: () => bytes,
+  };
+  return {
+    files: [file],
+    // add_revision has no title field, so it falls back to "Revision". The
+    // create-session request title is required, and the server writes the
+    // artifact title from it on publish, so this renames the artifact to
+    // "Revision" on every add_revision. Pre-existing behavior, tracked for a
+    // follow-up fix (make the session title optional so it preserves the
+    // existing artifact title for revisions).
+    title: ("title" in input && input.title ? input.title : "Revision") as PublishInput["title"],
+    entrypoint,
+    share: input.share === true,
+    idempotencyKey,
+  };
+}
+
+function contentTypeForEntrypoint(path: string): string {
+  if (path.endsWith(".html")) {
+    return "text/html; charset=utf-8";
+  }
+  if (path.endsWith(".md")) {
+    return "text/markdown; charset=utf-8";
+  }
+  return "text/plain; charset=utf-8";
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const source = new Uint8Array(bytes.byteLength);
+  source.set(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", source));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function callListArtifacts(input: McpListArtifactsInput, deps: McpToolDeps): Promise<McpToolResult> {

@@ -26,6 +26,7 @@
     "wrangler": "^4.93.1"
   },
   "dependencies": {
+    "@agent-paste/api-client": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.53.1",

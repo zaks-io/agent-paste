@@ -339,6 +339,9 @@ importers:
 
   apps/mcp:
     dependencies:
+      '@agent-paste/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
