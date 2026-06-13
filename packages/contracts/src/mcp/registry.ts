@@ -25,64 +25,29 @@ const publishChainBaseForwardedCalls = [
   },
 ] as const satisfies readonly McpForwardedCall[];
 
-const publishArtifactForwardedCalls = [
-  ...publishChainBaseForwardedCalls,
-  {
-    routeId: "accessLinks.create",
-    auth: "mcp_bearer",
-    idempotencyKey: "derived_share_link",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.mint",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-] as const satisfies readonly McpForwardedCall[];
-
-const addRevisionForwardedCalls = [
-  ...publishChainBaseForwardedCalls,
-  {
-    routeId: "accessLinks.list",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.create",
-    auth: "mcp_bearer",
-    idempotencyKey: "derived_share_link",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.mint",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-] as const satisfies readonly McpForwardedCall[];
-
 export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only Artifact. Do not create a Share Link by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then return access_link_url.",
+      "Publish a new text-only Artifact and get back viewer_url: the link to open it in a browser, which you hand to the user. Private by default (viewer_url is the authenticated owner-only link). Set share:true to share with other people; viewer_url is then the public link anyone can open. Artifact/Revision IDs and content URLs are available via the read/list/link tools.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "publish_artifact",
     outputSchema: "publish_artifact",
-    forwardedCalls: publishArtifactForwardedCalls,
+    forwardedCalls: publishChainBaseForwardedCalls,
     errors: publishChainErrors,
   },
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only Revision. Do not create or reuse Share Links by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then reuse an active Share Link when possible or create one and return access_link_url.",
+      "Add and publish a text-only Revision to an existing Artifact and get back viewer_url: the link to open it. Private by default; set share:true to share with other people. A shared Artifact keeps one stable viewer_url that follows the latest Revision. Artifact/Revision IDs and content URLs are available via the read/list/link tools.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
     inputSchema: "add_revision",
     outputSchema: "add_revision",
-    forwardedCalls: addRevisionForwardedCalls,
+    forwardedCalls: publishChainBaseForwardedCalls,
     errors: publishChainErrors,
   },
   {

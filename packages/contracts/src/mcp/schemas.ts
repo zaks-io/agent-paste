@@ -46,7 +46,7 @@ const mcpPublishShareDefault = z
   .optional()
   .default(false)
   .describe(
-    "Defaults to false. Set true only when the user explicitly asks for a public/shareable Access Link: the tool creates or reuses a Share Link and returns its Access Link Signed URL as access_link_url.",
+    "Private by default. Set true to share with other people: the returned viewer_url then opens for anyone with the link (no login). When false, viewer_url is the authenticated owner-only link.",
   );
 
 export const McpPublishArtifactInput = z
@@ -128,15 +128,16 @@ export const McpUploadStats = z
   .strict();
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
-// MCP publish output is intentionally narrower than the REST PublishResult. The
-// tool result is usually fed back into an assistant response, so it exposes only
-// the user-facing live URL plus minimal publish metadata. Artifact IDs, Revision
-// IDs, direct content URLs, and Agent View URLs remain available through
-// explicit list/read/link tools.
+// Publishing returns one link to hand back to the user: viewer_url. It opens the
+// Artifact in a browser — the authenticated owner-only link when private, or the
+// public Share Link when shared (shared:true). This matches the CLI, which runs
+// the same publish path. Artifact/Revision IDs and content URLs remain available
+// through the explicit list/read/link tools.
 export const McpPublishArtifactOutput = z
   .object({
     title: PlainTextTitle,
-    access_link_url: UrlString.optional(),
+    viewer_url: UrlString,
+    shared: z.boolean(),
     expires_at: IsoDateTime,
     upload_stats: McpUploadStats.optional(),
   })

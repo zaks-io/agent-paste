@@ -75,10 +75,10 @@ export const MCP_DOC: DocsPage = {
           columns: ["Tool", "Purpose"],
           rows: [
             ["`whoami`", "Return authenticated member, Workspace, and derived scopes."],
-            ["`publish_artifact`", "Publish a new text-only Artifact without creating a public link by default."],
+            ["`publish_artifact`", "Publish a new text-only Artifact and return its viewer_url. Private by default."],
             [
               "`add_revision`",
-              "Add and publish a new text-only Revision without creating or reusing a Share Link by default.",
+              "Add and publish a new text-only Revision and return its viewer_url. Private by default.",
             ],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
@@ -103,7 +103,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact` and `add_revision` default `share` to `false` and do not create or reuse Share Links by default. Set `share: true` only when the user explicitly asks for a public/shareable Access Link; then `publish_artifact` creates a Share Link and `add_revision` reuses an active Share Link when possible, creating one only when needed, and returns `access_link_url`. MCP publish output intentionally omits Artifact IDs, Revision IDs, `artifact_url`, `revision_content_url`, and `agent_view_url`; use explicit read/list/link tools when those fields are needed. The tools also accept optional idempotency keys. When omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: "`publish_artifact` and `add_revision` return a single `viewer_url` (the link to open the Artifact) plus a `shared` boolean. They default `share` to `false`: `viewer_url` is then the authenticated owner-only link. Set `share: true` to share with other people; `viewer_url` becomes the public Access Link Signed URL, and a shared Artifact keeps one stable Share Link that follows the latest Revision. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
         },
         {
           kind: "paragraph",

@@ -54,15 +54,9 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
-  it("describes publish sharing as explicit opt-in", () => {
+  it("defaults publish tools to private (share off)", () => {
     const listed = buildMcpToolList();
     const publish = listed.tools.find((tool) => tool.name === "publish_artifact");
-    const addRevision = listed.tools.find((tool) => tool.name === "add_revision");
-    expect(publish?.description).toContain("Do not create a Share Link by default");
-    expect(publish?.description).toContain("Set share:true only when the user explicitly asks");
-    expect(addRevision?.description).toContain("Do not create or reuse Share Links by default");
-    expect(addRevision?.description).toContain("Set share:true only when the user explicitly asks");
-
     const publishProperties = (publish?.inputSchema.properties ?? {}) as Record<string, { default?: unknown }>;
     expect(publishProperties.share?.default).toBe(false);
     expect(McpPublishArtifactInput.parse({ title: "Demo", body: "hello", render_mode: "text" }).share).toBe(false);
@@ -88,44 +82,28 @@ describe("MCP tool registry", () => {
     }
   });
 
-  it("threads publish chains through upload, publish, and optional Share Link routes", () => {
+  it("threads both publish tools through the same upload->publish chain, with no MCP-side Share Link routes", () => {
+    const expected = [
+      "uploadSessions.create",
+      "uploadSessions.putFile",
+      "uploadSessions.finalize",
+      "revisions.publish",
+    ];
     const publish = mcpToolContractByName("publish_artifact");
-    expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual([
-      "uploadSessions.create",
-      "uploadSessions.putFile",
-      "uploadSessions.finalize",
-      "revisions.publish",
-      "accessLinks.create",
-      "accessLinks.mint",
-    ]);
     const addRevision = mcpToolContractByName("add_revision");
-    expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual([
-      "uploadSessions.create",
-      "uploadSessions.putFile",
-      "uploadSessions.finalize",
-      "revisions.publish",
-      "accessLinks.list",
-      "accessLinks.create",
-      "accessLinks.mint",
-    ]);
-    const optionalAccessLinkCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls].filter((call) =>
-      call.routeId.startsWith("accessLinks."),
-    );
-    expect(optionalAccessLinkCalls.every((call) => "optional" in call && call.optional)).toBe(true);
-    expect(
-      [...publish.forwardedCalls, ...addRevision.forwardedCalls].every(
-        (call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url",
-      ),
-    ).toBe(true);
+    expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual(expected);
+    // add_revision runs the SAME chain — the server, not the MCP, mints/reuses the Share Link.
+    expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual(expected);
+    const allCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls];
+    expect(allCalls.some((call) => call.routeId.startsWith("accessLinks."))).toBe(false);
+    expect(allCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url")).toBe(true);
   });
 
-  it("labels optional publish-chain share-link creates with derived idempotency keys, not same_as_tool", () => {
+  it("does not forward to any access-link route from the publish tools (server mints the Share Link)", () => {
     for (const toolName of ["publish_artifact", "add_revision"] as const) {
       const tool = mcpToolContractByName(toolName);
-      const accessLinkCreates = tool.forwardedCalls.filter((call) => call.routeId === "accessLinks.create");
-      expect(accessLinkCreates).toHaveLength(1);
-      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_share_link");
-      expect(accessLinkCreates.every((call) => call.idempotencyKey !== "same_as_tool")).toBe(true);
+      const accessLinkCalls = tool.forwardedCalls.filter((call) => call.routeId.startsWith("accessLinks."));
+      expect(accessLinkCalls).toHaveLength(0);
     }
   });
 
