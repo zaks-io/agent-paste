@@ -63,6 +63,16 @@ describe("CreateUploadSessionRequest render_mode", () => {
     expect(parsed.success && parsed.data.render_mode).toBeUndefined();
   });
 
+  it("accepts an absent title (revision publish preserves the artifact title)", () => {
+    const parsed = CreateUploadSessionRequest.safeParse({
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      entrypoint: "index.html",
+      files: [{ path: "index.html", size_bytes: 12 }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.title).toBeUndefined();
+  });
+
   it("rejects values outside the enum", () => {
     expect(CreateUploadSessionRequest.safeParse({ ...base, render_mode: "quicktime" }).success).toBe(false);
     expect(CreateUploadSessionRequest.safeParse({ ...base, render_mode: 7 }).success).toBe(false);

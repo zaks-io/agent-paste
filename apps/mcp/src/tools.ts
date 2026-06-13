@@ -31,6 +31,7 @@ import {
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolInputSchemas,
+  PlainTextTitle,
 } from "@agent-paste/contracts";
 import type { McpAuthContext } from "./auth.js";
 import {
@@ -252,19 +253,16 @@ async function textPublishInput(
     contentType: contentTypeForEntrypoint(entrypoint),
     read: () => bytes,
   };
-  return {
+  const publishInput: PublishInput = {
     files: [file],
-    // add_revision has no title field, so it falls back to "Revision". The
-    // create-session request title is required, and the server writes the
-    // artifact title from it on publish, so this renames the artifact to
-    // "Revision" on every add_revision. Pre-existing behavior, tracked for a
-    // follow-up fix (make the session title optional so it preserves the
-    // existing artifact title for revisions).
-    title: ("title" in input && input.title ? input.title : "Revision") as PublishInput["title"],
     entrypoint,
     share: input.share === true,
     idempotencyKey,
   };
+  if ("title" in input && input.title) {
+    publishInput.title = PlainTextTitle.parse(input.title);
+  }
+  return publishInput;
 }
 
 function contentTypeForEntrypoint(path: string): string {

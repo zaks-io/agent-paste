@@ -8,10 +8,11 @@ import {
   createIdempotencyKey,
   type EphemeralProvisionOptions,
   type PublishFile,
+  type PublishInput,
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { ArtifactId, RenderMode } from "@agent-paste/contracts";
+import { ArtifactId, PlainTextTitle, RenderMode } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
@@ -277,9 +278,8 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const artifactIdFlag = stringFlag(parsed, "artifact-id");
   const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
   const progress = createProgress(mode);
-  const outcome = await runSharedPublish(apiClientTransport(client), {
+  const publishInput: PublishInput = {
     files: publishFiles,
-    title: inferred.title,
     entrypoint: inferred.entrypoint,
     ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
     ...(artifactId ? { artifactId } : {}),
@@ -287,7 +287,13 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
     idempotencyKey: createIdempotencyKey("cli_publish"),
     onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
       progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
-  });
+  };
+  if (!artifactId) {
+    publishInput.title = PlainTextTitle.parse(title ?? inferred.title);
+  } else if (title) {
+    publishInput.title = PlainTextTitle.parse(title);
+  }
+  const outcome = await runSharedPublish(apiClientTransport(client), publishInput);
   progress.done();
 
   return {

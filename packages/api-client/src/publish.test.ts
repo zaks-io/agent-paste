@@ -152,6 +152,27 @@ describe("runPublish", () => {
     await expect(runPublish(transport, input())).rejects.toBe(failure);
   });
 
+  it("omits title from the create-session body when absent", async () => {
+    const createUploadSession = vi.fn(
+      async () =>
+        ({
+          upload_session_id: "upl_1",
+          artifact_id: ARTIFACT_ID,
+          revision_id: REVISION_ID,
+          status: "pending",
+          expires_at: "2026-01-01T00:00:00.000Z",
+          files: [{ status: "reused", path: "index.md" }],
+        }) as never,
+    );
+    const { transport } = fakeTransport({ createUploadSession });
+    const { title: _title, ...revisionInput } = input({ artifactId: ARTIFACT_ID as never });
+    await runPublish(transport, revisionInput);
+    expect(createUploadSession).toHaveBeenCalledWith(
+      expect.not.objectContaining({ title: expect.anything() }),
+      "cli_publish_1",
+    );
+  });
+
   it("reports per-file upload progress", async () => {
     const onUploadProgress = vi.fn();
     const { transport } = fakeTransport();
