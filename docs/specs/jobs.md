@@ -55,7 +55,8 @@ Handler behavior:
 
 - Read Revision and parent Artifact state.
 - Return idempotently if Revision is retained, Artifact is deleted, or bundle status is `ready` or `disabled`.
-- Build deterministic R2 key from ADR 0021.
+- Build deterministic R2 key per the
+  [R2 object key layout](./data-model.md#r2-object-key-layout).
 - Enforce Bundle Size Cap during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.

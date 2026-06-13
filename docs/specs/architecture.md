@@ -248,7 +248,7 @@ no L1/L2 in front.
 
 | Layer  | Store                          | Key shape                                                                     | Notes                                                                                                                  |
 | ------ | ------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| L1     | Module-scope `Map` per isolate | `{namespace}:{key}`                                                           | Zero I/O; bounded to 1000 entries (LRU by insertion order).                                                            |
+| L1     | Module-scope `Map` per isolate | `{namespace}:{key}`                                                           | Zero I/O; bounded to 1000 entries (oldest-entry FIFO eviction; reads do not update recency).                           |
 | L2     | `caches.default` per colo      | Synthetic `Request` to `https://agent-paste.internal/cache/{namespace}/{key}` | Namespace and key are URI-encoded. Stored `Response` uses `Cache-Control: max-age={ttl}`. The origin is internal-only. |
 | Source | Postgres via Hyperdrive        | Lookup-specific                                                               | Populates L1 and L2 on miss. Cache write failures are swallowed.                                                       |
 
