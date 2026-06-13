@@ -388,3 +388,12 @@ export type EphemeralProvisionOptions = {
 export function createIdempotencyKey(prefix = "cli"): IdempotencyKey {
   return `${prefix}_${crypto.randomUUID()}` as IdempotencyKey;
 }
+
+export {
+  type PublishFile,
+  type PublishInput,
+  type PublishOutcome,
+  type PublishTransport,
+  runPublish,
+  type UploadStats,
+} from "./publish.js";

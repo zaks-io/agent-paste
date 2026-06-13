@@ -7,9 +7,11 @@ import {
   ApiClient,
   createIdempotencyKey,
   type EphemeralProvisionOptions,
+  type PublishFile,
+  runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { CreateUploadSessionRequest, RenderMode } from "@agent-paste/contracts";
+import { ArtifactId, RenderMode } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import {
   contentTypeForLocalPath,
@@ -19,6 +21,7 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
+import { apiClientTransport } from "./publish-transport.js";
 import {
   createProgress,
   exitCodeFor,
@@ -257,67 +260,45 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
     await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
   );
 
-  const idempotencyKey = createIdempotencyKey("cli_publish");
-  const createSessionRequest = CreateUploadSessionRequest.parse({
-    ...(stringFlag(parsed, "artifact-id") ? { artifact_id: stringFlag(parsed, "artifact-id") } : {}),
+  const publishFiles: PublishFile[] = files.map((file) => {
+    const digest = digestByPath.get(file.path);
+    if (!digest) {
+      throw new Error(`Missing digest for ${file.path}`);
+    }
+    return {
+      path: file.path,
+      sizeBytes: digest.sizeBytes,
+      sha256: digest.sha256,
+      contentType: contentTypeForLocalPath(file.path),
+      read: () => fs.readFile(file.absolutePath),
+    };
+  });
+
+  const artifactIdFlag = stringFlag(parsed, "artifact-id");
+  const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
+  const progress = createProgress(mode);
+  const outcome = await runSharedPublish(apiClientTransport(client), {
+    files: publishFiles,
     title: inferred.title,
     entrypoint: inferred.entrypoint,
-    ...(explicitRenderMode ? { render_mode: explicitRenderMode } : {}),
-    files: files.map((file) => {
-      const digest = digestByPath.get(file.path);
-      if (!digest) {
-        throw new Error(`Missing digest for ${file.path}`);
-      }
-      return {
-        path: file.path,
-        size_bytes: digest.sizeBytes,
-        sha256: digest.sha256,
-      };
-    }),
+    ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
+    ...(artifactId ? { artifactId } : {}),
+    share: booleanFlag(parsed, "share", false),
+    idempotencyKey: createIdempotencyKey("cli_publish"),
+    onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
+      progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
   });
-  const session = await client.uploadSessions.create(createSessionRequest, idempotencyKey);
-
-  let uploadedFiles = 0;
-  let uploadedBytes = 0;
-  let reusedFiles = 0;
-  let reusedBytes = 0;
-  // Per-file progress, granularity-agnostic: the serial loop ticks 1/N, 2/N…;
-  // a future parallel upload would call update() on each completion unchanged.
-  const toUpload = session.files.filter((target) => target.status !== "reused").length;
-  const progress = createProgress(mode);
-  for (const target of session.files) {
-    const local = files.find((file) => file.path === target.path);
-    if (!local) {
-      throw new Error(`Upload session returned unknown file ${target.path}`);
-    }
-    if (target.status === "reused") {
-      reusedFiles += 1;
-      reusedBytes += local.sizeBytes;
-      continue;
-    }
-    await client.putFile(target.put_url, await fs.readFile(local.absolutePath), {
-      "content-type": contentTypeForLocalPath(local.path),
-    });
-    uploadedFiles += 1;
-    uploadedBytes += local.sizeBytes;
-    progress.update({ done: uploadedFiles, total: toUpload, bytes: uploadedBytes });
-  }
   progress.done();
 
-  const finalized = await client.uploadSessions.finalize(session.upload_session_id, idempotencyKey);
-  const share = booleanFlag(parsed, "share", false);
-  const published = share
-    ? await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey, { share: true })
-    : await client.revisions.publish(finalized.artifact_id, finalized.revision_id, idempotencyKey);
   return {
-    ...published,
+    ...outcome.result,
     upload_stats: {
-      total_files: session.files.length,
-      total_bytes: files.reduce((sum, file) => sum + file.sizeBytes, 0),
-      uploaded_files: uploadedFiles,
-      uploaded_bytes: uploadedBytes,
-      reused_files: reusedFiles,
-      reused_bytes: reusedBytes,
+      total_files: outcome.uploadStats.totalFiles,
+      total_bytes: outcome.uploadStats.totalBytes,
+      uploaded_files: outcome.uploadStats.uploadedFiles,
+      uploaded_bytes: outcome.uploadStats.uploadedBytes,
+      reused_files: outcome.uploadStats.reusedFiles,
+      reused_bytes: outcome.uploadStats.reusedBytes,
     },
   };
 }
