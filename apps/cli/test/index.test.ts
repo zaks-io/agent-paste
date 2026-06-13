@@ -277,7 +277,8 @@ describe("cli command dispatch", () => {
         "content-type": "text/html; charset=utf-8",
       });
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
-      expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey);
+      // No --share: the publish body is omitted (undefined), so the server does not mint a Share Link.
+      expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
       // Human output defaults to the private/authenticated app View. Keep raw IDs
       // and snapshot URLs out of the default path.
       const out = stdoutValues(stdout).join("");
@@ -486,7 +487,7 @@ describe("cli command dispatch", () => {
       });
 
       await expect(main(["publish", root, "--entrypoint=index.html", "--render-mode", "html"], client)).rejects.toThrow(
-        "Upload session returned unknown file missing.html",
+        /unknown file.*missing\.html/,
       );
     } finally {
       await removePublishFixture(root);
