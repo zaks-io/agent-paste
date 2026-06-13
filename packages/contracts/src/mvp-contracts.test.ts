@@ -18,6 +18,15 @@ const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const isoDate = "2026-05-20T12:00:00.000Z";
 
+type OpenApiDocument = {
+  paths?: Record<string, unknown>;
+  security?: Array<Record<string, unknown>>;
+  components?: {
+    schemas?: Record<string, unknown>;
+    securitySchemes?: Record<string, unknown>;
+  };
+};
+
 describe("MVP route registry", () => {
   it("exposes the CLI-first MVP routes plus web dashboard reads", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
@@ -151,6 +160,36 @@ describe("MVP route registry", () => {
       auth: "none",
       rateLimit: "none",
     });
+  });
+
+  it("keeps operator APIs out of the public OpenAPI document", () => {
+    const api = buildApiOpenApiDocument() as OpenApiDocument;
+
+    expect(api.paths).not.toHaveProperty("/v1/web/admin/lockdowns");
+    expect(api.paths).not.toHaveProperty("/v1/web/admin/lockdowns/{scope}/{target_id}");
+    expect(api.paths).not.toHaveProperty("/v1/web/admin/events");
+    expect(api.paths).not.toHaveProperty("/v1/web/admin/workspaces/{workspace_id}/plan");
+    expect(api.components?.securitySchemes).not.toHaveProperty("CfAccessServiceToken");
+    expect(api.components?.schemas).not.toHaveProperty("SetLockdownRequest");
+    expect(api.components?.schemas).not.toHaveProperty("LockdownListResponse");
+    expect(api.components?.schemas).not.toHaveProperty("WebOperatorEventListResponse");
+    expect(api.components?.schemas).not.toHaveProperty("SetWorkspacePlanRequest");
+    expect(api.security).not.toContainEqual({ CfAccessServiceToken: [] });
+  });
+
+  it("can still generate an operator-inclusive API document explicitly", () => {
+    const api = buildApiOpenApiDocument({ includeOperatorPaths: true }) as OpenApiDocument;
+
+    expect(api.paths).toHaveProperty("/v1/web/admin/lockdowns");
+    expect(api.paths).toHaveProperty("/v1/web/admin/lockdowns/{scope}/{target_id}");
+    expect(api.paths).toHaveProperty("/v1/web/admin/events");
+    expect(api.paths).toHaveProperty("/v1/web/admin/workspaces/{workspace_id}/plan");
+    expect(api.components?.securitySchemes).toHaveProperty("CfAccessServiceToken");
+    expect(api.components?.schemas).toHaveProperty("SetLockdownRequest");
+    expect(api.components?.schemas).toHaveProperty("LockdownListResponse");
+    expect(api.components?.schemas).toHaveProperty("WebOperatorEventListResponse");
+    expect(api.components?.schemas).toHaveProperty("SetWorkspacePlanRequest");
+    expect(api.security).toContainEqual({ CfAccessServiceToken: [] });
   });
 
   it("keeps Access Link management guarded by the share-capability representation", () => {

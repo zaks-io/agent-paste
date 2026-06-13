@@ -9,7 +9,11 @@ This document names the contract surfaces an implementer should treat as canonic
 - Branded identifier schemas.
 - Stable enum values.
 - Request and response Zod schemas.
-- Public route registry for `whoami`, usage policy, public Agent View, upload-session create/finalize, content reads, and internal admin workspace/API-key/artifact/cleanup/operation-event routes.
+- Runtime route registry for `whoami`, usage policy, public Agent View, upload-session create/finalize, content reads, web/dashboard routes, billing routes, and operator-only admin routes.
+
+The public OpenAPI documents generated from these contracts intentionally omit
+operator-only admin routes and schemas; the runtime registry remains the
+enforcement source for those routes.
 
 The first implementation pass should import schemas from this package instead of creating local route-only shapes. Hono/OpenAPI route definitions can wrap these schemas, but they should not re-declare them.
 

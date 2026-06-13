@@ -71,6 +71,10 @@ describe("api worker", () => {
       description: expect.stringContaining("Actor or workspace rate limit"),
       headers: expect.any(Object),
     });
+    expect(doc.paths).not.toHaveProperty("/v1/web/admin/lockdowns");
+    expect(doc.paths).not.toHaveProperty("/v1/web/admin/lockdowns/{scope}/{target_id}");
+    expect(doc.paths).not.toHaveProperty("/v1/web/admin/events");
+    expect(doc.paths).not.toHaveProperty("/v1/web/admin/workspaces/{workspace_id}/plan");
   });
 
   it("returns whoami for a valid api key", async () => {
