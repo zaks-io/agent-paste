@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (config: Record<string, unknown>) => config,
@@ -15,11 +15,6 @@ const state = vi.hoisted(() => ({
     WEB_BASE_URL: "https://app.test",
   },
   apiFetch: vi.fn(),
-  routes: {
-    artifactLive: null as null | typeof import("../src/routes/api/live/artifacts/$artifactId"),
-    accessLinkLive: null as null | typeof import("../src/routes/api/live/access-links/$publicId"),
-    accessLinkResolve: null as null | typeof import("../src/routes/api/access-links/resolve"),
-  },
 }));
 
 // TanStack Start context: route handlers dynamically import authkit, which calls
@@ -57,18 +52,15 @@ vi.mock("../src/server/api-client", () => ({
   },
 }));
 
-describe("web API proxy routes", () => {
-  beforeAll(async () => {
-    const [artifactLive, accessLinkLive, accessLinkResolve] = await Promise.all([
-      import("../src/routes/api/live/artifacts/$artifactId"),
-      import("../src/routes/api/live/access-links/$publicId"),
-      import("../src/routes/api/access-links/resolve"),
-    ]);
-    state.routes.artifactLive = artifactLive;
-    state.routes.accessLinkLive = accessLinkLive;
-    state.routes.accessLinkResolve = accessLinkResolve;
-  });
+// Static imports (not beforeAll dynamic imports): vitest hoists vi.mock above
+// these, so handlers still see mocked auth/runtime. Module graph transform +
+// coverage instrumentation can exceed the default 10s hookTimeout on cold CI
+// runners; file-load import time is not subject to that hook budget. AP-320.
+import * as artifactLiveRoute from "../src/routes/api/live/artifacts/$artifactId";
+import * as accessLinkLiveRoute from "../src/routes/api/live/access-links/$publicId";
+import * as accessLinkResolveRoute from "../src/routes/api/access-links/resolve";
 
+describe("web API proxy routes", () => {
   beforeEach(() => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token" };
     state.apiFetch.mockReset();
@@ -82,7 +74,7 @@ describe("web API proxy routes", () => {
     });
     vi.mocked(fetch).mockResolvedValue(upstream);
 
-    const { Route } = state.routes.artifactLive!;
+    const { Route } = artifactLiveRoute;
     const response = await Route.server.handlers.GET({
       request: new Request("https://app.test/api/live/artifacts/art_1"),
       params: { artifactId: "art_1" },
@@ -103,7 +95,7 @@ describe("web API proxy routes", () => {
   it("percent-encodes artifact ids in the upstream URL", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response("", { status: 404 }));
 
-    const { Route } = state.routes.artifactLive!;
+    const { Route } = artifactLiveRoute;
     await Route.server.handlers.GET({
       request: new Request("https://app.test/api/live/artifacts/..%2F..%2Fadmin"),
       params: { artifactId: "../../admin?x=1#f" },
@@ -117,7 +109,7 @@ describe("web API proxy routes", () => {
 
   it("returns not_found for unauthenticated artifact live streams", async () => {
     state.auth = { user: null };
-    const { Route } = state.routes.artifactLive!;
+    const { Route } = artifactLiveRoute;
     const response = await Route.server.handlers.GET({
       request: new Request("https://app.test/api/live/artifacts/art_1"),
       params: { artifactId: "art_1" },
@@ -133,7 +125,7 @@ describe("web API proxy routes", () => {
     });
     vi.mocked(fetch).mockResolvedValue(upstream);
 
-    const { Route } = state.routes.accessLinkLive!;
+    const { Route } = accessLinkLiveRoute;
     const response = await Route.server.handlers.POST({
       request: new Request("https://app.test/api/live/access-links/pub_1", {
         method: "POST",
@@ -158,7 +150,7 @@ describe("web API proxy routes", () => {
   it("percent-encodes access-link public ids in the upstream URL", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response("", { status: 404 }));
 
-    const { Route } = state.routes.accessLinkLive!;
+    const { Route } = accessLinkLiveRoute;
     await Route.server.handlers.POST({
       request: new Request("https://app.test/api/live/access-links/..%2Fadmin", {
         method: "POST",
@@ -175,7 +167,7 @@ describe("web API proxy routes", () => {
 
   it("resolves access links through the API client", async () => {
     state.apiFetch.mockResolvedValue({ artifact_id: "art_1" });
-    const { Route } = state.routes.accessLinkResolve!;
+    const { Route } = accessLinkResolveRoute;
     const response = await Route.server.handlers.POST({
       request: new Request("https://app.test/api/access-links/resolve", {
         method: "POST",
