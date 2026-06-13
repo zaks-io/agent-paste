@@ -1,3 +1,4 @@
+import { seedEncryptedRevisionFile } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { describe, expect, it, vi } from "vitest";
 import type { Env, QueueMessage } from "../env.js";
 import * as opLog from "../op-log.js";
@@ -176,6 +177,54 @@ describe("handleBytePurgeBatch", () => {
     expect(env.ARTIFACTS?.delete).not.toHaveBeenCalled();
     expect(message.ack).not.toHaveBeenCalled();
     expect(message.retry).toHaveBeenCalled();
+  });
+});
+
+describe("artifact bytes encrypt→store→read fidelity", () => {
+  it("purges env-scoped encrypted bundle keys emitted for byte purge", async () => {
+    const bundleKey = `${envScopedPrefix}bundle.zip`;
+    const fixture = await seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId,
+      revisionId,
+      path: "bundle.zip",
+      plaintext: "zip-fidelity",
+    });
+    const deleted: string[][] = [];
+    const env: Env = {
+      AGENT_PASTE_ENV: "production",
+      ARTIFACTS: {
+        async list({ prefix }) {
+          if (prefix === `artifacts/${artifactId}/`) {
+            return { objects: [], truncated: false };
+          }
+          if (prefix === envScopedPrefix) {
+            return {
+              objects: [
+                {
+                  key: bundleKey,
+                  customMetadata: fixture.customMetadata,
+                },
+              ],
+              truncated: false,
+            };
+          }
+          return { objects: [], truncated: false };
+        },
+        async delete(keys) {
+          deleted.push(keys);
+        },
+      },
+    };
+    const message = queueMessage({
+      prefixes: [`artifacts/${artifactId}/`, envScopedPrefix],
+    });
+
+    await handleBytePurgeBatch([message], env);
+
+    expect(deleted).toEqual([[bundleKey]]);
+    expect(fixture.body).not.toEqual(new TextEncoder().encode("zip-fidelity"));
+    expect(message.ack).toHaveBeenCalled();
   });
 });
 

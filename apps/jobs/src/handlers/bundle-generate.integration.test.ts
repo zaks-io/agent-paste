@@ -1,4 +1,8 @@
 import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
+import {
+  seedEncryptedRevisionFile,
+  testArtifactBytesEncryptionEnv,
+} from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { describe, expect, it, vi } from "vitest";
 import * as generateZip from "../bundle/generate-zip.js";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
@@ -497,6 +501,59 @@ describe("handleBundleGenerateBatch integration", () => {
       }),
     );
     expect(ack).toHaveBeenCalled();
+  });
+});
+
+describe("artifact bytes encrypt→store→read fidelity", () => {
+  it("builds the zip from decrypted plaintext seeded through encryptArtifactBytes", async () => {
+    const ack = vi.fn();
+    const put = vi.fn(async () => {});
+    const plaintext = "<html>bundle-fidelity</html>";
+    const fixture = await seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId,
+      revisionId,
+      path: "index.html",
+      plaintext,
+    });
+    const buildZip = vi.spyOn(generateZip, "buildRevisionZip").mockReturnValue(new Uint8Array([9]));
+    try {
+      await handleBundleGenerateBatch(
+        [
+          {
+            body: {
+              type: "bundle.generate.v1",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+              requested_at: "2026-05-20T00:00:00.000Z",
+              reason: "publish",
+            },
+            ack,
+            retry: vi.fn(),
+          },
+        ],
+        {
+          ...testArtifactBytesEncryptionEnv,
+          AGENT_PASTE_ENV: "dev",
+          DB: makeDb({
+            revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
+            files: [{ path: "index.html", r2_key: fixture.objectKey }],
+          }),
+          ARTIFACTS: {
+            list: vi.fn(),
+            delete: vi.fn(),
+            get: async () => ({ body: fixture.body, customMetadata: fixture.customMetadata }),
+            put,
+          },
+        },
+      );
+
+      expect(buildZip).toHaveBeenCalledWith([{ path: "index.html", bytes: new TextEncoder().encode(plaintext) }]);
+      expect(ack).toHaveBeenCalled();
+    } finally {
+      buildZip.mockRestore();
+    }
   });
 });
 

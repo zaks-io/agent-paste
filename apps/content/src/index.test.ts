@@ -1,5 +1,9 @@
 import { routeContracts } from "@agent-paste/contracts";
 import { encryptArtifactBytes } from "@agent-paste/storage";
+import {
+  seedEncryptedRevisionFile,
+  testArtifactBytesEncryptionEnv as sharedTestEncryptionEnv,
+} from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { describe, expect, it, vi } from "vitest";
 import { contentEtag } from "./etag.js";
 import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, signContentToken } from "./index.js";
@@ -890,6 +894,47 @@ describe("content worker", () => {
 
     const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
     expect(response.status).toBe(404);
+  });
+});
+
+describe("artifact bytes encrypt→store→read fidelity", () => {
+  it("serves decrypted plaintext from an encryptArtifactBytes fixture", async () => {
+    const plaintext = "content-fidelity-marker";
+    const fixture = await seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "marker.txt",
+      plaintext,
+    });
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["marker.txt"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const env = baseContentEnv({
+      ...sharedTestEncryptionEnv,
+      ARTIFACTS: {
+        async get(key) {
+          expect(key).toBe(fixture.objectKey);
+          return {
+            body: new Blob([fixture.body]).stream(),
+            size: fixture.body.byteLength,
+            customMetadata: fixture.customMetadata,
+          };
+        },
+      },
+    });
+
+    const response = await handleRequest(new Request(`https://content.test/v/${token}/marker.txt`), env);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe(plaintext);
   });
 });
 

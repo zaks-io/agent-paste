@@ -1,4 +1,8 @@
 import { encryptArtifactBytes } from "@agent-paste/storage";
+import {
+  seedEncryptedRevisionFile,
+  testArtifactBytesEncryptionEnv,
+} from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
@@ -536,5 +540,61 @@ describe("handleSafetyScanBatch", () => {
       expect.objectContaining({ expirationTtl: expect.any(Number) }),
     );
     vi.unstubAllGlobals();
+  });
+});
+
+describe("artifact bytes encrypt→store→read fidelity", () => {
+  it("detects built-in scanner warnings only after decrypting encrypted fixtures", async () => {
+    const warningInserts: unknown[][] = [];
+    const tx = {
+      query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
+        if (sql.includes("insert into idempotency_records")) {
+          return { rows: [{ workspace_id: workspaceId }] };
+        }
+        if (sql.includes("from safety_warnings")) {
+          return { rows: [] };
+        }
+        if (sql.includes("insert into safety_warnings")) {
+          warningInserts.push(params ?? []);
+        }
+        return { rows: [] };
+      }),
+      transaction: vi.fn(),
+    };
+    const db = createMockSqlExecutor(
+      vi.fn(async (sql: string) => {
+        if (sql.includes("from revisions r")) {
+          return { rows: [{ status: "published", artifact_status: "active" }] };
+        }
+        if (sql.includes("from artifact_files")) {
+          return {
+            rows: [{ path: "aws.txt", r2_key: r2KeyFor("aws.txt"), served_content_type: "text/plain" }],
+          };
+        }
+        return { rows: [] };
+      }),
+      tx.query,
+    );
+    const fixture = await seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId,
+      revisionId,
+      path: "aws.txt",
+      plaintext: awsAccessKeyId,
+    });
+
+    await handleSafetyScanBatch([{ body: safetyScanBody(), ack: vi.fn(), retry: vi.fn() }], {
+      ...testArtifactBytesEncryptionEnv,
+      DB: db,
+      ARTIFACTS: {
+        list: vi.fn(),
+        delete: vi.fn(),
+        get: async () => ({ body: fixture.body, customMetadata: fixture.customMetadata }),
+      },
+    });
+
+    expect(warningInserts).toHaveLength(1);
+    expect(warningInserts[0]?.[6]).toBe("cloud_secret_identifier");
+    expect(fixture.body).not.toEqual(encoder.encode(awsAccessKeyId));
   });
 });
