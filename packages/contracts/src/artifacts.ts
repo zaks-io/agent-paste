@@ -5,7 +5,10 @@ import { z } from "./zod.js";
 
 export const ArtifactSummary = z.object({
   id: ArtifactId,
-  revision_id: RevisionId,
+  // Null until the artifact's first Revision is published (drafts / in-flight
+  // uploads have no Published Revision yet). Matches the nullable DB column and
+  // WebArtifactRow.latest_revision_id.
+  revision_id: RevisionId.nullable(),
   status: ArtifactStatus,
   title: PlainTextTitle,
   entrypoint: FilePath,

@@ -153,7 +153,7 @@ async function callWhoami(deps: McpToolDeps): Promise<McpToolResult> {
     routeId: "mcp.whoami",
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, McpWhoamiResponse);
+  return parseForwardResult(forwarded, McpWhoamiResponse, "mcp.whoami");
 }
 
 type ResolvedScopes =
@@ -226,7 +226,11 @@ async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): P
     },
   });
   if (!parsed.success) {
-    console.error("mcp: publish output schema validation failed", { error: parsed.error });
+    // Log only issue metadata, never the raw error — the publish outcome can
+    // carry artifact content/PII. Same rule as parseForwardResult.
+    console.error("mcp: publish output schema validation failed", {
+      issues: zodIssueMetadata(parsed.error),
+    });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
   return { ok: true, result: parsed.data };
@@ -286,7 +290,7 @@ async function callListArtifacts(input: McpListArtifactsInput, deps: McpToolDeps
     query: { cursor: input.cursor },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, McpListArtifactsOutput);
+  return parseForwardResult(forwarded, McpListArtifactsOutput, "artifacts.list");
 }
 
 async function callReadArtifact(input: McpReadArtifactInput, deps: McpToolDeps): Promise<McpToolResult> {
@@ -296,7 +300,7 @@ async function callReadArtifact(input: McpReadArtifactInput, deps: McpToolDeps):
     params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, AgentView);
+  return parseForwardResult(forwarded, AgentView, "agentView.getLatest");
 }
 
 async function callListRevisions(input: McpListRevisionsInput, deps: McpToolDeps): Promise<McpToolResult> {
@@ -307,7 +311,7 @@ async function callListRevisions(input: McpListRevisionsInput, deps: McpToolDeps
     query: { cursor: input.cursor },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, McpListRevisionsOutput);
+  return parseForwardResult(forwarded, McpListRevisionsOutput, "revisions.list");
 }
 
 async function callDeleteArtifact(input: McpDeleteArtifactInput, deps: McpToolDeps): Promise<McpToolResult> {
@@ -317,7 +321,7 @@ async function callDeleteArtifact(input: McpDeleteArtifactInput, deps: McpToolDe
     params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, DeleteArtifactResponse);
+  return parseForwardResult(forwarded, DeleteArtifactResponse, "artifacts.delete");
 }
 
 async function callUpdateDisplayMetadata(
@@ -331,7 +335,7 @@ async function callUpdateDisplayMetadata(
     bearerToken: deps.bearerToken,
     body: JSON.stringify({ title: input.title }),
   });
-  return parseForwardResult(forwarded, DisplayMetadata);
+  return parseForwardResult(forwarded, DisplayMetadata, "artifacts.updateDisplayMetadata");
 }
 
 async function createAndMintAccessLink(
@@ -369,7 +373,7 @@ async function createAndMintAccessLink(
     params: { access_link_id: linkId },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(minted, AccessLinkSignedUrl);
+  return parseForwardResult(minted, AccessLinkSignedUrl, "accessLinks.mint");
 }
 
 async function callCreateShareLink(
@@ -413,7 +417,7 @@ async function callListAccessLinks(input: McpListAccessLinksInput, deps: McpTool
     params: { artifact_id: input.artifact_id },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, McpListAccessLinksOutput);
+  return parseForwardResult(forwarded, McpListAccessLinksOutput, "accessLinks.list");
 }
 
 async function callRevokeAccessLink(input: McpRevokeAccessLinkInput, deps: McpToolDeps): Promise<McpToolResult> {
@@ -423,18 +427,45 @@ async function callRevokeAccessLink(input: McpRevokeAccessLinkInput, deps: McpTo
     params: { access_link_id: input.access_link_id },
     bearerToken: deps.bearerToken,
   });
-  return parseForwardResult(forwarded, McpRevokeAccessLinkOutput);
+  return parseForwardResult(forwarded, McpRevokeAccessLinkOutput, "accessLinks.revoke");
+}
+
+/**
+ * Reduce a Zod error to safe-to-log metadata: which fields failed and why, never
+ * the failing values themselves (an upstream body can carry artifact content/PII).
+ */
+function zodIssueMetadata(error: unknown): Array<{ code: unknown; path: string }> | undefined {
+  if (typeof error !== "object" || error === null || !("issues" in error)) {
+    return undefined;
+  }
+  const { issues } = error as { issues?: Array<{ code?: unknown; path?: unknown }> };
+  if (!Array.isArray(issues)) {
+    return undefined;
+  }
+  return issues.map((issue) => ({
+    code: issue?.code,
+    path: Array.isArray(issue?.path) ? issue.path.join(".") : "",
+  }));
 }
 
 function parseForwardResult<T>(
   forwarded: ForwardToApiResult,
-  schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
+  schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false; error?: unknown } },
+  label: string,
 ): McpToolResult {
   if (!forwarded.ok) {
     return forwarded;
   }
   const parsed = schema.safeParse(forwarded.body);
   if (!parsed.success) {
+    // The upstream API returned 200 but the body failed our contract. This is a
+    // deploy-skew / schema-drift bug, not a client error. Log loudly: a silent
+    // internal_error here is undebuggable in production. Log only issue codes and
+    // paths, never the raw error — the failing value can carry artifact content/PII.
+    console.error("mcp: response schema validation failed", {
+      label,
+      issues: zodIssueMetadata(parsed.error),
+    });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
   return { ok: true, result: parsed.data };

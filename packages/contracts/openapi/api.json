@@ -1729,7 +1729,10 @@
             "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "revision_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "status": {
@@ -1807,7 +1810,10 @@
             "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "revision_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "status": {
@@ -1931,7 +1937,10 @@
                   "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
                 },
                 "revision_id": {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
                 },
                 "status": {

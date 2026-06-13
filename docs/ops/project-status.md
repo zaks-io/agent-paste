@@ -152,6 +152,10 @@ the [changelog](./status/changelog.md).
 
 Feature-specific ledgers:
 
+- [Agent experience todo](./agent-experience-todo.md) - cold happy-path
+  walkthrough findings; **P0: `list_artifacts` 500s on workspaces with a draft
+  artifact** (null `revision_id` vs non-nullable contract), plus publish-returns-no-URL
+  ambiguity.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).
