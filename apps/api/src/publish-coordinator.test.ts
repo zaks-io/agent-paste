@@ -57,6 +57,9 @@ function coordinatorFixture(overrides: Partial<Record<keyof Repository, unknown>
     async publishRevision() {
       throw new Error("publishRevision_not_stubbed");
     },
+    async listMemberAccessLinks() {
+      return { artifact_id: "art_1", items: [] };
+    },
     ...overrides,
   } as unknown as Repository;
   const env = { WRITE_ALLOWANCE: writeAllowance } as unknown as Env;
@@ -174,6 +177,9 @@ describe("publish coordinator write-allowance reservation", () => {
       async publishRevision() {
         return publishedResult();
       },
+      async listMemberAccessLinks() {
+        return { artifact_id: "art_1", items: [] };
+      },
       createMemberAccessLink,
       mintMemberAccessLink,
     } as unknown as Repository;
@@ -195,6 +201,61 @@ describe("publish coordinator write-allowance reservation", () => {
       signingKid: 1,
     });
     expect(result).toMatchObject({ access_link_url: "https://app.test/al/PUBLICLINK123456#secret" });
+  });
+
+  it("reuses an active Share Link instead of minting a second one", async () => {
+    const createMemberAccessLink = vi.fn(async () => ({ id: "al_new" }));
+    const mintMemberAccessLink = vi.fn(async () => ({ url: "https://app.test/al/EXISTINGLINK123#secret" }));
+    const env = {
+      WRITE_ALLOWANCE: fakeWriteAllowance(),
+      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+      WEB_BASE_URL: "https://app.test",
+    } as unknown as Env;
+    const db = {
+      async peekWorkspaceCommandReplay() {
+        return null;
+      },
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      async publishRevision() {
+        return publishedResult();
+      },
+      async listMemberAccessLinks() {
+        return {
+          artifact_id: "art_1",
+          items: [
+            {
+              id: "al_active",
+              type: "share",
+              artifact_id: "art_1",
+              revision_id: null,
+              created_at: "x",
+              expires_at: null,
+              revoked_at: null,
+            },
+            {
+              id: "al_revoked",
+              type: "share",
+              artifact_id: "art_1",
+              revision_id: null,
+              created_at: "x",
+              expires_at: null,
+              revoked_at: "2020-01-01T00:00:00.000Z",
+            },
+          ],
+        };
+      },
+      createMemberAccessLink,
+      mintMemberAccessLink,
+    } as unknown as Repository;
+    const coordinator = createPublishCoordinator({ db, env });
+
+    const result = await coordinator.publishRevision({ ...publishInput, share: true });
+
+    expect(createMemberAccessLink).not.toHaveBeenCalled();
+    expect(mintMemberAccessLink).toHaveBeenCalledWith(expect.objectContaining({ accessLinkId: "al_active" }));
+    expect(result).toMatchObject({ access_link_url: "https://app.test/al/EXISTINGLINK123#secret" });
   });
 
   it("notifies live updates with persisted render_mode after add_revision publish", async () => {
