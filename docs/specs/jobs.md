@@ -55,7 +55,8 @@ Handler behavior:
 
 - Read Revision and parent Artifact state.
 - Return idempotently if Revision is retained, Artifact is deleted, or bundle status is `ready` or `disabled`.
-- Build deterministic R2 key from ADR 0021.
+- Build deterministic R2 key per the
+  [R2 object key layout](./data-model.md#r2-object-key-layout).
 - Enforce Bundle Size Cap during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
@@ -117,7 +118,8 @@ Handler behavior:
 Every prefix must be scoped to the message's own Artifact, in one of two
 shapes: `artifacts/{artifact_id}/...` (Revision file keys) or
 `env/{env}/workspaces/{workspace_id}/artifacts/{artifact_id}/...` (derived
-bundle keys, ADR 0021). For env-scoped prefixes, `{env}` must match the
+bundle keys). Current key layout is in
+[`data-model.md`](./data-model.md#r2-object-key-layout). For env-scoped prefixes, `{env}` must match the
 consumer Worker's `AGENT_PASTE_ENV` via `storageEnvSegment`. Deletion and
 Retention producers enqueue both shapes so bundle zips are purged with the
 files; Upload Cleanup purges the session's file keys only (no bundle exists

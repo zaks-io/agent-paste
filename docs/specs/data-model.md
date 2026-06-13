@@ -276,6 +276,31 @@ move actor filtering or formatting into the React components.
 
 Primary key `(workspace_id, actor_type, actor_id, operation, idempotency_key)`.
 
+## R2 Object Key Layout
+
+Canonical helpers: revision-file and bundle keys in
+`packages/db/src/validation.ts`; workspace blob keys in
+`packages/storage/src/artifact-bytes-encryption.ts` (`workspaceBlobObjectKeyFor`).
+Keys are ID-based; human titles and labels never appear in prefixes. Normalized file paths are
+untrusted input and follow the validation rules from
+[ADR 0021](../adr/0021-id-based-r2-object-key-layout.md).
+
+| Object kind                                     | Key shape                                                                                     | Notes                                                                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Revision file (`storage_kind = 'revision'`)     | `artifacts/{artifactId}/revisions/{revisionId}/files/{path}`                                  | Legacy artifact-scoped prefix used for upload PUT targets, `artifact_files.r2_key`, and byte purge of revision files. |
+| Derived bundle                                  | `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/bundle.zip` | Env-scoped; `{env}` comes from `storageEnvSegment(AGENT_PASTE_ENV)` (`live`, `preview`, or `dev`).                    |
+| Workspace shared blob (`storage_kind = 'blob'`) | `workspaces/{workspaceId}/blobs/sha256/{prefix}/{sha256}`                                     | `{prefix}` is the first two hex digits of the lowercase SHA-256 digest. Workspace-scoped deduplication.               |
+
+Env-scoped purge prefixes for jobs and invalidation:
+
+- Artifact scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/`
+- Revision scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/`
+
+Deletion and retention enqueue both the legacy revision-file prefix and the
+env-scoped artifact prefix so bundles are purged with files. Upload cleanup
+purges the session's legacy revision-file keys only (no bundle exists yet). See
+[`jobs.md`](./jobs.md#byte-purge).
+
 ## KV Denylist
 
 The content Worker has no database binding. Admin deletes and retention cleanup write denylist keys to KV so signed content URLs stop working before their token expiration.
