@@ -1,7 +1,6 @@
 import {
   seedEncryptedRevisionFile,
   seedEncryptedWorkspaceBlob,
-  testArtifactBytesEncryptionEnv,
   testArtifactBytesKeyRing,
 } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { describe, expect, it } from "vitest";
@@ -124,6 +123,3 @@ describe("readRevisionFileBytes", () => {
     ).rejects.toThrow();
   });
 });
-
-// Keep env shape discoverable for tests that stub worker bindings.
-export { testArtifactBytesEncryptionEnv };

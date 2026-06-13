@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ciphertextByteLengthForPlaintext, decryptArtifactBytesWithKeyRing } from "./artifact-bytes-encryption.js";
-import {
-  seedEncryptedRevisionFile,
-  testArtifactBytesEncryptionEnv,
-  testArtifactBytesKeyRing,
-} from "./test-helpers/encrypted-artifact-fixture.js";
+import { seedEncryptedRevisionFile, testArtifactBytesKeyRing } from "./test-helpers/encrypted-artifact-fixture.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_test";
@@ -38,5 +34,3 @@ describe("artifact bytes encrypt→store→read fidelity", () => {
     expect(plaintext).not.toEqual(fixture.body);
   });
 });
-
-export { testArtifactBytesEncryptionEnv };
