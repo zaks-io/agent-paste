@@ -169,20 +169,40 @@ async function maybeMintPublishShareLink(
   if (!signer) {
     return undefined;
   }
-  const created = await deps.db.createMemberAccessLink({
-    actor: input.actor,
-    idempotencyKey: publishShareLinkIdempotencyKey(input.idempotencyKey),
-    artifactId: input.artifactId,
-    type: "share",
-  });
+  // A Share Link follows the latest Published Revision, so an artifact needs at
+  // most one. Reuse the active one if it exists; otherwise create it. Without this
+  // every share publish (CLI --share, MCP share:true) would leak a brand-new link,
+  // because createMemberAccessLink dedups by idempotency key, not by artifact.
+  const accessLinkId =
+    (await findActiveShareLinkId(deps.db, input)) ??
+    (
+      await deps.db.createMemberAccessLink({
+        actor: input.actor,
+        idempotencyKey: publishShareLinkIdempotencyKey(input.idempotencyKey),
+        artifactId: input.artifactId,
+        type: "share",
+      })
+    ).id;
   const minted = await deps.db.mintMemberAccessLink({
     actor: input.actor,
-    accessLinkId: created.id,
+    accessLinkId,
     appBaseUrl: webBaseUrl(deps.env),
     signingSecret: signer.signingSecret,
     signingKid: signer.signingKid,
   });
   return minted.url;
+}
+
+async function findActiveShareLinkId(db: Repository, input: PublishCoordinatorInput): Promise<string | undefined> {
+  const listed = await db.listMemberAccessLinks(input.actor, input.artifactId);
+  const nowMs = Date.now();
+  const active = listed?.items.find(
+    (link) =>
+      link.type === "share" &&
+      link.revoked_at === null &&
+      (link.expires_at === null || Date.parse(link.expires_at) > nowMs),
+  );
+  return active?.id;
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {
